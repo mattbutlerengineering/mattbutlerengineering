@@ -90,6 +90,7 @@ vi.mock("jose", () => ({
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { guestService } from "../services/guest.js";
+import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
   id: "venue_1",
@@ -127,6 +128,12 @@ const mockReservation = {
   updatedAt: "2026-06-15T00:00:00Z",
 };
 
+/**
+ * Every legitimate public confirm carries the high-entropy sessionId minted at
+ * hold creation — the route rejects a confirm without it (hold-ownership proof).
+ */
+const SESSION_HEADERS = { "x-session-id": "sess_test" };
+
 describe("POST /public/v1/venues/:slug/reservations", () => {
   let app: FastifyInstance;
 
@@ -151,6 +158,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
     });
 
@@ -172,6 +180,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_expired", guestName: "Jane", guestEmail: "jane@example.com" },
     });
 
@@ -189,6 +198,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
     });
 
@@ -206,6 +216,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
     });
 
@@ -223,6 +234,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/does-not-exist/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
     });
 
@@ -237,6 +249,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: {},
     });
 
@@ -247,6 +260,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane" },
     });
 
@@ -259,6 +273,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: {
         holdId: "hold_1",
         guestName: "Jane Doe",
@@ -324,7 +339,7 @@ describe("guest link on the public confirm (M5.2)", () => {
   ) {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation });
-    return stubApp.inject({ method: "POST", url: URL, payload });
+    return stubApp.inject({ method: "POST", url: URL, payload, headers: SESSION_HEADERS });
   }
 
   const lastGuestDetails = () => vi.mocked(confirmHold).mock.calls.at(-1)?.[0].guestDetails;
@@ -462,6 +477,7 @@ describe("bookingNotifier injection", () => {
     const response = await stubApp.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
     });
 
@@ -517,5 +533,115 @@ describe("secureCompareHex", () => {
   it("returns false for mismatched-length signatures without throwing", () => {
     expect(() => secureCompareHex("ab", "abcd")).not.toThrow();
     expect(secureCompareHex("ab", "abcd")).toBe(false);
+  });
+});
+
+describe("hold ownership on the public confirm (x-session-id)", () => {
+  const URL = "/public/v1/venues/the-oak-table/reservations";
+  const PAYLOAD = { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" };
+  const OWNER_SESSION = "sess_owner";
+  const ATTACKER_SESSION = "sess_attacker";
+  /** Headers a same-IP pair of injects may legitimately differ on. */
+  const VOLATILE_HEADERS = [/^x-ratelimit-/, /^date$/];
+
+  const stubNotifier: BookingNotifier = {
+    scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+    cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+    rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+    cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+  };
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({ logger: false, bookingNotifier: stubNotifier });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.mocked(confirmHold).mockReset();
+    vi.mocked(venueService.getBySlug).mockReset().mockResolvedValue(mockVenue);
+    vi.mocked(guestService.findByEmail).mockReset().mockResolvedValue(null);
+    vi.mocked(guestService.findByPhone).mockReset().mockResolvedValue(null);
+  });
+
+  const post = (headers?: Record<string, string>) =>
+    app.inject({ method: "POST", url: URL, payload: PAYLOAD, headers });
+
+  const stableHeaders = (headers: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(headers).filter(([name]) => !VOLATILE_HEADERS.some((p) => p.test(name)))
+    );
+
+  it("rejects a confirm that carries no x-session-id header", async () => {
+    const response = await post();
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().title).toBe("Unauthorized");
+    // The hold is never even looked up: an absent session must not fall through
+    // to confirmHold's unchecked path, which is the whole vulnerability.
+    expect(confirmHold).not.toHaveBeenCalled();
+  });
+
+  it("threads the header's session id into confirmHold so the ownership check runs", async () => {
+    vi.mocked(confirmHold).mockResolvedValue({ success: true, reservation: mockReservation });
+
+    const response = await post({ "x-session-id": OWNER_SESSION });
+
+    expect(response.statusCode).toBe(201);
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].sessionId).toBe(OWNER_SESSION);
+  });
+
+  it("rejects a confirm whose x-session-id does not match the hold", async () => {
+    vi.mocked(confirmHold).mockResolvedValue({
+      success: false,
+      error: "Session ID does not match the hold",
+      errorCode: "SESSION_MISMATCH",
+    });
+
+    const response = await post({ "x-session-id": ATTACKER_SESSION });
+
+    expect(response.statusCode).toBe(404);
+    // confirm-hold's own mismatch wording must not reach an unowning caller.
+    expect(response.body).not.toContain("ession");
+  });
+
+  it("answers a mismatched session identically to a hold that does not exist", async () => {
+    vi.mocked(confirmHold).mockResolvedValue({
+      success: false,
+      error: "Session ID does not match the hold",
+      errorCode: "SESSION_MISMATCH",
+    });
+    const mismatch = await post({ "x-session-id": ATTACKER_SESSION });
+
+    vi.mocked(confirmHold).mockResolvedValue({
+      success: false,
+      error: "Hold not found",
+      errorCode: "NOT_FOUND",
+    });
+    const absent = await post({ "x-session-id": ATTACKER_SESSION });
+
+    // A distinguishable pair is a hold-id oracle: the id is a low-entropy,
+    // guessable cuid, so "wrong session" must not confirm the id is live.
+    expect(mismatch.statusCode).toBe(absent.statusCode);
+    expect(mismatch.json()).toStrictEqual(absent.json());
+    expect(stableHeaders(mismatch.headers)).toStrictEqual(stableHeaders(absent.headers));
+  });
+
+  it("still confirms the happy path when the correct session id is supplied", async () => {
+    vi.mocked(confirmHold).mockResolvedValue({ success: true, reservation: mockReservation });
+
+    const response = await post({ "x-session-id": OWNER_SESSION });
+
+    expect(response.statusCode).toBe(201);
+    const body = response.json();
+    expect(body.data.reservation.id).toBe("res_1");
+    expect(body.data.manageToken).toBeDefined();
   });
 });

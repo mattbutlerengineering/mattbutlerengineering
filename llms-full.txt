@@ -22138,6 +22138,21 @@
           const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
           const ip = request.ip;
     
+          // The high-entropy sessionId minted at hold creation is this caller's
+          // capability token and the only proof the hold is theirs — mirrors the
+          // release path in public-holds.ts. Reading it here is what makes
+          // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
+          // without a sessionId skipped ownership entirely, so anyone who guessed a
+          // live holdId could confirm another guest's hold under their own name.
+          const sessionId = request.headers[SESSION_ID_HEADER];
+          if (typeof sessionId !== "string" || sessionId.length === 0) {
+            throw new AppError(
+              "SESSION_REQUIRED",
+              401,
+              `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
+            );
+          }
+    
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
             throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
@@ -22152,6 +22167,7 @@
     
           const result = await confirmHold({
             holdId,
+            sessionId,
             guestDetails: {
               guestName,
               guestEmail,
@@ -22162,10 +22178,14 @@
           });
     
           if (!result.success) {
+            // A hold the caller does not own answers exactly as a hold that does not
+            // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
+            if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
+              throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+            }
+    
             const statusMap: Record<string, number> = {
-              NOT_FOUND: 404,
               EXPIRED: 410,
-              SESSION_MISMATCH: 403,
               CONFLICT: 409,
               PACING_EXCEEDED: 422,
             };
