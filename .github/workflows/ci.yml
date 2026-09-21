@@ -109,6 +109,38 @@ jobs:
       - name: Run Dependency Audit
         run: node scripts/check-dep-sync.mjs
 
+  # Docs-only PRs skip the entire Build chain (which is where `pnpm repo-audit`
+  # runs `prettier --check .`) because it is gated on `has_code == 'true'`, and
+  # the push trigger's `paths-ignore` lists `docs/**` / `**.md` so a docs-only
+  # merge runs no push CI either. Measured consequence (2026-08-31): #4787
+  # merged six unformatted run docs with CI Gate green, and the dirty files then
+  # failed "Run Full Repository Audit" on the next code PR's merge ref and on
+  # every main push -- reddening #4790/#4792/#4797 and main (`a4473b0f9`) for a
+  # fault none of them contained. Recovery was worse than the break: `gh run
+  # rerun --failed` re-uses the original merge SHA, so it kept failing after
+  # main was fixed, and the docs-only fix commit triggered no push CI of its own
+  # to retro-green main.
+  #
+  # This job is the missing half: when the Build chain will NOT run, run the
+  # formatting check anyway. It calls `pnpm check:prettier` -- the very script
+  # repo-audit calls -- rather than re-implementing the glob, so the two cannot
+  # drift. Deliberately does not run when `has_code == 'true'`: the Build chain
+  # already covers that case and duplicating it would just spend a runner.
+  docs-format:
+    name: Docs Formatting
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_code != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Check formatting
+        run: pnpm check:prettier
+
   hadolint:
     name: Dockerfile Lint
     needs: [detect-changes]
@@ -845,6 +877,7 @@ jobs:
         ai-antipattern-ratchet,
         visual-tolerance-check,
         a11y-attribution,
+        docs-format,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -884,8 +917,9 @@ jobs:
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
           VISUAL_TOLERANCE: ${{ needs.visual-tolerance-check.result }}
           A11Y_ATTRIBUTION: ${{ needs.a11y-attribution.result }}
+          DOCS_FORMAT: ${{ needs.docs-format.result }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION"
+          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION docs-format=$DOCS_FORMAT"
           # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
           # PRs where detect-changes sets has_code=false and prepare legitimately skips,
           # and a11y-attribution which only runs on agent-* / worktree-agent-* branches
@@ -895,7 +929,7 @@ jobs:
           # needs it cascades to "skipped" by GitHub Actions' default behavior, which
           # would otherwise look identical to a legitimate path-filtered skip and let
           # the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION"; do
+          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION" "$DOCS_FORMAT"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
