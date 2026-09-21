@@ -238,6 +238,21 @@ describe("API_SURFACE_PROBES", () => {
     ]);
   });
 
+  it("covers the guest-facing unsubscribe link on the host the email points at (#4517)", () => {
+    // The link is now built from PUBLIC_API_BASE_URL = the API origin, so that
+    // is the host whose behaviour has to be gated. Unlike the venue-lookup
+    // probes, the status alone is the discriminator here: reservations-api's
+    // handler answers 400 on a malformed token, and users-api's catch-all —
+    // which owns "/" and would answer if the /public ingress rule were lost —
+    // has no such route and can only 404.
+    const probe = API_SURFACE_PROBES.find((p) =>
+      p.path.startsWith("/public/v1/guests/unsubscribe")
+    );
+    expect(probe).toBeDefined();
+    expect(probe.origin).toBe("https://api.mattbutlerengineering.com");
+    expect(probe.expectStatus).toBe(400);
+  });
+
   it("gives every probe a unique name for the report", () => {
     const names = API_SURFACE_PROBES.map((p) => p.name);
     expect(new Set(names).size).toBe(names.length);
@@ -376,7 +391,12 @@ describe("runner exit codes", () => {
   async function serve(withHeaders) {
     const server = createServer((req, res) => {
       const path = new URL(req.url, "http://x").pathname;
-      const matches = API_SURFACE_PROBES.filter((p) => p.path === path && p.method === req.method);
+      // Compare pathnames on both sides: a probe's `path` may carry a query
+      // string (the unsubscribe probe needs a token to reach its handler), and
+      // production routes on the pathname alone.
+      const matches = API_SURFACE_PROBES.filter(
+        (p) => new URL(p.path, "http://x").pathname === path && p.method === req.method
+      );
       // POST /api/v1/venues has two probes on one path/method, split by whether
       // the body is schema-valid -- mirror Fastify's validation-before-auth
       // ordering so the fixture answers each one the way production does.

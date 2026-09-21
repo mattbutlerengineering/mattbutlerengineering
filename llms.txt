@@ -1792,6 +1792,24 @@
       export function getManageTokenConfig(input: ManageTokenConfigInput): ManageTokenConfig { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/config/public-api-base-url.ts">
+    <item priority="low">
+      interface PublicApiBaseUrlConfig {
+        baseUrl: string | null;
+      }
+    </item>
+    <item priority="high">
+      interface PublicApiBaseUrlConfigInput {
+        baseUrl: string | undefined;
+        emailEnabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function getPublicApiBaseUrlConfig(
+        input: PublicApiBaseUrlConfigInput
+      ): PublicApiBaseUrlConfig { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/config/stripe.ts">
     <item priority="low">
       interface StripeConfig {
@@ -12947,6 +12965,7 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
+        publicApiBaseUrl: string | null;
       }
     </item>
     <item priority="high">
@@ -12954,7 +12973,7 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
-        async sendBookingConfirmation(): Promise<unknown>;
+        publicApiBaseUrl: string | null;
       }
     </item>
   </file>
