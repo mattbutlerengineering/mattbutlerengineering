@@ -1,6 +1,6 @@
 # Contributing to mattbutlerengineering
 
-Thanks for considering a contribution. This monorepo is hospitality-platform code (Rialto design system + Fastify services + React apps). Most of it is application code, not a library — but the [`@mattbutlerengineering/rialto`](./packages/rialto/) package is published to npm and accepts external contributions.
+Thanks for considering a contribution. This monorepo is hospitality-platform code (Rialto design system + Fastify services + React apps). Most of it is application code, not a library — but the [`@mattbutlerengineering/rialto`](./packages/rialto/) package is published to GitHub Packages and accepts external contributions. (It is not on npmjs.org — `npm view @mattbutlerengineering/rialto` 404s by design; see [README.md](./README.md#using-rialto) for the `.npmrc` line you need.)
 
 ## Quick start
 
@@ -22,8 +22,7 @@ You'll need:
 - **`packages/rialto/`** — the React design system. Component additions, accessibility fixes, and showcase improvements are the most welcoming entry point. [`packages/rialto/CLAUDE.md`](./packages/rialto/CLAUDE.md) has the design-system invariants.
 - **`apps/marketing/`** — the public site at mattbutlerengineering.com. Copy/SEO/perf improvements welcome.
 - **`docs/adr/`** — Architecture Decision Records. New ADRs go through the same PR review as code.
-- **Issues labeled `good-first-issue`** — explicitly scoped for first-time contributors.
-- **Issues labeled `help-wanted`** — areas where outside perspective is genuinely useful.
+- **Issues labeled `good first issue` or `help wanted`** — GitHub's default labels, spelled with spaces. Both exist on this repo but neither currently has any open issues, so treat the areas above as the real entry points until that changes.
 
 Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in](#how-ai-agents-fit-in) below). You are welcome to claim one — just comment "I'd like to take this" so the agent loop skips it.
 
@@ -42,7 +41,7 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
 
 4. Open a PR against `main`. Use the PR template — it has a security checklist; please complete it honestly. PRs that don't fill out the template will get a comment asking you to.
 
-5. The [tier-classifier](./.github/workflows/tier-classifier.yml) workflow auto-applies a `tier:trivial` / `tier:standard` / `tier:sensitive` / `tier:critical` label per the rules in [`docs/change-tiers.md`](./docs/change-tiers.md). The label tells reviewers (human and AI) what scrutiny to apply. You don't need to set it yourself; the classifier will.
+5. The [tier-classifier](./.github/workflows/tier-classifier.yml) workflow auto-applies a `tier:trivial` / `tier:standard` / `tier:sensitive` / `tier:critical` label per the rules in [`docs/change-tiers.md`](./docs/change-tiers.md). It classifies by **changed file path**, not by anything you write in the title or body. The label tells reviewers (human and AI) what scrutiny to apply. You don't need to set it yourself; the classifier will.
 
 6. Reviewers apply the rubric in [`docs/review-criteria.md`](./docs/review-criteria.md) — three tiers (must-flag / should-flag / nit), grouped by failure mode (bugs, security, ADR violations, broken contracts, etc.). It's deliberately short.
 
@@ -71,7 +70,7 @@ Per-package commands also exist; see each package's `README.md` or `CLAUDE.md`.
 
 ## Tests
 
-The [`ci.yml`](./.github/workflows/ci.yml) `Test` job enforces a **60% aggregate statement coverage** floor on every PR (checked on the Node 22 leg). PRs that drop below this threshold fail the job and are blocked from merging via the required `CI Gate`. Per-PR coverage visibility is posted by the Codecov report; `packages/agent-core` carries a stricter 80% package-specific gate.
+The [`ci.yml`](./.github/workflows/ci.yml) `Test` job enforces a **60% aggregate statement coverage** floor on every PR (checked on the Node 22 leg). PRs that drop below this threshold fail the job and are blocked from merging via the required `CI Gate`. Per-PR coverage visibility is posted by the Codecov report; `packages/agent-core` carries a stricter package-specific gate in its own `vitest.config.ts` — 85% statements, 85% lines, 85% functions, 75% branches.
 
 - Bug fixes need a regression test that fails before your fix and passes after. If a regression test isn't possible, say why in the PR.
 - New features in `services/*` need at least integration tests for the new routes.
@@ -90,7 +89,7 @@ The [`ci.yml`](./.github/workflows/ci.yml) `Test` job enforces a **60% aggregate
 
 If your PR introduces a pattern that isn't already in the codebase — a new framework, a new caching strategy, a new auth flow, a new database access pattern — open an ADR first under `docs/adr/`. Use the format of the existing ADRs (e.g., `docs/adr/ADR-001-rialto-over-tailwind.md`). Status starts at `proposed`; the ADR moves to `active` when the PR lands.
 
-The `adr-compliance-reviewer` agent runs on every PR touching `services/`, `packages/`, or `apps/` and will flag changes that contradict an active ADR.
+Two different things check ADRs, and only one of them is automatic. `mbe check-adr` runs in CI's Architecture Audit job on every PR and enforces each active ADR's regex `prohibited_patterns`. The `adr-compliance-reviewer` subagent catches the semantic violations a regex cannot — a `fetch` used directly where an ADR mandates `@mbe/api-client`, say — but it is dispatched by a maintainer or an agent session, not by a workflow, so do not assume it has run on your PR.
 
 ## How AI agents fit in
 
@@ -105,8 +104,8 @@ The maturity model the repo tracks itself against (canonical 6-level ACMM — th
 ## Things to avoid
 
 - **Don't open PRs that span multiple unrelated areas.** Even if the diff is small, mixed scope makes review slow.
-- **Don't `git push --force` to your own PR branch after it's been reviewed**, unless you genuinely need to (and even then, prefer `git push --force-with-lease`). The classifier escalates one tier when it detects a force-push after approval.
-- **Don't include secrets, even in commit messages or PR bodies.** The `secrets.yaml` policy at `.github/policies/` enumerates the patterns we look for. If you accidentally push something that looks like a secret, message a maintainer immediately and we'll rotate; don't try to "git filter-repo" your way out of it without telling us.
+- **Don't `git push --force` to your own PR branch after it's been reviewed**, unless you genuinely need to (and even then, prefer `git push --force-with-lease`). Nothing enforces this — it is a courtesy to your reviewer, whose approval silently no longer describes the diff. A force-push also orphans the CI run attached to the old head.
+- **Don't include secrets, even in commit messages or PR bodies.** [`.gitleaks.toml`](./.gitleaks.toml) enumerates the patterns we look for; it is enforced by a pre-commit hook and again by the `secret-scan` workflow in CI. If you accidentally push something that looks like a secret, message a maintainer immediately and we'll rotate; don't try to "git filter-repo" your way out of it without telling us.
 - **Don't manually edit `llms.txt` / `llms-full.txt`.** They're auto-generated by `pack-changed` on commit. If you see one in your diff, it's because a source file in that package changed.
 
 ## License of contributions
