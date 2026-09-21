@@ -479,12 +479,27 @@ jobs:
         # failed jobs at e41d5a6a, the unchanged pre-cap commit, passed. The
         # stampede was never reproduced.
         #
-        # The cap stays for now because nothing has shown it costs anything —
-        # the one capped green run was faster than the one uncapped green run,
-        # on samples far too few to mean much either way. Treat this flag as
-        # unexplained and unmeasured, not as a known-good mitigation: #4558
-        # tracks the A/B (several runs per setting, same commit, comparing
-        # duration and failure rate) that would justify keeping or dropping it.
+        # The cap stays, and is no longer entirely unmeasured — but mind what
+        # was measured. #5546 ran the suite on one developer machine, same
+        # commit and cold cache, once per setting: turbo's default fan-out of
+        # 10 failed on apps/rialto-web page-registry.test.ts at 15000ms, a cap
+        # of 2 passed all 50 tasks. One sample per setting, off-runner,
+        # pass/fail only, and 10-against-2 rather than cap-against-no-cap — it
+        # shows the cap does something, not that this job needed it. The
+        # CI-side A/B #4558 asks for (several runs per setting on one commit,
+        # comparing this job's duration and failure rate) is still unrun.
+        #
+        # Nothing suggests the cap costs wall-clock time: capped 32810596143
+        # took 7m45s, uncapped control 32776034661 9m35s, uncapped failing
+        # 32772737595 5m59s. The control reran failed jobs only, so three
+        # samples settle nothing either way — they are just not evidence
+        # against the cap.
+        #
+        # Before dropping the flag, read
+        # scripts/__tests__/nightly-compliance-workflow.test.mjs: it asserts
+        # this line still declares a cap and fails if the nightly runs the
+        # suite more parallel than this job — the mismatch behind ten red
+        # nights (#5203 … #5517).
         run: pnpm turbo test:coverage --concurrency=2
 
       - name: Upload test results
