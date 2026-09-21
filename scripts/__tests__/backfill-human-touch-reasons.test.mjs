@@ -10,6 +10,8 @@ import {
   isMechanicalCommit,
   findHumanCommitIndex,
   parseMaxCalls,
+  resolveHumanTouchReason,
+  UnshapedCommitsError,
 } from "../backfill-human-touch-reasons.mjs";
 import { append, read } from "../metrics-store.mjs";
 import { HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
@@ -411,6 +413,87 @@ describe("findHumanCommitIndex — agent identity false positives", () => {
   });
 });
 
+// ── Unshaped payloads (#4706) ────────────────────────────
+//
+// `@mbe/gh-client`'s REST fallback used to hand back raw REST commit objects
+// (`{sha, commit: {author, message}}`) with no `authors` at all. Every field
+// this function reads was then `undefined`, so `!sharesAuthor` held trivially
+// and commit 0 "matched" — real merged PR #3250 came back classified "other"
+// with a fabricated `humanCommit` carrying an empty message. The mapper in
+// `rest-mappers.ts` is the fix; these assert the consumer can no longer be
+// fooled by an unshaped payload even if one reaches it another way.
+
+describe("findHumanCommitIndex — unshaped/incomplete payloads", () => {
+  /** The raw REST shape for merged PR #3250, exactly as the fallback returned it. */
+  const PR_3250_RAW_REST_COMMITS = [
+    {
+      sha: "9d60e0dbd6be59647def09d4ab42d920492f1c2d",
+      commit: {
+        author: { name: "Matt Butler", email: "mattwbutler@gmail.com" },
+        message: "refactor(hospitality): one deposit-decision module\n\nCloses #3236",
+      },
+    },
+  ];
+
+  it("fails loudly on a raw REST payload instead of matching commit 0", () => {
+    expect(() => findHumanCommitIndex(PR_3250_RAW_REST_COMMITS, "Matt-Butler")).toThrow(
+      UnshapedCommitsError
+    );
+  });
+
+  it("fails loudly when every commit is missing its authors array", () => {
+    const commits = [{ messageHeadline: "fix: a" }, { messageHeadline: "fix: b" }];
+
+    expect(() => findHumanCommitIndex(commits, "mattbutlerengineering")).toThrow(
+      /no commit carries a GitHub login/i
+    );
+  });
+
+  it("skips (never matches) a single commit whose author login is unavailable", () => {
+    // Mixed payload: the shaped commit proves the payload itself is fine, so
+    // the unattributed one is real missing data — skip it, don't throw.
+    const commits = [
+      { authors: [{ login: "claude" }], messageHeadline: "fix: agent commit" },
+      { authors: [{ name: "Nobody", email: "nobody@example.com" }], messageHeadline: "fix: ghost" },
+    ];
+
+    expect(findHumanCommitIndex(commits, "mattbutlerengineering")).toBe(-1);
+  });
+
+  it("returns -1 rather than throwing for an empty commit list", () => {
+    expect(findHumanCommitIndex([], "mattbutlerengineering")).toBe(-1);
+  });
+});
+
+describe("resolveHumanTouchReason — unshaped payloads yield no classification", () => {
+  it("returns null (row untouched) instead of the fabricated 'other' PR #3250 produced", () => {
+    const warn = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const fetchPrDetails = () =>
+      defaultFetchPrDetails(3250, {
+        ghClient: {
+          pr: {
+            view: () => ({
+              author: { login: "Matt-Butler" },
+              headRefName: "worktree-agent-abc",
+              labels: [],
+              // Raw REST shapes — no authors/messageHeadline/authoredDate.
+              commits: [
+                {
+                  sha: "9d60e0d",
+                  commit: { author: { name: "Matt Butler" }, message: "refactor: x" },
+                },
+              ],
+            }),
+          },
+        },
+      });
+
+    expect(resolveHumanTouchReason(3250, fetchPrDetails)).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("3250"));
+    warn.mockRestore();
+  });
+});
+
 // ── defaultFetchPrDetails — real gh-JSON-shaped scenarios ─
 //
 // Fixtures mirror actual `gh pr view --json author,headRefName,labels,
@@ -520,7 +603,7 @@ describe("defaultFetchPrDetails — identity + mechanical-commit detection", () 
     expect(defaultFetchPrDetails(4321, { ghClient }).humanCommit).toBeNull();
   });
 
-  it("does not throw when a commit is missing its authors array entirely", () => {
+  it("throws rather than fabricating a humanCommit when every commit lacks authors (#4706)", () => {
     const ghClient = fakeGhClient({
       author: { is_bot: true, login: "app/claude" },
       headRefName: "worktree-agent-abc",
@@ -529,14 +612,10 @@ describe("defaultFetchPrDetails — identity + mechanical-commit detection", () 
       commits: [{ messageHeadline: "fix: commit with no authors field at all" }],
     });
 
-    const result = defaultFetchPrDetails(4325, { ghClient });
-
-    // No known author on the commit → can't confirm it differs from the PR
-    // author, but it also isn't excluded — findIndex still finds it, since
-    // an empty authors array never "shares" the PR author's login.
-    expect(result.humanCommit).toMatchObject({
-      message: "fix: commit with no authors field at all",
-    });
+    // Pre-#4706 this returned a humanCommit for commit 0 — an empty authors
+    // array never "shares" the PR author's login, so the identity check passed
+    // vacuously. A payload that can't be discriminated must not be classified.
+    expect(() => defaultFetchPrDetails(4325, { ghClient })).toThrow(UnshapedCommitsError);
   });
 
   it("does not throw and treats reviews as 'not before' when the human commit has no authoredDate", () => {

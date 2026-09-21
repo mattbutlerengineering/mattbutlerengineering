@@ -12436,6 +12436,31 @@
       }
     </item>
     <item priority="low">
+      interface RawGitIdentity {
+        name?: string;
+        email?: string;
+        date?: string;
+      }
+    </item>
+    <item priority="low">
+      interface RawPrCommit {
+        sha: string;
+        commit: {
+          author?: RawGitIdentity | null;
+          committer?: Raw...;
+        author?: RawUser | null;
+      }
+    </item>
+    <item priority="low">
+      interface RawPrReview {
+        id?: number;
+        node_id?: string;
+        user?: RawUser | null;
+        body?: string | null;
+        state?: string;
+      }
+    </item>
+    <item priority="low">
       interface RawWorkflowRun {
         id?: number;
         status?: string;
@@ -12464,6 +12489,21 @@
       export function mapPrFile(raw: RawPrFile): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="high">
+      export function splitCommitMessage(message: string | undefined): {
+        messageHeadline: string;
+        messageBody: string;
+      } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapCommitAuthors(raw: RawPrCommit): Record<string, unknown>[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapPrCommit(raw: RawPrCommit): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapPrReview(raw: RawPrReview): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
       export function mapLabel(raw: RawLabel): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="high">
@@ -12486,6 +12526,9 @@
     </item>
     <item priority="medium">
       function prNumberOf(item: unknown): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fetchCommits(ctx: RestContext, number: number): Record<string, unknown>[] { /* ... */ }
     </item>
     <item priority="medium">
       function enrichPrStats(
