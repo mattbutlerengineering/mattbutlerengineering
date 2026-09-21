@@ -257,3 +257,36 @@ layout, Form controls) plus `Dialog` called out separately above — 26 uncovere
 total. A follow-up batch should not feel obligated to cover all 26 in two issues;
 splitting by usage-rank (top 13 / bottom 13 from the ranked table) or by category
 (above) are both reasonable ways for issues 3/5 and 4/5 to divide this list.
+
+## Closed by batch 5 (#5526)
+
+Ranks 1–3 of the table above are closed by the three templates batch 5 adds
+(#5522, #5523, #5524), which land in the same pull request as this note. They are
+**not** yet reflected in the coverage table or the ranking above — the next
+regeneration is where they flip to `**Yes**`.
+
+| Rank | Component   | Usage | Template added (`id`)   | Category     | Issue |
+| ---- | ----------- | ----- | ----------------------- | ------------ | ----- |
+| 1    | `DataList`  | 220   | `record-detail-panel`   | Data Display | #5522 |
+| 2    | `Handshake` | 61    | `integration-handshake` | Feedback     | #5523 |
+| 3    | `Dialog`    | 46    | `modal-form-dialog`     | Forms        | #5524 |
+
+Each prompt names its target component literally, so none of the three repeats the
+"keyword appears but the component isn't really implied" ambiguity that
+§ PageHeader ambiguity documents.
+
+Two notes on the picks:
+
+- `record-detail-panel` asks for a striped label-and-value **spec sheet**, matching
+  `DataList`'s documented purpose ("a definition list of key-value pairs… for spec
+  sheets, metadata panels"). The directory/roster shape #5522's text suggested is
+  already served by `team-directory` and would not reach `DataList`.
+- `modal-form-dialog` is the "generic Modal Form template (Dialog, distinct from the
+  confirmation-flow use already covered by ConfirmDialog)" this document proposes in
+  § Grouped by category. It deliberately avoids the phrase "confirmation dialog", so
+  the steer cannot be re-credited to `ConfirmDialog` the way the existing
+  `settings-modal-flow` and `delete-confirmation-flow` prompts were.
+
+Gallery size after batch 5: **35** templates. `DropdownMenu` (rank 5) was drafted and
+then dropped in favour of `Dialog` once this regeneration landed and ranked `Dialog`
+third — it remains uncovered and is the obvious rank-shifted candidate for batch 6.
