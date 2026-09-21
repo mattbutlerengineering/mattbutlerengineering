@@ -35,6 +35,15 @@ const SYNCED_DEPS = [
 
 const WORKSPACE_DIRS = ["packages", "services", "apps", "tools"];
 
+// Deliberate, documented exceptions to the "one version per dependency"
+// rule, keyed as "packagePath:depName". @mbe/mutation-testing pins vitest to
+// 4.1.10 (not the workspace's ^5.x) because @stryker-mutator/vitest-runner
+// only supports that major — see tools/mutation-testing/README.md and issue
+// mattbutlerengineering/mattbutlerengineering#5614. Mirrors the same
+// allowlist in tools/cli/src/commands/check-deps.ts (a separate, independent
+// checker over the same dependency set).
+const INTENTIONAL_MISMATCHES = ["tools/mutation-testing/package.json:vitest"];
+
 /** Pure discovery of every workspace package.json's merged deps. */
 export function discoverPackageJsons(root = DEFAULT_ROOT) {
   const results = [];
@@ -76,8 +85,13 @@ export function discoverPackageJsons(root = DEFAULT_ROOT) {
  * (skipping workspace:/catalog: protocol references) and reports any dep
  * that resolves to more than one version.
  */
-export function findVersionMismatches(packages, syncedDeps = SYNCED_DEPS) {
+export function findVersionMismatches(
+  packages,
+  syncedDeps = SYNCED_DEPS,
+  intentionalMismatches = INTENTIONAL_MISMATCHES
+) {
   const mismatches = [];
+  const intentional = new Set(intentionalMismatches);
 
   for (const dep of syncedDeps) {
     const versions = new Map();
@@ -89,6 +103,8 @@ export function findVersionMismatches(packages, syncedDeps = SYNCED_DEPS) {
       if (version.startsWith("workspace:")) continue;
       // Skip catalog references
       if (version.startsWith("catalog:")) continue;
+      // Skip deliberate, documented exceptions
+      if (intentional.has(`${pkg.path}:${dep}`)) continue;
 
       if (!versions.has(version)) {
         versions.set(version, []);
