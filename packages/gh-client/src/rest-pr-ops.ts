@@ -5,8 +5,8 @@ import { apiRequest } from "./rest-http.js";
 import { fetchAllPages } from "./rest-paginate.js";
 import { buildSearchQuery } from "./rest-search.js";
 import { currentBranch } from "./git-branch.js";
-import type { RawPr, RawPrFile } from "./rest-mappers.js";
-import { mapPr, mapPrFile } from "./rest-mappers.js";
+import type { RawPr, RawPrFile, RawPrCommit, RawPrReview } from "./rest-mappers.js";
+import { mapPr, mapPrFile, mapPrCommit, mapPrReview } from "./rest-mappers.js";
 
 function pullsPath(ctx: RestContext): string {
   return `/repos/${ctx.owner}/${ctx.repo}/pulls`;
@@ -14,6 +14,15 @@ function pullsPath(ctx: RestContext): string {
 
 function prNumberOf(item: unknown): number {
   return (item as { number: number }).number;
+}
+
+/**
+ * All of a PR's commits, shaped like `gh pr view --json commits` rather than
+ * left as raw REST objects — see {@link mapPrCommit} and #4706.
+ */
+function fetchCommits(ctx: RestContext, number: number): Record<string, unknown>[] {
+  const raw = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/commits`, 100);
+  return (raw as RawPrCommit[]).map(mapPrCommit);
 }
 
 /**
@@ -35,8 +44,7 @@ function enrichPrStats(
   const withStats = { ...mapped, additions: detail.additions, deletions: detail.deletions };
   if (!wantsCommits) return withStats;
 
-  const commits = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/commits`, 100);
-  return { ...withStats, commits };
+  return { ...withStats, commits: fetchCommits(ctx, number) };
 }
 
 export function prList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
@@ -72,8 +80,11 @@ export function prView(ctx: RestContext, number: number, parsed: ParsedArgs): un
     mapped = { ...mapped, files: (files as RawPrFile[]).map(mapPrFile) };
   }
   if (wantsJsonField(parsed, "commits")) {
-    const commits = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/commits`, 100);
-    mapped = { ...mapped, commits };
+    mapped = { ...mapped, commits: fetchCommits(ctx, number) };
+  }
+  if (wantsJsonField(parsed, "reviews")) {
+    const reviews = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/reviews`, 100);
+    mapped = { ...mapped, reviews: (reviews as RawPrReview[]).map(mapPrReview) };
   }
 
   return mapped;

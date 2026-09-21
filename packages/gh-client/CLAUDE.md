@@ -59,9 +59,26 @@ no new dependency, no async leaking into the public API.
 The REST mappers return a superset of gh's `--json <fields>` output (not a
 field-projected subset) — extra fields are harmless since every caller reads
 named fields it asked for. `pr.list`/`pr.view` pay one extra REST call per PR
-only when `commits`/`additions`/`deletions` are actually requested (needed
-for `queueEfficiency`'s first-pass-success-rate calculation — see
-`scripts/sensors-registry.mjs`).
+only when `commits`/`additions`/`deletions`/`reviews` are actually requested
+(`commits`/`additions`/`deletions` are needed for `queueEfficiency`'s
+first-pass-success-rate calculation — see `scripts/sensors-registry.mjs`).
+
+Commits and reviews are **shaped**, not passed through raw (#4706). REST calls
+a commit's fields `sha` / `commit.message` / `commit.author.name`, while every
+consumer in this repo reads GraphQL's `oid` / `messageHeadline` +
+`messageBody` / `authors[].login` / `authoredDate` — so `mapPrCommit` and
+`mapPrReview` translate. Two rules the mappers hold to, because the bug this
+fixed returned confident wrong answers rather than erroring:
+
+- **A missing `login` is represented as missing**, never synthesized from the
+  commit's name or email. REST resolves `author` to `null` whenever the commit
+  email maps to no GitHub account, and a fabricated login is indistinguishable
+  from a real one downstream.
+- **`messageHeadline` is not truncated.** GitHub's GraphQL cuts it at 69
+  characters and pushes the remainder into `messageBody` behind an ellipsis
+  (measured on PR #3250); that quirk is lossy and its exact rule is not
+  documented, so this mapper splits on the first blank line and keeps the
+  subject intact.
 
 ## Consumers
 

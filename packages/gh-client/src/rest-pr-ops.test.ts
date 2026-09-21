@@ -41,19 +41,25 @@ describe("prList", () => {
         status: 200,
         body: JSON.stringify({ number: 1, additions: 10, deletions: 2 }),
       })
-      .mockReturnValueOnce({ status: 200, body: JSON.stringify([{ sha: "a" }, { sha: "b" }]) });
+      .mockReturnValueOnce({
+        status: 200,
+        body: JSON.stringify([
+          { sha: "a", commit: { message: "fix: a" } },
+          { sha: "b", commit: { message: "fix: b" } },
+        ]),
+      });
 
     const result = prList(
       makeCtx(http),
       parseArgs(["--state", "all", "--json", "number,commits,additions,deletions"])
-    );
-    expect(result).toEqual([
-      expect.objectContaining({
-        number: 1,
-        additions: 10,
-        deletions: 2,
-        commits: [{ sha: "a" }, { sha: "b" }],
-      }),
+    ) as { commits: Record<string, unknown>[] }[];
+
+    expect(result[0]).toMatchObject({ number: 1, additions: 10, deletions: 2 });
+    // Shaped like GraphQL here too (#4706) — commitCount consumers read
+    // `.length`, but anything reading a field must not get the raw REST shape.
+    expect(result[0].commits).toEqual([
+      expect.objectContaining({ oid: "a", messageHeadline: "fix: a" }),
+      expect.objectContaining({ oid: "b", messageHeadline: "fix: b" }),
     ]);
   });
 
@@ -98,6 +104,95 @@ describe("prView", () => {
       });
     const result = prView(makeCtx(http), 1, parseArgs(["--json", "files"])) as { files: unknown[] };
     expect(result.files).toEqual([{ path: "src/x.ts", additions: 1, deletions: 0 }]);
+  });
+});
+
+// ── --json commits / reviews shaping (#4706) ─────────────
+
+describe("prView --json commits", () => {
+  const REST_COMMITS = [
+    {
+      sha: "9d60e0d",
+      commit: {
+        author: {
+          name: "Matt Butler",
+          email: "mattwbutler@gmail.com",
+          date: "2026-07-09T19:31:46Z",
+        },
+        message: "refactor(hospitality): one deposit-decision module\n\nCloses #3236",
+      },
+      author: { login: "Matt-Butler" },
+    },
+  ];
+
+  it("returns GraphQL-shaped commits, not the raw REST objects (the #3250 repro)", () => {
+    const http = vi
+      .fn()
+      .mockReturnValueOnce({ status: 200, body: JSON.stringify({ number: 3250, title: "t" }) })
+      .mockReturnValueOnce({ status: 200, body: JSON.stringify(REST_COMMITS) });
+
+    const result = prView(makeCtx(http), 3250, parseArgs(["--json", "commits"])) as {
+      commits: Record<string, unknown>[];
+    };
+
+    expect(result.commits).toEqual([
+      {
+        oid: "9d60e0d",
+        messageHeadline: "refactor(hospitality): one deposit-decision module",
+        messageBody: "Closes #3236",
+        authoredDate: "2026-07-09T19:31:46Z",
+        committedDate: undefined,
+        authors: [{ login: "Matt-Butler", name: "Matt Butler", email: "mattwbutler@gmail.com" }],
+      },
+    ]);
+  });
+});
+
+describe("prView --json reviews", () => {
+  it("fetches and maps reviews so review-comment counts aren't silently dropped", () => {
+    const http = vi
+      .fn()
+      .mockReturnValueOnce({ status: 200, body: JSON.stringify({ number: 1, title: "t" }) })
+      .mockReturnValueOnce({
+        status: 200,
+        body: JSON.stringify([
+          {
+            id: 9,
+            node_id: "PRR_1",
+            user: { login: "mattbutlerengineering" },
+            body: "needs a test",
+            state: "CHANGES_REQUESTED",
+            submitted_at: "2026-07-09T20:00:00Z",
+            author_association: "OWNER",
+          },
+        ]),
+      });
+
+    const result = prView(makeCtx(http), 1, parseArgs(["--json", "reviews"])) as {
+      reviews: Record<string, unknown>[];
+    };
+
+    expect(http.mock.calls[1][0].url).toContain("/pulls/1/reviews");
+    expect(result.reviews).toEqual([
+      {
+        id: "PRR_1",
+        author: { login: "mattbutlerengineering" },
+        authorAssociation: "OWNER",
+        body: "needs a test",
+        state: "CHANGES_REQUESTED",
+        submittedAt: "2026-07-09T20:00:00Z",
+      },
+    ]);
+  });
+
+  it("does not request reviews when --json never asked for them", () => {
+    const http = vi
+      .fn()
+      .mockReturnValue({ status: 200, body: JSON.stringify({ number: 1, title: "t" }) });
+
+    prView(makeCtx(http), 1, parseArgs(["--json", "title"]));
+
+    expect(http).toHaveBeenCalledTimes(1);
   });
 });
 

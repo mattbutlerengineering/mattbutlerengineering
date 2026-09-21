@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { mapIssue, mapPr, mapPrFile, mapLabel, mapWorkflowRun } from "./rest-mappers.js";
+import {
+  mapIssue,
+  mapPr,
+  mapPrFile,
+  mapLabel,
+  mapWorkflowRun,
+  mapPrCommit,
+  mapPrReview,
+  splitCommitMessage,
+} from "./rest-mappers.js";
 
 describe("mapIssue", () => {
   it("maps REST issue fields to gh-CLI camelCase names", () => {
@@ -66,6 +75,136 @@ describe("mapLabel", () => {
       name: "security",
       color: "red",
     });
+  });
+});
+
+// ── Commit/review shaping (#4706) ────────────────────────
+//
+// Fixtures are the real REST payload for merged PR #3250 — the reproduction
+// the issue cites, where the unshaped REST commit made the backfill script's
+// `findHumanCommitIndex` fabricate a `humanCommit`.
+
+describe("splitCommitMessage", () => {
+  it("splits a real conventional commit on the first blank line", () => {
+    const { messageHeadline, messageBody } = splitCommitMessage(
+      "refactor(hospitality): one deposit-decision module for the Booking Widget\n" +
+        "\n" +
+        "Two of the four deposit-decision sites duplicated effectiveDepositPolicy's\n" +
+        "rules ad hoc.\n" +
+        "\n" +
+        "Closes #3236"
+    );
+
+    expect(messageHeadline).toBe(
+      "refactor(hospitality): one deposit-decision module for the Booking Widget"
+    );
+    expect(messageBody).toBe(
+      "Two of the four deposit-decision sites duplicated effectiveDepositPolicy's\n" +
+        "rules ad hoc.\n" +
+        "\n" +
+        "Closes #3236"
+    );
+  });
+
+  it("keeps a subject-only message entirely in the headline, with an empty body", () => {
+    expect(splitCommitMessage("fix: one-liner")).toEqual({
+      messageHeadline: "fix: one-liner",
+      messageBody: "",
+    });
+  });
+
+  it("folds a multi-line first paragraph into a single headline", () => {
+    expect(splitCommitMessage("fix: wrapped\nsubject line\n\nbody")).toEqual({
+      messageHeadline: "fix: wrapped subject line",
+      messageBody: "body",
+    });
+  });
+
+  it("does not leak a blank-line run into the body", () => {
+    expect(splitCommitMessage("fix: x\n\n\n\nbody\n").messageBody).toBe("body");
+  });
+
+  it("returns empty strings for a missing message rather than undefined", () => {
+    expect(splitCommitMessage(undefined)).toEqual({ messageHeadline: "", messageBody: "" });
+  });
+});
+
+describe("mapPrCommit", () => {
+  const PR_3250_COMMIT = {
+    sha: "9d60e0dbd6be59647def09d4ab42d920492f1c2d",
+    commit: {
+      author: {
+        name: "Matt Butler",
+        email: "mattwbutler@gmail.com",
+        date: "2026-07-09T19:31:46Z",
+      },
+      committer: {
+        name: "Matt Butler",
+        email: "mattwbutler@gmail.com",
+        date: "2026-07-09T19:35:03Z",
+      },
+      message:
+        "refactor(hospitality): one deposit-decision module for the Booking Widget\n\nCloses #3236",
+    },
+    author: { login: "Matt-Butler" },
+  };
+
+  it("maps the raw REST commit onto the GraphQL field names callers read", () => {
+    expect(mapPrCommit(PR_3250_COMMIT)).toEqual({
+      oid: "9d60e0dbd6be59647def09d4ab42d920492f1c2d",
+      messageHeadline: "refactor(hospitality): one deposit-decision module for the Booking Widget",
+      messageBody: "Closes #3236",
+      authoredDate: "2026-07-09T19:31:46Z",
+      committedDate: "2026-07-09T19:35:03Z",
+      authors: [{ login: "Matt-Butler", name: "Matt Butler", email: "mattwbutler@gmail.com" }],
+    });
+  });
+
+  it("omits login rather than inventing one when REST cannot resolve the commit email", () => {
+    const authors = mapPrCommit({
+      sha: "abc",
+      commit: {
+        author: { name: "Claude", email: "noreply@anthropic.com", date: "2026-08-06T10:00:00Z" },
+        message: "fix: unattributed",
+      },
+      author: null,
+    }).authors as Record<string, unknown>[];
+
+    expect(authors).toEqual([{ name: "Claude", email: "noreply@anthropic.com" }]);
+    expect(authors[0]).not.toHaveProperty("login");
+  });
+
+  it("returns an empty authors array when REST supplies no author identity at all", () => {
+    expect(mapPrCommit({ sha: "abc", commit: { message: "fix: x" } }).authors).toEqual([]);
+  });
+});
+
+describe("mapPrReview", () => {
+  it("maps REST review fields onto gh's --json reviews names", () => {
+    expect(
+      mapPrReview({
+        id: 123,
+        node_id: "PRR_kwDO",
+        user: { login: "mattbutlerengineering" },
+        body: "looks good",
+        state: "APPROVED",
+        submitted_at: "2026-07-09T20:00:00Z",
+        author_association: "OWNER",
+      })
+    ).toEqual({
+      id: "PRR_kwDO",
+      author: { login: "mattbutlerengineering" },
+      authorAssociation: "OWNER",
+      body: "looks good",
+      state: "APPROVED",
+      submittedAt: "2026-07-09T20:00:00Z",
+    });
+  });
+
+  it("keeps author undefined (never a fabricated login) for a ghost reviewer", () => {
+    const mapped = mapPrReview({ id: 1, state: "COMMENTED", user: null });
+    expect(mapped.author).toBeUndefined();
+    expect(mapped.submittedAt).toBeUndefined();
   });
 });
 
