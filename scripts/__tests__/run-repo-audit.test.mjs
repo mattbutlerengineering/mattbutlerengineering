@@ -136,6 +136,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-rialto-changeset",
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
+      "check-workflow-pr-scope",
       "check-memory-refs",
       "check-skill-references",
       "boundaries",
