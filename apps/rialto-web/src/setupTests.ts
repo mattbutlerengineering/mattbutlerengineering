@@ -1,4 +1,4 @@
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 // jsdom has no matchMedia; rialto's device context and framer-motion both read

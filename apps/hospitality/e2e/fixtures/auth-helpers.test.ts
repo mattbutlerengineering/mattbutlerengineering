@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import { validateAuth0Config, fetchAuth0TokensWithRetry } from "../auth-helpers.js";
 import type { Auth0Config } from "../auth-helpers.js";
 

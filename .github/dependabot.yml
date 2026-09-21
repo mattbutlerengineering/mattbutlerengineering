@@ -6,12 +6,20 @@ updates:
       interval: "weekly"
       day: "monday"
     groups:
+      # `vitest*` does NOT match `@vitest/coverage-v8` — dependabot patterns are
+      # matched against the full package name, and a scoped name starts with
+      # `@`. That split sent vitest and its `@vitest/*` companions into two
+      # different groups, which is why vitest 5 could not land as one bump:
+      # #5111 (vitest alone) mismatched `@vitest/coverage-v8@4`, and #5135
+      # (`@vitest/*` alone) died with `coverageFilesDirectory is required`
+      # against vitest 4. `@vitest/*` keeps the family in one group.
       production-deps:
         patterns: ["*"]
-        exclude-patterns: ["@types/*", "eslint*", "prettier*", "vitest*", "playwright*"]
+        exclude-patterns:
+          ["@types/*", "eslint*", "prettier*", "vitest*", "@vitest/*", "playwright*"]
       dev-deps:
         dependency-type: "development"
-        patterns: ["@types/*", "eslint*", "prettier*", "vitest*", "playwright*"]
+        patterns: ["@types/*", "eslint*", "prettier*", "vitest*", "@vitest/*", "playwright*"]
     ignore:
       # TypeScript 7 removes the JavaScript Compiler API, breaking unplugin-dts
       # (rialto lib build) and typescript-eslint. Remove once #3253 lands.

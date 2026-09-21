@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 
 // Mock react-oidc-context before importing the hooks
 const mockSigninRedirect = vi.fn();

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import React from "react";
 
 // Capture OIDCProvider props for inspection
