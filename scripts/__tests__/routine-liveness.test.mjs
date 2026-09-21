@@ -384,10 +384,25 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
+  // mbe-night and mbe-midday have artifacts in this fixture and are still NOT
+  // alive: their prompts emit the same `chore(metrics): queue telemetry <date>`
+  // title, so a single PR would mark both alive and a dead one would hide
+  // behind its twin. They are `unverifiable` in the manifest for that reason.
+  const SIGNATURE_COLLIDING = ["mbe-night", "mbe-midday"];
+
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
-      if (name === "mbe-weekly-improve") continue;
+      if (name === "mbe-weekly-improve" || SIGNATURE_COLLIDING.includes(name)) continue;
       expect(byRoutine[name]).toBe("alive");
+    }
+  });
+
+  it("refuses to call the two title-colliding routines alive off one shared PR", () => {
+    // The fixture gives them a real, in-window queue-telemetry PR. Before the
+    // collision was recorded, that one artifact marked BOTH alive — the exact
+    // false negative this checker exists to remove.
+    for (const name of SIGNATURE_COLLIDING) {
+      expect(byRoutine[name]).toBe("unverifiable");
     }
   });
 
@@ -499,5 +514,62 @@ describe("runRoutineLivenessCheck — issue filing (dedup)", () => {
     });
     expect(created).toHaveLength(0);
     expect(results[0]).toMatchObject({ routine: "mbe-weekly-improve", status: "alive" });
+  });
+});
+
+/**
+ * This producer files every day, so its dedupe is load-bearing in a way a
+ * once-a-week producer's is not. Failing open on a broken search — "proceed as
+ * no-match, file it anyway" — turns one outage into one duplicate per routine
+ * per day, and the finding it protects is already on the issue the search could
+ * not see.
+ */
+describe("dedupe search failure", () => {
+  const DARK_MANIFEST = [
+    {
+      name: "mbe-test-routine",
+      triggerId: "trig_test",
+      periodDays: 1,
+      signature: { type: "pr-title", pattern: String.raw`nothing matches this`, searchTerm: "x" },
+    },
+  ];
+
+  it("files nothing when the search throws, rather than duplicating", () => {
+    const created = [];
+    const logs = [];
+    const results = runRoutineLivenessCheck({
+      manifest: DARK_MANIFEST,
+      fetchObservedArtifacts: () => [],
+      now: "2026-09-20T12:00:00Z",
+      searchCiFixIssues: () => {
+        throw new Error("gh: rate limited");
+      },
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+      log: (msg) => logs.push(msg),
+    });
+
+    expect(created).toEqual([]);
+    expect(results).toEqual([
+      { routine: "mbe-test-routine", status: "dark", action: "search-failed" },
+    ]);
+    expect(logs.join("\n")).toMatch(/not filing/i);
+  });
+
+  it("still files when the search succeeds and finds no prior issue", () => {
+    const created = [];
+    runRoutineLivenessCheck({
+      manifest: DARK_MANIFEST,
+      fetchObservedArtifacts: () => [],
+      now: "2026-09-20T12:00:00Z",
+      searchCiFixIssues: () => [],
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+    });
+    expect(created).toHaveLength(1);
   });
 });

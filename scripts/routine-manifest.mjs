@@ -92,11 +92,9 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-night",
     triggerId: "trig_01E6UxiwdsWcjBNwRGZSjmSV",
     periodDays: 1,
-    signature: {
-      type: "pr-title",
-      pattern: String.raw`chore\(metrics\): queue telemetry \d{4}-\d{2}-\d{2}`,
-      searchTerm: "queue telemetry",
-    },
+    unverifiable: true,
+    unverifiableReason:
+      "Shares a PR-title signature with mbe-midday — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
   },
   {
     name: "mbe-auditor",
@@ -136,11 +134,9 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-midday",
     triggerId: "trig_0118ZgGfEndrMqQSuTQNXQwT",
     periodDays: 1,
-    signature: {
-      type: "pr-title",
-      pattern: String.raw`chore\(metrics\): queue telemetry \d{4}-\d{2}-\d{2}`,
-      searchTerm: "queue telemetry",
-    },
+    unverifiable: true,
+    unverifiableReason:
+      "Shares a PR-title signature with mbe-night — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
   },
   {
     name: "mbe-weekly-improve",

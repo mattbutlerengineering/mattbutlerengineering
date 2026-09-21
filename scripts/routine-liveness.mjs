@@ -222,15 +222,21 @@ export function runRoutineLivenessCheck({
       });
       const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
-      // A failed search must not swallow a genuine dark/unverifiable finding
-      // — fail open (treat as "no prior found", file the issue) rather than closed.
-      let candidates = [];
+      // Fail CLOSED on a failed search. Failing open looks safer — never lose a
+      // finding — but this producer files every single day, so "proceed as
+      // no-match" means a duplicate issue on every run the search is down, and
+      // the finding it was protecting is already tracked by the issue it could
+      // not see. A missed day is recoverable; a self-multiplying issue stream is
+      // what #5553 is open about.
+      let candidates;
       try {
         candidates = searchCiFixIssues();
       } catch (err) {
         log(
-          `search for a prior routine-liveness issue failed, proceeding as no-match: ${err.message}`
+          `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
+            `this run, to avoid duplicating an issue the search could not see: ${err.message}`
         );
+        return { routine: entry.name, status: result.status, action: "search-failed" };
       }
       const priorNumber = findPriorRoutineFindingIssue(candidates, entry.name);
       const ledger = priorNumber !== null ? { [entry.name]: priorNumber } : {};
@@ -345,8 +351,23 @@ function main() {
     manifest: ROUTINE_MANIFEST,
     fetchObservedArtifacts: (entry) => fetchObservedArtifactsViaGhClient(ghClient, entry),
     now: new Date().toISOString(),
+    // Scoped to this producer's own title namespace, and limited explicitly.
+    // `gh issue list` defaults to 30 rows — against a repo creating ~2.7 ci-fix
+    // issues a day, that page covers about eleven days, so a bare `--label
+    // ci-fix` search loses sight of its own prior issues and re-files them
+    // roughly every eleven days, forever. Searching the title prefix bounds the
+    // page by producer rather than by recency.
     searchCiFixIssues: () =>
-      ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
+      ghClient.issue.list([
+        "--search",
+        '"ci-fix: routine" in:title',
+        "--state",
+        "all",
+        "--limit",
+        "200",
+        "--json",
+        "number,title",
+      ]),
     getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
     createIssue: (title, body) =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildRoutineFindingCreateArgs(title, body))),
