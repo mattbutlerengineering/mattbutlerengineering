@@ -119,6 +119,41 @@ export function isMechanicalCommit(messageHeadline) {
 }
 
 /**
+ * Thrown when a non-empty commit list carries no GitHub login on any commit,
+ * so the identity comparison this module is built on cannot be made at all.
+ *
+ * Pre-#4706 that state silently "matched" commit 0: an empty `authors` array
+ * never shares the PR author's login, so `!sharesAuthor` held vacuously and
+ * the classifier was handed a fabricated commit. Real merged PR #3250 came
+ * back as `"other"` with an empty-message `humanCommit` that way.
+ */
+export class UnshapedCommitsError extends Error {
+  /** @param {number} commitCount */
+  constructor(commitCount) {
+    super(
+      `cannot discriminate commit authorship: no commit carries a GitHub login ` +
+        `(${commitCount} commit(s) inspected). Either the payload was never shaped ` +
+        `like \`gh pr view --json commits\` (raw REST objects carry ` +
+        `\`commit.author.name\`, not \`authors[].login\`), or no commit email maps ` +
+        `to a GitHub account. Refusing to classify rather than matching blindly.`
+    );
+    this.name = "UnshapedCommitsError";
+  }
+}
+
+/** Every usable GitHub login on one commit. Entries with no `login` string
+ * (REST could not resolve the commit email, or the payload is unshaped) are
+ * dropped, so they can never satisfy an identity comparison by accident.
+ *
+ * @param {{ authors?: Array<{ login?: string }|null> }} commit
+ * @returns {string[]}
+ */
+function commitAuthorLogins(commit) {
+  const authors = Array.isArray(commit?.authors) ? commit.authors : [];
+  return authors.map((a) => (typeof a?.login === "string" ? a.login : "")).filter(Boolean);
+}
+
+/**
  * The first commit authored by someone other than the (normalized) PR author
  * that isn't mechanical — the closest available signal to "a human decision
  * happened here". Returns -1 when no commit qualifies (including when the PR
@@ -128,16 +163,29 @@ export function isMechanicalCommit(messageHeadline) {
  * never treated as a human touch, even when the PR itself was opened under a
  * different (human) account — see #4603.
  *
+ * A commit with no resolvable author login is **skipped**, never matched: it
+ * cannot be shown to differ from the PR author. When *no* commit in a
+ * non-empty list is discriminable, that's a payload-shape problem rather than
+ * missing data on one commit, and it throws {@link UnshapedCommitsError} —
+ * see #4706.
+ *
  * @param {Array<{ authors?: Array<{ login?: string }>, messageHeadline?: string }>} commits
  * @param {string} prAuthorLogin
  * @returns {number}
+ * @throws {UnshapedCommitsError} When no commit carries a GitHub login.
  */
 export function findHumanCommitIndex(commits, prAuthorLogin) {
   if (!prAuthorLogin) return -1;
-  return commits.findIndex((c) => {
-    const authors = Array.isArray(c.authors) ? c.authors : [];
-    const sharesAuthor = authors.some((a) => a?.login === prAuthorLogin);
-    const isAgentAuthored = authors.some((a) => AGENT_AUTHOR_LOGINS.has(a?.login));
+
+  const logins = commits.map(commitAuthorLogins);
+  if (commits.length > 0 && logins.every((l) => l.length === 0)) {
+    throw new UnshapedCommitsError(commits.length);
+  }
+
+  return commits.findIndex((c, i) => {
+    if (logins[i].length === 0) return false;
+    const sharesAuthor = logins[i].includes(prAuthorLogin);
+    const isAgentAuthored = logins[i].some((login) => AGENT_AUTHOR_LOGINS.has(login));
     return !sharesAuthor && !isAgentAuthored && !isMechanicalCommit(c.messageHeadline);
   });
 }
@@ -234,9 +282,14 @@ export function resolveHumanTouchReason(prNumber, fetchPrDetails) {
   let details;
   try {
     details = fetchPrDetails(prNumber);
-  } catch {
+  } catch (err) {
     // Unmatchable (fetch failed, PR gone, transient gh error) — leave
-    // unclassified rather than guessing.
+    // unclassified rather than guessing. An unshaped payload is a transport
+    // bug rather than absent data, so it gets a visible line instead of being
+    // swallowed like a transient fetch failure (#4706).
+    if (err instanceof UnshapedCommitsError) {
+      process.stderr.write(`[backfill-human-touch-reasons] PR #${prNumber}: ${err.message}\n`);
+    }
     return null;
   }
 

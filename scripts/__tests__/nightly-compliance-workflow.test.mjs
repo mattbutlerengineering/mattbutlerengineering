@@ -99,7 +99,8 @@ describe("nightly-compliance.yml Lint, typecheck, test step", () => {
   // nightly ran the same suite at 5x the parallelism of the gate that stays
   // green. Measured on one machine, same commit, same cold cache: default
   // concurrency failed (`@mbe/rialto-web#test`, page-registry.test.ts timing
-  // out at 15000ms), `--concurrency=2` passed 50/50.
+  // out at 15000ms), `--concurrency=2` passed all 50 tasks. That is one run
+  // per setting, not 50 runs — the CI-side A/B in #4558 is still unrun.
   it("runs the test task at the same concurrency cap ci.yml's Test job uses", () => {
     const body = stripComments(step);
     const testInvocation = body.split("\n").find((l) => /^\s*test\)/.test(l));

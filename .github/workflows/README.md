@@ -85,6 +85,7 @@ Run on cron schedules for ongoing health and compliance.
 | `dependabot-auto-merge.yml` | PR               | Auto-merge Dependabot dev dependency bumps |
 | `e2e-screenshots.yml`       | push, PR, manual | Capture E2E screenshots                    |
 | `post-deploy-check.yml`     | manual           | Verify deployment health                   |
+| `preview-teardown.yml`      | manual           | Sweep leaked `mbe-preview-*` Workers       |
 | `revert-watchdog.yml`       | push to main     | Watch for reverted commits                 |
 | `smoke-tests.yml`           | manual           | Post-deploy smoke tests (deprecated)       |
 
