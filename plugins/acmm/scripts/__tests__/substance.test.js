@@ -1,6 +1,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  readdirSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,16 +22,23 @@ function makeTmpDir() {
   return mkdtempSync(join(tmpdir(), "substance-test-"));
 }
 
+/** ISO date N days before now — lets recency fixtures stay valid as the clock moves. */
+function isoDaysAgo(days) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+}
+
 describe("reflection substance checker", () => {
   const checker = substanceCheckers["acmm:correction-capture"];
 
-  test("passes when frontmatter has feeds_back_into and body > 50 chars", () => {
+  test("passes when a recent entry has feeds_back_into and body > 50 chars", () => {
     const dir = makeTmpDir();
-    const filePath = join(dir, "reflection.md");
+    const filePath = join(dir, "fresh.md");
+    const freshDate = isoDaysAgo(3);
     writeFileSync(
       filePath,
       [
         "---",
+        `date: ${freshDate}`,
         "feeds_back_into: CLAUDE.md",
         "---",
         "",
@@ -32,6 +47,88 @@ describe("reflection substance checker", () => {
     );
     const result = checker([filePath], dir);
     assert.equal(result.passed, true);
+    assert.match(result.evidence, new RegExp(freshDate));
+    rmSync(dir, { recursive: true });
+  });
+
+  test("fails for an empty corpus", () => {
+    const dir = makeTmpDir();
+    const result = checker([], dir);
+    assert.equal(result.passed, false);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("failure evidence names the newest entry and its age", () => {
+    const dir = makeTmpDir();
+    const staleDate = isoDaysAgo(200);
+    writeFileSync(
+      join(dir, "older.md"),
+      [
+        "---",
+        `date: ${isoDaysAgo(400)}`,
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "An older substantive reflection body long enough to clear the minimum character threshold.",
+      ].join("\n")
+    );
+    writeFileSync(
+      join(dir, "newer.md"),
+      [
+        "---",
+        `date: ${staleDate}`,
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "A newer substantive reflection body long enough to clear the minimum character threshold.",
+      ].join("\n")
+    );
+    const result = checker([join(dir, "older.md"), join(dir, "newer.md")], dir);
+    assert.equal(result.passed, false);
+    assert.match(result.evidence, new RegExp(staleDate));
+    assert.match(result.evidence, /200 days old/);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("ignores dates in the body, so a review note on an old entry is not a fresh capture", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "reviewed.md");
+    writeFileSync(
+      filePath,
+      [
+        "---",
+        `date: ${isoDaysAgo(200)}`,
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "A substantive reflection body long enough to clear the minimum character threshold.",
+        "",
+        `## Verification ${isoDaysAgo(1)} (monthly reflection review)`,
+        "",
+        "Lesson re-verified as still true.",
+      ].join("\n")
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, false);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("fails when the newest qualifying entry is outside the recency window", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "stale.md");
+    writeFileSync(
+      filePath,
+      [
+        "---",
+        `date: ${isoDaysAgo(200)}`,
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "This is a substantive reflection body that contains enough content to pass the minimum character threshold for validation.",
+      ].join("\n")
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
   });
 
@@ -207,11 +304,20 @@ describe("correction-capture integration — real repo files", () => {
   const repoRoot = resolve(__dirname, "../../../..");
   const correctionDir = join(repoRoot, ".claude/memory/corrections");
 
-  test("at least one correction file passes feeds_back_into + body check", () => {
+  // Deliberately does NOT pin pass/fail. The corpus is stale today (#5585) so the checker fails,
+  // but capturing a fresh correction is the *correct* fix — a test asserting failure would go red
+  // on the very action this criterion exists to encourage.
+  test("at least one correction file still satisfies the structural half", () => {
     assert.ok(existsSync(correctionDir), `corrections dir should exist: ${correctionDir}`);
     const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
+    const structural = files.filter((f) => readFileSync(f, "utf-8").includes("feeds_back_into:"));
+    assert.ok(structural.length > 0, "expected a correction carrying feeds_back_into");
+  });
+
+  test("verdict on the real corpus names the newest entry and its age", () => {
+    const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
     const result = checker(files, repoRoot);
-    assert.equal(result.passed, true, `Expected substantive: true but got: ${result.evidence}`);
+    assert.match(result.evidence, /\d{4}-\d{2}-\d{2} is \d+ days old/, result.evidence);
   });
 });
 
