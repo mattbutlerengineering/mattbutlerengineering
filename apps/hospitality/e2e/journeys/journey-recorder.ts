@@ -1,9 +1,17 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
-import { redactSecrets } from "../../../../scripts/venue-journey/report.mjs";
+import {
+  classifyJourneyStepOutcome,
+  redactSecrets,
+} from "../../../../scripts/venue-journey/report.mjs";
 
-export type JourneyStepStatus = "passed" | "failed" | "skipped";
+/**
+ * `blocked` is a step that could not run because a credential it requires is
+ * unset — distinct from `failed` (it ran and broke) and from `skipped` (the
+ * journey had already broken upstream). See `classifyJourneyStepOutcome`.
+ */
+export type JourneyStepStatus = "passed" | "failed" | "blocked" | "skipped";
 
 export interface JourneyStepResult {
   name: string;
@@ -12,6 +20,14 @@ export interface JourneyStepResult {
   error?: string;
   /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
   pageError?: string;
+  /** On a `blocked` step: the env vars that were unset. */
+  missingCredentials?: string[];
+}
+
+/** Credentials a step cannot run without, and where to read them from. */
+export interface JourneyStepRequirements {
+  requiredEnv?: string[];
+  env?: Record<string, string | undefined>;
 }
 
 export interface JourneyReport {
@@ -101,17 +117,41 @@ export function createJourneyRecorder(page: Page, venueName: string) {
 
   const hasFailed = () => steps.some((step) => step.status === "failed");
 
-  async function runTimed(name: string, fn: () => Promise<void>): Promise<void> {
+  /**
+   * Thin wrapper over `classifyJourneyStepOutcome`, which owns every
+   * passed/failed/blocked decision. Consulted twice, and both calls are the
+   * same question asked at the two moments it can be answered: may this body
+   * run at all, and — once it has — how did it end.
+   */
+  async function runTimed(
+    name: string,
+    fn: () => Promise<void>,
+    { requiredEnv, env }: JourneyStepRequirements = {}
+  ): Promise<void> {
+    const gate = classifyJourneyStepOutcome({ requiredEnv, env });
+    if (gate.state === "blocked") {
+      steps.push({
+        name,
+        status: "blocked",
+        durationMs: 0,
+        error: gate.reason,
+        missingCredentials: gate.missingCredentials,
+      });
+      return;
+    }
+
     const startedMs = Date.now();
     try {
       await fn();
       steps.push({ name, status: "passed", durationMs: Date.now() - startedMs });
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
+      // Same classifier, its second question: the body ran, so how did it end?
+      const outcome = classifyJourneyStepOutcome({ error });
       const pageError = await capturePageError(page);
       steps.push({
         name,
-        status: "failed",
+        status: outcome.state,
         durationMs: Date.now() - startedMs,
         error,
         ...(pageError ? { pageError } : {}),
@@ -123,13 +163,23 @@ export function createJourneyRecorder(page: Page, venueName: string) {
   }
 
   return {
-    /** Runs a journey step, or records it as skipped once the journey broke. */
-    async step(name: string, fn: () => Promise<void>): Promise<void> {
+    /**
+     * Runs a journey step, or records it as skipped once the journey broke.
+     *
+     * `requirements.requiredEnv` names credentials the step cannot run
+     * without: when any is unset the body is never invoked and the step is
+     * recorded `blocked` rather than `failed` (#4527).
+     */
+    async step(
+      name: string,
+      fn: () => Promise<void>,
+      requirements?: JourneyStepRequirements
+    ): Promise<void> {
       if (hasFailed()) {
         steps.push({ name, status: "skipped", durationMs: 0 });
         return;
       }
-      await runTimed(name, fn);
+      await runTimed(name, fn, requirements);
     },
 
     /** Runs a step even after a failure — used for cleanup, which must happen. */
@@ -142,16 +192,6 @@ export function createJourneyRecorder(page: Page, venueName: string) {
       consoleErrors.push(message);
     },
 
-    /**
-     * Records a step as deliberately skipped — distinct from `passed` (its
-     * assertions never ran) and `failed` (does not fail `assertGreen()`).
-     * For steps a caller decides not to attempt at all, e.g. one gated on
-     * credentials that were never provisioned (#4527).
-     */
-    skip(name: string): void {
-      steps.push({ name, status: "skipped", durationMs: 0 });
-    },
-
     report(): JourneyReport {
       return { runId, runUrl, startedAt, venueName, steps: [...steps], consoleErrors };
     },
@@ -161,10 +201,20 @@ export function createJourneyRecorder(page: Page, venueName: string) {
       writeFileSync(REPORT_PATH, `${JSON.stringify(this.report(), null, 2)}\n`);
     },
 
-    /** Fails the Playwright test when any step failed. */
+    /**
+     * Fails the Playwright test when any step failed — or was blocked.
+     *
+     * A blocked step fails the journey CLOSED: it was never verified, so the
+     * run cannot be called green. The point of the separate state is that the
+     * verdict is legible (blocked on a named, unset credential, not a product
+     * regression), never that the check is weaker.
+     */
     assertGreen(): void {
       const failed = steps.find((step) => step.status === "failed");
       if (failed) throw new Error(`Journey failed at "${failed.name}": ${failed.error}`);
+
+      const blocked = steps.find((step) => step.status === "blocked");
+      if (blocked) throw new Error(`Journey blocked at "${blocked.name}": ${blocked.error}`);
     },
   };
 }

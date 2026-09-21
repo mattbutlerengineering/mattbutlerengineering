@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildBlockedIssue,
   buildFailureIssue,
   buildFrictionEntry,
   buildJobSummary,
   buildStepSignature,
+  classifyJourneyStepOutcome,
   collectFriction,
   findDuplicateIssue,
   FRICTION_ISSUE_TITLE,
@@ -435,5 +437,207 @@ describe("buildJobSummary", () => {
     });
 
     expect(buildJobSummary(report)).not.toContain("supersecret");
+  });
+
+  it("names the blocked step in the heading and never calls the run green", () => {
+    const report = makeReport({
+      steps: [
+        { name: "Authenticate", status: "passed", durationMs: 1200 },
+        {
+          name: "A non-admin identity can bootstrap its first venue",
+          status: "blocked",
+          durationMs: 0,
+          error: "Blocked on unset credentials: E2E_NONADMIN_AUTH_EMAIL",
+          missingCredentials: ["E2E_NONADMIN_AUTH_EMAIL"],
+        },
+      ],
+    });
+
+    const summary = buildJobSummary(report);
+
+    expect(summary).toContain(
+      "Journey blocked at A non-admin identity can bootstrap its first venue"
+    );
+    expect(summary).not.toContain("Journey green");
+  });
+});
+
+describe("classifyJourneyStepOutcome", () => {
+  const NON_ADMIN_ENV = ["E2E_NONADMIN_AUTH_EMAIL", "E2E_NONADMIN_AUTH_PASSWORD"];
+  const provisioned = {
+    E2E_NONADMIN_AUTH_EMAIL: "operator@example.com",
+    E2E_NONADMIN_AUTH_PASSWORD: "operator-secret",
+  };
+
+  it("reports `passed` when the credentials are present and the step did not throw", () => {
+    expect(
+      classifyJourneyStepOutcome({ requiredEnv: NON_ADMIN_ENV, env: provisioned })
+    ).toMatchObject({ state: "passed", missingCredentials: [] });
+  });
+
+  it("reports `passed` for a step that requires no credentials at all", () => {
+    expect(classifyJourneyStepOutcome({}).state).toBe("passed");
+  });
+
+  it("reports `failed` when the credentials are present and the step threw", () => {
+    const outcome = classifyJourneyStepOutcome({
+      requiredEnv: NON_ADMIN_ENV,
+      env: provisioned,
+      error: "expected 201, received 403",
+    });
+
+    expect(outcome.state).toBe("failed");
+    expect(outcome.reason).toContain("expected 201, received 403");
+  });
+
+  it("still reports `failed` when the step threw with an empty message", () => {
+    // "" is a real throw, not the absence of one — reading it as `passed`
+    // would turn a silent failure into a green step.
+    expect(classifyJourneyStepOutcome({ error: "" }).state).toBe("failed");
+  });
+
+  it("reports `blocked` — never `failed` — when a required credential is unset", () => {
+    const outcome = classifyJourneyStepOutcome({ requiredEnv: NON_ADMIN_ENV, env: {} });
+
+    expect(outcome.state).toBe("blocked");
+    expect(outcome.missingCredentials).toEqual(NON_ADMIN_ENV);
+    expect(outcome.reason).toContain("E2E_NONADMIN_AUTH_EMAIL");
+    expect(outcome.reason).toContain("E2E_NONADMIN_AUTH_PASSWORD");
+  });
+
+  it("names only the credential that is actually missing", () => {
+    const outcome = classifyJourneyStepOutcome({
+      requiredEnv: NON_ADMIN_ENV,
+      env: { E2E_NONADMIN_AUTH_EMAIL: "operator@example.com" },
+    });
+
+    expect(outcome.missingCredentials).toEqual(["E2E_NONADMIN_AUTH_PASSWORD"]);
+  });
+
+  it("treats an empty-string credential as unset", () => {
+    // `gh secret set NAME` with no `--body` reads empty stdin and stores "",
+    // which is indistinguishable from never having been set.
+    const outcome = classifyJourneyStepOutcome({
+      requiredEnv: NON_ADMIN_ENV,
+      env: { ...provisioned, E2E_NONADMIN_AUTH_PASSWORD: "" },
+    });
+
+    expect(outcome.state).toBe("blocked");
+  });
+
+  it("prefers `blocked` over `failed` when the unset credential is what made the step throw", () => {
+    const outcome = classifyJourneyStepOutcome({
+      requiredEnv: NON_ADMIN_ENV,
+      env: {},
+      error: "Missing required non-admin journey env vars: E2E_NONADMIN_AUTH_EMAIL",
+    });
+
+    expect(outcome.state).toBe("blocked");
+  });
+
+  it("fails closed when no environment is supplied rather than assuming provisioned", () => {
+    expect(classifyJourneyStepOutcome({ requiredEnv: NON_ADMIN_ENV }).state).toBe("blocked");
+  });
+
+  it("never throws on an unexpected input shape", () => {
+    expect(() => classifyJourneyStepOutcome()).not.toThrow();
+    expect(classifyJourneyStepOutcome({ requiredEnv: "nope", env: null }).state).toBe("passed");
+  });
+});
+
+describe("buildBlockedIssue", () => {
+  /** @returns {import("../venue-journey/report.mjs").JourneyReport} */
+  function blockedReport() {
+    return makeReport({
+      steps: [
+        { name: "Authenticate", status: "passed", durationMs: 1200 },
+        {
+          name: "A non-admin identity can bootstrap its first venue",
+          status: "blocked",
+          durationMs: 0,
+          error: "Blocked on unset credentials: E2E_NONADMIN_AUTH_EMAIL",
+          missingCredentials: ["E2E_NONADMIN_AUTH_EMAIL", "E2E_NONADMIN_AUTH_PASSWORD"],
+        },
+      ],
+    });
+  }
+
+  it("returns null when no step was blocked", () => {
+    expect(buildBlockedIssue(makeReport())).toBeNull();
+  });
+
+  it("says blocked, not failed, in the title", () => {
+    expect(buildBlockedIssue(blockedReport()).title).toBe(
+      "[Journey] Venue onboarding blocked at A non-admin identity can bootstrap its first venue"
+    );
+  });
+
+  it("states it is blocked on an unset credential and names which", () => {
+    const { body } = buildBlockedIssue(blockedReport());
+
+    expect(body).toContain("blocked on an unset credential");
+    expect(body).toContain("E2E_NONADMIN_AUTH_EMAIL");
+    expect(body).toContain("E2E_NONADMIN_AUTH_PASSWORD");
+    expect(body).not.toContain("journey failed at");
+  });
+
+  it("names the exact remediation, always with --body", () => {
+    const { body } = buildBlockedIssue(blockedReport());
+
+    expect(body).toContain('gh secret set E2E_NONADMIN_AUTH_EMAIL --body "<value>"');
+    expect(body).toContain('gh secret set E2E_NONADMIN_AUTH_PASSWORD --body "<value>"');
+  });
+
+  it("warns that omitting --body silently stores an empty secret", () => {
+    const { body } = buildBlockedIssue(blockedReport());
+
+    expect(body).toContain("--body");
+    expect(body).toContain("empty");
+  });
+
+  it("is not agent-actionable — labelled for a human, never `ready`", () => {
+    expect(buildBlockedIssue(blockedReport()).labels).toEqual(["audit", "ready-for-human"]);
+  });
+
+  it("dedupes on the same step signature a failure at that step would use", () => {
+    const issue = buildBlockedIssue(blockedReport());
+
+    expect(issue.searchPhrase).toBe(
+      "venue-journey/a-non-admin-identity-can-bootstrap-its-first-venue"
+    );
+    expect(issue.body).toContain(issue.searchPhrase);
+  });
+
+  it("carries the step timings so the blocked step is visible in context", () => {
+    const { body } = buildBlockedIssue(blockedReport());
+
+    expect(body).toContain("| Authenticate | passed | 1200 ms |");
+    expect(body).toContain(
+      "| A non-admin identity can bootstrap its first venue | blocked | 0 ms |"
+    );
+  });
+
+  it("builds a recurrence comment that still reads as blocked", () => {
+    const { commentBody } = buildBlockedIssue(blockedReport());
+
+    expect(commentBody).toContain("Still blocked");
+    expect(commentBody).toContain("https://github.com/o/r/actions/runs/12345");
+    expect(commentBody).toContain("E2E_NONADMIN_AUTH_EMAIL");
+  });
+
+  it("redacts secret-shaped material out of the blocked body", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Bootstrap",
+          status: "blocked",
+          durationMs: 0,
+          error: 'leaked {"password":"hunter2"}',
+          missingCredentials: ["E2E_NONADMIN_AUTH_PASSWORD"],
+        },
+      ],
+    });
+
+    expect(buildBlockedIssue(report).body).not.toContain("hunter2");
   });
 });

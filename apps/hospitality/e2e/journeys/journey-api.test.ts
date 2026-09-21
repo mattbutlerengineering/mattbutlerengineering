@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   deleteVenue,
-  isNonAdminAuthConfigured,
+  NON_ADMIN_AUTH_ENV_VARS,
   readTokenPermissions,
   resolveNonAdminAuthEnv,
   sweepSyntheticVenues,
@@ -211,21 +211,15 @@ describe("resolveNonAdminAuthEnv", () => {
   });
 });
 
-describe("isNonAdminAuthConfigured", () => {
-  it("is true once both non-admin variables are set", () => {
-    expect(
-      isNonAdminAuthConfigured({
-        E2E_NONADMIN_AUTH_EMAIL: "operator@example.com",
-        E2E_NONADMIN_AUTH_PASSWORD: "operator-secret",
-      })
-    ).toBe(true);
-  });
-
-  it("is false when either variable is missing (#4527 — unprovisioned repo)", () => {
-    expect(isNonAdminAuthConfigured({ E2E_NONADMIN_AUTH_EMAIL: "operator@example.com" })).toBe(
-      false
-    );
-    expect(isNonAdminAuthConfigured({})).toBe(false);
+describe("NON_ADMIN_AUTH_ENV_VARS", () => {
+  it("names exactly the credentials the bootstrap case cannot run without (#4527)", () => {
+    // The journey step declares this list as its `requiredEnv`, and the
+    // blocked-state classifier reports whichever of them is unset — so the
+    // filed issue names the same variables `resolveNonAdminAuthEnv` throws on.
+    expect(NON_ADMIN_AUTH_ENV_VARS).toEqual([
+      "E2E_NONADMIN_AUTH_EMAIL",
+      "E2E_NONADMIN_AUTH_PASSWORD",
+    ]);
   });
 });
 
