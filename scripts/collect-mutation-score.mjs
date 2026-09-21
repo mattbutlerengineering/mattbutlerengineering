@@ -1,3 +1,5 @@
+import { classifyMutationRun } from "./classify-mutation-run.mjs";
+
 /**
  * Pure collector for mutation testing score from a Stryker mutation report.
  *
@@ -11,9 +13,15 @@
  * JSON file; this function receives the parsed object so it can be tested
  * with a fixture without any filesystem access.
  *
- * Returns `{ available: false }` when:
- *   - reportJson is null / undefined (no report generated yet)
- *   - reportJson.files is missing or empty (report format unrecognised)
+ * Returns `{ available: false, state }` when the run produced no usable
+ * measurement, where `state` comes from classifyMutationRun():
+ *   - `report-missing` — reportJson is null / undefined / has no `files`
+ *   - `report-empty`   — no gradeable mutants (report format unrecognised, or
+ *                        everything was Ignored / NoCoverage)
+ *   - `harness-broken` — the run executed no tests, so every mutant trivially
+ *                        survived (#5614). This is NOT a 0% score; see
+ *                        classify-mutation-run.mjs for why the distinction is
+ *                        load-bearing.
  *
  * Stryker report schema: https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema
  *
@@ -26,14 +34,15 @@
  * @returns {object} Sensor-compatible metrics or { available: false }.
  */
 export function collectMutationScore(reportJson, now = new Date()) {
-  if (!reportJson || !reportJson.files) {
-    return { available: false };
+  // Gate on what the run actually measured BEFORE computing a score. A report
+  // whose harness ran zero tests yields a mathematically valid 0% that means
+  // nothing — the guard has to come first or the number escapes (#5614).
+  const state = classifyMutationRun(reportJson);
+  if (state !== "scored") {
+    return { available: false, state };
   }
 
   const files = Object.values(reportJson.files);
-  if (files.length === 0) {
-    return { available: false };
-  }
 
   // Aggregate mutant counts across all files.
   let killed = 0;
@@ -66,10 +75,9 @@ export function collectMutationScore(reportJson, now = new Date()) {
   }
 
   // Denominator: only Killed + Survived + Timeout count toward the score.
+  // classifyMutationRun() already rejected the zero-denominator case as
+  // `report-empty`, so this is non-zero by construction.
   const denominator = killed + survived + timeout;
-  if (denominator === 0) {
-    return { available: false };
-  }
 
   const rawScore = (killed / denominator) * 100;
   const roundedScore = Math.round(rawScore * 100) / 100;
@@ -79,6 +87,7 @@ export function collectMutationScore(reportJson, now = new Date()) {
 
   return {
     available: true,
+    state,
     mutation_score: roundedScore,
     passes_threshold: roundedScore >= threshold,
     threshold,

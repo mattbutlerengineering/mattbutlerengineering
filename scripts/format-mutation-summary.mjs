@@ -15,7 +15,18 @@
 export function formatMutationSummary({ scoreResult, survivedMutants = [], runUrl }) {
   const lines = ["## Mutation Testing Results", ""];
 
-  if (!scoreResult?.available) {
+  if (scoreResult?.state === "harness-broken") {
+    // Deliberately prints no percentage and no surviving-mutant list. Both
+    // exist in the underlying report and both are lies here: the mutants
+    // "survived" only because no test was executed against them (#5614).
+    lines.push("**Status:** ❌ Harness ran no tests — this is not a mutation score");
+    lines.push("");
+    lines.push(
+      "Every gradeable mutant reported `testsCompleted: 0`, so nothing could be killed.",
+      "The mutation harness is broken; the test suite has not been measured.",
+      "Do NOT add tests for the mutants in this report — fix the runner first."
+    );
+  } else if (!scoreResult?.available) {
     lines.push("**Status:** ❌ No report produced");
   } else {
     const status = scoreResult.passes_threshold ? "✅ PASS" : "⚠️ BELOW TARGET";

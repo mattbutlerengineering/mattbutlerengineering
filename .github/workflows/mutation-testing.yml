@@ -3,6 +3,12 @@ name: Mutation Testing
 # Baseline: 98.89% mutation score (services/users routes + services) as of
 # 2026-08-02 — see the `thresholds` comment in stryker.config.mjs for the
 # full breakdown and rationale. The 80% threshold below is comfortably met.
+#
+# A baseline only means something if the harness ran. On 2026-09-21 this
+# workflow reported a 0% score from a run that executed zero tests per mutant
+# (#5614) — so it now distinguishes "the suite scored badly" from "the suite
+# was never measured" and fails with the right one. See
+# scripts/classify-mutation-run.mjs.
 on:
   # Weekly schedule on Monday morning (adjusted to avoid common CI peaks)
   schedule:
@@ -133,6 +139,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           MUTATION_AVAILABLE: ${{ steps.score.outputs.available }}
+          MUTATION_STATE: ${{ steps.score.outputs.state }}
           MUTATION_SCORE: ${{ steps.score.outputs.score }}
           MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
           MUTATION_PASSES: ${{ steps.score.outputs.passes }}
@@ -140,11 +147,18 @@ jobs:
         with:
           script: |
             const available = process.env.MUTATION_AVAILABLE === 'true';
+            const state = process.env.MUTATION_STATE;
             const score = Number(process.env.MUTATION_SCORE);
             const threshold = Number(process.env.MUTATION_THRESHOLD);
             const passes = process.env.MUTATION_PASSES === 'true';
             const prNumber = Number(process.env.PR_NUMBER);
             const artifactUrl = `${github.server_url}/${github.repository}/actions/runs/${github.run_id}`;
+
+            // `harness-broken` is deliberately NOT folded into the "no report"
+            // branch: a report WAS produced, it just measured nothing (#5614).
+            const failureNote = state === 'harness-broken'
+              ? '❌ The harness ran no tests (every mutant reported `testsCompleted: 0`) — **no score was measured**. This is not a 0%.'
+              : '❌ No report was produced by this run.';
 
             const comment = available
               ? `## Mutation Testing Results 🧬
@@ -156,7 +170,7 @@ jobs:
             Full report available in [Artifacts](${artifactUrl})`
               : `## Mutation Testing Results 🧬
 
-            ❌ No report was produced by this run.
+            ${failureNote}
 
             Full report available in [Artifacts](${artifactUrl})`;
 
@@ -167,64 +181,82 @@ jobs:
               body: comment
             });
 
-      - name: Fail if mutation score below threshold
+      # Fails on three distinct states, and says which — a broken harness must
+      # never be reported as a low score (#5614). `set -o pipefail` because this
+      # step's exit code IS the gate (see .claude/rules/gotchas.md § CI).
+      - name: Fail if the mutation run did not pass
+        env:
+          MUTATION_STATE: ${{ steps.score.outputs.state }}
+          MUTATION_SCORE: ${{ steps.score.outputs.score }}
+          MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
+          MUTATION_PASSES: ${{ steps.score.outputs.passes }}
         run: |
-          if [ "${{ steps.score.outputs.available }}" != "true" ]; then
-            echo "❌ Mutation testing failed to produce report"
+          set -o pipefail
+          case "$MUTATION_STATE" in
+            scored) ;;
+            harness-broken)
+              echo "❌ The mutation harness ran no tests — the suite was NOT measured."
+              echo "   Every gradeable mutant reported testsCompleted: 0, so nothing could be killed."
+              echo "   This is NOT a 0% score. Fix the test runner; do not add tests for this report."
+              exit 1
+              ;;
+            *)
+              echo "❌ Mutation testing produced no usable report (state: ${MUTATION_STATE})"
+              exit 1
+              ;;
+          esac
+          echo "Mutation Score: ${MUTATION_SCORE}%"
+          if [ "$MUTATION_PASSES" != "true" ]; then
+            echo "❌ Mutation score ${MUTATION_SCORE}% is below target of ${MUTATION_THRESHOLD}%"
             exit 1
           fi
-          echo "Mutation Score: ${{ steps.score.outputs.score }}%"
-          if [ "${{ steps.score.outputs.passes }}" != "true" ]; then
-            echo "❌ Mutation score ${{ steps.score.outputs.score }}% is below target of ${{ steps.score.outputs.threshold }}%"
-            exit 1
-          fi
-          echo "✅ Mutation score ${{ steps.score.outputs.score }}% meets target"
+          echo "✅ Mutation score ${MUTATION_SCORE}% meets target"
 
       - name: File or update tracking issue on scheduled mutation-testing failure
         if: failure() && github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MUTATION_STATE: ${{ steps.score.outputs.state }}
           MUTATION_SCORE: ${{ steps.score.outputs.score }}
           MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
         run: |
-          today=$(date -u +%Y-%m-%d)
-          # Stable, date-less title so this is a single de-duplicated tracking
-          # issue that gets a comment on every failing week instead of a new
-          # issue per week — the pattern learning-loop uses for sensor
-          # findings (search open issues, skip/update on match).
-          title="Mutation testing below target"
+          set -o pipefail
+          # Title, body, dedupe key and recurrence comment are all state-driven
+          # (scripts/format-mutation-issue.mjs, unit-tested). This block used to
+          # be an inline printf that interpolated one ${MUTATION_SCORE} for every
+          # failure mode, so a harness that ran zero tests filed "Mutation testing
+          # below target / **Score:** 0% / Add tests to kill surviving mutants"
+          # (#5614) — wrong, and expensive to act on. Each state now gets its own
+          # title AND its own dedupe key, so a broken harness can never be folded
+          # into the genuine below-target issue.
+          #
+          # Each title is still stable and date-less, so it remains a single
+          # de-duplicated tracking issue that gets a comment on every failing
+          # week instead of a new issue per week — the pattern learning-loop uses
+          # for sensor findings (search open issues, skip/update on match).
+          ISSUE=$(node scripts/print-mutation-issue.mjs \
+            --state "$MUTATION_STATE" \
+            --score "$MUTATION_SCORE" \
+            --threshold "$MUTATION_THRESHOLD" \
+            --run-url "$RUN_URL" \
+            --today "$(date -u +%Y-%m-%d)")
 
-          printf '%s\n' \
-            "## ${title}" \
-            "" \
-            "The scheduled mutation-testing workflow ran on ${today} and the score" \
-            "is below the ${MUTATION_THRESHOLD}% target (or the run produced no report)." \
-            "" \
-            "**Score:** ${MUTATION_SCORE}%" \
-            "**Run:** ${RUN_URL} (see the job summary for the top surviving mutants)" \
-            "" \
-            "### Next steps" \
-            "1. Open the run's job summary and the mutation-report artifact" \
-            "2. Identify weakly-tested files from the mutation report" \
-            "3. Add tests to kill surviving mutants" \
-            "" \
-            "This issue is de-duplicated by title — future failing scheduled" \
-            "runs will comment here instead of filing a new issue." \
-            > /tmp/mutation-failure-body.md
+          title=$(printf '%s' "$ISSUE" | jq -r '.title')
+          printf '%s' "$ISSUE" | jq -r '.body' > /tmp/mutation-failure-body.md
 
           RESULT=$(node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
             --body-file /tmp/mutation-failure-body.md \
             --label ci-fix \
             --label ready \
-            --dedupe-key "mutation-testing-below-target" \
+            --dedupe-key "$(printf '%s' "$ISSUE" | jq -r '.dedupeKey')" \
             --search-label ci-fix \
             --search-text "$title")
           echo "$RESULT"
 
-          if [ "$(echo "$RESULT" | jq -r '.action')" != "create" ]; then
-            ISSUE_NUM=$(echo "$RESULT" | jq -r '.issueNumber')
-            gh issue comment "$ISSUE_NUM" --body "Still below target as of ${today}: score ${MUTATION_SCORE}% (threshold ${MUTATION_THRESHOLD}%). Run: ${RUN_URL}"
+          if [ "$(printf '%s' "$RESULT" | jq -r '.action')" != "create" ]; then
+            ISSUE_NUM=$(printf '%s' "$RESULT" | jq -r '.issueNumber')
+            gh issue comment "$ISSUE_NUM" --body "$(printf '%s' "$ISSUE" | jq -r '.comment')"
             echo "Updated existing issue #$ISSUE_NUM."
           fi

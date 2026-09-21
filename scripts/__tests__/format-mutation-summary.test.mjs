@@ -20,9 +20,22 @@ const FAILING_SCORE = {
 };
 
 describe("formatMutationSummary", () => {
-  it("reports no report produced when score is unavailable", () => {
-    const md = formatMutationSummary({ scoreResult: { available: false } });
+  it("reports no report produced when the report is missing", () => {
+    const md = formatMutationSummary({
+      scoreResult: { available: false, state: "report-missing" },
+    });
     expect(md).toContain("❌ No report produced");
+  });
+
+  it("says the harness measured nothing — never a score — when it ran no tests", () => {
+    const md = formatMutationSummary({
+      scoreResult: { available: false, state: "harness-broken" },
+    });
+    expect(md).toContain("Harness ran no tests");
+    expect(md).toContain("not a mutation score");
+    // The reader must never be pointed at "add tests" for this state.
+    expect(md).not.toContain("0%");
+    expect(md).not.toContain("Top Surviving Mutants");
   });
 
   it("includes score, threshold, and PASS status when passing", () => {
