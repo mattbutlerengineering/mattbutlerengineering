@@ -158,6 +158,85 @@ jobs:
             --search-label "ci-fix" \
             --contains "Metrics collection is stale"
 
+      # The agent-spend paired-growth check (#4618). Same reporting contract as
+      # the freshness self-check above — a verdict becomes one deduped issue,
+      # never a red workflow. The condition it reports today
+      # (`uninstrumented`: no ANTHROPIC_API_KEY, so no agent-core session can
+      # reach `recordSpend`) is resolvable only by a human setting a secret,
+      # exactly like DOMAIN_METRICS_VENUE_ID above.
+      - name: Agent-spend telemetry self-check
+        id: spend-telemetry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+
+          # Same if/else capture as the freshness step: the verdict IS the exit
+          # code and has to survive to the branch below, and a bare
+          # `cmd; verdict=$?` would abort the step under `bash -e` before the
+          # read (scripts/__tests__/workflow-set-e-assignment.test.mjs).
+          if node scripts/agent-spend-telemetry.mjs | tee /tmp/spend-telemetry.txt; then
+            verdict=0
+          else
+            verdict=$?
+          fi
+
+          {
+            echo "### Agent-spend telemetry"
+            echo
+            echo '```'
+            cat /tmp/spend-telemetry.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$verdict" -eq 0 ]; then
+            echo "Spend telemetry tracks queue telemetry."
+            exit 0
+          fi
+
+          {
+            echo "## Agent spend telemetry is not tracking queue telemetry"
+            echo
+            echo "\`.claude/agent-spend/sessions.jsonl\` and \`metrics/queue-telemetry.jsonl\`"
+            echo "describe the same agent work from opposite ends, so they should gain rows"
+            echo "together. \`node scripts/agent-spend-telemetry.mjs\` reports:"
+            echo
+            echo '```'
+            cat /tmp/spend-telemetry.txt
+            echo '```'
+            echo
+            echo "### Reading the verdict"
+            echo
+            echo "- **\`uninstrumented\`** — no spend writer can run. \`ANTHROPIC_API_KEY\` is"
+            echo "  not a configured repo secret, so every agent-core entry point skips"
+            echo "  before reaching \`recordSpend\`, and Claude Code subagent runs never enter"
+            echo "  agent-core at all. This is the state #4618 root-caused: the write path is"
+            echo "  intact and simply unreachable. **Do not \"fix\" \`recordSpend\`** — that was"
+            echo "  already done three times (#1830, #2974, #3695). The open decision is #3585."
+            echo "- **\`stalled\`** — a writer could have run and recorded nothing. This IS a"
+            echo "  regression in the spend path; start at \`recordSpend\`'s two call sites"
+            echo "  (\`packages/agent-core/src/session-runner.ts\`,"
+            echo "  \`packages/agent-core/src/adapters/run-cli-adapter-session.ts\`)."
+            echo "- **\`undeterminable\`** — a file is missing, unreadable, or holds rows"
+            echo "  nothing can date. The check fails closed here by design."
+            echo
+            echo "States and thresholds live in \`scripts/agent-spend-telemetry.mjs\`."
+            echo
+            echo "---"
+            echo "*Auto-created by the metrics-collectors workflow*"
+          } > /tmp/spend-telemetry-issue.md
+
+          # Deliberately NOT labeled `ready`: the likely resolution is a repo
+          # secret or the #3585 architecture decision, neither of which
+          # implement-queue can autonomously make.
+          node scripts/lib/file-issue-cli.mjs \
+            --title "Agent spend telemetry is not tracking queue telemetry" \
+            --label "meta-improvement" \
+            --body-file /tmp/spend-telemetry-issue.md \
+            --dedupe-key "agent-spend-telemetry-untracked" \
+            --search-label "meta-improvement" \
+            --contains "Agent spend telemetry is not tracking"
+
       - name: Open PR with collected metrics
         id: create-pr
         # `main` is protected and requires the CI Gate status check, which a
