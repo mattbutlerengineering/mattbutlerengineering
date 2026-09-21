@@ -9074,7 +9074,8 @@
     }
   </file>
   <file path="src/synthetic-bug-seeder.ts">
-    export type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo";
+    export type BugType =
+      "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo" | "lint-violation";
     export interface BugInjector {
       description: string;
       /** Pattern used to locate the injection point (or presence check). */
@@ -9111,6 +9112,26 @@
         injection: () =>
           `// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.\n`,
       },
+      /**
+       * The only catalog entry whose detector runs on the chaos PR's own branch.
+       *
+       * Every other type is checked by site-audit or Lighthouse, which run against
+       * `main` or the deployed site — and chaos PRs are never merged, so those
+       * detectors structurally cannot see the seeded bug (#5624: four synthetic PRs,
+       * zero detections, zero `chaos-audit` issues ever filed). ESLint runs in CI's
+       * Lint job on the pull request, so this one is observed within minutes.
+       *
+       * Measured against this repo's config before being added: an unused local
+       * produces `'chaosUnusedBinding' is assigned a value but never used`
+       * (`@typescript-eslint/no-unused-vars`). The rule allows names matching
+       * `/^_/`, so the binding deliberately does NOT start with an underscore.
+       */
+      "lint-violation": {
+        description: "Declares an unused local, failing @typescript-eslint/no-unused-vars in CI",
+        pattern: /(export (?:default )?function \w+[^{]*\{)/,
+        injection: () =>
+          `\n  const chaosUnusedBinding = "CHAOS-LINT: Chaos Agent synthetic no-unused-vars";\n`,
+      },
     };
     export interface InjectBugResult {
       injected: boolean;
@@ -9141,6 +9162,20 @@
     
       const match = content.match(bug.pattern);
       if (!match) return { injected: false, content };
+    
+      if (type === "lint-violation") {
+        // Insert immediately after the function's opening brace, so the binding
+        // is a local (which the rule flags) rather than a module-level export.
+        const [, signature] = match;
+        if (signature === undefined || match.index === undefined) {
+          return { injected: false, content };
+        }
+        const insertionPoint = match.index + signature.length;
+        return {
+          injected: true,
+          content: content.slice(0, insertionPoint) + bug.injection!() + content.slice(insertionPoint),
+        };
+      }
     
       if (type === "scout-todo") {
         return { injected: true, content: bug.injection!() + content };
