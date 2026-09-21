@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import pg from "pg";
 import { createDatabase } from "@mbe/database";
 import { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { getAllVenueIds } from "../services/lapsed-guest-cron.js";
+import { venueService } from "../services/venue.js";
+import { db } from "../services/database.js";
 
 /**
  * ADR-026 part 7/7: proves the Postgres RLS policies enabled in parts 2-4
@@ -22,17 +26,65 @@ import { setVenueContext } from "../middleware/venue-context.js";
  * deliberate, not incidental: `services/reservations` connects to Postgres
  * with the SAME role that ran `prisma migrate deploy` (`DATABASE_URL`),
  * which OWNS these tables — and Postgres does not apply RLS to a table's
- * owner unless the table also has `FORCE ROW LEVEL SECURITY`, which
- * ADR-026 deliberately does NOT set (see PR #5370's revert commit: forcing
- * it before every route reliably sets `app.venue_id` would 500 every
- * request that hits an RLS-protected table). Testing through the owner
- * role would therefore always return every row regardless of
- * `app.venue_id`, proving nothing about the policies themselves. A second,
- * ordinary role — granted only ordinary DML privileges, no BYPASSRLS, no
- * superuser, no ownership — is the only way to observe the policies
- * actually enforcing anything, matching the verification methodology
- * already recorded in PR #5370's own commit body.
+ * owner unless the table also has `FORCE ROW LEVEL SECURITY` (#5369).
+ * Testing only through the owner role would therefore return every row
+ * regardless of `app.venue_id`, proving nothing about the policies
+ * themselves. A second, ordinary role — granted only ordinary DML
+ * privileges, no BYPASSRLS, no superuser, no ownership — is the only way to
+ * observe the policies actually enforcing anything.
+ *
+ * **This suite enables `FORCE ROW LEVEL SECURITY` on all seven ADR-026 tables
+ * for its own duration** (after seeding, since owner-side seed writes are
+ * themselves subject to RLS under FORCE) and disables it again in `afterAll`.
+ * No migration in this repo sets FORCE — that flip is a separate, reviewed
+ * change, gated on the audit in #5369. Enabling it *here* is what makes the
+ * `venue_cross_venue_read` assertions below mean anything: without FORCE the
+ * escape hatch reads every venue through plain owner-bypass, so a broken
+ * policy would look identical to a working one.
+ *
+ * FORCE is per-table cluster state, shared by every connection to the target
+ * database, so this suite serialises itself against the sibling real-Postgres
+ * suite (`../services/lapsed-guest-cron.rls.integration.test.ts`) with the
+ * advisory lock below. Vitest runs test FILES in parallel workers, and without
+ * that lock the sibling's owner-side seed writes land inside this window and
+ * are rejected — measured, `42501 new row violates row-level security policy
+ * for table "guests"` on roughly one run in ten.
  */
+
+/**
+ * Advisory-lock key (the issue number) held for as long as either
+ * real-Postgres suite is touching the ADR-026 tables. Both suites must use the
+ * same value; see the doc comment above for what interleaving costs.
+ *
+ * Held on a DEDICATED `pg.Client`, not through Prisma: `pg_advisory_lock` is
+ * session-scoped, and Prisma's pool hands out an arbitrary connection per
+ * query, so a lock taken through it could be released on a different session
+ * than it was taken on — i.e. never released at all.
+ */
+const RLS_SUITE_LOCK_KEY = 5369;
+
+async function acquireRlsSuiteLock(url: string): Promise<pg.Client> {
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  await client.query("SELECT pg_advisory_lock($1)", [RLS_SUITE_LOCK_KEY]);
+  return client;
+}
+
+async function releaseRlsSuiteLock(client: pg.Client): Promise<void> {
+  await client.query("SELECT pg_advisory_unlock($1)", [RLS_SUITE_LOCK_KEY]);
+  await client.end();
+}
+
+/** The seven tables ADR-026 §1 puts under RLS, in the order its §5 lists them. */
+const RLS_TABLES = [
+  "venues",
+  "floor_plans",
+  "tables",
+  "guests",
+  "reservations",
+  "deposits",
+  "waitlist_entries",
+] as const;
 const DATABASE_URL = process.env.DATABASE_URL;
 const RLS_TEST_ROLE = "rls_isolation_test_role";
 const RLS_TEST_PASSWORD = "rls_isolation_test_password";
@@ -59,11 +111,14 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
   let restrictedPrisma: PrismaClient;
   let shutdownOwner: () => Promise<void>;
   let shutdownRestricted: () => Promise<void>;
+  let lockClient: pg.Client;
   let venueAId: string;
   let venueBId: string;
   let reservationAId: string;
 
   beforeAll(async () => {
+    lockClient = await acquireRlsSuiteLock(DATABASE_URL as string);
+
     const ownerDb = createDatabase(PrismaClient as never, DATABASE_URL);
     const restrictedDb = createDatabase(
       PrismaClient as never,
@@ -87,6 +142,12 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
     `);
     await ownerPrisma.$executeRawUnsafe(
       `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`
+    );
+    // ADR-026 §3's cross-venue escape hatch revokes EXECUTE from PUBLIC, so a
+    // non-owner needs it granted explicitly — the same GRANT whichever change
+    // moves the service onto a non-owner role will have to issue.
+    await ownerPrisma.$executeRawUnsafe(
+      `GRANT EXECUTE ON FUNCTION app_cross_venue_venues(text) TO ${RLS_TEST_ROLE}`
     );
 
     // Seed cross-tenant fixtures as the owner role (bypasses RLS by design).
@@ -119,9 +180,21 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
     await ownerPrisma.deposit.create({
       data: { reservationId: reservationAId, amountCents: 5000 },
     });
+
+    // Seeding is done, so the owner can stop being exempt. Everything below
+    // this line runs with the backstop actually engaged for every role.
+    for (const table of RLS_TABLES) {
+      await ownerPrisma.$executeRawUnsafe(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
+    }
   });
 
   afterAll(async () => {
+    // Undo FORCE before the owner-side cleanup below: under FORCE those
+    // DELETEs are themselves policy-checked and would silently remove nothing.
+    for (const table of RLS_TABLES) {
+      await ownerPrisma.$executeRawUnsafe(`ALTER TABLE "${table}" NO FORCE ROW LEVEL SECURITY`);
+    }
+
     await ownerPrisma.deposit.deleteMany({ where: { reservationId: reservationAId } });
     await ownerPrisma.reservation.deleteMany({ where: { venueId: { in: [venueAId, venueBId] } } });
     await ownerPrisma.guest.deleteMany({ where: { venueId: { in: [venueAId, venueBId] } } });
@@ -129,6 +202,10 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
     await ownerPrisma.venue.deleteMany({ where: { id: { in: [venueAId, venueBId] } } });
     await shutdownRestricted();
     await shutdownOwner();
+    // The module singleton the `venueService` assertions go through opens its
+    // own pool from `DATABASE_URL`; close it or vitest hangs on the handle.
+    await db.shutdown();
+    await releaseRlsSuiteLock(lockClient);
   });
 
   it("returns zero reservation rows for Venue A's data when app.venue_id is set to Venue B, with no app-level venueId filter", async () => {
@@ -224,5 +301,126 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
     const rows = await restrictedPrisma.venue.findMany();
 
     expect(rows).toEqual([]);
+  });
+
+  /**
+   * ADR-026 §3's two cross-venue reads, under the conditions that make them
+   * mean something: `FORCE ROW LEVEL SECURITY` on, queried by a role that does
+   * not own the tables (issue #5369). Without FORCE every assertion here would
+   * pass through plain owner-bypass and prove nothing.
+   */
+  describe("cross-venue escape hatch (app_cross_venue_venues, #5369)", () => {
+    it("has FORCE ROW LEVEL SECURITY enabled on all seven ADR-026 tables for this suite", async () => {
+      // Guard against the whole block silently degrading into an
+      // owner-bypass no-op if the beforeAll FORCE loop ever stops running.
+      const rows = await ownerPrisma.$queryRawUnsafe<
+        { relname: string; relforcerowsecurity: boolean }[]
+      >(
+        // Scoped to ordinary public tables: `information_schema` also owns a
+        // view called `tables`, which would otherwise join this result.
+        `SELECT relname, relforcerowsecurity FROM pg_class
+         WHERE relname = ANY($1)
+           AND relkind = 'r'
+           AND relnamespace = 'public'::regnamespace
+         ORDER BY relname`,
+        [...RLS_TABLES]
+      );
+
+      expect(rows).toHaveLength(RLS_TABLES.length);
+      expect(rows.filter((row) => !row.relforcerowsecurity)).toEqual([]);
+    });
+
+    it("makes even the OWNER default-deny, which is the whole point of the flip", async () => {
+      // The measured shape of #5369: with FORCE absent this returns every
+      // venue for the owning role no matter what app.venue_id says, which is
+      // why the backstop is inert in production today.
+      const rows = await ownerPrisma.venue.findMany();
+
+      expect(rows).toEqual([]);
+    });
+
+    it("reads every venue for a NON-OWNER through the escape hatch", async () => {
+      const rows = await restrictedPrisma.$queryRawUnsafe<{ id: string }[]>(
+        "SELECT id FROM app_cross_venue_venues()"
+      );
+
+      expect(rows.map((row) => row.id)).toEqual(expect.arrayContaining([venueAId, venueBId]));
+    });
+
+    it("scopes the hatch by venue group when one is passed (venueService.list's filter)", async () => {
+      const rows = await restrictedPrisma.$queryRawUnsafe<{ id: string }[]>(
+        "SELECT id FROM app_cross_venue_venues($1::text)",
+        "no-such-group"
+      );
+
+      expect(rows).toEqual([]);
+    });
+
+    it("reads every venue for the cron's real call path (getAllVenueIds) as a NON-OWNER", async () => {
+      const venueIds = await getAllVenueIds(restrictedPrisma);
+
+      expect(venueIds).toEqual(expect.arrayContaining([venueAId, venueBId]));
+    });
+
+    it("runs venueService.list's own SQL against real Postgres under FORCE", async () => {
+      // `venue.test.ts` mocks `$queryRaw`, so nothing there would catch a typo,
+      // a wrong column alias or a bad cast in the admin list's hand-written
+      // query. This executes it — through the module singleton, i.e. the same
+      // connection and the same deployed role the service itself uses.
+      const result = await venueService.list(1, 100);
+
+      expect(result.data.map((venue) => venue.id)).toEqual(
+        expect.arrayContaining([venueAId, venueBId])
+      );
+      expect(result.pagination.total).toBeGreaterThanOrEqual(2);
+
+      const venueA = result.data.find((venue) => venue.id === venueAId);
+      // Proves the join and the snake_case → camelCase re-shape, not just the
+      // row count: an aliased column that failed to land would read undefined.
+      expect(venueA?.name).toBe("RLS Test Venue A");
+      expect(venueA?.ianaTimezone).toBe("UTC");
+      expect(typeof venueA?.createdAt).toBe("string");
+    });
+
+    it("applies venueService.list's venue-group filter in real SQL", async () => {
+      const result = await venueService.list(1, 100, "no-such-group");
+
+      expect(result.data).toEqual([]);
+      expect(result.pagination.total).toBe(0);
+    });
+
+    it("does not admit a NON-OWNER that sets the marker itself — the hatch is definer-only", async () => {
+      // The second conjunct of `venue_cross_venue_read`: a role that is not
+      // (a member of) the table's owner cannot forge its way in, so once the
+      // service stops connecting as the owner, `app_cross_venue_venues` is the
+      // only path. Today the app IS the owner, so this is the property that
+      // arrives for free with that change rather than one holding now.
+      const rows = await restrictedPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.cross_venue', 'on', true)`;
+        return tx.venue.findMany();
+      });
+
+      expect(rows).toEqual([]);
+    });
+
+    it("does not leave the marker set for a later query on the same connection", async () => {
+      await restrictedPrisma.$queryRawUnsafe("SELECT id FROM app_cross_venue_venues()");
+
+      const rows = await restrictedPrisma.venue.findMany();
+
+      expect(rows).toEqual([]);
+    });
+
+    it("does not admit a cross-venue WRITE, even for the owner with the marker set", async () => {
+      // The admitting policy is FOR SELECT only, so `venue_isolation` is still
+      // the only policy governing writes — an escape hatch that could write
+      // would reopen exactly the hole ADR-026 exists to close.
+      const updated = await ownerPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.cross_venue', 'on', true)`;
+        return tx.venue.updateMany({ data: { currencyCode: "EUR" } });
+      });
+
+      expect(updated.count).toBe(0);
+    });
   });
 });

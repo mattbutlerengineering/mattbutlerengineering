@@ -8542,6 +8542,18 @@
         createdAt: Date;
       }): VenueGroup { /* ... */ }
     </item>
+    <item priority="high">
+      interface CrossVenueVenueRow {
+        id: string;
+        venue_group_id: string | null;
+        name: string;
+        slug: string;
+        iana_timezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function mapCrossVenueRow(row: CrossVenueVenueRow): Venue { /* ... */ }
+    </item>
     <item priority="medium">
       function mapPrismaVenue(venue: {
         id: string;

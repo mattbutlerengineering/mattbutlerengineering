@@ -617,6 +617,21 @@ join-based `deposits` policy all return zero rows — or, for `venues`, no
 other venue's row — with the app-level `venueId`/`id` filter deliberately
 removed).
 
+**Cross-venue reads go through one named function.** Two reads cannot name a
+single venue by construction — the lapsed-guest cron's venue list
+(`getAllVenueIds`) and the platform-admin venue list (`venueService.list`) —
+and both now read through `app_cross_venue_venues()`
+(`prisma/migrations/20260920000000_add_cross_venue_read_escape_hatch`), a
+`SECURITY DEFINER` function admitted by a `SELECT`-only policy keyed on the
+transaction-local marker it sets and restores around its own `venues` scan
+(ADR-026 §3.1). Before adding a third caller, read §3.1: the hatch is
+`SELECT`-only on purpose, `grep -rn app_cross_venue_venues` is the whole review
+surface, and a read that CAN name its venue must use `setVenueContext` instead.
+ADR-026 §3.3 lists what still blocks the FORCE flip — including that every
+entity-addressed `/:id` route and the entire `/public/v1/venues/:slug/*` funnel
+would break under it, because the lookup that resolves their venue is itself an
+unscoped read.
+
 ## Commands
 
 ```bash
