@@ -35,6 +35,7 @@
     "check:story-coverage": "node scripts/check-story-coverage.mjs",
     "check:rialto-changeset": "node scripts/check-rialto-changeset.mjs",
     "check:claude-md-table-drift": "node scripts/check-claude-md-table-drift.mjs",
+    "check:memory-refs": "node scripts/check-memory-refs.mjs",
     "check:ci-gate-coverage": "node scripts/check-ci-gate-coverage.mjs",
     "check:markdown": "node scripts/audit-markdown.mjs",
     "audit:security": "pnpm audit --audit-level=high",
