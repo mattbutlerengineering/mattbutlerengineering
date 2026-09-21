@@ -1,7 +1,23 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS = 30 * DAY_MS;
+
+/**
+ * Recency window for correction capture — deliberately wider than checkFeedbackLoop's 30 days.
+ *
+ * That checker guards an *automated* daily log, where a 30-day silence means ~30 missed runs and
+ * is unambiguously broken. Correction capture is *human-initiated* at the end of a session, so the
+ * corpus legitimately goes quiet through stretches of routine work where nobody was corrected. A
+ * 30-day window here would go red during an ordinary quiet month, and a check that cries wolf on
+ * healthy behaviour gets muted — which is the exact failure this criterion exists to detect.
+ *
+ * 90 days is one quarter: three of this repo's monthly review cycles would each have to pass
+ * without a single correction captured before it fires. Below that it is noise; above it, a dead
+ * loop keeps reading as a live one (the corpus sat frozen for four months before anyone noticed).
+ */
+const NINETY_DAYS_MS = 90 * DAY_MS;
 
 function readFileSafe(filePath) {
   try {
@@ -23,16 +39,48 @@ function extractISODates(text) {
   return [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map((m) => m[1]);
 }
 
+/**
+ * Newest ISO date declared in an entry's frontmatter, or null if it declares none.
+ *
+ * Frontmatter-only on purpose. Correction files carry `date:` for when the correction happened,
+ * but their *bodies* accumulate "## Verification <date>" notes from periodic reviews. Reading
+ * dates from the body would let a review of a four-month-old entry count as a fresh capture —
+ * re-reading an old lesson is not capturing a new one, and two files in this repo's own corpus
+ * carry such a note dated within the window while the corpus itself has not grown since May.
+ */
+function newestFrontmatterDate(frontmatter) {
+  let newest = null;
+  for (const d of extractISODates(frontmatter)) {
+    const ts = new Date(d).getTime();
+    if (isNaN(ts)) continue;
+    if (!newest || ts > newest.ts) newest = { date: d, ts };
+  }
+  return newest;
+}
+
 function checkReflection(filePaths, _cwd) {
+  let newest = null;
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content) continue;
     const { frontmatter, body } = parseFrontmatter(content);
-    if (frontmatter.includes("feeds_back_into:") && body.length > 50) {
-      return { passed: true, evidence: `has feeds_back_into + body ${body.length} chars` };
-    }
+    if (!frontmatter.includes("feeds_back_into:") || body.length <= 50) continue;
+    const dated = newestFrontmatterDate(frontmatter);
+    if (dated && (!newest || dated.ts > newest.ts)) newest = dated;
   }
-  return { passed: false, evidence: "missing feeds_back_into frontmatter or body too short" };
+
+  if (!newest) {
+    return {
+      passed: false,
+      evidence: "no dated entry with feeds_back_into + body over 50 chars",
+    };
+  }
+
+  const age = Date.now() - newest.ts;
+  // Floor, not round: an entry dated today is 0 days old for the whole of today.
+  const evidence = `newest entry ${newest.date} is ${Math.floor(age / DAY_MS)} days old`;
+  if (age <= NINETY_DAYS_MS) return { passed: true, evidence };
+  return { passed: false, evidence: `${evidence} (window: ${NINETY_DAYS_MS / DAY_MS} days)` };
 }
 
 function checkSkill(filePaths, _cwd) {
