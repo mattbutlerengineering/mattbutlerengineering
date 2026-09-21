@@ -31,6 +31,7 @@ import {
   buildThresholds,
 } from "./sensors-registry.mjs";
 import { buildReport, formatSensorDisplay } from "./build-sensor-report.mjs";
+import { buildHealthTrends, writeHealthTrends } from "./generate-health-trends.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -133,6 +134,10 @@ function main() {
     write("sensor-report", report, { root: ROOT });
     appendReportHistory(report, { root: ROOT });
     writeMarketingCopy(report, { root: ROOT });
+    // #5443: refreshed in the same run as the marketing snapshot copy, so the
+    // page's trend panels can never disagree with its point-in-time panels
+    // about how current the data is.
+    writeHealthTrends(buildHealthTrends({ root: ROOT, now }), { root: ROOT });
     if (!JSON_ONLY) console.log(`   Written to: ${REPORT_PATH}\n`);
   }
 
