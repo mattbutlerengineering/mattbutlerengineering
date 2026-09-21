@@ -150,6 +150,63 @@ function defaultWriteFile(filePath, content) {
 }
 
 /**
+ * The identity of a telemetry row: one row per (issue, PR).
+ *
+ * `appendTelemetryRow` has enforced this on the append path since it was
+ * written, so one row per PR is the file's intended invariant — not a
+ * convention readers may or may not rely on. Rows with no `pr_number` (the
+ * worker failed before opening one) have no identity and are never merged.
+ *
+ * @param {{issue_number?: number, pr_number?: number|null}} row
+ * @returns {string|null} stable key, or null when the row has no identity
+ */
+export function telemetryRowKey(row) {
+  if (row?.pr_number == null) return null;
+  return `${row.issue_number}::${row.pr_number}`;
+}
+
+/**
+ * Collapse rows sharing an identity, keeping the first and folding in any
+ * field the later copy carries that the first is missing.
+ *
+ * The append path cannot produce duplicates, but a *rewrite* can: three
+ * `chore(metrics): optimize-implement-queue` commits (#4223, #4572, #4719)
+ * put 32 of them in the file, because `reconcile-queue-telemetry.mjs`
+ * rewrites the whole sink from the rows its checkout read, and a rewrite
+ * landing on a main that has since gained rows reconciles as "keep both".
+ * That is why the guard belongs on the write path too, not only the append.
+ *
+ * Merging rather than dropping matters: of the 32 real duplicates, 30 pairs
+ * were byte-identical and 2 carried a `human_touch_reason` only on the later
+ * copy. Dropping blind would have silently discarded those two values.
+ *
+ * @param {object[]} rows
+ * @returns {{ rows: object[], removed: number }}
+ */
+export function dedupeTelemetryRows(rows) {
+  const indexByKey = new Map();
+  const out = [];
+  let removed = 0;
+
+  for (const row of rows) {
+    const key = telemetryRowKey(row);
+    if (key === null || !indexByKey.has(key)) {
+      if (key !== null) indexByKey.set(key, out.length);
+      out.push(row);
+      continue;
+    }
+    const kept = out[indexByKey.get(key)];
+    for (const [field, value] of Object.entries(row)) {
+      const missing = !(field in kept) || (kept[field] === null && value !== null);
+      if (missing) kept[field] = value;
+    }
+    removed += 1;
+  }
+
+  return { rows: out, removed };
+}
+
+/**
  * Append a telemetry row to the queue-telemetry metric sink.
  *
  * Pure function with dependency injection — safe to call from tests

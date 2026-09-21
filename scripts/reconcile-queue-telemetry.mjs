@@ -34,6 +34,7 @@
 import { createGhClient } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 import { defaultFetchPrDetails, resolveHumanTouchReason } from "./backfill-human-touch-reasons.mjs";
+import { dedupeTelemetryRows } from "./collect-queue-telemetry.mjs";
 
 const DEFAULT_MAX_CALLS = 50;
 const STALE_PRLESS_DAYS = 30;
@@ -152,10 +153,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     fetchPrDetails: defaultFetchPrDetails,
   });
 
-  if (reconciled > 0) {
-    write("queue-telemetry", reconciledRows);
+  // This script REWRITES the whole sink rather than appending, so it is the
+  // one path that can reintroduce duplicates: a rewrite computed in a
+  // checkout behind main, landing on a main that has since gained rows,
+  // reconciles as "keep both". That is exactly how #4223, #4572 and #4719
+  // put 32 duplicate rows in the file. Collapsing here makes the rewrite
+  // idempotent on (issue_number, pr_number), the same invariant the append
+  // path has always enforced.
+  const { rows: dedupedRows, removed } = dedupeTelemetryRows(reconciledRows);
+
+  if (reconciled > 0 || removed > 0) {
+    write("queue-telemetry", dedupedRows);
   }
-  const pending = reconciledRows.filter((r) => r.merged == null).length;
+  if (removed > 0) {
+    process.stdout.write(
+      `[reconcile-queue-telemetry] collapsed ${removed} duplicate row(s) on (issue, pr)\n`
+    );
+  }
+  const pending = dedupedRows.filter((r) => r.merged == null).length;
   process.stdout.write(
     `[reconcile-queue-telemetry] ${reconciled} row(s) reconciled (${calls} GitHub lookups, ` +
       `${pending} still pending) → ${resolvePath("queue-telemetry")}\n`

@@ -90,6 +90,11 @@ export const REPO_AUDIT_CHECKS = [
   },
   { name: "check-ci-gate-coverage", command: "node", args: ["scripts/check-ci-gate-coverage.mjs"] },
   {
+    name: "check-queue-telemetry-dupes",
+    command: "node",
+    args: ["scripts/check-queue-telemetry-dupes.mjs"],
+  },
+  {
     name: "check-workflow-pr-scope",
     command: "node",
     args: ["scripts/check-workflow-pr-scope.mjs"],
