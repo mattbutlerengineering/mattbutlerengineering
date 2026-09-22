@@ -93,14 +93,17 @@ jobs:
       # 46-package production-dependency bump that never reached the
       # running services. Re-run CI on this exact commit before waiting.
       # See scripts/deploy-ci-precondition.mjs for the measurements.
-      - name: Recover a cancelled CI run
+      - name: Assess CI status for this commit
         # Best-effort, and never a new way for a deploy to fail. Without
-        # this, `set -e` plus a transient `gh` error (rate limit, 5xx, a
-        # rerun refused because the run has aged out) would block a deploy
-        # that would otherwise have proceeded — trading a rare stall for a
-        # new common one. On failure the wait step below behaves exactly as
-        # it does today, so the worst case is the status quo, and the step
-        # still shows as failed in the run so the miss stays visible.
+        # continue-on-error, `set -e` plus a transient `gh` error (rate
+        # limit, 5xx, a rerun refused because the run has aged out) would
+        # block a deploy that would otherwise have proceeded — trading a
+        # rare stall for a new common one. If this step itself fails, it
+        # leaves no `verdict` output, and the fail-fast step below treats a
+        # missing verdict as "proceed to the normal wait", so the worst case
+        # stays the status quo — the step still shows as failed in the run
+        # so the miss stays visible.
+        id: assess
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -108,11 +111,61 @@ jobs:
           set -euo pipefail
           runs=$(gh run list --commit "$GITHUB_SHA" --workflow ci.yml \
             --limit 10 --json databaseId,status,conclusion)
-          verdict=$(node scripts/deploy-ci-precondition.mjs "$runs")
+
+          # `gh run list --commit` is documented-unreliable: it has returned
+          # `[]` for over an hour on real squash-merge commits while the
+          # checks API already reported `Build: success` on the same SHA —
+          # exactly the window a recovery dispatch is likely to land in.
+          # Before the fail-fast step below can treat "no runs" as "no CI
+          # ever ran", cross-check the checks API directly. A failed or
+          # empty query leaves has_check_runs unset ("unverified"), which
+          # shouldFailFast treats as "do not fail fast" — never as "verified
+          # empty". Only worth doing when the run list is already empty.
+          has_check_runs=""
+          if [ "$(echo "$runs" | jq 'length')" = "0" ]; then
+            if check_runs_json=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" 2>/dev/null); then
+              check_runs_count=$(echo "$check_runs_json" | jq '.total_count // 0')
+              if [ "$check_runs_count" -gt 0 ] 2>/dev/null; then
+                has_check_runs="true"
+              else
+                has_check_runs="false"
+              fi
+            fi
+          fi
+
+          verdict=$(node scripts/deploy-ci-precondition.mjs "$runs" "$GITHUB_EVENT_NAME" "$has_check_runs")
           echo "CI precondition for $GITHUB_SHA: $verdict"
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           if [ "$(echo "$verdict" | jq -r .rerun)" = "true" ]; then
             gh run rerun "$(echo "$verdict" | jq -r .runId)"
             echo "Re-ran the cancelled CI run; the wait step can now resolve."
+          fi
+
+      # #5663: a `workflow_dispatch` recovery run on a commit with zero
+      # ci.yml runs — most often a `GITHUB_TOKEN`-authored merge, whose push
+      # event GitHub's anti-recursion rule never delivers to any workflow —
+      # will never see the wait step's `Build` check appear, no matter how
+      # long it polls. Fail within ~seconds naming the real reason instead of
+      # burning the 30-minute discovery timeout. NOT continue-on-error: this
+      # is the one outcome that must actually stop the job, so `deploy`
+      # (needs: [ci-gate]) never runs. Every other verdict is a no-op here,
+      # so today's push-triggered behaviour is unchanged. See
+      # scripts/deploy-ci-precondition.mjs's `shouldFailFast` for why this
+      # does not re-trip the circuit breaker, and for why it also requires
+      # the checks API to independently confirm no check run exists before
+      # treating an empty `gh run list` as final.
+      - name: Fail fast when no CI run will ever exist for this commit
+        env:
+          VERDICT: ${{ steps.assess.outputs.verdict }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERDICT" ]; then
+            echo "No precondition verdict available — proceeding to the normal wait."
+            exit 0
+          fi
+          if [ "$(echo "$VERDICT" | jq -r .failFast)" = "true" ]; then
+            echo "::error::No CI run exists for $GITHUB_SHA — deploy-services.yml was dispatched manually, but no push-event workflow run exists for this commit at all (most often a GITHUB_TOKEN-merged automation PR, which GitHub's anti-recursion rule suppresses). Push a code change, or dispatch ci.yml directly for this ref, then retry."
+            exit 1
           fi
 
       - name: Wait for CI workflow
