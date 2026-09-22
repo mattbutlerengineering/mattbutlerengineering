@@ -109,28 +109,57 @@ jobs:
           set -o pipefail
 
           # A `Deploy Services` run can fail WITHOUT attempting a deployment:
-          # `Wait for CI` fails when CI on that commit is not green, and the
-          # `Deploy Blocked` path short-circuits when the breaker is already
-          # open. In both cases `Deploy API Services` reports `skipped`.
-          # Counting those as deploy failures is what tripped the breaker on
-          # 2026-09-22 (run 35674731430 -> #5659) over one real deploy
-          # failure and one run that never deployed, while production was
-          # healthy. So ask each run what its DEPLOY JOB concluded, not what
-          # the run as a whole concluded.
+          # `Wait for CI` fails when CI on that commit is not green, which
+          # leaves `Deploy API Services` as `skipped`. Counting that as a
+          # deploy failure is what tripped the breaker on 2026-09-22 (run
+          # 35674731430 -> #5659) over one real deploy failure and one run
+          # that never deployed, while production was healthy. So ask each
+          # run what its DEPLOY JOB concluded, not what the run concluded.
+          #
+          # A breaker-blocked run is NOT part of that story, contrary to the
+          # obvious guess: measured on run 35152567274, `Deploy Blocked`
+          # concludes `success` (it only echoes a warning and exits 0) and a
+          # skipped job does not fail a run, so the run concluded `success`
+          # and the old logic *reset* the count on blocked runs. Reading the
+          # deploy job removes that false close; the trade is stickiness,
+          # since escaping an open breaker then needs `force=true` or enough
+          # later runs to scroll the failures out of this `--limit 5` window.
+          #
+          # The verify job is collected too. It has no `continue-on-error`
+          # and exits 1 on a non-200, so a deploy that ships and leaves
+          # production unhealthy is `Deploy API Services: success` +
+          # `Post-Deploy Verification: failure` - which the deploy job alone
+          # would read as a SUCCESS and use to reset a real streak.
           RUN_IDS=$(gh run list --workflow "Deploy Services" --limit 5 --json databaseId --jq '.[].databaseId')
 
           RUNS_JSON="[]"
           for ID in $RUN_IDS; do
-            JOB_CONCLUSION=$(gh run view "$ID" --json jobs \
-              --jq '[.jobs[] | select(.name=="Deploy API Services")] | .[0].conclusion // ""')
+            JOBS=$(gh run view "$ID" --json jobs)
+            DEPLOY_CONCLUSION=$(printf '%s' "$JOBS" | jq -r \
+              '[.jobs[] | select(.name=="Deploy API Services")] | .[0].conclusion // ""')
+            VERIFY_CONCLUSION=$(printf '%s' "$JOBS" | jq -r \
+              '[.jobs[] | select(.name=="Post-Deploy Verification")] | .[0].conclusion // ""')
             RUNS_JSON=$(printf '%s' "$RUNS_JSON" | jq \
-              --arg c "$JOB_CONCLUSION" '. + [{deployJobConclusion: $c}]')
+              --arg d "$DEPLOY_CONCLUSION" --arg v "$VERIFY_CONCLUSION" \
+              '. + [{deployJobConclusion: $d, verifyJobConclusion: $v}]')
           done
 
           FAIL_COUNT=$(printf '%s' "$RUNS_JSON" | node _breaker-lib/scripts/circuit-breaker-deploy-failures.mjs count)
 
+          # The only place in this step that could fail OPEN: a non-numeric
+          # count falls through to the `else` below and writes `closed`,
+          # because `set -e` does not fire inside an `if` condition.
+          # Unreachable while the script either prints an integer or exits
+          # nonzero, which is exactly why it is cheap to pin here.
+          case "$FAIL_COUNT" in
+            '' | *[!0-9]*)
+              echo "::error::deploy-failure classifier returned a non-numeric count: '$FAIL_COUNT'"
+              exit 1
+              ;;
+          esac
+
           echo "Recent consecutive DEPLOY failures: $FAIL_COUNT"
-          echo "Deploy job conclusions (newest first): $(printf '%s' "$RUNS_JSON" | jq -c '[.[].deployJobConclusion]')"
+          echo "Deploy/verify conclusions (newest first): $(printf '%s' "$RUNS_JSON" | jq -c '[.[] | [.deployJobConclusion, .verifyJobConclusion]]')"
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Update state based on failure count

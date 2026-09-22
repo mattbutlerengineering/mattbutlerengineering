@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   DEPLOY_JOB_NAME,
+  VERIFY_JOB_NAME,
   classifyDeployRun,
   countConsecutiveDeployFailures,
 } from "../circuit-breaker-deploy-failures.mjs";
@@ -12,6 +13,14 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/circuit-breaker.yml"), "utf8");
+const DEPLOY_WORKFLOW = readFileSync(
+  resolve(ROOT, ".github/workflows/deploy-services.yml"),
+  "utf8"
+);
+const ANALYZE_STEP = WORKFLOW.slice(
+  WORKFLOW.indexOf("Analyze deploy results"),
+  WORKFLOW.indexOf("Persist state to git")
+);
 
 describe("classifyDeployRun", () => {
   it("treats a failed or timed-out deploy job as a deploy failure", () => {
@@ -35,6 +44,56 @@ describe("classifyDeployRun", () => {
     expect(classifyDeployRun(undefined)).toBe("not-a-deploy");
     // A cancelled deploy produced no outcome either.
     expect(classifyDeployRun({ deployJobConclusion: "cancelled" })).toBe("not-a-deploy");
+  });
+});
+
+describe("classifyDeployRun — the verify veto", () => {
+  it("counts a deploy that shipped and left production unhealthy", () => {
+    // `Post-Deploy Verification` curls prod's health endpoints with no
+    // continue-on-error. Reading the deploy job alone called this a
+    // SUCCESS, which both dropped a real failure and reset the streak.
+    expect(
+      classifyDeployRun({ deployJobConclusion: "success", verifyJobConclusion: "failure" })
+    ).toBe("deploy-failure");
+    expect(
+      classifyDeployRun({ deployJobConclusion: "success", verifyJobConclusion: "timed_out" })
+    ).toBe("deploy-failure");
+  });
+
+  it("still treats a deploy whose verification passed as a success", () => {
+    expect(
+      classifyDeployRun({ deployJobConclusion: "success", verifyJobConclusion: "success" })
+    ).toBe("deploy-success");
+    // Verification absent or skipped is not evidence of ill health.
+    expect(
+      classifyDeployRun({ deployJobConclusion: "success", verifyJobConclusion: "skipped" })
+    ).toBe("deploy-success");
+    expect(classifyDeployRun({ deployJobConclusion: "success" })).toBe("deploy-success");
+  });
+
+  it("keeps a failed deploy a failure regardless of the verify job", () => {
+    expect(
+      classifyDeployRun({ deployJobConclusion: "failure", verifyJobConclusion: "skipped" })
+    ).toBe("deploy-failure");
+  });
+
+  it("does not let an unhealthy deploy reset a real streak (#5662 review)", () => {
+    // Two deploys that shipped into a red production. The old run-level
+    // logic tripped on this; the deploy-job-only draft returned 0.
+    expect(
+      countConsecutiveDeployFailures([
+        { deployJobConclusion: "success", verifyJobConclusion: "failure" },
+        { deployJobConclusion: "success", verifyJobConclusion: "failure" },
+      ])
+    ).toBe(2);
+
+    // And one unhealthy deploy on top of a real failure still counts both.
+    expect(
+      countConsecutiveDeployFailures([
+        { deployJobConclusion: "success", verifyJobConclusion: "failure" },
+        { deployJobConclusion: "failure" },
+      ])
+    ).toBe(2);
   });
 });
 
@@ -116,9 +175,36 @@ describe("circuit-breaker.yml wiring", () => {
     expect(WORKFLOW).not.toMatch(/FAIL_COUNT=\$\(\(FAIL_COUNT \+ 1\)\)/);
   });
 
-  it("reads the deploy job's own conclusion, which is the only real signal", () => {
-    expect(WORKFLOW).toContain(DEPLOY_JOB_NAME);
-    expect(WORKFLOW).toContain("deployJobConclusion");
+  it("selects the deploy and verify jobs by their real names", () => {
+    // Asserted against the PARSED jq selectors, not the file text. The
+    // explanatory comment above the step necessarily names both jobs, so
+    // `expect(WORKFLOW).toContain(DEPLOY_JOB_NAME)` is satisfied by prose:
+    // mutating the selector to a wrong job name left all 13 tests green
+    // while making the breaker permanently dead (every conclusion reads
+    // "", so FAIL_COUNT is always 0 and it can never trip). That is the
+    // same defect as the trigger test's first draft, in the same PR.
+    const selectors = [...ANALYZE_STEP.matchAll(/select\(\.name=="([^"]+)"\)/g)].map((m) => m[1]);
+
+    expect(selectors).toContain(DEPLOY_JOB_NAME);
+    expect(selectors).toContain(VERIFY_JOB_NAME);
+    expect(ANALYZE_STEP).toContain("deployJobConclusion");
+    expect(ANALYZE_STEP).toContain("verifyJobConclusion");
+  });
+
+  it("selects job names that deploy-services.yml actually declares", () => {
+    // The other half of the coupling: the selectors above are strings
+    // matched against another workflow's job names. A rename there makes
+    // this breaker silently blind, with nothing red anywhere.
+    expect(DEPLOY_WORKFLOW).toMatch(new RegExp(`name:\\s*${DEPLOY_JOB_NAME}\\s*$`, "m"));
+    expect(DEPLOY_WORKFLOW).toMatch(new RegExp(`name:\\s*${VERIFY_JOB_NAME}\\s*$`, "m"));
+  });
+
+  it("refuses a non-numeric count instead of falling through to `closed`", () => {
+    // `set -e` does not fire inside an `if` condition, so a non-numeric
+    // FAIL_COUNT would take the else branch and write state: closed — the
+    // one place in the step that could fail open.
+    expect(ANALYZE_STEP).toMatch(/\*\[!0-9\]\*/);
+    expect(ANALYZE_STEP).toContain("non-numeric count");
   });
 
   it("makes the classifier available to the sparse-checkout job", () => {

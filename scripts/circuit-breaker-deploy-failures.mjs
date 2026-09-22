@@ -6,12 +6,23 @@
  *
  * The breaker used to count run-level conclusions straight off
  * `gh run list --workflow "Deploy Services" --json conclusion`. A
- * `Deploy Services` run can fail without ever attempting a deployment —
- * its `Wait for CI` job fails when CI on that commit is not green, and its
- * own `Deploy Blocked` path short-circuits when the breaker is already
- * open. Counting those as deploy failures conflates "we tried to deploy and
- * it broke" with "we never got as far as deploying", and the breaker then
- * blocks production deploys over an unrelated CI failure.
+ * `Deploy Services` run can fail without ever attempting a deployment: its
+ * `Wait for CI` job fails when CI on that commit is not green, which leaves
+ * `Deploy API Services` as `skipped`. Counting that as a deploy failure
+ * conflates "we tried to deploy and it broke" with "we never got as far as
+ * deploying", and the breaker then blocks production deploys over an
+ * unrelated CI failure.
+ *
+ * Note what this is NOT: a breaker-blocked run does not accumulate against
+ * itself. Measured on run 35152567274 — `Deploy Blocked: success`,
+ * `Deploy API Services: skipped`, run conclusion **success**, because the
+ * blocked job only echoes a warning and exits 0 and a skipped job does not
+ * fail a run. So the old logic *reset* the count on blocked runs rather
+ * than compounding them. Treating `skipped` as no-signal removes that
+ * false close. The price is stickiness in the other direction: once open,
+ * the breaker is escaped by a `force=true` dispatch or by enough later
+ * `Deploy Services` runs to scroll the failures out of the `--limit 5`
+ * window.
  *
  * That is exactly what happened on 2026-09-22 (run 35674731430): the two
  * runs it counted had *different, unrelated* causes — 35654241232 failed at
@@ -31,7 +42,8 @@
  *   echo "$RUNS_JSON" | node scripts/circuit-breaker-deploy-failures.mjs count
  *
  * where RUNS_JSON is newest-first:
- *   [{ "deployJobConclusion": "failure" }, { "deployJobConclusion": "success" }]
+ *   [{ "deployJobConclusion": "failure", "verifyJobConclusion": "" },
+ *    { "deployJobConclusion": "success", "verifyJobConclusion": "success" }]
  */
 
 import { readFileSync } from "node:fs";
@@ -40,28 +52,54 @@ import { fileURLToPath } from "node:url";
 /** The job inside `deploy-services.yml` that performs the actual deployment. */
 export const DEPLOY_JOB_NAME = "Deploy API Services";
 
+/**
+ * The job that curls production's health endpoints after a deploy.
+ *
+ * It carries no `continue-on-error` and exits 1 on any non-200, so a deploy
+ * that ships and leaves production unhealthy produces
+ * `Deploy API Services: success` + `Post-Deploy Verification: failure`.
+ * Reading the deploy job alone would classify that as a SUCCESS and reset a
+ * genuine failure streak — a deploy circuit breaker exists for precisely
+ * that outcome. `post-deploy-check.yml`'s smoke test does not cover the gap
+ * either: it is gated `if: github.event.workflow_run.conclusion == 'success'`
+ * and is skipped on exactly this run shape.
+ */
+export const VERIFY_JOB_NAME = "Post-Deploy Verification";
+
 /** Conclusions that mean the deploy job ran and did not succeed. */
 const FAILED_CONCLUSIONS = new Set(["failure", "timed_out"]);
 
 /**
  * Classifies one `Deploy Services` run by what it says about deploy health.
  *
- * The deploy job's own conclusion is the only authority. A run whose deploy
- * job is `skipped`, absent, or still pending never produced a deployment
- * outcome, so it carries no signal in either direction — deliberately NOT
- * treated as a failure (that is the false-trip bug) and NOT as a success
- * (that would silently reset a genuine failure streak).
+ * The deploy job's conclusion decides first; when it succeeded, the verify
+ * job gets a veto (see VERIFY_JOB_NAME). A run whose deploy job is
+ * `skipped`, absent, or still pending never produced a deployment outcome,
+ * so it carries no signal in either direction — deliberately NOT treated as
+ * a failure (that is the false-trip bug) and NOT as a success (that would
+ * silently reset a genuine failure streak).
  *
- * @param {{deployJobConclusion?: string|null}} run
+ * @param {{deployJobConclusion?: string|null, verifyJobConclusion?: string|null}} run
  * @returns {"deploy-failure" | "deploy-success" | "not-a-deploy"}
  */
 export function classifyDeployRun(run) {
-  const conclusion = String(run?.deployJobConclusion ?? "")
-    .trim()
-    .toLowerCase();
+  const normalize = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
 
-  if (FAILED_CONCLUSIONS.has(conclusion)) return "deploy-failure";
-  if (conclusion === "success") return "deploy-success";
+  const deployConclusion = normalize(run?.deployJobConclusion);
+  const verifyConclusion = normalize(run?.verifyJobConclusion);
+
+  if (FAILED_CONCLUSIONS.has(deployConclusion)) return "deploy-failure";
+
+  if (deployConclusion === "success") {
+    // Shipped, then production failed its own health check. That is a
+    // deploy failure in every sense that matters to a breaker.
+    if (FAILED_CONCLUSIONS.has(verifyConclusion)) return "deploy-failure";
+    return "deploy-success";
+  }
+
   return "not-a-deploy";
 }
 
@@ -73,7 +111,7 @@ export function classifyDeployRun(run) {
  * breaking the streak: if the newest run died in a pre-deploy gate, the two
  * failed deploys behind it are still the last thing known about deploying.
  *
- * @param {Array<{deployJobConclusion?: string|null}>} runs — newest first
+ * @param {Array<{deployJobConclusion?: string|null, verifyJobConclusion?: string|null}>} runs — newest first
  * @returns {number}
  */
 export function countConsecutiveDeployFailures(runs = []) {
