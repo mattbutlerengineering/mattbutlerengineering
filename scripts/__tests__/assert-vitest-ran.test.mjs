@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertSuitesRan } from "../assert-vitest-ran.mjs";
 
@@ -79,8 +79,69 @@ describe("ci.yml — RLS integration job wiring (#5369)", () => {
     expect(CI_WORKFLOW).toContain("CREATEROLE");
   });
 
+  it("runs EVERY DATABASE_URL-gated suite in the service, not just the two that were noticed", () => {
+    // The whole point of this job is that a `describe.skipIf(!DATABASE_URL)`
+    // suite reads as passing while running nothing. A suite gated that way
+    // and absent from this job's file list is in exactly the state the job
+    // exists to end — `lapsed-guest-cron.rls.integration.test.ts` was that
+    // case. Discovered by reading the service, so a fourth such suite added
+    // later fails here instead of silently never running.
+    const serviceRoot = resolve(ROOT, "services/reservations/src");
+    const gated = [];
+
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.name.endsWith(".test.ts")) {
+          if (/describe\.skipIf\(\s*!\s*DATABASE_URL\s*\)/.test(readFileSync(full, "utf8"))) {
+            gated.push(relative(resolve(ROOT, "services/reservations"), full));
+          }
+        }
+      }
+    };
+    walk(serviceRoot);
+
+    expect(gated.length).toBeGreaterThan(0);
+    for (const suite of gated) {
+      expect(CI_WORKFLOW, `${suite} is DATABASE_URL-gated but never runs`).toContain(suite);
+    }
+  });
+
+  it("asserts on the same report path the vitest step writes", () => {
+    // The run step's --outputFile is relative to services/reservations (pnpm
+    // --filter exec sets that cwd); the assert step takes a repo-relative
+    // path. Nothing but this test keeps the two in step, and a mismatch
+    // breaks at runtime rather than here.
+    // Scoped to this job's own block: ci.yml carries another --outputFile
+    // (rialto's a11y run), and an unscoped match reads that one instead.
+    const job = CI_WORKFLOW.slice(
+      CI_WORKFLOW.indexOf("  rls-integration:"),
+      CI_WORKFLOW.indexOf("  ai-antipattern-ratchet:")
+    );
+    const written = job.match(/--outputFile=(\S+)/)?.[1];
+
+    expect(written).toBeTruthy();
+    expect(written).not.toMatch(/a11y/);
+    expect(job).toContain(`scripts/assert-vitest-ran.mjs services/reservations/${written}`);
+  });
+
   it("proves the suites ran via the pure assert-vitest-ran.mjs script, not exit code alone", () => {
     expect(CI_WORKFLOW).toContain("scripts/assert-vitest-ran.mjs");
+  });
+
+  it("does not describe a non-failure count mismatch as failures", () => {
+    const verdict = assertSuitesRan({
+      numTotalTests: 33,
+      numPassedTests: 32,
+      numPendingTests: 0,
+      numFailedTests: 0,
+    });
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reason).not.toMatch(/tests failed/);
+    expect(verdict.reason).toMatch(/neither passed nor failed/);
   });
 
   it("is wired into ci-gate's needs, so a failure there blocks merges", () => {

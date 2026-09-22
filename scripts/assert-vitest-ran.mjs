@@ -45,8 +45,18 @@ export function assertSuitesRan(report) {
       reason: `${numPendingTests} of ${numTotalTests} tests were skipped/pending, not executed — DATABASE_URL was likely unset or unreachable`,
     };
   }
-  if (numFailedTests > 0 || numPassedTests !== numTotalTests) {
+  if (numFailedTests > 0) {
     return { ok: false, reason: `${numFailedTests} of ${numTotalTests} tests failed` };
+  }
+  // Still fail closed, but do not call it a failure count when it is not one:
+  // a `.todo` test lands in `numTodoTests` and leaves passed < total with
+  // zero failures. Reporting that as "0 of N tests failed" sends the reader
+  // looking for a broken test that does not exist.
+  if (numPassedTests !== numTotalTests) {
+    return {
+      ok: false,
+      reason: `only ${numPassedTests} of ${numTotalTests} tests passed, with no reported failures — some tests neither passed nor failed (todo/pending?)`,
+    };
   }
 
   return { ok: true, numTotalTests, numPassedTests };
