@@ -104,9 +104,15 @@ exit 0`
     expect(exitCode).toBe(0);
   });
 
-  it("never reports a verdict-free arm — outcome is always written", () => {
+  it("never reports a verdict-free arm for any pulumi outcome", () => {
     // The reporting job keys entirely off this output. An empty value is the
     // ambiguous `unknown` state that made run 35675244560 unreadable.
+    //
+    // Scoped to the pulumi calls on purpose: `npm install` is deliberately
+    // left outside the if/elif chain, so a dependency-install failure still
+    // writes no outcome. That is the correct reading — a harness that could
+    // not build its own test program has not refuted anything, and
+    // `unknown` is exactly what it should report.
     for (const stub of ["exit 0", 'if [ "$1" = "login" ]; then exit 1; fi\nexit 0']) {
       writeStub("pulumi", stub);
       expect(runArm().output).toMatch(/outcome=(pass|fail)/);
