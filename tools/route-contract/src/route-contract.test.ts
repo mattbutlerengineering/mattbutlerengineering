@@ -20,6 +20,7 @@ import {
 } from "./route-contract.js";
 import type { RouteContractReport } from "./route-contract.js";
 import { vacuityFailures } from "./vacuity.js";
+import { PLACEHOLDER } from "./types.js";
 
 let report: RouteContractReport;
 
@@ -51,5 +52,23 @@ describe("findings this guard produced on its first run", () => {
     expect(verdict?.pair.path).toBe("/health/system");
     expect(verdict?.edgeDisposition).toBe("edge-terminal");
     expect(verdict?.owners).toEqual(["edge"]);
+  });
+
+  it("Finding B — no client method reaches the unregistered venue-group by-slug path", () => {
+    const groupBySlug = report.verdicts.filter((v) =>
+      v.pair.path.startsWith("/api/v1/venues/groups/by-slug")
+    );
+
+    expect(groupBySlug).toEqual([]);
+  });
+
+  it("Finding B — the venue by-slug path the apps actually call is untouched", () => {
+    // Deleting VenueGroupsClient.getBySlug must not have taken the VENUE
+    // client's own getBySlug with it: apps/hospitality calls that one from
+    // three places (useVenues.ts, VenueOnboardingPage.tsx, PublicBookingPage.tsx).
+    const verdict = report.verdicts.find((v) => v.pair.producedBy.includes("venues.getBySlug"));
+
+    expect(verdict?.pair.path).toBe(`/api/v1/venues/by-slug/${PLACEHOLDER}`);
+    expect(verdict?.owners).toEqual(["reservations"]);
   });
 });

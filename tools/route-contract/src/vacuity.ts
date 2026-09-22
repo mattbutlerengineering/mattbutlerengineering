@@ -23,12 +23,19 @@
  */
 
 /**
- * The surface measured at `origin/main` `0a80ea85b`. A lower bound, not an
- * equality — adding a client method must not break the suite, but a driver
- * that drops most of the roster and still finds an owner for the handful it
- * kept must.
+ * The surface the client actually emits. A lower bound, not an equality —
+ * adding a client method must not break the suite, but a driver that drops
+ * most of the roster and still finds an owner for the handful it kept must.
+ *
+ * Measured 87 at `origin/main` `0a80ea85b`. Lowered to 86 in the same run,
+ * deliberately: deleting the dead `VenueGroupsClient.getBySlug` (Finding B,
+ * `docs/fixes/api-client-route-contract/`) removed one real pair, and this
+ * floor caught the drop the moment it happened — which is the point. Lowering
+ * it is the only correct response to a surface that legitimately shrank, and
+ * it must stay a conscious edit with a reason attached, never a number
+ * recomputed from whatever the driver last produced.
  */
-export const MINIMUM_CLIENT_PAIRS = 87;
+export const MINIMUM_CLIENT_PAIRS = 86;
 
 export interface VacuityInput {
   /** Distinct `method + path` pairs the driver produced. */

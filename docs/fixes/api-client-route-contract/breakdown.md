@@ -92,7 +92,7 @@ needs exist.
   - Must be named in the release record: the path moves rate-limit buckets — `/health/system` is 10 req/60 s (`infrastructure/worker/rate-limiter.js:16`) where `/api/` is 100 (`:17`), against `SystemHealthBadge`'s 60 s poll (`SystemHealthBadge.tsx:8`). Roughly ten admin tabs per source IP before shedding; accepted at today's admin population, recorded so it is a decision and not a surprise.
   - Carry into Review: this survived because `SystemHealthBadge.tsx:54-57` swallows the error and `:67` returns `null` — the production symptom is an **absent badge**, not an error.
   - Blocked by: The guard assertion and its failure message _(the pre-fix RED on this pair is the free proof — observe and capture it before the fix lands)_
-- [ ] **Finding B — delete the dead `VenueGroupsClient.getBySlug`** — `packages/api-client/src/venues.ts:121-129`, its test block at `venues.test.ts:323-332`, and the `getBySlug()` entry in the `venueGroups` row of `packages/api-client/CLAUDE.md:55` (tracker: #5693)
+- [x] **Finding B — delete the dead `VenueGroupsClient.getBySlug`** — `packages/api-client/src/venues.ts:121-129`, its test block at `venues.test.ts:323-332`, and the `getBySlug()` entry in the `venueGroups` row of `packages/api-client/CLAUDE.md:55` (tracker: #5693)
   - Accept: zero repo references to `VenueGroupsClient.getBySlug` remain; the three `apps/hospitality` call sites (`hooks/useVenues.ts:51`, `pages/VenueOnboardingPage.tsx:52`, `pages/PublicBookingPage.tsx:51`) still resolve to the **venue** client and `apps/hospitality` typechecks; `packages/api-client/llms.txt` and `llms-full.txt` regenerated and committed (`llms-full.txt:1602` currently embeds the deleted method body) via `pnpm build --filter @mbe/cli... && pnpm regen`, then `pnpm regen --check` clean, staging the two llms paths explicitly.
   - Keep the `venueGroups` row itself; the `venues` row at `CLAUDE.md:54` legitimately keeps its own `getBySlug()`.
   - Blocked by: The guard assertion and its failure message _(same reason)_
@@ -190,3 +190,17 @@ Mermaid `.md` shows five of the six and no `edge-worker` arrow, because
 `scripts/generate-dep-graph.js`'s `MERMAID_DIRS` deliberately excludes
 `infrastructure/*` — `apps/rialto-web`, which also devDepends on
 `@mbe/edge-worker`, renders the same way. Generator behaviour, not drift.
+
+**2026-09-22, implement (item 10) — the anti-vacuity floor fired on a real
+change, and lowering it is the correct response.** Deleting the dead
+`VenueGroupsClient.getBySlug` took the client surface from 87 pairs to 86, and
+`MINIMUM_CLIENT_PAIRS` (item 8) immediately went red with
+`"the client inventory holds 86 pairs, below the measured floor of 87 — the
+driver has narrowed"` — on the very change that was supposed to shrink it. That
+is the floor working: it forces a surface reduction to be acknowledged instead
+of absorbed. The constant is now 86 and carries the reason in its own doc
+comment. It stays a conscious edit; a floor recomputed from whatever the driver
+last produced could never detect anything. Recorded because it is the only time
+in this run an anti-vacuity clause fired on real input rather than on the
+synthetic emptied inputs `vacuity.test.ts` feeds it, which makes it evidence
+that the clause is not decorative.
