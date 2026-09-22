@@ -7,6 +7,9 @@ WORKDIR /app
 
 # Copy workspace config
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Root package.json declares pnpm.patchedDependencies; pnpm hashes the patch
+# file during install, so the patches/ dir must be present or install exits 254.
+COPY patches ./patches
 
 # Copy package.json files for all workspace packages we depend on
 COPY packages/types/package.json ./packages/types/
@@ -74,6 +77,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 # Copy workspace config
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Root package.json declares pnpm.patchedDependencies; pnpm hashes the patch
+# file during install, so the patches/ dir must be present or install exits 254.
+COPY patches ./patches
 
 # Copy package.json files
 COPY packages/types/package.json ./packages/types/
