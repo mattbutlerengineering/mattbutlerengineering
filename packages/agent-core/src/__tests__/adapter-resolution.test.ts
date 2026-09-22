@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolveSessionAdapter } from "../adapter-resolution.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
+import { ClaudeCliAdapter } from "../adapters/claude-cli-adapter.js";
 import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { FailoverSessionAdapter } from "../adapters/failover-session-adapter.js";
@@ -8,6 +9,12 @@ import { FailoverSessionAdapter } from "../adapters/failover-session-adapter.js"
 describe("resolveSessionAdapter", () => {
   it("resolves 'claude' to a ClaudeAdapter", () => {
     expect(resolveSessionAdapter("claude")).toBeInstanceOf(ClaudeAdapter);
+  });
+
+  it("resolves 'claude-cli' to a ClaudeCliAdapter — distinct from 'claude' (the SDK adapter)", () => {
+    const adapter = resolveSessionAdapter("claude-cli");
+    expect(adapter).toBeInstanceOf(ClaudeCliAdapter);
+    expect(adapter).not.toBeInstanceOf(ClaudeAdapter);
   });
 
   it("resolves 'gemini' to a GeminiCliAdapter", () => {

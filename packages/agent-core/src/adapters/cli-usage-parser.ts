@@ -191,3 +191,66 @@ export function extractOpenCodeError(stdout: string): string | undefined {
   }
   return undefined;
 }
+
+// ── Claude CLI (`--output-format json`) ─────────────────────────────
+//
+// Emits a single JSON object at the end of the run (measured, issue #3585):
+//   { type, subtype, is_error, result, session_id, total_cost_usd,
+//     num_turns, duration_ms, duration_api_ms, usage, modelUsage,
+//     stop_reason, permission_denials, uuid }
+// `usage.input_tokens` / `usage.output_tokens` are the real per-run token
+// counts; `total_cost_usd` and `num_turns` are reported directly, unlike
+// Gemini (never a cost figure) or OpenCode (summed across step_finish
+// events) — this is the only CLI adapter whose backend reports real cost
+// in a single top-level field.
+
+const ClaudeCliUsageSchema = z.object({
+  input_tokens: z.number().optional(),
+  output_tokens: z.number().optional(),
+});
+
+const ClaudeCliJsonOutputSchema = z.object({
+  total_cost_usd: z.number().optional(),
+  num_turns: z.number().optional(),
+  usage: ClaudeCliUsageSchema.optional(),
+});
+
+export function parseClaudeCliUsage(stdout: string): CliUsage {
+  const raw = safeJsonParse(stdout.trim());
+  const parsed = ClaudeCliJsonOutputSchema.safeParse(raw);
+  if (!parsed.success) return {};
+
+  const { total_cost_usd, num_turns, usage } = parsed.data;
+  const tokensFound =
+    usage !== undefined && (usage.input_tokens !== undefined || usage.output_tokens !== undefined);
+
+  return {
+    ...(total_cost_usd !== undefined ? { costUsd: total_cost_usd } : {}),
+    ...(num_turns !== undefined ? { numTurns: num_turns } : {}),
+    ...(tokensFound
+      ? {
+          tokenUsage: {
+            inputTokens: usage?.input_tokens ?? 0,
+            outputTokens: usage?.output_tokens ?? 0,
+          },
+        }
+      : {}),
+  };
+}
+
+const ClaudeCliResultSchema = z.object({
+  is_error: z.boolean().optional(),
+  subtype: z.string().optional(),
+  result: z.string().optional(),
+});
+
+/**
+ * Recovers Claude CLI's `--output-format json` failure message, if present.
+ * Only returns a message when `is_error` is true — a successful run's
+ * `result` field is the task's actual output, not an error to surface.
+ */
+export function extractClaudeCliError(stdout: string): string | undefined {
+  const parsed = ClaudeCliResultSchema.safeParse(safeJsonParse(stdout.trim()));
+  if (!parsed.success || !parsed.data.is_error) return undefined;
+  return parsed.data.result ?? parsed.data.subtype;
+}

@@ -32,9 +32,15 @@ const execFileAsync = promisify(execFile);
 // apart from "the agent never ran" (no credentials / missing prerequisite).
 const NO_RUN_EXIT_CODE = 2;
 
-// Same three backends `mbe agent run --adapter` accepts, resolved through the
+// Same backends `mbe agent run --adapter` accepts, resolved through the
 // same agent-core seam (#4199) — see adapter-resolution.ts.
-const VALID_ADAPTERS: readonly AdapterType[] = ["auto", "claude", "gemini", "opencode"];
+const VALID_ADAPTERS: readonly AdapterType[] = [
+  "auto",
+  "claude",
+  "claude-cli",
+  "gemini",
+  "opencode",
+];
 
 function isAdapterType(value: string): value is AdapterType {
   return (VALID_ADAPTERS as readonly string[]).includes(value);

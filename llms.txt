@@ -932,6 +932,16 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/adapters/claude-cli-adapter.ts">
+    <item priority="high">
+      class ClaudeCliAdapter {
+        name: unknown;
+        cliBinary: unknown;
+        async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
     <item priority="low">
       class CliAdapterBase {
@@ -971,6 +981,12 @@
     </item>
     <item priority="high">
       export function extractOpenCodeError(stdout: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseClaudeCliUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractClaudeCliError(stdout: string): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
@@ -9070,7 +9086,7 @@
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+      type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode";
     </item>
     <item priority="high">
       export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }

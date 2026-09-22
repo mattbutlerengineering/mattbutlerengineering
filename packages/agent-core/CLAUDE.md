@@ -135,11 +135,12 @@ SessionConfig (task + worktree + model)
 
 ### Adapters
 
-| Adapter            | Backend          | CLI binary | Key behavior                               |
-| ------------------ | ---------------- | ---------- | ------------------------------------------ |
-| `ClaudeAdapter`    | Claude Agent SDK | `claude`   | Native SDK integration via `runSession()`  |
-| `GeminiCliAdapter` | Gemini CLI       | `gemini`   | Subprocess: `gemini run --non-interactive` |
-| `OpenCodeAdapter`  | OpenCode CLI     | `opencode` | Subprocess: `opencode run --json`          |
+| Adapter            | Backend                        | CLI binary | Key behavior                                                                                                     |
+| ------------------ | ------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ClaudeAdapter`    | Claude Agent SDK               | `claude`   | Native SDK integration via `runSession()`                                                                        |
+| `ClaudeCliAdapter` | Claude CLI (subscription auth) | `claude`   | Subprocess: `claude -p <task> --output-format json` — explicit-selection only, NOT in the `auto` cascade (#3585) |
+| `GeminiCliAdapter` | Gemini CLI                     | `gemini`   | Subprocess: `gemini run --non-interactive`                                                                       |
+| `OpenCodeAdapter`  | OpenCode CLI                   | `opencode` | Subprocess: `opencode run --json`                                                                                |
 
 ### Key Modules
 
@@ -148,6 +149,7 @@ SessionConfig (task + worktree + model)
 | `cli-adapter.ts`                       | `AgentAdapter` interface, `AdapterConfig`, `AdapterResult` types                                |
 | `adapters/cli-adapter-base.ts`         | Shared template-method base class for subprocess-based CLI adapters                             |
 | `adapters/claude-adapter.ts`           | Wraps `runSession()` as an adapter                                                              |
+| `adapters/claude-cli-adapter.ts`       | Subprocess dispatch to the `claude` CLI — keyless alternative to `ClaudeAdapter` (#3585)        |
 | `adapters/gemini-adapter.ts`           | Subprocess dispatch to Gemini CLI                                                               |
 | `adapters/opencode-adapter.ts`         | Subprocess dispatch to OpenCode CLI                                                             |
 | `rate-limit-detector.ts`               | Tracks consecutive failures and cooldown expiry per adapter                                     |
@@ -156,10 +158,11 @@ SessionConfig (task + worktree + model)
 ### Usage via CLI
 
 ```bash
-mbe agent run "task" --adapter auto      # Failover: claude → gemini → opencode
-mbe agent run "task" --adapter gemini    # Direct dispatch to Gemini CLI
-mbe agent run "task" --adapter opencode  # Direct dispatch to OpenCode CLI
-mbe agent run "task" --adapter claude    # Default — uses Claude SDK directly
+mbe agent run "task" --adapter auto        # Failover: claude → gemini → opencode
+mbe agent run "task" --adapter gemini      # Direct dispatch to Gemini CLI
+mbe agent run "task" --adapter opencode    # Direct dispatch to OpenCode CLI
+mbe agent run "task" --adapter claude      # Default — uses Claude SDK directly
+mbe agent run "task" --adapter claude-cli  # Claude CLI subprocess — no ANTHROPIC_API_KEY needed
 ```
 
 ## Stuck Detection
