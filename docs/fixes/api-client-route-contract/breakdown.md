@@ -72,7 +72,7 @@ on `main` as it stands**, failing on exactly Findings A and B and passing the
 other 85 pairs. The guard's very first run reproduces two real defects it was
 never told about — the architecture's _free_ proof, needing no scratch edit.
 
-- [ ] **The guard assertion and its failure message** — join the 87 client pairs against the four owners, one-directional client → owner, fail on any pair with zero owners (tracker: #5690)
+- [x] **The guard assertion and its failure message** — join the 87 client pairs against the four owners, one-directional client → owner, fail on any pair with zero owners (tracker: #5690)
   - Accept: run against `main` before items 9 and 10 land, the suite is RED on exactly `GET /api/health/system` and `GET /api/v1/venues/groups/by-slug/:slug` and green on the other 85 — capture that transcript for Verify; the failure text names, per unowned pair, the method, the path, the producing client method, and the edge disposition; no allowlist and no skip; nothing in `packages/api-client` changes in this item.
   - One-directional is a decision, not an omission: ~276 registered method+path entries against 87 client pairs, and a reverse rule would need a ~190-entry allowlist — the escape hatch this design rejected, pointed backwards.
   - Blocked by: Fastify route-owner adapter; Edge-worker route-owner adapter; Make the client driver unable to silently narrow
