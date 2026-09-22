@@ -165,7 +165,12 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(String(countConsecutiveDeployFailures(runs)));
+  // `process.stdout.write`, not `console.log`: this value is consumed by
+  // command substitution in circuit-breaker.yml (`FAIL_COUNT=$(... | node
+  // ... count)`), so it is a return value rather than a log line. It also
+  // keeps the repo's console.log ratchet flat — the count regressed
+  // 715 -> 716 on 328467be5 and reddened main, which is how this was found.
+  process.stdout.write(`${countConsecutiveDeployFailures(runs)}\n`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
