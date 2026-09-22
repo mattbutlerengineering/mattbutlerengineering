@@ -682,16 +682,18 @@ event, no failed health check (`/health` is liveness-only and stays 200; even
 rather than erroring). The observable symptom is "no bookings today". Treat any
 post-flip verification that only checks for errors as having verified nothing.
 
-**Background jobs do not go through the request middleware at all, and one of
-them is unguarded.** `src/services/lapsed-guest-cron.ts` is fine (it sets
-per-venue context on its own transaction, #5401) — but
-`src/services/job-worker.ts`'s reminder handlers, wired in `app.ts`, call
-`reservationService.getById` / `venueService.getById` from a BullMQ consumer with
-no request, so `getCurrentVenueId()` is `null`. Under FORCE both return `null` and
-`deliverReminder` **returns early without throwing**: reminders silently stop
-being delivered. This is ADR-026 §3.3 item 7 — the one entry the original sweep
-missed, because a `findMany|findFirst|$queryRaw` grep cannot see a background
-caller that reaches those tables through a service function. When adding any new
+**Background jobs do not go through the request middleware at all — one half
+of this was unguarded and is now fixed, the other half remains open.**
+`src/services/lapsed-guest-cron.ts` is fine (it sets per-venue context on its
+own transaction, #5401). `src/services/job-worker.ts`'s `BOOKING_REMINDER` /
+`DAY_OF_REMINDER` handlers, wired in `app.ts`, call `reservationService.getById`
+/ `venueService.getById` from a BullMQ consumer with no request — `deliverReminder`
+now wraps its whole body in `runWithVenueContext(payload.venueId, …)` (ADR-026
+§3.3 item 7, reminder-handler half), since `ReminderPayload` already declares
+`venueId` required at dispatch. `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry`
+is the harder half and remains open: its payload's `venueId` is optional and
+unenqueued, so it derives the venue by reading the RLS-protected row itself —
+see ADR-026 §3.3 item 7 for why that needs a different fix. When adding any new
 background/scheduled caller that touches the seven tables, wrap it in
 `runWithVenueContext(venueId, …)` and say so in its doc comment; nothing else in
 the service will do it for you.
