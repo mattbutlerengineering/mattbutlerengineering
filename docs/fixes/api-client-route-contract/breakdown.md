@@ -32,7 +32,7 @@ correctly — the pre-fix literals find no owner, the current ones find
 `reservations`. The run's whole premise is provable here, before a single client
 pair exists.
 
-- [ ] **Scaffold `@mbe/route-contract`** — new leaf workspace package at `tools/route-contract`, with `package.json` / `tsconfig.json` / `eslint.config.js` / `vitest.config.ts` and the five guard devDependencies (tracker: #5684)
+- [x] **Scaffold `@mbe/route-contract`** — new leaf workspace package at `tools/route-contract`, with `package.json` / `tsconfig.json` / `eslint.config.js` / `vitest.config.ts` and the five guard devDependencies (tracker: #5684)
   - Accept: `pnpm --dir tools/route-contract test` passes a smoke test that imports all five workspace devDeps and asserts each resolves; `lint` and `typecheck` pass; `pnpm turbo test:coverage --filter @mbe/route-contract` resolves the package — that is the entire CI wiring, because `ci.yml`'s `Test (Node 22)` job runs `pnpm turbo test:coverage --concurrency=2` (`ci.yml:541`) and `test` is in `ci-gate`'s `needs`; root `vitest.config.ts`'s `tools/*/vitest.config.ts` glob picks it up; `node scripts/check-orphaned-tests.mjs` stays green with no new allowlist entry.
   - Two measured traps this item must absorb: (1) `@mbe/config/eslint/node` bans importing `@mbe/api-client` outright (`packages/config/eslint/node.js:28-31`), so use the `base` preset like `packages/supply-chain-scanner/eslint.config.js` or disable the rule the way `tools/cli/eslint.config.js` does; (2) settle the import specifier for the four booted packages here — see § Notes.
   - Blocked by: —
