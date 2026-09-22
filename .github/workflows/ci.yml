@@ -673,6 +673,101 @@ jobs:
             pnpm --filter "$PKG" db:migrate:status
           done
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # RLS Integration (#5369) — the real-Postgres proof that ADR-026's RLS
+  # backstop actually holds against the connection role the service deploys
+  # with, not a separate probe role. Neither suite ran anywhere before this:
+  # the ordinary `test` job above has no Postgres attached, so
+  # `describe.skipIf(!DATABASE_URL)` silently no-ops both files there — which
+  # is exactly how the seven-part RLS series (#5248-#5255, #5492) shipped and
+  # closed green while providing zero protection (see the two suites' own doc
+  # comments and docs/adr/ADR-026-postgres-rls-venue-backstop.md).
+  # ──────────────────────────────────────────────────────────────────────────
+  rls-integration:
+    name: RLS Integration (owner role, #5369)
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Restore Prisma clients
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
+
+      # rls-owner-enforcement.integration.test.ts asserts the connection is
+      # both the OWNER of all seven RLS tables (pg_has_role against
+      # pg_class.relowner) and rolsuper=false/rolbypassrls=false. The
+      # postgres:15 image's default POSTGRES_USER is a superuser, which fails
+      # both assertions and — per ADR-026 §3.1 — a superuser bypasses RLS
+      # unconditionally, so a run through it would prove nothing. This
+      # provisions a role shaped like the one DO Managed Postgres gives us in
+      # production instead: a plain, non-superuser owner. CREATEROLE (not
+      # just CREATEDB) is required too — rls-isolation.integration.test.ts's
+      # own beforeAll creates a second, ordinary probe role through this same
+      # connection, and only a role with CREATEROLE can do that.
+      - name: Provision a non-superuser table-owner role (production shape)
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: test
+          PGPASSWORD: test
+          PGDATABASE: test
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE rls_owner LOGIN PASSWORD 'rls_owner_ci_pw' CREATEDB CREATEROLE;" \
+            -c "CREATE DATABASE rls_scratch OWNER rls_owner;"
+
+      # Deploys as rls_owner, not the "test" superuser service account, so
+      # rls_owner ends up OWNING every table it creates — the production
+      # shape being proven (DATABASE_URL is also the role that ran
+      # `prisma migrate deploy`), unlike the `migrations` job above whose
+      # superuser owner can never observe RLS at all.
+      - name: Apply reservations migrations as the owner role
+        env:
+          DATABASE_URL: postgresql://rls_owner:rls_owner_ci_pw@localhost:5432/rls_scratch
+        run: pnpm --filter @mbe/reservations-service db:migrate:deploy
+
+      - name: Run RLS integration suites against the owner role
+        env:
+          DATABASE_URL: postgresql://rls_owner:rls_owner_ci_pw@localhost:5432/rls_scratch
+        run: |
+          set -o pipefail
+          pnpm --filter @mbe/reservations-service exec vitest run \
+            src/routes/rls-owner-enforcement.integration.test.ts \
+            src/routes/rls-isolation.integration.test.ts \
+            --reporter=default --reporter=json --outputFile=rls-integration-results.json
+
+      # `describe.skipIf` reports as a file-level PASS when its guard is
+      # false — the summary line looks no different from a real pass, and a
+      # `numPendingTests` count in the JSON report is the only signal that
+      # nothing actually ran. That gap is exactly how these suites went
+      # unexercised for the whole seven-part series. Assert on the real test
+      # counts instead of trusting the step's exit code alone.
+      - name: Prove the suites actually ran, not skipped
+        run: node scripts/assert-vitest-ran.mjs services/reservations/rls-integration-results.json
+
   ai-antipattern-ratchet:
     name: AI Antipattern Ratchet
     needs: [prepare]
@@ -883,6 +978,7 @@ jobs:
         trivy,
         migrations,
         migration-dry-run,
+        rls-integration,
         dependency-audit,
         integrity,
         ai-antipattern-ratchet,
@@ -923,6 +1019,7 @@ jobs:
           TRIVY: ${{ needs.trivy.result }}
           MIGRATIONS: ${{ needs.migrations.result }}
           DRY_RUN: ${{ needs.migration-dry-run.result }}
+          RLS_INTEGRATION: ${{ needs.rls-integration.result }}
           DEPS: ${{ needs.dependency-audit.result }}
           INTEGRITY: ${{ needs.integrity.result }}
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
@@ -930,7 +1027,7 @@ jobs:
           A11Y_ATTRIBUTION: ${{ needs.a11y-attribution.result }}
           DOCS_FORMAT: ${{ needs.docs-format.result }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION docs-format=$DOCS_FORMAT"
+          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN rls-integration=$RLS_INTEGRATION deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION docs-format=$DOCS_FORMAT"
           # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
           # PRs where detect-changes sets has_code=false and prepare legitimately skips,
           # and a11y-attribution which only runs on agent-* / worktree-agent-* branches
@@ -940,7 +1037,7 @@ jobs:
           # needs it cascades to "skipped" by GitHub Actions' default behavior, which
           # would otherwise look identical to a legitimate path-filtered skip and let
           # the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION" "$DOCS_FORMAT"; do
+          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$RLS_INTEGRATION" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION" "$DOCS_FORMAT"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
