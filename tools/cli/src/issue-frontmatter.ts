@@ -25,7 +25,7 @@ export interface ParseResult {
 }
 
 const MODEL_TIERS: readonly string[] = ["haiku", "sonnet", "opus"];
-const ADAPTERS: readonly string[] = ["auto", "claude", "gemini", "opencode"];
+const ADAPTERS: readonly string[] = ["auto", "claude", "claude-cli", "gemini", "opencode"];
 const KNOWN_KEYS: readonly string[] = [
   "model",
   "budget",

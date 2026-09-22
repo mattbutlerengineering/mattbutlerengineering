@@ -35,10 +35,15 @@ export type { AgentSessionAdapter, RunAgentSessionOptions } from "./run-agent-se
 export type { AdapterConfig, AdapterResult, AgentAdapter } from "./cli-adapter.js";
 export { CliAdapterBase } from "./adapters/cli-adapter-base.js";
 export { ClaudeAdapter } from "./adapters/claude-adapter.js";
+export { ClaudeCliAdapter } from "./adapters/claude-cli-adapter.js";
 export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
 export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
-export { parseGeminiUsage, parseOpenCodeUsage } from "./adapters/cli-usage-parser.js";
+export {
+  parseGeminiUsage,
+  parseOpenCodeUsage,
+  parseClaudeCliUsage,
+} from "./adapters/cli-usage-parser.js";
 export type { CliUsage } from "./adapters/cli-usage-parser.js";
 export {
   FailoverSessionAdapter,

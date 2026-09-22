@@ -448,7 +448,7 @@
         "Base branch for the worktree",
         DEFAULT_SESSION_CONFIG.baseBranch
       )
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--no-pr", "Skip PR creation, keep worktree for inspection")
       .option("-v, --verbose", "Stream all agent events", false)
       .action(
@@ -1271,7 +1271,7 @@
       .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
       .option("--task <id>", "Run only the task with this id")
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--json", "Emit the EvalReport as JSON", false)
       .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
       .option(
@@ -3212,7 +3212,7 @@
       .argument("<tasks...>", "List of tasks to execute")
       .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
       .option("--base-branch <branch>", "Base branch to branch from", "main")
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
       .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
       .option("--max-turns <n>", "Maximum turns per agent", "100")

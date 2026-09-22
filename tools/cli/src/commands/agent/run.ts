@@ -31,7 +31,13 @@ function handleEvent(event: SessionEvent, verbose: boolean): void {
   }
 }
 
-const VALID_ADAPTERS: readonly AdapterType[] = ["auto", "claude", "gemini", "opencode"];
+const VALID_ADAPTERS: readonly AdapterType[] = [
+  "auto",
+  "claude",
+  "claude-cli",
+  "gemini",
+  "opencode",
+];
 
 function isAdapterType(value: string): value is AdapterType {
   return (VALID_ADAPTERS as readonly string[]).includes(value);
@@ -52,7 +58,7 @@ export const runCommand = new Command("run")
     "Base branch for the worktree",
     DEFAULT_SESSION_CONFIG.baseBranch
   )
-  .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+  .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
   .option("--no-pr", "Skip PR creation, keep worktree for inspection")
   .option("-v, --verbose", "Stream all agent events", false)
   .action(

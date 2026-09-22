@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   parseGeminiUsage,
   parseOpenCodeUsage,
+  parseClaudeCliUsage,
   extractGeminiError,
   extractOpenCodeError,
+  extractClaudeCliError,
 } from "../cli-usage-parser.js";
 
 describe("parseGeminiUsage", () => {
@@ -251,5 +253,97 @@ describe("extractOpenCodeError", () => {
     ].join("\n");
 
     expect(extractOpenCodeError(stdout)).toBeUndefined();
+  });
+});
+
+describe("parseClaudeCliUsage", () => {
+  // Real captured shape from `claude -p "<prompt>" --output-format json
+  // --max-turns 1` (measured, issue #3585 comment).
+  it("maps total_cost_usd, num_turns, and usage onto CliUsage", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "Done.",
+      session_id: "abc123",
+      total_cost_usd: 0.193839,
+      num_turns: 1,
+      duration_ms: 4000,
+      duration_api_ms: 3800,
+      usage: {
+        input_tokens: 1200,
+        output_tokens: 340,
+        cache_creation_input_tokens: 500,
+        cache_read_input_tokens: 100,
+      },
+      modelUsage: {},
+      stop_reason: null,
+      permission_denials: [],
+      uuid: "abc-def",
+    });
+
+    const usage = parseClaudeCliUsage(stdout);
+
+    expect(usage.costUsd).toBeCloseTo(0.193839, 6);
+    expect(usage.numTurns).toBe(1);
+    expect(usage.tokenUsage).toEqual({ inputTokens: 1200, outputTokens: 340 });
+  });
+
+  it("returns no usage fields for non-JSON stdout, without throwing", () => {
+    expect(() => parseClaudeCliUsage("not json output")).not.toThrow();
+
+    const usage = parseClaudeCliUsage("not json output");
+
+    expect(usage.costUsd).toBeUndefined();
+    expect(usage.numTurns).toBeUndefined();
+    expect(usage.tokenUsage).toBeUndefined();
+  });
+
+  it("returns no usage fields when the JSON blob has none of the expected keys", () => {
+    const usage = parseClaudeCliUsage(JSON.stringify({ session_id: "abc" }));
+
+    expect(usage.costUsd).toBeUndefined();
+    expect(usage.numTurns).toBeUndefined();
+    expect(usage.tokenUsage).toBeUndefined();
+  });
+});
+
+describe("extractClaudeCliError", () => {
+  it("recovers the result text when is_error is true", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "error_during_execution",
+      is_error: true,
+      result: "Agent stopped: unexpected tool failure.",
+      session_id: "abc123",
+    });
+
+    expect(extractClaudeCliError(stdout)).toBe("Agent stopped: unexpected tool failure.");
+  });
+
+  it("falls back to subtype when result text is absent", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      session_id: "abc123",
+    });
+
+    expect(extractClaudeCliError(stdout)).toBe("error_max_turns");
+  });
+
+  it("returns undefined when is_error is false", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "Done.",
+    });
+
+    expect(extractClaudeCliError(stdout)).toBeUndefined();
+  });
+
+  it("returns undefined when stdout is not JSON", () => {
+    expect(extractClaudeCliError("plain text stderr-style output")).toBeUndefined();
   });
 });

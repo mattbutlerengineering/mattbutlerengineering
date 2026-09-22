@@ -2337,6 +2337,58 @@
       }
     }
   </file>
+  <file path="packages/agent-core/src/adapters/claude-cli-adapter.ts">
+    export class ClaudeCliAdapter extends CliAdapterBase {
+      readonly name = "claude-cli";
+      readonly cliBinary = "claude";
+      protected override get displayName(): string {
+        return "Claude";
+      }
+    
+      /**
+       * Headless invocation: `-p <task> --output-format json`, plus
+       * `--permission-mode bypassPermissions` so the CLI never blocks on an
+       * interactive tool-permission prompt (mirrors Gemini's `--yolo` — the
+       * worktree is already the isolation boundary, per ADR-005). `--model`
+       * and `--max-turns` are forwarded only when the caller sets them.
+       */
+      protected buildArgs(config: AdapterConfig): string[] {
+        const args = [
+          "-p",
+          config.taskDescription,
+          "--output-format",
+          "json",
+          "--permission-mode",
+          "bypassPermissions",
+        ];
+        if (config.model) {
+          args.push("--model", config.model);
+        }
+        if (config.maxTurns) {
+          args.push("--max-turns", String(config.maxTurns));
+        }
+        return args;
+      }
+    
+      /**
+       * Parses real cost/tokenUsage/numTurns from the `--output-format json`
+       * result object requested by buildArgs (#3585).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseClaudeCliUsage(stdout);
+      }
+    
+      /**
+       * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
+       * the same JSON stdout blob, falling back to raw stderr in
+       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * contract, mirrors gemini-adapter.ts / opencode-adapter.ts).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractClaudeCliError(stdout);
+      }
+    }
+  </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
     export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract {
       /** Unique adapter name matching AgentAdapter.name. */
@@ -2651,6 +2703,33 @@
         return parsed.data.error.data?.message ?? parsed.data.error.name;
       }
       return undefined;
+    }
+    export function parseClaudeCliUsage(stdout: string): CliUsage {
+      const raw = safeJsonParse(stdout.trim());
+      const parsed = ClaudeCliJsonOutputSchema.safeParse(raw);
+      if (!parsed.success) return {};
+    
+      const { total_cost_usd, num_turns, usage } = parsed.data;
+      const tokensFound =
+        usage !== undefined && (usage.input_tokens !== undefined || usage.output_tokens !== undefined);
+    
+      return {
+        ...(total_cost_usd !== undefined ? { costUsd: total_cost_usd } : {}),
+        ...(num_turns !== undefined ? { numTurns: num_turns } : {}),
+        ...(tokensFound
+          ? {
+              tokenUsage: {
+                inputTokens: usage?.input_tokens ?? 0,
+                outputTokens: usage?.output_tokens ?? 0,
+              },
+            }
+          : {}),
+      };
+    }
+    export function extractClaudeCliError(stdout: string): string | undefined {
+      const parsed = ClaudeCliResultSchema.safeParse(safeJsonParse(stdout.trim()));
+      if (!parsed.success || !parsed.data.is_error) return undefined;
+      return parsed.data.result ?? parsed.data.subtype;
     }
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
@@ -3433,7 +3512,7 @@
         "Base branch for the worktree",
         DEFAULT_SESSION_CONFIG.baseBranch
       )
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--no-pr", "Skip PR creation, keep worktree for inspection")
       .option("-v, --verbose", "Stream all agent events", false)
       .action(
@@ -5221,7 +5300,7 @@
       .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
       .option("--task <id>", "Run only the task with this id")
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--json", "Emit the EvalReport as JSON", false)
       .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
       .option(
@@ -7162,7 +7241,7 @@
       .argument("<tasks...>", "List of tasks to execute")
       .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
       .option("--base-branch <branch>", "Base branch to branch from", "main")
-      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
       .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
       .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
       .option("--max-turns <n>", "Maximum turns per agent", "100")
@@ -36472,11 +36551,13 @@
     }
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
-    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode";
     export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
       switch (adapterType) {
         case "claude":
           return new ClaudeAdapter();
+        case "claude-cli":
+          return new ClaudeCliAdapter();
         case "gemini":
           return new GeminiCliAdapter();
         case "opencode":
