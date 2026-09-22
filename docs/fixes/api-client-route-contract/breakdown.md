@@ -56,7 +56,7 @@ records from the real `@mbe/api-client`, and cannot silently narrow — a new
 sub-client, a method that stops issuing a request, or a fourth deposit
 transition each break something.
 
-- [ ] **Recording transport that drives the real client** — `createApiClient({ baseUrl: "" })` + `new AgentSessionClient({ baseUrl: "" })`, `globalThis.fetch` replaced by a 204-returning recorder, every method invoked with placeholder arguments (tracker: #5688)
+- [x] **Recording transport that drives the real client** — `createApiClient({ baseUrl: "" })` + `new AgentSessionClient({ baseUrl: "" })`, `globalThis.fetch` replaced by a 204-returning recorder, every method invoked with placeholder arguments (tracker: #5688)
   - Accept: yields ≥87 `{ method, path, producedBy }` records; the roster is explicit and asserted against `packages/api-client/src/index.ts`'s exports, so a sub-client wired into `index.ts` but absent from the roster fails the suite (the one way this enumeration can silently narrow); `reservations.list`, `reservations.me` and `venues.list` arrive query-stripped via `split("?")[0]`; the placeholder is a single opaque segment containing no `/`, `?` or `#`.
   - `AgentSessionClient` is **not** in the factory (`index.ts:81-97` omits it; `agent-sessions.ts:38-41`) — it must be constructed separately or it is missed.
   - Record the blind spot rather than implying it: `streamNDJSON(config)` takes a caller-supplied `config.url` (`packages/api-client/src/streaming.ts:35-36`) and holds no literal, so it is not covered.
