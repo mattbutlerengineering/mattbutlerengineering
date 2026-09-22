@@ -97,13 +97,33 @@ describe("shouldRerun", () => {
 });
 
 describe("shouldFailFast", () => {
-  it("fails fast on a manually dispatched recovery run whose commit has no CI run at all — #5663", () => {
+  it("fails fast on a manually dispatched recovery run whose commit has no CI run at all, once check-runs are verified empty too — #5663", () => {
     // A `workflow_dispatch` (the documented deploys-unhealthy.md recovery
     // path) typically fires well after the triggering push, most often on a
-    // docs-only/metrics-only commit that ci.yml's paths-ignore skipped
-    // entirely. No run for that SHA will ever appear — the 30-minute
-    // discovery wait would burn its whole timeout for nothing.
-    expect(shouldFailFast("absent", "workflow_dispatch")).toBe(true);
+    // commit that reached `main` via a `GITHUB_TOKEN`-authored merge —
+    // GitHub's anti-recursion rule never delivers that merge's `push` event
+    // to any workflow, so no run for this SHA will ever appear. `hasCheckRuns:
+    // false` is the positive, independently-verified confirmation of that
+    // (see the next describe block below) — the 30-minute discovery wait
+    // would otherwise burn its whole timeout for nothing.
+    expect(shouldFailFast("absent", "workflow_dispatch", false)).toBe(true);
+  });
+
+  it("does NOT fail fast when the run-list query is empty but check-runs exist for the SHA — the run-list `--commit` filter lags", () => {
+    // `gh run list --commit <sha>` is documented-unreliable: it has returned
+    // `[]` for over an hour on real squash-merge commits while the checks
+    // API already reported `Build: success` on the same SHA. Failing fast
+    // here would refuse a deploy that `lewagon/wait-on-check-action` (which
+    // reads checks, not `gh run list`) would have found and completed.
+    expect(shouldFailFast("absent", "workflow_dispatch", true)).toBe(false);
+  });
+
+  it("does NOT fail fast when check-run existence could not be verified (the cross-check itself failed or was skipped)", () => {
+    // Fail open on uncertainty, same as every other best-effort step in this
+    // module: an unknown answer must never be treated as "verified empty".
+    for (const hasCheckRuns of [undefined, null, ""]) {
+      expect(shouldFailFast("absent", "workflow_dispatch", hasCheckRuns)).toBe(false);
+    }
   });
 
   it("does NOT fail fast on a push-triggered run — absent there is the normal first-few-seconds state", () => {
@@ -111,18 +131,18 @@ describe("shouldFailFast", () => {
     // this is the case the module header already covers: the wait step's
     // own 30-minute discovery timeout is the correct behaviour here, not a
     // bug to route around.
-    expect(shouldFailFast("absent", "push")).toBe(false);
+    expect(shouldFailFast("absent", "push", false)).toBe(false);
   });
 
-  it("does not fail fast on any other trigger event, even when the state is absent", () => {
+  it("does not fail fast on any other trigger event, even when the state is absent and check-runs are verified empty", () => {
     for (const triggerEvent of ["schedule", "workflow_run", "", undefined, null]) {
-      expect(shouldFailFast("absent", triggerEvent)).toBe(false);
+      expect(shouldFailFast("absent", triggerEvent, false)).toBe(false);
     }
   });
 
-  it("never fails fast on a state other than absent, no matter the trigger — narrowing the wait must never widen what deploys", () => {
+  it("never fails fast on a state other than absent, no matter the trigger or check-run evidence — narrowing the wait must never widen what deploys", () => {
     for (const state of ["running", "success", "failed", "cancelled"]) {
-      expect(shouldFailFast(state, "workflow_dispatch")).toBe(false);
+      expect(shouldFailFast(state, "workflow_dispatch", false)).toBe(false);
     }
   });
 });
@@ -144,16 +164,12 @@ describe("rerunTarget", () => {
 });
 
 describe("CLI", () => {
-  const cli = (runs, triggerEvent) =>
-    JSON.parse(
-      execFileSync(
-        "node",
-        triggerEvent === undefined
-          ? [SCRIPT, JSON.stringify(runs)]
-          : [SCRIPT, JSON.stringify(runs), triggerEvent],
-        { encoding: "utf8" }
-      )
-    );
+  const cli = (runs, triggerEvent, hasCheckRuns) => {
+    const args = [SCRIPT, JSON.stringify(runs)];
+    if (triggerEvent !== undefined) args.push(triggerEvent);
+    if (hasCheckRuns !== undefined) args.push(hasCheckRuns);
+    return JSON.parse(execFileSync("node", args, { encoding: "utf8" }));
+  };
 
   it("emits the verdict the workflow step consumes", () => {
     expect(cli([done("cancelled", 32674454760)])).toEqual({
@@ -173,8 +189,8 @@ describe("CLI", () => {
     });
   });
 
-  it("emits failFast:true only for a manually dispatched run with no CI history — #5663", () => {
-    expect(cli([], "workflow_dispatch")).toEqual({
+  it("emits failFast:true for a manually dispatched run with no CI history, once check-runs are passed as verified empty — #5663", () => {
+    expect(cli([], "workflow_dispatch", "false")).toEqual({
       state: "absent",
       rerun: false,
       runId: null,
@@ -182,7 +198,24 @@ describe("CLI", () => {
     });
   });
 
-  it("defaults failFast:false when no trigger event is passed, so an old caller keeps today's behaviour", () => {
+  it("emits failFast:false when check-runs were verified to exist, even for an absent+dispatch run list", () => {
+    // The run-list `--commit` filter lag case: `gh run list` says absent,
+    // but the checks API disagrees — trust the checks API.
+    expect(cli([], "workflow_dispatch", "true")).toEqual({
+      state: "absent",
+      rerun: false,
+      runId: null,
+      failFast: false,
+    });
+  });
+
+  it("defaults failFast:false when no check-run evidence is passed, so an old or best-effort-failed caller fails open", () => {
+    expect(cli([], "workflow_dispatch")).toEqual({
+      state: "absent",
+      rerun: false,
+      runId: null,
+      failFast: false,
+    });
     expect(cli([])).toEqual({ state: "absent", rerun: false, runId: null, failFast: false });
   });
 });

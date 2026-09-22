@@ -47,13 +47,21 @@
  * about it: `deploy-services.yml`'s `workflow_dispatch` trigger is the
  * documented recovery path for a stuck deploy (docs/runbooks/
  * deploys-unhealthy.md), and it typically fires well after the triggering
- * push — most often exactly because `ci.yml`'s
- * `paths-ignore: [docs/**, **.md]` skipped that push's CI entirely (a
- * docs-only or metrics-only merge). No run for that SHA will EVER appear, no
- * matter how long the wait step polls, so burning its 30-minute discovery
- * timeout only delays the same failure. `shouldFailFast` below is scoped to
- * `workflow_dispatch` specifically so a `push`-triggered run keeps waiting
- * exactly as it does today — that case's `absent` really is transient.
+ * push — most often because no `push`-event workflow run exists for this
+ * commit at all. It is NOT `ci.yml`'s `paths-ignore`: that list excludes only
+ * `*.png`, `.gitignore`, and `LICENSE` (`docs/**`/`**.md` were deliberately
+ * removed by #4664, specifically so a docs-only push still runs CI). The
+ * real cause, measured on #5663's own cited commit (`893d6346c`, merged via
+ * #5657 by `app/github-actions`): this repo's `GITHUB_TOKEN` anti-recursion
+ * trap. GitHub does not fire a `push` event for a commit whose merge was
+ * authored by the default `GITHUB_TOKEN`, so a `GITHUB_TOKEN`-merged
+ * automation PR — most often a docs-only or metrics-only one — reaches
+ * `main` with zero CI runs of any kind. No run for that SHA will EVER
+ * appear, no matter how long the wait step polls, so burning its 30-minute
+ * discovery timeout only delays the same failure. `shouldFailFast` below is
+ * scoped to `workflow_dispatch` specifically so a `push`-triggered run keeps
+ * waiting exactly as it does today — that case's `absent` really is
+ * transient.
  *
  * Circuit breaker interaction: a `Wait for CI` failure used to count toward
  * `circuit-breaker.yml`'s consecutive-failure streak, which made this
@@ -124,28 +132,57 @@ export function rerunTarget(runs) {
  * will never appear. See the module header (#5663) for the full rationale
  * and the circuit-breaker interaction.
  *
- * Deliberately narrow: only `absent` + `workflow_dispatch`. Every other
- * state keeps today's behaviour exactly — this must never let a commit
- * whose CI genuinely failed, or one still running, skip the wait.
+ * Deliberately narrow in two ways. First, only `absent` + `workflow_dispatch`
+ * — every other state keeps today's behaviour exactly, so this can never let
+ * a commit whose CI genuinely failed, or one still running, skip the wait.
+ * Second, `hasCheckRuns` must be the explicit boolean `false` — a positive,
+ * independently-verified confirmation that no check run exists for this SHA
+ * either. `gh run list --commit <sha>` (which produces `state`) is
+ * documented-unreliable: it has returned `[]` for over an hour on real
+ * squash-merge commits while the checks API already reported `Build:
+ * success` on the same SHA — exactly the window a recovery dispatch is
+ * likely to land in. Treating `state === "absent"` alone as sufficient would
+ * turn that lag into a false, hard failure on a commit that would otherwise
+ * have deployed. `undefined`/`null` (the cross-check was skipped, or itself
+ * failed) must NOT be treated as "verified empty" — fail open on
+ * uncertainty, same as every other best-effort step in this module.
  *
  * @param {string} state
  * @param {string|null|undefined} triggerEvent - `github.event_name`
+ * @param {boolean|null|undefined} hasCheckRuns - whether a check run (e.g.
+ *   `Build`) exists for this SHA, per the checks API — `false` only when
+ *   that was actually queried and came back empty
  * @returns {boolean}
  */
-export function shouldFailFast(state, triggerEvent) {
-  return state === "absent" && triggerEvent === "workflow_dispatch";
+export function shouldFailFast(state, triggerEvent, hasCheckRuns) {
+  return state === "absent" && triggerEvent === "workflow_dispatch" && hasCheckRuns === false;
+}
+
+/**
+ * Parse the CLI's `hasCheckRuns` argument into the tri-state `shouldFailFast`
+ * expects: `"true"` -> `true`, `"false"` -> `false`, anything else
+ * (missing, empty) -> `undefined` ("unverified", never "verified empty").
+ *
+ * @param {string|undefined} arg
+ * @returns {boolean|undefined}
+ */
+export function parseHasCheckRuns(arg) {
+  if (arg === "true") return true;
+  if (arg === "false") return false;
+  return undefined;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const runs = JSON.parse(process.argv[2] ?? "[]");
   const triggerEvent = process.argv[3] ?? "";
+  const hasCheckRuns = parseHasCheckRuns(process.argv[4]);
   const state = classifyCiRun(runs);
   process.stdout.write(
     `${JSON.stringify({
       state,
       rerun: shouldRerun(state),
       runId: rerunTarget(runs),
-      failFast: shouldFailFast(state, triggerEvent),
+      failFast: shouldFailFast(state, triggerEvent, hasCheckRuns),
     })}\n`
   );
 }
