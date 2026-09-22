@@ -44,7 +44,7 @@ pair exists.
   - `findRoute` does runtime path matching, not pattern-spelling comparison — that is the load-bearing measurement. Do not substitute `hasRoute`, `printRoutes()` parsing, or `app.inject()`.
   - This test is a **permanent** adapter-level pin on the 2026-08-30 defect with no working-tree edit. It is not the end-to-end proof; that is item 11.
   - Blocked by: Scaffold `@mbe/route-contract`
-- [ ] **Edge-worker route-owner adapter** — `edgeRouter.fetch(new Request("https://host" + path), stubEnv)`, classified by the **returned** response (tracker: #5687)
+- [x] **Edge-worker route-owner adapter** — `edgeRouter.fetch(new Request("https://host" + path), stubEnv)`, classified by the **returned** response (tracker: #5687)
   - Accept: returns `edge-terminal` / `forwarded-to-origin` / `static-spa`; the architecture's measured probes classify correctly (`/health/system` → `edge-terminal`; an `/api/…` and a `/public/…` path → `forwarded-to-origin`; an SPA path → `static-spa`; all five edge-terminal health paths → `edge-terminal`); and a test asserts the anti-trap explicitly — `/health/system` still classifies `edge-terminal` **while** both the origin-fetch stub and a static-binding stub were invoked, proving the which-spy-fired oracle is not in use (that oracle misclassifies it, because `handleHealthSystem` legitimately fans out through both, `infrastructure/worker/edge-router.js:147-149`).
   - Needs a `globalThis.HTMLRewriter` stub (copy `infrastructure/worker/edge-router.test.js`'s). `edge-router.js:24` imports `routes-config.json` with no import attribute, so bare Node refuses it — this is why vitest is forced, not preferred.
   - Blocked by: Scaffold `@mbe/route-contract`
