@@ -9,7 +9,8 @@ name: Pulumi R2 Checksum Validation
 # be triggered deliberately by a maintainer, and it must NEVER touch
 # production Pulumi state - see the "Resolve + Guard Scratch Bucket" job,
 # which hard-fails if the resolved bucket is blank or is the production
-# bucket.
+# bucket, and only then creates that scratch bucket if it does not exist
+# yet.
 on:
   workflow_dispatch:
     inputs:
@@ -20,12 +21,15 @@ on:
         type: string
       scratch_bucket:
         description: >-
-          Scratch R2 bucket name for this run. Falls back to the
-          PULUMI_SCRATCH_STATE_BUCKET secret if left blank. Must NOT be the
-          production state bucket - the workflow hard-fails if it resolves
-          to it.
+          Scratch R2 bucket name for this run. Defaults to the dedicated
+          scratch bucket below, which the guard job creates on demand, so no
+          bucket has to be pre-provisioned by hand. Falls back to the
+          PULUMI_SCRATCH_STATE_BUCKET secret only if this is explicitly
+          blanked. Must NOT be the production state bucket - the workflow
+          hard-fails if it resolves to it.
         required: false
         type: string
+        default: mattbutlerengineering-pulumi-state-checksum-scratch
 
 concurrency:
   group: pulumi-r2-checksum-validation
@@ -66,6 +70,43 @@ jobs:
           BUCKET=$(node scripts/pulumi-r2-validation-guard.mjs check-bucket --input "$INPUT_BUCKET" --secret "$SECRET_BUCKET")
           node scripts/pulumi-r2-validation-guard.mjs check-version --version "$PULUMI_VERSION_INPUT"
           echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+
+      # The harness was unrunnable for its entire life before this step: the
+      # verdict #4119 asks for could never be obtained because a scratch
+      # bucket had to be pre-provisioned by hand and never was. The only
+      # dispatch it ever received (run 35517677729, 2026-09-20) died in the
+      # step above with "No scratch bucket resolved: provide the
+      # `scratch_bucket` workflow_dispatch input or set the
+      # PULUMI_SCRATCH_STATE_BUCKET secret." - both arms `skipped`, verdict
+      # `unknown`. Creating the bucket on demand is what makes the answer
+      # reachable at all.
+      #
+      # Ordering here is load-bearing, not incidental: this step runs AFTER
+      # assertScratchBucketSafe has already rejected the production bucket,
+      # and it acts on that validated $BUCKET value - never on the raw
+      # input/secret. A create-bucket call placed before the guard would be
+      # the one way this harness could touch production state.
+      #
+      # `aws` comes off the runner image unpinned. That is the trap recorded
+      # in .claude/rules/gotchas.md (a runner image silently choosing the
+      # version of a tool that touches infrastructure), accepted narrowly
+      # here because this call only ever creates an empty scratch bucket -
+      # unlike pulumi-up.yml's CLI, it never writes production state.
+      - name: Ensure the scratch bucket exists
+        env:
+          BUCKET: ${{ steps.resolve.outputs.bucket }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+          R2_ENDPOINT: https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com
+        run: |
+          set -euo pipefail
+          if aws s3api head-bucket --bucket "$BUCKET" --endpoint-url "$R2_ENDPOINT" 2>/dev/null; then
+            echo "Scratch bucket \"$BUCKET\" already exists - reusing it."
+            exit 0
+          fi
+          echo "Scratch bucket \"$BUCKET\" not found - creating it."
+          aws s3api create-bucket --bucket "$BUCKET" --endpoint-url "$R2_ENDPOINT"
 
   validate-with-fix:
     name: "Arm: WITH checksum env vars (the fix under test)"

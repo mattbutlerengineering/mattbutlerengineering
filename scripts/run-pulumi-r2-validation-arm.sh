@@ -17,6 +17,10 @@ set -euo pipefail
 # distinction, which is exactly what makes it safe to reuse unmodified for
 # both the "with fix" and "without fix" (control) arms.
 #
+# Every failure mode of the pulumi invocations below is recorded as
+# `outcome=fail` on $GITHUB_OUTPUT rather than aborting the script, so the
+# reporting job always receives a real verdict.
+#
 # Usage: run-pulumi-r2-validation-arm.sh <arm-name> <backend-url> <work-dir>
 # Required env (set by the caller): PULUMI_CONFIG_PASSPHRASE,
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION.
@@ -60,11 +64,24 @@ EOF
 
 npm install --no-audit --no-fund
 
-pulumi login "$BACKEND_URL"
-pulumi stack init "$STACK_NAME"
-
+# Every state-touching command belongs in this chain. `pulumi login` and
+# `pulumi stack init` used to sit above it, unguarded, under the `set -e` at
+# the top of this file - so when login itself was what R2 rejected, the
+# script aborted before ever writing `outcome` to $GITHUB_OUTPUT. The
+# reporting job then saw an empty WITH_OUTCOME and could not tell "the fix
+# under test was refuted" apart from "the harness broke before measuring".
+# Observed on run 35675244560, where both arms died at
+# `pulumi login` with `InvalidDigest` on `.pulumi/meta.yaml` - a real,
+# clean refutation that the verdict machinery could only render as `unknown`.
+# A harness that cannot report its own finding is not a harness.
 outcome="pass"
-if ! pulumi up --yes --skip-preview; then
+if ! pulumi login "$BACKEND_URL"; then
+  echo "pulumi login failed against the scratch backend - recording this arm as a fail." >&2
+  outcome="fail"
+elif ! pulumi stack init "$STACK_NAME"; then
+  echo "pulumi stack init failed - recording this arm as a fail." >&2
+  outcome="fail"
+elif ! pulumi up --yes --skip-preview; then
   outcome="fail"
 elif ! pulumi refresh --yes; then
   outcome="fail"
