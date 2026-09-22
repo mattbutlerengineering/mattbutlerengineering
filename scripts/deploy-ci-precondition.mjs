@@ -42,6 +42,30 @@
  * deploy starts on the same push that starts CI, so "no run yet" is the
  * normal first-few-seconds state, and re-dispatching into it would race the
  * real run. The existing wait step already handles slow-to-appear correctly.
+ *
+ * `absent` on a `workflow_dispatch` run is a different animal, and #5663 is
+ * about it: `deploy-services.yml`'s `workflow_dispatch` trigger is the
+ * documented recovery path for a stuck deploy (docs/runbooks/
+ * deploys-unhealthy.md), and it typically fires well after the triggering
+ * push — most often exactly because `ci.yml`'s
+ * `paths-ignore: [docs/**, **.md]` skipped that push's CI entirely (a
+ * docs-only or metrics-only merge). No run for that SHA will EVER appear, no
+ * matter how long the wait step polls, so burning its 30-minute discovery
+ * timeout only delays the same failure. `shouldFailFast` below is scoped to
+ * `workflow_dispatch` specifically so a `push`-triggered run keeps waiting
+ * exactly as it does today — that case's `absent` really is transient.
+ *
+ * Circuit breaker interaction: a `Wait for CI` failure used to count toward
+ * `circuit-breaker.yml`'s consecutive-failure streak, which made this
+ * recovery path self-amplifying — failing it twice in a row was enough to
+ * re-trip the very breaker it was meant to clear. #5662 closed that
+ * specific amplifier by having `circuit-breaker-deploy-failures.mjs` read
+ * the `Deploy API Services` job's own conclusion (`skipped`, not `failure`,
+ * whenever `ci-gate` fails before that job runs) instead of the run's
+ * overall conclusion — so failing fast here, like every other `Wait for CI`
+ * failure, does not feed the counter. That fact lives in a different file;
+ * it is restated here because a future edit to either could quietly reopen
+ * the amplification.
  */
 
 /** Every state a ref's CI runs can collapse to. */
@@ -94,10 +118,34 @@ export function rerunTarget(runs) {
   return cancelled?.databaseId ?? null;
 }
 
+/**
+ * Whether the wait step should be skipped entirely and the job failed
+ * immediately, instead of burning `checks-discovery-timeout` on a run that
+ * will never appear. See the module header (#5663) for the full rationale
+ * and the circuit-breaker interaction.
+ *
+ * Deliberately narrow: only `absent` + `workflow_dispatch`. Every other
+ * state keeps today's behaviour exactly — this must never let a commit
+ * whose CI genuinely failed, or one still running, skip the wait.
+ *
+ * @param {string} state
+ * @param {string|null|undefined} triggerEvent - `github.event_name`
+ * @returns {boolean}
+ */
+export function shouldFailFast(state, triggerEvent) {
+  return state === "absent" && triggerEvent === "workflow_dispatch";
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const runs = JSON.parse(process.argv[2] ?? "[]");
+  const triggerEvent = process.argv[3] ?? "";
   const state = classifyCiRun(runs);
   process.stdout.write(
-    `${JSON.stringify({ state, rerun: shouldRerun(state), runId: rerunTarget(runs) })}\n`
+    `${JSON.stringify({
+      state,
+      rerun: shouldRerun(state),
+      runId: rerunTarget(runs),
+      failFast: shouldFailFast(state, triggerEvent),
+    })}\n`
   );
 }

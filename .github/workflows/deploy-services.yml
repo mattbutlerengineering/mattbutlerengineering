@@ -93,14 +93,17 @@ jobs:
       # 46-package production-dependency bump that never reached the
       # running services. Re-run CI on this exact commit before waiting.
       # See scripts/deploy-ci-precondition.mjs for the measurements.
-      - name: Recover a cancelled CI run
+      - name: Assess CI status for this commit
         # Best-effort, and never a new way for a deploy to fail. Without
-        # this, `set -e` plus a transient `gh` error (rate limit, 5xx, a
-        # rerun refused because the run has aged out) would block a deploy
-        # that would otherwise have proceeded — trading a rare stall for a
-        # new common one. On failure the wait step below behaves exactly as
-        # it does today, so the worst case is the status quo, and the step
-        # still shows as failed in the run so the miss stays visible.
+        # continue-on-error, `set -e` plus a transient `gh` error (rate
+        # limit, 5xx, a rerun refused because the run has aged out) would
+        # block a deploy that would otherwise have proceeded — trading a
+        # rare stall for a new common one. If this step itself fails, it
+        # leaves no `verdict` output, and the fail-fast step below treats a
+        # missing verdict as "proceed to the normal wait", so the worst case
+        # stays the status quo — the step still shows as failed in the run
+        # so the miss stays visible.
+        id: assess
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -108,11 +111,37 @@ jobs:
           set -euo pipefail
           runs=$(gh run list --commit "$GITHUB_SHA" --workflow ci.yml \
             --limit 10 --json databaseId,status,conclusion)
-          verdict=$(node scripts/deploy-ci-precondition.mjs "$runs")
+          verdict=$(node scripts/deploy-ci-precondition.mjs "$runs" "$GITHUB_EVENT_NAME")
           echo "CI precondition for $GITHUB_SHA: $verdict"
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           if [ "$(echo "$verdict" | jq -r .rerun)" = "true" ]; then
             gh run rerun "$(echo "$verdict" | jq -r .runId)"
             echo "Re-ran the cancelled CI run; the wait step can now resolve."
+          fi
+
+      # #5663: a `workflow_dispatch` recovery run on a commit with zero
+      # ci.yml runs (typically a docs-only/metrics-only merge that ci.yml's
+      # `paths-ignore` skipped entirely) will never see the wait step's
+      # `Build` check appear, no matter how long it polls. Fail within
+      # ~seconds naming the real reason instead of burning the 30-minute
+      # discovery timeout. NOT continue-on-error: this is the one outcome
+      # that must actually stop the job, so `deploy` (needs: [ci-gate])
+      # never runs. Every other verdict is a no-op here, so today's
+      # push-triggered behaviour is unchanged. See
+      # scripts/deploy-ci-precondition.mjs's `shouldFailFast` for why this
+      # does not re-trip the circuit breaker.
+      - name: Fail fast when no CI run will ever exist for this commit
+        env:
+          VERDICT: ${{ steps.assess.outputs.verdict }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERDICT" ]; then
+            echo "No precondition verdict available — proceeding to the normal wait."
+            exit 0
+          fi
+          if [ "$(echo "$VERDICT" | jq -r .failFast)" = "true" ]; then
+            echo "::error::No CI run exists for $GITHUB_SHA — deploy-services.yml was dispatched manually, but ci.yml has zero runs for this commit (most likely its push trigger's paths-ignore: [docs/**, **.md] skipped it entirely). Push a code change, or dispatch ci.yml directly for this ref, then retry."
+            exit 1
           fi
 
       - name: Wait for CI workflow
