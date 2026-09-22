@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 
 import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
 import { loadReasonBreakdown } from "../human-touch-reasons.js";
+import { classifyEvalsReading } from "../evals-freshness.js";
 
 /**
  * @param {string} cwd
@@ -280,9 +281,26 @@ export function writeReport(
             ? "❌"
             : "·";
     const pct = (evals.passRate * 100).toFixed(0);
+    const freshness = classifyEvalsReading(evals);
     lines.push("## Agent evals (last 30 days)");
     lines.push("");
-    if (evals.status === "unknown") {
+    if (freshness.state === "stale") {
+      // The number is real but describes a run that predates the window this
+      // heading claims. Publishing it bare said "green" for 133 days after the
+      // suite stopped running (#4199).
+      const age = freshness.ageDays === null ? "an unknown time" : `${freshness.ageDays} days`;
+      const when =
+        freshness.lastRun === null ? "an unrecorded date" : freshness.lastRun.slice(0, 10);
+      lines.push(
+        `_**Stale — no eval run in this window.** The suite last ran ${age} ago (${when}); the figures below are that run's, not a current measurement._`
+      );
+      lines.push("");
+      lines.push(`- Pass rate at last run: ${pct}% (n=${evals.n})`);
+    } else if (freshness.state === "never-run") {
+      lines.push(
+        "_The eval suite has never run — no rows recorded. This is an absence of measurement, not a 0% score._"
+      );
+    } else if (evals.status === "unknown") {
       lines.push(
         `_Insufficient data: only ${evals.n} run${evals.n === 1 ? "" : "s"} in window. Status appears once n ≥ 3._`
       );
