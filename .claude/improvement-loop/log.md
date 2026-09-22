@@ -2063,3 +2063,38 @@ None this run (`agent-skip` empty, 0 open).
 **Threshold notes:** auto-tuner ran, no per-sensor metrics computed (all 5 verifications were skips, not verified/failed) — nothing to tune this run
 **Environment notes:** same as 09-20 — fresh cloud checkout needed `pnpm install --frozen-lockfile` + `pnpm --filter @mbe/gh-client... build` before sensors would resolve. Third occurrence of this exact setup gap (09-19 implied, 09-20, 09-21 confirmed) — worth pre-baking into the routine or documenting as a gotcha if it recurs again.
 **Meta:** noticed a batch of `ci-fix`-labeled "routine X is dark/unverifiable" issues (#5603-#5612) filed ~15:05 UTC today by what looks like a separate liveness-watchdog routine, including #5607 "routine mbe-learning-loop is dark — no expected artifact observed". Out of scope for this run's triage (not a sensor-report regression), but flagging since it concerns this same routine's own observability — worth a look next run or by a human.
+
+## 2026-09-22 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                             | Target            | Status               |
+| -------------------------------------------- | --------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| Created (7d, audit+ci-fix)                   | 28 (10 audit + 18 ci-fix)                                                         | -                 | -                    |
+| Closed (7d, proxy: updated≥09-15 & CLOSED)   | 82 (38 audit + 44 ci-fix)                                                         | -                 | -                    |
+| Closure Rate (7d)                            | 293% (backlog fully drained this week)                                            | >80%              | green                |
+| Agent Success (this run's batch)             | n/a — 0 issues claimed, `ready` backlog is empty                                  | >70%              | n/a                  |
+| CI Pass (main, last 20 runs)                 | 14/14 = 100% (6 cancelled excluded from denominator per the ciHealth gotcha)      | >95%              | green                |
+| Queue (ready)                                | 0                                                                                 | <5                | green                |
+| Stale (ready>7d)                             | 0                                                                                 | 0                 | green                |
+| Blocked (agent-failed)                       | 0                                                                                 | 0                 | green                |
+| Skipped (agent-skip)                         | 0                                                                                 | 0                 | green                |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — same standing gap noted since at least 09-20, not re-filing | <$10/day, <$50/7d | unmeasured, same gap |
+| Reverts (7d)                                 | 1                                                                                 | <3/week           | green                |
+
+### Patterns
+
+- **`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip` are all 0 open** — a first in the recent log history (09-20 had 13 ready + 4 agent-failed). This iteration's `/implement-queue` run found nothing to claim; the 09-20/09-21 runs and the routine `ci-fix` sweeps (the #5603-5614 "routine X is dark" batch flagged as noteworthy in the 09-21 entry, plus the mutation-testing/ACMM/review-burden/journey fixes merged 09-21) evidently cleared the whole backlog.
+- **Closure rate (293%) is a continuation of the 09-20 trend (126%)**, not a new phenomenon — the backlog has now fully caught up rather than just narrowed. With `ready` at 0, the next iteration has no work unless `/site-audit`, `/sentry-triage`, `/ci-monitor`, or Dependabot produce fresh candidates.
+- **Three open PRs at time of writing, none stuck**: #5651 (tier:sensitive, CI green, explicitly `needs-review` — its own body says "Do not enable auto-merge", a genuine RLS security finding awaiting human judgment, not an implement-queue target) and #5656/#5655 (tier:standard, both mid-CI, opened ~15 min before this check) — left for a later iteration's merge train once CI resolves.
+- No `gh` CLI in this cloud session (expected, per gotchas.md); GitHub MCP tools used throughout for all issue/PR/CI queries.
+
+### Recommendations
+
+- With the backlog empty, the standing recommendations from 09-20 (the `needs-human` label for issues like the now-closed #5144, and re-checking nightly-compliance dedup) are moot for now — re-surface only if the pattern recurs.
+- Worth checking next run whether the empty queue persists or whether discovery skills (`/site-audit`, `/sentry-triage`, `/ci-monitor`) repopulate it — an empty queue for 3+ consecutive days would, per this skill's own "Queue Adjust" rule, be a signal to expand audit scope rather than idle.
+- The `.claude/agent-spend/sessions.jsonl` spend-tracking gap is now confirmed empty across at least three checks (09-20, 09-21, 09-22) — consider filing this as its own `meta-improvement` issue if a fourth check also finds it empty, rather than continuing to note it as an aside.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
