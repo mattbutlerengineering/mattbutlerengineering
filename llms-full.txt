@@ -33786,6 +33786,62 @@
       },
     };
   </file>
+  <file path="services/reservations/src/services/rls-force-coverage.ts">
+    export const MIGRATIONS_DIR = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
+    export const PENDING_FORCE_TABLES = [
+      "deposits",
+      "floor_plans",
+      "guests",
+      "reservations",
+      "tables",
+      "venues",
+      "waitlist_entries",
+    ] as const;
+    export interface RlsDeclarations {
+      readonly enabled: ReadonlySet<string>;
+      readonly forced: ReadonlySet<string>;
+    }
+    function stripSqlComments(sql: string): string {
+      return sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+    }
+    function normalizeSql(sql: string): string {
+      return stripSqlComments(sql).toLowerCase().replace(/\s+/g, " ");
+    }
+    function matchTables(sql: string, verb: "enable" | "force"): string[] {
+      // Declared inside the function, not at module scope: these carry the `g` flag,
+      // and a shared `lastIndex` across calls would silently skip matches.
+      const pattern =
+        verb === "enable"
+          ? /alter table (?:only )?"?([a-z_][a-z0-9_]*)"? enable row level security/g
+          : /alter table (?:only )?"?([a-z_][a-z0-9_]*)"? force row level security/g;
+      return [...sql.matchAll(pattern)].map((match) => match[1] as string);
+    }
+    export function parseRlsDeclarations(sqlFiles: readonly string[]): RlsDeclarations {
+      const enabled = new Set<string>();
+      const forced = new Set<string>();
+    
+      for (const raw of sqlFiles) {
+        const sql = normalizeSql(raw);
+        for (const table of matchTables(sql, "enable")) enabled.add(table);
+        for (const table of matchTables(sql, "force")) forced.add(table);
+      }
+    
+      return { enabled, forced };
+    }
+    export function unforcedRlsTables(
+      declarations: RlsDeclarations,
+      pending: readonly string[]
+    ): string[] {
+      const acknowledged = new Set(pending);
+    
+      const unaccounted = [...declarations.enabled].filter(
+        (table) => !declarations.forced.has(table) && !acknowledged.has(table)
+      );
+      const stale = [...acknowledged].filter((table) => !declarations.enabled.has(table));
+    
+      return [...unaccounted, ...stale].sort();
+    }
+  </file>
   <file path="services/reservations/src/services/serializers.ts">
     export interface PrismaTableRow {
       id: string;

@@ -29,6 +29,7 @@ import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
 import { measureEvals } from "./evals.js";
+import { formatEvalsLine } from "./evals-freshness.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -173,8 +174,11 @@ const behavioral = {
   agent_pr: prOutcomes
     ? { ...prOutcomes, measured_at: new Date().toISOString() }
     : (prior.behavioral?.agent_pr ?? null),
+  // A carried-forward reading keeps its own `lastRun`/`measured_at`, so
+  // `formatEvalsLine` can tell the reader how old it is rather than rendering
+  // it as a live measurement — which it did for 133 days (#4199).
   evals:
-    evalsSummary.n > 0
+    evalsSummary.freshness === "current"
       ? { ...evalsSummary, measured_at: new Date().toISOString() }
       : (prior.behavioral?.evals ?? null),
   auto_qa_tuning: autoQaTuning
@@ -441,15 +445,7 @@ if (behavioral.agent_pr) {
   console.log("Agent PR outcomes: unavailable (gh CLI missing or no PRs)");
 }
 
-if (behavioral.evals) {
-  const e = behavioral.evals;
-  const pct = (e.passRate * 100).toFixed(0);
-  console.log(
-    `Agent evals: ${pct}% pass · score ${e.medianScore.toFixed(2)} (n=${e.n}, status: ${e.status})`
-  );
-} else {
-  console.log("Agent evals: no runs (seed via `node scripts/acmm/evals/index.js`)");
-}
+console.log(formatEvalsLine(behavioral.evals, { windowDays: evalsSummary.windowDays }));
 
 console.log("");
 console.log(

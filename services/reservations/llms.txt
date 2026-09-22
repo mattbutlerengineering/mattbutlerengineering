@@ -1371,6 +1371,38 @@
       export const reservationService: unknown;
     </item>
   </file>
+  <file path="src/services/rls-force-coverage.ts">
+    <item priority="high">
+      export const MIGRATIONS_DIR: unknown;
+    </item>
+    <item priority="high">
+      export const PENDING_FORCE_TABLES: unknown;
+    </item>
+    <item priority="low">
+      interface RlsDeclarations {
+        enabled: ReadonlySet<string>;
+        forced: ReadonlySet<string>;
+      }
+    </item>
+    <item priority="medium">
+      function stripSqlComments(sql: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeSql(sql: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function matchTables(sql: string, verb: "enable" | "force"): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseRlsDeclarations(sqlFiles: readonly string[]): RlsDeclarations { /* ... */ }
+    </item>
+    <item priority="high">
+      export function unforcedRlsTables(
+        declarations: RlsDeclarations,
+        pending: readonly string[]
+      ): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/serializers.ts">
     <item priority="low">
       interface PrismaTableRow {
