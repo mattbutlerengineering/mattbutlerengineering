@@ -62,6 +62,7 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
 import { JobScheduler, JobWorker, JOB_TYPES, dispatchJob, UnknownJobTypeError } from "@mbe/jobs";
 import type { ReminderPayload } from "@mbe/jobs";
 import { createReservationJobHandlers, createReservationJobWorker } from "./job-worker.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -211,6 +212,52 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
 
     expect(deps.handleWaitlistExpiry).toHaveBeenCalledWith({ waitlistEntryId: "entry_1" });
     expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
+  });
+
+  it("BOOKING_REMINDER runs the handler body inside runWithVenueContext carrying payload.venueId (ADR-026 §3.3 item 7)", async () => {
+    const observedVenueIds: Array<string | null> = [];
+    const deps = makeDeps();
+    deps.getReservation.mockImplementation(async (id: string) => {
+      observedVenueIds.push(getCurrentVenueId());
+      return makeReservation({ id });
+    });
+    deps.getVenue.mockImplementation(async (id: string) => {
+      observedVenueIds.push(getCurrentVenueId());
+      return { ...makeVenue(), id };
+    });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
+
+    // No request/job is in flight yet — no venue context resolved.
+    expect(getCurrentVenueId()).toBeNull();
+
+    await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
+
+    // Both finder calls inside the handler body must observe the payload's
+    // venueId as the current RLS-scoping venue context — a call-count
+    // assertion alone would not prove the body ran inside the context.
+    expect(observedVenueIds).toEqual([reminderPayload.venueId, reminderPayload.venueId]);
+    // The context must not leak past the handler's own execution.
+    expect(getCurrentVenueId()).toBeNull();
+  });
+
+  it("DAY_OF_REMINDER runs the handler body inside runWithVenueContext carrying payload.venueId (ADR-026 §3.3 item 7)", async () => {
+    const observedVenueIds: Array<string | null> = [];
+    const deps = makeDeps();
+    deps.getReservation.mockImplementation(async (id: string) => {
+      observedVenueIds.push(getCurrentVenueId());
+      return makeReservation({ id });
+    });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
+
+    await bus.processor!({ name: JOB_TYPES.DAY_OF_REMINDER, data: reminderPayload });
+
+    expect(observedVenueIds).toEqual([reminderPayload.venueId]);
   });
 
   it("delivers correctly for an in-flight job enqueued by pre-trim code (extra guestEmail/guestPhone/channel fields ignored)", async () => {

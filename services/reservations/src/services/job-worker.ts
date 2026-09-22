@@ -4,6 +4,7 @@ import type { JobHandlerMap, ReminderPayload } from "@mbe/jobs";
 import type { BookingNotificationInput } from "@mbe/notifications";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
+import { runWithVenueContext } from "./venue-context-store.js";
 
 /**
  * Minimal slice of NotificationDispatcher the reminder handlers depend on.
@@ -37,38 +38,52 @@ export interface ReservationJobHandlerDeps {
  * is partial, so only the job types this service actually handles are
  * declared here — dispatchJob throws UnknownJobTypeError for any other job
  * type routed to this worker, so a mis-enqueued job still fails loudly.
+ *
+ * `deliverReminder` runs its whole body inside `runWithVenueContext(payload.venueId,
+ * …)` (ADR-026 §3.3 item 7). This BullMQ consumer has no HTTP request, so
+ * `getCurrentVenueId()` would otherwise be `null` and every RLS-scoped Prisma
+ * query the two finders issue would silently return zero rows once
+ * `FORCE ROW LEVEL SECURITY` lands — no error, no retry, no log line.
+ * `ReminderPayload` (`@mbe/jobs`) already declares `venueId` required, so the
+ * venue is in hand at dispatch; this is simply the same
+ * `runWithVenueContext(venueId, …)` convention `../routes/deposits.ts` already
+ * uses, applied to the job-worker call site. `WAITLIST_EXPIRY` is the other
+ * shape (its payload's `venueId` is optional and unenqueued) and is
+ * deliberately left untouched — see ADR-026 §3.3 item 7.
  */
 export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
   async function deliverReminder(payload: ReminderPayload): Promise<void> {
-    const reservation = await deps.getReservation(payload.reservationId);
-    if (!reservation) return;
+    return runWithVenueContext(payload.venueId, async () => {
+      const reservation = await deps.getReservation(payload.reservationId);
+      if (!reservation) return;
 
-    const venue = await deps.getVenue(payload.venueId);
-    // No email or missing venue → nothing deliverable; return (no retry).
-    if (!reservation.guestEmail || !venue) return;
+      const venue = await deps.getVenue(payload.venueId);
+      // No email or missing venue → nothing deliverable; return (no retry).
+      if (!reservation.guestEmail || !venue) return;
 
-    const preference = resolveChannel(
-      reservation.guest?.communicationPreference as CommunicationPreference | null
-    );
+      const preference = resolveChannel(
+        reservation.guest?.communicationPreference as CommunicationPreference | null
+      );
 
-    const input: BookingNotificationInput = {
-      reservationId: reservation.id,
-      date: reservation.date,
-      startTime: reservation.startTime,
-      endTime: reservation.endTime,
-      partySize: reservation.partySize,
-      guestName: reservation.guestName,
-      guestEmail: reservation.guestEmail,
-      guestPhone: reservation.guestPhone ?? null,
-      specialRequests: reservation.notes ?? null,
-      venueName: venue.name,
-      venueTimezone: venue.ianaTimezone,
-      venueAddress: null,
-      manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
-    };
+      const input: BookingNotificationInput = {
+        reservationId: reservation.id,
+        date: reservation.date,
+        startTime: reservation.startTime,
+        endTime: reservation.endTime,
+        partySize: reservation.partySize,
+        guestName: reservation.guestName,
+        guestEmail: reservation.guestEmail,
+        guestPhone: reservation.guestPhone ?? null,
+        specialRequests: reservation.notes ?? null,
+        venueName: venue.name,
+        venueTimezone: venue.ianaTimezone,
+        venueAddress: null,
+        manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+      };
 
-    // Dispatcher failures propagate so BullMQ retries per the queue policy.
-    await deps.dispatcher.sendBookingReminder(input, preference);
+      // Dispatcher failures propagate so BullMQ retries per the queue policy.
+      await deps.dispatcher.sendBookingReminder(input, preference);
+    });
   }
 
   return {

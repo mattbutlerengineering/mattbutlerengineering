@@ -415,6 +415,11 @@ the #5369 sweep and none of them fixed by it:
    than visible to a user**, which makes it the one most likely to survive a
    post-flip smoke test. The cron in the same service is _not_ affected (it sets
    per-venue context, §3's table); nothing generalises from that to the worker.
+   **The `BOOKING_REMINDER` / `DAY_OF_REMINDER` half is now closed:**
+   `deliverReminder` (`job-worker.ts`) runs its whole body inside
+   `runWithVenueContext(payload.venueId, …)`, exactly the decided fix below.
+   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` remains open — see the
+   split immediately below, which this closure does not touch.
 
 Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the
@@ -430,6 +435,14 @@ required fields, so the venue is already in hand at dispatch and is simply never
 set. Those take the cron's answer — `runWithVenueContext(payload.venueId, …)`
 around the handler body, per §4, no hatch — and are blockers only because nothing
 does that today, not because anything is undecided about how.
+
+**Closed.** `deliverReminder` now wraps its body in exactly that call, proved by
+a unit test that asserts `getCurrentVenueId()` — read from inside the handler,
+via the finder mocks — equals `payload.venueId` for both `BOOKING_REMINDER` and
+`DAY_OF_REMINDER` (`services/reservations/src/services/job-worker.test.ts`); a
+test that only asserted the finders were called would not have distinguished
+this from the pre-fix behavior. `WAITLIST_EXPIRY` is unchanged and remains open,
+per the next paragraph.
 
 `WAITLIST_EXPIRY` is the other shape and is genuinely harder: `WaitlistExpiryPayload`
 carries only `waitlistEntryId`, with `venueId` declared **optional and enqueued by

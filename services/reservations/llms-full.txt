@@ -9072,35 +9072,37 @@
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
       async function deliverReminder(payload: ReminderPayload): Promise<void> {
-        const reservation = await deps.getReservation(payload.reservationId);
-        if (!reservation) return;
+        return runWithVenueContext(payload.venueId, async () => {
+          const reservation = await deps.getReservation(payload.reservationId);
+          if (!reservation) return;
     
-        const venue = await deps.getVenue(payload.venueId);
-        // No email or missing venue → nothing deliverable; return (no retry).
-        if (!reservation.guestEmail || !venue) return;
+          const venue = await deps.getVenue(payload.venueId);
+          // No email or missing venue → nothing deliverable; return (no retry).
+          if (!reservation.guestEmail || !venue) return;
     
-        const preference = resolveChannel(
-          reservation.guest?.communicationPreference as CommunicationPreference | null
-        );
+          const preference = resolveChannel(
+            reservation.guest?.communicationPreference as CommunicationPreference | null
+          );
     
-        const input: BookingNotificationInput = {
-          reservationId: reservation.id,
-          date: reservation.date,
-          startTime: reservation.startTime,
-          endTime: reservation.endTime,
-          partySize: reservation.partySize,
-          guestName: reservation.guestName,
-          guestEmail: reservation.guestEmail,
-          guestPhone: reservation.guestPhone ?? null,
-          specialRequests: reservation.notes ?? null,
-          venueName: venue.name,
-          venueTimezone: venue.ianaTimezone,
-          venueAddress: null,
-          manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
-        };
+          const input: BookingNotificationInput = {
+            reservationId: reservation.id,
+            date: reservation.date,
+            startTime: reservation.startTime,
+            endTime: reservation.endTime,
+            partySize: reservation.partySize,
+            guestName: reservation.guestName,
+            guestEmail: reservation.guestEmail,
+            guestPhone: reservation.guestPhone ?? null,
+            specialRequests: reservation.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+          };
     
-        // Dispatcher failures propagate so BullMQ retries per the queue policy.
-        await deps.dispatcher.sendBookingReminder(input, preference);
+          // Dispatcher failures propagate so BullMQ retries per the queue policy.
+          await deps.dispatcher.sendBookingReminder(input, preference);
+        });
       }
     
       return {
