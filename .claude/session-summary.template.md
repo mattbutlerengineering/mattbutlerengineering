@@ -1,18 +1,17 @@
+---
+date: _YYYY-MM-DD_
+session: _auto-populated_
+duration: _approximate_
+model: _e.g., claude-sonnet-4-6_
+branch: _e.g., feat/new-feature_
+---
+
 # Session Summary
 
 > `.claude/session-summary.template.md` is the pristine template; `.claude/session-summary.md` is the live scratchpad, which starts as a copy of it.
 > At session end `.claude/hooks/session-archive.sh` compares the two: byte-identical means nothing was written this session, so nothing is archived. Anything else is copied to `.claude/sessions/`.
 > Rows left on their `_placeholder_` are fine — placeholders are not what the hook keys on (#5598).
-
-## Session metadata
-
-| Field      | Value                     |
-| ---------- | ------------------------- |
-| Date       | _YYYY-MM-DD_              |
-| Session ID | _auto-populated_          |
-| Duration   | _approximate_             |
-| Model      | _e.g., claude-sonnet-4-6_ |
-| Branch     | _e.g., feat/new-feature_  |
+> Fill `date:` in the frontmatter with the session's real date. `plugins/acmm/scripts/substance.js` reads it from there and only from there, so a date written anywhere in the body will not make an old summary read as current (#5598).
 
 ## What changed
 
