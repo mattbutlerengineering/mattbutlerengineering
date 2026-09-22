@@ -11,6 +11,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { classifyEvalsReading } from "./evals-freshness.js";
 
 const DEFAULT_PATH = "metrics/acmm-evals.jsonl";
 
@@ -25,6 +26,11 @@ const DEFAULT_PATH = "metrics/acmm-evals.jsonl";
  * @property {string|null} lastRun        ISO timestamp of most recent run
  * @property {Record<string, { n: number, passRate: number, medianScore: number }>} perModel
  * @property {"green"|"yellow"|"red"|"unknown"} status
+ * @property {import("./evals-freshness.js").EvalsFreshnessState} freshness
+ *           What the corpus evidences — `never-run` (no rows at all) vs
+ *           `stale` (rows exist, all older than the window) vs `current`.
+ *           Both empty cases used to collapse to the same `n: 0` summary
+ *           (#4199).
  */
 
 /**
@@ -38,7 +44,7 @@ export function measureEvals(cwd, opts = {}) {
   const windowDays = opts.windowDays ?? 30;
   const now = opts.now ?? new Date();
 
-  if (!existsSync(path)) return emptySummary(windowDays);
+  if (!existsSync(path)) return emptySummary(windowDays, null, now);
 
   const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
   const lines = readFileSync(path, "utf-8")
@@ -47,18 +53,24 @@ export function measureEvals(cwd, opts = {}) {
 
   /** @type {import("./evals/schema.js").EvalResult[]} */
   const runs = [];
+  // Newest timestamp across ALL parseable rows, in-window or not. Carrying it
+  // past the window filter is what lets an empty window say *why* it is empty:
+  // "the harness ran in May and stopped" instead of "no data" (#4199).
+  let newestOverall = null;
   for (const line of lines) {
     try {
       const r = JSON.parse(line);
       const ts = Date.parse(r.timestamp);
-      if (Number.isNaN(ts) || ts < cutoff) continue;
+      if (Number.isNaN(ts)) continue;
+      if (newestOverall === null || r.timestamp > newestOverall) newestOverall = r.timestamp;
+      if (ts < cutoff) continue;
       runs.push(r);
     } catch {
       // skip malformed line
     }
   }
 
-  if (runs.length === 0) return emptySummary(windowDays);
+  if (runs.length === 0) return emptySummary(windowDays, newestOverall, now);
 
   const passes = runs.filter((r) => r.success).length;
   const passRate = round4(passes / runs.length);
@@ -86,35 +98,58 @@ export function measureEvals(cwd, opts = {}) {
     ])
   );
 
-  return {
-    n: runs.length,
-    passRate,
-    medianScore,
-    medianCostUsd: costs.length > 0 ? round4(median(/** @type {number[]} */ (costs))) : null,
-    medianTurns: turns.length > 0 ? round4(median(/** @type {number[]} */ (turns))) : null,
-    windowDays,
-    lastRun,
-    perModel,
-    status: gradeStatus(passRate, runs.length),
-  };
+  return withFreshness(
+    {
+      n: runs.length,
+      passRate,
+      medianScore,
+      medianCostUsd: costs.length > 0 ? round4(median(/** @type {number[]} */ (costs))) : null,
+      medianTurns: turns.length > 0 ? round4(median(/** @type {number[]} */ (turns))) : null,
+      windowDays,
+      lastRun,
+      perModel,
+      status: gradeStatus(passRate, runs.length),
+    },
+    now
+  );
 }
 
 /**
  * @param {number} windowDays
+ * @param {string|null} lastRun Newest run in the corpus, even when it falls
+ *   outside the window — the difference between `stale` and `never-run`.
+ * @param {Date} now
  * @returns {EvalsSummary}
  */
-function emptySummary(windowDays) {
-  return {
-    n: 0,
-    passRate: 0,
-    medianScore: 0,
-    medianCostUsd: null,
-    medianTurns: null,
-    windowDays,
-    lastRun: null,
-    perModel: {},
-    status: "unknown",
-  };
+function emptySummary(windowDays, lastRun, now) {
+  return withFreshness(
+    {
+      n: 0,
+      passRate: 0,
+      medianScore: 0,
+      medianCostUsd: null,
+      medianTurns: null,
+      windowDays,
+      lastRun,
+      perModel: {},
+      status: "unknown",
+    },
+    now
+  );
+}
+
+/**
+ * Stamps a summary with its own freshness verdict, derived from the summary
+ * rather than recomputed — so the reader and every display site can never
+ * disagree about whether a number is current (#4199).
+ *
+ * @param {Omit<EvalsSummary, "freshness">} summary
+ * @param {Date} now
+ * @returns {EvalsSummary}
+ */
+function withFreshness(summary, now) {
+  const { state } = classifyEvalsReading(summary, { now, windowDays: summary.windowDays });
+  return { ...summary, freshness: state };
 }
 
 /**
