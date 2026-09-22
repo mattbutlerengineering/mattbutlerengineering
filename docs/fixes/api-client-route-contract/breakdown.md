@@ -87,7 +87,7 @@ never told about — the architecture's _free_ proof, needing no scratch edit.
 a real admin dashboard hits today is fixed, and the proof transcripts Verify
 needs exist.
 
-- [ ] **Finding A — point the system-health client at `/health/system`** — `packages/api-client/src/health.ts:13`, its doc comment at `:18`, and the test at `health.test.ts:119`/`:125` (tracker: #5692)
+- [x] **Finding A — point the system-health client at `/health/system`** — `packages/api-client/src/health.ts:13`, its doc comment at `:18`, and the test at `health.test.ts:119`/`:125` (tracker: #5692)
   - Accept: `packages/api-client` `test` and `typecheck` green; the guard's `HealthClient.system` pair resolves to owner `edge` with disposition `edge-terminal`; no `/api/health/system` reference remains in repo **code** (two prose references in `docs/features/hospitality-service-ux/` stay — they are correct historical records, as are this run's own artifacts).
   - Must be named in the release record: the path moves rate-limit buckets — `/health/system` is 10 req/60 s (`infrastructure/worker/rate-limiter.js:16`) where `/api/` is 100 (`:17`), against `SystemHealthBadge`'s 60 s poll (`SystemHealthBadge.tsx:8`). Roughly ten admin tabs per source IP before shedding; accepted at today's admin population, recorded so it is a decision and not a surprise.
   - Carry into Review: this survived because `SystemHealthBadge.tsx:54-57` swallows the error and `:67` returns `null` — the production symptom is an **absent badge**, not an error.

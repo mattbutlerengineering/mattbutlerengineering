@@ -38,3 +38,18 @@ describe("route contract", () => {
     expect(formatUnowned(unowned)).toBe("");
   });
 });
+
+describe("findings this guard produced on its first run", () => {
+  // Both were 404 in production and invisible to every other gate. Pinned
+  // here so the fixes cannot silently regress — a path that goes back to
+  // being unowned would already fail the verdict above, but these say which
+  // owner is the right one, which the verdict alone does not.
+
+  it("Finding A — HealthClient.system is answered by the edge, not forwarded to DO", () => {
+    const verdict = report.verdicts.find((v) => v.pair.producedBy.includes("health.system"));
+
+    expect(verdict?.pair.path).toBe("/health/system");
+    expect(verdict?.edgeDisposition).toBe("edge-terminal");
+    expect(verdict?.owners).toEqual(["edge"]);
+  });
+});
