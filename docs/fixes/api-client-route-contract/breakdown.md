@@ -39,7 +39,7 @@ pair exists.
 - [x] **Regenerate the artifacts a new workspace package invalidates** — `pnpm-lock.yaml`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md` (tracker: #5685)
   - Accept: `@mbe/route-contract` appears as a node in `dep-graph.json` (beside the existing `@mbe/mutation-testing` entry at `tools/mutation-testing`) and in `docs/architecture/dependency-graph.md` with its five edges; re-running `pnpm graph && pnpm generate:dep-graph` yields no further diff; `pnpm regen --check` clean after `pnpm build --filter @mbe/cli...`; **no** `llms.txt`/`llms-full.txt` under `tools/route-contract` and **no** new `FAMILIES` entry in `scripts/regen-manifest.mjs` (the llms family is manifest-driven and `tools/mutation-testing` carries none — adding the files without a manifest entry is what reddens CI, so add neither); only those three paths staged, never `git add -A`.
   - Blocked by: Scaffold `@mbe/route-contract`
-- [ ] **Fastify route-owner adapter** — `buildApp({ logger: false })` → `await app.ready()` → `app.findRoute({ method, url })` across `services/reservations`, `services/users`, `services/agent` (tracker: #5686)
+- [x] **Fastify route-owner adapter** — `buildApp({ logger: false })` → `await app.ready()` → `app.findRoute({ method, url })` across `services/reservations`, `services/users`, `services/agent` (tracker: #5686)
   - Accept: returns a boolean per owner; a committed test pins the architecture's measured four-row table with the opaque placeholder substituted for `:id` — `POST …/floor-plans/<ph>/active` → no owner, `POST …/floor-plans/<ph>/activate` → `["reservations"]`, `POST …/floor-plans/<ph>/bulk-update-positions` → no owner, `POST …/floor-plans/tables/positions` → `["reservations"]`; all three apps reach `ready()` with no `DATABASE_URL` and no ioredis retry noise (mock `ioredis` as `packages/jobs/src/worker.test.ts:20-28` does, against `services/reservations/src/app.ts:280-291`).
   - `findRoute` does runtime path matching, not pattern-spelling comparison — that is the load-bearing measurement. Do not substitute `hasRoute`, `printRoutes()` parsing, or `app.inject()`.
   - This test is a **permanent** adapter-level pin on the 2026-08-30 defect with no working-tree edit. It is not the end-to-end proof; that is item 11.
@@ -155,3 +155,38 @@ by hand, since it appears in CLAUDE.md's issue-state label family. The
 descriptive `area:*` labels it also added were left — no workflow queries them.
 Nothing further should edit these issue **bodies**, or `auto-label` re-runs and
 re-adds `feature`.
+
+**2026-09-22, implement (item 3) — the ioredis noise is closed by `NODE_ENV`,
+not by a mock, and the mock the item proposed is not available here.**
+Item 3's acceptance says to silence the reservations job worker by mocking
+`ioredis` the way `packages/jobs/src/worker.test.ts:20-28` does. Measured:
+`ioredis` is **unresolvable** from `tools/route-contract`
+(`require.resolve("ioredis")` → `MODULE_NOT_FOUND`; the package's
+`node_modules` holds only `@mbe`, `@types`, `@vitest`, `typescript`, `vitest`),
+so a `vi.mock("ioredis", …)` here has nothing to bind to, and making it
+resolvable would mean adding a real npm devDependency the architecture did not
+budget for. It is also unnecessary: the worker is constructed inside
+`if (process.env.NODE_ENV !== "test")` (`services/reservations/src/app.ts:266`),
+which also gates the lapsed-guest monitor — so pinning `NODE_ENV = "test"` in
+`bootFastifyOwners()` means the ioredis connection is never opened at all,
+rather than opened and stubbed. Checked that this cannot change the answer the
+guard gives: `NODE_ENV`'s only other uses in the three services' bootstrap are
+CORS origins, the fail-closed production auth check, and those two hooks —
+**no route registration reads it**, so the table booted here is the table
+production registers. Reservations, users and agent all reach `ready()` with no
+database, no mocks and no ioredis output.
+
+**2026-09-22, implement (item 3) — the "no `DATABASE_URL`" half of that
+criterion is recorded, not asserted on `process.env`.** The apps do boot with
+none (that is what `beforeAll` demonstrates, and CI's `Test (Node 22)` job sets
+no `DATABASE_URL` — the three jobs that do are integration, RLS and
+migrate-dryrun). Asserting `process.env.DATABASE_URL === ""` would hand a
+developer who exports it a red that says nothing about the code, so the fact
+lives in the test's doc comment instead.
+
+**2026-09-22, implement (item 2) — `dep-graph.json` carries six edges, not the
+five the item predicted.** The five guard devDeps plus `@mbe/config`. The
+Mermaid `.md` shows five of the six and no `edge-worker` arrow, because
+`scripts/generate-dep-graph.js`'s `MERMAID_DIRS` deliberately excludes
+`infrastructure/*` — `apps/rialto-web`, which also devDepends on
+`@mbe/edge-worker`, renders the same way. Generator behaviour, not drift.
