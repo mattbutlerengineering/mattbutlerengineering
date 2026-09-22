@@ -61,7 +61,7 @@ transition each break something.
   - `AgentSessionClient` is **not** in the factory (`index.ts:81-97` omits it; `agent-sessions.ts:38-41`) — it must be constructed separately or it is missed.
   - Record the blind spot rather than implying it: `streamNDJSON(config)` takes a caller-supplied `config.url` (`packages/api-client/src/streaming.ts:35-36`) and holds no literal, so it is not covered.
   - Blocked by: Scaffold `@mbe/route-contract`
-- [ ] **Make the client driver unable to silently narrow** — per-invocation request counting, a named non-HTTP exempt list, and an exhaustive `deposits.transition` map (tracker: #5689)
+- [x] **Make the client driver unable to silently narrow** — per-invocation request counting, a named non-HTTP exempt list, and an exhaustive `deposits.transition` map (tracker: #5689)
   - Accept: a test fails if any non-exempt roster method issues zero requests _in its own invocation_; the three aliases that re-emit an earlier path do **not** trip it (`floorPlans.get`, `floorPlans.activate`, `reservations.cancelWithReason` — `floor-plans.ts:39-41`, `:65-67`, `reservations.ts:145-157`, which a naive set-growth check flags as false positives); all three deposit transition paths appear in the inventory; adding a fourth `DepositTransition` member without a map entry fails `pnpm --dir tools/route-contract typecheck`, demonstrated rather than asserted in prose (vitest does not typecheck); the exempt list (`holds.setSessionId`, `holds.getSessionId`, `holds.sessionHeaders`) is a named constant with a one-line reason per entry.
   - Blocked by: Recording transport that drives the real client
 

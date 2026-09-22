@@ -138,10 +138,16 @@ export function exportedClientClassNames(): string[] {
 function methodNamesOf(instance: object): string[] {
   // Own prototype only. AgentSessionClient extends ApiClient, and walking up
   // would enumerate the transport (request/get/post/…) as client surface.
+  //
+  // Deliberately NOT sorted: `getOwnPropertyNames` on a class prototype yields
+  // declaration order, so `producedBy[0]` is the method that declares a path
+  // and an alias delegating to it comes second. Sorting would still enumerate
+  // everything — the inventory is identical either way — but it would shuffle
+  // which half of each alias pair is "first", and `client-driver-completeness`
+  // pins the three the architecture measured by name.
   return Object.getOwnPropertyNames(Object.getPrototypeOf(instance))
     .filter((name) => name !== "constructor")
-    .filter((name) => typeof (instance as Record<string, unknown>)[name] === "function")
-    .sort();
+    .filter((name) => typeof (instance as Record<string, unknown>)[name] === "function");
 }
 
 function buildRoster(): { roster: RosterEntry[]; transportClassName: string } {
