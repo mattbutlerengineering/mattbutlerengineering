@@ -100,7 +100,7 @@ needs exist.
   - Accept: green transcript, then RED after scratch-editing `packages/api-client/src/floor-plans.ts:58` back to `/api/v1/floor-plans/${id}/active`, then green after `git checkout -- packages/api-client/src/floor-plans.ts` — all three captured verbatim from real command output and handed to Verify; `git status --porcelain` shows no residual modification to that file; the RED transcript names the method, path, producing client method and edge disposition, demonstrating item 7's failure-message contract on a real failure; coverage stated explicitly for the record (which client modules and which four owners are compared, and what is knowingly excluded and why — host reachability, payload shape, non-client callers, and whether the handler works).
   - Distinct from the Fastify adapter's committed table (item 3), which pins the same distinction permanently with no working-tree edit. Do not collapse them: the brief's success criterion 2 asks for the end-to-end behaviour, not an adapter-level one.
   - Blocked by: Finding A; Finding B
-- [ ] **Absorb the cold-cache CI run the new lockfile entry forces** (tracker: #5695)
+- [x] **Absorb the cold-cache CI run the new lockfile entry forces** (tracker: #5695)
   - Accept: the PR's first full `Test (Node 22)` job is green; any `Test timed out in 5000ms` in a package this run did not touch is fixed by `testTimeout: 15000` in _that_ package's `vitest.config.ts` — the recorded pattern — and not by a blind `gh run rerun`; the "Enforce repo-wide coverage threshold" step still passes (it folds in every `*/coverage/coverage-final.json` found by `find`, automatically, so the new package joins the denominator whether or not anyone wires it up); `./tools/route-contract/coverage/coverage-final.json` added to `ci.yml`'s codecov `files:` list, matching every other test-bearing package; `CI Gate` green (it is the only required check — `Visual Regression` and `codecov/patch` are advisory).
   - Why this is an item and not a footnote: `pnpm-lock.yaml` is a turbo `globalDependencies` entry, so adding a workspace package invalidates the cache for **every** task on this PR's run. That cold ~40-task-concurrent load has twice tipped marginal default-5 s-timeout suites over and broken `main` (`ec35b2cf` / #3588, and the `buildApp()` cold-start class before it). The failure arrives on a package this run never touched, so it reads as unrelated flake and invites the blind rerun that does not fix it.
   - Blocked by: Prove the guard goes red on the 2026-08-30 literal and green once reverted
@@ -204,3 +204,29 @@ last produced could never detect anything. Recorded because it is the only time
 in this run an anti-vacuity clause fired on real input rather than on the
 synthetic emptied inputs `vacuity.test.ts` feeds it, which makes it evidence
 that the clause is not decorative.
+
+**2026-09-22, implement (item 12) — the cold-cache run was reproduced locally
+and was clean; the `CI Gate` half of the criterion is not Implement's to
+observe.** Item 12 asks for two things. The first is real work and is done: the
+codecov `files:` list in `ci.yml` now carries
+`./tools/route-contract/coverage/coverage-final.json`, and the cold, fully
+parallel run the new lockfile entry forces was reproduced here as
+`pnpm turbo test:coverage --force --concurrency=2` — the same task and
+concurrency cap CI uses, with `--force` standing in for the
+`globalDependencies` cache-bust. Result: **52 successful / 52 total, `Cached: 0
+cached, 52 total`, exit 0, 3m17s.** No `Test timed out in 5000ms` anywhere, so
+there was nothing to absorb and no package outside this run needed a
+`testTimeout: 15000`. The repo-wide coverage step was run by hand with `ci.yml`'s
+own `find`-and-fold snippet: **85% (24014/28105 statements) against a 60%
+threshold**, with `./tools/route-contract/coverage/coverage-final.json` present
+in the fold.
+
+The second — "the PR's first full `Test (Node 22)` job is green" and "`CI Gate`
+green" — is an observation on a pull request that does not exist yet and must
+not: Implement is explicitly forbidden to push or open one, and Ship owns that.
+It is recorded here as the one part of this item's acceptance that Implement
+could not close, so that nobody reads the checkbox as a claim about a CI run
+that never happened. If that first run does surface a timeout in an untouched
+package, the recorded fix is `testTimeout: 15000` in **that** package's
+`vitest.config.ts` — never a blind `gh run rerun`, which re-uses the same merge
+SHA and fails identically.
