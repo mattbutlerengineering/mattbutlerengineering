@@ -354,6 +354,19 @@ same class is already recorded for the venue-self-addressed
 `GET/PATCH/DELETE /api/v1/venues/:id` family in
 `services/reservations/CLAUDE.md`.
 
+> **Measured, and it means "Resolved" above is only half true (2026-09-21,
+> #5369).** That residual is not a theoretical remainder — it is load-bearing:
+> `GET /api/v1/deposits/:id` **still answers 404 under FORCE**, confirmed by
+> injecting it against the real app on a migrated database (§3.3's table).
+> `resolveReservationVenueId`'s own `reservation.findUnique` is an unscoped read
+> of an RLS table, so it resolves `null` and the route fails closed _before_
+> `runWithVenueContext` is ever entered. Read this whole section as resolving the
+> **authorization** gap for those five routes — which it does — and as clearing
+> **none** of them for the flip. A reader who takes "Resolved by giving the
+> routes a real venue context" at face value and moves the deposits family out of
+> §3.3's blocker list would be wrong; that is precisely the propagation path this
+> ADR has already corrected itself on twice.
+
 ### 3.3 What the `FORCE ROW LEVEL SECURITY` flip still needs
 
 §3.1 makes the flip _decidable_; it does not make it safe on its own, and no
@@ -381,13 +394,94 @@ the #5369 sweep and none of them fixed by it:
 5. **The venue-self-addressed family** (`GET/PATCH/DELETE /api/v1/venues/:id`,
    `/:id/table-statuses`), already recorded in
    `services/reservations/CLAUDE.md`.
+6. **The deposits admin family** (`GET /api/v1/deposits/:id` and its
+   `/capture`, `/refund`, `/forfeit` siblings). Listed here explicitly, not
+   folded into item 2, because §3.2 records these five routes as **resolved** by
+   #5382 and a reader could reasonably move them off this list on that basis —
+   they are not off it. Measured 404 under FORCE (§3.3's table below); see the
+   blockquote in §3.2 for why.
+7. **The in-process job worker** (`services/reservations/src/services/job-worker.ts`,
+   wired in `app.ts`). Its `BOOKING_REMINDER` / `DAY_OF_REMINDER` handlers call
+   `reservationService.getById` and `venueService.getById`, and `WAITLIST_EXPIRY`
+   reaches `waitlistNotifier.handleExpiry` — all from a BullMQ consumer with no
+   HTTP request, so `getCurrentVenueId()` is `null` and the per-call auto-wrap has
+   nothing to set. Under FORCE both finder calls return `null` and
+   `deliverReminder` **returns early without throwing**: reminders stop being
+   delivered, with no error, no retry and no log line. This is the one item the
+   original sweep missed entirely — it was found by probing the wiring in `app.ts`
+   during #5369, not by §3's `findMany|findFirst|$queryRaw` grep, which cannot see
+   a background caller that reaches those tables through a service function. It is
+   also the only item on this list whose failure is **silent in production rather
+   than visible to a user**, which makes it the one most likely to survive a
+   post-flip smoke test. The cron in the same service is _not_ affected (it sets
+   per-venue context, §3's table); nothing generalises from that to the worker.
 
-Items 2–4 share one shape, and it is the shape the deposits fix (#5382) solved
+Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the
 scope it is computing. Whatever closes them generally — a resolver that reads
 through a `SECURITY DEFINER` projection, or a scope-free lookup table of
 `(entity id → venue id)` — is a larger change than this ADR, and it must land
 before FORCE, not after.
+
+**Item 7 splits into two shapes, and only one of them is new.** The two reminder
+handlers are _not_ lookups trapped inside their own scope: `ReminderPayload`
+(`packages/jobs/src/job-types.ts`) declares `reservationId` and `venueId` as
+required fields, so the venue is already in hand at dispatch and is simply never
+set. Those take the cron's answer — `runWithVenueContext(payload.venueId, …)`
+around the handler body, per §4, no hatch — and are blockers only because nothing
+does that today, not because anything is undecided about how.
+
+`WAITLIST_EXPIRY` is the other shape and is genuinely harder: `WaitlistExpiryPayload`
+carries only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
+nothing** (its own comment says so), and `expireEntry(waitlistEntryId)` derives the
+venue by reading the RLS-protected `waitlist_entries` row. That is items 2–6's
+trapped-lookup shape wearing a job payload. Its cheapest fix is not a database
+mechanism at all — make `venueId` required on the payload and populate it at
+enqueue time, where the venue is known — but that is a payload-compatibility change
+across in-flight BullMQ jobs, so it is named here rather than assumed easy.
+
+**Measured, not predicted (2026-09-21, #5369).** The list above was derived by
+reading code. It has since been run: the real `buildApp()` was booted against a
+migrated scratch database owned by a plain non-superuser role (production's
+shape), and 17 representative routes were injected with FORCE off, then on. **8
+of the 17 break**, and the delta is exactly items 2–5 — no more, and no fewer:
+
+| Route                                                                                    | FORCE absent | FORCE set                           |
+| ---------------------------------------------------------------------------------------- | ------------ | ----------------------------------- |
+| `GET /public/v1/venues/:slug`                                                            | 200          | **404** `No venue found with slug`  |
+| `GET /public/v1/venues/:slug/availability`                                               | 200          | **404** (same, before availability) |
+| `GET /api/v1/tables/:id`                                                                 | 200          | **404** `Table not found`           |
+| `GET /api/v1/guests/:id`                                                                 | 200          | **404** `Guest not found`           |
+| `GET /api/v1/floor-plans/:id`                                                            | 200          | **404** `Floor plan not found`      |
+| `GET /api/v1/reservations/:id`                                                           | 200          | **404** `Reservation not found`     |
+| `GET /api/v1/venues/:id`                                                                 | 200          | **404** `Venue not found`           |
+| `GET /api/v1/deposits/:id`                                                               | 200          | **404**                             |
+| `…?venueId=` list routes (tables, guests, floor-plans, reservations, waitlist, briefing) | 200          | 200 (unchanged)                     |
+| `GET /api/v1/venues` (admin cross-venue list)                                            | 200 rows=2   | 200 rows=2 (the §3.1 hatch holds)   |
+
+Two things this measurement settles that the code read did not. First, the
+damage is **404, not 403**: the bypass-identity used was a platform admin, and
+`requireVenueAccess` short-circuits for admins _before_ calling the resolver, so
+the failure surfaces in the handler's own read rather than in the guard — a
+non-admin staff user gets the 403 item 2 predicts, an admin gets a 404. Both are
+broken; they are not the same symptom, and a smoke test run as an admin will
+never see the 403. Second, **`GET /api/v1/deposits/:id` is still in the broken
+set**, even though §3.2 records the deposits family as resolved by #5382. That is
+the "Residual, deliberately not solved by #5382" paragraph coming true verbatim:
+`resolveReservationVenueId`'s own `reservation.findUnique` is an unscoped read of
+an RLS table, so it returns `null` under FORCE and the route fails closed before
+its venue context is ever entered. Treat §3.2 as resolving the _authorization_
+gap for those five routes, not as clearing them for the flip.
+
+**Consequence for the flip:** `FORCE ROW LEVEL SECURITY` is not a migration that
+can land on its own. The public booking funnel begins with
+`GET /public/v1/venues/:slug`, so the first row of that table is a total outage
+of guest-facing booking. Nothing in the repo prevented such a migration from
+being written, which is why `services/reservations/src/services/rls-force-coverage.ts`
+now fails CI on an RLS-enabled table that is neither forced nor listed as a
+tracked gap, and `services/reservations/src/routes/rls-owner-enforcement.integration.test.ts`
+proves the enable-vs-force semantics against the deployed role rather than a
+probe role. Neither flips the switch.
 
 ### 4. Session variable design
 
