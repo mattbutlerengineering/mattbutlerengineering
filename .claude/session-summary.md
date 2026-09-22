@@ -1,68 +1,98 @@
 ---
-date: 2026-05-12
-session: acmm-gap-closure
-duration: _approximate_
-model: _e.g., claude-sonnet-4-6_
-branch: _e.g., feat/new-feature_
+date: 2026-09-22
+session: pr-issue-drain
+duration: ~14h wall clock, two sittings
+model: claude-opus-5[1m]
+branch: main (worktree-isolated agent branches)
 ---
 
 # Session Summary
 
-## 2026-05-12
+## 2026-09-22
 
-Session focus: ACMM gap closure, CI fix, PR conflict resolution.
-Key outcomes: Fixed lockfile sync, merged 12 PRs, closed 4 superseded PRs.
-
----
-
-> `.claude/session-summary.template.md` is the pristine template; `.claude/session-summary.md` is the live scratchpad, which starts as a copy of it.
-> At session end `.claude/hooks/session-archive.sh` compares the two: byte-identical means nothing was written this session, so nothing is archived. Anything else is copied to `.claude/sessions/`.
-> Rows left on their `_placeholder_` are fine — placeholders are not what the hook keys on (#5598).
-> Fill `date:` in the frontmatter with the session's real date. `plugins/acmm/scripts/substance.js` reads it from there and only from there, so a date written anywhere in the body will not make an old summary read as current (#5598).
+Session focus: drain the open PR and issue queues. Secondary outcome: found and fixed the
+root cause of a total production deploy outage that three prior automated issues had
+misattributed.
 
 ## What changed
 
-_List files created, modified, or deleted. Group by purpose._
-
-- **Created:** _list of new files_
-- **Modified:** _list of changed files_
-- **Deleted:** _list of removed files_
+- **Merged (7):** #5667 (deploy fail-fast on CI-less dispatch), #5668 (RLS job-worker venue
+  context), #5669 (production health metrics), #5670 (`ClaudeCliAdapter`), #5679
+  (verified-webhook fail-closed tests), #5680 (ACMM daily audit), plus #5681 pending
+  (Dockerfile `patches/` fix).
+- **Created:** `scripts/__tests__/dockerfile-pnpm-patches.test.mjs`,
+  `packages/agent-core/src/adapters/claude-cli-adapter.ts`,
+  `services/reservations` reminder-handler venue-context tests.
+- **Modified:** three service Dockerfiles, `.claude/rules/gotchas.md` (corrected a false
+  `paths-ignore` claim), `docs/adr/ADR-026` (item 7 reminder half closed).
+- **Closed (5 issues):** #5663, #5664, #5675, #5677, and PR #5665 (obsolete auto-revert).
 
 ## What was tried
 
-_Document approaches attempted, including ones that did not work. This prevents future sessions from re-treading failed paths._
-
-1. _Approach 1: description and outcome_
-2. _Approach 2: description and outcome_
+1. **Dispatched a TDD worker at #4199.** It correctly refused — the code was already merged
+   (#4206/#4218), AC2 rests on a false premise, and the issue thread literally said "do not
+   dispatch an implementation agent at this issue." Memory had flagged it as a churn trap
+   and I dispatched anyway. Fixed by rewriting the issue _body_ with a warning banner: the
+   body was what kept attracting workers, including mine.
+2. **Assumed the deploy failures were DO capacity.** DO reported `BuildJobTerminated` /
+   "resource exhaustion" on three runs × five retries, escalating from one service to all
+   three — which looks exactly like contention. It was a missing `COPY patches ./patches`;
+   `pnpm install` exited 254 on ENOENT. Only `doctl apps logs <app> <component>
+--type=build` showed the real error.
+3. **Tried to reset the circuit breaker first.** Correctly abandoned — resetting without
+   fixing the root cause would have burned another three runs and re-tripped it.
 
 ## What was learned
 
-_Key takeaways from this session. These feed into `.claude/reflections/` and `.claude/memory/`._
-
-- _Lesson 1_
-- _Lesson 2_
+- DO App Platform reports a **non-zero build exit as `BuildJobTerminated` / "resource
+  exhaustion"** regardless of the real cause. Never trust that message; go to the build log.
+- `pnpm.patchedDependencies` makes `patches/` a **build-context dependency** of every image
+  that runs `pnpm install`. Declaring a patch in the root `package.json` silently breaks
+  every Dockerfile that copies `package.json` but not `patches/`.
+- A green CI Gate says nothing about prose. Two of four agent PRs shipped false or
+  destructive **text** (a negated closing keyword; a wrong causal claim in an operator error
+  string) — see `.claude/memory/reinforcements/2026-09-22-review-gate-catches-what-ci-cannot.md`.
+- Issues can rot into traps. #4199, #5663 and #3277 each carried a premise that had become
+  false; each would have cost a worker a full cycle. Re-measuring a premise before
+  dispatching is cheaper than the dispatch.
 
 ## Corrections received
 
-_Any user corrections or hook failures during the session._
-
-- _Correction 1: what was wrong and what was the fix_
+- None from the user this session. Both self-corrections are recorded above (the #4199
+  dispatch, and writing in normal prose for most of the session when project CLAUDE.md
+  mandates caveman mode).
 
 ## Decisions made
 
-_Architecture, design, or process decisions with rationale._
-
-- _Decision 1: chose X over Y because Z_
+- **Did not decompose #5616/#5617/#5618.** They sit inside `/ideate`'s 66h veto window
+  (created 2026-09-21T16:15Z, eligible 2026-09-24T10:15Z). Decomposing early would bypass
+  the human veto gate.
+- **Shipped `ClaudeCliAdapter` additively and left it out of the `auto` cascade.** The
+  `claude` binary is on PATH in most environments here, so inserting it would silently
+  change what `auto` resolves to today. `#3585`'s A-vs-B direction stays open.
+- **Fixed deploys forward rather than reverting.** Prod was healthy throughout (old
+  containers kept serving); only the pipeline was broken.
 
 ## Next steps
 
-_What should the next session pick up? Include specific file paths, issue numbers, or branch names._
-
-- [ ] _Next step 1_
-- [ ] _Next step 2_
+- [ ] Merge #5681, then reset the circuit breaker (#5671) once a deploy goes green, and
+      confirm #5678's synthetic health check recovers.
+- [ ] Human-blocked, all verified this session: `TURBO_TOKEN` (#3388, one command);
+      `DOMAIN_METRICS_VENUE_ID` **and** `DOMAIN_METRICS_TOKEN` together (#5561 — setting
+      only one converts a clear signal into a misleading one); #4111 needs secret +
+      workflow wiring + spec update atomically.
+- [ ] Decisions waiting on a human: #3585 (A vs B), #3322 (is rialto meant to be publicly
+      installable — Option A needs no credential), #3277 (who owns DO service env vars).
+- [ ] One Auth0 scope grant (`read/update:tenant_settings` + `read/update:branding`)
+      unblocks both the Pulumi bypass retirement and #4848.
 
 ## Continuity notes
 
-_Context that would be lost between sessions: environment state, partially completed work, known blockers, open questions for the user._
-
-- _Note 1_
+- `main` is green. Open PR queue was drained to zero twice; #5681 is the only one in flight.
+- **#3253 is blocked upstream, not by us** — `typescript-eslint` latest _and_ canary both
+  peer `typescript >=4.8.4 <6.1.0`. No TS7 channel exists. Re-check only when that changes.
+- The local main checkout sits ~90 commits behind `origin/main` with ~170 permanently dirty
+  files from the PostToolUse prettier hook. Always read via `git show origin/main:<path>`
+  and never `git add -A`.
+- Scratch worktrees used this session live under the session scratchpad, not
+  `.claude/worktrees/`, so the reaper reports them as out-of-tree and never touches them.

@@ -1,6 +1,6 @@
 {
-  "lastRun": "2026-09-22T16:05:01.601Z",
-  "currentLevel": 5,
+  "lastRun": "2026-09-22T17:47:55.376Z",
+  "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
@@ -25,7 +25,7 @@
     },
     "acmm:prereq-pr-template": {
       "passed": true,
-      "evidence": "detected at: .github/PULL_REQUEST_TEMPLATE.md",
+      "evidence": "detected at: .github/pull_request_template.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -115,11 +115,11 @@
       "substanceEvidence": null
     },
     "acmm:positive-reinforcement": {
-      "passed": false,
+      "passed": true,
       "evidence": "detected at: .claude/memory/",
-      "verdict": "hollow",
-      "substantive": false,
-      "substanceEvidence": "newest entry 2026-05-14 is 131 days old (window: 90 days)"
+      "verdict": "pass",
+      "substantive": true,
+      "substanceEvidence": null
     },
     "acmm:pr-acceptance-metric": {
       "passed": true,
@@ -192,11 +192,11 @@
       "substanceEvidence": null
     },
     "acmm:session-summary": {
-      "passed": false,
+      "passed": true,
       "evidence": "detected at: .claude/session-summary.md",
-      "verdict": "hollow",
-      "substantive": false,
-      "substanceEvidence": "newest entry 2026-05-12 is 133 days old (window: 90 days)"
+      "verdict": "pass",
+      "substantive": true,
+      "substanceEvidence": null
     },
     "acmm:structural-gates": {
       "passed": true,
@@ -213,16 +213,16 @@
       "substanceEvidence": null
     },
     "acmm:nightly-compliance": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/nightly-compliance.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:copilot-review-apply": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/copilot-review-apply.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -297,11 +297,11 @@
       "substanceEvidence": null
     },
     "acmm:session-continuity": {
-      "passed": false,
+      "passed": true,
       "evidence": ".claude/session-summary.md contains: \\d{4}-\\d{2}-\\d{2}",
-      "verdict": "hollow",
-      "substantive": false,
-      "substanceEvidence": "no dated record with forward context under Next steps / Continuity notes"
+      "verdict": "pass",
+      "substantive": true,
+      "substanceEvidence": null
     },
     "acmm:cross-session-knowledge": {
       "passed": true,
@@ -325,23 +325,23 @@
       "substanceEvidence": null
     },
     "acmm:instruction-sync-gate": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:component-registry-integrity": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:instruction-rot-detection": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -353,9 +353,9 @@
       "substanceEvidence": null
     },
     "acmm:claude-md-auto-sync": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/claude-md-sync.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -437,9 +437,9 @@
       "substanceEvidence": null
     },
     "acmm:periodic-reflection": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/reflection-review.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -521,9 +521,9 @@
       "substanceEvidence": null
     },
     "acmm:auto-issue-gen": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/auto-issue.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -556,9 +556,9 @@
       "substanceEvidence": null
     },
     "acmm:production-feedback": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/production-feedback.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -605,9 +605,9 @@
       "substanceEvidence": null
     },
     "acmm:auto-rollback": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/auto-rollback.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -787,9 +787,9 @@
       "substanceEvidence": null
     },
     "meta:product-improvements": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error querying improvement issues",
-      "verdict": "not-found",
+      "passed": true,
+      "evidence": "1 improvement issue(s) closed in last 30 days",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -1200,9 +1200,9 @@
     },
     {
       "date": "2026-09-22",
-      "level": 5,
-      "detected": 94,
-      "total": 99
+      "level": 6,
+      "detected": 108,
+      "total": 109
     }
   ],
   "issuesCreated": {
@@ -1212,8 +1212,8 @@
     "acmm:instruction-rot-detection": 1265,
     "acmm:repo-bench": 1266
   },
-  "levelName": "Semi-Automated",
-  "role": "Operator",
+  "levelName": "Fully Autonomous",
+  "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
     "acmm:prereq-e2e",
@@ -1231,6 +1231,7 @@
     "acmm:editor-config",
     "acmm:simple-skills",
     "acmm:correction-capture",
+    "acmm:positive-reinforcement",
     "acmm:pr-acceptance-metric",
     "acmm:pr-review-rubric",
     "acmm:quality-dashboard",
@@ -1241,8 +1242,11 @@
     "acmm:model-tiering",
     "acmm:verify-before-reporting",
     "acmm:evidence-antipatterns",
+    "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
+    "acmm:nightly-compliance",
+    "acmm:copilot-review-apply",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
@@ -1253,10 +1257,15 @@
     "acmm:structured-rca",
     "acmm:multi-perspective-review",
     "acmm:idempotent-workflows",
+    "acmm:session-continuity",
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:component-registry-integrity",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
+    "acmm:claude-md-auto-sync",
     "acmm:preference-index",
     "acmm:task-ledger",
     "acmm:mcp-server-config",
@@ -1268,6 +1277,7 @@
     "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
+    "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:explanation-standards",
     "acmm:self-correction-metric",
@@ -1279,15 +1289,18 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
+    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
+    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
+    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -1308,20 +1321,21 @@
     "claude-reflect:claude-md-sync",
     "claude-reflect:preference-index",
     "claude-reflect:reflection-review",
-    "claude-reflect:session-summary"
+    "claude-reflect:session-summary",
+    "meta:product-improvements"
   ],
   "computation": {
-    "level": 5,
+    "level": 6,
     "strict": true,
-    "levelName": "Semi-Automated",
-    "role": "Operator",
-    "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
+    "levelName": "Fully Autonomous",
+    "role": "Strategist",
+    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 12,
+      "3": 6,
+      "4": 16,
       "5": 15,
-      "6": 6
+      "6": 8
     },
     "requiredByLevel": {
       "2": 3,
@@ -1330,44 +1344,9 @@
       "5": 16,
       "6": 8
     },
-    "missingForNextLevel": [
-      {
-        "id": "acmm:auto-issue-gen",
-        "source": "acmm",
-        "level": 6,
-        "category": "autonomy",
-        "name": "Automated issue generation",
-        "description": "Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.",
-        "rationale": "L6 self-direction: the codebase proposes its own next task.",
-        "details": "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/auto-issue.yml",
-            ".github/workflows/issue-gen.yml",
-            ".github/workflows/auto-generate-issues.yml"
-          ],
-          "maxAgeDays": 7
-        }
-      },
-      {
-        "id": "acmm:auto-rollback",
-        "source": "acmm",
-        "level": 6,
-        "category": "autonomy",
-        "name": "Automated rollback",
-        "description": "Automated detection and revert of regressions caused by AI-authored changes.",
-        "rationale": "L6 signal: the system not only acts but also undoes mistakes without human initiation.",
-        "details": "Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.",
-        "detection": {
-          "type": "active",
-          "pattern": [".github/workflows/auto-rollback.yml", "docs/acmm/auto-rollback.md"],
-          "maxAgeDays": 365
-        }
-      }
-    ],
-    "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
-    "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
+    "missingForNextLevel": [],
+    "nextTransitionTrigger": null,
+    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
       "met": 8,
       "total": 8
@@ -1400,7 +1379,7 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 1,
+        "value": 0.9841269841269841,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
@@ -1435,8 +1414,8 @@
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
-        "passed": false,
-        "value": 0.7307692307692307,
+        "passed": true,
+        "value": 0,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
@@ -1449,21 +1428,143 @@
   "behavioral": {
     "flake": {
       "rate_30d": 0,
-      "sample_size": 100,
+      "sample_size": 99,
       "flaky_shas": [],
-      "measured_at": "2026-07-29T02:36:53.988Z"
+      "measured_at": "2026-09-22T17:47:55.373Z"
     },
     "agent_pr": {
-      "sample_size": 26,
-      "merged_count": 26,
-      "closed_unmerged_count": 0,
+      "sample_size": 63,
+      "merged_count": 62,
+      "closed_unmerged_count": 1,
       "open_count": 0,
-      "acceptance_rate_30d": 1,
+      "acceptance_rate_30d": 0.9841269841269841,
       "revert_rate_30d": 0,
-      "median_time_to_merge_hours": 0.8659722222222223,
-      "human_touch_ratio": 0.7307692307692307,
+      "median_time_to_merge_hours": 0.3038888888888889,
+      "human_touch_ratio": 0,
       "insufficient_data": false,
-      "measured_at": "2026-07-29T02:36:53.988Z"
+      "recent_changes": [
+        {
+          "number": 5679,
+          "title": "test(agent): cover verified-webhook's fail-closed branches",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5679",
+          "mergedAt": "2026-09-22T17:26:26Z"
+        },
+        {
+          "number": 5668,
+          "title": "fix(reservations): scope reminder job-worker handlers to their venue context",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5668",
+          "mergedAt": "2026-09-22T04:39:49Z"
+        },
+        {
+          "number": 5658,
+          "title": "chore(metrics): optimize-implement-queue 2026-09-22",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5658",
+          "mergedAt": "2026-09-22T01:36:43Z"
+        },
+        {
+          "number": 5657,
+          "title": "chore(metrics): progress-tracker 2026-09-22",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5657",
+          "mergedAt": "2026-09-22T00:49:10Z"
+        },
+        {
+          "number": 5654,
+          "title": "chore(metrics): queue telemetry 2026-09-21 (issue #5614)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5654",
+          "mergedAt": "2026-09-21T22:45:50Z"
+        },
+        {
+          "number": 5643,
+          "title": "fix: repair mutation-testing infra failure (0% score)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5643",
+          "mergedAt": "2026-09-21T22:20:19Z"
+        },
+        {
+          "number": 5641,
+          "title": "chore(metrics): queue telemetry 2026-09-21",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5641",
+          "mergedAt": "2026-09-21T21:22:50Z"
+        },
+        {
+          "number": 5639,
+          "title": "fix(routines): give mbe-night and mbe-midday distinct PR-title signatures",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5639",
+          "mergedAt": "2026-09-21T21:02:57Z"
+        },
+        {
+          "number": 5633,
+          "title": "chore(metrics): learning-loop 2026-09-21",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5633",
+          "mergedAt": "2026-09-21T18:35:38Z"
+        },
+        {
+          "number": 5583,
+          "title": "fix(reservations): close ADR-026's two cross-venue reads so the RLS FORCE flip becomes decidable",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5583",
+          "mergedAt": "2026-09-21T13:20:26Z"
+        },
+        {
+          "number": 5582,
+          "title": "feat(marketing): chart ACMM level and queue-efficiency trends on the AI-health page",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5582",
+          "mergedAt": "2026-09-21T07:04:10Z"
+        },
+        {
+          "number": 5560,
+          "title": "fix(sentry-triage): deduplicate on the Sentry issue ID, across every issue state",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5560",
+          "mergedAt": "2026-09-21T01:47:48Z"
+        },
+        {
+          "number": 5548,
+          "title": "feat(gen): fifth Template Gallery batch — three templates closing ranks 1-3",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5548",
+          "mergedAt": "2026-09-21T00:56:13Z"
+        },
+        {
+          "number": 5550,
+          "title": "fix(metrics): give the two silent collectors a home, and a self-check that can fail",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5550",
+          "mergedAt": "2026-09-21T00:22:30Z"
+        },
+        {
+          "number": 5549,
+          "title": "fix(hospitality-e2e): scope volatile locators, emit RFC 7807 error mocks, re-date the mock clock",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5549",
+          "mergedAt": "2026-09-21T00:21:30Z"
+        },
+        {
+          "number": 5544,
+          "title": "docs(fixes): design note for reviving the two silent metrics collectors",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5544",
+          "mergedAt": "2026-09-20T20:55:41Z"
+        },
+        {
+          "number": 5540,
+          "title": "chore(metrics): learning-loop 2026-09-20",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5540",
+          "mergedAt": "2026-09-20T19:53:55Z"
+        },
+        {
+          "number": 5511,
+          "title": "fix(hospitality): restore focus to captured opener on WalkInDialog dismissal",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5511",
+          "mergedAt": "2026-09-20T05:35:53Z"
+        },
+        {
+          "number": 5510,
+          "title": "fix(rialto-web): raise vitest testTimeout to stop recurring nightly-compliance flake",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5510",
+          "mergedAt": "2026-09-20T05:27:12Z"
+        },
+        {
+          "number": 5508,
+          "title": "chore(metrics): optimize-implement-queue 2026-09-20",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5508",
+          "mergedAt": "2026-09-20T03:23:15Z"
+        }
+      ],
+      "measured_at": "2026-09-22T17:47:55.373Z"
     },
     "evals": {
       "n": 37,
@@ -1485,7 +1586,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 19,
-      "measured_at": "2026-09-22T16:05:01.599Z"
+      "measured_at": "2026-09-22T17:47:55.373Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
