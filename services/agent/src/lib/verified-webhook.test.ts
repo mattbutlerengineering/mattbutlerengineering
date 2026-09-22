@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { createVerifiedBodyPreHandler } from "./verified-webhook.js";
 
 vi.mock("../services/session.js", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -163,5 +164,81 @@ describe("verifiedWebhook plugin", () => {
 
       expect(response.statusCode).toBe(401);
     });
+  });
+});
+
+describe("createVerifiedBodyPreHandler (direct unit tests)", () => {
+  const secretEnv = "TEST_DIRECT_WEBHOOK_SECRET";
+  const header = "x-test-signature";
+
+  function createMockRequest(headers: Record<string, string> = {}): FastifyRequest {
+    return {
+      headers,
+      log: { warn: vi.fn() },
+    } as unknown as FastifyRequest;
+  }
+
+  function createMockReply(): FastifyReply & { send: ReturnType<typeof vi.fn> } {
+    const send = vi.fn();
+    const reply = { code: vi.fn(), send } as unknown as FastifyReply & {
+      send: ReturnType<typeof vi.fn>;
+    };
+    (reply.code as ReturnType<typeof vi.fn>).mockReturnValue(reply);
+    return reply;
+  }
+
+  function invokePreHandler(
+    preHandler: ReturnType<typeof createVerifiedBodyPreHandler>,
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    const fn = preHandler as unknown as (req: FastifyRequest, res: FastifyReply) => Promise<void>;
+    return fn(request, reply);
+  }
+
+  afterEach(() => {
+    delete process.env[secretEnv];
+  });
+
+  it("rejects with 401 'Webhook secret not configured' when the secret env var is unset", async () => {
+    delete process.env[secretEnv];
+    const preHandler = createVerifiedBodyPreHandler({ header, secretEnv, format: "sha256=" });
+    const request = createMockRequest({ [header]: "sha256=anything" });
+    const reply = createMockReply();
+
+    await invokePreHandler(preHandler, request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(401);
+    expect(reply.send).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 401, detail: "Webhook secret not configured" })
+    );
+  });
+
+  it("rejects with 401 'Missing webhook signature' when the signature header is absent", async () => {
+    process.env[secretEnv] = "test-secret";
+    const preHandler = createVerifiedBodyPreHandler({ header, secretEnv, format: "sha256=" });
+    const request = createMockRequest({});
+    const reply = createMockReply();
+
+    await invokePreHandler(preHandler, request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(401);
+    expect(reply.send).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 401, detail: "Missing webhook signature" })
+    );
+  });
+
+  it("rejects with 401 'Missing raw body' when the raw-body capture hook never ran", async () => {
+    process.env[secretEnv] = "test-secret";
+    const preHandler = createVerifiedBodyPreHandler({ header, secretEnv, format: "sha256=" });
+    const request = createMockRequest({ [header]: "sha256=anything" });
+    const reply = createMockReply();
+
+    await invokePreHandler(preHandler, request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(401);
+    expect(reply.send).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 401, detail: "Missing raw body" })
+    );
   });
 });
