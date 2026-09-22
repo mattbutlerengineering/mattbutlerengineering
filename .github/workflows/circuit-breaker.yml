@@ -2,7 +2,20 @@ name: Circuit Breaker
 
 on:
   workflow_run:
-    workflows: ["Deploy Services", "Deploy Static"]
+    # `"Deploy Static"` used to be listed here and matched NOTHING for this
+    # workflow's entire life - the real workflow is named `Deploy Static
+    # Sites` (see post-deploy-check.yml and pulumi-up.yml, which both use the
+    # correct name). A workflow_run trigger naming a workflow that does not
+    # exist fires silently never, so the observed behaviour has always been
+    # "triggered by Deploy Services only".
+    #
+    # Deliberately NOT repaired to `Deploy Static Sites`: the analysis below
+    # only ever examines `Deploy Services` runs, so triggering on static
+    # deploys would re-analyse service deploys on an unrelated event. Naming
+    # only what is actually used keeps the trigger honest. Whether static
+    # deploy failures *should* trip the breaker is a real question, and a
+    # larger one - it needs its own failure counting.
+    workflows: ["Deploy Services"]
     types: [completed]
     branches: [main]
 
@@ -77,23 +90,47 @@ jobs:
           fi
           echo "new_state=$CURRENT_STATE" >> "$GITHUB_OUTPUT"
 
+      # The breaker job's own checkout is a sparse-checkout of the state file
+      # off the `circuit-breaker-state` branch, so repo scripts are not on
+      # disk. Same pattern as the issue-filing module step further down.
+      - name: Checkout deploy-failure classifier
+        if: github.event.workflow_run.conclusion != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          sparse-checkout: |
+            scripts/circuit-breaker-deploy-failures.mjs
+          sparse-checkout-cone-mode: false
+          path: _breaker-lib
+
       - name: Analyze deploy results
         id: analyze
         if: github.event.workflow_run.conclusion != ''
         run: |
-          # Get recent deploy workflow runs (skip the current one)
-          RUNS=$(gh run list --workflow "Deploy Services" --limit 5 --json conclusion --jq '.[].conclusion')
+          set -o pipefail
 
-          FAIL_COUNT=0
-          for RUN in $RUNS; do
-            if [ "$RUN" = "failure" ] || [ "$RUN" = "timed_out" ]; then
-              FAIL_COUNT=$((FAIL_COUNT + 1))
-            else
-              break
-            fi
+          # A `Deploy Services` run can fail WITHOUT attempting a deployment:
+          # `Wait for CI` fails when CI on that commit is not green, and the
+          # `Deploy Blocked` path short-circuits when the breaker is already
+          # open. In both cases `Deploy API Services` reports `skipped`.
+          # Counting those as deploy failures is what tripped the breaker on
+          # 2026-09-22 (run 35674731430 -> #5659) over one real deploy
+          # failure and one run that never deployed, while production was
+          # healthy. So ask each run what its DEPLOY JOB concluded, not what
+          # the run as a whole concluded.
+          RUN_IDS=$(gh run list --workflow "Deploy Services" --limit 5 --json databaseId --jq '.[].databaseId')
+
+          RUNS_JSON="[]"
+          for ID in $RUN_IDS; do
+            JOB_CONCLUSION=$(gh run view "$ID" --json jobs \
+              --jq '[.jobs[] | select(.name=="Deploy API Services")] | .[0].conclusion // ""')
+            RUNS_JSON=$(printf '%s' "$RUNS_JSON" | jq \
+              --arg c "$JOB_CONCLUSION" '. + [{deployJobConclusion: $c}]')
           done
 
-          echo "Recent consecutive failures: $FAIL_COUNT"
+          FAIL_COUNT=$(printf '%s' "$RUNS_JSON" | node _breaker-lib/scripts/circuit-breaker-deploy-failures.mjs count)
+
+          echo "Recent consecutive DEPLOY failures: $FAIL_COUNT"
+          echo "Deploy job conclusions (newest first): $(printf '%s' "$RUNS_JSON" | jq -c '[.[].deployJobConclusion]')"
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Update state based on failure count
