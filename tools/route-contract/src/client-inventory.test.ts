@@ -17,13 +17,7 @@ import {
 } from "./client-inventory.js";
 import type { ClientInventory } from "./client-inventory.js";
 import { PLACEHOLDER } from "./types.js";
-
-/**
- * The surface measured at `origin/main` `0a80ea85b` and re-measured by this
- * suite. A lower bound, not an equality: adding a client method should not
- * break this file, but silently losing most of the roster must.
- */
-const MINIMUM_PAIRS = 87;
+import { MINIMUM_CLIENT_PAIRS } from "./vacuity.js";
 
 let inventory: ClientInventory;
 
@@ -40,7 +34,7 @@ describe("the placeholder", () => {
 
 describe("driveClient", () => {
   it("emits at least the measured surface", () => {
-    expect(inventory.pairs.length).toBeGreaterThanOrEqual(MINIMUM_PAIRS);
+    expect(inventory.pairs.length).toBeGreaterThanOrEqual(MINIMUM_CLIENT_PAIRS);
   });
 
   it("records the client method that produced each pair", () => {

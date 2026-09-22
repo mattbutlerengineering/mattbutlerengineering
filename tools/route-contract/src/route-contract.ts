@@ -21,6 +21,7 @@ import { createEdgeOwner, EDGE_TERMINAL_PATHS } from "./edge-owner.js";
 import { driveClient } from "./client-inventory.js";
 import type { ClientInventory } from "./client-inventory.js";
 import type { ClientPair, EdgeDisposition, Owner } from "./types.js";
+import type { VacuityInput } from "./vacuity.js";
 
 export interface Verdict {
   readonly pair: ClientPair;
@@ -113,4 +114,22 @@ export function formatUnowned(unowned: readonly Verdict[]): string {
     "other gate green. Fix the client literal, or register the route — do not",
     "add an allowlist here.",
   ].join("\n");
+}
+
+/**
+ * Reshapes a report into the anti-vacuity input. Every field is read off real
+ * measured state — nothing here has a default that could paper over an empty
+ * source.
+ */
+export function vacuityInputFromReport(report: RouteContractReport): VacuityInput {
+  return {
+    pairCount: report.inventory.pairs.length,
+    subClientPairCounts: Object.fromEntries(
+      report.inventory.subClients.map((name) => [name, report.inventory.pairCount(name)])
+    ),
+    silentClientMethods: report.inventory.invocations
+      .filter((invocation) => !invocation.exempt && invocation.requestCount === 0)
+      .map((invocation) => invocation.clientMethod),
+    ownerTableSizes: { ...report.fastifyRouteCounts, edge: report.edgeTerminalPathCount },
+  };
 }
