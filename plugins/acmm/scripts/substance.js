@@ -58,29 +58,167 @@ function newestFrontmatterDate(frontmatter) {
   return newest;
 }
 
-function checkReflection(filePaths, _cwd) {
+/**
+ * Newest frontmatter-declared date among the entries `qualifies` accepts, or null if none do.
+ *
+ * `qualifies` receives the parsed `{ frontmatter, body }` and is where each criterion states what
+ * makes a file one of *its* entries — a corpus directory usually holds more than one kind.
+ */
+function newestQualifyingEntry(filePaths, qualifies) {
   let newest = null;
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content) continue;
-    const { frontmatter, body } = parseFrontmatter(content);
-    if (!frontmatter.includes("feeds_back_into:") || body.length <= 50) continue;
-    const dated = newestFrontmatterDate(frontmatter);
+    const parsed = parseFrontmatter(content);
+    if (!qualifies(parsed)) continue;
+    const dated = newestFrontmatterDate(parsed.frontmatter);
     if (dated && (!newest || dated.ts > newest.ts)) newest = dated;
   }
+  return newest;
+}
 
-  if (!newest) {
-    return {
-      passed: false,
-      evidence: "no dated entry with feeds_back_into + body over 50 chars",
-    };
-  }
-
+/**
+ * Shared verdict for every recency checker.
+ *
+ * `absentEvidence` must never contain a date: a corpus that stopped on a knowable date and one
+ * that was never written are different problems, and reporting them identically is what let a
+ * criterion sit hollow without anyone knowing which one to fix.
+ */
+function recencyVerdict(newest, windowMs, absentEvidence) {
+  if (!newest) return { passed: false, evidence: absentEvidence };
   const age = Date.now() - newest.ts;
   // Floor, not round: an entry dated today is 0 days old for the whole of today.
   const evidence = `newest entry ${newest.date} is ${Math.floor(age / DAY_MS)} days old`;
-  if (age <= NINETY_DAYS_MS) return { passed: true, evidence };
-  return { passed: false, evidence: `${evidence} (window: ${NINETY_DAYS_MS / DAY_MS} days)` };
+  if (age <= windowMs) return { passed: true, evidence };
+  return { passed: false, evidence: `${evidence} (window: ${windowMs / DAY_MS} days)` };
+}
+
+/**
+ * A row still on its italic template placeholder: `_Note 1_`, `- [ ] _Next step 1_`,
+ * `1. _Approach 1: description and outcome_`, `- **Created:** _list of new files_`.
+ */
+const PLACEHOLDER_LINE = /^(?:[-*]\s*(?:\[[ xX]\]\s*)?|\d+\.\s*)?(?:\*\*[^*]*\*\*:?\s*)?_[^_]*_$/;
+
+/**
+ * What a session actually wrote: the text left once structure (headings, blockquotes, table rows,
+ * rules) and every unfilled placeholder row are stripped. An untouched template reduces to "".
+ */
+function filledContent(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line || line === "---") return false;
+      if (line.startsWith("#") || line.startsWith(">") || line.startsWith("|")) return false;
+      return !PLACEHOLDER_LINE.test(line);
+    })
+    .join(" ")
+    .trim();
+}
+
+/** The lines under any `## <heading>` in `headings`, up to the next `## `. */
+function sectionBody(body, headings) {
+  const wanted = new Set(headings.map((h) => h.toLowerCase()));
+  const out = [];
+  let inSection = false;
+  for (const line of body.split("\n")) {
+    const heading = line.match(/^##\s+(.*?)\s*$/);
+    if (heading) {
+      inSection = wanted.has(heading[1].toLowerCase());
+      continue;
+    }
+    if (inSection) out.push(line);
+  }
+  return out.join("\n");
+}
+
+function checkReflection(filePaths, _cwd) {
+  const newest = newestQualifyingEntry(
+    filePaths,
+    ({ frontmatter, body }) => frontmatter.includes("feeds_back_into:") && body.length > 50
+  );
+  return recencyVerdict(
+    newest,
+    NINETY_DAYS_MS,
+    "no dated entry with feeds_back_into + body over 50 chars"
+  );
+}
+
+/**
+ * Substance for acmm:positive-reinforcement — how recently a *reinforcement* was captured.
+ *
+ * Detection is `.claude/memory/`, a directory holding two corpora with opposite jobs:
+ * `corrections/` (what went wrong) and `reinforcements/` (what went right). Reading every file
+ * under it would let a fresh correction satisfy the one criterion that exists to prove the repo
+ * captures more than corrections — the same false reading #5613 fixed for feedback-loops, and a
+ * live risk here because corrections are current while reinforcements have not grown since May.
+ * `pattern:` is the discriminator: every reinforcement declares the transferable rule it is
+ * preserving, and no correction in this corpus declares one (they carry `correction:` /
+ * `feeds_back_into:` instead).
+ *
+ * 90 days, matching checkReflection rather than checkFeedbackLoop: reinforcement capture is
+ * human-initiated at session end, so a quiet stretch of routine work legitimately produces none.
+ * A 30-day window would cry wolf on an ordinary month and get muted.
+ */
+function checkReinforcement(filePaths, _cwd) {
+  const newest = newestQualifyingEntry(filePaths, ({ frontmatter }) =>
+    frontmatter.includes("pattern:")
+  );
+  return recencyVerdict(
+    newest,
+    NINETY_DAYS_MS,
+    "no dated entry declaring a reinforcement pattern:"
+  );
+}
+
+/**
+ * Substance for acmm:session-summary — whether an end-of-session summary was actually written,
+ * and how recently.
+ *
+ * Both halves matter. `.claude/session-summary.md` starts as a copy of
+ * `.claude/session-summary.template.md`, so its existence proves nothing: it sat unfilled from
+ * #910 to #5647 while the criterion read green off mere presence (#5598). `filledContent` strips
+ * the structure and every row still on its `_placeholder_`, leaving only what a session wrote.
+ *
+ * Dates come from frontmatter, never the body — see newestFrontmatterDate. A summary's body is
+ * full of ISO dates (commits, issues, "what changed"), and any one of them would re-date a stale
+ * summary forever, which is precisely the fossil acmm:session-continuity's grep detection is.
+ *
+ * 90 days, not 30: writing a summary is human-initiated at session end, so a run of short sessions
+ * legitimately produces none.
+ */
+function checkSessionSummary(filePaths, _cwd) {
+  const newest = newestQualifyingEntry(filePaths, ({ body }) => filledContent(body).length > 100);
+  return recencyVerdict(
+    newest,
+    NINETY_DAYS_MS,
+    "no dated summary with content beyond the template's placeholders"
+  );
+}
+
+/**
+ * Substance for acmm:session-continuity — whether the persistent record carries forward context.
+ *
+ * Deliberately a different gate from checkSessionSummary, though detection resolves both to the
+ * same file. This criterion's own rationale is that it "bridges the gap between what git/CI can
+ * tell you (what was done) and what can't be derived (what was planned)", so a record that is
+ * purely retrospective leaves the next session nothing to recover however recent it is. This
+ * repo's committed scratchpad is exactly that shape: two real lines of retrospect with every
+ * "Next steps" and "Continuity notes" row untouched.
+ *
+ * 90 days, for the same reason as checkSessionSummary: written by hand at session end, not by a
+ * daily automation.
+ */
+function checkSessionContinuity(filePaths, _cwd) {
+  const newest = newestQualifyingEntry(
+    filePaths,
+    ({ body }) => filledContent(sectionBody(body, ["Next steps", "Continuity notes"])).length > 0
+  );
+  return recencyVerdict(
+    newest,
+    NINETY_DAYS_MS,
+    "no dated record with forward context under Next steps / Continuity notes"
+  );
 }
 
 function checkSkill(filePaths, _cwd) {
@@ -128,13 +266,7 @@ function checkFeedbackLoop(filePaths, _cwd) {
     }
   }
 
-  if (!newest) return { passed: false, evidence: "no dated entries in the loop log" };
-
-  const age = Date.now() - newest.ts;
-  // Floor, not round: an entry dated today is 0 days old for the whole of today.
-  const evidence = `newest entry ${newest.date} is ${Math.floor(age / DAY_MS)} days old`;
-  if (age <= THIRTY_DAYS_MS) return { passed: true, evidence };
-  return { passed: false, evidence: `${evidence} (window: ${THIRTY_DAYS_MS / DAY_MS} days)` };
+  return recencyVerdict(newest, THIRTY_DAYS_MS, "no dated entries in the loop log");
 }
 
 function checkTestCoverage(filePaths, _cwd) {
@@ -190,6 +322,9 @@ function checkRunbook(filePaths, _cwd) {
 
 export const substanceCheckers = {
   "acmm:correction-capture": checkReflection,
+  "acmm:positive-reinforcement": checkReinforcement,
+  "acmm:session-summary": checkSessionSummary,
+  "acmm:session-continuity": checkSessionContinuity,
   "acmm:simple-skills": checkSkill,
   "acmm:feedback-loops": checkFeedbackLoop,
   "fullsend:test-coverage": checkTestCoverage,
