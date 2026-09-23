@@ -4,6 +4,7 @@ import type { PlaygroundSession } from "./usePlaygroundSession.js";
 
 const mockSend = vi.fn();
 const mockStop = vi.fn();
+const mockClear = vi.fn();
 const mockSaveSpec = vi.fn().mockResolvedValue({ id: "saved-1" });
 const mockToggleFavorite = vi.fn();
 const mockDeleteSpec = vi.fn();
@@ -41,6 +42,7 @@ vi.mock("../hooks/useGenStream.js", () => ({
       rawLines: [],
       send: mockSend,
       stop: mockStop,
+      clear: mockClear,
     };
   },
 }));

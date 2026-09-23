@@ -4985,6 +4985,11 @@
   </file>
   </section>
   <section priority="medium" role="pages">
+  <file path="apps/gen/src/pages/classifyGenerationError.ts">
+    <item priority="high">
+      export function isTransportError(error: Error): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/pages/createErrorRecoveryPrompt.ts">
     <item priority="high">
       export function createErrorRecoveryPrompt(originalPrompt: string, errorMessage: string): string { /* ... */ }

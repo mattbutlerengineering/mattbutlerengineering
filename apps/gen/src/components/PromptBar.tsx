@@ -55,15 +55,18 @@ export function PromptBar({
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Restore the failing prompt into the input so it isn't lost. Keyed on the
-  // error object (not the prompt text) so a repeat failure with identical
-  // text still re-seeds the input even after the user has edited it away.
-  useEffect(() => {
-    if (failedError && failedPrompt) {
-      setValue(failedPrompt);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on failedError identity; failedPrompt always accompanies it
-  }, [failedError]);
+  // Restore the failing prompt into the input so it isn't lost. Render-time
+  // "seed on change" (React's documented alternative to an effect for
+  // deriving state from a prop — see "You Might Not Need an Effect"):
+  // tracks the last error object already seeded from, so the SAME error
+  // can't re-seed twice and clobber an in-progress edit, while a genuinely
+  // new failure (a new Error instance) still re-seeds even if its message
+  // text repeats.
+  const [seededError, setSeededError] = useState<Error | null>(null);
+  if (failedError && failedError !== seededError) {
+    setSeededError(failedError);
+    setValue(failedPrompt ?? value);
+  }
 
   const isRefineMode = mode === "refine";
   const placeholder = isRefineMode ? "Refine this UI..." : "Describe the UI you want to build...";

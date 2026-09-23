@@ -4,6 +4,7 @@ import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
 import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
+import { isTransportError } from "./classifyGenerationError.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import type { StoredSpec } from "../types.js";
@@ -93,8 +94,14 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // editing (`failedPrompt` below). State, not a ref — it's read during
   // render, and react-hooks/refs forbids reading ref.current at render time.
   const [rawPrompt, setRawPrompt] = useState("");
+  // The spec being refined at submit-time, captured because useGenStream's
+  // own send() resets its reactive `spec` to null at request start — so by
+  // the time a refine attempt has failed, displaySpec is already gone and
+  // retry() would otherwise lose the refinement context. Only relevant, and
+  // only read, on the error-context retry path.
+  const refineSpecRef = useRef<Spec | null>(null);
 
-  const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
+  const { spec, isStreaming, error, rawLines, send, stop, clear } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
       options?.onGenerationComplete?.();
@@ -108,13 +115,20 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     // "Failed:", following the existing "Refined:" convention) so a
     // failure -> success recovery is visible. Not selected as active —
     // that would null out displayError (see the derivation below) and hide
-    // the error the user is meant to see and act on.
-    onError: () => {
-      if (!rawPrompt) return;
+    // the error the user is meant to see and act on. Skipped for a
+    // transport/HTTP failure (auth expired, network drop) — that's an
+    // infrastructure hiccup, not a generation failure worth recording.
+    onError: (err) => {
+      if (!rawPrompt || isTransportError(err)) return;
       void saveSpec({
         prompt: `Failed: ${rawPrompt}`,
         spec: EMPTY_SPEC,
         rawLines: [],
+      }).catch((saveErr: unknown) => {
+        console.error(
+          "[usePlaygroundSession] Failed to record failed attempt in history:",
+          saveErr
+        );
       });
     },
   });
@@ -149,11 +163,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     (prompt: string) => {
       setRawPrompt(prompt);
       if (mode === "refine" && displaySpec) {
+        refineSpecRef.current = displaySpec;
         const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
         promptRef.current = `Refined: ${prompt}`;
         setActiveId(null);
         void send(refinementPrompt);
       } else {
+        refineSpecRef.current = null;
         promptRef.current = prompt;
         setActiveId(null);
         void send(prompt);
@@ -184,24 +200,40 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       if (!entry) return;
       promptRef.current = entry.prompt;
       setRawPrompt(entry.prompt);
+      refineSpecRef.current = null;
       resetTo(null);
       void send(entry.prompt);
     },
     [specs, resetTo, send]
   );
 
-  // "Retry with error context": when the last attempt failed, feed the error
-  // back to the model instead of a bare resubmit (reuses the same send() call
-  // — no new backend endpoint). A later success is tagged "Recovered:" so the
-  // failure -> success arc is visible in history the same way "Refined:" is.
+  // "Retry with error context": when the last attempt failed with a
+  // generation/validation error, feed it back to the model instead of a
+  // bare resubmit (reuses the same send() call — no new backend endpoint).
+  // Always based on the untagged rawPrompt (or a selected entry's prompt) —
+  // never on promptRef.current, which carries the "Refined:"/"Recovered:"
+  // history label — so repeated retries can't pile tags onto each other or
+  // leak them into the model prompt. A refine failure's spec context
+  // (refineSpecRef, captured at submit-time) is re-embedded so the retry
+  // doesn't lose it. A transport failure (auth/network — see
+  // isTransportError) isn't recoverable by feeding it back to the model, so
+  // that case is just a bare resubmit, same as having no error at all.
   const retry = useCallback(() => {
-    const retryPrompt = activeEntry?.prompt ?? promptRef.current;
+    const retryPrompt = activeEntry?.prompt ?? rawPrompt;
     if (!retryPrompt) return;
+    const recoverableError = error && !isTransportError(error) ? error : null;
     setRawPrompt(retryPrompt);
-    promptRef.current = error ? `Recovered: ${retryPrompt}` : retryPrompt;
+    promptRef.current = recoverableError ? `Recovered: ${retryPrompt}` : retryPrompt;
     resetTo(null);
-    void send(error ? createErrorRecoveryPrompt(retryPrompt, error.message) : retryPrompt);
-  }, [activeEntry, error, resetTo, send]);
+    if (recoverableError) {
+      const promptWithContext = refineSpecRef.current
+        ? createRefinementPrompt(refineSpecRef.current, retryPrompt)
+        : retryPrompt;
+      void send(createErrorRecoveryPrompt(promptWithContext, recoverableError.message));
+    } else {
+      void send(retryPrompt);
+    }
+  }, [activeEntry, error, rawPrompt, resetTo, send]);
 
   const selectHistory = useCallback(
     (id: string) => {
@@ -211,7 +243,14 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     [isStreaming, resetTo]
   );
 
-  const reset = useCallback(() => resetTo(null), [resetTo]);
+  // Clear the underlying error/spec/rawLines too, not just activeId/mode —
+  // otherwise displayError stays set (activeId is already null in the
+  // common case, so resetTo(null) alone is a no-op for it) and the logo
+  // click / sign-out "New Generation" action doesn't show the empty state.
+  const reset = useCallback(() => {
+    clear();
+    resetTo(null);
+  }, [clear, resetTo]);
 
   const handleDeleteSpec = useCallback(
     (id: string) => {

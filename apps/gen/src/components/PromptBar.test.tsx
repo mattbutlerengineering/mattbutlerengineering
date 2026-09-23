@@ -226,4 +226,19 @@ describe("PromptBar", () => {
 
     expect((textarea as HTMLTextAreaElement).value).toBe("same prompt");
   });
+
+  it("does not re-seed on an unrelated re-render when the same error persists", () => {
+    const err = new Error("same error");
+    const { rerender } = render(
+      <PromptBar {...defaultProps} failedPrompt="original" failedError={err} />
+    );
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "user is editing" } });
+
+    // Re-render with the identical error object (e.g. the parent re-rendered
+    // for an unrelated reason) — must not clobber the in-progress edit.
+    rerender(<PromptBar {...defaultProps} failedPrompt="original" failedError={err} />);
+
+    expect((textarea as HTMLTextAreaElement).value).toBe("user is editing");
+  });
 });

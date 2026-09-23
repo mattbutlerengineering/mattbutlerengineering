@@ -7,6 +7,7 @@ import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 
 const mockSend = vi.fn();
 const mockStop = vi.fn();
+const mockClear = vi.fn();
 
 interface GenStreamState {
   spec: Spec | null;
@@ -31,7 +32,7 @@ vi.mock("../hooks/useGenStream.js", () => ({
   useGenStream: (opts: { onComplete?: OnComplete; onError?: OnError }) => {
     capturedOnComplete = opts.onComplete;
     capturedOnError = opts.onError;
-    return { ...genStreamState, send: mockSend, stop: mockStop };
+    return { ...genStreamState, send: mockSend, stop: mockStop, clear: mockClear };
   },
 }));
 
@@ -210,6 +211,75 @@ describe("usePlaygroundSession", () => {
         rawLines: ["{line}"],
       });
     });
+
+    it("does not accumulate 'Recovered:' tags across repeated retries and keeps the model prompt clean", () => {
+      const err = new Error("Invalid nested layout");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      act(() => result.current.retry());
+      act(() => result.current.retry());
+
+      const expected = createErrorRecoveryPrompt("draw a form", "Invalid nested layout");
+      expect(mockSend).toHaveBeenNthCalledWith(2, expected);
+      expect(mockSend).toHaveBeenNthCalledWith(3, expected);
+    });
+
+    it("keeps refinement spec context when retrying a failed refine attempt with error context", () => {
+      const currentSpec = { type: "Card", children: [] } as unknown as Spec;
+      const err = new Error("Unknown component type");
+      genStreamState = { ...genStreamState, spec: currentSpec, error: null, isStreaming: false };
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.refine());
+      act(() => result.current.submit("make it blue"));
+
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      rerender();
+
+      act(() => result.current.retry());
+
+      expect(mockSend).toHaveBeenNthCalledWith(
+        2,
+        createErrorRecoveryPrompt(
+          createRefinementPrompt(currentSpec, "make it blue"),
+          "Unknown component type"
+        )
+      );
+    });
+
+    it("resends the plain prompt without error context when the failure was a transport error", () => {
+      const err = new Error("Request failed: Unauthorized");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      act(() => result.current.retry());
+
+      expect(mockSend).toHaveBeenNthCalledWith(2, "draw a form");
+    });
+
+    it("does not tag the retried prompt as recovered after a transport-error retry", async () => {
+      const err = new Error("Request failed: Unauthorized");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      act(() => result.current.retry());
+
+      const completedSpec = { type: "Box", children: [] } as unknown as Spec;
+      await act(async () => {
+        capturedOnComplete?.(completedSpec, ["{line}"]);
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalledWith({
+        prompt: "draw a form",
+        spec: completedSpec,
+        rawLines: ["{line}"],
+      });
+    });
   });
 
   describe("selectHistory", () => {
@@ -245,6 +315,17 @@ describe("usePlaygroundSession", () => {
 
       expect(result.current.mode).toBe("generate");
       expect(result.current.activeSpecId).toBe(null);
+    });
+
+    it("clears the underlying error/spec via useGenStream's clear(), so the empty state reappears", () => {
+      const err = new Error("boom");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+      expect(result.current.displayError).toBe(err);
+
+      act(() => result.current.reset());
+
+      expect(mockClear).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -488,6 +569,36 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(result.current.activeSpecId).toBe(null);
+    });
+
+    it("does not record a Failed: history row for a transport error", async () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+
+      await act(async () => {
+        capturedOnError?.(new Error("Request failed: Unauthorized"));
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).not.toHaveBeenCalled();
+    });
+
+    it("catches a saveSpec rejection instead of leaving an unhandled promise rejection", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockSaveSpec.mockRejectedValueOnce(new Error("network down"));
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a broken form"));
+
+      await act(async () => {
+        capturedOnError?.(new Error("Invalid nested layout"));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(consoleError).toHaveBeenCalled();
+      consoleError.mockRestore();
     });
   });
 });
