@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 /**
  * Captures the focused element when `open` transitions to `true` and restores
@@ -11,6 +11,14 @@ import { useEffect, useRef } from "react";
  * per-overlay rAF pattern and the fake-timer approach used in accessibility
  * tests (`vi.useFakeTimers()` + `vi.runAllTimers()`).
  *
+ * The capture itself runs in a `useLayoutEffect`, not a `useEffect` — layout
+ * effects always flush before passive effects regardless of hook-declaration
+ * order. A consumer (e.g. DropdownMenu) that moves focus onto its own content
+ * from a `useLayoutEffect` of its own would otherwise win the race: this
+ * hook's plain-`useEffect` capture ran after that steal and recorded the
+ * just-focused menu item as "the trigger," so closing restored focus to the
+ * menu item instead of the real trigger (#5618).
+ *
  * @param open - Whether the overlay is currently open.
  *
  * @example
@@ -22,7 +30,7 @@ import { useEffect, useRef } from "react";
 export function useReturnFocus(open: boolean): void {
   const triggerRef = useRef<Element | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     triggerRef.current = document.activeElement;
 
