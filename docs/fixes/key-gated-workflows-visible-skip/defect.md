@@ -179,9 +179,9 @@ touched workflow (installed at `/opt/homebrew/bin/actionlint`), prettier.
   - Accept: the new test runs and fails against the current workflow on each of: no preflight, in-step `exit 0`, `pnpm exec mbe`, missing CLI build, failure not failing the step.
 - [x] **GREEN: gate claude.yml at job level and fix its CLI invocation** — move the mention `if:` and the authorization check into a `preflight` job (authorization writes `authorized=true|false` to `$GITHUB_OUTPUT` instead of `exit 0`; credential check writes `has_key` and a `$GITHUB_STEP_SUMMARY` note); when authorized and keyless, `preflight` posts one short comment ("skipped: no agent credential in CI (#3585)" plus the run link — see assumptions); `dispatch` gets `needs: preflight` + the combined job-level `if:`, a `Build CLI` step (`pnpm build --filter @mbe/cli...`) after install, and `node tools/cli/dist/index.js agent run … --max-budget 1.50 --adapter auto`; keep untrusted comment text flowing through env vars only (never interpolated into `run:`). (tracker: #3585)
   - Accept: new test passes; `actionlint .github/workflows/claude.yml` clean; a keyless authorized `@claude` yields `preflight` success + `dispatch` SKIPPED + one skip comment, and a non-collaborator yields `dispatch` SKIPPED with no comment.
-- [ ] **Docs: correct statements this run makes false** — `.claude/rules/gotchas.md` § Build line 32 ends "`claude.yml`'s `pnpm exec mbe agent run` step shares this bug" — rewrite to past tense citing this run. Grep `docs/`, `.claude/`, `AGENTS.md`, `CLAUDE.md` for other claims about these two workflows' skip behaviour (at capture time only `docs/acmm/SKELETON-AUDIT.md:24` and `docs/ai-tooling-audit.md:115,181` mention `claude.yml`; neither describes skip behaviour — leave them unless the grep finds a real false claim). (tracker: #3585)
+- [x] **Docs: correct statements this run makes false** — `.claude/rules/gotchas.md` § Build line 32 ends "`claude.yml`'s `pnpm exec mbe agent run` step shares this bug" — rewrite to past tense citing this run. Grep `docs/`, `.claude/`, `AGENTS.md`, `CLAUDE.md` for other claims about these two workflows' skip behaviour (at capture time only `docs/acmm/SKELETON-AUDIT.md:24` and `docs/ai-tooling-audit.md:115,181` mention `claude.yml`; neither describes skip behaviour — leave them unless the grep finds a real false claim). (tracker: #3585)
   - Accept: no doc in the repo describes either workflow as skipping in-step or as using `pnpm exec mbe`; prettier clean on touched markdown.
-- [ ] **Full gate pass** — run the scripts vitest suite, `actionlint` on both workflows, and prettier on all touched files; leave CI Gate on the PR to Ship.
+- [x] **Full gate pass** — run the scripts vitest suite, `actionlint` on both workflows, and prettier on all touched files; leave CI Gate on the PR to Ship.
   - Accept: all green locally; no file outside the two workflows, two new tests, gotchas.md and this run dir is modified (ignore unrelated prettier-hook reflow; never `git add -A`).
 
 ## Notes
@@ -194,3 +194,15 @@ touched workflow (installed at `/opt/homebrew/bin/actionlint`), prettier.
   live proof is post-merge only — Ship/Operate should record that.
 - Release authorization per brief: prepare-and-stop (branch + PR, no merge,
   no auto-merge).
+- 2026-09-23 (Implement): full gate pass — scripts vitest 205 files / 3922
+  tests passed; `actionlint` clean on both workflows; prettier clean on every
+  touched file. The pre-commit `check-adr` hook needs `pnpm build --filter
+@mbe/cli...` in a fresh worktree (known gotcha), done once before the first
+  commit.
+- 2026-09-23 (Implement): the claude.yml skip comment also names the local
+  path (`mbe agent run --adapter claude-cli`), per #3585's Option A decision.
+  `dispatch` no longer carries `COMMENT_AUTHOR` (only the preflight
+  authorization step reads it).
+- 2026-09-23 (Implement), adjacent smell, not fixed: `docs/ai-tooling-audit.md`
+  lines 115 and 181 say `.github/workflows/claude.yml` is "not present"/"MISSING"
+  — stale, but not a skip-behaviour claim, so out of this run's scope.
