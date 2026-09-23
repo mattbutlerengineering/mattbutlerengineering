@@ -299,3 +299,74 @@ This supersedes Capture's `assumptions:` entry 2 (whether a statically-measured
 unprobed mismatch qualifies as in-flight) and entry 3 (the open scope question
 about the edge worker). Both are now answered by the user; Capture's artifact
 stands as written and is not to be rewritten.
+
+---
+
+## Addendum — interview round 3 (2026-09-22, after Review)
+
+`review.md` recorded one **major** finding (R1) and carried `verification.md`'s
+F2 forward, deferring both on the stated grounds that the review skill wants a
+_user_ to defer a major and no live user was present. A live user was present
+and was asked. **Both are to be fixed before Ship.** This is a live-user answer:
+it supersedes `review.md` assumption 1 and the F2 deferral, and it is not to be
+logged as an assumption anywhere.
+
+`review.md`'s other resolutions stand unchanged — in particular **F1/R5: do NOT
+apply `testTimeout: 15000`**. Both packages already set it
+(`packages/rialto/vitest.config.ts:53`, `apps/rialto-web/vitest.config.ts:69`)
+and the rialto failure is an `await waitFor(..., { timeout: 3000 })` inside the
+test body, which `testTimeout` cannot reach. Applying it would be a no-op on two
+packages this run does not touch. Criterion 5 stays **PARTIAL**.
+
+### R1 — the guard's owner table can hold a route production does not
+
+`tools/route-contract/src/fastify-owners.ts:87` pins `NODE_ENV="test"` so the
+three services boot without opening a Redis connection (the guard `app.ts:266`
+reads). Its doc comment at `:78-84`, and `breakdown.md` § Notes, justify that
+with the invariant "nothing in the three services' route _registration_ reads
+`NODE_ENV`". **That invariant is false.**
+`services/reservations/src/routes/events.ts:181` registers `POST /test` only
+when `NODE_ENV !== "production"`, under the unconditional `/api/v1/events`
+prefix (`app.ts:231`).
+
+Measured impact today is nil — `@mbe/api-client` has no `/events` surface, and
+the inventory re-derives 86/86 owned. The mechanism is the problem: a guard
+built to end false-greens carries one of its own. Fix it.
+
+The shape of the fix is the implementer's call, but it must satisfy all three:
+
+1. The owner table must not silently contain a route production lacks — either
+   the environment-conditional class is excluded from the table, or it is
+   recorded explicitly and asserted, so the set cannot grow unnoticed.
+2. The false doc-comment invariant at `fastify-owners.ts:78-84` and the matching
+   claim in `breakdown.md` § Notes must be corrected to state what is actually
+   true. A wrong comment that reads as a safety argument is worse than none.
+3. The fix must fail closed: if a _new_ environment-conditional route appears in
+   any of the three services, something goes red rather than the table quietly
+   widening. Pinning today's known set by hand and calling it done does not
+   satisfy this.
+
+Do **not** solve it by setting `NODE_ENV="production"` — the Redis guard at
+`app.ts:266` keys on `"test"`, so the services would open real connections.
+
+### F2 — the anti-vacuity floor's absolute value is unpinned
+
+`MINIMUM_CLIENT_PAIRS` is asserted only _relatively_ (`vacuity.test.ts:15`,
+`:37`, `client-inventory.test.ts:37`), so lowering it to ~20 leaves all 59 tests
+green; its only defence is diff review. Close it with the cheap assertion
+`review.md` itself proposes — `expect(MINIMUM_CLIENT_PAIRS).toBeGreaterThanOrEqual(80)`
+— or something stronger if the implementer sees a better one. The 87→86
+lowering already in the branch was legitimate and stays.
+
+### Process for this round
+
+These two items are appended to `breakdown.md` as new work items by the
+Implement stage. They were added **after** Decompose, so per the protocol's
+tracker-mirror section ("Items with no mirrored issue carry no reference") they
+carry **no** `(tracker: #N)` ref and no issue is filed for them. The run's
+existing twelve mirrored issues stay closed.
+
+After the fix: Verify appends a re-verification addendum to `verification.md`
+(re-deriving the inventory and re-running the real gates, not inheriting them),
+then Review re-adjudicates R1 and F2 in `review.md`. Ship runs last, and remains
+authorized to EXECUTE.
