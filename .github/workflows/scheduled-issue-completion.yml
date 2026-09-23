@@ -9,9 +9,14 @@ name: Scheduled Issue Completion
 #   3. `audit`    — else (nothing actionable), audit how the pipeline can be
 #      improved and file 2-4 concrete `ready` improvement issues to feed the queue.
 #
-# The runtime mechanism mirrors .github/workflows/claude.yml: a single
-# `pnpm exec mbe agent run "<prompt>"` invocation. The skill/prompt drives the
-# work; this workflow only decides the mode and reports the outcome.
+# The runtime mechanism is a single `node tools/cli/dist/index.js agent run
+# "<prompt>"` invocation of the built CLI. The skill/prompt drives the work; this
+# workflow only decides the mode and reports the outcome.
+#
+# The agent run needs ANTHROPIC_API_KEY, and CI is keyless by design (#3585). A
+# `preflight` job decides that and the `routine` job is gated on its output, so
+# without a key the routine reports SKIPPED rather than a success that did nothing
+# (same pattern as docs-audit.yml, #5458).
 #
 # TOKEN NOTE: PRs opened with the default GITHUB_TOKEN do NOT trigger other
 # workflows (GitHub loop-prevention), so a `complete`-mode PR may not start CI /
@@ -53,8 +58,45 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Deciding "no key" inside the agent step meant it warned, exited 0, and the
+  # job reported SUCCESS — sixty consecutive scheduled runs (from 2026-08-23)
+  # were indistinguishable from real routine runs. Deciding it in a JOB output
+  # makes the routine job report SKIPPED, which every reader and every API
+  # consumer can tell apart from a pass. Whether CI should ever hold a key is
+  # #3585's call; this job only stops the absence from rendering as a success.
+  preflight:
+    name: Preflight (is the agent runnable?)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      - name: Check for an agent credential
+        id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "Agent credential present — the routine will run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Routine skipped"
+              echo
+              echo "\`ANTHROPIC_API_KEY\` is not configured, so the issue-queue routine"
+              echo "did not run. **No issue was completed, promoted, or audited this run.**"
+              echo "CI is keyless by design; agent runs happen locally. Tracked in #3585."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   routine:
     name: Advance the issue queue
+    needs: preflight
+    # Skipped, not silently passed, when the credential is absent — see the
+    # preflight job's comment.
+    if: needs.preflight.outputs.has_key == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -182,14 +224,7 @@ jobs:
           BUDGET: ${{ steps.prompt.outputs.budget }}
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
-          # The agent needs an LLM provider key. If none is configured, skip
-          # gracefully (do NOT fail the scheduled run / redden main) — the
-          # routine activates automatically once the secret is set.
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::warning::ANTHROPIC_API_KEY is not configured — skipping the agent run. Set it (e.g. \`gh secret set ANTHROPIC_API_KEY --body <key>\`) to activate the routine."
-            echo "outcome=skipped" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          set -euo pipefail
           echo "Running agent in '$MODE' mode with budget \$$BUDGET"
           # `mbe` = tools/cli/dist/index.js — the workspace bin is not on PATH in
           # CI, so invoke the built entrypoint directly (built above).
