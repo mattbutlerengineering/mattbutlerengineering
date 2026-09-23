@@ -5676,6 +5676,14 @@
       export function applyStreamHeaders(reply: FastifyReply, contentType: string): void { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-ui.ts">
+    <item priority="medium">
+      function createRenderComponentTool() { /* ... */ }
+    </item>
+    <item priority="high">
+      export const genUiRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/agent/src/routes/health.ts">
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;
