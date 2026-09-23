@@ -6,6 +6,11 @@ name: claude
 #
 # The runtime equivalent is `mbe agent run "<prompt>"` invoked locally
 # or via the mbe-issue-worker RemoteTrigger.
+#
+# The agent run needs ANTHROPIC_API_KEY, and CI is keyless by design (#3585).
+# A `preflight` job decides authorization and credential, and the `dispatch`
+# job is gated on its outputs, so a run that cannot happen reports SKIPPED
+# rather than a success (same pattern as docs-audit.yml, #5458).
 
 on:
   issue_comment:
@@ -25,7 +30,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dispatch:
+  # Deciding "not a collaborator" inside a step meant `exit 0` ended only that
+  # step, and every later step (acknowledge, agent run, report) still ran. And
+  # with no credential gate at all, an authorized mention got "Working on it"
+  # followed by a bare "failure". Deciding both in JOB outputs makes the
+  # dispatch job report SKIPPED instead. Whether CI should ever hold a key is
+  # #3585's call; this job only stops the absence from rendering as a success.
+  preflight:
+    name: Preflight (authorized, and is the agent runnable?)
     # Run only when the comment body contains an @claude mention.
     # No untrusted text reaches the shell — `contains()` is a GH
     # expression, evaluated by Actions, not by bash.
@@ -34,25 +46,77 @@ jobs:
       || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
       || (github.event_name == 'pull_request_review'         && contains(github.event.review.body, '@claude'))
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
+      has_key: ${{ steps.check.outputs.has_key }}
+    env:
+      # Untrusted comment author captured via env var only.
+      COMMENT_AUTHOR: ${{ github.event.comment.user.login || github.event.review.user.login }}
+      ISSUE_OR_PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Verify the author is authorized
+        id: auth
+        run: |
+          set -euo pipefail
+          # Only repository collaborators can trigger an agent.
+          role=$(gh api "repos/${{ github.repository }}/collaborators/$COMMENT_AUTHOR/permission" --jq '.permission' 2>/dev/null || echo "none")
+          case "$role" in
+            admin|maintain|write)
+              echo "Authorized ($role)"
+              echo "authorized=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Author $COMMENT_AUTHOR not a collaborator (role: $role); ignoring."
+              echo "authorized=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Check for an agent credential
+        id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "Agent credential present — the agent run will dispatch." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Agent run skipped"
+              echo
+              echo "\`ANTHROPIC_API_KEY\` is not configured, so the \`@claude\` agent run"
+              echo "did not dispatch. CI is keyless by design; agent runs happen locally."
+              echo "Tracked in #3585."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Answer the collaborator who typed @claude, so a skip is not silence.
+      # Never for a non-collaborator: that would give any commenter a bot reply.
+      - name: Explain the skip
+        if: steps.auth.outputs.authorized == 'true' && steps.check.outputs.has_key != 'true'
+        run: |
+          set -euo pipefail
+          gh issue comment "$ISSUE_OR_PR_NUMBER" --body "Skipped: no agent credential in CI (#3585). Run \`mbe agent run --adapter claude-cli\` locally instead. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  dispatch:
+    needs: preflight
+    # Skipped, not silently passed, for a non-collaborator or a missing
+    # credential — see the preflight job's comment.
+    if: needs.preflight.outputs.authorized == 'true' && needs.preflight.outputs.has_key == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       # Untrusted comment text captured via env vars only.
       COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
-      COMMENT_AUTHOR: ${{ github.event.comment.user.login || github.event.review.user.login }}
       ISSUE_OR_PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
       EVENT_NAME: ${{ github.event_name }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
-      - name: Verify the author is authorized
-        run: |
-          # Only repository collaborators can trigger an agent.
-          role=$(gh api "repos/${{ github.repository }}/collaborators/$COMMENT_AUTHOR/permission" --jq '.permission' 2>/dev/null || echo "none")
-          case "$role" in
-            admin|maintain|write) echo "Authorized ($role)";;
-            *) echo "Author $COMMENT_AUTHOR not a collaborator (role: $role); ignoring."; exit 0;;
-          esac
-
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
@@ -70,6 +134,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # `mbe` is `tools/cli/dist/index.js` — the workspace bin is never linked
+      # into node_modules/.bin, so a `pnpm exec` of it cannot resolve. Build it.
+      - name: Build CLI
+        run: pnpm build --filter @mbe/cli...
+
       - name: Extract task from comment
         run: |
           printf '%s' "$COMMENT_BODY" | sed -n 's/.*@claude[[:space:]]*//p' | head -50 > /tmp/agent-task.txt
@@ -84,10 +153,12 @@ jobs:
       - name: Run agent
         id: agent
         run: |
-          if pnpm exec mbe agent run "$(cat /tmp/agent-task.txt)" --max-budget 1.50 --adapter auto; then
+          set -euo pipefail
+          if node tools/cli/dist/index.js agent run "$(cat /tmp/agent-task.txt)" --max-budget 1.50 --adapter auto; then
             echo "outcome=success" >> "$GITHUB_OUTPUT"
           else
             echo "outcome=failure" >> "$GITHUB_OUTPUT"
+            exit 1
           fi
 
       - name: Report outcome
