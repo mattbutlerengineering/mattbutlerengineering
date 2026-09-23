@@ -164,6 +164,22 @@ describe("NewReservationDialog", () => {
     expect(defaultProps.onConfirm).not.toHaveBeenCalled();
   });
 
+  it("announces the validation error to screen readers via role=alert", async () => {
+    render(<NewReservationDialog {...defaultProps} />);
+
+    fireEvent.change(screen.getByLabelText(/guest email/i), {
+      target: { value: "smith@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: "2026-04-10" } });
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "18:30" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/guest name is required/i);
+    });
+  });
+
   it("should require a guest email or phone number", async () => {
     render(<NewReservationDialog {...defaultProps} />);
 
