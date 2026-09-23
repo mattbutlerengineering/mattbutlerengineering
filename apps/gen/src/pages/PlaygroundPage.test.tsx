@@ -171,12 +171,14 @@ vi.mock("../components/PromptBar.js", () => ({
     onSubmit,
     onStop,
     onExitRefinement,
+    failedPrompt,
   }: {
     onSubmit: (p: string) => void;
     onStop: () => void;
     onExitRefinement?: () => void;
+    failedPrompt?: string | null;
   }) => (
-    <div data-testid="prompt-bar">
+    <div data-testid="prompt-bar" data-failed-prompt={failedPrompt ?? ""}>
       <button onClick={() => onSubmit("test prompt")}>Submit</button>
       <button onClick={onStop}>Stop</button>
       {onExitRefinement && <button onClick={onExitRefinement}>Exit Refine</button>}
@@ -219,6 +221,7 @@ function makeSession(overrides: Partial<PlaygroundSession> = {}): PlaygroundSess
     displayRawLines: [],
     displayError: null,
     activeSpecId: null,
+    failedPrompt: null,
     submit: mockSend,
     refine: vi.fn(),
     replay: vi.fn(),
@@ -268,6 +271,17 @@ describe("PlaygroundBody — session-object interface", () => {
     expect(session.retry).toHaveBeenCalled();
     fireEvent.click(screen.getByText("Refine"));
     expect(session.refine).toHaveBeenCalled();
+  });
+
+  it("forwards the failing prompt to PromptBar so it can be restored for editing", () => {
+    const session = makeSession({
+      failedPrompt: "draw a broken form",
+      displayError: new Error("boom"),
+    });
+    render(
+      <PlaygroundBody session={session} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    expect(screen.getByTestId("prompt-bar").dataset.failedPrompt).toBe("draw a broken form");
   });
 });
 

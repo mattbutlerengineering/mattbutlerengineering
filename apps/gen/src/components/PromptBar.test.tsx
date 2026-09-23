@@ -1,4 +1,3 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PromptBar } from "./PromptBar.js";
@@ -194,5 +193,37 @@ describe("PromptBar", () => {
     fireEvent.keyDown(textarea, { key: "ArrowUp" });
     fireEvent.keyDown(textarea, { key: "ArrowDown" });
     expect((textarea as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("restores the failing prompt into the input for editing when a generation fails", () => {
+    render(
+      <PromptBar
+        {...defaultProps}
+        failedPrompt="draw a broken form"
+        failedError={new Error("boom")}
+      />
+    );
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    expect((textarea as HTMLTextAreaElement).value).toBe("draw a broken form");
+  });
+
+  it("does not touch the input when there is no failure", () => {
+    render(<PromptBar {...defaultProps} failedPrompt={null} failedError={null} />);
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    expect((textarea as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("re-seeds the input on a second failure even if the prompt text repeats", () => {
+    const { rerender } = render(
+      <PromptBar {...defaultProps} failedPrompt="same prompt" failedError={new Error("first")} />
+    );
+    const textarea = screen.getByRole("textbox", { name: /prompt input/i });
+    fireEvent.change(textarea, { target: { value: "edited away" } });
+
+    rerender(
+      <PromptBar {...defaultProps} failedPrompt="same prompt" failedError={new Error("second")} />
+    );
+
+    expect((textarea as HTMLTextAreaElement).value).toBe("same prompt");
   });
 });

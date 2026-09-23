@@ -182,6 +182,11 @@
   </file>
   </section>
   <section priority="medium" role="pages">
+  <file path="src/pages/createErrorRecoveryPrompt.ts">
+    <item priority="high">
+      export function createErrorRecoveryPrompt(originalPrompt: string, errorMessage: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/pages/createRefinementPrompt.ts">
     <item priority="high">
       export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }

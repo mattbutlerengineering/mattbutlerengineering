@@ -18,6 +18,13 @@ export interface PromptBarProps {
   mode?: "generate" | "refine";
   /** Called when user clicks the "New" button to exit refinement mode. */
   onExitRefinement?: () => void;
+  /** The prompt behind the current failure, if any — restored into the input
+   *  so it isn't lost and can be edited before the next attempt. */
+  failedPrompt?: string | null;
+  /** The error behind failedPrompt. Keyed on (not failedPrompt's text) so a
+   *  second failure with identical prompt text still re-seeds the input even
+   *  though the user may have already edited it away after the first one. */
+  failedError?: Error | null;
 }
 
 const MAX_CHARS = 2000;
@@ -39,12 +46,24 @@ export function PromptBar({
   disabled,
   mode = "generate",
   onExitRefinement,
+  failedPrompt = null,
+  failedError = null,
 }: PromptBarProps) {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<readonly string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Restore the failing prompt into the input so it isn't lost. Keyed on the
+  // error object (not the prompt text) so a repeat failure with identical
+  // text still re-seeds the input even after the user has edited it away.
+  useEffect(() => {
+    if (failedError && failedPrompt) {
+      setValue(failedPrompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on failedError identity; failedPrompt always accompanies it
+  }, [failedError]);
 
   const isRefineMode = mode === "refine";
   const placeholder = isRefineMode ? "Refine this UI..." : "Describe the UI you want to build...";

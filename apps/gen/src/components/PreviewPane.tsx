@@ -248,7 +248,7 @@ export function PreviewPane({
               <Text>{error.message}</Text>
             </Alert>
             <Button variant="secondary" size="sm" onClick={onRetry}>
-              Try again
+              Retry with error context
             </Button>
           </div>
         ) : isStreaming && !spec ? (

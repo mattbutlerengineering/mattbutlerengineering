@@ -3,9 +3,17 @@ import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
+import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import type { StoredSpec } from "../types.js";
+
+// A real, safely-renderable "empty" Spec — exactly what @json-render/react's
+// own flatToTree([]) produces, and Renderer no-ops on it (`!spec.root`).
+// Used as the placeholder for a failed attempt's spec: the `spec` column is
+// NOT NULL, so this stands in for "no spec" without risking a render crash
+// if the failed entry is ever selected from history.
+const EMPTY_SPEC: Spec = { root: "", elements: {} };
 
 export interface PlaygroundSession {
   // Render mode + transient overlays (passed through from usePlaygroundState)
@@ -36,6 +44,9 @@ export interface PlaygroundSession {
   displayError: Error | null;
   /** Set only when viewing a non-streaming saved entry (for Share/Refine). */
   activeSpecId: string | null;
+  /** The raw prompt behind the current displayError, so it can be restored
+   *  into the prompt input for editing instead of being lost. */
+  failedPrompt: string | null;
 
   // Session verbs — own transition choreography lives here, not in the caller.
   submit: (prompt: string) => void;
@@ -75,7 +86,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   // Track the most recently submitted prompt without triggering a re-render.
+  // `promptRef` holds the string saved to history (tagged "Refined:"/
+  // "Recovered:" per the existing convention).
   const promptRef = useRef("");
+  // The exact user-entered text (untagged), so a failure can restore it for
+  // editing (`failedPrompt` below). State, not a ref — it's read during
+  // render, and react-hooks/refs forbids reading ref.current at render time.
+  const [rawPrompt, setRawPrompt] = useState("");
 
   const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
     api: "/api/gen/ui",
@@ -86,6 +103,19 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
         spec: completedSpec,
         rawLines: completedRawLines,
       }).then((stored) => setActiveId(stored.id));
+    },
+    // Record the failed attempt in the same history mechanism (tagged
+    // "Failed:", following the existing "Refined:" convention) so a
+    // failure -> success recovery is visible. Not selected as active —
+    // that would null out displayError (see the derivation below) and hide
+    // the error the user is meant to see and act on.
+    onError: () => {
+      if (!rawPrompt) return;
+      void saveSpec({
+        prompt: `Failed: ${rawPrompt}`,
+        spec: EMPTY_SPEC,
+        rawLines: [],
+      });
     },
   });
 
@@ -100,8 +130,12 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     : activeEntryRawLines.length > 0
       ? activeEntryRawLines
       : rawLines;
-  const displayError = isStreaming ? error : null;
+  // useGenStream flips isStreaming to false in the same batch it sets error,
+  // so gating on isStreaming here would mean the error is never visible —
+  // only relevant while we're not looking at a previously saved entry.
+  const displayError = activeId === null ? error : null;
   const activeSpecId = !isStreaming && activeId ? activeId : null;
+  const failedPrompt = displayError ? rawPrompt : null;
 
   const resetTo = useCallback(
     (id: string | null) => {
@@ -113,6 +147,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
 
   const submit = useCallback(
     (prompt: string) => {
+      setRawPrompt(prompt);
       if (mode === "refine" && displaySpec) {
         const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
         promptRef.current = `Refined: ${prompt}`;
@@ -148,19 +183,25 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       const entry = specs.find((s) => s.id === id);
       if (!entry) return;
       promptRef.current = entry.prompt;
+      setRawPrompt(entry.prompt);
       resetTo(null);
       void send(entry.prompt);
     },
     [specs, resetTo, send]
   );
 
+  // "Retry with error context": when the last attempt failed, feed the error
+  // back to the model instead of a bare resubmit (reuses the same send() call
+  // — no new backend endpoint). A later success is tagged "Recovered:" so the
+  // failure -> success arc is visible in history the same way "Refined:" is.
   const retry = useCallback(() => {
     const retryPrompt = activeEntry?.prompt ?? promptRef.current;
     if (!retryPrompt) return;
-    promptRef.current = retryPrompt;
+    setRawPrompt(retryPrompt);
+    promptRef.current = error ? `Recovered: ${retryPrompt}` : retryPrompt;
     resetTo(null);
-    void send(retryPrompt);
-  }, [activeEntry, resetTo, send]);
+    void send(error ? createErrorRecoveryPrompt(retryPrompt, error.message) : retryPrompt);
+  }, [activeEntry, error, resetTo, send]);
 
   const selectHistory = useCallback(
     (id: string) => {
@@ -205,6 +246,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     displayRawLines,
     displayError,
     activeSpecId,
+    failedPrompt,
 
     submit,
     refine: enterRefinement,

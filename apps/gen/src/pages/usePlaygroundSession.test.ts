@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import type { Spec } from "@json-render/react";
 import type { StoredSpec } from "../types.js";
 import { createRefinementPrompt } from "./createRefinementPrompt.js";
+import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 
 const mockSend = vi.fn();
 const mockStop = vi.fn();
@@ -22,11 +23,14 @@ let genStreamState: GenStreamState = {
 };
 
 type OnComplete = (spec: Spec, rawLines: string[]) => void;
+type OnError = (error: Error) => void;
 let capturedOnComplete: OnComplete | undefined;
+let capturedOnError: OnError | undefined;
 
 vi.mock("../hooks/useGenStream.js", () => ({
-  useGenStream: (opts: { onComplete?: OnComplete }) => {
+  useGenStream: (opts: { onComplete?: OnComplete; onError?: OnError }) => {
     capturedOnComplete = opts.onComplete;
+    capturedOnError = opts.onError;
     return { ...genStreamState, send: mockSend, stop: mockStop };
   },
 }));
@@ -71,6 +75,7 @@ describe("usePlaygroundSession", () => {
     genStreamState = { spec: null, isStreaming: false, error: null, rawLines: [] };
     specsApiState = { specs: [], isLoading: false };
     capturedOnComplete = undefined;
+    capturedOnError = undefined;
     mockSaveSpec.mockResolvedValue(makeStoredSpec({ id: "new-id" }));
     window.history.pushState({}, "", "/");
   });
@@ -169,6 +174,41 @@ describe("usePlaygroundSession", () => {
       const { result } = renderHook(() => usePlaygroundSession());
       act(() => result.current.retry());
       expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it("feeds the error back to the model instead of a bare resubmit when there is a current error", () => {
+      const err = new Error("Invalid nested layout");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      act(() => result.current.retry());
+
+      expect(mockSend).toHaveBeenNthCalledWith(
+        2,
+        createErrorRecoveryPrompt("draw a form", "Invalid nested layout")
+      );
+    });
+
+    it("tags the retried prompt as recovered so a later success is distinguishable in history", async () => {
+      const err = new Error("Invalid nested layout");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      act(() => result.current.retry());
+
+      const completedSpec = { type: "Box", children: [] } as unknown as Spec;
+      await act(async () => {
+        capturedOnComplete?.(completedSpec, ["{line}"]);
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalledWith({
+        prompt: "Recovered: draw a form",
+        spec: completedSpec,
+        rawLines: ["{line}"],
+      });
     });
   });
 
@@ -278,16 +318,42 @@ describe("usePlaygroundSession", () => {
       expect(result.current.activeSpecId).toBe(null);
     });
 
-    it("only surfaces displayError while streaming", () => {
+    it("surfaces displayError once the stream has settled into failure", () => {
+      // useGenStream flips isStreaming to false in the same batch that it sets
+      // error — so a settled failure is (isStreaming: false, error: <Error>).
+      // The error must stay visible here instead of only flashing a toast.
       const err = new Error("boom");
       genStreamState = { ...genStreamState, error: err, isStreaming: false };
-      const { result, rerender } = renderHook(() => usePlaygroundSession());
-      expect(result.current.displayError).toBe(null);
-      expect(result.current.error).toBe(err);
-
-      genStreamState = { ...genStreamState, isStreaming: true };
-      rerender();
+      const { result } = renderHook(() => usePlaygroundSession());
       expect(result.current.displayError).toBe(err);
+      expect(result.current.error).toBe(err);
+    });
+
+    it("suppresses displayError once a saved history entry is selected", () => {
+      const err = new Error("boom");
+      genStreamState = { ...genStreamState, error: err, isStreaming: false };
+      specsApiState = { specs: [makeStoredSpec({ id: "s1" })], isLoading: false };
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.selectHistory("s1"));
+
+      expect(result.current.displayError).toBe(null);
+    });
+
+    it("exposes the failing prompt so it can be restored for editing instead of lost", () => {
+      const { result, rerender } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a form"));
+      genStreamState = { ...genStreamState, error: new Error("boom"), isStreaming: false };
+      rerender();
+
+      expect(result.current.failedPrompt).toBe("draw a form");
+    });
+
+    it("does not expose a failing prompt when there is no error", () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.submit("draw a form"));
+      expect(result.current.failedPrompt).toBe(null);
     });
   });
 
@@ -390,6 +456,38 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(mockSaveSpec).toHaveBeenCalled();
+    });
+  });
+
+  describe("generation failure", () => {
+    it("records the failed attempt in history, tagged and without a renderable spec", async () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a broken form"));
+
+      await act(async () => {
+        capturedOnError?.(new Error("Invalid nested layout"));
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalledWith({
+        prompt: "Failed: draw a broken form",
+        spec: { root: "", elements: {} },
+        rawLines: [],
+      });
+    });
+
+    it("does not select the failed attempt as active, so the error stays visible", async () => {
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw a broken form"));
+
+      await act(async () => {
+        capturedOnError?.(new Error("boom"));
+        await Promise.resolve();
+      });
+
+      expect(result.current.activeSpecId).toBe(null);
     });
   });
 });
