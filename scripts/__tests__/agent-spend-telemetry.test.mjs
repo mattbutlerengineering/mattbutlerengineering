@@ -23,7 +23,6 @@ import {
   classifySpendTelemetry,
   countRowsInWindow,
   assessAgentSpendTelemetry,
-  isBlockedState,
   SPEND_TIMESTAMP_FIELDS,
   SIBLING_TIMESTAMP_FIELDS,
 } from "../agent-spend-telemetry.mjs";
@@ -59,8 +58,20 @@ describe("classifySpendTelemetry", () => {
       writerReachable: false,
     });
     expect(verdict.state).toBe("uninstrumented");
-    // Not a pass: a metric nothing can write is dead, not healthy.
-    expect(verdict.ok).toBe(false);
+  });
+
+  it("passes uninstrumented: CI having no writer is the #3585 decision, not a defect (#5627)", () => {
+    // #3585 chose Option A, local-only: spend is recorded by local
+    // `mbe agent run --adapter claude-cli` sessions, and CI deliberately has
+    // no writer. Failing here would refile #5627 forever with nothing to fix.
+    const verdict = classifySpendTelemetry({
+      spendRowsInWindow: 0,
+      siblingRowsInWindow: 5,
+      writerReachable: false,
+    });
+    expect(verdict.ok).toBe(true);
+    expect(verdict.reason).toMatch(/claude-cli/);
+    expect(verdict.reason).toMatch(/#3585/);
   });
 
   it("trusts recorded rows over the reachability inference", () => {
@@ -109,30 +120,6 @@ describe("classifySpendTelemetry", () => {
     });
     expect(verdict.state).toBe("undeterminable");
     expect(verdict.ok).toBe(false);
-  });
-});
-
-describe("isBlockedState", () => {
-  // The blocked/actionable split is what keeps a permanently-open
-  // human-blocked issue from absorbing a genuine regression under a shared
-  // dedupe key — the #5561 defect, which #5565 fixed for the sibling
-  // freshness check in this same workflow.
-  it("treats uninstrumented as human-blocked — it needs the #3585 decision", () => {
-    expect(isBlockedState("uninstrumented")).toBe(true);
-  });
-
-  it.each(["stalled", "undeterminable"])("treats %s as actionable, not blocked", (state) => {
-    expect(isBlockedState(state)).toBe(false);
-  });
-
-  it.each(["healthy", "idle"])("does not call the passing state %s blocked", (state) => {
-    expect(isBlockedState(state)).toBe(false);
-  });
-
-  it("does not call an unrecognised state blocked", () => {
-    // Fail toward actionable: a state nobody has classified must reach a human
-    // as a failure, never be filed under the permanently-open blocked issue.
-    expect(isBlockedState("something-new")).toBe(false);
   });
 });
 
@@ -188,12 +175,9 @@ describe("assessAgentSpendTelemetry", () => {
       now,
     });
     expect(result.state).toBe("uninstrumented");
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
     expect(result.spendRowsInWindow).toBe(0);
     expect(result.siblingRowsInWindow).toBe(1);
-    // Carried on the result so the workflow can route it with one `jq -r`
-    // rather than re-deriving the classification in shell.
-    expect(result.blocked).toBe(true);
   });
 
   it("reports stalled once a provider key makes the writer reachable", () => {
@@ -205,9 +189,6 @@ describe("assessAgentSpendTelemetry", () => {
     });
     expect(result.state).toBe("stalled");
     expect(result.ok).toBe(false);
-    // Actionable, so it must NOT dedupe into the permanently-open blocked
-    // issue — this is the regression the whole check exists to announce.
-    expect(result.blocked).toBe(false);
   });
 
   it("treats an empty-string provider key as absent", () => {
