@@ -2145,3 +2145,12 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.950 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:4, size:m:5, size:xs:4, size:l:3
 **Issues filed:** 0
+
+## 2026-09-23 (mbe-learning-loop)
+
+**Sensors:** 10/18 available (acmm L6 108/114, prMetrics, metricsFreshness, prCategoryMetrics, ccusageCost, ciHealth 100% 12/12, sessionLogs, codeChurn, queueEfficiency composite 0.933; domainActivity/agentCost/lighthouse/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback query failed — GitHub REST fallback credential rejected, 403, same recurring class as prior runs)
+**Regressions:** 1 detected (`metricsFreshness.domain-metrics`: null → unconfigured, severity low), 0 issues created — already tracked by open issue #5561 "Metrics collection blocked on an unset credential" (`ready-for-human`), skipped as duplicate per Step 3
+**Verifications:** 5 checked (48h window), 1 verified (#5674 ACMM `acmm:session-summary` now passes), 0 failed, 4 skipped (2 no Lighthouse inventory, 2 no completed CI runs to verify against)
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Sentry triage (Step 1b):** skipped — Sentry MCP host (`sentry.io`) not in this cloud session's egress allowlist (403 Forbidden)
+**Threshold notes:** verify-fixes threshold auto-tuner found no adjustments needed. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors (`--search` routes to `/search/issues`, a different REST endpoint than `issue list`'s `/repos/.../issues`, which the fallback credential can't reach) — budgets file left at defaults (3/category); moot this run since the one regression was a dedup skip, not a filed issue.
