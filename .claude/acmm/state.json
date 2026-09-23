@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-09-22T17:47:55.376Z",
+  "lastRun": "2026-09-23T16:04:50.593Z",
   "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -25,7 +25,7 @@
     },
     "acmm:prereq-pr-template": {
       "passed": true,
-      "evidence": "detected at: .github/pull_request_template.md",
+      "evidence": "detected at: .github/PULL_REQUEST_TEMPLATE.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -213,16 +213,16 @@
       "substanceEvidence": null
     },
     "acmm:nightly-compliance": {
-      "passed": true,
-      "evidence": ".github/workflows/nightly-compliance.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:copilot-review-apply": {
-      "passed": true,
-      "evidence": ".github/workflows/copilot-review-apply.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -325,23 +325,23 @@
       "substanceEvidence": null
     },
     "acmm:instruction-sync-gate": {
-      "passed": true,
-      "evidence": ".github/workflows/ci.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:component-registry-integrity": {
-      "passed": true,
-      "evidence": ".github/workflows/ci.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:instruction-rot-detection": {
-      "passed": true,
-      "evidence": ".github/workflows/ci.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -353,9 +353,9 @@
       "substanceEvidence": null
     },
     "acmm:claude-md-auto-sync": {
-      "passed": true,
-      "evidence": ".github/workflows/claude-md-sync.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -437,9 +437,9 @@
       "substanceEvidence": null
     },
     "acmm:periodic-reflection": {
-      "passed": true,
-      "evidence": ".github/workflows/reflection-review.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -521,9 +521,9 @@
       "substanceEvidence": null
     },
     "acmm:auto-issue-gen": {
-      "passed": true,
-      "evidence": ".github/workflows/auto-issue.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -556,9 +556,9 @@
       "substanceEvidence": null
     },
     "acmm:production-feedback": {
-      "passed": true,
-      "evidence": ".github/workflows/production-feedback.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -605,9 +605,9 @@
       "substanceEvidence": null
     },
     "acmm:auto-rollback": {
-      "passed": true,
-      "evidence": ".github/workflows/auto-rollback.yml: recent successful run found",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -787,9 +787,9 @@
       "substanceEvidence": null
     },
     "meta:product-improvements": {
-      "passed": true,
-      "evidence": "1 improvement issue(s) closed in last 30 days",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error querying improvement issues",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -1203,6 +1203,12 @@
       "level": 6,
       "detected": 108,
       "total": 109
+    },
+    {
+      "date": "2026-09-23",
+      "level": 6,
+      "detected": 97,
+      "total": 99
     }
   ],
   "issuesCreated": {
@@ -1245,8 +1251,6 @@
     "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
-    "acmm:nightly-compliance",
-    "acmm:copilot-review-apply",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
@@ -1261,11 +1265,7 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
-    "acmm:instruction-sync-gate",
-    "acmm:component-registry-integrity",
-    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
-    "acmm:claude-md-auto-sync",
     "acmm:preference-index",
     "acmm:task-ledger",
     "acmm:mcp-server-config",
@@ -1277,7 +1277,6 @@
     "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
-    "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:explanation-standards",
     "acmm:self-correction-metric",
@@ -1289,18 +1288,15 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
-    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
-    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
-    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -1321,8 +1317,7 @@
     "claude-reflect:claude-md-sync",
     "claude-reflect:preference-index",
     "claude-reflect:reflection-review",
-    "claude-reflect:session-summary",
-    "meta:product-improvements"
+    "claude-reflect:session-summary"
   ],
   "computation": {
     "level": 6,
@@ -1332,10 +1327,10 @@
     "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 6,
-      "4": 16,
+      "3": 5,
+      "4": 12,
       "5": 15,
-      "6": 8
+      "6": 6
     },
     "requiredByLevel": {
       "2": 3,
@@ -1586,7 +1581,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 19,
-      "measured_at": "2026-09-22T17:47:55.373Z"
+      "measured_at": "2026-09-23T16:04:50.591Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
