@@ -38,6 +38,16 @@
  * report the real condition instead of a fifth near-duplicate of a bug that
  * was never there.
  *
+ * ## Why `uninstrumented` passes (#5627)
+ *
+ * #3585 was decided as Option A, local-only: `ClaudeCliAdapter` (#5670) lets
+ * a local `mbe agent run --adapter claude-cli` reach `recordSpend` on the Max
+ * subscription with no key (verified live 2026-09-22 — a real row landed),
+ * while CI deliberately gets no writer. So `uninstrumented` in CI is the
+ * chosen design, not a defect or a pending decision, and failing on it only
+ * refiled #5627 with nothing to fix. It passes; `stalled` still fails the
+ * moment a key makes a CI writer reachable and it records nothing.
+ *
  * ## Why this is not a `scripts/check-*.mjs` fitness check
  *
  * The `check-` prefix in this repo means "wired into `pnpm repo-audit`, reds
@@ -46,20 +56,18 @@
  * author, and resolvable only by a human setting a secret — exactly the shape
  * `scripts/metrics-freshness.mjs` documents for `DOMAIN_METRICS_VENUE_ID`. It
  * reports through `.github/workflows/metrics-collectors.yml`, which turns a
- * non-zero verdict into a deduped issue rather than a red workflow — routed by
- * `--json`'s `blocked` flag to one of two dedupe keys, so the permanently-open
- * `uninstrumented` issue can never absorb a `stalled` regression (#5561).
+ * non-zero verdict into a deduped issue rather than a red workflow.
  *
  * ## Fail-closed
  *
- * `healthy` and `idle` are the only passing states. A missing or unreadable
+ * `healthy`, `idle` and `uninstrumented` are the only passing states. A missing or unreadable
  * file, a non-array payload, rows nothing can date, and a reader that throws
  * all land on `undeterminable`, which fails — an absence that cannot be
  * explained is never reported as health.
  *
  * Usage:
  *   node scripts/agent-spend-telemetry.mjs           # human-readable line
- *   node scripts/agent-spend-telemetry.mjs --json    # verdict + `blocked` flag
+ *   node scripts/agent-spend-telemetry.mjs --json    # machine-readable verdict
  * Exit code: 0 when the invariant holds (or is vacuous), 1 otherwise — in both
  * modes.
  */
@@ -114,23 +122,7 @@ export const PROVIDER_KEY_ENV = "ANTHROPIC_API_KEY";
 export const DEFAULT_WINDOW_HOURS = 24;
 
 /** The states that count as the invariant holding. */
-export const PASSING_STATES = new Set(["healthy", "idle"]);
-
-/**
- * Failing states that are waiting on a human, not on a fix.
- *
- * `uninstrumented` needs the #3585 decision (route AI features through the
- * Claude CLI, or remove them) or an `ANTHROPIC_API_KEY` secret — neither of
- * which an agent can do — so its issue stays open indefinitely.
- *
- * This set exists so the workflow can file it under its OWN dedupe key. When a
- * permanently-blocked finding and a genuinely-failing one shared a key, the
- * blocker's already-open issue absorbed the real failure and it announced
- * nothing (#5561, fixed for this workflow's sibling freshness check in #5565).
- * `stalled` — a writer that could have run and recorded nothing — is exactly
- * the regression that must never be absorbed that way.
- */
-export const BLOCKED_STATES = new Set(["uninstrumented"]);
+export const PASSING_STATES = new Set(["healthy", "idle", "uninstrumented"]);
 
 // ---------------------------------------------------------------------------
 // Pure logic — no side effects below this section boundary comment.
@@ -230,9 +222,9 @@ export function classifySpendTelemetry({
   if (!writerReachable) {
     return verdict(
       "uninstrumented",
-      `no spend writer can run: ${PROVIDER_KEY_ENV} is unset, so every agent-core entry point ` +
-        `skips before reaching recordSpend, and Claude Code subagent runs never enter agent-core. ` +
-        `0 rows is the expected output of this architecture, not a regression — see #4618/#3585`
+      `no spend writer runs here by design: ${PROVIDER_KEY_ENV} is unset, and #3585 chose ` +
+        `local-only spend recording via \`mbe agent run --adapter claude-cli\`. ` +
+        `0 rows is the expected output of this architecture, not a regression — see #5627`
     );
   }
 
@@ -252,21 +244,7 @@ export function classifySpendTelemetry({
  * @param {string} reason
  */
 function verdict(state, reason) {
-  return { state, ok: PASSING_STATES.has(state), blocked: isBlockedState(state), reason };
-}
-
-/**
- * Pure: whether a state is waiting on a human rather than on a fix.
- *
- * Fails toward `false` — actionable — for anything unrecognised. A state
- * nobody has classified must reach a human as a failure, never be filed under
- * the permanently-open blocked issue where it would be absorbed.
- *
- * @param {string} state
- * @returns {boolean}
- */
-export function isBlockedState(state) {
-  return BLOCKED_STATES.has(state);
+  return { state, ok: PASSING_STATES.has(state), reason };
 }
 
 // ---------------------------------------------------------------------------
@@ -377,10 +355,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const result = assessAgentSpendTelemetry();
 
   if (process.argv.includes("--json")) {
-    // Machine-readable routing for metrics-collectors.yml, matching
-    // `metrics-freshness.mjs --json`: the workflow reads `.blocked` and files
-    // the verdict under one of two dedupe keys. `line` is the same text the
-    // human mode prints, so the step summary need not re-derive it.
+    // Machine-readable output for metrics-collectors.yml, matching
+    // `metrics-freshness.mjs --json`. `line` is the same text the human mode
+    // prints, so the step summary need not re-derive it.
     process.stdout.write(
       `${JSON.stringify({ ...result, line: formatVerdict(result) }, null, 2)}\n`
     );

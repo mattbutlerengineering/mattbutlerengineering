@@ -227,6 +227,9 @@ export async function runCliAdapterSession(
       status,
       inputTokens: tokenUsage.inputTokens,
       outputTokens: tokenUsage.outputTokens,
+      // Raw adapter value, not the 0-fallback above: an absent turn count is
+      // omitted from the row rather than recorded as a fabricated 0.
+      numTurns: adapterResult?.numTurns,
     });
   } catch {
     // Best-effort — spend logging must never crash a session.
