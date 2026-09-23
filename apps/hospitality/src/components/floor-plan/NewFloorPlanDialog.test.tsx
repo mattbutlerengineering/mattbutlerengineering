@@ -61,6 +61,17 @@ describe("NewFloorPlanDialog", () => {
     expect(defaultProps.onCreate).not.toHaveBeenCalled();
   });
 
+  it("announces the validation error to screen readers via role=alert", async () => {
+    const { container } = render(<NewFloorPlanDialog {...defaultProps} />);
+    const input = screen.getByLabelText(/Name/);
+    await userEvent.type(input, "  ");
+    const form = container.querySelector("form")!;
+    fireEvent.submit(form);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Floor plan name is required.");
+    });
+  });
+
   it("calls onCreate and onCreated on successful submit", async () => {
     const mockFloorPlan = { id: "fp-1", name: "Main Dining" };
     defaultProps.onCreate.mockResolvedValue(mockFloorPlan);

@@ -223,7 +223,11 @@ export function NewReservationDialog({
               </Text>
             </div>
 
-            {validationError && <div className={styles.errorBanner}>{validationError}</div>}
+            {validationError && (
+              <div role="alert" aria-live="assertive" className={styles.errorBanner}>
+                {validationError}
+              </div>
+            )}
 
             <Stack gap="md">
               <GuestLookup
