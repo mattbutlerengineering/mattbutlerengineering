@@ -4,29 +4,30 @@
  *
  * Reads the JSON report written by
  * apps/hospitality/e2e/journeys/venue-journey.spec.ts and:
- *   1. writes a per-step-timings job summary (always — green or not),
+ *   1. writes a per-step-timings job summary (always — green or not), which
+ *      includes a "Friction" section when the run was slow or console-noisy
+ *      (#3547 — soft friction used to also get a comment on a rolling
+ *      GitHub issue; 60+ comments on one issue was noise nobody read, so it
+ *      now lives only in the job summary),
  *   2. files/comment-bumps ONE deduped `audit` + `ready` issue on hard failure,
  *      or an `audit` + `ready-for-human` one when a step was `blocked` on an
- *      unset credential instead (#4527),
- *   3. appends a dated entry to the single rolling `audit` friction-log issue
- *      when the run was green but slow or console-noisy.
+ *      unset credential instead (#4527).
  *
- * A fully green, friction-free run files nothing. All formatting/dedupe logic
- * is the pure, unit-tested module in ./report.mjs — this file is I/O glue.
+ * A fully green run (friction or not) files no issue. All formatting/dedupe
+ * logic is the pure, unit-tested module in ./report.mjs — this file is I/O
+ * glue.
  *
  * Usage: node scripts/venue-journey/file-issues.mjs <report.json>
- * Requires: GH_TOKEN with issues:write (for `gh`).
+ * Requires: GH_TOKEN with issues:write (for `gh`) — still needed for the
+ * hard-failure/blocked path above.
  */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import {
   buildBlockedIssue,
   buildFailureIssue,
-  buildFrictionEntry,
   buildJobSummary,
   findDuplicateIssue,
-  FRICTION_ISSUE_TITLE,
-  redactSecrets,
 } from "./report.mjs";
 
 /** Runs `gh` with argv-array arguments (never a shell string). */
@@ -65,11 +66,6 @@ function log(line) {
   process.stdout.write(`${line}\n`);
 }
 
-/** Error text for a log line. A `gh` failure echoes its argv, so redact. */
-function message(err) {
-  return redactSecrets(err instanceof Error ? err.message : String(err));
-}
-
 /** Creates the issue, or comments on the existing duplicate. */
 function fileOrBump({ openIssues, title, searchPhrase, body, commentBody, labels }) {
   const duplicate = findDuplicateIssue(openIssues, { title, searchPhrase });
@@ -96,47 +92,16 @@ function main() {
   // Precedence: a hard failure is a product regression and outranks a step
   // that could not run. Both share the step signature, so whichever is filed
   // comment-bumps the same issue on a recurrence, and the step table in either
-  // body shows the other's state anyway.
+  // body shows the other's state anyway. A green run — friction or not, the
+  // job summary above already carries the friction section — files nothing.
   const issue = buildFailureIssue(report) ?? buildBlockedIssue(report);
-  const friction = buildFrictionEntry(report);
-  if (!issue && !friction) {
-    log("::notice::Journey green with no friction — no issues filed.");
+  if (!issue) {
+    log("::notice::Journey green — no issues filed.");
     return;
   }
 
-  // A `gh` outage must never turn a GREEN journey red. When there is a failed
-  // or blocked step to report, filing is load-bearing and errors propagate;
-  // when the only thing to file is the advisory friction log, they degrade to
-  // warnings.
-  let openIssues;
-  try {
-    openIssues = listOpenAuditIssues();
-  } catch (err) {
-    if (issue) throw err;
-    log(`::warning::Could not list open audit issues — friction log not updated: ${message(err)}`);
-    return;
-  }
-
-  if (issue) {
-    fileOrBump({ openIssues, ...issue });
-  }
-
-  // Friction is advisory: one rolling log issue, `audit` only (never `ready`),
-  // so it never enters the implement-queue as actionable work on its own.
-  if (friction) {
-    try {
-      fileOrBump({
-        openIssues,
-        title: FRICTION_ISSUE_TITLE,
-        searchPhrase: FRICTION_ISSUE_TITLE,
-        body: `Rolling log of soft friction seen by the daily venue-onboarding journey (.github/workflows/venue-journey.yml). Not individually actionable — read it for trends.\n\n${friction}`,
-        commentBody: friction,
-        labels: ["audit"],
-      });
-    } catch (err) {
-      log(`::warning::Could not update the friction log: ${message(err)}`);
-    }
-  }
+  const openIssues = listOpenAuditIssues();
+  fileOrBump({ openIssues, ...issue });
 }
 
 main();
