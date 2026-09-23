@@ -65,8 +65,12 @@ describe("claude.yml gates its agent run on preflight job outputs, not step guar
   it("skips the dispatch job unless the author is authorized AND a credential exists", () => {
     const dispatch = jobBlock("dispatch");
     expect(dispatch).toMatch(/needs: preflight/);
-    expect(dispatch).toMatch(/if:.*needs\.preflight\.outputs\.authorized == 'true'/);
-    expect(dispatch).toMatch(/if:.*needs\.preflight\.outputs\.has_key == 'true'/);
+    // Pin the whole job-level line: an `||` in place of `&&` would let a
+    // non-collaborator reach dispatch whenever a key exists, and a looser
+    // match (any `if:` line mentioning both outputs) cannot see that.
+    expect(dispatch).toMatch(
+      /^ {4}if: needs\.preflight\.outputs\.authorized == 'true' && needs\.preflight\.outputs\.has_key == 'true'$/m
+    );
   });
 
   it("keeps every silent skip out of the dispatch steps — an exit 0 there reads as a pass", () => {
@@ -93,8 +97,10 @@ describe("claude.yml gates its agent run on preflight job outputs, not step guar
   it("answers an authorized, keyless mention with one comment naming #3585 — and only then", () => {
     const preflight = jobBlock("preflight");
     const skip = stepBlock(preflight, "Explain the skip");
-    expect(skip).toMatch(/if:.*steps\.auth\.outputs\.authorized == 'true'/);
-    expect(skip).toMatch(/if:.*steps\.check\.outputs\.has_key != 'true'/);
+    // Whole line again: with `||`, any commenter's @claude would get a bot reply.
+    expect(skip).toMatch(
+      /^\s+if: steps\.auth\.outputs\.authorized == 'true' && steps\.check\.outputs\.has_key != 'true'$/m
+    );
     expect(skip).toContain("gh issue comment");
     expect(skip).toContain("no agent credential in CI");
     expect(skip).toMatch(/#3585/);
