@@ -123,6 +123,7 @@ function renderSheet(overrides: Partial<ReservationSheetProps> = {}) {
     onSeat: vi.fn().mockResolvedValue(undefined),
     onEdit: vi.fn(),
     onCancel: vi.fn(),
+    onMarkNoShow: vi.fn(),
     ...overrides,
   };
   return { ...render(<ReservationSheet {...props} />), props };
@@ -318,6 +319,22 @@ describe("ReservationSheet", () => {
       expect(coarseBlock).not.toBeNull();
       expect(coarseBlock?.[1]).toMatch(/\.actions > button\s*\{[^}]*min-block-size:\s*44px/);
     });
+  });
+
+  describe("Mark No-Show (#5616 — only the CONFIRMED → NO_SHOW transition is valid)", () => {
+    it("shows Mark No-Show for a CONFIRMED reservation and calls onMarkNoShow", () => {
+      const { props } = renderSheet({ reservation: makeReservation({ status: "CONFIRMED" }) });
+      fireEvent.click(screen.getByRole("button", { name: "Mark No-Show" }));
+      expect(props.onMarkNoShow).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["PENDING", "COMPLETED", "CANCELLED", "NO_SHOW"] as const)(
+      "hides Mark No-Show for a %s reservation",
+      (status) => {
+        renderSheet({ reservation: makeReservation({ status }) });
+        expect(screen.queryByRole("button", { name: "Mark No-Show" })).toBeNull();
+      }
+    );
   });
 
   describe("accessibility contract (xcut H)", () => {

@@ -29,6 +29,8 @@ export interface ReservationSheetProps {
   onSeat: () => Promise<void>;
   onEdit: () => void;
   onCancel: () => void;
+  /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
+  onMarkNoShow: () => void;
 }
 
 /**
@@ -47,6 +49,7 @@ export function ReservationSheet({
   onSeat,
   onEdit,
   onCancel,
+  onMarkNoShow,
 }: ReservationSheetProps) {
   // Keyed by reservation so a fresh selection opens compact again without an effect.
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -150,6 +153,11 @@ export function ReservationSheet({
           {reservation.status !== "CANCELLED" && (
             <Button variant="ghost" onClick={onCancel} disabled={seating}>
               Cancel reservation
+            </Button>
+          )}
+          {reservation.status === "CONFIRMED" && (
+            <Button variant="ghost" onClick={onMarkNoShow} disabled={seating}>
+              Mark No-Show
             </Button>
           )}
           <Button

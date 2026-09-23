@@ -171,6 +171,41 @@ vi.mock("../components/timeline/CancelReservationDialog", async () => {
   };
 });
 
+// Same rethrow-contract shape as the CancelReservationDialog stand-in above.
+vi.mock("../components/timeline/MarkNoShowDialog", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    MarkNoShowDialog: ({
+      onConfirm,
+      onClose,
+    }: {
+      onConfirm: () => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="no-show-dialog">
+          <button
+            data-testid="no-show-confirm"
+            onClick={() =>
+              onConfirm().then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Confirm No-Show
+          </button>
+          <span data-testid="no-show-outcome">{outcome}</span>
+          <button data-testid="no-show-close" onClick={onClose}>
+            Close No-Show
+          </button>
+        </div>
+      );
+    },
+  };
+});
+
 vi.mock("../components/timeline/EditReservationDrawer", async () => {
   const { useState } = await vi.importActual<typeof React>("react");
   return {
@@ -960,6 +995,91 @@ describe("TimelinePage", () => {
       expect(screen.queryByRole("alert")).toBeNull();
       expect(screen.getByTestId("timeline-grid")).toBeDefined();
       expect(screen.getByRole("status")).toHaveTextContent("");
+    });
+  });
+
+  describe("mark no-show flow (#5616)", () => {
+    it("opens the no-show dialog and calls updateReservation with status NO_SHOW on confirm", async () => {
+      const updateReservation = vi.fn().mockResolvedValue(defaultReservation);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Mark No-Show")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Mark No-Show"));
+      await waitFor(() => {
+        expect(screen.getByTestId("no-show-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("no-show-confirm"));
+      await waitFor(() => {
+        expect(updateReservation).toHaveBeenCalledWith("r1", { status: "NO_SHOW" });
+      });
+    });
+
+    it("closes the no-show dialog without marking", async () => {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Mark No-Show")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Mark No-Show"));
+      await waitFor(() => {
+        expect(screen.getByTestId("no-show-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("no-show-close"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("no-show-dialog")).toBeNull();
+      });
+    });
+
+    it("rethrows a failed capture so the dialog owns the failure — no silent success (hard rule)", async () => {
+      const updateReservation = vi.fn().mockRejectedValue(new Error("Capture failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Mark No-Show")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Mark No-Show"));
+      await waitFor(() => {
+        expect(screen.getByTestId("no-show-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("no-show-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("no-show-outcome")).toHaveTextContent("rejected");
+      });
+      // The dialog stays mounted for its own banner; the page has not closed it.
+      expect(screen.getByTestId("no-show-dialog")).toBeDefined();
+    });
+
+    it("does not show Mark No-Show for a reservation that is not CONFIRMED", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, status: "COMPLETED" as const }],
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Edit Reservation")).toBeDefined();
+      });
+      expect(screen.queryByText("Mark No-Show")).toBeNull();
     });
   });
 
