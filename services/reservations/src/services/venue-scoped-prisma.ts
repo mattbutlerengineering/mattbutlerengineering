@@ -1,6 +1,26 @@
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
+import { recordUnscopedRlsQuery } from "./rls-context-mode.js";
+
+/**
+ * Prisma delegate names (as they appear as `prisma.<delegate>` on the
+ * generated client — the model name with its first letter lowercased) for
+ * the seven tables ADR-026 §1 lists as RLS-scoped. Cross-checked against
+ * `schema.prisma`'s `@@map` names and the migrations' actual
+ * `ENABLE ROW LEVEL SECURITY` declarations in `rls-models-coverage.test.ts`,
+ * so an eighth RLS table added with no corresponding entry here fails that
+ * test instead of silently going unwatched by the tripwire below.
+ */
+export const RLS_MODELS: ReadonlySet<string> = new Set([
+  "venue",
+  "floorPlan",
+  "table",
+  "guest",
+  "reservation",
+  "deposit",
+  "waitlistEntry",
+]);
 
 /** A Prisma model delegate — its query methods, keyed by name. */
 type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
@@ -95,10 +115,30 @@ export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
             return method;
           }
 
-          return (...args: unknown[]) =>
-            target.$transaction(async (tx) => {
+          return (...args: unknown[]) => {
+            // ADR-026 §3.3 / #5369 PR 1 tripwire: a model-delegate call on an
+            // RLS-scoped table with no venue context resolved is either a
+            // known-open gap (ADR-026 §3.2/§3.3) or a genuinely missing
+            // `where: { venueId }` filter — either way, worth surfacing. Only
+            // `RLS_MODELS` are checked: `venueGroup`/`reservationHold`/
+            // `venueMembership` carry no RLS policy at all, so flagging them
+            // would be a false positive. In `"throw"` mode (never the prod
+            // default) this throws BEFORE opening the transaction below, so
+            // the query never runs — see `recordUnscopedRlsQuery`.
+            if (RLS_MODELS.has(modelName) && getCurrentVenueId() === null) {
+              recordUnscopedRlsQuery({ model: modelName, method: String(methodProp) });
+            }
+
+            return target.$transaction(async (tx) => {
               const dynamicTx = tx as unknown as DynamicTransactionClient;
-              await setVenueContext(dynamicTx, getCurrentVenueId());
+              // `skipUnscopedQueryCheck: true` — this call site already ran
+              // the more precise `RLS_MODELS`-gated check above; `setVenueContext`
+              // itself is generic over every model (RLS-scoped or not) and
+              // cannot tell them apart, so without this flag every non-RLS
+              // model call here would also be misreported.
+              await setVenueContext(dynamicTx, getCurrentVenueId(), {
+                skipUnscopedQueryCheck: true,
+              });
               // Non-null: the outer trap already confirmed `methodProp` is a
               // function on the (non-transacted) delegate for `modelName`;
               // the transaction client's delegate has the identical shape.
@@ -107,6 +147,7 @@ export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
               // (see trap 2 above).
               return dynamicTx[modelName]![methodProp as string]!(...args);
             });
+          };
         },
       });
     },

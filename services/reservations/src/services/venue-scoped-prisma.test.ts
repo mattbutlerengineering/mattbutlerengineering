@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { withVenueScopedQueries } from "./venue-scoped-prisma.js";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { withVenueScopedQueries, RLS_MODELS } from "./venue-scoped-prisma.js";
 import { enterVenueContext } from "./venue-context-store.js";
+import { setRlsTripwireLogger, RlsUnscopedQueryError } from "./rls-context-mode.js";
 import type { PrismaClient } from "../generated/prisma/index.js";
 
 /**
@@ -154,5 +155,97 @@ describe("withVenueScopedQueries", () => {
     const result = await wrapped.tracingHelper.isEnabled();
 
     expect(result).toBe(true);
+  });
+});
+
+describe("RLS_CONTEXT_MODE tripwire (ADR-026 §3.3 / #5369 PR 1)", () => {
+  const ORIGINAL_ENV = process.env.RLS_CONTEXT_MODE;
+  const logger = { warn: vi.fn() };
+
+  beforeEach(() => {
+    logger.warn.mockClear();
+    setRlsTripwireLogger(logger);
+  });
+
+  afterEach(() => {
+    enterVenueContext(null);
+    if (ORIGINAL_ENV === undefined) delete process.env.RLS_CONTEXT_MODE;
+    else process.env.RLS_CONTEXT_MODE = ORIGINAL_ENV;
+  });
+
+  it("logs rls_unscoped_query for an RLS-scoped model when no venue context is set (warn, the prod default)", async () => {
+    delete process.env.RLS_CONTEXT_MODE;
+    enterVenueContext(null);
+    const { client } = createFakeBaseClient();
+    const wrapped = withVenueScopedQueries(client);
+
+    await wrapped.table.findMany({});
+
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { model: "table", method: "findMany", route: null },
+      "rls_unscoped_query"
+    );
+  });
+
+  it("does not log when a venue context IS set — this PR must not change behavior for the normal path", async () => {
+    enterVenueContext("venue-99");
+    const { client } = createFakeBaseClient();
+    const wrapped = withVenueScopedQueries(client);
+
+    await wrapped.table.findMany({});
+
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("does not log for a model outside RLS_MODELS, even with no venue context (e.g. venueGroup, which carries no RLS policy)", async () => {
+    enterVenueContext(null);
+    const venueGroupFindMany = vi.fn().mockResolvedValue([]);
+    const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        venueGroup: { findMany: venueGroupFindMany },
+      })
+    );
+    const client = { $transaction, venueGroup: { findMany: vi.fn() } } as unknown as PrismaClient;
+    const wrapped = withVenueScopedQueries(client) as unknown as {
+      venueGroup: { findMany: (args: unknown) => Promise<unknown[]> };
+    };
+    expect(RLS_MODELS.has("venueGroup")).toBe(false);
+
+    await wrapped.venueGroup.findMany({});
+
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("throws RlsUnscopedQueryError instead of opening a transaction, in throw mode (for the future sweep suite)", () => {
+    process.env.RLS_CONTEXT_MODE = "throw";
+    enterVenueContext(null);
+    const { client, $transaction } = createFakeBaseClient();
+    const wrapped = withVenueScopedQueries(client);
+
+    expect(() => wrapped.table.findMany({})).toThrow(RlsUnscopedQueryError);
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it("does not log at all in off mode", async () => {
+    process.env.RLS_CONTEXT_MODE = "off";
+    enterVenueContext(null);
+    const { client } = createFakeBaseClient();
+    const wrapped = withVenueScopedQueries(client);
+
+    await wrapped.table.findMany({});
+
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("never logs for a $-prefixed passthrough call — the ADR-026 §3.1 cross-venue hatch (app_cross_venue_venues) is invoked via $queryRaw, which bypasses model-delegate wrapping entirely and needs no special-case exemption here", async () => {
+    enterVenueContext(null);
+    const { client } = createFakeBaseClient();
+    const wrapped = withVenueScopedQueries(client);
+
+    await wrapped.$transaction(async () => "result");
+
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });
