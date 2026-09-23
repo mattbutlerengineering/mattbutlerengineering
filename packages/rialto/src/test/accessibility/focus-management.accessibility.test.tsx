@@ -440,24 +440,92 @@ describe("Focus management — return-focus coverage guard", () => {
    * aren't expected to show up here — this guard only covers the mechanical
    * case of the hook itself.
    */
+
+  /**
+   * True when `source` contains a real, *active* `it(...)` declaration whose
+   * title starts with "<componentName> returns focus to trigger on close" —
+   * not a bare substring check. `it.skip(...)` / `it.todo(...)` never
+   * produce a literal `it(` (there's a `.skip`/`.todo` between `it` and the
+   * paren), so they fail this match without special-casing them, and a
+   * comment or a fixture string elsewhere in the file mentioning the same
+   * words can't satisfy it either — the match requires the actual call
+   * syntax immediately before the quoted title.
+   */
+  function hasReturnFocusTest(source: string, componentName: string): boolean {
+    const escaped = componentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`\\bit\\(\\s*["'\`]${escaped} returns focus to trigger on close\\b`);
+    return pattern.test(source);
+  }
+
+  /**
+   * Every barrel component directory can hold more than one `.tsx` file
+   * (e.g. `TapeChart/TapeChartBar.tsx`, `Toast/ToastAnimated.tsx`) — a
+   * `useReturnFocus` call in a subcomponent file, not just `<Dir>/<Dir>.tsx`,
+   * must still be found. Read errors are never swallowed: `readdirSync` on a
+   * name it just listed, or `readFileSync` on a file it just listed, failing
+   * is a real I/O problem (permissions, a race), not "no fixture here" —
+   * letting it throw fails the test loudly instead of silently reporting
+   * zero consumers.
+   */
+  function findReturnFocusConsumers(componentsDir: string): string[] {
+    const dirs = readdirSync(componentsDir, { withFileTypes: true }).filter((entry) =>
+      entry.isDirectory()
+    );
+    const consumers = new Set<string>();
+
+    for (const dir of dirs) {
+      const dirPath = join(componentsDir, dir.name);
+      const files = readdirSync(dirPath).filter(
+        (file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx")
+      );
+      for (const file of files) {
+        const source = readFileSync(join(dirPath, file), "utf-8");
+        if (source.includes("useReturnFocus(")) {
+          consumers.add(dir.name);
+          break;
+        }
+      }
+    }
+
+    return [...consumers].sort();
+  }
+
+  describe("hasReturnFocusTest matcher (self-test)", () => {
+    // "Widget" is a fixture-only name — it never appears as a real barrel
+    // component, so these cases can't accidentally interact with the real
+    // guard test below.
+    it("matches a real it() declaration with the exact title", () => {
+      const source = `it("Widget returns focus to trigger on close", () => {});`;
+      expect(hasReturnFocusTest(source, "Widget")).toBe(true);
+    });
+
+    it("does not match it.skip(...) with the same title", () => {
+      const source = `it.skip("Widget returns focus to trigger on close", () => {});`;
+      expect(hasReturnFocusTest(source, "Widget")).toBe(false);
+    });
+
+    it("does not match it.todo(...) with the same title", () => {
+      const source = `it.todo("Widget returns focus to trigger on close");`;
+      expect(hasReturnFocusTest(source, "Widget")).toBe(false);
+    });
+
+    it("does not match a bare comment mentioning the title", () => {
+      const source = `// TODO: Widget returns focus to trigger on close`;
+      expect(hasReturnFocusTest(source, "Widget")).toBe(false);
+    });
+
+    it("does not match a different component's title", () => {
+      const source = `it("Gadget returns focus to trigger on close", () => {});`;
+      expect(hasReturnFocusTest(source, "Widget")).toBe(false);
+    });
+  });
+
   it("every component calling useReturnFocus has a matching return-to-trigger test", () => {
     const componentsDir = join(dirname(fileURLToPath(import.meta.url)), "../../components");
-    const consumers = readdirSync(componentsDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((name) => {
-        try {
-          const source = readFileSync(join(componentsDir, name, `${name}.tsx`), "utf-8");
-          return source.includes("useReturnFocus(");
-        } catch {
-          return false;
-        }
-      });
+    const consumers = findReturnFocusConsumers(componentsDir);
 
     const testSource = readFileSync(fileURLToPath(import.meta.url), "utf-8");
-    const missing = consumers.filter(
-      (name) => !testSource.includes(`${name} returns focus to trigger on close`)
-    );
+    const missing = consumers.filter((name) => !hasReturnFocusTest(testSource, name));
 
     expect(
       missing,
