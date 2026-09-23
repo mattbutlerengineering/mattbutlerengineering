@@ -943,6 +943,93 @@
       reply.header("X-Accel-Buffering", "no");
     }
   </file>
+  <file path="src/routes/gen-ui.ts">
+    function createRenderComponentTool() {
+      return tool({
+        description:
+          "Render the generated UI as a tree of rialto catalog components. Call once with the complete list of elements.",
+        inputSchema: z.object({
+          elements: z.array(
+            z.object({
+              id: z.string(),
+              type: z.string(),
+              props: z.record(z.string(), z.unknown()).optional(),
+              children: z.array(z.string()).optional(),
+            })
+          ),
+        }),
+        execute: async () => ({ rendered: true }),
+      });
+    }
+    export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post(
+        "/api/gen/ui",
+        {
+          preHandler: [requireAuth],
+          config: {
+            // Per-user cap — matches gen-agent/gen-chat's per-route rate limit pattern.
+            rateLimit: {
+              max: 20,
+              timeWindow: "1 hour",
+              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+            },
+          },
+        },
+        async (request, reply) => {
+          const parseResult = GenUiBodySchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  parseResult.error.issues.map((i) => i.message).join(", ")
+                )
+              );
+          }
+    
+          const { prompt, context } = parseResult.data;
+          const userContent = context ? `${prompt}\n\nContext: ${JSON.stringify(context)}` : prompt;
+    
+          const runner = createGenRunner({
+            systemPrompt: SYSTEM_PROMPT,
+            modelId: GEN_MODEL_ID,
+            maxSteps: 1,
+            onFinish: async ({ usage, providerMetadata }) =>
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage,
+                providerMetadata,
+                label: "gen-ui cost log",
+              }),
+          });
+    
+          applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
+    
+          const stream = new ReadableStream({
+            async start(controller) {
+              try {
+                await runner.run(
+                  [{ role: "user", content: userContent }],
+                  { render_component: createRenderComponentTool() },
+                  async (event) => {
+                    if (event.type === "element") {
+                      controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
+                    }
+                  }
+                );
+              } finally {
+                controller.close();
+              }
+            },
+          });
+    
+          return reply.send(stream);
+        }
+      );
+    };
+  </file>
   <file path="src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
@@ -2980,6 +3067,7 @@
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
       await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
       await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
+      await fastify.register(genUiRoutes);
       await fastify.register(genChatRoutes);
       await fastify.register(genSpecsRoutes);
       await fastify.register(genAgentRoutes);
