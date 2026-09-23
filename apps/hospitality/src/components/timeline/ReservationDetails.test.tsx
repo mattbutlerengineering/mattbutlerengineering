@@ -86,6 +86,7 @@ function renderDetails(overrides: Partial<ReservationDetailsProps> = {}) {
     onEdit: vi.fn(),
     onSeat: vi.fn().mockResolvedValue(undefined),
     onCancel: vi.fn(),
+    onMarkNoShow: vi.fn(),
     ...overrides,
   };
   return { ...render(<ReservationDetails {...props} />), props };
@@ -198,5 +199,21 @@ describe("ReservationDetails", () => {
       renderDetails({ reservation: makeReservation({ status: "CANCELLED" }) });
       expect(screen.queryByRole("button", { name: "Cancel Reservation" })).toBeNull();
     });
+  });
+
+  describe("Mark No-Show (#5616 — only the CONFIRMED → NO_SHOW transition is valid)", () => {
+    it("shows Mark No-Show for a CONFIRMED reservation and calls onMarkNoShow", () => {
+      const { props } = renderDetails({ reservation: makeReservation({ status: "CONFIRMED" }) });
+      fireEvent.click(screen.getByRole("button", { name: "Mark No-Show" }));
+      expect(props.onMarkNoShow).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["PENDING", "COMPLETED", "CANCELLED", "NO_SHOW"] as const)(
+      "hides Mark No-Show for a %s reservation",
+      (status) => {
+        renderDetails({ reservation: makeReservation({ status }) });
+        expect(screen.queryByRole("button", { name: "Mark No-Show" })).toBeNull();
+      }
+    );
   });
 });

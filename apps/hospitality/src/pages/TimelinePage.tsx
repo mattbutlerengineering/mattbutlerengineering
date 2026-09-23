@@ -11,6 +11,7 @@ import {
   TimelineSkeleton,
 } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
+import { MarkNoShowDialog } from "../components/timeline/MarkNoShowDialog.js";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
@@ -140,6 +141,7 @@ export function TimelinePage() {
   const [selectedIdState, setSelectedIdState] = useState<string | null>(null);
   const selectedId = intent.selectedId ?? selectedIdState;
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [dismissedLoadError, setDismissedLoadError] = useState<Error | null>(null);
@@ -274,6 +276,18 @@ export function TimelinePage() {
     focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
   };
 
+  // Reuses the existing update path — the backend's NO_SHOW transition (recordNoShow,
+  // services/reservations) captures any held deposit as a no-show fee via the same Stripe
+  // capture plumbing deposits already use. Rejects on failure; MarkNoShowDialog owns showing it.
+  const handleMarkNoShow = async () => {
+    if (!selectedReservation) return;
+    const updated = await updateReservation(selectedReservation.id, { status: "NO_SHOW" });
+    setShowNoShowDialog(false);
+    clearSelection();
+    announce(`Marked ${whoseReservation(selectedReservation)} as a no-show.`);
+    focusAfter({ kind: "testId", testId: blockTestId(updated.id) });
+  };
+
   const openEditDrawer = () => {
     const active = document.activeElement;
     editOpenerRef.current = active instanceof HTMLElement ? active : null;
@@ -348,6 +362,7 @@ export function TimelinePage() {
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
       onCancel={() => setShowCancelDialog(true)}
+      onMarkNoShow={() => setShowNoShowDialog(true)}
     />
   );
 
@@ -566,6 +581,7 @@ export function TimelinePage() {
           onSeat={() => handleSeat(selectedReservation)}
           onEdit={openEditDrawer}
           onCancel={() => setShowCancelDialog(true)}
+          onMarkNoShow={() => setShowNoShowDialog(true)}
         />
       )}
 
@@ -590,6 +606,13 @@ export function TimelinePage() {
           onConfirm={handleCancel}
           onClose={() => setShowCancelDialog(false)}
           quote={cancellationQuote}
+        />
+      )}
+      {showNoShowDialog && selectedReservation && (
+        <MarkNoShowDialog
+          guestName={selectedReservation.guestName}
+          onConfirm={handleMarkNoShow}
+          onClose={() => setShowNoShowDialog(false)}
         />
       )}
       {showEditDrawer && selectedReservation && (

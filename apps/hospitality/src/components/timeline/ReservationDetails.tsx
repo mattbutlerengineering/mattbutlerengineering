@@ -24,6 +24,8 @@ export interface ReservationDetailsProps {
   /** Rejects on failure — the panel owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
   onCancel: () => void;
+  /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
+  onMarkNoShow: () => void;
 }
 
 function getStatusBadgeClass(reservation: Reservation, seated: boolean): string {
@@ -55,6 +57,7 @@ export function ReservationDetails({
   onEdit,
   onSeat,
   onCancel,
+  onMarkNoShow,
 }: ReservationDetailsProps) {
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now);
@@ -193,6 +196,16 @@ export function ReservationDetails({
             disabled={seating}
           >
             Cancel Reservation
+          </Button>
+        )}
+        {reservation.status === "CONFIRMED" && (
+          <Button
+            variant="ghost"
+            onClick={onMarkNoShow}
+            className={styles.fullWidth}
+            disabled={seating}
+          >
+            Mark No-Show
           </Button>
         )}
       </Stack>
