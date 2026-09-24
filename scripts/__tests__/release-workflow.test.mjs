@@ -142,20 +142,25 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(WORKFLOW).not.toMatch(/^\s+title:\s*["']/m);
   });
 
-  it("runs the version script through a checked-in file, not an inline multi-line block", () => {
+  it("runs both version and publish scripts through checked-in files, not inline multi-line blocks", () => {
     // @actions/exec tokenizes the version-script/publish-script command
     // STRING (argv splitting) rather than spawning a shell -- an inline
     // block with comments/$()/if-fi/redirects can't run that way. The logic
     // must live in a real file invoked via `bash <path>`.
     expect(WORKFLOW).toContain("version-script: bash scripts/release-version.sh");
-    expect(WORKFLOW).toContain("publish-script: pnpm exec changeset publish");
+    expect(WORKFLOW).toContain("publish-script: bash scripts/release-publish.sh");
   });
 
-  it("authenticates the action's GitHub API + publish calls with GITHUB_TOKEN", () => {
+  it("authenticates the action's own GitHub API calls with GITHUB_TOKEN, and the registry publish with RIALTO_PACKAGES_TOKEN (#3322)", () => {
     const actionIdx = WORKFLOW.indexOf("changesets/action@");
     const block = WORKFLOW.slice(actionIdx, actionIdx + 2500);
     expect(block).toContain("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
-    expect(block).toContain("NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    expect(block).toContain("NODE_AUTH_TOKEN: ${{ secrets.RIALTO_PACKAGES_TOKEN }}");
+    // GITHUB_TOKEN can only reach packages GitHub Packages considers linked
+    // to the invoking repo -- @mattbutlerengineering/rialto was hand-
+    // published without a `repository` field, so it never got linked, and
+    // GITHUB_TOKEN 403s (`E403 permission_denied: read_package`) on publish.
+    expect(block).not.toContain("NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
   });
 
   it("has no direct git push of a version commit — the action opens a PR instead", () => {

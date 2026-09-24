@@ -57,8 +57,18 @@ jobs:
         # pending changesets, this opens/updates a `changeset-release/main`
         # PR running `version-script:`. Once that PR is reviewed and merged
         # (no changesets left), the next run on main has nothing to version
-        # and runs `publish-script:` instead, using NODE_AUTH_TOKEN against
-        # the registry-url/scope configured above (#5713).
+        # and runs `publish-script:` instead.
+        #
+        # publish-script auth: @mattbutlerengineering/rialto was hand-
+        # published in April with no `repository` field, so GitHub Packages
+        # never linked it to this repo -- GITHUB_TOKEN can only reach
+        # packages linked to the repo that's running it, so `changeset
+        # publish` 403s (`E403 permission_denied: read_package`, runs
+        # 35961368353 attempts 1-3). NODE_AUTH_TOKEN is RIALTO_PACKAGES_TOKEN
+        # instead: a classic PAT (write:packages scope) that authenticates as
+        # a real identity with explicit access to the orphaned package.
+        # version-script keeps GITHUB_TOKEN below -- it only opens/updates a
+        # PR via the GitHub API and never touches the registry.
         #
         # Input/output names are v2 (verified against the pinned SHA's real
         # action.yml, not assumed from v1 memory -- #5721 review, round 3):
@@ -73,13 +83,14 @@ jobs:
           # which tokenizes the command STRING itself (argv splitting) --
           # it does not spawn a shell. An inline multi-line block with `#`
           # comments, `$(...)`, `if`/`fi`, and a redirect can't run that
-          # way. scripts/release-version.sh checks the same logic into a
-          # real file so `bash` -- not the tokenizer -- interprets it.
+          # way. scripts/release-version.sh and scripts/release-publish.sh
+          # check the same logic into real files so `bash` -- not the
+          # tokenizer -- interprets them.
           version-script: bash scripts/release-version.sh
-          publish-script: pnpm exec changeset publish
+          publish-script: bash scripts/release-publish.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.RIALTO_PACKAGES_TOKEN }}
 
       - name: Dispatch CI on the Version Packages PR branch
         # The PR above is opened/updated with GITHUB_TOKEN, so its
