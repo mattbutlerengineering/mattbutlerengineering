@@ -22,6 +22,7 @@ vi.mock("./deposit.js", async () => {
       getById: vi.fn(),
       forfeit: vi.fn(),
       refundPartial: vi.fn(),
+      refund: vi.fn(),
     },
   };
 });
@@ -441,6 +442,28 @@ describe("recordNoShow", () => {
     if (result.success) {
       expect(result.depositWarning).toMatch(/refund|60%|partial/i);
     }
+  });
+
+  it("cancels (never captures) when the no-show fee policy is 0% — no needless capture-then-refund-in-full round trip (#5719 LOW)", async () => {
+    const reservation = makeReservation();
+    const zeroFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 0 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(zeroFeePolicy);
+    vi.mocked(depositService.refund).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+    expect(depositService.refundPartial).not.toHaveBeenCalled();
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
   });
 
   it("returns a 409 conflict when a concurrent request already transitioned the reservation", async () => {

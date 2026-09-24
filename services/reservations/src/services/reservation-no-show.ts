@@ -86,6 +86,14 @@ async function resolveNoShowDepositAction(
 
   if (feeResult.depositAction === "forfeit") return { op: "forfeit" };
   if (feeResult.depositAction === "refund_full") return { op: "refund_full" };
+  if (feeResult.refundAmountCents >= deposit.amountCents) {
+    // A 0%-fee no-show still resolves to "refund_partial" from
+    // evaluateCancellationFee (it only special-cases the 100% case as
+    // "forfeit"), which would needlessly capture the full deposit and then
+    // refund all of it right back rather than simply canceling the
+    // authorization outright (#5719 LOW).
+    return { op: "refund_full" };
+  }
   return { op: "refund_partial", refundAmountCents: feeResult.refundAmountCents };
 }
 

@@ -85,7 +85,13 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
 
   // Only transition if currently held
   if (deposit.status === "held") {
-    await depositService.refund(deposit.id);
+    // A dashboard-issued refund can race with (or follow) the intent already
+    // being canceled — calling cancelPaymentIntent again would fail against
+    // an already-canceled intent and Stripe would retry the webhook forever
+    // on the resulting 500, the same class of bug fixed for
+    // payment_intent.canceled below (#5719 LOW).
+    const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
+    await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
   }
 }
 
