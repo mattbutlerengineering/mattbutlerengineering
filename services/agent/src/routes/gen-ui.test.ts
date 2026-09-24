@@ -547,4 +547,33 @@ describe("POST /api/gen/ui", () => {
 
     expect(response.statusCode).toBe(500);
   });
+
+  it("still fails fast on a tool-error, since maxSteps is 1 and no retry is possible", async () => {
+    // gen-ui opts into GenRunnerConfig.failOnToolError (unlike gen-agent,
+    // which must NOT — see gen-runner.test.ts's "does not throw on
+    // tool-error by default" test): with maxSteps 1 there is no later step
+    // for ai@7 to retry the render_component call on, so a tool-error can
+    // only mean the generation failed.
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([
+        {
+          type: "tool-error",
+          toolCallId: "call-1",
+          toolName: "render_component",
+          input: { bad: "shape" },
+          error: new Error("invalid tool input"),
+        },
+      ]),
+      usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: "a booking form" },
+    });
+
+    expect(response.statusCode).toBe(500);
+  });
 });

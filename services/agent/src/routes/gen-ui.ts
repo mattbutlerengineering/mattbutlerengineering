@@ -122,6 +122,11 @@ export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
         // text (ignoring the tool entirely) and the route would stream zero
         // elements with no indication anything went wrong.
         toolChoice: { type: "tool", toolName: "render_component" },
+        // Safe here specifically because maxSteps is 1: there is no later
+        // step for ai@7 to retry the tool call on, so a tool-error can only
+        // ever mean the generation failed outright. gen-agent (maxSteps 5)
+        // must NOT set this (see GenRunnerConfig.failOnToolError).
+        failOnToolError: true,
         onFinish: async ({ usage, providerMetadata }) =>
           logGenCost(request.log, {
             userId: request.user?.id,

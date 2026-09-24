@@ -18648,6 +18648,17 @@
        * provider's default ("auto") behavior — existing callers are unaffected.
        */
       readonly toolChoice?: { readonly type: "tool"; readonly toolName: string };
+      /**
+       * When true, a `tool-error` part (schema-invalid tool input) throws
+       * immediately instead of letting it pass. Only safe when maxSteps === 1
+       * (no possible retry) — gen-ui sets this. With maxSteps > 1, ai@7's own
+       * multi-step loop resends the tool error to the model and can recover on a
+       * later step via the SAME fullStream; throwing unconditionally there would
+       * kill the turn before that recovery ever runs (verified against the real
+       * SDK — gen-agent regressed this way when the throw was unconditional).
+       * Leave unset for any runner where maxSteps > 1.
+       */
+      readonly failOnToolError?: boolean;
     }
     export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
       "create_reservation",
@@ -18701,12 +18712,20 @@
                 tool: event.toolName,
                 status: "complete",
               });
-            } else if (event.type === "error" || event.type === "tool-error") {
-              // ai@7 does not throw on a failed model call or an invalid tool
-              // call — it yields these parts and completes the stream normally.
-              // Without this, the loop just finishes: the caller sees a clean
-              // return and zero events, indistinguishable from "nothing to
-              // generate" rather than "the call failed".
+            } else if (event.type === "error") {
+              // ai@7 does not throw on a failed model call (e.g. 529/401) — it
+              // yields this part and completes the stream normally. Without this,
+              // the loop just finishes: the caller sees a clean return and zero
+              // events, indistinguishable from "nothing to generate" rather than
+              // "the call failed". Always fatal — there is no recovery from a
+              // failed model call.
+              throw toError(event.error);
+            } else if (event.type === "tool-error" && config.failOnToolError) {
+              // Unlike `error`, a `tool-error` (schema-invalid tool input) is
+              // NOT always fatal: with maxSteps > 1, ai@7 resends it to the model
+              // and a later step can recover on this same fullStream. Only throw
+              // when the caller has said no retry is possible (see
+              // GenRunnerConfig.failOnToolError).
               throw toError(event.error);
             }
           }
@@ -18979,6 +18998,11 @@
             // text (ignoring the tool entirely) and the route would stream zero
             // elements with no indication anything went wrong.
             toolChoice: { type: "tool", toolName: "render_component" },
+            // Safe here specifically because maxSteps is 1: there is no later
+            // step for ai@7 to retry the tool call on, so a tool-error can only
+            // ever mean the generation failed outright. gen-agent (maxSteps 5)
+            // must NOT set this (see GenRunnerConfig.failOnToolError).
+            failOnToolError: true,
             onFinish: async ({ usage, providerMetadata }) =>
               logGenCost(request.log, {
                 userId: request.user?.id,
