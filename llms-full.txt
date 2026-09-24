@@ -31158,15 +31158,18 @@
             // corrupt state (e.g. roll back a held row while the card is
             // actually captured). The same idempotency key makes the capture
             // retry safe without any DB reconciliation on this invocation.
-            if (didTransition) {
-              await this._reconcileCaptureFailure(
+            // If Stripe confirms the capture actually landed, fall through to the
+            // refund leg — throwing here would leave the row `partial_refunded`
+            // with the guest's remainder never sent.
+            const captured =
+              didTransition &&
+              (await this._reconcileCaptureFailure(
                 depositId,
                 deposit.stripePaymentIntentId,
                 "refundedAt",
                 error
-              );
-            }
-            throw error;
+              ));
+            if (!captured) throw error;
           }
     
           // Refund the guest's portion. The card is now captured; a failure here
@@ -31237,6 +31240,7 @@
               timestampField,
               error
             );
+            throw error;
           }
         }
     
@@ -31267,18 +31271,20 @@
        *    status — both leave the row exactly as the DB-first write already
        *    left it. Never guess at a state change Stripe hasn't confirmed.
        *
-       * Always rethrows the ORIGINAL capture error afterward so callers still
-       * see the failure. If the verification retrieve itself throws, none of the
-       * above can be determined — rethrow the original error immediately rather
-       * than masking it with a retrieve-specific one, and leave the row
-       * untouched.
+       * Returns `true` only when Stripe confirms `succeeded` (the capture really
+       * landed), so a multi-leg caller like {@link refundPartial} can still run
+       * its follow-up refund leg; callers otherwise rethrow the ORIGINAL capture
+       * error so the failure stays visible. If the verification retrieve itself
+       * throws, none of the above can be determined — rethrow the original error
+       * immediately rather than masking it with a retrieve-specific one, and
+       * leave the row untouched.
        */
       private async _reconcileCaptureFailure(
         depositId: string,
         stripePaymentIntentId: string,
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt",
         error: unknown
-      ): Promise<never> {
+      ): Promise<boolean> {
         let intent: { status: string };
         try {
           intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
@@ -31292,7 +31298,7 @@
           await this._writeOffUncollectable(depositId, timestampField).catch(() => {});
         }
     
-        throw error;
+        return intent.status === "succeeded";
       }
     
       /**
@@ -33661,6 +33667,7 @@
       | { outcome: "resolved"; warning?: string }
       | { outcome: "uncollectable"; warning: string }
       | { outcome: "already-no-show"; reservation: Reservation }
+      | { outcome: "refund-pending" }
       | { outcome: "failed" };
     type NoShowDepositAction =
       { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refundAmountCents: number };
@@ -33718,6 +33725,19 @@
           warning:
             "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
         };
+      }
+    
+      if (current?.status === "partial_refunded" && targetStatus === "partial_refunded") {
+        // refundPartial has TWO Stripe legs and runs the refund leg itself once
+        // the capture is confirmed, so a throw with the row at partial_refunded
+        // means the guest's remainder refund did NOT land (the refund leg threw,
+        // or the capture outcome was unverifiable). Never report this as
+        // resolved — staff and guest would believe the refund happened.
+        logger.error(
+          { err, reservationId: reservation.id, depositId },
+          "No-show fee captured but the partial refund to the guest did not complete; leaving the reservation un-marked so a retry can finish the refund"
+        );
+        return { outcome: "refund-pending" };
       }
     
       if (current?.status === targetStatus) {
@@ -33820,6 +33840,9 @@
         }
         if (outcome.outcome === "failed") {
           return DEPOSIT_FAILURE_RESULT;
+        }
+        if (outcome.outcome === "refund-pending") {
+          return REFUND_LEG_PENDING_RESULT;
         }
         if (outcome.outcome === "uncollectable") {
           // No money moved — the deposit was written off, not forfeited against

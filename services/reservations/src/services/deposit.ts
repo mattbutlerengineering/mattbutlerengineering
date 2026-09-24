@@ -313,15 +313,18 @@ export class DepositService {
         // corrupt state (e.g. roll back a held row while the card is
         // actually captured). The same idempotency key makes the capture
         // retry safe without any DB reconciliation on this invocation.
-        if (didTransition) {
-          await this._reconcileCaptureFailure(
+        // If Stripe confirms the capture actually landed, fall through to the
+        // refund leg — throwing here would leave the row `partial_refunded`
+        // with the guest's remainder never sent.
+        const captured =
+          didTransition &&
+          (await this._reconcileCaptureFailure(
             depositId,
             deposit.stripePaymentIntentId,
             "refundedAt",
             error
-          );
-        }
-        throw error;
+          ));
+        if (!captured) throw error;
       }
 
       // Refund the guest's portion. The card is now captured; a failure here
@@ -392,6 +395,7 @@ export class DepositService {
           timestampField,
           error
         );
+        throw error;
       }
     }
 
@@ -422,18 +426,20 @@ export class DepositService {
    *    status — both leave the row exactly as the DB-first write already
    *    left it. Never guess at a state change Stripe hasn't confirmed.
    *
-   * Always rethrows the ORIGINAL capture error afterward so callers still
-   * see the failure. If the verification retrieve itself throws, none of the
-   * above can be determined — rethrow the original error immediately rather
-   * than masking it with a retrieve-specific one, and leave the row
-   * untouched.
+   * Returns `true` only when Stripe confirms `succeeded` (the capture really
+   * landed), so a multi-leg caller like {@link refundPartial} can still run
+   * its follow-up refund leg; callers otherwise rethrow the ORIGINAL capture
+   * error so the failure stays visible. If the verification retrieve itself
+   * throws, none of the above can be determined — rethrow the original error
+   * immediately rather than masking it with a retrieve-specific one, and
+   * leave the row untouched.
    */
   private async _reconcileCaptureFailure(
     depositId: string,
     stripePaymentIntentId: string,
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt",
     error: unknown
-  ): Promise<never> {
+  ): Promise<boolean> {
     let intent: { status: string };
     try {
       intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
@@ -447,7 +453,7 @@ export class DepositService {
       await this._writeOffUncollectable(depositId, timestampField).catch(() => {});
     }
 
-    throw error;
+    return intent.status === "succeeded";
   }
 
   /**

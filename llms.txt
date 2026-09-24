@@ -8277,7 +8277,7 @@
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "failed" };
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-pending" } | { outcome: "failed" };
     </item>
     <item priority="high">
       type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;

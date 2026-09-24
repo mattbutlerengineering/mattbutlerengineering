@@ -367,6 +367,37 @@ describe("recordNoShow", () => {
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
   });
 
+  it("does NOT report a partial no-show as resolved when refundPartial throws with the row left partial_refunded (refund leg never landed)", async () => {
+    // A partial_refunded row after refundPartial threw means the fee capture
+    // landed but the guest's remainder refund did not (either the refund leg
+    // itself threw, or the capture outcome was ambiguous and the refund was
+    // never attempted). Recording NO_SHOW here would close the only retry
+    // path (the partial_refunded replay branch) and tell staff the guest was
+    // refunded when they were not (stripe-flow-reviewer, PR #5722).
+    const reservation = makeReservation();
+    const partialFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 60 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(partialFeePolicy);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(new Error("stripe refund boom"));
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    const logger = makeLogger();
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+      expect(result.detail).toMatch(/refund/i);
+      expect(result.detail).toMatch(/retry/i);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+  });
+
   it("captures only the disclosed noShowFeePercent and refunds the remainder (integer cents)", async () => {
     // The guest was disclosed a noShowFeePercent% fee (formatCancellationTerms),
     // but forfeit() captures the FULL deposit — a disclosure/charge mismatch.

@@ -35,11 +35,25 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
     "The deposit was forfeited but the reservation status could not be updated. This requires manual reconciliation.",
 };
 
+/**
+ * The no-show fee was captured but the guest's remainder refund did not land.
+ * The reservation is deliberately NOT marked NO_SHOW so the `partial_refunded`
+ * retry branch in {@link recordNoShow} stays reachable to finish the refund.
+ */
+const REFUND_LEG_PENDING_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 500,
+  title: "No-Show Incomplete",
+  detail:
+    "The no-show fee was captured but the refund of the remainder to the guest did not complete. The reservation was not marked as a no-show — retry to finish the refund.",
+};
+
 /** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
   | { outcome: "resolved"; warning?: string }
   | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
+  | { outcome: "refund-pending" }
   | { outcome: "failed" };
 
 /** Which Stripe money-move a no-show resolves the deposit with. */
@@ -130,6 +144,19 @@ async function reconcileCaptureLegFailure(
       warning:
         "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
     };
+  }
+
+  if (current?.status === "partial_refunded" && targetStatus === "partial_refunded") {
+    // refundPartial has TWO Stripe legs and runs the refund leg itself once
+    // the capture is confirmed, so a throw with the row at partial_refunded
+    // means the guest's remainder refund did NOT land (the refund leg threw,
+    // or the capture outcome was unverifiable). Never report this as
+    // resolved — staff and guest would believe the refund happened.
+    logger.error(
+      { err, reservationId: reservation.id, depositId },
+      "No-show fee captured but the partial refund to the guest did not complete; leaving the reservation un-marked so a retry can finish the refund"
+    );
+    return { outcome: "refund-pending" };
   }
 
   if (current?.status === targetStatus) {
@@ -264,6 +291,9 @@ export async function recordNoShow(
     }
     if (outcome.outcome === "failed") {
       return DEPOSIT_FAILURE_RESULT;
+    }
+    if (outcome.outcome === "refund-pending") {
+      return REFUND_LEG_PENDING_RESULT;
     }
     if (outcome.outcome === "uncollectable") {
       // No money moved — the deposit was written off, not forfeited against
