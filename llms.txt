@@ -8273,7 +8273,7 @@
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type ForfeitOutcome = { outcome: "resolved" } | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "failed" };
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "failed" };
     </item>
     <item priority="high">
       type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
@@ -8285,11 +8285,12 @@
       ): Promise<NoShowDepositAction> { /* ... */ }
     </item>
     <item priority="low">
-      async function handlePermanentCaptureFailure(
+      async function reconcileCaptureLegFailure(
         depositId: string,
+        targetStatus: "forfeited" | "partial_refunded",
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        err: StripeOperationError
+        err: unknown
       ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="low">
