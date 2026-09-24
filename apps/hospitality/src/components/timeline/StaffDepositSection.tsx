@@ -18,6 +18,8 @@ function depositStatusLabel(status: string): string {
     applied: "Charged",
     refunded: "Refunded",
     forfeited: "Forfeited",
+    partial_refunded: "Partially Refunded",
+    uncollectable: "Uncollectable",
   };
   return labels[status] ?? status;
 }

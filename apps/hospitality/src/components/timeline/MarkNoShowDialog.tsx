@@ -15,10 +15,14 @@ interface MarkNoShowDialogProps {
 
 /**
  * Confirms the CONFIRMED → NO_SHOW transition before firing it — the backend
- * (`recordNoShow`, `services/reservations`) captures any held deposit as a
- * no-show fee via the existing Stripe capture path, and that is a real,
- * irreversible charge. The dialog has no visibility into whether this
- * reservation even has a deposit (StaffDepositSection is unwired, no
+ * (`recordNoShow`, `services/reservations`) resolves any held deposit against
+ * the venue's no-show fee policy via the existing Stripe capture path: a
+ * 100% fee forfeits the full deposit, a partial fee captures only the
+ * disclosed portion and refunds the rest, and a 0% fee cancels the hold
+ * outright (#5719 items 5-6, M4, LOW) — so the guest is not always charged
+ * the full amount, or charged at all. Whatever happens is real and
+ * irreversible. The dialog has no visibility into whether this reservation
+ * even has a deposit (StaffDepositSection is unwired, no
  * `GET /deposits?reservationId=` route — #5719 item 7, tracked separately),
  * so the disclosure below is conditional rather than asserting a charge that
  * may not exist.
@@ -79,7 +83,8 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
             </Text>
             <Text variant="body" color="secondary">
               Marking <strong>{displayName}</strong> as a no-show cannot be undone. If a deposit is
-              on file, this will capture it as a no-show fee.
+              on file, the venue&apos;s no-show fee policy applies — this may capture some or all of
+              it, or refund it if no fee applies.
             </Text>
           </div>
 
