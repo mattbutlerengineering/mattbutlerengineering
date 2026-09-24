@@ -16,6 +16,23 @@ const DEPOSIT_FAILURE_RESULT: RecordNoShowResult = {
 };
 
 /**
+ * The final status write failed AFTER the deposit was already forfeited
+ * against Stripe (e.g. a concurrent status change during the round trip made
+ * the NO_SHOW transition invalid, so `reservationService.update` rethrows
+ * `ReservationTransitionError`). Money moved but the reservation status did
+ * not: a divergence needing manual reconciliation, so this is a distinct
+ * 500-class result rather than a bare 409 that reads as a harmless conflict.
+ * Mirrors `cancelReservationWithDeposit`'s `DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT`.
+ */
+const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 500,
+  title: "No-Show Incomplete",
+  detail:
+    "The deposit was forfeited but the reservation status could not be updated. This requires manual reconciliation.",
+};
+
+/**
  * Domain-level no-show: owns every consequence of the NO_SHOW state
  * transition (#3232). Validates the transition, forfeits any `held` Deposit
  * via the existing deposit-transition path (the same held → forfeited
@@ -46,6 +63,7 @@ export async function recordNoShow(
 
   const deposit = await depositService.getByReservationId(reservation.id);
   let depositWarning: string | undefined;
+  let forfeitedDepositId: string | null = null;
 
   if (deposit?.status === "pending") {
     // No confirmed Stripe authorization exists yet (webhook lag, or the
@@ -60,6 +78,7 @@ export async function recordNoShow(
   } else if (deposit?.status === "held") {
     try {
       await depositService.forfeit(deposit.id);
+      forfeitedDepositId = deposit.id;
     } catch (err) {
       logger.error(
         { err, reservationId: reservation.id, depositId: deposit.id },
@@ -69,7 +88,27 @@ export async function recordNoShow(
     }
   }
 
-  const updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+  let updated: Reservation | null;
+  try {
+    updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+  } catch (err) {
+    if (forfeitedDepositId === null) {
+      // No money moved this call — the ordinary concurrent-no-show loser.
+      if (err instanceof ReservationTransitionError) {
+        return { success: false, status: 409, title: "Conflict", detail: err.message };
+      }
+      throw err;
+    }
+    // The deposit has ALREADY been forfeited against Stripe (money moved) but
+    // the status did not change: a ghost state. Log it explicitly so
+    // ops/finance can reconcile, and return a distinct result — never a bare
+    // 409 that reads as a harmless conflict.
+    logger.error(
+      { err, reservationId: reservation.id, depositId: forfeitedDepositId },
+      "Reservation status update failed AFTER the deposit was already forfeited against Stripe; deposit and reservation status now diverge and require manual reconciliation"
+    );
+    return DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT;
+  }
   if (!updated) {
     return {
       success: false,

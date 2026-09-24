@@ -18,6 +18,7 @@ vi.mock("./deposit.js", () => ({
 import { reservationService } from "./reservation.js";
 import { depositService } from "./deposit.js";
 import { recordNoShow } from "./reservation-no-show.js";
+import { ReservationTransitionError } from "./reservation-state-machine.js";
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -191,5 +192,51 @@ describe("recordNoShow", () => {
     if (!result.success) {
       expect(result.status).toBe(409);
     }
+  });
+
+  it("logs and returns a distinct non-409 result when the status write fails AFTER the deposit was already forfeited (ghost-state guard)", async () => {
+    // A concurrent status change lands DURING the Stripe round trip: the
+    // deposit forfeit (money) succeeds, then reservationService.update
+    // re-validates the transition against the now-changed row and throws
+    // ReservationTransitionError. Money moved, reservation status did not —
+    // this must be logged for reconciliation and MUST NOT read as a harmless
+    // 409 (#5719 item 2).
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
+    );
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const [logContext] = vi.mocked(logger.error).mock.calls[0] as [Record<string, unknown>];
+    expect(logContext).toMatchObject({ reservationId: "res_1", depositId: "dep_1" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).not.toBe(409);
+    }
+  });
+
+  it("re-throws (harmless 409 path) when the status write fails but no deposit was forfeited this call", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
+    );
+    const logger = makeLogger();
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
