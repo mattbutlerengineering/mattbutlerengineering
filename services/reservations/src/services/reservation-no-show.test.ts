@@ -108,6 +108,34 @@ describe("recordNoShow", () => {
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
   });
 
+  it("warns and proceeds without forfeiting when the deposit is still pending (not yet authorized)", async () => {
+    // A `pending` deposit has no confirmed Stripe authorization to forfeit —
+    // silently skipping it (pre-#5719 behaviour) let staff believe a no-show
+    // fee was collected when nothing moved. Surface it instead of hiding it.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      id: "dep_1",
+      status: "pending",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+    const logger = makeLogger();
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(true);
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "res_1", depositId: "dep_1" }),
+      expect.stringMatching(/pending/i)
+    );
+    if (result.success) {
+      expect(result.depositWarning).toMatch(/pending/i);
+    }
+  });
+
   it("does not forfeit a deposit that is not held (e.g. already refunded)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({

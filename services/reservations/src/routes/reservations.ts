@@ -573,7 +573,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               .send(createProblemDetails(result.status, result.title, result.detail));
           }
 
-          return { data: result.reservation };
+          return {
+            data: result.reservation,
+            ...(result.depositWarning && { warning: result.depositWarning }),
+          };
         } catch (err) {
           if (err instanceof ReservationTransitionError) {
             return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));

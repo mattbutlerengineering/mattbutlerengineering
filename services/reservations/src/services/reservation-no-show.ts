@@ -5,7 +5,7 @@ import { depositService } from "./deposit.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 
 export type RecordNoShowResult =
-  | { success: true; reservation: Reservation }
+  | { success: true; reservation: Reservation; depositWarning?: string }
   | { success: false; status: number; title: string; detail: string };
 
 const DEPOSIT_FAILURE_RESULT: RecordNoShowResult = {
@@ -45,7 +45,19 @@ export async function recordNoShow(
   }
 
   const deposit = await depositService.getByReservationId(reservation.id);
-  if (deposit?.status === "held") {
+  let depositWarning: string | undefined;
+
+  if (deposit?.status === "pending") {
+    // No confirmed Stripe authorization exists yet (webhook lag, or the
+    // guest never completed payment) — there is nothing held to forfeit.
+    // Silently skipping this let staff believe a no-show fee was collected
+    // when nothing moved (#5719 item 1); record the no-show but say so.
+    depositWarning = "Deposit authorization is still pending — no charge was made.";
+    logger.warn(
+      { reservationId: reservation.id, depositId: deposit.id },
+      "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
+    );
+  } else if (deposit?.status === "held") {
     try {
       await depositService.forfeit(deposit.id);
     } catch (err) {
@@ -67,5 +79,5 @@ export async function recordNoShow(
     };
   }
 
-  return { success: true, reservation: updated };
+  return { success: true, reservation: updated, ...(depositWarning && { depositWarning }) };
 }
