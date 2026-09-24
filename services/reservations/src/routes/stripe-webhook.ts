@@ -62,9 +62,12 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   if (!deposit) return;
 
   // If pending, can't directly refund (no transition pending → refunded)
-  // If held, we can refund
+  // If held, we can refund. Skip the Stripe cancel call — the intent is
+  // already canceled (that's this event); calling cancelPaymentIntent again
+  // would fail against an already-canceled intent and Stripe would retry the
+  // webhook forever on the resulting 500 (#5719).
   if (deposit.status === "held") {
-    await depositService.refund(deposit.id);
+    await depositService.refund(deposit.id, { skipStripeCancel: true });
   }
 }
 

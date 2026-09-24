@@ -34,6 +34,7 @@ vi.mock("./venue.js", () => ({
 
 import { reservationService } from "./reservation.js";
 import { depositService, DepositConcurrentUpdateError } from "./deposit.js";
+import { StripeOperationError } from "./stripe.js";
 import { recordNoShow } from "./reservation-no-show.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 
@@ -232,6 +233,56 @@ describe("recordNoShow", () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("marks the deposit uncollectable and still records the no-show on a permanent capture failure (e.g. expired authorization)", async () => {
+    // A permanently-declined capture (non-retriable StripeOperationError) —
+    // e.g. Stripe auto-canceled the ~7-day-old authorization — means the
+    // money is gone for good. Silently failing the whole no-show made it
+    // unrecordable forever; instead mark the deposit uncollectable and
+    // proceed (#5719 item 5).
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
+    );
+    vi.mocked(depositService.markUncollectable).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "uncollectable",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(depositService.markUncollectable).toHaveBeenCalledWith("dep_1");
+    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.depositWarning).toMatch(/uncollectable|expired/i);
+    }
+  });
+
+  it("still fails the no-show if marking the deposit uncollectable itself fails", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
+    );
+    vi.mocked(depositService.markUncollectable).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "markUncollectable")
+    );
 
     const result = await recordNoShow(reservation, makeLogger());
 

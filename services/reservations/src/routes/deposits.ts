@@ -18,7 +18,15 @@ const depositProperties = {
   currency: { type: "string" },
   status: {
     type: "string",
-    enum: ["pending", "held", "applied", "refunded", "partial_refunded", "forfeited"],
+    enum: [
+      "pending",
+      "held",
+      "applied",
+      "refunded",
+      "partial_refunded",
+      "forfeited",
+      "uncollectable",
+    ],
   },
   stripePaymentIntentId: { type: ["string", "null"] },
   stripeCustomerId: { type: ["string", "null"] },
@@ -26,6 +34,7 @@ const depositProperties = {
   appliedAt: { type: ["string", "null"] },
   refundedAt: { type: ["string", "null"] },
   forfeitedAt: { type: ["string", "null"] },
+  uncollectableAt: { type: ["string", "null"] },
   createdAt: { type: "string" },
   updatedAt: { type: "string" },
 };

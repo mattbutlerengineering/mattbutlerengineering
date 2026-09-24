@@ -69,6 +69,7 @@ export const DepositStatusSchema = z.enum([
   "refunded",
   "partial_refunded",
   "forfeited",
+  "uncollectable",
 ]);
 
 export const DepositSchema = z.object({
@@ -83,6 +84,7 @@ export const DepositSchema = z.object({
   appliedAt: z.string().nullable(),
   refundedAt: z.string().nullable(),
   forfeitedAt: z.string().nullable(),
+  uncollectableAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

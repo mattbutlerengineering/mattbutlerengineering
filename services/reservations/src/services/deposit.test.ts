@@ -63,6 +63,7 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
@@ -413,6 +414,53 @@ describe("DepositService", () => {
     });
   });
 
+  describe("markUncollectable (held -> uncollectable)", () => {
+    it("transitions a held deposit to uncollectable with no Stripe call", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      const uncollectableDeposit = makeDeposit({
+        status: "uncollectable",
+        uncollectableAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(uncollectableDeposit);
+
+      const result = await depositService.markUncollectable("dep-123");
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "held" },
+          data: expect.objectContaining({
+            status: "uncollectable",
+            uncollectableAt: expect.any(Date),
+          }),
+        })
+      );
+      expect(result.status).toBe("uncollectable");
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it("throws if deposit not in held state", async () => {
+      const pendingDeposit = makeDeposit({ status: "pending" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
+
+      await expect(depositService.markUncollectable("dep-123")).rejects.toThrow(
+        /invalid.*transition|cannot transition/i
+      );
+    });
+
+    it("throws a conflict error if the CAS races (updateMany returns count 0)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      await expect(depositService.markUncollectable("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+    });
+  });
+
   describe("refund (held -> refunded)", () => {
     it("transitions held deposit to refunded", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
@@ -493,6 +541,23 @@ describe("DepositService", () => {
           data: expect.objectContaining({ status: "held", refundedAt: null }),
         })
       );
+    });
+
+    it("skips the Stripe cancel call when skipStripeCancel is set (intent already canceled)", async () => {
+      // The canceled webhook fires because Stripe already canceled the intent
+      // — calling cancelPaymentIntent again would fail on an already-canceled
+      // intent and Stripe would retry the webhook forever (#5719 item 5).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "refunded", refundedAt: new Date() })
+      );
+
+      const result = await depositService.refund("dep-123", { skipStripeCancel: true });
+
+      expect(result.status).toBe("refunded");
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
     });
   });
 

@@ -163,13 +163,41 @@ export class DepositService {
   }
 
   /**
+   * Transitions deposit from `held` → `uncollectable` with NO Stripe call.
+   * Used when a capture attempt fails permanently (e.g. Stripe auto-canceled
+   * the authorization after ~7 days uncaptured) — the money is gone for
+   * good, so there is nothing left to reconcile against Stripe; this just
+   * records that fact so the row doesn't stay stuck showing `held`.
+   */
+  async markUncollectable(depositId: string): Promise<Deposit> {
+    const deposit = await this._requireDeposit(depositId);
+    transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: deposit.status },
+      data: { status: "uncollectable", uncollectableAt: new Date() },
+    });
+
+    if (count === 0) {
+      throw new DepositConcurrentUpdateError(depositId, "markUncollectable");
+    }
+
+    return this._requireDeposit(depositId);
+  }
+
+  /**
    * Transitions deposit from `held` → `refunded`.
    * Cancels the Stripe PaymentIntent (releases the authorization).
    *
    * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
    * cancel fails after the DB write.
+   *
+   * `skipStripeCancel` is for the Stripe-initiated path
+   * (`payment_intent.canceled` webhook): the intent is already canceled on
+   * Stripe's side (that is the event), so calling cancelPaymentIntent again
+   * would fail against an already-canceled intent.
    */
-  async refund(depositId: string): Promise<Deposit> {
+  async refund(depositId: string, options: { skipStripeCancel?: boolean } = {}): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "refunded"); // throws if invalid
 
@@ -187,7 +215,7 @@ export class DepositService {
     // Fetch the updated row to return consistent state.
     const updated = await this._requireDeposit(depositId);
 
-    if (deposit.stripePaymentIntentId) {
+    if (deposit.stripePaymentIntentId && !options.skipStripeCancel) {
       try {
         await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
       } catch (error) {

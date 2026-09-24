@@ -6,7 +6,7 @@ export type { Table, TableStatus } from "./table.js";
 export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
 
 export type DepositStatus =
-  "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+  "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
 
 export interface Deposit {
   id: string;
@@ -20,6 +20,7 @@ export interface Deposit {
   appliedAt: string | null;
   refundedAt: string | null;
   forfeitedAt: string | null;
+  uncollectableAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

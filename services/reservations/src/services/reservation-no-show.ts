@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { depositService, DepositConcurrentUpdateError, DepositTransitionError } from "./deposit.js";
+import { StripeOperationError } from "./stripe.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 
 export type RecordNoShowResult =
@@ -34,9 +35,43 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
 
 /** Outcome of attempting to forfeit a `held` deposit for a no-show. */
 type ForfeitOutcome =
-  | { outcome: "proceed" }
+  | { outcome: "forfeited" }
+  | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
   | { outcome: "failed" };
+
+/**
+ * A capture failed permanently (e.g. Stripe auto-canceled the ~7-day-old
+ * authorization) — the money is gone for good. Mark the deposit
+ * uncollectable (no Stripe call needed, we already know it's dead) so the
+ * no-show can still be recorded instead of being unrecordable forever
+ * (#5719 item 5).
+ */
+async function handlePermanentCaptureFailure(
+  depositId: string,
+  reservation: Reservation,
+  logger: FastifyBaseLogger,
+  err: StripeOperationError
+): Promise<ForfeitOutcome> {
+  try {
+    await depositService.markUncollectable(depositId);
+  } catch (markErr) {
+    logger.error(
+      { err: markErr, reservationId: reservation.id, depositId },
+      "Failed to mark deposit uncollectable after a permanent capture failure"
+    );
+    return { outcome: "failed" };
+  }
+  logger.warn(
+    { err, reservationId: reservation.id, depositId },
+    "Deposit authorization could not be captured (it may have expired); marked uncollectable and recording the no-show anyway"
+  );
+  return {
+    outcome: "uncollectable",
+    warning:
+      "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
+  };
+}
 
 /**
  * Forfeits a `held` deposit for a no-show, handling the concurrent/retried
@@ -45,7 +80,8 @@ type ForfeitOutcome =
  * retried call arrives after the winner already forfeited), re-read the
  * reservation. If the winning request already completed the whole no-show
  * (status is NO_SHOW), this is a false failure on top of a real success, not
- * a genuine error (#5719 item 3).
+ * a genuine error (#5719 item 3). A permanent (non-retriable) Stripe capture
+ * failure is handled separately (#5719 item 5).
  */
 async function forfeitHeldDeposit(
   depositId: string,
@@ -54,8 +90,11 @@ async function forfeitHeldDeposit(
 ): Promise<ForfeitOutcome> {
   try {
     await depositService.forfeit(depositId);
-    return { outcome: "proceed" };
+    return { outcome: "forfeited" };
   } catch (err) {
+    if (err instanceof StripeOperationError && !err.isRetriable) {
+      return handlePermanentCaptureFailure(depositId, reservation, logger, err);
+    }
     if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
       const current = await reservationService.getById(reservation.id);
       if (current?.status === "NO_SHOW") {
@@ -121,7 +160,13 @@ export async function recordNoShow(
     if (outcome.outcome === "failed") {
       return DEPOSIT_FAILURE_RESULT;
     }
-    forfeitedDepositId = deposit.id;
+    if (outcome.outcome === "uncollectable") {
+      // No money moved — the deposit was written off, not forfeited against
+      // Stripe — so this is not the money-moved ghost-state case below.
+      depositWarning = outcome.warning;
+    } else {
+      forfeitedDepositId = deposit.id;
+    }
   }
 
   let updated: Reservation | null;
