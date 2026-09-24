@@ -1,22 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
+import type * as DepositModule from "./deposit.js";
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
     update: vi.fn(),
+    getById: vi.fn(),
   },
 }));
 
-vi.mock("./deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-    forfeit: vi.fn(),
+vi.mock("./deposit.js", async () => {
+  // The real error classes, not stand-ins: recordNoShow's `instanceof` checks
+  // are only meaningful if the class the test throws is the class it imports.
+  const actual = await vi.importActual<typeof DepositModule>("./deposit.js");
+  return {
+    DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
+    DepositTransitionError: actual.DepositTransitionError,
+    depositService: {
+      getByReservationId: vi.fn(),
+      forfeit: vi.fn(),
+      markUncollectable: vi.fn(),
+      refundPartial: vi.fn(),
+    },
+  };
+});
+
+vi.mock("./venue.js", () => ({
+  venueService: {
+    getPolicyById: vi.fn(),
   },
 }));
 
 import { reservationService } from "./reservation.js";
-import { depositService } from "./deposit.js";
+import { depositService, DepositConcurrentUpdateError } from "./deposit.js";
 import { recordNoShow } from "./reservation-no-show.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 
@@ -165,6 +182,50 @@ describe("recordNoShow", () => {
     }
     expect(depositService.getByReservationId).not.toHaveBeenCalled();
     expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns success (not a 500) when a concurrent/retried forfeit loses the CAS but the winner already marked NO_SHOW", async () => {
+    // Two concurrent no-show requests both pass the initial transition check
+    // and both call forfeit(). The loser's CAS returns count 0 and forfeit()
+    // throws DepositConcurrentUpdateError — but the winner already forfeited
+    // AND wrote NO_SHOW. Reporting "not marked" here would be a false failure
+    // on top of a real success (#5719 item 3).
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "forfeit")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.reservation.status).toBe("NO_SHOW");
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("still returns the 500 failure when the CAS loses but the reservation was NOT actually marked NO_SHOW", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "forfeit")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "CONFIRMED",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
   });
 
   it("aborts and does not write NO_SHOW when deposit forfeiture fails (no ghost state)", async () => {

@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
-import { depositService } from "./deposit.js";
+import { depositService, DepositConcurrentUpdateError, DepositTransitionError } from "./deposit.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 
 export type RecordNoShowResult =
@@ -31,6 +31,44 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
   detail:
     "The deposit was forfeited but the reservation status could not be updated. This requires manual reconciliation.",
 };
+
+/** Outcome of attempting to forfeit a `held` deposit for a no-show. */
+type ForfeitOutcome =
+  | { outcome: "proceed" }
+  | { outcome: "already-no-show"; reservation: Reservation }
+  | { outcome: "failed" };
+
+/**
+ * Forfeits a `held` deposit for a no-show, handling the concurrent/retried
+ * case explicitly: if the CAS loses (`DepositConcurrentUpdateError`) or the
+ * deposit already moved past `held` (`DepositTransitionError` — e.g. a
+ * retried call arrives after the winner already forfeited), re-read the
+ * reservation. If the winning request already completed the whole no-show
+ * (status is NO_SHOW), this is a false failure on top of a real success, not
+ * a genuine error (#5719 item 3).
+ */
+async function forfeitHeldDeposit(
+  depositId: string,
+  reservation: Reservation,
+  logger: FastifyBaseLogger
+): Promise<ForfeitOutcome> {
+  try {
+    await depositService.forfeit(depositId);
+    return { outcome: "proceed" };
+  } catch (err) {
+    if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
+      const current = await reservationService.getById(reservation.id);
+      if (current?.status === "NO_SHOW") {
+        return { outcome: "already-no-show", reservation: current };
+      }
+    }
+    logger.error(
+      { err, reservationId: reservation.id, depositId },
+      "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
+    );
+    return { outcome: "failed" };
+  }
+}
 
 /**
  * Domain-level no-show: owns every consequence of the NO_SHOW state
@@ -76,16 +114,14 @@ export async function recordNoShow(
       "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
     );
   } else if (deposit?.status === "held") {
-    try {
-      await depositService.forfeit(deposit.id);
-      forfeitedDepositId = deposit.id;
-    } catch (err) {
-      logger.error(
-        { err, reservationId: reservation.id, depositId: deposit.id },
-        "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
-      );
+    const outcome = await forfeitHeldDeposit(deposit.id, reservation, logger);
+    if (outcome.outcome === "already-no-show") {
+      return { success: true, reservation: outcome.reservation };
+    }
+    if (outcome.outcome === "failed") {
       return DEPOSIT_FAILURE_RESULT;
     }
+    forfeitedDepositId = deposit.id;
   }
 
   let updated: Reservation | null;
