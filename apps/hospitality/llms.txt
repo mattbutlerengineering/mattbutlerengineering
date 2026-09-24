@@ -2310,4 +2310,11 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="vite.manualChunks.ts">
+  <file path="vite.manualChunks.ts">
+    <item priority="high">
+      export function manualChunks(id: string): string | undefined { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>
