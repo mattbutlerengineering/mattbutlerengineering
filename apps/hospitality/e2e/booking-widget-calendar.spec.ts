@@ -22,7 +22,11 @@ test.describe("Public booking flow — Add to Calendar", () => {
   }) => {
     // The shared api-mocks.ts public-venue-config mock (#4035) already
     // returns a schema-valid PublicVenueConfig with a disabled deposit for
-    // this venue — no per-test override needed.
+    // this venue — no per-test override needed. With VITE_STRIPE_PUBLISHABLE_KEY
+    // now wired into the E2E jobs (#4111), confirming this booking also hits
+    // GET .../guest-risk (guestRiskMatters() is true for a disabled-deposit
+    // venue once a Stripe key is present) — the shared mockApi() default
+    // stub covers that too, so this spec still needs no override for it.
 
     // The guest-recognition lookup fires on email blur — a multi-segment
     // path the single-segment glob above doesn't match. Stub it too so it

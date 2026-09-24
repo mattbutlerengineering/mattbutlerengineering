@@ -8854,6 +8854,9 @@
         },
       });
     }
+    export function buildGuestRiskFixture(): GuestRiskResult {
+      return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+    }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states
       // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
@@ -9512,6 +9515,17 @@
         return jsonOk(route, PUBLIC_HOLD);
       });
       await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
+    
+      // Guest risk — confirmReservation calls this whenever guestRiskMatters()
+      // is true (venueSlug + stripePublishableKey present and the venue's own
+      // deposit policy is disabled), which is now every confirm in the suite
+      // outside deposit-enabled-config.spec.ts (#4111). Without a default here
+      // the request falls through unmocked; on a real backend (e2e.yml) that's
+      // harmless, but e2e-screenshots.yml has none, so the Vite proxy 502s and
+      // the retry delay blows every other spec's assertion timeouts.
+      await page.route("**/public/v1/venues/*/guest-risk*", (route) =>
+        jsonOk(route, buildGuestRiskFixture())
+      );
     
       // Intercept the SSE stream request so the app's SseClient (built on
       // @microsoft/fetch-event-source, which requires an Authorization header

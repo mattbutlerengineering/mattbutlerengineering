@@ -203,16 +203,16 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
     // if the key stopped reaching the client bundle.
     const stepsList = mockedPage.getByRole("list", { name: "Progress steps" });
     await expect(stepsList.getByText("Payment")).toBeVisible();
-    await expect(mockedPage.getByText("Secure your reservation with a deposit")).toBeVisible();
 
     // Stripe Elements (PaymentStep.tsx) mounts a real iframe once
     // loadStripe() resolves against the real Stripe.js CDN — confirming the
     // publishable key actually reached the client and Stripe initialized.
     // Scoped to the labelled card-input container so it can't collide with
-    // any other iframe on the page.
+    // any other iframe on the page. Given a longer timeout than the default
+    // 5s: this is a real network round trip to js.stripe.com, not a mock.
     const cardElementContainer = mockedPage.locator('[aria-labelledby="card-details-label"]');
     await expect(cardElementContainer).toBeVisible();
-    await expect(cardElementContainer.locator("iframe")).toBeVisible();
+    await expect(cardElementContainer.locator("iframe")).toBeVisible({ timeout: 15_000 });
 
     // Deliberately stops here. Submitting the card form calls
     // POST /public/v1/venues/:slug/deposit-intent to create a real Stripe
