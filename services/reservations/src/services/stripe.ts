@@ -214,6 +214,33 @@ export class StripeService {
   }
 
   /**
+   * Returns the amount (in cents) already refunded against a PaymentIntent's
+   * charge, or 0 if it has no associated charge yet. Ground truth for
+   * `refundPartial`'s retry guard: past Stripe's idempotency-key TTL (~24h) a
+   * replayed refund call can no longer rely on the key returning a cached
+   * response, so whether the refund already went out must be checked
+   * directly against the charge before issuing another one.
+   */
+  async getRefundedAmountCents(paymentIntentId: string): Promise<number> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const chargeId =
+        typeof intent.latest_charge === "string"
+          ? intent.latest_charge
+          : (intent.latest_charge?.id ?? null);
+
+      if (!chargeId) {
+        return 0;
+      }
+
+      const charge = await this.stripe.charges.retrieve(chargeId);
+      return charge.amount_refunded;
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
    * Creates a new Stripe customer linked to a guest.
    */
   async createCustomer(options: CreateCustomerOptions): Promise<CustomerResult> {

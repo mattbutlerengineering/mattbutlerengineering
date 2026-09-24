@@ -34,6 +34,7 @@ vi.mock("../services/deposit.js", () => ({
     refundPartial: vi.fn(),
     forfeit: vi.fn(),
   },
+  setDepositServiceLogger: vi.fn(),
 }));
 
 // Mock the table service (needed for app registration)

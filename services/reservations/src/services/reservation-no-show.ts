@@ -2,7 +2,13 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
-import { depositService, DepositConcurrentUpdateError, DepositTransitionError } from "./deposit.js";
+import {
+  depositService,
+  DepositConcurrentUpdateError,
+  DepositTransitionError,
+  DepositRefundLegIncompleteError,
+  DepositCaptureAmbiguousError,
+} from "./deposit.js";
 import { venueService } from "./venue.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
@@ -35,11 +41,27 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
     "The deposit was forfeited but the reservation status could not be updated. This requires manual reconciliation.",
 };
 
+/**
+ * `refundPartial`'s capture leg succeeded but its refund leg failed — the
+ * guest was charged the full deposit but never received the promised
+ * partial refund. Distinct from {@link DEPOSIT_FAILURE_RESULT}: no money
+ * moved there, whereas here money moved but not all of the intended
+ * money-back-to-guest step completed (#5722 H1).
+ */
+const DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 500,
+  title: "No-Show Incomplete",
+  detail:
+    "The deposit was captured but the guest's refund could not be completed. This requires manual reconciliation or a retry.",
+};
+
 /** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
   | { outcome: "resolved"; warning?: string }
   | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
+  | { outcome: "refund-leg-incomplete" }
   | { outcome: "failed" };
 
 /** Which Stripe money-move a no-show resolves the deposit with. */
@@ -98,18 +120,28 @@ async function resolveNoShowDepositAction(
 }
 
 /**
- * A forfeit/partial-refund's CAPTURE leg failed. `DepositService` itself
- * already asked Stripe for the real PaymentIntent status and reconciled the
- * row accordingly before rethrowing (`_reconcileCaptureFailure` in
- * `deposit.ts`: rolled back to `held` if Stripe confirms `requires_capture`,
- * written off to `uncollectable` if Stripe confirms `canceled`, or left
- * untouched at the target status if Stripe confirms `succeeded` or the
- * status is otherwise ambiguous) — this reads that outcome back from the
- * deposit's CURRENT status rather than re-deriving it from the thrown
- * error's own retriable/non-retriable shape, which conflates "definitely
- * didn't capture" with "an auth/config error (e.g. `StripeAuthenticationError`,
- * or the `sk_test_placeholder` fallback key) that never reached Stripe's
- * network at all" (#5719 H2).
+ * A forfeit/partial-refund's CAPTURE leg failed, from THIS invocation's own
+ * capture attempt (never a concurrent request's — see {@link forfeitHeldDeposit}'s
+ * doc comment for why `DepositConcurrentUpdateError`/`DepositTransitionError`
+ * are excluded before this is ever called). `DepositService` itself already
+ * asked Stripe for the real PaymentIntent status and reconciled the row
+ * accordingly before rethrowing (`_reconcileCaptureFailure` in `deposit.ts`:
+ * rolled back to `held` if Stripe confirms `requires_capture` via an error
+ * proving no-capture, written off to `uncollectable` if Stripe confirms
+ * `canceled` via the same, or left untouched at the target status if Stripe
+ * confirms `succeeded`) — this reads that outcome back from the deposit's
+ * CURRENT status rather than re-deriving it from the thrown error's own
+ * retriable/non-retriable shape, which conflates "definitely didn't capture"
+ * with "an auth/config error (e.g. `StripeAuthenticationError`, or the
+ * `sk_test_placeholder` fallback key) that never reached Stripe's network at
+ * all" (#5719 H2).
+ *
+ * A `DepositCaptureAmbiguousError` means `deposit.ts` could NOT confirm the
+ * capture succeeded (e.g. a connection error where the capture may still be
+ * in flight, or a non-terminal PaymentIntent status) — the row is kept at
+ * its optimistic target status for exactly the same reason a genuine success
+ * would be, so a row-status read alone can never tell the two apart. Only a
+ * confirmed `succeeded` status may ever be reported as resolved (#5722 M3).
  */
 async function reconcileCaptureLegFailure(
   depositId: string,
@@ -118,6 +150,14 @@ async function reconcileCaptureLegFailure(
   logger: FastifyBaseLogger,
   err: unknown
 ): Promise<ForfeitOutcome> {
+  if (err instanceof DepositCaptureAmbiguousError) {
+    logger.error(
+      { err, reservationId: reservation.id, depositId, intentStatus: err.intentStatus },
+      "Deposit capture status could not be confirmed; aborting the no-show rather than claiming a completion Stripe never confirmed"
+    );
+    return { outcome: "failed" };
+  }
+
   const current = await depositService.getById(depositId);
 
   if (current?.status === "uncollectable") {
@@ -161,11 +201,27 @@ async function reconcileCaptureLegFailure(
  * (`DepositTransitionError` — e.g. a retried call arrives after the winner
  * already resolved it), re-read the reservation. If the winning request
  * already completed the whole no-show (status is NO_SHOW), this is a false
- * failure on top of a real success, not a genuine error (#5719 item 3). A
- * capture-leg failure on the forfeit/partial paths — the only two that
- * attempt a capture — is reconciled via {@link reconcileCaptureLegFailure}
- * (#5719 item 5, H2); a full-refund failure has no capture to have expired,
- * so it always falls through to the generic failure result.
+ * failure on top of a real success, not a genuine error (#5719 item 3).
+ *
+ * If the winner has NOT yet finished (reservation still not NO_SHOW), this
+ * invocation is a bare LOSER: it never touched Stripe at all — the CAS/state
+ * check that threw fired before either capture call — so it has nothing of
+ * its own to reconcile. Reporting `resolved` here would mean trusting the
+ * winner's optimistic, DB-first row write as proof the winner's OWN capture
+ * (and, for `refund_partial`, its refund leg too) actually succeeded, which
+ * it may not have. Only the winner's own invocation can know that. This
+ * invocation returns a plain `failed` (a 409-shaped "in progress, retry")
+ * instead (#5722, general re-review finding).
+ *
+ * A capture-leg failure from THIS invocation's OWN attempt (forfeit/partial
+ * — the only two that attempt a capture) is reconciled via
+ * {@link reconcileCaptureLegFailure} (#5719 item 5, H2); a full-refund
+ * failure has no capture to have expired, so it always falls through to the
+ * generic failure result. `refundPartial`'s REFUND leg failing (capture
+ * succeeded, refund threw) is a `DepositRefundLegIncompleteError` — routed
+ * to its own distinct outcome, never `reconcileCaptureLegFailure`'s
+ * row-status check, which would wrongly read the row's DB-first
+ * `partial_refunded` status as proof the refund went out (#5722 H1).
  */
 async function forfeitHeldDeposit(
   deposit: Deposit,
@@ -201,6 +257,24 @@ async function forfeitHeldDeposit(
       if (current?.status === "NO_SHOW") {
         return { outcome: "already-no-show", reservation: current };
       }
+      // The winner hasn't finished yet — this invocation never touched
+      // Stripe and has nothing of its own to reconcile. The winner owns its
+      // own capture and reconciliation (#5722 general re-review finding).
+      logger.warn(
+        { err, reservationId: reservation.id, depositId },
+        "Lost the deposit-transition race on no-show; the winning request owns reconciliation"
+      );
+      return { outcome: "failed" };
+    }
+    if (err instanceof DepositRefundLegIncompleteError) {
+      // Capture succeeded but the refund never went out — never treat this
+      // as resolved just because the row's DB-first status already reads
+      // `partial_refunded` (#5722 H1).
+      logger.error(
+        { err, reservationId: reservation.id, depositId },
+        "Deposit was captured but the guest's refund failed; aborting the no-show so a retry can complete the refund"
+      );
+      return { outcome: "refund-leg-incomplete" };
     }
     if (action.op !== "refund_full") {
       const targetStatus = action.op === "forfeit" ? "forfeited" : "partial_refunded";
@@ -265,6 +339,9 @@ export async function recordNoShow(
     if (outcome.outcome === "failed") {
       return DEPOSIT_FAILURE_RESULT;
     }
+    if (outcome.outcome === "refund-leg-incomplete") {
+      return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
+    }
     if (outcome.outcome === "uncollectable") {
       // No money moved — the deposit was written off, not forfeited against
       // Stripe — so this is not the money-moved ghost-state case below.
@@ -302,7 +379,9 @@ export async function recordNoShow(
         { err, reservationId: reservation.id, depositId: deposit.id },
         "Failed to replay partial refund on no-show retry; aborting to avoid ghost state"
       );
-      return DEPOSIT_FAILURE_RESULT;
+      return err instanceof DepositRefundLegIncompleteError
+        ? DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT
+        : DEPOSIT_FAILURE_RESULT;
     }
     forfeitedDepositId = deposit.id;
   }

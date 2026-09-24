@@ -55,6 +55,7 @@ vi.mock("stripe", () => {
 });
 
 import { buildApp } from "../app.js";
+import { setStripeWebhookLogger } from "./stripe-webhook.js";
 
 describe("POST /api/v1/stripe/webhook", () => {
   const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -365,6 +366,66 @@ describe("POST /api/v1/stripe/webhook", () => {
     expect(mockDepositUpdateMany).toHaveBeenCalled();
     // Should have called Stripe to cancel
     expect(mockStripeCancel).toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("logs charge.refunded arriving against a held deposit (#5722 LOW)", async () => {
+    const mockEvent = {
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_123",
+          payment_intent: "pi_held_deposit",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    const depositMock = {
+      id: "dep_456",
+      reservationId: "res_456",
+      amountCents: 10000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_held_deposit",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+    mockDepositFindUnique.mockResolvedValueOnce({
+      ...depositMock,
+      status: "refunded",
+      refundedAt: new Date(),
+    });
+    mockStripeRetrieve.mockResolvedValueOnce({ id: "pi_held_deposit", status: "succeeded" });
+    mockStripeCancel.mockResolvedValueOnce({ id: "pi_held_deposit", status: "canceled" });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    const logSpy = { info: vi.fn() };
+    setStripeWebhookLogger(logSpy);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(logSpy.info).toHaveBeenCalledWith(
+      expect.objectContaining({ depositId: "dep_456", paymentIntentId: "pi_held_deposit" }),
+      expect.stringMatching(/charge\.refunded/i)
+    );
     await app.close();
   });
 

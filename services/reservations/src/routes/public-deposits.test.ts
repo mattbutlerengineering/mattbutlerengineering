@@ -41,6 +41,7 @@ vi.mock("../services/deposit.js", () => ({
     forfeit: vi.fn(),
   },
   calculateDepositAmount: vi.fn(),
+  setDepositServiceLogger: vi.fn(),
 }));
 
 const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({

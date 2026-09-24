@@ -17,6 +17,8 @@ vi.mock("./deposit.js", async () => {
   return {
     DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
     DepositTransitionError: actual.DepositTransitionError,
+    DepositRefundLegIncompleteError: actual.DepositRefundLegIncompleteError,
+    DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
     depositService: {
       getByReservationId: vi.fn(),
       getById: vi.fn(),
@@ -34,7 +36,12 @@ vi.mock("./venue.js", () => ({
 }));
 
 import { reservationService } from "./reservation.js";
-import { depositService, DepositConcurrentUpdateError } from "./deposit.js";
+import {
+  depositService,
+  DepositConcurrentUpdateError,
+  DepositRefundLegIncompleteError,
+  DepositCaptureAmbiguousError,
+} from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
@@ -247,6 +254,69 @@ describe("recordNoShow", () => {
     if (!result.success) {
       expect(result.status).toBe(500);
     }
+  });
+
+  it("never reports success from a lost concurrent race even when the winner's optimistic row already matches the target status (#5722 concurrent-loser finding)", async () => {
+    // Reproduction from the general re-review: this invocation loses the
+    // forfeit CAS, the reservation isn't NO_SHOW yet (the winner hasn't
+    // finished), but the winner's DB-first write already left the deposit
+    // row at `forfeited`. That row status says nothing about whether the
+    // WINNER's own capture (or, for a partial refund, its refund leg) will
+    // actually succeed — only the winner's own invocation can know that.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "forfeit")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "CONFIRMED",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    expect(reservationService.update).not.toHaveBeenCalled();
+    // The row-status re-read is the winner's business, not this loser's —
+    // this invocation must bail out before ever consulting it.
+    expect(depositService.getById).not.toHaveBeenCalled();
+  });
+
+  it("never treats an ambiguous (unconfirmed) capture status as a resolved no-show, even if the row matches the target status (#5722 M3)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new DepositCaptureAmbiguousError("dep_1", "processing", new Error("stripe boom"))
+    );
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    expect(reservationService.update).not.toHaveBeenCalled();
+    // Never even consults the row status — an ambiguous capture is decided
+    // purely from this invocation's own error, not a status read.
+    expect(depositService.getById).not.toHaveBeenCalled();
+  });
+
+  it("does not write NO_SHOW when a partial refund's capture succeeds but the refund leg fails (#5722 H1)", async () => {
+    const reservation = makeReservation();
+    const partialFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 60 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(partialFeePolicy);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(
+      new DepositRefundLegIncompleteError("dep_1", new Error("stripe refund boom"))
+    );
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(depositService.getById).not.toHaveBeenCalled();
   });
 
   it("aborts and does not write NO_SHOW when deposit forfeiture fails (no ghost state)", async () => {

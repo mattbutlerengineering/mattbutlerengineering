@@ -1,6 +1,6 @@
 import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { StripeService } from "./stripe.js";
+import { StripeService, StripeOperationError } from "./stripe.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -18,7 +18,44 @@ export type StripePort = Pick<
   | "createPartialRefund"
   | "createCustomer"
   | "retrievePaymentIntent"
+  | "getRefundedAmountCents"
 >;
+
+/**
+ * Narrow logger shape `_reconcileCaptureFailure`/CAS-guard writes need —
+ * satisfied by `FastifyBaseLogger`. Defaults to a no-op so importing this
+ * module never requires a logger to exist yet (module load order, unit
+ * tests); `app.ts` wires the real fastify/pino logger in at bootstrap via
+ * {@link setDepositServiceLogger}, mirroring `rls-context-mode.ts`'s
+ * tripwire-logger pattern.
+ */
+export interface DepositServiceLogger {
+  error(details: object, msg: string): void;
+}
+
+let logger: DepositServiceLogger = { error: () => undefined };
+
+/**
+ * Stripe error types specific enough to PROVE a capture attempt never
+ * reached a chargeable state — the only types safe to combine with a
+ * `requires_capture`/`canceled` retrieve result to roll back or write off a
+ * row. Any other failure (a dropped connection, a generic API error, a rate
+ * limit) leaves open the possibility the capture is still in flight or
+ * already landed, so it must never drive a state change on its own — a
+ * mistaken rollback there risks a double-capture on the inevitable retry
+ * (#5722 M2).
+ */
+const CAPTURE_NEVER_HAPPENED_STRIPE_TYPES = new Set([
+  "StripeInvalidRequestError",
+  "StripeCardError",
+  "StripeAuthenticationError",
+  "StripePermissionError",
+]);
+
+/** Wires the service's real logger in — called once at app bootstrap. */
+export function setDepositServiceLogger(next: DepositServiceLogger): void {
+  logger = next;
+}
 
 export class DepositNotFoundError extends Error {
   constructor(id: string) {
@@ -33,6 +70,57 @@ export class DepositConcurrentUpdateError extends Error {
       `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
     );
     this.name = "DepositConcurrentUpdateError";
+  }
+}
+
+/**
+ * `refundPartial`'s REFUND leg failed after its CAPTURE leg already
+ * succeeded — the guest's card has been charged in full but the promised
+ * refund never went out. Thrown as a distinct type (never the raw Stripe
+ * error) so callers can never mistake this for a fully-resolved operation
+ * just because the row's `status` already reads `partial_refunded` — that
+ * field is written DB-first, before either Stripe call, so it matches the
+ * target status regardless of whether the refund leg ever ran (#5722 H1).
+ * The row is deliberately left at `partial_refunded` (never rolled back —
+ * the card IS charged); a retry replays only the refund leg, since the
+ * capture is a re-entrant, idempotency-keyed no-op.
+ */
+export class DepositRefundLegIncompleteError extends Error {
+  readonly depositId: string;
+  override readonly cause: unknown;
+
+  constructor(depositId: string, cause: unknown) {
+    super(`Deposit ${depositId} refund leg failed after its capture leg already succeeded`);
+    this.name = "DepositRefundLegIncompleteError";
+    this.depositId = depositId;
+    this.cause = cause;
+  }
+}
+
+/**
+ * A capture attempt failed and Stripe's PaymentIntent status could not be
+ * confirmed as either resolved (`succeeded`) or proven never-to-have-happened
+ * (`requires_capture`/`canceled`, verified via an error type that rules out
+ * an in-flight request) — e.g. a `StripeConnectionError` where the capture
+ * may still land moments later, or a non-terminal status like `processing`/
+ * `requires_action`. The row is deliberately left untouched at its
+ * optimistic target status (never guessed at), but this is NOT a confirmed
+ * success: callers must never treat this the same as a verified `succeeded`
+ * (#5722 M2, M3).
+ */
+export class DepositCaptureAmbiguousError extends Error {
+  readonly depositId: string;
+  readonly intentStatus: string;
+  override readonly cause: unknown;
+
+  constructor(depositId: string, intentStatus: string, cause: unknown) {
+    super(
+      `Deposit ${depositId} capture failed and Stripe's PaymentIntent status (${intentStatus}) is not confirmed`
+    );
+    this.name = "DepositCaptureAmbiguousError";
+    this.depositId = depositId;
+    this.intentStatus = intentStatus;
+    this.cause = cause;
   }
 }
 
@@ -222,7 +310,7 @@ export class DepositService {
         // Best-effort rollback. If the rollback itself fails (e.g. DB down),
         // surface the original Stripe error rather than masking it — never
         // swallow the cause of the failure.
-        await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        await this._rollbackToHeld(depositId, "refunded", "refundedAt").catch(() => {});
         throw error;
       }
     }
@@ -254,6 +342,18 @@ export class DepositService {
    *  - Re-entrant: a deposit already in `partial_refunded` (a retry after a
    *    refund failure) skips the transition/DB write and just replays the Stripe
    *    steps.
+   *  - A REFUND-leg failure (capture succeeded, refund threw) is surfaced as
+   *    a distinct {@link DepositRefundLegIncompleteError} — never the raw
+   *    Stripe error — so callers can never mistake the row's DB-first
+   *    `partial_refunded` status for proof the refund actually went out
+   *    (#5722 H1).
+   *  - On a re-entrant retry, Stripe's idempotency keys have a ~24h TTL:
+   *    past that window, replaying the capture call against an intent that
+   *    already moved to `succeeded` fails with `payment_intent_unexpected_state`
+   *    instead of returning the cached response, and replaying the refund
+   *    call could otherwise double-refund. Both Stripe calls are guarded on
+   *    retry by checking ground truth (retrieve / already-refunded amount)
+   *    first and skipping the call when it's already done (#5722 H2).
    */
   async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
@@ -300,39 +400,78 @@ export class DepositService {
       const captureKey = `${depositId}:refundPartial`;
       const refundKey = `${depositId}:refundPartial:refund`;
 
+      // On a re-entrant retry, verify ground truth before replaying either
+      // Stripe call — the idempotency keys above are only guaranteed valid
+      // for ~24h, and replaying a capture against an intent that already
+      // moved to `succeeded` fails with `payment_intent_unexpected_state`
+      // rather than returning the cached response (#5722 H2).
+      let captureConfirmedSucceeded = false;
+      if (!didTransition) {
+        try {
+          const intent = await this.stripe.retrievePaymentIntent(deposit.stripePaymentIntentId);
+          captureConfirmedSucceeded = intent.status === "succeeded";
+        } catch {
+          // Can't verify — fall through and let the capture call itself
+          // surface whatever Stripe says (the idempotency key may still be
+          // valid).
+        }
+      }
+
       // Capture the full hold first. If this fails, verify via retrieve and
       // reconcile (roll back / write off / keep) through the same helper
       // `apply`/`forfeit` use (#5719 M3) — never trust the error's own
       // retriable classification.
-      try {
-        await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
-      } catch (error) {
-        // Only reconcile if THIS invocation transitioned the row. On a
-        // re-entrant retry (already `partial_refunded`), the card was
-        // captured on the first attempt — touching the row here would
-        // corrupt state (e.g. roll back a held row while the card is
-        // actually captured). The same idempotency key makes the capture
-        // retry safe without any DB reconciliation on this invocation.
-        if (didTransition) {
-          await this._reconcileCaptureFailure(
-            depositId,
-            deposit.stripePaymentIntentId,
-            "refundedAt",
-            error
-          );
+      if (!captureConfirmedSucceeded) {
+        try {
+          await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
+        } catch (error) {
+          // Only reconcile if THIS invocation transitioned the row. On a
+          // re-entrant retry (already `partial_refunded`), the card was
+          // captured on the first attempt — touching the row here would
+          // corrupt state (e.g. roll back a held row while the card is
+          // actually captured). The same idempotency key makes the capture
+          // retry safe without any DB reconciliation on this invocation.
+          if (didTransition) {
+            await this._reconcileCaptureFailure(
+              depositId,
+              deposit.stripePaymentIntentId,
+              "partial_refunded",
+              "refundedAt",
+              error
+            );
+          }
+          throw error;
         }
-        throw error;
       }
 
       // Refund the guest's portion. The card is now captured; a failure here
       // must NOT roll back to `held` (that would re-capture on retry). Surface
-      // the error and leave the row `partial_refunded` — retry is idempotent.
+      // a distinct error and leave the row `partial_refunded` — retry is
+      // idempotent (#5722 H1).
       if (refundAmountCents > 0) {
-        await this.stripe.createPartialRefund(
-          deposit.stripePaymentIntentId,
-          refundAmountCents,
-          refundKey
-        );
+        let alreadyRefundedCents = 0;
+        if (!didTransition) {
+          // Same TTL concern as the capture leg above: a replayed refund call
+          // past the key's expiry could otherwise double-refund (#5722 H2).
+          try {
+            const amount = await this.stripe.getRefundedAmountCents(deposit.stripePaymentIntentId);
+            alreadyRefundedCents = amount ?? 0;
+          } catch {
+            alreadyRefundedCents = 0;
+          }
+        }
+
+        if (alreadyRefundedCents < refundAmountCents) {
+          try {
+            await this.stripe.createPartialRefund(
+              deposit.stripePaymentIntentId,
+              refundAmountCents,
+              refundKey
+            );
+          } catch (error) {
+            throw new DepositRefundLegIncompleteError(depositId, error);
+          }
+        }
       }
     }
 
@@ -389,6 +528,7 @@ export class DepositService {
         await this._reconcileCaptureFailure(
           depositId,
           deposit.stripePaymentIntentId,
+          targetStatus,
           timestampField,
           error
         );
@@ -405,32 +545,45 @@ export class DepositService {
    * non-retriable error (e.g. `StripeAuthenticationError`, or the
    * `sk_test_placeholder` fallback key) does not by itself prove the capture
    * never reached Stripe's network, and a retriable one does not prove it
-   * did (#5719 H2). Always verifies via `retrievePaymentIntent` and maps the
-   * ACTUAL status:
+   * did (#5719 H2). Verifies via `retrievePaymentIntent`, but a confirmed
+   * `requires_capture`/`canceled` status is only acted on when the THROWN
+   * ERROR also proves no capture happened — a connection/timeout-class
+   * error never does, since the request may still be in flight and could
+   * land moments later (#5722 M2):
    *
-   *  - `requires_capture` — confirmed: the capture never landed. Roll the
-   *    row back to `held` so the whole action is retryable.
-   *  - `canceled` — the authorization died (e.g. Stripe auto-canceled it
-   *    after ~7 days uncaptured) before this capture could land. Nothing was
-   *    ever charged and nothing ever will be: write the row off as
-   *    `uncollectable` directly (bypassing the state machine, the same way
-   *    {@link _rollbackToHeld} does — `uncollectable` is normally only
-   *    reachable from `held`, not from the optimistic terminal status this
-   *    row currently sits at).
-   *  - `succeeded` (the charge actually went through — the failure was
-   *    purely in receiving our own response) or any other, unrecognized
-   *    status — both leave the row exactly as the DB-first write already
-   *    left it. Never guess at a state change Stripe hasn't confirmed.
+   *  - `requires_capture`, with an error proving no-capture (e.g.
+   *    `StripeInvalidRequestError`, `StripeCardError`, an auth error) —
+   *    confirmed: the capture never landed. Roll the row back to `held` so
+   *    the whole action is retryable.
+   *  - `canceled`, with the same class of proving error — the authorization
+   *    died (e.g. Stripe auto-canceled it after ~7 days uncaptured) before
+   *    this capture could land. Nothing was ever charged and nothing ever
+   *    will be: write the row off as `uncollectable` directly (bypassing the
+   *    state machine, the same way {@link _rollbackToHeld} does —
+   *    `uncollectable` is normally only reachable from `held`, not from the
+   *    optimistic terminal status this row currently sits at).
+   *  - `succeeded` — confirmed: the charge actually went through (the
+   *    failure was purely in receiving our own response). The row is
+   *    already correct; nothing to reconcile.
+   *  - Anything else — an ambiguous transport-class error (capture may
+   *    still be in flight), or a status that isn't `succeeded`/
+   *    `requires_capture`/`canceled` (e.g. `processing`, `requires_action`)
+   *    — is never guessed at. The row is left at its optimistic status, an
+   *    error-level log records the ambiguity for manual reconciliation, and
+   *    a distinct {@link DepositCaptureAmbiguousError} is thrown so callers
+   *    can never mistake "kept because we don't know" for "kept because
+   *    Stripe confirmed it" (#5722 M3).
    *
-   * Always rethrows the ORIGINAL capture error afterward so callers still
-   * see the failure. If the verification retrieve itself throws, none of the
-   * above can be determined — rethrow the original error immediately rather
-   * than masking it with a retrieve-specific one, and leave the row
-   * untouched.
+   * In the confirmed cases the ORIGINAL capture error is rethrown so callers
+   * still see the underlying failure. If the verification retrieve itself
+   * throws, none of the above can be determined — rethrow the original error
+   * immediately rather than masking it with a retrieve-specific one, and
+   * leave the row untouched.
    */
   private async _reconcileCaptureFailure(
     depositId: string,
     stripePaymentIntentId: string,
+    targetStatus: "applied" | "forfeited" | "partial_refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt",
     error: unknown
   ): Promise<never> {
@@ -441,13 +594,29 @@ export class DepositService {
       throw error;
     }
 
-    if (intent.status === "requires_capture") {
-      await this._rollbackToHeld(depositId, timestampField).catch(() => {});
-    } else if (intent.status === "canceled") {
-      await this._writeOffUncollectable(depositId, timestampField).catch(() => {});
+    const provesCaptureNeverHappened =
+      error instanceof StripeOperationError &&
+      CAPTURE_NEVER_HAPPENED_STRIPE_TYPES.has(error.stripeType);
+
+    if (provesCaptureNeverHappened && intent.status === "requires_capture") {
+      await this._rollbackToHeld(depositId, targetStatus, timestampField).catch(() => {});
+      throw error;
     }
 
-    throw error;
+    if (provesCaptureNeverHappened && intent.status === "canceled") {
+      await this._writeOffUncollectable(depositId, targetStatus, timestampField).catch(() => {});
+      throw error;
+    }
+
+    if (intent.status === "succeeded") {
+      throw error;
+    }
+
+    logger.error(
+      { depositId, targetStatus, action: timestampField, intentStatus: intent.status, err: error },
+      "Deposit capture failed and Stripe's PaymentIntent status is not confirmed; row left at its optimistic status pending manual reconciliation"
+    );
+    throw new DepositCaptureAmbiguousError(depositId, intent.status, error);
   }
 
   /**
@@ -455,30 +624,72 @@ export class DepositService {
    * the authorization is permanently dead, bypassing the state machine (the
    * row is currently at an optimistic terminal status, e.g. `forfeited`, not
    * `held`) the same way {@link _rollbackToHeld} does.
+   *
+   * Compare-and-swap on `fromStatus`: only writes if the row is still at the
+   * status this reconciliation observed. A concurrent write beating this one
+   * (count === 0) is logged rather than thrown — the caller always swallows
+   * this promise's rejection (`.catch(() => {})`), so throwing here would be
+   * silently discarded anyway (#5722 M1). `feeAmountCents`/`refundAmountCents`
+   * are only ever set by `refundPartial`, so they're cleared here too when
+   * writing off a `partial_refunded` row — otherwise they'd stay stale on a
+   * deposit that never ends up charging or refunding anything (#5722 LOW).
    */
   private async _writeOffUncollectable(
     depositId: string,
+    fromStatus: "applied" | "forfeited" | "partial_refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
   ): Promise<void> {
-    await prisma.deposit.update({
-      where: { id: depositId },
-      data: { status: "uncollectable", uncollectableAt: new Date(), [timestampField]: null },
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: fromStatus },
+      data: {
+        status: "uncollectable",
+        uncollectableAt: new Date(),
+        [timestampField]: null,
+        ...(fromStatus === "partial_refunded"
+          ? { feeAmountCents: null, refundAmountCents: null }
+          : {}),
+      },
     });
+
+    if (count === 0) {
+      logger.error(
+        { depositId, fromStatus, action: "writeOffUncollectable" },
+        "Deposit write-off to uncollectable lost a concurrent-update race; row was not at the expected status"
+      );
+    }
   }
 
   /**
    * Rolls a deposit back to `held` after a Stripe failure, clearing the
    * transition timestamp so the row stays consistent and the action is
    * retryable.
+   *
+   * Compare-and-swap on `fromStatus`, mirroring {@link _writeOffUncollectable}
+   * — see its doc comment for why a lost race logs instead of throwing, and
+   * why `partial_refunded` also clears the fee/refund fields (#5722 M1, LOW).
    */
   private async _rollbackToHeld(
     depositId: string,
+    fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
   ): Promise<void> {
-    await prisma.deposit.update({
-      where: { id: depositId },
-      data: { status: "held", [timestampField]: null },
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: fromStatus },
+      data: {
+        status: "held",
+        [timestampField]: null,
+        ...(fromStatus === "partial_refunded"
+          ? { feeAmountCents: null, refundAmountCents: null }
+          : {}),
+      },
     });
+
+    if (count === 0) {
+      logger.error(
+        { depositId, fromStatus, action: "rollbackToHeld" },
+        "Deposit rollback to held lost a concurrent-update race; row was not at the expected status"
+      );
+    }
   }
 
   /**

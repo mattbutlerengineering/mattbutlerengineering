@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so these refs are available inside the vi.mock factory
-const { mockPaymentIntents, mockCustomers, mockWebhooks } = vi.hoisted(() => ({
+const { mockPaymentIntents, mockCustomers, mockWebhooks, mockCharges } = vi.hoisted(() => ({
   mockPaymentIntents: {
     create: vi.fn(),
     capture: vi.fn(),
@@ -14,6 +14,9 @@ const { mockPaymentIntents, mockCustomers, mockWebhooks } = vi.hoisted(() => ({
   mockWebhooks: {
     constructEvent: vi.fn(),
   },
+  mockCharges: {
+    retrieve: vi.fn(),
+  },
 }));
 
 vi.mock("stripe", () => {
@@ -21,6 +24,7 @@ vi.mock("stripe", () => {
     paymentIntents = mockPaymentIntents;
     customers = mockCustomers;
     webhooks = mockWebhooks;
+    charges = mockCharges;
     constructor(_key: string) {}
   }
   return { default: MockStripe };
@@ -182,6 +186,56 @@ describe("StripeService", () => {
 
       expect(mockPaymentIntents.retrieve).toHaveBeenCalledWith("pi_test_123");
       expect(result).toEqual({ id: "pi_test_123", status: "requires_capture" });
+    });
+  });
+
+  describe("getRefundedAmountCents", () => {
+    it("returns the charge's amount_refunded", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        latest_charge: "ch_test_123",
+      });
+      mockCharges.retrieve.mockResolvedValueOnce({ amount_refunded: 1500 });
+
+      const result = await stripeService.getRefundedAmountCents("pi_test_123");
+
+      expect(mockCharges.retrieve).toHaveBeenCalledWith("ch_test_123");
+      expect(result).toBe(1500);
+    });
+
+    it("resolves latest_charge from an expanded charge object", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        latest_charge: { id: "ch_test_456" },
+      });
+      mockCharges.retrieve.mockResolvedValueOnce({ amount_refunded: 0 });
+
+      await stripeService.getRefundedAmountCents("pi_test_123");
+
+      expect(mockCharges.retrieve).toHaveBeenCalledWith("ch_test_456");
+    });
+
+    it("returns 0 when the PaymentIntent has no associated charge yet", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        latest_charge: null,
+      });
+
+      const result = await stripeService.getRefundedAmountCents("pi_test_123");
+
+      expect(result).toBe(0);
+      expect(mockCharges.retrieve).not.toHaveBeenCalled();
+    });
+
+    it("wraps a Stripe error from the retrieve call", async () => {
+      const connectionError = Object.assign(new Error("connection lost"), {
+        type: "StripeConnectionError",
+      });
+      mockPaymentIntents.retrieve.mockRejectedValueOnce(connectionError);
+
+      await expect(stripeService.getRefundedAmountCents("pi_test_123")).rejects.toThrow(
+        "connection lost"
+      );
     });
   });
 

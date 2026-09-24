@@ -7,6 +7,25 @@ import { createRawBodyCaptureHook } from "../middleware/raw-body-capture.js";
 import { WebhookEventRouter } from "./webhook-event-router.js";
 
 /**
+ * Narrow logger shape `onChargeRefunded` needs — satisfied by
+ * `FastifyBaseLogger`. Defaults to a no-op so importing this module never
+ * requires a logger to exist yet (module load order, unit tests); `app.ts`
+ * wires the real fastify/pino logger in at bootstrap via
+ * {@link setStripeWebhookLogger}, mirroring `rls-context-mode.ts`'s
+ * tripwire-logger pattern.
+ */
+export interface StripeWebhookLogger {
+  info(details: object, msg: string): void;
+}
+
+let logger: StripeWebhookLogger = { info: () => undefined };
+
+/** Wires the service's real logger in — called once at app bootstrap. */
+export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
+  logger = next;
+}
+
+/**
  * Stripe webhook endpoint.
  * Handles: payment_intent.succeeded, payment_intent.amount_capturable_updated,
  * payment_intent.canceled, charge.refunded
@@ -85,6 +104,10 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
 
   // Only transition if currently held
   if (deposit.status === "held") {
+    logger.info(
+      { depositId: deposit.id, paymentIntentId },
+      "charge.refunded received for a held deposit; refunding"
+    );
     // A dashboard-issued refund can race with (or follow) the intent already
     // being canceled — calling cancelPaymentIntent again would fail against
     // an already-canceled intent and Stripe would retry the webhook forever
