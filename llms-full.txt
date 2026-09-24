@@ -7872,19 +7872,6 @@
       readonly distribution?: Record<string, QueueEfficiencyTierStats>;
       readonly baseline?: QueueEfficiencyBaseline | null;
     }
-    export interface DomainActivitySensor {
-      readonly available: boolean;
-      readonly date?: string | null;
-      readonly venueId?: string | null;
-      readonly reservations_created?: number;
-      readonly reservations_cancelled?: number;
-      readonly reservations_completed?: number;
-      readonly reservations_no_show?: number;
-      readonly deposits_held?: number;
-      readonly deposits_applied?: number;
-      readonly deposits_refunded?: number;
-      readonly deposits_forfeited?: number;
-    }
     export interface ReviewBurdenSensor {
       readonly available: boolean;
       readonly collected_at?: string | null;
@@ -7928,7 +7915,6 @@
       };
       readonly sensors: Record<string, unknown> & {
         readonly queueEfficiency?: QueueEfficiencySensor;
-        readonly domainActivity?: DomainActivitySensor;
         readonly reviewBurden?: ReviewBurdenSensor;
         readonly acmm?: AcmmSensor;
       };
@@ -7948,19 +7934,6 @@
       readonly costPerIssue: number | null;
       readonly medianTimeToMergeHours: number | null;
       readonly distribution: ReadonlyArray<readonly [string, number]>;
-    }
-    export interface DomainActivityMetrics {
-      readonly available: boolean;
-      readonly date: string | null;
-      readonly venueId: string | null;
-      readonly reservationsCreated: number | null;
-      readonly reservationsCancelled: number | null;
-      readonly reservationsCompleted: number | null;
-      readonly reservationsNoShow: number | null;
-      readonly depositsHeld: number | null;
-      readonly depositsApplied: number | null;
-      readonly depositsRefunded: number | null;
-      readonly depositsForfeited: number | null;
     }
     export interface ReviewBurdenMetrics {
       readonly available: boolean;
@@ -8001,7 +7974,6 @@
       readonly sensorEntries: ReadonlyArray<readonly [string, Record<string, unknown>]>;
       readonly regressionLabels: readonly string[];
       readonly queueEfficiency: QueueEfficiencyMetrics;
-      readonly domainActivity: DomainActivityMetrics;
       readonly reviewBurden: ReviewBurdenMetrics;
       readonly acmm: AcmmMetrics;
     }
@@ -8035,23 +8007,6 @@
         distribution: Object.entries(distribution).map(
           ([tier, stats]) => [tier, readNumber(asRecord(stats).count) ?? 0] as const
         ),
-      };
-    }
-    function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics {
-      const domainActivity = asRecord(sensors.domainActivity);
-    
-      return {
-        available: domainActivity.available === true,
-        date: readString(domainActivity.date),
-        venueId: readString(domainActivity.venueId),
-        reservationsCreated: readNumber(domainActivity.reservations_created),
-        reservationsCancelled: readNumber(domainActivity.reservations_cancelled),
-        reservationsCompleted: readNumber(domainActivity.reservations_completed),
-        reservationsNoShow: readNumber(domainActivity.reservations_no_show),
-        depositsHeld: readNumber(domainActivity.deposits_held),
-        depositsApplied: readNumber(domainActivity.deposits_applied),
-        depositsRefunded: readNumber(domainActivity.deposits_refunded),
-        depositsForfeited: readNumber(domainActivity.deposits_forfeited),
       };
     }
     function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics {
@@ -8117,7 +8072,6 @@
         sensorEntries: Object.entries(sensors).map(([key, value]) => [key, asRecord(value)] as const),
         regressionLabels: regressions.map(formatRegressionLabel),
         queueEfficiency: normalizeQueueEfficiency(sensors),
-        domainActivity: normalizeDomainActivity(sensors),
         reviewBurden: normalizeReviewBurden(sensors),
         acmm: normalizeAcmm(sensors),
       };

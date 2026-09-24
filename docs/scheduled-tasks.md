@@ -38,22 +38,22 @@ live prompt (`job_config.ccr.events[0]`) — see [Prompt files](#prompt-files)
 below. It is the authoritative definition of the routine; the prose sections
 further down describe _why_, not _what_.
 
-| Routine                      | Trigger ID                       | Prompt file                                                                  | Cadence (PT)        | Cron (UTC)    | Model    | Output                                          | Purpose                                                                                                                                             |
-| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ------------------- | ------------- | -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mbe-deep-audit`             | — (disabled; runs in GH Actions) | —                                                                            | Mon 9:23am          | `23 16 * * 1` | —        | issues                                          | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note)                                      |
-| `drift-fix` _(new)_          | — (runs in GH Actions)           | —                                                                            | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted                                 | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                                                        |
-| `metrics-collectors` _(new)_ | — (runs in GH Actions)           | —                                                                            | Daily 4:29am        | `29 11 * * *` | — (none) | PR with metrics; `ci-fix` issue when stale      | Runs the domain-metrics + review-burden collectors where egress and `gh` exist — **GitHub Actions** (`metrics-collectors.yml`), no agent (see note) |
-| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics                                   | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                                                         |
-| `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                                                              |
-| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                                                              |
-| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                                                     |
-| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                                                     |
-| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                                              |
-| `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                                                          |
-| `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues | Codebase improvement survey → implement the best change (see note)                                                                                  |
-| `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                                            | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                                                   |
-| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues                                | Process retro — what blocked flow last week and what to change (see note)                                                                           |
-| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues                           | Claude Code config + docs/automation health                                                                                                         |
+| Routine                      | Trigger ID                       | Prompt file                                                                  | Cadence (PT)        | Cron (UTC)    | Model    | Output                                          | Purpose                                                                                                                 |
+| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ------------------- | ------------- | -------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`             | — (disabled; runs in GH Actions) | —                                                                            | Mon 9:23am          | `23 16 * * 1` | —        | issues                                          | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note)          |
+| `drift-fix` _(new)_          | — (runs in GH Actions)           | —                                                                            | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted                                 | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                            |
+| `metrics-collectors` _(new)_ | — (runs in GH Actions)           | —                                                                            | Daily 4:29am        | `29 11 * * *` | — (none) | PR with metrics; `ci-fix` issue when stale      | Runs the review-burden collector where `gh` exists — **GitHub Actions** (`metrics-collectors.yml`), no agent (see note) |
+| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics                                   | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                             |
+| `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                                  |
+| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                                  |
+| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                         |
+| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                         |
+| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                  |
+| `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                              |
+| `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues | Codebase improvement survey → implement the best change (see note)                                                      |
+| `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                                            | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                       |
+| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues                                | Process retro — what blocked flow last week and what to change (see note)                                               |
+| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues                           | Claude Code config + docs/automation health                                                                             |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -219,31 +219,27 @@ to a single worker without worktree isolation in cloud and keep the local
 
 - **When:** daily 4:29am PT (`29 11 * * *` UTC), plus `workflow_dispatch`.
   Off-hour and off-minute, away from the on-the-hour scheduled fleet.
-- **Why it is not a routine:** the two collectors it runs need exactly what a
-  cloud routine does not have. `scripts/collect-domain-metrics.mjs` calls a
-  production endpoint, and CCR sessions have no egress to production;
-  `scripts/acmm/review-burden-metrics.js` shells out to `gh`, which does not
-  exist in a CCR session at all (`.claude/rules/gotchas.md` § Claude Code
-  Remote). `/learning-loop` had been "running" the first collector daily since
-  it was written — every run skipped, and `metrics/domain-metrics.jsonl` sat at
-  0 bytes. Nothing ran the second at all after one manual run on 2026-06-14.
-- **What it does:** runs both collectors (each degrades to a skip and never
-  fails the job), runs the `scripts/metrics-freshness.mjs` self-check against
-  what this run produced, opens a PR with the changed metrics files, then
+- **Why it is not a routine:** the collector it runs needs exactly what a
+  cloud routine does not have. `scripts/acmm/review-burden-metrics.js` shells
+  out to `gh`, which does not exist in a CCR session at all
+  (`.claude/rules/gotchas.md` § Claude Code Remote). Nothing ran it at all
+  after one manual run on 2026-06-14. (A booking-funnel `domain-metrics`
+  collector used to run here too; it was retired in #5561 — it needed a
+  production venue id and auth token nobody would provision, so it could
+  never produce a row.)
+- **What it does:** runs the collector (degrades to a skip and never fails
+  the job), runs the `scripts/metrics-freshness.mjs` self-check against what
+  this run produced, opens a PR with the changed metrics file, then
   dispatches `ci.yml` and `tier-classifier.yml` on its own branch and enables
   auto-merge through `scripts/merge-queue-eligibility.mjs check-merge`.
 - **Failure is reported, not thrown:** a stale or empty verdict files a deduped
-  `ci-fix` issue (never `ready` — the likely fix is a human-supplied secret)
-  rather than reddening the job. A red scheduled workflow would be read as "the
-  workflow is broken" when the workflow is the part that works, and three
-  consecutive failures would trip `scripts/scheduled-workflow-health.mjs` into
-  filing a second, misleading issue.
-- **Human step outstanding:** domain-metrics stays empty until someone sets the
-  `DOMAIN_METRICS_VENUE_ID` repo secret — see
-  [`docs/fixes/silent-metrics-collectors/design.md`](./fixes/silent-metrics-collectors/design.md).
-  Review-burden needs no secret and should start producing on the first run.
+  `ci-fix` issue rather than reddening the job. A red scheduled workflow would
+  be read as "the workflow is broken" when the workflow is the part that
+  works, and three consecutive failures would trip
+  `scripts/scheduled-workflow-health.mjs` into filing a second, misleading
+  issue.
 - **Guarded by:** `scripts/__tests__/metrics-collectors-workflow.test.mjs`
-  (asserts both collectors still run, the self-check runs after them, every
+  (asserts the collector still runs, the self-check runs after it, every
   piping `run:` block sets `pipefail`, and no step swallows an exit code).
 
 ## `drift-fix` (GitHub Actions)

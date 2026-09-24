@@ -220,8 +220,8 @@ never report a vacuous pass.
 Two consumers, one decision function: the `metricsFreshness` sensor in
 `scripts/sensors-registry.mjs` puts the verdict into `/learning-loop`'s normal
 regression triage, and the workflow step above files a deduped `ci-fix` issue
-directly (deliberately without `ready` — the most likely fix for the sibling
-`domain-metrics` collector is a human-supplied secret, not an agent task).
+directly (deliberately without `ready` — a stale or empty collector needs
+human judgement about production access, not a queue pickup).
 
 ### On the AI-health page
 

@@ -10,18 +10,6 @@ Closed-loop improvement system: collect sensor data → detect regressions → c
 
 ## Workflow
 
-### Step 0: Collect Domain Metrics
-
-Run the booking-funnel telemetry collector so the `domainActivity` sensor has fresh data before Step 1 runs:
-
-```bash
-node scripts/collect-domain-metrics.mjs
-```
-
-Requires `DOMAIN_METRICS_VENUE_ID` in the environment (optionally `DOMAIN_METRICS_API_BASE_URL`, `DOMAIN_METRICS_TOKEN`); without it, or on a network/API failure, the collector prints a skip message and exits 0 — it never blocks the loop. On success it appends one row to `metrics/domain-metrics.jsonl`, which the `domainActivity` sensor reads in Step 1.
-
-**This step is best-effort, and is no longer the collector's only home (#5528).** A Claude Code Remote session has no egress to production, so the call above skips every time the loop runs there — which is why `metrics/domain-metrics.jsonl` sat at 0 bytes for months without anything noticing. `.github/workflows/metrics-collectors.yml` now runs this collector (and `scripts/acmm/review-burden-metrics.js`) daily on a GitHub Actions runner, which has both production egress and the `gh` CLI, and commits the results back via PR. Leave this step in — it costs nothing and does produce data when the loop runs somewhere with egress — but do not read a skip here as a failure.
-
 ### Step 1: Collect Sensor Data
 
 Run the unified sensor report to gather metrics from all available sensors:
@@ -147,18 +135,18 @@ node scripts/persist-metrics.mjs --routine learning-loop
 
 It stages every **durable** path with a diff, commits them on a branch, and opens a PR titled `chore(metrics): learning-loop <YYYY-MM-DD>` labeled `has-pr` (metrics-only diffs auto-merge via the low-risk fast path). It exits 0 without a commit when nothing changed.
 
-Do NOT enumerate paths by hand. Durability is declared once, as `durable: true` in `METRICS` (plus `DURABLE_OUTSIDE` / `EXTERNAL`) in `scripts/metrics-store.mjs`, and `durableManifest()` derives both the `.gitignore` negations and the list this script stages (#3645). An enumerated list drifts; a derived one cannot. `metrics/domain-metrics.jsonl` (Step 0's append target) is declared `durable: true` there, so it is covered automatically.
+Do NOT enumerate paths by hand. Durability is declared once, as `durable: true` in `METRICS` (plus `DURABLE_OUTSIDE` / `EXTERNAL`) in `scripts/metrics-store.mjs`, and `durableManifest()` derives both the `.gitignore` negations and the list this script stages (#3645). An enumerated list drifts; a derived one cannot.
 
 ## Sensor Label Map
 
-| Sensor            | Issue Label | What It Checks                                |
-| ----------------- | ----------- | --------------------------------------------- |
-| CI Health         | `ci-fix`    | Pass rate on main branch                      |
-| ACMM              | `acmm`      | Maturity criteria met                         |
-| Lighthouse        | `audit`     | Performance/a11y scores                       |
-| Sentry            | `sentry`    | Error rates (needs MCP auth)                  |
-| Metrics Freshness | `ci-fix`    | domain-metrics / review-burden stale or empty |
-| General           | `bug`       | CI pass after fix                             |
+| Sensor            | Issue Label | What It Checks               |
+| ----------------- | ----------- | ---------------------------- |
+| CI Health         | `ci-fix`    | Pass rate on main branch     |
+| ACMM              | `acmm`      | Maturity criteria met        |
+| Lighthouse        | `audit`     | Performance/a11y scores      |
+| Sentry            | `sentry`    | Error rates (needs MCP auth) |
+| Metrics Freshness | `ci-fix`    | review-burden stale or empty |
+| General           | `bug`       | CI pass after fix            |
 
 ## Scheduling
 
