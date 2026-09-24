@@ -18,6 +18,23 @@ import "@mattbutlerengineering/rialto/styles"; // Import before any component re
 </RialtoProvider>
 ```
 
+## Compatibility
+
+Every component works from a registry install (`npm.pkg.github.com`,
+scoped `@mattbutlerengineering`) **except `ChatPanel`**. `ChatPanel` (and
+its `useChatStream` hook) imports `@mbe/api-client/streaming`, a private,
+workspace-only package that is never published anywhere — it exists only
+inside this monorepo. Rialto's build externalizes that import rather than
+bundling it (so the design-system bundle doesn't inline an app-specific
+data client), which means a registry consumer would need to supply
+`@mbe/api-client` themselves — something no consumer outside this
+monorepo can do, since the package isn't resolvable from any registry.
+`ChatPanel` is therefore usable only by workspace-internal consumers of
+this monorepo (`apps/hospitality`, `apps/rialto-web`, `apps/gen`), which
+already declare `@mbe/api-client` as their own direct dependency. See
+`.claude/rules/gotchas.md` § Releases for the changesets-versioning side
+of this (#3322).
+
 ## Design Principles
 
 - **Material honesty** -- surfaces communicate what they are
