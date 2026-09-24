@@ -228,6 +228,63 @@ describe("createGenRunner", () => {
     });
   });
 
+  describe("model failure surfacing", () => {
+    // ai@7 does NOT throw when the underlying model call fails (e.g. a 529 or
+    // 401) — it yields a `{type: "error"}` part on fullStream and completes
+    // normally. Without handling it, runner.run() resolves as if nothing went
+    // wrong: the caller sees zero events and a clean return, not a failure.
+    it("throws when fullStream yields an error part (model call failed)", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "start" },
+          { type: "error", error: new Error("529 overloaded") },
+        ]),
+        usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await expect(
+        runner.run([{ role: "user", content: "hi" }], {}, async () => {})
+      ).rejects.toThrow("529 overloaded");
+    });
+
+    // A schema-invalid tool input (the model's tool call doesn't match the
+    // tool's inputSchema) emits `tool-error`, not `tool-call` — so it never
+    // reaches handleToolCall's element/action_request/tool_status branches
+    // either.
+    it("throws when fullStream yields a tool-error part (invalid tool input)", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          {
+            type: "tool-error",
+            toolCallId: "call-1",
+            toolName: "render_component",
+            input: { bad: "shape" },
+            error: new Error("invalid tool input"),
+          },
+        ]),
+        usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await expect(
+        runner.run([{ role: "user", content: "hi" }], {}, async () => {})
+      ).rejects.toThrow("invalid tool input");
+    });
+
+    it("wraps a non-Error error value in an Error", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([{ type: "error", error: "529 overloaded" }]),
+        usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await expect(
+        runner.run([{ role: "user", content: "hi" }], {}, async () => {})
+      ).rejects.toThrow("529 overloaded");
+    });
+  });
+
   describe("budget stop", () => {
     it("passes maxSteps to stepCountIs", async () => {
       vi.mocked(streamText).mockReturnValueOnce({

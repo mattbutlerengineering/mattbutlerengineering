@@ -109,10 +109,21 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
             tool: event.toolName,
             status: "complete",
           });
+        } else if (event.type === "error" || event.type === "tool-error") {
+          // ai@7 does not throw on a failed model call or an invalid tool
+          // call — it yields these parts and completes the stream normally.
+          // Without this, the loop just finishes: the caller sees a clean
+          // return and zero events, indistinguishable from "nothing to
+          // generate" rather than "the call failed".
+          throw toError(event.error);
         }
       }
     },
   };
+}
+
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 async function handleToolCall(

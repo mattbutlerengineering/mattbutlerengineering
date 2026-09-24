@@ -4,6 +4,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 // Import directly from catalog (not index) to avoid pulling in registry.tsx (browser-only)
 import { catalog } from "@mbe/rialto-catalog/catalog";
+import { VisibilityConditionStrictSchema } from "@json-render/core";
 import { tool } from "ai";
 import { z } from "zod";
 import { GEN_MODEL_ID, logGenCost, applyStreamHeaders } from "./gen-stream.js";
@@ -44,6 +45,13 @@ const GenUiBodySchema = z.object({
 // visible) — NOT id/children. flatToTree's real implementation keys strictly
 // on `key`/`parentKey`; an id/children shape silently collapses into a
 // `{root: undefined}` empty tree (#5714 review).
+//
+// `visible` uses the real VisibilityCondition type (boolean | condition
+// object | condition array — see @json-render/core), not a plain boolean:
+// catalog.prompt() itself teaches the model object-valued conditions (state/
+// item/index comparisons, $and/$or composition) as part of the render
+// contract, so a boolean-only schema would reject exactly the shape the
+// model is instructed to produce (#5720 review).
 function createRenderComponentTool() {
   return tool({
     description:
@@ -55,7 +63,7 @@ function createRenderComponentTool() {
           parentKey: z.string().nullable().optional(),
           type: z.string(),
           props: z.record(z.string(), z.unknown()).optional(),
-          visible: z.boolean().optional(),
+          visible: VisibilityConditionStrictSchema.optional(),
         })
       ),
     }),
@@ -127,16 +135,27 @@ export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
 
       const stream = new ReadableStream({
         async start(controller) {
+          let emittedAny = false;
           try {
             await runner.run(
               [{ role: "user", content: userContent }],
               { render_component: createRenderComponentTool() },
               async (event) => {
                 if (event.type === "element") {
+                  emittedAny = true;
                   controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
                 }
               }
             );
+            if (!emittedAny) {
+              // The run completed with no error (ai@7's error/tool-error parts
+              // are already turned into a throw by gen-runner.ts) but never
+              // called render_component with a non-empty elements array — a
+              // 200 with an empty body is exactly as useless to the client as
+              // a failed generation, and both must read as failures, not as
+              // "worked, rendered nothing".
+              throw new Error("Generation completed with zero elements");
+            }
             controller.close();
           } catch (err) {
             // Never silently close on failure — that turns a failed

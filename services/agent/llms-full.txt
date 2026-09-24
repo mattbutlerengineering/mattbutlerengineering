@@ -740,10 +740,20 @@
                 tool: event.toolName,
                 status: "complete",
               });
+            } else if (event.type === "error" || event.type === "tool-error") {
+              // ai@7 does not throw on a failed model call or an invalid tool
+              // call — it yields these parts and completes the stream normally.
+              // Without this, the loop just finishes: the caller sees a clean
+              // return and zero events, indistinguishable from "nothing to
+              // generate" rather than "the call failed".
+              throw toError(event.error);
             }
           }
         },
       };
+    }
+    function toError(value: unknown): Error {
+      return value instanceof Error ? value : new Error(String(value));
     }
     async function handleToolCall(
       event: { toolCallId: string; toolName: string; input: unknown },
@@ -962,7 +972,7 @@
               parentKey: z.string().nullable().optional(),
               type: z.string(),
               props: z.record(z.string(), z.unknown()).optional(),
-              visible: z.boolean().optional(),
+              visible: VisibilityConditionStrictSchema.optional(),
             })
           ),
         }),
@@ -1021,16 +1031,27 @@
     
           const stream = new ReadableStream({
             async start(controller) {
+              let emittedAny = false;
               try {
                 await runner.run(
                   [{ role: "user", content: userContent }],
                   { render_component: createRenderComponentTool() },
                   async (event) => {
                     if (event.type === "element") {
+                      emittedAny = true;
                       controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
                     }
                   }
                 );
+                if (!emittedAny) {
+                  // The run completed with no error (ai@7's error/tool-error parts
+                  // are already turned into a throw by gen-runner.ts) but never
+                  // called render_component with a non-empty elements array — a
+                  // 200 with an empty body is exactly as useless to the client as
+                  // a failed generation, and both must read as failures, not as
+                  // "worked, rendered nothing".
+                  throw new Error("Generation completed with zero elements");
+                }
                 controller.close();
               } catch (err) {
                 // Never silently close on failure — that turns a failed
