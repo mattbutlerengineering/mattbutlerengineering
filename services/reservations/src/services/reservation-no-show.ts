@@ -3,7 +3,6 @@ import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import { depositService, DepositConcurrentUpdateError, DepositTransitionError } from "./deposit.js";
-import { StripeOperationError } from "./stripe.js";
 import { venueService } from "./venue.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
@@ -81,36 +80,59 @@ async function resolveNoShowDepositAction(
 }
 
 /**
- * A capture failed permanently (e.g. Stripe auto-canceled the ~7-day-old
- * authorization) — the money is gone for good. Mark the deposit
- * uncollectable (no Stripe call needed, we already know it's dead) so the
- * no-show can still be recorded instead of being unrecordable forever
- * (#5719 item 5).
+ * A forfeit/partial-refund's CAPTURE leg failed. `DepositService` itself
+ * already asked Stripe for the real PaymentIntent status and reconciled the
+ * row accordingly before rethrowing (`_reconcileCaptureFailure` in
+ * `deposit.ts`: rolled back to `held` if Stripe confirms `requires_capture`,
+ * written off to `uncollectable` if Stripe confirms `canceled`, or left
+ * untouched at the target status if Stripe confirms `succeeded` or the
+ * status is otherwise ambiguous) — this reads that outcome back from the
+ * deposit's CURRENT status rather than re-deriving it from the thrown
+ * error's own retriable/non-retriable shape, which conflates "definitely
+ * didn't capture" with "an auth/config error (e.g. `StripeAuthenticationError`,
+ * or the `sk_test_placeholder` fallback key) that never reached Stripe's
+ * network at all" (#5719 H2).
  */
-async function handlePermanentCaptureFailure(
+async function reconcileCaptureLegFailure(
   depositId: string,
+  targetStatus: "forfeited" | "partial_refunded",
   reservation: Reservation,
   logger: FastifyBaseLogger,
-  err: StripeOperationError
+  err: unknown
 ): Promise<ForfeitOutcome> {
-  try {
-    await depositService.markUncollectable(depositId);
-  } catch (markErr) {
-    logger.error(
-      { err: markErr, reservationId: reservation.id, depositId },
-      "Failed to mark deposit uncollectable after a permanent capture failure"
+  const current = await depositService.getById(depositId);
+
+  if (current?.status === "uncollectable") {
+    logger.warn(
+      { err, reservationId: reservation.id, depositId },
+      "Deposit authorization could not be captured (it may have expired); marked uncollectable and recording the no-show anyway"
     );
-    return { outcome: "failed" };
+    return {
+      outcome: "uncollectable",
+      warning:
+        "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
+    };
   }
-  logger.warn(
+
+  if (current?.status === targetStatus) {
+    // Stripe confirmed the charge actually went through (the failure was
+    // purely transport-side) — the row is already correct despite the
+    // thrown error. Report success rather than a false failure on top of a
+    // real one.
+    logger.warn(
+      { err, reservationId: reservation.id, depositId },
+      "Deposit capture reported an error but the row already reflects a completed capture; proceeding"
+    );
+    return { outcome: "resolved" };
+  }
+
+  // Anything else (still `held` — Stripe confirmed `requires_capture` and
+  // deposit.ts rolled back — or an unreadable row) is a genuine failure.
+  logger.error(
     { err, reservationId: reservation.id, depositId },
-    "Deposit authorization could not be captured (it may have expired); marked uncollectable and recording the no-show anyway"
+    "Failed to resolve deposit on no-show; aborting to avoid ghost state"
   );
-  return {
-    outcome: "uncollectable",
-    warning:
-      "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
-  };
+  return { outcome: "failed" };
 }
 
 /**
@@ -122,10 +144,10 @@ async function handlePermanentCaptureFailure(
  * already resolved it), re-read the reservation. If the winning request
  * already completed the whole no-show (status is NO_SHOW), this is a false
  * failure on top of a real success, not a genuine error (#5719 item 3). A
- * permanent (non-retriable) Stripe capture failure on the forfeit/partial
- * paths — the only two that attempt a capture — is handled separately
- * (#5719 item 5); a full-refund failure has no capture to have expired, so
- * it always falls through to the generic failure result.
+ * capture-leg failure on the forfeit/partial paths — the only two that
+ * attempt a capture — is reconciled via {@link reconcileCaptureLegFailure}
+ * (#5719 item 5, H2); a full-refund failure has no capture to have expired,
+ * so it always falls through to the generic failure result.
  */
 async function forfeitHeldDeposit(
   deposit: Deposit,
@@ -144,14 +166,15 @@ async function forfeitHeldDeposit(
     }
     return { outcome: "resolved" };
   } catch (err) {
-    if (action.op !== "refund_full" && err instanceof StripeOperationError && !err.isRetriable) {
-      return handlePermanentCaptureFailure(depositId, reservation, logger, err);
-    }
     if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
       const current = await reservationService.getById(reservation.id);
       if (current?.status === "NO_SHOW") {
         return { outcome: "already-no-show", reservation: current };
       }
+    }
+    if (action.op !== "refund_full") {
+      const targetStatus = action.op === "forfeit" ? "forfeited" : "partial_refunded";
+      return reconcileCaptureLegFailure(depositId, targetStatus, reservation, logger, err);
     }
     logger.error(
       { err, reservationId: reservation.id, depositId },
@@ -219,6 +242,34 @@ export async function recordNoShow(
     } else {
       forfeitedDepositId = deposit.id;
     }
+  } else if (deposit?.status === "partial_refunded") {
+    // Retry guard: a previous attempt captured the card but failed on the
+    // refund leg (or the status write after it), leaving the deposit stuck
+    // here rather than `held` — the old `held`-only branch above silently
+    // skipped it and marked NO_SHOW without ever completing the guest's
+    // refund. Replay refundPartial from the PERSISTED amount instead of
+    // re-deriving the action from the current clock, mirroring
+    // `resolveDeposit`'s identical retry guard in
+    // `reservation-cancellation.ts` (#5719 H1). A failure here is always a
+    // plain failure — never routed to uncollectable, since that path is only
+    // for a fresh capture leg starting from `held` (#5719 H1).
+    if (deposit.refundAmountCents == null) {
+      logger.error(
+        { depositId: deposit.id, reservationId: reservation.id },
+        "partial_refunded deposit missing persisted refund amount; cannot replay"
+      );
+      return DEPOSIT_FAILURE_RESULT;
+    }
+    try {
+      await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+    } catch (err) {
+      logger.error(
+        { err, reservationId: reservation.id, depositId: deposit.id },
+        "Failed to replay partial refund on no-show retry; aborting to avoid ghost state"
+      );
+      return DEPOSIT_FAILURE_RESULT;
+    }
+    forfeitedDepositId = deposit.id;
   }
 
   let updated: Reservation | null;
@@ -231,6 +282,14 @@ export async function recordNoShow(
         return { success: false, status: 409, title: "Conflict", detail: err.message };
       }
       throw err;
+    }
+    // Money already moved this call. Before treating this as a ghost state,
+    // check whether a concurrent request already completed the whole
+    // no-show — including this same status write — so a real success is
+    // never reported as a false reconciliation alarm (#5719 item 3 remainder).
+    const current = await reservationService.getById(reservation.id);
+    if (current?.status === "NO_SHOW") {
+      return { success: true, reservation: current, ...(depositWarning && { depositWarning }) };
     }
     // The deposit has ALREADY been forfeited against Stripe (money moved) but
     // the status did not change: a ghost state. Log it explicitly so

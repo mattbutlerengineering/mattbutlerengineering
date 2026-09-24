@@ -1,6 +1,6 @@
 import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { StripeService, StripeOperationError } from "./stripe.js";
+import { StripeService } from "./stripe.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -300,17 +300,26 @@ export class DepositService {
       const captureKey = `${depositId}:refundPartial`;
       const refundKey = `${depositId}:refundPartial:refund`;
 
-      // Capture the full hold first. If this fails, no money has moved, so roll
-      // the row back to `held` — the action is cleanly retryable.
+      // Capture the full hold first. If this fails, verify via retrieve and
+      // reconcile (roll back / write off / keep) through the same helper
+      // `apply`/`forfeit` use (#5719 M3) — never trust the error's own
+      // retriable classification.
       try {
         await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
       } catch (error) {
-        // Only roll back if THIS invocation transitioned the row. On a re-entrant
-        // retry (already `partial_refunded`), the card was captured on the first
-        // attempt — rolling back to `held` would corrupt state (held row, captured
-        // card). The same idempotency key makes the capture retry safe.
+        // Only reconcile if THIS invocation transitioned the row. On a
+        // re-entrant retry (already `partial_refunded`), the card was
+        // captured on the first attempt — touching the row here would
+        // corrupt state (e.g. roll back a held row while the card is
+        // actually captured). The same idempotency key makes the capture
+        // retry safe without any DB reconciliation on this invocation.
         if (didTransition) {
-          await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+          await this._reconcileCaptureFailure(
+            depositId,
+            deposit.stripePaymentIntentId,
+            "refundedAt",
+            error
+          );
         }
         throw error;
       }
@@ -377,18 +386,12 @@ export class DepositService {
           `${depositId}:${action}`
         );
       } catch (error) {
-        // A capture failure is only safe to roll back on if the capture
-        // definitely never reached Stripe's ledger. Best-effort rollback. If
-        // the rollback itself fails (e.g. DB down), surface the original
-        // Stripe error rather than masking it — never swallow the cause.
-        const shouldRollback = await this._shouldRollbackAfterCaptureFailure(
+        await this._reconcileCaptureFailure(
+          depositId,
           deposit.stripePaymentIntentId,
+          timestampField,
           error
         );
-        if (shouldRollback) {
-          await this._rollbackToHeld(depositId, timestampField).catch(() => {});
-        }
-        throw error;
       }
     }
 
@@ -396,29 +399,71 @@ export class DepositService {
   }
 
   /**
-   * Decides whether a failed capture is safe to roll back to `held`.
+   * Reconciles a capture-transition row after a capture call throws, by
+   * asking Stripe for the PaymentIntent's real status rather than trusting
+   * the thrown error's retriable/non-retriable classification — a
+   * non-retriable error (e.g. `StripeAuthenticationError`, or the
+   * `sk_test_placeholder` fallback key) does not by itself prove the capture
+   * never reached Stripe's network, and a retriable one does not prove it
+   * did (#5719 H2). Always verifies via `retrievePaymentIntent` and maps the
+   * ACTUAL status:
    *
-   * A definite, non-retriable Stripe rejection (e.g. a declined card) never
-   * reaches Stripe's processing pipeline for a partial outcome — the capture
-   * demonstrably never happened, so rolling back is safe without asking.
+   *  - `requires_capture` — confirmed: the capture never landed. Roll the
+   *    row back to `held` so the whole action is retryable.
+   *  - `canceled` — the authorization died (e.g. Stripe auto-canceled it
+   *    after ~7 days uncaptured) before this capture could land. Nothing was
+   *    ever charged and nothing ever will be: write the row off as
+   *    `uncollectable` directly (bypassing the state machine, the same way
+   *    {@link _rollbackToHeld} does — `uncollectable` is normally only
+   *    reachable from `held`, not from the optimistic terminal status this
+   *    row currently sits at).
+   *  - `succeeded` (the charge actually went through — the failure was
+   *    purely in receiving our own response) or any other, unrecognized
+   *    status — both leave the row exactly as the DB-first write already
+   *    left it. Never guess at a state change Stripe hasn't confirmed.
    *
-   * A retriable (connection/rate-limit) or unrecognized error means the
-   * capture request may have reached Stripe and succeeded even though the
-   * response was lost — rolling back unconditionally here would strand the
-   * row at `held` while the card was actually charged. Ask Stripe for the
-   * ground truth instead of guessing, and only roll back if the capture
-   * demonstrably never happened (still `requires_capture`).
+   * Always rethrows the ORIGINAL capture error afterward so callers still
+   * see the failure. If the verification retrieve itself throws, none of the
+   * above can be determined — rethrow the original error immediately rather
+   * than masking it with a retrieve-specific one, and leave the row
+   * untouched.
    */
-  private async _shouldRollbackAfterCaptureFailure(
+  private async _reconcileCaptureFailure(
+    depositId: string,
     stripePaymentIntentId: string,
+    timestampField: "appliedAt" | "refundedAt" | "forfeitedAt",
     error: unknown
-  ): Promise<boolean> {
-    if (error instanceof StripeOperationError && !error.isRetriable) {
-      return true;
+  ): Promise<never> {
+    let intent: { status: string };
+    try {
+      intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
+    } catch {
+      throw error;
     }
 
-    const intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
-    return intent.status === "requires_capture";
+    if (intent.status === "requires_capture") {
+      await this._rollbackToHeld(depositId, timestampField).catch(() => {});
+    } else if (intent.status === "canceled") {
+      await this._writeOffUncollectable(depositId, timestampField).catch(() => {});
+    }
+
+    throw error;
+  }
+
+  /**
+   * Writes a deposit off as `uncollectable` after a capture attempt confirms
+   * the authorization is permanently dead, bypassing the state machine (the
+   * row is currently at an optimistic terminal status, e.g. `forfeited`, not
+   * `held`) the same way {@link _rollbackToHeld} does.
+   */
+  private async _writeOffUncollectable(
+    depositId: string,
+    timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
+  ): Promise<void> {
+    await prisma.deposit.update({
+      where: { id: depositId },
+      data: { status: "uncollectable", uncollectableAt: new Date(), [timestampField]: null },
+    });
   }
 
   /**

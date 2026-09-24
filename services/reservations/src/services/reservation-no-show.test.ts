@@ -19,8 +19,8 @@ vi.mock("./deposit.js", async () => {
     DepositTransitionError: actual.DepositTransitionError,
     depositService: {
       getByReservationId: vi.fn(),
+      getById: vi.fn(),
       forfeit: vi.fn(),
-      markUncollectable: vi.fn(),
       refundPartial: vi.fn(),
     },
   };
@@ -263,12 +263,13 @@ describe("recordNoShow", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("marks the deposit uncollectable and still records the no-show on a permanent capture failure (e.g. expired authorization)", async () => {
-    // A permanently-declined capture (non-retriable StripeOperationError) —
-    // e.g. Stripe auto-canceled the ~7-day-old authorization — means the
-    // money is gone for good. Silently failing the whole no-show made it
-    // unrecordable forever; instead mark the deposit uncollectable and
-    // proceed (#5719 item 5).
+  it("records the no-show against an already-uncollectable deposit after a permanent capture failure (e.g. expired authorization)", async () => {
+    // `deposit.ts` itself verifies the real Stripe state via retrieve and
+    // writes the row off as `uncollectable` before rethrowing (#5719 H2) —
+    // this layer reads that outcome back from the row's current status
+    // rather than re-deriving it from the error's retriable/non-retriable
+    // shape. Silently failing the whole no-show made it unrecordable
+    // forever; instead proceed with a warning (#5719 item 5).
     const reservation = makeReservation();
     const logger = makeLogger();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
@@ -276,7 +277,7 @@ describe("recordNoShow", () => {
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(
       new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
     );
-    vi.mocked(depositService.markUncollectable).mockResolvedValueOnce({
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
       ...heldDeposit,
       status: "uncollectable",
     } as never);
@@ -287,7 +288,7 @@ describe("recordNoShow", () => {
 
     const result = await recordNoShow(reservation, logger);
 
-    expect(depositService.markUncollectable).toHaveBeenCalledWith("dep_1");
+    expect(depositService.getById).toHaveBeenCalledWith("dep_1");
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -295,16 +296,15 @@ describe("recordNoShow", () => {
     }
   });
 
-  it("still fails the no-show if marking the deposit uncollectable itself fails", async () => {
+  it("still fails the no-show when the deposit stays held after a capture failure (Stripe confirms requires_capture)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
     vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
-    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
-      new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
-    );
-    vi.mocked(depositService.markUncollectable).mockRejectedValueOnce(
-      new DepositConcurrentUpdateError("dep_1", "markUncollectable")
-    );
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("stripe boom"));
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
 
     const result = await recordNoShow(reservation, makeLogger());
 
@@ -313,6 +313,57 @@ describe("recordNoShow", () => {
       expect(result.status).toBe(500);
     }
     expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("never writes off a hold on a non-retriable auth/config error that never reached Stripe's network (#5719 H2)", async () => {
+    // A non-retriable StripeAuthenticationError does NOT prove the capture
+    // was declined by Stripe — it means the request never got there. Since
+    // `deposit.ts` verifies via retrieve and only rolls back to `held` (never
+    // writes off) when Stripe confirms `requires_capture`, the row here is
+    // still `held` — this must surface as a plain failure, never a false
+    // "uncollectable" write-off.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(
+      new StripeOperationError(new Error("invalid api key"), "StripeAuthenticationError", false)
+    );
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+  });
+
+  it("treats a capture as resolved when the row already reflects the completed forfeit despite the thrown error", async () => {
+    // deposit.ts confirmed via retrieve that the charge actually succeeded
+    // (the failure was purely transport-side) and deliberately left the row
+    // at `forfeited` rather than rolling back. Reporting a failure here on
+    // top of a real success would be a false alarm.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("timeout"));
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+      forfeitedAt: new Date(),
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(true);
+    expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
   });
 
   it("captures only the disclosed noShowFeePercent and refunds the remainder (integer cents)", async () => {
@@ -396,6 +447,97 @@ describe("recordNoShow", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.status).toBe(409);
+    }
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("replays a stuck partial_refunded deposit's refund on retry instead of silently skipping it (#5719 H1)", async () => {
+    // A prior attempt captured the card but failed on the refund leg (or the
+    // status write after it) — the deposit is left `partial_refunded`, not
+    // `held`, so the old `held`-only branch silently skipped it entirely and
+    // marked NO_SHOW without ever completing the guest's refund. Replay from
+    // the persisted amount, mirroring resolveDeposit in
+    // reservation-cancellation.ts.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 4000);
+    expect(venueService.getPolicyById).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+  });
+
+  it("aborts when replaying a stuck partial_refunded deposit's refund fails — never routes a refund-leg failure to uncollectable (#5719 H1)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(new Error("stripe refund boom"));
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(depositService.getById).not.toHaveBeenCalled();
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("aborts with a clear log when a partial_refunded deposit is missing its persisted refund amount", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: null,
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    expect(depositService.refundPartial).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ depositId: "dep_1", reservationId: "res_1" }),
+      expect.stringMatching(/persisted refund amount/i)
+    );
+  });
+
+  it("returns success (not the ghost-state alarm) when a concurrent request already completed the whole no-show, including the status write (#5719 item 3 remainder)", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(reservationService.update).mockRejectedValueOnce(new Error("db conflict"));
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.reservation.status).toBe("NO_SHOW");
     }
     expect(logger.error).not.toHaveBeenCalled();
   });

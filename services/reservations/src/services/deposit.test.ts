@@ -372,7 +372,10 @@ describe("DepositService", () => {
       expect(mockDepositDb.update).not.toHaveBeenCalled();
     });
 
-    it("rolls back a definite (non-retriable) Stripe decline WITHOUT calling retrieve", async () => {
+    it("verifies a non-retriable Stripe decline via retrieve before rolling back — never trusts isRetriable alone (#5719 H2)", async () => {
+      // A non-retriable classification does not by itself prove the capture
+      // never reached Stripe (e.g. an auth/config error never reaches the
+      // card network at all) — always ask Stripe for the ground truth.
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -383,16 +386,67 @@ describe("DepositService", () => {
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(
         new StripeOperationError(new Error("card declined"), "StripeCardError", false)
       );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.apply("dep-123")).rejects.toThrow(/card declined/);
 
-      expect(mockStripe.retrievePaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
       expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
           data: expect.objectContaining({ status: "held", appliedAt: null }),
         })
       );
+    });
+
+    it("writes the deposit off as uncollectable when Stripe confirms the authorization was canceled (#5719 H2)", async () => {
+      // A dead (auto-canceled/expired) authorization is never coming back —
+      // rolling back to `held` would make it look retryable when it isn't.
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(
+        makeDeposit({ status: "uncollectable", uncollectableAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({
+            status: "uncollectable",
+            uncollectableAt: expect.any(Date),
+            appliedAt: null,
+          }),
+        })
+      );
+    });
+
+    it("surfaces the original capture error, untouched, when the verification retrieve itself fails (#5719 M1)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("retrieve also boom"));
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
     });
 
     it("surfaces the original Stripe error when the rollback DB write also fails", async () => {
@@ -808,12 +862,18 @@ describe("DepositService", () => {
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe capture boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /stripe capture boom/
       );
 
-      // CAS write via updateMany + rollback via update.
+      // CAS write via updateMany + rollback via update, verified via retrieve
+      // (#5719 M3 — routed through the same reconciliation helper as apply/forfeit).
+      expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
       expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
       expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
       expect(mockDepositDb.update).toHaveBeenCalledWith(
@@ -898,9 +958,12 @@ describe("DepositService", () => {
         /transient network blip/
       );
 
-      // Re-entrant path: no transition (updateMany) and — crucially — no rollback (update).
+      // Re-entrant path: no transition (updateMany) and — crucially — no rollback (update),
+      // and no verification retrieve either: this invocation never touched the
+      // row, so there is nothing for it to reconcile.
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
       expect(mockDepositDb.update).not.toHaveBeenCalled();
+      expect(mockStripe.retrievePaymentIntent).not.toHaveBeenCalled();
     });
 
     it("rejects a refund amount greater than the deposit", async () => {
