@@ -2195,3 +2195,12 @@ None this run (`agent-skip` empty, 0 open).
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-24 (mbe-learning-loop)
+
+**Sensors:** 10/17 available (acmm L6 97/114, prMetrics, metricsFreshness review-burden=fresh 0.09d, reviewBurden, prCategoryMetrics 91/97 merged, ccusageCost $0 30d/7d/today cache_hit 95%, ciHealth 95% 20/21, sessionLogs, codeChurn 0%, queueEfficiency composite 0.895 [fps 0.737, ttm 0.7h, $0/issue, no baseline yet]; agentCost/lighthouse/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback query failed — GitHub REST fallback credential rejected, 403, same recurring class as prior runs). Fresh checkout needed `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/cli...` before `sensor-report.mjs` would resolve its `@mbe/gh-client` import — routine cloud-session cold-start, not a repo issue.
+**Regressions:** 1 detected (`queueEfficiency.composite_vs_previous_report`: 0.962 → 0.895, delta -0.067, medium — exceeds the sensor's own 0.05 threshold and is the largest single-run drop in this log's history), 1 issue created: #5738 "fix(queueEfficiency): composite regressed (-0.067)" (`ready`, `meta-improvement`, `bug`). No duplicate found via `search_issues`.
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed, 5 skipped (3 no Lighthouse inventory, 1 no completed CI runs to verify against, 1 no matching verifier for labels)
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Sentry triage (Step 1b):** skipped — not invoked this run (Sentry MCP connected but no confirmed org/project auth checked; deferred to avoid an unbounded query on a metrics-only routine)
+**Threshold notes:** verify-fixes auto-tuner found no adjustments needed. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors — budgets file left at defaults (3/category), well above the 1 issue filed. 30-day verification sample is 130 entries but 129/130 are structural skips (no Lighthouse/CI/verifier access from this cloud session), leaving too small a non-skip sample (1) to compute a meaningful fix-effectiveness rate this run. A `search_issues` check for learning-loop-authored issues closed `not_planned` returned 0 — false-positive rate reads 0% but same small-sample caveat applies.

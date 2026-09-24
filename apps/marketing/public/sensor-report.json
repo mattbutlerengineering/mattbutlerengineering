@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-24T00:35:03.089Z",
+  "generated_at": "2026-09-24T18:04:53.175Z",
   "period": {
     "start": "2026-09-17",
     "end": "2026-09-24"
@@ -35,32 +35,22 @@
       },
       "entry_count": 10
     },
-    "domainActivity": {
-      "available": false
-    },
     "metricsFreshness": {
       "available": true,
-      "stale_count": 1,
+      "stale_count": 0,
       "metrics": [
-        {
-          "metric": "domain-metrics",
-          "state": "unconfigured",
-          "age_days": null,
-          "latest": null,
-          "max_age_days": 3
-        },
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 2.31,
-          "latest": "2026-09-21T17:08:51.141Z",
+          "age_days": 0.09,
+          "latest": "2026-09-24T15:51:44.264Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-21T17:08:51.141Z",
+      "collected_at": "2026-09-24T15:51:44.264Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -68,29 +58,39 @@
       "overall_rubber_stamp_ratio": 0,
       "overall_approvals": 0,
       "overall_rubber_stamps": 0,
-      "review_coverage": "unknown",
-      "no_formal_review_stage": false
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 99,
-      "total_merged": 93,
+      "total_prs": 97,
+      "total_merged": 91,
       "total_closed_without_merge": 6,
       "by_category": {
-        "tier:sensitive": {
-          "merged": 20,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+        "tier:trivial": {
+          "merged": 35,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.97
         },
         "tier:standard": {
           "merged": 27,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 33,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.97
+        "tier:sensitive": {
+          "merged": 19,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "unlabeled": {
+          "merged": 1,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:critical": {
+          "merged": 3,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         },
         "dependencies": {
           "merged": 6,
@@ -106,11 +106,6 @@
           "merged": 0,
           "closed_without_merge": 1,
           "acceptance_rate": 0
-        },
-        "tier:critical": {
-          "merged": 7,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
         }
       }
     },
@@ -122,42 +117,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 20678683,
-      "output_tokens": 37664,
-      "cache_creation_tokens": 491184,
-      "cache_hit_rate": 0.9768,
+      "cache_read_tokens": 1413773,
+      "output_tokens": 1836,
+      "cache_creation_tokens": 82094,
+      "cache_hit_rate": 0.9451,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 154,
-          "output_tokens": 37585,
-          "cache_read_tokens": 18235791,
-          "cache_creation_tokens": 276744
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 366,
-          "output_tokens": 79,
-          "cache_read_tokens": 2442892,
-          "cache_creation_tokens": 214440
+          "input_tokens": 24,
+          "output_tokens": 1836,
+          "cache_read_tokens": 1413773,
+          "cache_creation_tokens": 82094
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 24,
-      "passed": 16,
-      "failed": 0,
-      "pass_rate_pct": 100,
+      "completed": 29,
+      "passed": 20,
+      "failed": 1,
+      "pass_rate_pct": 95,
       "most_recent": {
-        "databaseId": 35939051584,
-        "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-09-24T00:34:49Z",
-        "name": "Auto-Merge Policy",
+        "databaseId": 36038679597,
+        "status": "in_progress",
+        "conclusion": null,
+        "createdAt": "2026-09-24T18:04:15Z",
+        "name": "Venue Journey",
         "headBranch": "main",
-        "headSha": "3b2fe2a61361596a453fdd37d7b5970cc036c549"
+        "headSha": "2aeebb1313b6d4ce63fd994c114038b083ca688f"
       }
     },
     "lighthouse": {
@@ -175,17 +163,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 3,
-      "logs_7d": 3,
-      "total_commits_7d": 42,
-      "unique_branches_7d": 1,
-      "branches_7d": ["metrics/progress-tracker-2026-09-24"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.002,
-      "total_lines_added_7d": 648701,
-      "lines_churned_7d": 1351,
+      "churn_rate": 0.004,
+      "total_lines_added_7d": 652410,
+      "lines_churned_7d": 2729,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -202,35 +190,40 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.962,
+      "composite": 0.895,
       "sub_metrics": {
-        "issues_merged": 21,
-        "first_pass_success_rate": 0.905,
-        "median_time_to_merge_hours": 0.5,
+        "issues_merged": 19,
+        "first_pass_success_rate": 0.737,
+        "median_time_to_merge_hours": 0.7,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
         "review_coverage": 0
       },
       "distribution": {
         "size:m": {
-          "count": 5,
-          "avg_commits": 1,
-          "avg_ttm_hours": 0.6
+          "count": 4,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 0.7
         },
         "size:s": {
-          "count": 10,
+          "count": 11,
           "avg_commits": 1.5,
-          "avg_ttm_hours": 1.2
+          "avg_ttm_hours": 1.1
         },
-        "size:xs": {
-          "count": 3,
-          "avg_commits": 1,
-          "avg_ttm_hours": 0.1
+        "size:xl": {
+          "count": 1,
+          "avg_commits": 6,
+          "avg_ttm_hours": 2.1
         },
         "size:l": {
-          "count": 3,
+          "count": 1,
+          "avg_commits": 4,
+          "avg_ttm_hours": 1.7
+        },
+        "size:xs": {
+          "count": 2,
           "avg_commits": 1,
-          "avg_ttm_hours": 1
+          "avg_ttm_hours": 0
         }
       },
       "baseline": null,
@@ -249,17 +242,17 @@
   },
   "regressions": [
     {
-      "sensor": "metricsFreshness",
-      "metric": "domain-metrics",
-      "current": "unconfigured",
-      "previous": null,
-      "delta": null,
-      "severity": "low"
+      "sensor": "queueEfficiency",
+      "metric": "composite_vs_previous_report",
+      "current": 0.895,
+      "previous": 0.962,
+      "delta": -0.067,
+      "severity": "medium"
     }
   ],
   "summary": {
     "sensors_available": 10,
-    "sensors_total": 18,
+    "sensors_total": 17,
     "regressions_detected": 1,
     "status": "regressions_detected"
   }
