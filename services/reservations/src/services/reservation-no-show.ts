@@ -1,8 +1,11 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
+import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import { depositService, DepositConcurrentUpdateError, DepositTransitionError } from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
+import { venueService } from "./venue.js";
+import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 
 export type RecordNoShowResult =
@@ -33,12 +36,49 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
     "The deposit was forfeited but the reservation status could not be updated. This requires manual reconciliation.",
 };
 
-/** Outcome of attempting to forfeit a `held` deposit for a no-show. */
+/** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
-  | { outcome: "forfeited" }
+  | { outcome: "resolved" }
   | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
   | { outcome: "failed" };
+
+/** Which Stripe money-move a no-show resolves the deposit with. */
+type NoShowDepositAction =
+  { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refundAmountCents: number };
+
+/**
+ * Determines how much of the deposit to keep on a no-show, mirroring
+ * `cancelReservationWithDeposit`'s guest-cancel policy evaluation exactly
+ * (same `evaluateCancellationFee` call, same venue-policy shape) so the
+ * amount actually captured always matches what `formatCancellationTerms`
+ * disclosed to the guest — never a full forfeit when only a partial
+ * noShowFeePercent was disclosed (#5719 item 6).
+ */
+async function resolveNoShowDepositAction(
+  deposit: Deposit,
+  reservation: Reservation
+): Promise<NoShowDepositAction> {
+  const venuePolicy = reservation.venueId
+    ? await venueService.getPolicyById(reservation.venueId)
+    : null;
+
+  const policy =
+    venuePolicy?.freeCancellationHours != null
+      ? {
+          depositAmountCents: deposit.amountCents,
+          freeCancellationHours: venuePolicy.freeCancellationHours,
+          lateCancellationFeePercent: venuePolicy.lateCancellationFeePercent ?? null,
+          noShowFeePercent: venuePolicy.noShowFeePercent ?? null,
+        }
+      : null;
+
+  const feeResult = evaluateCancellationFee(policy, new Date(reservation.startTime), new Date());
+
+  if (feeResult.depositAction === "forfeit") return { op: "forfeit" };
+  if (feeResult.depositAction === "refund_full") return { op: "refund_full" };
+  return { op: "refund_partial", refundAmountCents: feeResult.refundAmountCents };
+}
 
 /**
  * A capture failed permanently (e.g. Stripe auto-canceled the ~7-day-old
@@ -74,25 +114,37 @@ async function handlePermanentCaptureFailure(
 }
 
 /**
- * Forfeits a `held` deposit for a no-show, handling the concurrent/retried
- * case explicitly: if the CAS loses (`DepositConcurrentUpdateError`) or the
- * deposit already moved past `held` (`DepositTransitionError` — e.g. a
- * retried call arrives after the winner already forfeited), re-read the
- * reservation. If the winning request already completed the whole no-show
- * (status is NO_SHOW), this is a false failure on top of a real success, not
- * a genuine error (#5719 item 3). A permanent (non-retriable) Stripe capture
- * failure is handled separately (#5719 item 5).
+ * Resolves a `held` deposit against a no-show — forfeit, full refund, or
+ * partial refund, per {@link resolveNoShowDepositAction} — handling the
+ * concurrent/retried case explicitly: if the CAS loses
+ * (`DepositConcurrentUpdateError`) or the deposit already moved past `held`
+ * (`DepositTransitionError` — e.g. a retried call arrives after the winner
+ * already resolved it), re-read the reservation. If the winning request
+ * already completed the whole no-show (status is NO_SHOW), this is a false
+ * failure on top of a real success, not a genuine error (#5719 item 3). A
+ * permanent (non-retriable) Stripe capture failure on the forfeit/partial
+ * paths — the only two that attempt a capture — is handled separately
+ * (#5719 item 5); a full-refund failure has no capture to have expired, so
+ * it always falls through to the generic failure result.
  */
 async function forfeitHeldDeposit(
-  depositId: string,
+  deposit: Deposit,
   reservation: Reservation,
   logger: FastifyBaseLogger
 ): Promise<ForfeitOutcome> {
+  const depositId = deposit.id;
+  const action = await resolveNoShowDepositAction(deposit, reservation);
   try {
-    await depositService.forfeit(depositId);
-    return { outcome: "forfeited" };
+    if (action.op === "forfeit") {
+      await depositService.forfeit(depositId);
+    } else if (action.op === "refund_partial") {
+      await depositService.refundPartial(depositId, action.refundAmountCents);
+    } else {
+      await depositService.refund(depositId);
+    }
+    return { outcome: "resolved" };
   } catch (err) {
-    if (err instanceof StripeOperationError && !err.isRetriable) {
+    if (action.op !== "refund_full" && err instanceof StripeOperationError && !err.isRetriable) {
       return handlePermanentCaptureFailure(depositId, reservation, logger, err);
     }
     if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
@@ -103,7 +155,7 @@ async function forfeitHeldDeposit(
     }
     logger.error(
       { err, reservationId: reservation.id, depositId },
-      "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
+      "Failed to resolve deposit on no-show; aborting to avoid ghost state"
     );
     return { outcome: "failed" };
   }
@@ -153,7 +205,7 @@ export async function recordNoShow(
       "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
     );
   } else if (deposit?.status === "held") {
-    const outcome = await forfeitHeldDeposit(deposit.id, reservation, logger);
+    const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
     if (outcome.outcome === "already-no-show") {
       return { success: true, reservation: outcome.reservation };
     }

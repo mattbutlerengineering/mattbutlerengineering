@@ -35,6 +35,8 @@ vi.mock("./venue.js", () => ({
 import { reservationService } from "./reservation.js";
 import { depositService, DepositConcurrentUpdateError } from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
+import { venueService } from "./venue.js";
+import type { VenuePolicy } from "./venue.js";
 import { recordNoShow } from "./reservation-no-show.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 
@@ -85,6 +87,20 @@ const heldDeposit = {
   updatedAt: new Date(),
 };
 
+// A 100% no-show fee reproduces the pre-#5719-item-6 behaviour (full
+// forfeit) for tests that aren't specifically about the fee split.
+const fullNoShowFeeVenuePolicy: VenuePolicy = {
+  id: "venue_1",
+  slug: "the-oak-table",
+  currencyCode: "USD",
+  depositEnabled: true,
+  depositType: "flat",
+  depositAmountCents: null,
+  freeCancellationHours: 24,
+  lateCancellationFeePercent: 50,
+  noShowFeePercent: 100,
+};
+
 describe("recordNoShow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -93,6 +109,7 @@ describe("recordNoShow", () => {
   it("forfeits a held deposit and marks the reservation NO_SHOW (end-to-end)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockResolvedValueOnce({
       ...heldDeposit,
       status: "forfeited",
@@ -193,6 +210,7 @@ describe("recordNoShow", () => {
     // on top of a real success (#5719 item 3).
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(
       new DepositConcurrentUpdateError("dep_1", "forfeit")
     );
@@ -213,6 +231,7 @@ describe("recordNoShow", () => {
   it("still returns the 500 failure when the CAS loses but the reservation was NOT actually marked NO_SHOW", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(
       new DepositConcurrentUpdateError("dep_1", "forfeit")
     );
@@ -232,6 +251,7 @@ describe("recordNoShow", () => {
   it("aborts and does not write NO_SHOW when deposit forfeiture fails (no ghost state)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
     const result = await recordNoShow(reservation, makeLogger());
@@ -252,6 +272,7 @@ describe("recordNoShow", () => {
     const reservation = makeReservation();
     const logger = makeLogger();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(
       new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
     );
@@ -277,6 +298,7 @@ describe("recordNoShow", () => {
   it("still fails the no-show if marking the deposit uncollectable itself fails", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(
       new StripeOperationError(new Error("charge expired"), "StripeInvalidRequestError", false)
     );
@@ -291,6 +313,31 @@ describe("recordNoShow", () => {
       expect(result.status).toBe(500);
     }
     expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("captures only the disclosed noShowFeePercent and refunds the remainder (integer cents)", async () => {
+    // The guest was disclosed a noShowFeePercent% fee (formatCancellationTerms),
+    // but forfeit() captures the FULL deposit — a disclosure/charge mismatch.
+    // Mirror the cancel path: capture the fee, refund the rest (#5719 item 6).
+    const reservation = makeReservation();
+    const partialFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 60 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(partialFeePolicy);
+    vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    // 60% of 10000 cents = 6000 fee, 4000 refunded — floored integer cents.
+    expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 4000);
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
   });
 
   it("returns a 409 conflict when a concurrent request already transitioned the reservation", async () => {
@@ -316,6 +363,7 @@ describe("recordNoShow", () => {
     const reservation = makeReservation();
     const logger = makeLogger();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockResolvedValueOnce({
       ...heldDeposit,
       status: "forfeited",

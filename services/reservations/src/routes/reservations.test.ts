@@ -923,7 +923,19 @@ describe("Reservation Routes", () => {
     });
 
     describe("PATCH /v1/reservations/:id — no-show (#3232)", () => {
-      const confirmedReservation = createMockReservation({ id: "res-123", status: "CONFIRMED" });
+      const confirmedReservation = createMockReservation({
+        id: "res-123",
+        status: "CONFIRMED",
+        venueId: "venue-1",
+      });
+      // A 100% no-show fee reproduces the pre-#5719-item-6 full-forfeit
+      // behaviour for tests not specifically about the fee split (that
+      // split has dedicated unit coverage in reservation-no-show.test.ts).
+      const fullNoShowFeePolicy = makeVenuePolicy({
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      });
 
       it("marks the reservation NO_SHOW and forfeits a held deposit (end-to-end)", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
@@ -931,6 +943,7 @@ describe("Reservation Routes", () => {
           id: "dep-1",
           status: "held",
         } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeePolicy);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
           id: "dep-1",
           status: "forfeited",
@@ -979,6 +992,7 @@ describe("Reservation Routes", () => {
           id: "dep-1",
           status: "held",
         } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeePolicy);
         vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
         const response = await app.inject({
