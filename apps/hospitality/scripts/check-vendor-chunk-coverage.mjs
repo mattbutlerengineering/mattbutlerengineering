@@ -3,9 +3,11 @@
 // that ships in dist/ with zero size-limit budget, so a regression in it is
 // invisible to CI. Fails if any built `*-vendor-*.js` chunk above a "worth
 // budgeting" size floor isn't matched by some `size-limit` path glob in
-// package.json. Sub-floor chunks (e.g. sentry-vendor, ~1 kB) are exempt —
-// requiring a budget on noise would make the guard require busywork instead
-// of catching real regressions.
+// package.json. Chunks below the floor are exempt — requiring a budget on
+// noise would make the guard require busywork instead of catching real
+// regressions. (sentry-vendor used to be cited here as the ~1 kB example;
+// it was actually ~86 kB of misrouted Sentry SDK code hiding in react-vendor
+// — see #5730 — and now carries its own real budget below.)
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";

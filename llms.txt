@@ -2503,6 +2503,9 @@
       export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig { /* ... */ }
     </item>
     <item priority="high">
+      export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -4554,6 +4557,13 @@
         onMouseMove: (e: React.MouseEvent) => void;
         onMouseLeave: () => void;
       } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hospitality">
+  <file path="apps/hospitality/vite.manualChunks.ts">
+    <item priority="high">
+      export function manualChunks(id: string): string | undefined { /* ... */ }
     </item>
   </file>
   </section>
