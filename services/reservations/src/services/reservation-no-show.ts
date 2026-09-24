@@ -8,6 +8,7 @@ import {
   DepositTransitionError,
   DepositRefundLegIncompleteError,
   DepositCaptureAmbiguousError,
+  DepositWrittenOffUncollectableError,
 } from "./deposit.js";
 import { venueService } from "./venue.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
@@ -330,6 +331,40 @@ async function forfeitHeldDeposit(
 }
 
 /**
+ * Applying a {@link ForfeitOutcome} inline within {@link recordNoShow} is
+ * shared by two call sites — the initial `held` branch and the
+ * `rolled-back-to-held` retry sub-path below (#5722 R5 MED-1) — so the
+ * outcome→result mapping lives in one place rather than being duplicated.
+ */
+type ForfeitOutcomeApplication =
+  | { done: true; result: RecordNoShowResult }
+  | { done: false; depositWarning?: string; forfeitedDepositId: string | null };
+
+function applyForfeitOutcome(
+  outcome: ForfeitOutcome,
+  depositId: string
+): ForfeitOutcomeApplication {
+  if (outcome.outcome === "already-no-show") {
+    return { done: true, result: { success: true, reservation: outcome.reservation } };
+  }
+  if (outcome.outcome === "failed") {
+    return { done: true, result: DEPOSIT_FAILURE_RESULT };
+  }
+  if (outcome.outcome === "concurrent-retry") {
+    return { done: true, result: DEPOSIT_CONCURRENT_RETRY_RESULT };
+  }
+  if (outcome.outcome === "refund-leg-incomplete") {
+    return { done: true, result: DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT };
+  }
+  if (outcome.outcome === "uncollectable") {
+    // No money moved — the deposit was written off, not forfeited against
+    // Stripe.
+    return { done: false, depositWarning: outcome.warning, forfeitedDepositId: null };
+  }
+  return { done: false, depositWarning: outcome.warning, forfeitedDepositId: depositId };
+}
+
+/**
  * Domain-level no-show: owns every consequence of the NO_SHOW state
  * transition (#3232). Validates the transition, forfeits any `held` Deposit
  * via the existing deposit-transition path (the same held → forfeited
@@ -374,30 +409,10 @@ export async function recordNoShow(
     );
   } else if (deposit?.status === "held") {
     const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
-    if (outcome.outcome === "already-no-show") {
-      return { success: true, reservation: outcome.reservation };
-    }
-    if (outcome.outcome === "failed") {
-      return DEPOSIT_FAILURE_RESULT;
-    }
-    if (outcome.outcome === "concurrent-retry") {
-      return DEPOSIT_CONCURRENT_RETRY_RESULT;
-    }
-    if (outcome.outcome === "refund-leg-incomplete") {
-      return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
-    }
-    if (outcome.outcome === "uncollectable") {
-      // No money moved — the deposit was written off, not forfeited against
-      // Stripe — so this is not the money-moved ghost-state case below.
-      depositWarning = outcome.warning;
-    } else {
-      // A refund_full/refund_partial resolution still moved money (or
-      // deliberately moved none) — the ghost-state guard below still
-      // applies, and staff still get a warning when the fee wasn't a full
-      // forfeit (#5719 M4).
-      depositWarning = outcome.warning;
-      forfeitedDepositId = deposit.id;
-    }
+    const applied = applyForfeitOutcome(outcome, deposit.id);
+    if (applied.done) return applied.result;
+    depositWarning = applied.depositWarning;
+    forfeitedDepositId = applied.forfeitedDepositId;
   } else if (deposit?.status === "partial_refunded") {
     // Retry guard: a previous attempt captured the card but failed on the
     // refund leg (or the status write after it), leaving the deposit stuck
@@ -418,24 +433,37 @@ export async function recordNoShow(
     }
     try {
       await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+      forfeitedDepositId = deposit.id;
     } catch (err) {
-      logger.error(
-        { err, reservationId: reservation.id, depositId: deposit.id },
-        "Failed to replay partial refund on no-show retry; aborting to avoid ghost state"
-      );
-      if (err instanceof DepositRefundLegIncompleteError) {
-        return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
+      if (err instanceof DepositWrittenOffUncollectableError) {
+        // The authorization was canceled before this row's capture ever
+        // landed — nothing was ever charged. The no-show can still proceed,
+        // just with no fee collected (#5722 R5 LOW-2).
+        logger.warn(
+          { err, reservationId: reservation.id, depositId: deposit.id },
+          "Deposit authorization was canceled before capture; marked uncollectable and recording the no-show anyway"
+        );
+        depositWarning =
+          "Deposit authorization could not be captured (it may have expired) — marked uncollectable.";
+      } else {
+        logger.error(
+          { err, reservationId: reservation.id, depositId: deposit.id },
+          "Failed to replay partial refund on no-show retry; aborting to avoid ghost state"
+        );
+        if (err instanceof DepositRefundLegIncompleteError) {
+          return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
+        }
+        // A re-entrant capture-leg replay that couldn't confirm itself
+        // (#5722 R4 LOW-1) — the card was almost certainly already charged
+        // (this row only reaches partial_refunded via a prior successful
+        // DB-first transition), so DEPOSIT_FAILURE_RESULT's "could not
+        // process the deposit" wording would misleadingly suggest nothing
+        // happened.
+        return err instanceof DepositCaptureAmbiguousError
+          ? DEPOSIT_CAPTURE_UNVERIFIED_RESULT
+          : DEPOSIT_FAILURE_RESULT;
       }
-      // A re-entrant capture-leg replay that couldn't confirm itself (#5722
-      // R4 LOW-1) — the card was almost certainly already charged (this row
-      // only reaches partial_refunded via a prior successful DB-first
-      // transition), so DEPOSIT_FAILURE_RESULT's "could not process the
-      // deposit" wording would misleadingly suggest nothing happened.
-      return err instanceof DepositCaptureAmbiguousError
-        ? DEPOSIT_CAPTURE_UNVERIFIED_RESULT
-        : DEPOSIT_FAILURE_RESULT;
     }
-    forfeitedDepositId = deposit.id;
   } else if (deposit?.status === "forfeited" || deposit?.status === "applied") {
     // Retry guard: a previous no-show's capture reconciliation couldn't
     // confirm the charge with Stripe (DepositCaptureAmbiguousError, #5722
@@ -444,8 +472,18 @@ export async function recordNoShow(
     // written NO_SHOW straight off the row's own status — trusting a status
     // this invocation never itself verified is exactly the ghost-charge risk
     // (#5722 R4 MED-1). Re-verify against Stripe before proceeding.
-    const action = deposit.status === "forfeited" ? "forfeit" : "apply";
-    const verification = await depositService.verifyCaptureCompleted(deposit.id, action);
+    const isForfeited = deposit.status === "forfeited";
+    const timestampField = isForfeited ? "forfeitedAt" : "appliedAt";
+    // Recapture is only ever safe when this retry IS the operation that
+    // produced the status — a no-show retry replaying its own forfeit key.
+    // `applied` is only ever set by the separate staff capture route, never
+    // by a no-show (#5722 R5 MED-1).
+    const verification = await depositService.verifyCaptureCompleted(
+      deposit.id,
+      deposit.status,
+      timestampField,
+      isForfeited
+    );
     if (verification === "failed") {
       logger.error(
         { reservationId: reservation.id, depositId: deposit.id, depositStatus: deposit.status },
@@ -453,7 +491,29 @@ export async function recordNoShow(
       );
       return DEPOSIT_CAPTURE_UNVERIFIED_RESULT;
     }
-    forfeitedDepositId = deposit.id;
+    if (verification === "uncollectable") {
+      // No money moved — the deposit was written off, not forfeited.
+      depositWarning =
+        "Deposit authorization could not be captured (it may have expired) — marked uncollectable.";
+    } else if (verification === "rolled-back-to-held") {
+      // Nothing was ever charged, and this wasn't the operation that set the
+      // status — re-fetch the now-held row and re-run normal policy
+      // evaluation fresh, exactly as if it started `held` (#5722 R5 MED-1).
+      const rolledBack = await depositService.getById(deposit.id);
+      if (rolledBack?.status !== "held") {
+        // A concurrent transition beat this rollback to the row — an
+        // ordinary retryable conflict, not a failure.
+        return DEPOSIT_CONCURRENT_RETRY_RESULT;
+      }
+      const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger);
+      const applied = applyForfeitOutcome(outcome, deposit.id);
+      if (applied.done) return applied.result;
+      depositWarning = applied.depositWarning;
+      forfeitedDepositId = applied.forfeitedDepositId;
+    } else {
+      // "succeeded" or "recaptured"
+      forfeitedDepositId = deposit.id;
+    }
   }
 
   let updated: Reservation | null;

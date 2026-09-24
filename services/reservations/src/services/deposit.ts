@@ -124,6 +124,27 @@ export class DepositCaptureAmbiguousError extends Error {
   }
 }
 
+/**
+ * A re-entrant retry (`refundPartial`'s capture-leg pre-check, or
+ * {@link DepositService.verifyCaptureCompleted}) confirmed the underlying
+ * PaymentIntent is `canceled` — the authorization died (e.g. Stripe
+ * auto-canceled it after ~7 days uncaptured) before this deposit's capture
+ * ever landed. Nothing was ever charged and nothing ever will be: the row
+ * has been written off as `uncollectable`. Callers should report this as
+ * resolved with no fee collected, never as a failure (#5722 R5 LOW-2).
+ */
+export class DepositWrittenOffUncollectableError extends Error {
+  readonly depositId: string;
+
+  constructor(depositId: string) {
+    super(
+      `Deposit ${depositId} was written off as uncollectable — its authorization was canceled before capture`
+    );
+    this.name = "DepositWrittenOffUncollectableError";
+    this.depositId = depositId;
+  }
+}
+
 export interface CreateDepositOptions {
   reservationId: string;
   amountCents: number;
@@ -394,6 +415,16 @@ export class DepositService {
           // surface whatever Stripe says (the idempotency key may still be
           // valid).
         }
+
+        if (preCheckIntentStatus === "canceled") {
+          // The authorization died before this row's capture ever landed —
+          // nothing was ever charged and nothing ever will be. Write off
+          // rather than attempting a doomed capture replay (#5722 R5 LOW-2).
+          await this._writeOffUncollectable(depositId, "partial_refunded", "refundedAt").catch(
+            () => {}
+          );
+          throw new DepositWrittenOffUncollectableError(depositId);
+        }
       }
 
       // Capture the full hold first. If this fails, verify via retrieve and
@@ -504,23 +535,39 @@ export class DepositService {
    * (#5722 R4 MED-1). Re-derives ground truth from Stripe directly:
    *
    *  - `succeeded` — the capture landed; nothing further to do.
-   *  - `requires_capture` — the authorization is still live and nothing was
-   *    ever charged; re-attempt the SAME capture, replaying the original
-   *    `${depositId}:${action}` idempotency key so Stripe's own idempotency
-   *    machinery either returns the cached prior result or genuinely
-   *    completes it now.
-   *  - anything else (`canceled`, a non-terminal status, the re-capture
-   *    itself throwing, or the verification retrieve itself throwing) is
-   *    never guessed at — fails closed so the caller aborts rather than
-   *    reporting a completion Stripe never confirmed.
+   *  - `canceled` — the authorization died before anything captured; nothing
+   *    was ever charged and nothing ever will be. Write the row off as
+   *    `uncollectable` rather than failing forever (#5722 R5 LOW-2).
+   *  - `requires_capture` — nothing was ever charged. Re-capturing here
+   *    charges money, so it is ONLY safe when `allowRecapture` is true AND
+   *    `fromStatus` is `forfeited` — the single case where the retry is
+   *    provably the SAME operation that produced this status (a no-show
+   *    retry replaying its own `${depositId}:forfeit` key; forfeit always
+   *    means "capture the full deposit", so there is no policy this retry
+   *    could get wrong). Every other case — ANY cancel (staff waives fees
+   *    and refunds in full; a free-window guest cancel refunds in full; a
+   *    guest cancel past the boundary may only owe a partial fee) touching a
+   *    `forfeited` row, or ANY retry touching an `applied` row (only ever set
+   *    by the separate staff `/deposits/:id/capture` route, never by a
+   *    no-show or cancel) — would charge money a policy this retry isn't
+   *    itself evaluating actually called for (#5722 R5 MED-1, re-opens the
+   *    #5719 item-6 partial-fee guarantee if violated). CAS-roll the row back
+   *    to `held` instead, so the caller can re-derive the correct action from
+   *    a clean slate.
+   *  - anything else (a non-terminal status, the re-capture itself throwing,
+   *    or the verification retrieve itself throwing) is never guessed at —
+   *    fails closed so the caller aborts rather than reporting a completion
+   *    Stripe never confirmed.
    *
    * A deposit with no `stripePaymentIntentId` (a manual, non-Stripe deposit)
    * has nothing to verify against Stripe and is reported `succeeded` outright.
    */
   async verifyCaptureCompleted(
     depositId: string,
-    action: "apply" | "forfeit"
-  ): Promise<"succeeded" | "recaptured" | "failed"> {
+    fromStatus: "applied" | "forfeited",
+    timestampField: "appliedAt" | "forfeitedAt",
+    allowRecapture: boolean
+  ): Promise<"succeeded" | "recaptured" | "rolled-back-to-held" | "uncollectable" | "failed"> {
     const deposit = await this._requireDeposit(depositId);
     if (!deposit.stripePaymentIntentId) {
       return "succeeded";
@@ -537,16 +584,25 @@ export class DepositService {
       return "succeeded";
     }
 
+    if (intent.status === "canceled") {
+      await this._writeOffUncollectable(depositId, fromStatus, timestampField).catch(() => {});
+      return "uncollectable";
+    }
+
     if (intent.status === "requires_capture") {
-      try {
-        await this.stripe.capturePaymentIntent(
-          deposit.stripePaymentIntentId,
-          `${depositId}:${action}`
-        );
-        return "recaptured";
-      } catch {
-        return "failed";
+      if (allowRecapture && fromStatus === "forfeited") {
+        try {
+          await this.stripe.capturePaymentIntent(
+            deposit.stripePaymentIntentId,
+            `${depositId}:forfeit`
+          );
+          return "recaptured";
+        } catch {
+          return "failed";
+        }
       }
+      await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(() => {});
+      return "rolled-back-to-held";
     }
 
     return "failed";

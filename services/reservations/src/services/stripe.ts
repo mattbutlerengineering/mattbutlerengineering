@@ -232,6 +232,11 @@ export class StripeService {
    * looks "not yet fully refunded", triggering an over-refund) or falsely
    * satisfy it (a larger unrelated refund reads as "already refunded",
    * silently skipping ours) (#5722 MED-2).
+   *
+   * Only counts a tagged refund whose own `status` is `succeeded`, `pending`,
+   * or `requires_action` — a `failed`/`canceled` refund never actually paid
+   * the guest back despite carrying our metadata, so it must not be
+   * mistaken for "already sent" (#5722 R5 LOW-1).
    */
   async findDepositRefund(
     paymentIntentId: string,
@@ -244,7 +249,11 @@ export class StripeService {
       });
       const ours = refunds.data.find(
         (refund) =>
-          refund.metadata?.depositId === depositId && refund.metadata?.leg === "refundPartial"
+          refund.metadata?.depositId === depositId &&
+          refund.metadata?.leg === "refundPartial" &&
+          (refund.status === "succeeded" ||
+            refund.status === "pending" ||
+            refund.status === "requires_action")
       );
       return ours ? { id: ours.id, amount: ours.amount } : null;
     } catch (err) {

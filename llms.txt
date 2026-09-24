@@ -7882,6 +7882,11 @@
         cause: unknown;
       }
     </item>
+    <item priority="high">
+      class DepositWrittenOffUncollectableError {
+        depositId: string;
+      }
+    </item>
     <item priority="low">
       interface CreateDepositOptions {
         reservationId: string;
@@ -8342,6 +8347,14 @@
       type ResolveDepositOutcome = { ok: false; failure: CancelRe | { ok: true; resolved: Resolved;
     </item>
     <item priority="low">
+      async function resolveHeldDeposit(
+        deposit: Deposit,
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        initiator: CancelInitiator
+      ): Promise<ResolveDepositOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
       async function resolveDeposit(
         reservation: Reservation,
         logger: FastifyBaseLogger,
@@ -8443,6 +8456,15 @@
         reservation: Reservation,
         logger: FastifyBaseLogger
       ): Promise<ForfeitOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      type ForfeitOutcomeApplication = { done: true; result: RecordNo | { done: false; depositWarning?;
+    </item>
+    <item priority="medium">
+      function applyForfeitOutcome(
+        outcome: ForfeitOutcome,
+        depositId: string
+      ): ForfeitOutcomeApplication { /* ... */ }
     </item>
     <item priority="high">
       export async function recordNoShow(

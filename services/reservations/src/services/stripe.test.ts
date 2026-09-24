@@ -222,8 +222,13 @@ describe("StripeService", () => {
       // aggregate that would be thrown off by the unrelated one.
       mockRefunds.list.mockResolvedValueOnce({
         data: [
-          { id: "re_unrelated", amount: 500, metadata: {} },
-          { id: "re_ours", amount: 3000, metadata: { depositId: "dep-123", leg: "refundPartial" } },
+          { id: "re_unrelated", amount: 500, status: "succeeded", metadata: {} },
+          {
+            id: "re_ours",
+            amount: 3000,
+            status: "succeeded",
+            metadata: { depositId: "dep-123", leg: "refundPartial" },
+          },
         ],
       });
 
@@ -273,6 +278,60 @@ describe("StripeService", () => {
       await expect(stripeService.findDepositRefund("pi_test_123", "dep-123")).rejects.toThrow(
         "connection lost"
       );
+    });
+
+    it("ignores a tagged refund whose own status is failed — never counted as sent (#5722 R5 LOW-1)", async () => {
+      // Stripe can tag-and-create a refund that itself later fails (e.g. the
+      // guest's card no longer accepts refunds) — its metadata still matches
+      // ours, but it never actually paid the guest back.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_failed",
+            amount: 3000,
+            status: "failed",
+            metadata: { depositId: "dep-123", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("ignores a tagged refund whose own status is canceled", async () => {
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_canceled",
+            amount: 3000,
+            status: "canceled",
+            metadata: { depositId: "dep-123", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("accepts a tagged refund with status pending or requires_action as already sent", async () => {
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_pending",
+            amount: 3000,
+            status: "pending",
+            metadata: { depositId: "dep-123", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toEqual({ id: "re_pending", amount: 3000 });
     });
   });
 

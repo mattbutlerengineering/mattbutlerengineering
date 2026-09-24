@@ -23,8 +23,10 @@ vi.mock("./deposit.js", async () => {
   const actual = await vi.importActual<typeof DepositModule>("./deposit.js");
   return {
     DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
+    DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
     depositService: {
       getByReservationId: vi.fn(),
+      getById: vi.fn(),
       refund: vi.fn(),
       refundPartial: vi.fn(),
       forfeit: vi.fn(),
@@ -36,7 +38,11 @@ vi.mock("./deposit.js", async () => {
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
-import { depositService, DepositCaptureAmbiguousError } from "./deposit.js";
+import {
+  depositService,
+  DepositCaptureAmbiguousError,
+  DepositWrittenOffUncollectableError,
+} from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
   cancelReservationWithDeposit,
@@ -192,6 +198,33 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("proceeds with the cancel when a stuck partial_refunded retry's replay is written off as uncollectable (#5722 R5 LOW-2)", async () => {
+    // The authorization was canceled before this row's capture ever landed —
+    // nothing was ever charged. The cancel can still proceed with no Stripe
+    // op to name for reconciliation.
+    const reservation = makeReservation();
+    const partialRefundedDeposit = {
+      ...heldDeposit,
+      status: "partial_refunded",
+      feeAmountCents: 5000,
+      refundAmountCents: 5000,
+    };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
+      partialRefundedDeposit as never
+    );
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(
+      new DepositWrittenOffUncollectableError("dep_1")
+    );
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(true);
+  });
+
   it("reports a distinct (not the generic) failure detail when a stuck partial_refunded retry's replay is itself unconfirmed (#5722 R4 LOW-1)", async () => {
     // Mirrors reservation-no-show.ts: the card was almost certainly already
     // charged (this row only reaches partial_refunded via a prior successful
@@ -223,18 +256,20 @@ describe("cancelReservationWithDeposit", () => {
     }
   });
 
-  it("re-verifies a stuck forfeited deposit and proceeds when the retry re-captures it (#5722 R4 MED-1)", async () => {
+  it("re-verifies a stuck forfeited deposit, never allowing recapture, and proceeds when already succeeded (#5722 R5 MED-1)", async () => {
     // Mirrors reservation-no-show.ts's identical retry guard: a prior
     // attempt's capture reconciliation couldn't confirm the charge with
     // Stripe (DepositCaptureAmbiguousError, #5722 M3) and left the row at
     // `forfeited` without proof. The old code had no branch for this status
-    // and would have cancelled straight off the row's own status.
+    // and would have cancelled straight off the row's own status. A CANCEL
+    // is never the SAME operation that produced a forfeited row, so
+    // `allowRecapture` must always be `false` here (#5722 R5 MED-1).
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       ...heldDeposit,
       status: "forfeited",
     } as never);
-    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("recaptured");
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...reservation,
       status: "CANCELLED",
@@ -242,11 +277,16 @@ describe("cancelReservationWithDeposit", () => {
 
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
-    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "forfeit");
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "forfeited",
+      "forfeitedAt",
+      false
+    );
     expect(result.success).toBe(true);
   });
 
-  it("re-verifies a stuck applied deposit using the apply action key and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
+  it("re-verifies a stuck applied deposit, never allowing recapture, and proceeds when already succeeded (#5722 R5 MED-1)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       ...heldDeposit,
@@ -260,7 +300,12 @@ describe("cancelReservationWithDeposit", () => {
 
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
-    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "apply");
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "applied",
+      "appliedAt",
+      false
+    );
     expect(result.success).toBe(true);
   });
 
@@ -284,6 +329,133 @@ describe("cancelReservationWithDeposit", () => {
       expect.objectContaining({ depositId: "dep_1", reservationId: "res_1" }),
       expect.stringMatching(/ghost charge|verify/i)
     );
+  });
+
+  it("staff cancel over a stuck applied deposit rolls back to held and refunds in full — never re-captures (#5722 R5 MED-1)", async () => {
+    // Stripe still reports requires_capture (never confirmed captured), so
+    // verifyCaptureCompleted rolls the row back to `held` instead of
+    // re-capturing (allowRecapture is always false for a cancel). Staff
+    // policy then waives the fee and refunds in full — depositService.refund
+    // never triggers a Stripe capture, unlike forfeit/refundPartial.
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("rolled-back-to-held");
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
+    vi.mocked(depositService.refund).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps, {
+      initiator: "staff",
+    });
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "applied",
+      "appliedAt",
+      false
+    );
+    expect(depositService.getById).toHaveBeenCalledWith("dep_1");
+    expect(result.success).toBe(true);
+    expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(depositService.refundPartial).not.toHaveBeenCalled();
+    expect(venueService.getPolicyById).not.toHaveBeenCalled();
+  });
+
+  it("free-window guest cancel over a stuck forfeited deposit rolls back to held and refunds in full — never re-captures (#5722 R5 MED-1)", async () => {
+    // Same Stripe-unconfirmed scenario, but a guest cancel well inside the
+    // free-cancellation window (default makeReservation() is 48h out, policy
+    // is a 24h free window) — the rolled-back row must be refunded in full
+    // via the normal policy evaluation, not re-captured.
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("rolled-back-to-held");
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
+    vi.mocked(depositService.refund).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "forfeited",
+      "forfeitedAt",
+      false
+    );
+    expect(result.success).toBe(true);
+    expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(depositService.refundPartial).not.toHaveBeenCalled();
+  });
+
+  it("returns a 409 (not a failure) when a rolled-back-to-held retry finds the row already moved on by a concurrent request (#5722 R5 MED-1)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("rolled-back-to-held");
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "refunded",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("proceeds with the cancel and reports no failure when a stuck forfeited deposit is confirmed uncollectable (#5722 R5 LOW-2)", async () => {
+    // Stripe confirms the authorization was canceled before capture — nothing
+    // was ever charged, so the cancel can proceed with no Stripe op to name.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("uncollectable");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(true);
+    expect(depositService.refund).not.toHaveBeenCalled();
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(depositService.refundPartial).not.toHaveBeenCalled();
   });
 
   it("aborts the cancel and does not flip status when the deposit refund fails (no ghost state)", async () => {
@@ -545,5 +717,30 @@ describe("cancelReservationWithDeposit", () => {
     expect(depositService.refund).not.toHaveBeenCalled();
     expect(depositService.forfeit).not.toHaveBeenCalled();
     expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
+  });
+
+  it("returns a harmless 409 (not the manual-reconciliation 500) when the status write fails after a stuck deposit was confirmed already succeeded — nothing moved THIS call (#5722 R5 LOW-3)", async () => {
+    // A prior attempt's own capture already succeeded; this retry's
+    // verifyCaptureCompleted just confirms it, moving no money of its own.
+    // A subsequent status-write race must surface as the ordinary loser
+    // conflict, not a false manual-reconciliation alarm.
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("CANCELLED", "CANCELLED", [], "reservation")
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(deps.logger.error).not.toHaveBeenCalled();
   });
 });
