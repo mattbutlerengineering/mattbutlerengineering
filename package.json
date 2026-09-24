@@ -34,6 +34,7 @@
     "check:audit-persistence-caller": "node scripts/check-audit-persistence-caller.mjs",
     "check:story-coverage": "node scripts/check-story-coverage.mjs",
     "check:rialto-changeset": "node scripts/check-rialto-changeset.mjs",
+    "check:changeset-tree": "node scripts/check-changeset-tree.mjs",
     "check:claude-md-table-drift": "node scripts/check-claude-md-table-drift.mjs",
     "check:memory-refs": "node scripts/check-memory-refs.mjs",
     "check:ci-gate-coverage": "node scripts/check-ci-gate-coverage.mjs",
