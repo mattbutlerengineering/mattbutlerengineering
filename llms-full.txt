@@ -18642,6 +18642,12 @@
       readonly modelId: string;
       readonly maxSteps: number;
       readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
+      /**
+       * Forces a specific tool call (e.g. `{ type: "tool", toolName: "render_component" }`)
+       * instead of leaving tool use to the model's discretion. Omit to keep the
+       * provider's default ("auto") behavior — existing callers are unaffected.
+       */
+      readonly toolChoice?: { readonly type: "tool"; readonly toolName: string };
     }
     export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
       "create_reservation",
@@ -18675,6 +18681,7 @@
             model: anthropic(config.modelId),
             messages: aiMessages,
             tools: tools as Parameters<typeof streamText>[0]["tools"],
+            toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata }) => {
@@ -18912,10 +18919,11 @@
         inputSchema: z.object({
           elements: z.array(
             z.object({
-              id: z.string(),
+              key: z.string(),
+              parentKey: z.string().nullable().optional(),
               type: z.string(),
               props: z.record(z.string(), z.unknown()).optional(),
-              children: z.array(z.string()).optional(),
+              visible: z.boolean().optional(),
             })
           ),
         }),
@@ -18957,6 +18965,10 @@
             systemPrompt: SYSTEM_PROMPT,
             modelId: GEN_MODEL_ID,
             maxSteps: 1,
+            // Force the tool call — without this, the model may just answer with
+            // text (ignoring the tool entirely) and the route would stream zero
+            // elements with no indication anything went wrong.
+            toolChoice: { type: "tool", toolName: "render_component" },
             onFinish: async ({ usage, providerMetadata }) =>
               logGenCost(request.log, {
                 userId: request.user?.id,
@@ -18980,8 +18992,12 @@
                     }
                   }
                 );
-              } finally {
                 controller.close();
+              } catch (err) {
+                // Never silently close on failure — that turns a failed
+                // generation into what looks like a successful-but-truncated
+                // one. Erroring the stream surfaces it as a real failure instead.
+                controller.error(err instanceof Error ? err : new Error(String(err)));
               }
             },
           });

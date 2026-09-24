@@ -1419,6 +1419,9 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
     devDependencies:
+      '@json-render/react':
+        specifier: ^0.20.0
+        version: 0.20.0(react@19.3.0)(zod@4.6.5)
       '@mbe/agent-test-utils':
         specifier: workspace:*
         version: link:../../packages/agent-test-utils

@@ -79,6 +79,7 @@
         modelId: string;
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
+        toolChoice?: { readonly type: "tool"; readonly toolName: string };
       }
     </item>
     <item priority="high">

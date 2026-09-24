@@ -35,6 +35,12 @@ export interface GenRunnerConfig {
   readonly modelId: string;
   readonly maxSteps: number;
   readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
+  /**
+   * Forces a specific tool call (e.g. `{ type: "tool", toolName: "render_component" }`)
+   * instead of leaving tool use to the model's discretion. Omit to keep the
+   * provider's default ("auto") behavior — existing callers are unaffected.
+   */
+  readonly toolChoice?: { readonly type: "tool"; readonly toolName: string };
 }
 
 /** Tool names that require user confirmation before execution. */
@@ -83,6 +89,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         model: anthropic(config.modelId),
         messages: aiMessages,
         tools: tools as Parameters<typeof streamText>[0]["tools"],
+        toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata }) => {

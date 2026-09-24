@@ -89,6 +89,7 @@ vi.mock("@mbe/agent-core", () => ({
 }));
 
 import { streamText } from "ai";
+import { flatToTree } from "@json-render/react";
 import { buildApp } from "../app.js";
 
 async function* mockAsyncIterable<T>(items: T[]): AsyncGenerator<T> {
@@ -180,7 +181,7 @@ describe("POST /api/gen/ui", () => {
         messages: expect.arrayContaining([
           expect.objectContaining({
             role: "system",
-            content: "mock system prompt",
+            content: expect.stringContaining("mock system prompt"),
             providerOptions: {
               anthropic: { cacheControl: { type: "ephemeral" } },
             },
@@ -194,9 +195,50 @@ describe("POST /api/gen/ui", () => {
     );
   });
 
+  it("accepts json-render's key/parentKey FlatElement shape and rejects the old id/children shape", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([]),
+      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: "a booking form" },
+    });
+
+    const call = vi.mocked(streamText).mock.calls[0]![0] as unknown as {
+      tools: {
+        render_component: {
+          inputSchema: { safeParse: (v: unknown) => { success: boolean } };
+        };
+      };
+    };
+    const schema = call.tools.render_component.inputSchema;
+
+    // Correct FlatElement shape (@json-render/core): key + optional parentKey.
+    expect(
+      schema.safeParse({ elements: [{ key: "root-1", type: "Card", props: {} }] }).success
+    ).toBe(true);
+    // The old, wrong shape this route shipped with (#5714 review) — flatToTree
+    // never reads id/children, so this must no longer validate.
+    expect(
+      schema.safeParse({ elements: [{ id: "1", type: "Card", props: {}, children: [] }] }).success
+    ).toBe(false);
+  });
+
   it("streams raw flat elements as NDJSON — no envelope, matching apps/gen's useGenStream contract", async () => {
-    const elementA = { id: "1", type: "heading", props: { children: "Title" } };
-    const elementB = { id: "2", type: "paragraph", props: { children: "Body" } };
+    // FlatElement shape per @json-render/core: `key` identifies the element,
+    // `parentKey` (absent/null for root) links it into the tree. NOT `id`/`children`
+    // — flatToTree's real implementation (dist/index.mjs) keys on key/parentKey only.
+    const elementA = { key: "root-1", type: "heading", props: { children: "Title" } };
+    const elementB = {
+      key: "child-1",
+      parentKey: "root-1",
+      type: "paragraph",
+      props: { children: "Body" },
+    };
 
     vi.mocked(streamText).mockReturnValueOnce({
       fullStream: mockAsyncIterable([
@@ -234,5 +276,141 @@ describe("POST /api/gen/ui", () => {
     // Every line is the flat element itself — no {type: "element", element} wrapper,
     // and no tool_status/text lines mixed in (that's gen-agent's chat-envelope contract).
     expect(lines).toEqual([elementA, elementB]);
+  });
+
+  it("produces a stream the REAL, unmocked flatToTree can assemble into a non-empty tree", async () => {
+    const elementA = { key: "root-1", type: "Card", props: { title: "Book a table" } };
+    const elementB = {
+      key: "child-1",
+      parentKey: "root-1",
+      type: "Text",
+      props: { children: "Pick a time" },
+    };
+    const elementC = {
+      key: "child-2",
+      parentKey: "root-1",
+      type: "Button",
+      props: { label: "Confirm" },
+    };
+
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([
+        {
+          type: "tool-call",
+          toolCallId: "call-1",
+          toolName: "render_component",
+          input: { elements: [elementA, elementB, elementC] },
+        },
+        {
+          type: "tool-result",
+          toolCallId: "call-1",
+          toolName: "render_component",
+          result: { rendered: true },
+        },
+      ]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: "a booking form" },
+    });
+
+    const elements = response.body
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    // No mock of @json-render/react in this file — this is the actual published
+    // flatToTree, exercised the same way the gen playground's useGenStream does.
+    const tree = flatToTree(elements);
+
+    expect(tree.root).toBe("root-1");
+    expect(Object.keys(tree.elements)).toHaveLength(3);
+    expect(tree.elements["root-1"]?.children).toEqual(
+      expect.arrayContaining(["child-1", "child-2"])
+    );
+  });
+
+  it("forces the model to call render_component via toolChoice", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([]),
+      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: "a booking form" },
+    });
+
+    expect(streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolChoice: { type: "tool", toolName: "render_component" },
+      })
+    );
+  });
+
+  it("accepts a large refinement prompt that embeds an existing spec", async () => {
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([]),
+      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    // createRefinementPrompt (apps/gen) embeds the full existing spec JSON in
+    // the prompt string — a modest real spec easily exceeds a 2000-char cap.
+    const largePrompt =
+      "Here is an existing UI spec generated from Rialto components. " +
+      "Please modify it according to the user's instruction.\n\n" +
+      `Existing spec:\n${JSON.stringify({ filler: "x".repeat(5000) })}\n\n` +
+      "Modification requested: make the button bigger";
+    expect(largePrompt.length).toBeGreaterThan(2000);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/ui",
+      payload: { prompt: largePrompt },
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("surfaces a mid-stream runner failure as an error, not a silently-truncated 200", async () => {
+    // Yields one real element, THEN fails — the dangerous case: swallowing
+    // the error (the pre-fix behavior, a bare `finally { controller.close() }`)
+    // delivers a 200 with a truncated-but-valid-looking NDJSON body, which the
+    // client reads as a complete, successful generation instead of a failed
+    // one. Once a chunk has already been enqueued, erroring the stream tears
+    // down the in-flight response instead of completing it cleanly — verified
+    // empirically that `app.inject()` rejects in that case (the underlying
+    // connection is destroyed, matching what a real client's fetch reader
+    // would see: a stream error, not a clean HTTP status).
+    async function* oneElementThenThrow(): AsyncGenerator<unknown> {
+      yield {
+        type: "tool-call",
+        toolCallId: "call-1",
+        toolName: "render_component",
+        input: { elements: [{ key: "root-1", type: "Card", props: {} }] },
+      };
+      throw new Error("model call failed mid-stream");
+    }
+
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: oneElementThenThrow(),
+      usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    await expect(
+      app.inject({
+        method: "POST",
+        url: "/api/gen/ui",
+        payload: { prompt: "a booking form" },
+      })
+    ).rejects.toThrow();
   });
 });

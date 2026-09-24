@@ -244,6 +244,38 @@ describe("createGenRunner", () => {
     });
   });
 
+  describe("toolChoice", () => {
+    it("passes toolChoice through to streamText when provided", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const forcedRunner = createGenRunner({
+        ...baseConfig,
+        toolChoice: { type: "tool", toolName: "render_component" },
+      });
+      await forcedRunner.run([{ role: "user", content: "hi" }], {}, async () => {});
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.toolChoice).toEqual({ type: "tool", toolName: "render_component" });
+    });
+
+    it("omits toolChoice when not provided", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await runner.run([{ role: "user", content: "hi" }], {}, async () => {});
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.toolChoice).toBeUndefined();
+    });
+  });
+
   describe("system prompt injection", () => {
     it("puts system prompt first in messages array with cache control", async () => {
       vi.mocked(streamText).mockReturnValueOnce({

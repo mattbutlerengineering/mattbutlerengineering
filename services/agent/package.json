@@ -50,6 +50,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@json-render/react": "^0.20.0",
     "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
