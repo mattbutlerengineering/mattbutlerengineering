@@ -2154,3 +2154,9 @@ None this run (`agent-skip` empty, 0 open).
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Sentry triage (Step 1b):** skipped — Sentry MCP host (`sentry.io`) not in this cloud session's egress allowlist (403 Forbidden)
 **Threshold notes:** verify-fixes threshold auto-tuner found no adjustments needed. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors (`--search` routes to `/search/issues`, a different REST endpoint than `issue list`'s `/repos/.../issues`, which the fallback credential can't reach) — budgets file left at defaults (3/category); moot this run since the one regression was a dedup skip, not a filed issue.
+
+## 2026-09-24
+
+**queueEfficiency:** composite 0.962 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:5, size:s:10, size:xs:3, size:l:3
+**Issues filed:** 0
