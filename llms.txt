@@ -4557,6 +4557,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hospitality">
+  <file path="apps/hospitality/vite.manualChunks.ts">
+    <item priority="high">
+      export function manualChunks(id: string): string | undefined { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="journeys">
   <file path="apps/hospitality/e2e/journeys/journey-api.ts">
     <item priority="high">
