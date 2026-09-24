@@ -412,6 +412,112 @@
       export const reservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/rls-route-sweep.fixtures-public.ts">
+    <item priority="low">
+      async function loadTokenHelpers(): Promise<{
+        generateManageToken: (reservationId: string, guestEmail: string) => string;
+        generateUnsubscribeToken: (guestId: string) => string;
+      }> { /* ... */ }
+    </item>
+    <item priority="high">
+      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
+    </item>
+    <item priority="medium">
+      function brokenPublic(
+        blocker: string,
+        method: "GET" | "POST" | "PATCH" | "DELETE",
+        urlFor: (ctx: SweepContext) => string,
+        payloadFor?: PayloadOrFactory
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PUBLIC_FIXTURES: Record<string, RouteFixture>;
+    </item>
+  </file>
+  <file path="src/routes/rls-route-sweep.fixtures.ts">
+    <item priority="high">
+      export function parsePrintedRoutes(tree: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeRouteKey(key: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const INFRA_ROUTES: ReadonlySet<string>;
+    </item>
+    <item priority="low">
+      type FixtureKind = "not-rls" | "ok" | "broken";
+    </item>
+    <item priority="low">
+      interface RouteFixture {
+        kind: FixtureKind;
+        blocker?: string;
+        run: (ctx: SweepContext) => Promise<void>;
+      }
+    </item>
+    <item priority="low">
+      interface SweepContext {
+        app: FastifyInstance;
+        memberSub: string;
+        venueA: { id: string; slug: string };
+        venueB: { id: string; slug: string };
+        tableA: string;
+      }
+    </item>
+    <item priority="high">
+      export const ADMIN_HEADERS: Record<string, string>;
+    </item>
+    <item priority="high">
+      export const MEMBER_HEADERS: Record<string, string>;
+    </item>
+    <item priority="medium">
+      function inject(
+        ctx: SweepContext,
+        headers: Record<string, string>,
+        opts: InjectOptions
+      ): Promise<LightMyRequestResponse> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const asAdmin: unknown;
+    </item>
+    <item priority="high">
+      export const asMember: unknown;
+    </item>
+    <item priority="high">
+      export function expectOk(res: LightMyRequestResponse, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function expectDenied(res: LightMyRequestResponse, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function expectBroken(res: LightMyRequestResponse, label: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ok(run: RouteFixture["run"]): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function notRls(run: RouteFixture["run"]): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function broken(blocker: string, run: RouteFixture["run"]): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okScopedByQuery(path: string, extraQuery = ""): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okCreateByBody(path: string, bodyFor: (venueId: string) => object): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function brokenEntity(
+        blocker: string,
+        method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
+        urlFor: (ctx: SweepContext) => string,
+        payload?: InjectOptions["payload"]
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="high">
+      export const FIXTURES: Record<string, RouteFixture>;
+    </item>
+  </file>
   <file path="src/routes/stripe-webhook.ts">
     <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }

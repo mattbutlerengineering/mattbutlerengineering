@@ -1,0 +1,808 @@
+import { expect } from "vitest";
+import { randomUUID } from "node:crypto";
+import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
+
+/**
+ * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
+ * file (which owns setup/teardown and the loop that runs these) so the
+ * per-route registry stays readable as data, not interleaved with hooks.
+ *
+ * ## Parsing the route tree
+ *
+ * A literal `onRoute` hook cannot see these routes: `buildApp()` awaits every
+ * `fastify.register(...)` call internally, and each `await` drains that
+ * plugin's own avvio boot step (registering its routes) before the next
+ * `fastify.register` call even runs — verified empirically against this
+ * Fastify version (5.12.5) by adding an `onRoute` hook immediately after
+ * `buildApp()` returns and observing zero routes collected. There is no
+ * point from OUTSIDE `buildApp()` where a hook could attach before ANY of
+ * its routes register. `printRoutes({ commonPrefix: false })` instead
+ * mechanically enumerates Fastify's own router tree (find-my-way's
+ * character-level prefix-compressed radix tree) — {@link parsePrintedRoutes}
+ * walks it back into `METHOD /path` pairs, giving the same completeness
+ * guarantee an `onRoute` hook would have, sourced from Fastify's router
+ * introspection instead of a registration-time event.
+ */
+export function parsePrintedRoutes(tree: string): string[] {
+  const lines = tree.split("\n").filter((line) => line.length > 0);
+  // stack[depth] holds the accumulated path string for that tree depth;
+  // depth 0 is the (unused) virtual root.
+  const stack: string[] = [""];
+  const routes: string[] = [];
+
+  for (const line of lines) {
+    const marker = line.match(/(├── |└── )/);
+    if (!marker || marker.index === undefined) continue;
+    const depth = marker.index / 4 + 1;
+    const rest = line.slice(marker.index + 4);
+
+    const withMethods = rest.match(/^(.*?)\s\(([A-Z, ]+)\)$/);
+    const segment = withMethods ? (withMethods[1] ?? "") : rest;
+    const methods = withMethods ? (withMethods[2] ?? "").split(", ") : null;
+
+    const full = (stack[depth - 1] ?? "") + segment;
+    stack[depth] = full;
+    stack.length = depth + 1;
+
+    if (methods) {
+      for (const method of methods) routes.push(`${method} ${full}`);
+    }
+  }
+  return routes;
+}
+
+/**
+ * Fastify's default `ignoreTrailingSlash` still matches a route registered
+ * as `"/"` under a prefix at BOTH `<prefix>` and `<prefix>/` — confirmed by
+ * injecting both against a real built app (both 200). find-my-way's merged
+ * pretty-print tree renders this as two nodes with identical methods. Since
+ * they are the same route in every way that matters here, normalize away
+ * one trailing slash so the fixture registry doesn't need a byte-identical
+ * duplicate entry for each list/create route.
+ */
+export function normalizeRouteKey(key: string): string {
+  return key.endsWith("/") && key.length > 1 ? key.slice(0, -1) : key;
+}
+
+/** Routes with no venue-scoped data at all — excluded from the sweep by design. */
+export const INFRA_ROUTES: ReadonlySet<string> = new Set([
+  "GET /docs",
+  "GET /docs/*",
+  "GET /docs/json",
+  "GET /docs/yaml",
+  "GET /docs/static/index.html",
+  "GET /docs/static/swagger-initializer.js",
+  "GET /reference",
+  "GET /reference/js/scalar.js",
+  "GET /reference/openapi.json",
+  "GET /reference/openapi.yaml",
+  "GET /ready",
+  "GET /health",
+  "GET /api/health",
+  "GET /api/v1/reservations/health",
+  "OPTIONS *",
+  // SSE: no RLS-scoped Prisma read at all (broadcasts an in-memory emitter),
+  // and `.inject()` cannot exercise a long-lived stream meaningfully.
+  "GET /api/v1/events/stream",
+  // Dev/test-only helper (`process.env.NODE_ENV !== "production"`), no auth,
+  // no Prisma call — just re-emits onto the in-memory bus above.
+  "POST /api/v1/events/test",
+]);
+
+export type FixtureKind = "not-rls" | "ok" | "broken";
+
+export interface RouteFixture {
+  kind: FixtureKind;
+  /** ADR-026 §3.3 blocker item this documents, for "broken" fixtures. */
+  blocker?: string;
+  run: (ctx: SweepContext) => Promise<void>;
+}
+
+export interface SweepContext {
+  app: FastifyInstance;
+  memberSub: string;
+  venueA: { id: string; slug: string };
+  venueB: { id: string; slug: string };
+  tableA: string;
+  tableB: string;
+  guestA: string;
+  guestB: string;
+  floorPlanA: string;
+  floorPlanB: string;
+  reservationA: string;
+  reservationB: string;
+  reservationAGuestEmail: string;
+  waitlistA: string;
+  waitlistB: string;
+  depositA: string;
+  holdA: string;
+}
+
+/** `x-auth-bypass` short-circuits `requireAuth`/`requireVenueAccess` to a hardcoded platform-admin identity. */
+export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
+/** Matched by the `jose` mock in the test file to a non-admin member of venue A. */
+export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
+
+/**
+ * A fresh, unique `remoteAddress` per call. `@fastify/rate-limit`'s default
+ * `keyGenerator` is `request.ip`, and the whole sweep issues far more than
+ * the service-wide 100/min budget from what Fastify (with no `trustProxy`
+ * configured) sees as ONE caller — `light-my-request`'s default injected
+ * socket. Without this every fixture after roughly the seventeenth started
+ * failing on 429, not the RLS assertion it exists to make. Giving each call
+ * its own address is the sweep's own concern, not something worth changing
+ * the shared rate-limit config for.
+ */
+function inject(
+  ctx: SweepContext,
+  headers: Record<string, string>,
+  opts: InjectOptions
+): Promise<LightMyRequestResponse> {
+  return ctx.app.inject({
+    ...opts,
+    remoteAddress: randomUUID(),
+    headers: { ...headers, ...opts.headers },
+  });
+}
+
+export const asAdmin = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
+  inject(ctx, ADMIN_HEADERS, opts);
+export const asMember = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
+  inject(ctx, MEMBER_HEADERS, opts);
+
+/** A successful response (< 300) — the RLS + venue-context plumbing did not interfere. */
+export function expectOk(res: LightMyRequestResponse, label: string): void {
+  expect(
+    res.statusCode,
+    `${label}: expected success, got ${res.statusCode}: ${res.body}`
+  ).toBeLessThan(300);
+}
+
+/** Membership/entity-resolution denial — a non-member reaching for venue B's data. */
+export function expectDenied(res: LightMyRequestResponse, label: string): void {
+  expect([403, 404], `${label}: expected 403/404, got ${res.statusCode}: ${res.body}`).toContain(
+    res.statusCode
+  );
+}
+
+/**
+ * A KNOWN_BROKEN assertion (ADR-026 §3.3 items 1-8, plus anything else this
+ * sweep found broken along the way). Under `RLS_CONTEXT_MODE=throw`, the
+ * shared tripwire converts every unscoped RLS-model read into a thrown
+ * `RlsUnscopedQueryError` before Postgres is even asked — so every one of
+ * these fails with a 4xx/5xx, never a 200 with silently-wrong data. That is
+ * the point of running the sweep in throw mode rather than FORCE alone.
+ */
+export function expectBroken(res: LightMyRequestResponse, label: string): void {
+  expect(
+    res.statusCode,
+    `${label}: expected this KNOWN_BROKEN route to fail, but it returned ${res.statusCode} — ` +
+      `remove it from KNOWN_BROKEN (and its ADR-026 §3.3 item) now that it's fixed`
+  ).toBeGreaterThanOrEqual(400);
+}
+
+function ok(run: RouteFixture["run"]): RouteFixture {
+  return { kind: "ok", run };
+}
+function notRls(run: RouteFixture["run"]): RouteFixture {
+  return { kind: "not-rls", run };
+}
+function broken(blocker: string, run: RouteFixture["run"]): RouteFixture {
+  return { kind: "broken", blocker, run };
+}
+
+/**
+ * Generic "ok" fixture for a `?venueId=`-filtered list route
+ * (`venueIdFromQuery`, ADR-026 §4's global preHandler picks the same key up):
+ * both venues answer for admin, venue A answers for the member, venue B is
+ * denied for the member.
+ */
+function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
+  const url = (venueId: string) => `${path}?venueId=${venueId}${extraQuery}`;
+  return ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }),
+      `admin venue A ${path}`
+    );
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: url(ctx.venueB.id) }),
+      `admin venue B ${path}`
+    );
+    expectOk(
+      await asMember(ctx, { method: "GET", url: url(ctx.venueA.id) }),
+      `member venue A ${path}`
+    );
+    expectDenied(
+      await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }),
+      `member venue B ${path}`
+    );
+  });
+}
+
+/**
+ * Generic "ok" fixture for a `body.venueId`-scoped create route
+ * (`venueIdFromBody`): each call gets a fresh body (via `bodyFor`, so
+ * unique-constrained fields like a table/guest name never collide) — both
+ * venues succeed for admin, venue A succeeds for the member, venue B is
+ * denied for the member (before any row is even attempted).
+ */
+function okCreateByBody(path: string, bodyFor: (venueId: string) => object): RouteFixture {
+  return ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, { method: "POST", url: path, payload: bodyFor(ctx.venueA.id) }),
+      `admin venue A ${path}`
+    );
+    expectOk(
+      await asAdmin(ctx, { method: "POST", url: path, payload: bodyFor(ctx.venueB.id) }),
+      `admin venue B ${path}`
+    );
+    expectOk(
+      await asMember(ctx, { method: "POST", url: path, payload: bodyFor(ctx.venueA.id) }),
+      `member venue A ${path}`
+    );
+    expectDenied(
+      await asMember(ctx, { method: "POST", url: path, payload: bodyFor(ctx.venueB.id) }),
+      `member venue B ${path}`
+    );
+  });
+}
+
+/**
+ * Generic KNOWN_BROKEN fixture for an entity-addressed route
+ * (`venueIdFromEntity` — ADR-026 §3.3 item 2, or one of the other seven
+ * items sharing the identical "lookup can't run inside the scope it's
+ * computing" shape). One admin request is enough to prove it: the ADR's own
+ * §3.3 measurement table is admin-only for the same reason — the failure
+ * mode (404 admin / 403 non-admin) is already established there, and running
+ * every one of these as both identities would not add information.
+ */
+function brokenEntity(
+  blocker: string,
+  method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
+  urlFor: (ctx: SweepContext) => string,
+  payload?: InjectOptions["payload"]
+): RouteFixture {
+  return broken(blocker, async (ctx) => {
+    const url = urlFor(ctx);
+    expectBroken(await asAdmin(ctx, { method, url, payload }), `admin ${method} ${url}`);
+  });
+}
+
+/**
+ * venue_groups CRUD (`requireAdmin`-only): `venue_groups` carries no RLS
+ * policy at all (ADR-026 §3, "Not an RLS problem at all" table row) — a
+ * plain admin smoke check, not part of the venue-isolation matrix.
+ */
+const notRlsFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/venues/groups": notRls(async (ctx) => {
+    expectOk(await asAdmin(ctx, { method: "GET", url: "/api/v1/venues/groups" }), "list groups");
+  }),
+  "POST /api/v1/venues/groups": notRls(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/venues/groups",
+      payload: { name: "RLS Sweep Group", slug: `rls-sweep-group-${Date.now()}` },
+    });
+    expectOk(res, "create group");
+  }),
+  "GET /api/v1/venues/groups/:id": notRls(async (ctx) => {
+    expectDenied(
+      await asAdmin(ctx, { method: "GET", url: "/api/v1/venues/groups/does-not-exist" }),
+      "get group (404, not a venue-isolation case)"
+    );
+  }),
+  "PATCH /api/v1/venues/groups/:id": notRls(async (ctx) => {
+    expectDenied(
+      await asAdmin(ctx, {
+        method: "PATCH",
+        url: "/api/v1/venues/groups/does-not-exist",
+        payload: { name: "x" },
+      }),
+      "patch group (404)"
+    );
+  }),
+  "DELETE /api/v1/venues/groups/:id": notRls(async (ctx) => {
+    expectDenied(
+      await asAdmin(ctx, { method: "DELETE", url: "/api/v1/venues/groups/does-not-exist" }),
+      "delete group (404)"
+    );
+  }),
+
+  // `reservation_holds` is explicitly OUT of ADR-026 §1's seven-table list —
+  // no RLS policy applies to it regardless of `app.venue_id`. `requireAuth`
+  // only (no `requireVenueAccess`), by design (see holds.ts's own doc
+  // comment: this is the staff surface, session-id-capability-gated like its
+  // public sibling, not membership-gated).
+  "POST /api/v1/holds": notRls(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/holds",
+      payload: {
+        venueId: ctx.venueA.id,
+        date: "2026-10-03",
+        time: "2026-10-03T18:00:00Z",
+        partySize: 2,
+        tableId: ctx.tableA,
+      },
+    });
+    expectOk(res, "create hold");
+  }),
+  "GET /api/v1/holds/:id": notRls(async (ctx) => {
+    expectDenied(
+      await asAdmin(ctx, { method: "GET", url: "/api/v1/holds/does-not-exist" }),
+      "get hold (404, not a venue-isolation case)"
+    );
+  }),
+  "DELETE /api/v1/holds/:id": notRls(async (ctx) => {
+    expectDenied(
+      await asAdmin(ctx, {
+        method: "DELETE",
+        url: "/api/v1/holds/does-not-exist",
+        headers: { "x-session-id": "rls-sweep-session" },
+      }),
+      "release hold (404)"
+    );
+  }),
+};
+
+/**
+ * Tables: list/create scope by `?venueId=`/`body.venueId`; every entity-
+ * addressed `:id` route (ADR-026 §3.3 item 2) resolves its venue via
+ * `venueIdFromEntity(tableService.getById)` — an unscoped RLS read that
+ * throws under `RLS_CONTEXT_MODE=throw` before the guard can even decide.
+ */
+const tableFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/tables": okScopedByQuery("/api/v1/tables"),
+  "POST /api/v1/tables": okCreateByBody("/api/v1/tables", (venueId) => ({
+    name: `RLS Sweep Table ${randomUUID()}`,
+    capacity: 4,
+    venueId,
+  })),
+  "GET /api/v1/tables/:id": brokenEntity("item-2", "GET", (ctx) => `/api/v1/tables/${ctx.tableA}`),
+  "PATCH /api/v1/tables/:id": brokenEntity(
+    "item-2",
+    "PATCH",
+    (ctx) => `/api/v1/tables/${ctx.tableA}`,
+    { name: "renamed" }
+  ),
+  "DELETE /api/v1/tables/:id": brokenEntity(
+    "item-2",
+    "DELETE",
+    (ctx) => `/api/v1/tables/${ctx.tableA}`
+  ),
+  "PATCH /api/v1/tables/:id/status": brokenEntity(
+    "item-2",
+    "PATCH",
+    (ctx) => `/api/v1/tables/${ctx.tableA}/status`,
+    { status: "OCCUPIED" }
+  ),
+};
+
+/**
+ * Venues. `GET /` is the ONE mixed case in this sweep: the admin branch
+ * (`venueService.list`) is already RESOLVED by ADR-026 §3.1's
+ * `app_cross_venue_venues()` hatch, but the non-admin branch
+ * (`venueService.listForMember`) is item 1 — a real RLS-model delegate call
+ * with no single venue to name. Everything else here is item 5 (venue-
+ * self-addressed `:id` routes — the global preHandler only reads a
+ * `venueId` KEY, and these routes address the venue by its own `:id`) or
+ * item 8 (`POST /` inserts a venue row with no context to satisfy its own
+ * `WITH CHECK`) or item 3 (public-shaped slug lookup, reused by the
+ * authenticated `by-slug` route too).
+ */
+const venueFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/venues": ok(async (ctx) => {
+    const admin = await asAdmin(ctx, { method: "GET", url: "/api/v1/venues" });
+    expectOk(admin, "admin list (app_cross_venue_venues hatch)");
+    const body = JSON.parse(admin.body) as { data: Array<{ id: string }> };
+    const ids = body.data.map((v) => v.id);
+    expect(ids, "admin list must include both venues, not just one").toEqual(
+      expect.arrayContaining([ctx.venueA.id, ctx.venueB.id])
+    );
+
+    expectBroken(
+      await asMember(ctx, { method: "GET", url: "/api/v1/venues" }),
+      "member list (item-1: listForMember, unscoped venue.findMany)"
+    );
+  }),
+  "POST /api/v1/venues": broken("item-8", async (ctx) => {
+    expectBroken(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/venues",
+        payload: {
+          name: "RLS Sweep New Venue",
+          slug: `rls-sweep-new-${randomUUID()}`,
+          ianaTimezone: "UTC",
+        },
+      }),
+      "create venue"
+    );
+  }),
+  "GET /api/v1/venues/by-slug/:slug": broken("item-3", async (ctx) => {
+    expectBroken(
+      await asAdmin(ctx, { method: "GET", url: `/api/v1/venues/by-slug/${ctx.venueA.slug}` }),
+      "get venue by slug"
+    );
+  }),
+  "GET /api/v1/venues/:id": brokenEntity(
+    "item-5",
+    "GET",
+    (ctx) => `/api/v1/venues/${ctx.venueA.id}`
+  ),
+  "PATCH /api/v1/venues/:id": brokenEntity(
+    "item-5",
+    "PATCH",
+    (ctx) => `/api/v1/venues/${ctx.venueA.id}`,
+    { name: "renamed" }
+  ),
+  // venueB, not venueA: this route is expected to stay broken, but using the
+  // venue nothing else in the sweep depends on keeps the blast radius of a
+  // surprise fix (a DELETE that actually runs) contained to this one entry.
+  "DELETE /api/v1/venues/:id": brokenEntity(
+    "item-5",
+    "DELETE",
+    (ctx) => `/api/v1/venues/${ctx.venueB.id}`
+  ),
+  "GET /api/v1/venues/:id/table-statuses": brokenEntity(
+    "item-5",
+    "GET",
+    (ctx) => `/api/v1/venues/${ctx.venueA.id}/table-statuses`
+  ),
+};
+
+/**
+ * Availability has NO `requireVenueAccess` at all (any authenticated caller
+ * may check any venue's availability, by design) — its `:venueId` PARAM key
+ * happens to match `venueIdFromParams`'s expected name, so the GLOBAL
+ * preHandler resolves it correctly with no entity lookup. Genuinely "ok" for
+ * every caller, including a member on venue B — that is not a bug here.
+ */
+const availabilityFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/availability/:venueId": ok(async (ctx) => {
+    const url = (venueId: string) => `/api/v1/availability/${venueId}?date=2026-10-01&partySize=2`;
+    expectOk(await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }), "admin venue A");
+    expectOk(
+      await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }),
+      "member venue B (open route)"
+    );
+  }),
+  "GET /api/v1/availability/:venueId/dates": ok(async (ctx) => {
+    const url = (venueId: string) =>
+      `/api/v1/availability/${venueId}/dates?startDate=2026-10-01&endDate=2026-10-07&partySize=2`;
+    expectOk(await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }), "admin venue A");
+    expectOk(
+      await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }),
+      "member venue B (open route)"
+    );
+  }),
+};
+
+/**
+ * Floor plans. `GET /` is the sweep's SECOND mixed case: with `?venueId=`
+ * the global preHandler resolves context and both `list`/`listForMember`
+ * run scoped (ok); without it, `listForMember` (and, for an admin, `list`
+ * itself) is an unscoped `floorPlan.findMany` — item 1's third bullet.
+ * Every other route here is item 2 (`venueIdFromEntity` on the floor plan's
+ * own `:id`, its `body.floorPlanId`, or a table's `:tableId`).
+ */
+const floorPlanFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/floor-plans": ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: `/api/v1/floor-plans?venueId=${ctx.venueA.id}` }),
+      "admin, venueId given"
+    );
+    expectOk(
+      await asMember(ctx, { method: "GET", url: `/api/v1/floor-plans?venueId=${ctx.venueA.id}` }),
+      "member, venueId given"
+    );
+    expectBroken(
+      await asAdmin(ctx, { method: "GET", url: "/api/v1/floor-plans" }),
+      "admin, no venueId (item-1: unscoped floorPlan.findMany)"
+    );
+  }),
+  "POST /api/v1/floor-plans": okCreateByBody("/api/v1/floor-plans", (venueId) => ({
+    venueId,
+    name: `RLS Sweep Floor Plan ${randomUUID()}`,
+    layoutJson: {},
+  })),
+  "GET /api/v1/floor-plans/venue/:venueId/active": ok(async (ctx) => {
+    const url = (venueId: string) => `/api/v1/floor-plans/venue/${venueId}/active`;
+    expectOk(await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }), "admin venue A");
+    expectOk(await asMember(ctx, { method: "GET", url: url(ctx.venueA.id) }), "member venue A");
+    expectDenied(await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }), "member venue B");
+  }),
+  "POST /api/v1/floor-plans/tables/positions": brokenEntity(
+    "item-2",
+    "POST",
+    () => "/api/v1/floor-plans/tables/positions",
+    { floorPlanId: "rls-sweep-fp", positions: [] }
+  ),
+  "POST /api/v1/floor-plans/tables/:tableId/assign": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/floor-plans/tables/${ctx.tableA}/assign`,
+    { floorPlanId: "rls-sweep-fp" }
+  ),
+  "POST /api/v1/floor-plans/tables/:tableId/remove": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/floor-plans/tables/${ctx.tableA}/remove`,
+    { floorPlanId: "rls-sweep-fp" }
+  ),
+  "GET /api/v1/floor-plans/:id": brokenEntity(
+    "item-2",
+    "GET",
+    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}`
+  ),
+  "PATCH /api/v1/floor-plans/:id": brokenEntity(
+    "item-2",
+    "PATCH",
+    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}`,
+    { name: "renamed" }
+  ),
+  "DELETE /api/v1/floor-plans/:id": brokenEntity(
+    "item-2",
+    "DELETE",
+    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanB}`
+  ),
+  "POST /api/v1/floor-plans/:id/clone": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}/clone`
+  ),
+  "POST /api/v1/floor-plans/:id/activate": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}/activate`
+  ),
+};
+
+/** Guests: list/create scope by `?venueId=`/`body.venueId`; every entity-addressed `:id` route is item 2. */
+const guestFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/guests": okScopedByQuery("/api/v1/guests"),
+  "GET /api/v1/guests/search": okScopedByQuery("/api/v1/guests/search"),
+  "GET /api/v1/guests/segments": okScopedByQuery("/api/v1/guests/segments"),
+  "GET /api/v1/guests/lapsing": okScopedByQuery("/api/v1/guests/lapsing"),
+  "POST /api/v1/guests": okCreateByBody("/api/v1/guests", (venueId) => ({
+    venueId,
+    name: `RLS Sweep Guest ${randomUUID()}`,
+  })),
+  "POST /api/v1/guests/find-or-create": okCreateByBody(
+    "/api/v1/guests/find-or-create",
+    (venueId) => ({
+      venueId,
+      name: `RLS Sweep FoC Guest ${randomUUID()}`,
+      email: `${randomUUID()}@example.com`,
+    })
+  ),
+  "GET /api/v1/guests/:id": brokenEntity("item-2", "GET", (ctx) => `/api/v1/guests/${ctx.guestA}`),
+  "PATCH /api/v1/guests/:id": brokenEntity(
+    "item-2",
+    "PATCH",
+    (ctx) => `/api/v1/guests/${ctx.guestA}`,
+    { name: "renamed" }
+  ),
+  "DELETE /api/v1/guests/:id": brokenEntity(
+    "item-2",
+    "DELETE",
+    (ctx) => `/api/v1/guests/${ctx.guestB}`
+  ),
+  "POST /api/v1/guests/:id/notes": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/guests/${ctx.guestA}/notes`,
+    { text: "sweep note" }
+  ),
+  "POST /api/v1/guests/:id/win-back": brokenEntity(
+    "item-2",
+    "POST",
+    (ctx) => `/api/v1/guests/${ctx.guestA}/win-back`
+  ),
+};
+
+/**
+ * Reservations. `GET /` is a THIRD mixed case: `?venueId=` is scoped
+ * correctly (ok), but `?guestId=` resolves via an unscoped `guestService.getById`
+ * (item 2's own text names this). `/me` is item 1 (`listByUserId`, cross-venue
+ * by construction — a diner's bookings span whatever venues they visited).
+ * `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
+ * own unscoped lookup — admin-only here, since the guard's non-admin path is
+ * ownership (guest-email match), a different axis than the staff-membership
+ * identity this sweep's "member" represents. `POST /` and `/walk-in` are
+ * body-scoped (ok); `POST /` is intentionally open to non-members too (no
+ * `requireVenueAccess` at all — anyone may book), so it gets one smoke
+ * assertion rather than the 4-way matrix.
+ */
+const reservationFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/reservations": ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/reservations?venueId=${ctx.venueA.id}`,
+      }),
+      "admin, venueId"
+    );
+    expectBroken(
+      await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations?guestId=${ctx.guestA}` }),
+      "admin, guestId (item-2: unscoped guestService.getById)"
+    );
+  }),
+  "GET /api/v1/reservations/me": broken("item-1", async (ctx) => {
+    expectBroken(
+      await asAdmin(ctx, { method: "GET", url: "/api/v1/reservations/me" }),
+      "listByUserId, unscoped"
+    );
+  }),
+  // A walk-in flips its table to OCCUPIED, so reusing `ctx.tableA` across the
+  // 4-way matrix would 409 on the second call — each assertion creates its
+  // own disposable table first (via the already-proven-ok `POST /tables`).
+  "POST /api/v1/reservations/walk-in": ok(async (ctx) => {
+    async function walkIn(
+      as: typeof asAdmin,
+      venueId: string,
+      label: string
+    ): Promise<LightMyRequestResponse> {
+      const table = await as(ctx, {
+        method: "POST",
+        url: "/api/v1/tables",
+        payload: { name: `RLS Sweep Walk-in Table ${randomUUID()}`, capacity: 4, venueId },
+      });
+      const { data } = JSON.parse(table.body) as { data: { id: string } };
+      return as(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        payload: { venueId, partySize: 2, tableId: data.id },
+      }).then((res) => {
+        expectOk(res, label);
+        return res;
+      });
+    }
+
+    await walkIn(asAdmin, ctx.venueA.id, "admin venue A");
+    await walkIn(asAdmin, ctx.venueB.id, "admin venue B");
+    await walkIn(asMember, ctx.venueA.id, "member venue A");
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        payload: { venueId: ctx.venueB.id, partySize: 2, tableId: ctx.tableB },
+      }),
+      "member venue B"
+    );
+  }),
+  "GET /api/v1/reservations/:id": brokenEntity(
+    "item-2",
+    "GET",
+    (ctx) => `/api/v1/reservations/${ctx.reservationA}`
+  ),
+  "PATCH /api/v1/reservations/:id": brokenEntity(
+    "item-2",
+    "PATCH",
+    (ctx) => `/api/v1/reservations/${ctx.reservationA}`,
+    { notes: "sweep" }
+  ),
+  "DELETE /api/v1/reservations/:id": brokenEntity(
+    "item-2",
+    "DELETE",
+    (ctx) => `/api/v1/reservations/${ctx.reservationB}`
+  ),
+  "POST /api/v1/reservations": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/reservations",
+      payload: {
+        date: "2026-10-06",
+        startTime: "2026-10-06T18:00:00Z",
+        endTime: "2026-10-06T20:00:00Z",
+        partySize: 2,
+        tableId: ctx.tableA,
+        venueId: ctx.venueA.id,
+        guestName: "RLS Sweep Guest",
+        guestEmail: `rls-sweep-create-${randomUUID()}@example.com`,
+      },
+    });
+    expectOk(res, "create reservation (body-scoped, open route)");
+  }),
+};
+
+/** Waitlist: list/create scope by `?venueId=`/`body.venueId`; every entity-addressed `:id` route is item 2. */
+const waitlistFixtures: Record<string, RouteFixture> = {
+  "POST /api/v1/waitlist": okCreateByBody("/api/v1/waitlist", (venueId) => ({
+    venueId,
+    partySize: 2,
+    guestName: `RLS Sweep Waitlist ${randomUUID()}`,
+    guestPhone: "+15550001111",
+  })),
+  "GET /api/v1/waitlist": okScopedByQuery("/api/v1/waitlist"),
+  "GET /api/v1/waitlist/:id": brokenEntity(
+    "item-2",
+    "GET",
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}`
+  ),
+  "PUT /api/v1/waitlist/:id/notify": brokenEntity(
+    "item-2",
+    "PUT",
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/notify`
+  ),
+  "PUT /api/v1/waitlist/:id/seat": brokenEntity(
+    "item-2",
+    "PUT",
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/seat`
+  ),
+  "PUT /api/v1/waitlist/:id/cancel": brokenEntity(
+    "item-2",
+    "PUT",
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/cancel`
+  ),
+  "PUT /api/v1/waitlist/:id/expire": brokenEntity(
+    "item-2",
+    "PUT",
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/expire`
+  ),
+};
+
+const briefingFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/briefing": okScopedByQuery("/api/v1/briefing", "&date=2026-10-01"),
+};
+
+const bookingMetricsFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/reservations/metrics/daily": okScopedByQuery(
+    "/api/v1/reservations/metrics/daily",
+    "&date=2026-10-01"
+  ),
+};
+
+/**
+ * Deposits (ADR-026 §3.2/§3.3 item 6): `requireAdmin` only, addressed by an
+ * opaque deposit/reservation id — every route resolves its venue via
+ * `resolveReservationVenueId`'s own unscoped `reservation.findUnique`.
+ * `§3.2` resolves the *authorization* gap (#5382); it does not clear these
+ * for the FORCE flip, per its own corrected blockquote.
+ */
+const depositFixtures: Record<string, RouteFixture> = {
+  "POST /api/v1/deposits": broken("item-6", async (ctx) => {
+    expectBroken(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/deposits",
+        payload: { reservationId: ctx.reservationB, amountCents: 1000 },
+      }),
+      "create deposit"
+    );
+  }),
+  "GET /api/v1/deposits/:id": brokenEntity(
+    "item-6",
+    "GET",
+    (ctx) => `/api/v1/deposits/${ctx.depositA}`
+  ),
+  "POST /api/v1/deposits/:id/capture": brokenEntity(
+    "item-6",
+    "POST",
+    (ctx) => `/api/v1/deposits/${ctx.depositA}/capture`
+  ),
+  "POST /api/v1/deposits/:id/refund": brokenEntity(
+    "item-6",
+    "POST",
+    (ctx) => `/api/v1/deposits/${ctx.depositA}/refund`
+  ),
+  "POST /api/v1/deposits/:id/forfeit": brokenEntity(
+    "item-6",
+    "POST",
+    (ctx) => `/api/v1/deposits/${ctx.depositA}/forfeit`
+  ),
+};
+
+export const FIXTURES: Record<string, RouteFixture> = {
+  ...notRlsFixtures,
+  ...tableFixtures,
+  ...venueFixtures,
+  ...availabilityFixtures,
+  ...floorPlanFixtures,
+  ...guestFixtures,
+  ...reservationFixtures,
+  ...waitlistFixtures,
+  ...briefingFixtures,
+  ...bookingMetricsFixtures,
+  ...depositFixtures,
+};
