@@ -6117,7 +6117,13 @@
   </file>
   <file path="services/reservations/src/routes/stripe-webhook.ts">
     <item priority="low">
+      async function holdIfPending(paymentIntentId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
@@ -7719,7 +7725,8 @@
     <item priority="low">
       type StripePort = Pick<
         StripeService,
-        "cancelPaymentIntent" | "capture...;
+        | "cancelPaymentIntent"
+        | "cap...;
     </item>
     <item priority="high">
       class DepositNotFoundError {
@@ -8264,6 +8271,33 @@
   <file path="services/reservations/src/services/reservation-no-show.ts">
     <item priority="low">
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="high">
+      type ForfeitOutcome = { outcome: "resolved" } | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "failed" };
+    </item>
+    <item priority="high">
+      type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
+    </item>
+    <item priority="low">
+      async function resolveNoShowDepositAction(
+        deposit: Deposit,
+        reservation: Reservation
+      ): Promise<NoShowDepositAction> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function handlePermanentCaptureFailure(
+        depositId: string,
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        err: StripeOperationError
+      ): Promise<ForfeitOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function forfeitHeldDeposit(
+        deposit: Deposit,
+        reservation: Reservation,
+        logger: FastifyBaseLogger
+      ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function recordNoShow(
@@ -14432,7 +14466,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
     </item>
     <item priority="low">
       interface Deposit {

@@ -23668,7 +23668,10 @@
                   .send(createProblemDetails(result.status, result.title, result.detail));
               }
     
-              return { data: result.reservation };
+              return {
+                data: result.reservation,
+                ...(result.depositWarning && { warning: result.depositWarning }),
+              };
             } catch (err) {
               if (err instanceof ReservationTransitionError) {
                 return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
@@ -23845,24 +23848,24 @@
     };
   </file>
   <file path="services/reservations/src/routes/stripe-webhook.ts">
-    async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const paymentIntentId = paymentIntent.id;
-    
+    async function holdIfPending(paymentIntentId: string): Promise<void> {
       const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
       if (!deposit) {
         return;
       }
     
-      // Only transition from pending to held if not already transitioned. hold()
-      // itself is a CAS (updateMany guarded on status = "pending"), so a
-      // concurrent retry of this same webhook that also passes this check safely
-      // no-ops (returns false) instead of double-transitioning — nothing further
-      // to do here either way, so the boolean is intentionally unused.
       if (deposit.status === "pending") {
         await depositService.hold(deposit.id, paymentIntentId);
       }
+    }
+    async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      await holdIfPending(paymentIntent.id);
+    }
+    async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      await holdIfPending(paymentIntent.id);
     }
     async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -23873,9 +23876,12 @@
       if (!deposit) return;
     
       // If pending, can't directly refund (no transition pending → refunded)
-      // If held, we can refund
+      // If held, we can refund. Skip the Stripe cancel call — the intent is
+      // already canceled (that's this event); calling cancelPaymentIntent again
+      // would fail against an already-canceled intent and Stripe would retry the
+      // webhook forever on the resulting 500 (#5719).
       if (deposit.status === "held") {
-        await depositService.refund(deposit.id);
+        await depositService.refund(deposit.id, { skipStripeCancel: true });
       }
     }
     async function onChargeRefunded(event: Stripe.Event): Promise<void> {
@@ -26685,6 +26691,7 @@
       "refunded",
       "partial_refunded",
       "forfeited",
+      "uncollectable",
     ]);
     export const DepositSchema = z.object({
       id: z.string(),
@@ -26698,6 +26705,7 @@
       appliedAt: z.string().nullable(),
       refundedAt: z.string().nullable(),
       forfeitedAt: z.string().nullable(),
+      uncollectableAt: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
     });
@@ -30773,7 +30781,11 @@
   <file path="services/reservations/src/services/deposit.ts">
     export type StripePort = Pick<
       StripeService,
-      "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+      | "cancelPaymentIntent"
+      | "capturePaymentIntent"
+      | "createPartialRefund"
+      | "createCustomer"
+      | "retrievePaymentIntent"
     >;
     export class DepositNotFoundError extends Error {
       constructor(id: string) {
@@ -30910,13 +30922,41 @@
       }
     
       /**
+       * Transitions deposit from `held` → `uncollectable` with NO Stripe call.
+       * Used when a capture attempt fails permanently (e.g. Stripe auto-canceled
+       * the authorization after ~7 days uncaptured) — the money is gone for
+       * good, so there is nothing left to reconcile against Stripe; this just
+       * records that fact so the row doesn't stay stuck showing `held`.
+       */
+      async markUncollectable(depositId: string): Promise<Deposit> {
+        const deposit = await this._requireDeposit(depositId);
+        transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+    
+        const { count } = await prisma.deposit.updateMany({
+          where: { id: depositId, status: deposit.status },
+          data: { status: "uncollectable", uncollectableAt: new Date() },
+        });
+    
+        if (count === 0) {
+          throw new DepositConcurrentUpdateError(depositId, "markUncollectable");
+        }
+    
+        return this._requireDeposit(depositId);
+      }
+    
+      /**
        * Transitions deposit from `held` → `refunded`.
        * Cancels the Stripe PaymentIntent (releases the authorization).
        *
        * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
        * cancel fails after the DB write.
+       *
+       * `skipStripeCancel` is for the Stripe-initiated path
+       * (`payment_intent.canceled` webhook): the intent is already canceled on
+       * Stripe's side (that is the event), so calling cancelPaymentIntent again
+       * would fail against an already-canceled intent.
        */
-      async refund(depositId: string): Promise<Deposit> {
+      async refund(depositId: string, options: { skipStripeCancel?: boolean } = {}): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, "refunded"); // throws if invalid
     
@@ -30934,7 +30974,7 @@
         // Fetch the updated row to return consistent state.
         const updated = await this._requireDeposit(depositId);
     
-        if (deposit.stripePaymentIntentId) {
+        if (deposit.stripePaymentIntentId && !options.skipStripeCancel) {
           try {
             await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
           } catch (error) {
@@ -31096,15 +31136,48 @@
               `${depositId}:${action}`
             );
           } catch (error) {
-            // Best-effort rollback. If the rollback itself fails (e.g. DB down),
-            // surface the original Stripe error rather than masking it — never
-            // swallow the cause of the failure.
-            await this._rollbackToHeld(depositId, timestampField).catch(() => {});
+            // A capture failure is only safe to roll back on if the capture
+            // definitely never reached Stripe's ledger. Best-effort rollback. If
+            // the rollback itself fails (e.g. DB down), surface the original
+            // Stripe error rather than masking it — never swallow the cause.
+            const shouldRollback = await this._shouldRollbackAfterCaptureFailure(
+              deposit.stripePaymentIntentId,
+              error
+            );
+            if (shouldRollback) {
+              await this._rollbackToHeld(depositId, timestampField).catch(() => {});
+            }
             throw error;
           }
         }
     
         return updated;
+      }
+    
+      /**
+       * Decides whether a failed capture is safe to roll back to `held`.
+       *
+       * A definite, non-retriable Stripe rejection (e.g. a declined card) never
+       * reaches Stripe's processing pipeline for a partial outcome — the capture
+       * demonstrably never happened, so rolling back is safe without asking.
+       *
+       * A retriable (connection/rate-limit) or unrecognized error means the
+       * capture request may have reached Stripe and succeeded even though the
+       * response was lost — rolling back unconditionally here would strand the
+       * row at `held` while the card was actually charged. Ask Stripe for the
+       * ground truth instead of guessing, and only roll back if the capture
+       * demonstrably never happened (still `requires_capture`).
+       */
+      private async _shouldRollbackAfterCaptureFailure(
+        stripePaymentIntentId: string,
+        error: unknown
+      ): Promise<boolean> {
+        if (error instanceof StripeOperationError && !error.isRetriable) {
+          return true;
+        }
+    
+        const intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
+        return intent.status === "requires_capture";
       }
     
       /**
@@ -33451,8 +33524,97 @@
   </file>
   <file path="services/reservations/src/services/reservation-no-show.ts">
     export type RecordNoShowResult =
-      | { success: true; reservation: Reservation }
+      | { success: true; reservation: Reservation; depositWarning?: string }
       | { success: false; status: number; title: string; detail: string };
+    type ForfeitOutcome =
+      | { outcome: "resolved" }
+      | { outcome: "uncollectable"; warning: string }
+      | { outcome: "already-no-show"; reservation: Reservation }
+      | { outcome: "failed" };
+    type NoShowDepositAction =
+      { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refundAmountCents: number };
+    async function resolveNoShowDepositAction(
+      deposit: Deposit,
+      reservation: Reservation
+    ): Promise<NoShowDepositAction> {
+      const venuePolicy = reservation.venueId
+        ? await venueService.getPolicyById(reservation.venueId)
+        : null;
+    
+      const policy =
+        venuePolicy?.freeCancellationHours != null
+          ? {
+              depositAmountCents: deposit.amountCents,
+              freeCancellationHours: venuePolicy.freeCancellationHours,
+              lateCancellationFeePercent: venuePolicy.lateCancellationFeePercent ?? null,
+              noShowFeePercent: venuePolicy.noShowFeePercent ?? null,
+            }
+          : null;
+    
+      const feeResult = evaluateCancellationFee(policy, new Date(reservation.startTime), new Date());
+    
+      if (feeResult.depositAction === "forfeit") return { op: "forfeit" };
+      if (feeResult.depositAction === "refund_full") return { op: "refund_full" };
+      return { op: "refund_partial", refundAmountCents: feeResult.refundAmountCents };
+    }
+    async function handlePermanentCaptureFailure(
+      depositId: string,
+      reservation: Reservation,
+      logger: FastifyBaseLogger,
+      err: StripeOperationError
+    ): Promise<ForfeitOutcome> {
+      try {
+        await depositService.markUncollectable(depositId);
+      } catch (markErr) {
+        logger.error(
+          { err: markErr, reservationId: reservation.id, depositId },
+          "Failed to mark deposit uncollectable after a permanent capture failure"
+        );
+        return { outcome: "failed" };
+      }
+      logger.warn(
+        { err, reservationId: reservation.id, depositId },
+        "Deposit authorization could not be captured (it may have expired); marked uncollectable and recording the no-show anyway"
+      );
+      return {
+        outcome: "uncollectable",
+        warning:
+          "Deposit authorization could not be captured (it may have expired) — marked uncollectable.",
+      };
+    }
+    async function forfeitHeldDeposit(
+      deposit: Deposit,
+      reservation: Reservation,
+      logger: FastifyBaseLogger
+    ): Promise<ForfeitOutcome> {
+      const depositId = deposit.id;
+      const action = await resolveNoShowDepositAction(deposit, reservation);
+      try {
+        if (action.op === "forfeit") {
+          await depositService.forfeit(depositId);
+        } else if (action.op === "refund_partial") {
+          await depositService.refundPartial(depositId, action.refundAmountCents);
+        } else {
+          await depositService.refund(depositId);
+        }
+        return { outcome: "resolved" };
+      } catch (err) {
+        if (action.op !== "refund_full" && err instanceof StripeOperationError && !err.isRetriable) {
+          return handlePermanentCaptureFailure(depositId, reservation, logger, err);
+        }
+        if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
+          const current = await reservationService.getById(reservation.id);
+          if (current?.status === "NO_SHOW") {
+            return { outcome: "already-no-show", reservation: current };
+          }
+        }
+        logger.error(
+          { err, reservationId: reservation.id, depositId },
+          "Failed to resolve deposit on no-show; aborting to avoid ghost state"
+        );
+        return { outcome: "failed" };
+      }
+    }
     export async function recordNoShow(
       reservation: Reservation,
       logger: FastifyBaseLogger
@@ -33467,19 +33629,57 @@
       }
     
       const deposit = await depositService.getByReservationId(reservation.id);
-      if (deposit?.status === "held") {
-        try {
-          await depositService.forfeit(deposit.id);
-        } catch (err) {
-          logger.error(
-            { err, reservationId: reservation.id, depositId: deposit.id },
-            "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
-          );
+      let depositWarning: string | undefined;
+      let forfeitedDepositId: string | null = null;
+    
+      if (deposit?.status === "pending") {
+        // No confirmed Stripe authorization exists yet (webhook lag, or the
+        // guest never completed payment) — there is nothing held to forfeit.
+        // Silently skipping this let staff believe a no-show fee was collected
+        // when nothing moved (#5719 item 1); record the no-show but say so.
+        depositWarning = "Deposit authorization is still pending — no charge was made.";
+        logger.warn(
+          { reservationId: reservation.id, depositId: deposit.id },
+          "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
+        );
+      } else if (deposit?.status === "held") {
+        const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
+        if (outcome.outcome === "already-no-show") {
+          return { success: true, reservation: outcome.reservation };
+        }
+        if (outcome.outcome === "failed") {
           return DEPOSIT_FAILURE_RESULT;
+        }
+        if (outcome.outcome === "uncollectable") {
+          // No money moved — the deposit was written off, not forfeited against
+          // Stripe — so this is not the money-moved ghost-state case below.
+          depositWarning = outcome.warning;
+        } else {
+          forfeitedDepositId = deposit.id;
         }
       }
     
-      const updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+      let updated: Reservation | null;
+      try {
+        updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+      } catch (err) {
+        if (forfeitedDepositId === null) {
+          // No money moved this call — the ordinary concurrent-no-show loser.
+          if (err instanceof ReservationTransitionError) {
+            return { success: false, status: 409, title: "Conflict", detail: err.message };
+          }
+          throw err;
+        }
+        // The deposit has ALREADY been forfeited against Stripe (money moved) but
+        // the status did not change: a ghost state. Log it explicitly so
+        // ops/finance can reconcile, and return a distinct result — never a bare
+        // 409 that reads as a harmless conflict.
+        logger.error(
+          { err, reservationId: reservation.id, depositId: forfeitedDepositId },
+          "Reservation status update failed AFTER the deposit was already forfeited against Stripe; deposit and reservation status now diverge and require manual reconciliation"
+        );
+        return DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT;
+      }
       if (!updated) {
         return {
           success: false,
@@ -33489,7 +33689,7 @@
         };
       }
     
-      return { success: true, reservation: updated };
+      return { success: true, reservation: updated, ...(depositWarning && { depositWarning }) };
     }
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
@@ -34958,6 +35158,22 @@
           );
     
           return { id: refund.id, status: refund.status ?? "unknown", amount: refund.amount };
+        } catch (err) {
+          wrapStripeError(err);
+        }
+      }
+    
+      /**
+       * Retrieves the current state of a PaymentIntent from Stripe. Used to
+       * verify ground truth after an ambiguous capture error (a retriable
+       * connection/rate-limit failure, or an unrecognized error) where the
+       * request may have reached Stripe and succeeded even though the response
+       * was lost.
+       */
+      async retrievePaymentIntent(paymentIntentId: string): Promise<{ id: string; status: string }> {
+        try {
+          const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+          return { id: intent.id, status: intent.status };
         } catch (err) {
           wrapStripeError(err);
         }
@@ -52672,7 +52888,7 @@
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
-      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
     export interface Deposit {
       id: string;
       reservationId: string;
@@ -52685,6 +52901,7 @@
       appliedAt: string | null;
       refundedAt: string | null;
       forfeitedAt: string | null;
+      uncollectableAt: string | null;
       createdAt: string;
       updatedAt: string;
     }
