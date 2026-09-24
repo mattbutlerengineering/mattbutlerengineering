@@ -1367,6 +1367,9 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^6.1.1
         version: 6.1.1
+      '@json-render/core':
+        specifier: ^0.20.0
+        version: 0.20.0(zod@4.6.5)
       '@mbe/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
@@ -1419,6 +1422,9 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
     devDependencies:
+      '@json-render/react':
+        specifier: ^0.20.0
+        version: 0.20.0(react@19.3.0)(zod@4.6.5)
       '@mbe/agent-test-utils':
         specifier: workspace:*
         version: link:../../packages/agent-test-utils

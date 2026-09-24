@@ -18642,6 +18642,23 @@
       readonly modelId: string;
       readonly maxSteps: number;
       readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
+      /**
+       * Forces a specific tool call (e.g. `{ type: "tool", toolName: "render_component" }`)
+       * instead of leaving tool use to the model's discretion. Omit to keep the
+       * provider's default ("auto") behavior — existing callers are unaffected.
+       */
+      readonly toolChoice?: { readonly type: "tool"; readonly toolName: string };
+      /**
+       * When true, a `tool-error` part (schema-invalid tool input) throws
+       * immediately instead of letting it pass. Only safe when maxSteps === 1
+       * (no possible retry) — gen-ui sets this. With maxSteps > 1, ai@7's own
+       * multi-step loop resends the tool error to the model and can recover on a
+       * later step via the SAME fullStream; throwing unconditionally there would
+       * kill the turn before that recovery ever runs (verified against the real
+       * SDK — gen-agent regressed this way when the throw was unconditional).
+       * Leave unset for any runner where maxSteps > 1.
+       */
+      readonly failOnToolError?: boolean;
     }
     export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
       "create_reservation",
@@ -18675,6 +18692,7 @@
             model: anthropic(config.modelId),
             messages: aiMessages,
             tools: tools as Parameters<typeof streamText>[0]["tools"],
+            toolChoice: config.toolChoice,
             stopWhen: stepCountIs(config.maxSteps),
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata }) => {
@@ -18694,10 +18712,28 @@
                 tool: event.toolName,
                 status: "complete",
               });
+            } else if (event.type === "error") {
+              // ai@7 does not throw on a failed model call (e.g. 529/401) — it
+              // yields this part and completes the stream normally. Without this,
+              // the loop just finishes: the caller sees a clean return and zero
+              // events, indistinguishable from "nothing to generate" rather than
+              // "the call failed". Always fatal — there is no recovery from a
+              // failed model call.
+              throw toError(event.error);
+            } else if (event.type === "tool-error" && config.failOnToolError) {
+              // Unlike `error`, a `tool-error` (schema-invalid tool input) is
+              // NOT always fatal: with maxSteps > 1, ai@7 resends it to the model
+              // and a later step can recover on this same fullStream. Only throw
+              // when the caller has said no retry is possible (see
+              // GenRunnerConfig.failOnToolError).
+              throw toError(event.error);
             }
           }
         },
       };
+    }
+    function toError(value: unknown): Error {
+      return value instanceof Error ? value : new Error(String(value));
     }
     async function handleToolCall(
       event: { toolCallId: string; toolName: string; input: unknown },
@@ -18912,10 +18948,11 @@
         inputSchema: z.object({
           elements: z.array(
             z.object({
-              id: z.string(),
+              key: z.string(),
+              parentKey: z.string().nullable().optional(),
               type: z.string(),
               props: z.record(z.string(), z.unknown()).optional(),
-              children: z.array(z.string()).optional(),
+              visible: VisibilityConditionStrictSchema.optional(),
             })
           ),
         }),
@@ -18957,6 +18994,15 @@
             systemPrompt: SYSTEM_PROMPT,
             modelId: GEN_MODEL_ID,
             maxSteps: 1,
+            // Force the tool call — without this, the model may just answer with
+            // text (ignoring the tool entirely) and the route would stream zero
+            // elements with no indication anything went wrong.
+            toolChoice: { type: "tool", toolName: "render_component" },
+            // Safe here specifically because maxSteps is 1: there is no later
+            // step for ai@7 to retry the tool call on, so a tool-error can only
+            // ever mean the generation failed outright. gen-agent (maxSteps 5)
+            // must NOT set this (see GenRunnerConfig.failOnToolError).
+            failOnToolError: true,
             onFinish: async ({ usage, providerMetadata }) =>
               logGenCost(request.log, {
                 userId: request.user?.id,
@@ -18970,18 +19016,33 @@
     
           const stream = new ReadableStream({
             async start(controller) {
+              let emittedAny = false;
               try {
                 await runner.run(
                   [{ role: "user", content: userContent }],
                   { render_component: createRenderComponentTool() },
                   async (event) => {
                     if (event.type === "element") {
+                      emittedAny = true;
                       controller.enqueue(encoder.encode(JSON.stringify(event.element) + "\n"));
                     }
                   }
                 );
-              } finally {
+                if (!emittedAny) {
+                  // The run completed with no error (ai@7's error/tool-error parts
+                  // are already turned into a throw by gen-runner.ts) but never
+                  // called render_component with a non-empty elements array — a
+                  // 200 with an empty body is exactly as useless to the client as
+                  // a failed generation, and both must read as failures, not as
+                  // "worked, rendered nothing".
+                  throw new Error("Generation completed with zero elements");
+                }
                 controller.close();
+              } catch (err) {
+                // Never silently close on failure — that turns a failed
+                // generation into what looks like a successful-but-truncated
+                // one. Erroring the stream surfaces it as a real failure instead.
+                controller.error(err instanceof Error ? err : new Error(String(err)));
               }
             },
           });

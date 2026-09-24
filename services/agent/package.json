@@ -28,6 +28,7 @@
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
+    "@json-render/core": "^0.20.0",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
@@ -50,6 +51,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@json-render/react": "^0.20.0",
     "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",

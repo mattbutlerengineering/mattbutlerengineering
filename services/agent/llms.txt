@@ -79,6 +79,7 @@
         modelId: string;
         maxSteps: number;
         onFinish?: (payload: GenFinishPayload) => Promise<void>;
+        toolChoice?: { readonly type: "tool"; readonly toolName: string };
       }
     </item>
     <item priority="high">
@@ -97,6 +98,9 @@
     </item>
     <item priority="high">
       export function createGenRunner(config: GenRunnerConfig): GenRunner { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toError(value: unknown): Error { /* ... */ }
     </item>
     <item priority="low">
       async function handleToolCall(
