@@ -235,6 +235,69 @@ describe("POST /api/v1/stripe/webhook", () => {
     await app.close();
   });
 
+  it("calls depositService.hold for payment_intent.amount_capturable_updated when deposit is pending", async () => {
+    // Manual-capture PaymentIntents (capture_method: "manual") fire
+    // amount_capturable_updated on authorization, NOT payment_intent.succeeded
+    // — that event only fires later, when the hold is captured. Without this
+    // handler a deposit never leaves `pending` and no-show forfeiture has
+    // nothing to act on (#5719 item 1).
+    const mockEvent = {
+      type: "payment_intent.amount_capturable_updated",
+      data: {
+        object: {
+          id: "pi_authorized",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    const depositMock = {
+      id: "dep_pending_1",
+      reservationId: "res_pending_1",
+      amountCents: 5000,
+      currency: "usd",
+      status: "pending",
+      stripePaymentIntentId: "pi_authorized",
+      stripeCustomerId: null,
+      heldAt: null,
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    // getByPaymentIntentId -> findFirst
+    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+    // hold() -> _requireDeposit -> findUnique
+    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+    // hold() -> updateMany CAS (pending -> held)
+    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDepositUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "dep_pending_1", status: "pending" },
+        data: expect.objectContaining({
+          status: "held",
+          stripePaymentIntentId: "pi_authorized",
+        }),
+      })
+    );
+    await app.close();
+  });
+
   it("returns 200 for charge.refunded with payment_intent as string id and calls depositService.refund", async () => {
     const mockEvent = {
       type: "charge.refunded",

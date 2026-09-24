@@ -8,7 +8,8 @@ import { WebhookEventRouter } from "./webhook-event-router.js";
 
 /**
  * Stripe webhook endpoint.
- * Handles: payment_intent.succeeded, payment_intent.canceled, charge.refunded
+ * Handles: payment_intent.succeeded, payment_intent.amount_capturable_updated,
+ * payment_intent.canceled, charge.refunded
  *
  * Signature verification requires the exact bytes Stripe sent. The plugin's
  * preParsing hook (see createRawBodyCaptureHook) captures them into
@@ -16,24 +17,40 @@ import { WebhookEventRouter } from "./webhook-event-router.js";
  * route via fastify.register encapsulation.
  */
 
-async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
-  const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  const paymentIntentId = paymentIntent.id;
-
+/**
+ * Shared pending -> held transition for both webhook events that can signal
+ * a successful authorization (see callers below). hold() itself is a CAS
+ * (updateMany guarded on status = "pending"), so a concurrent retry of the
+ * same event that also passes the `pending` check safely no-ops (returns
+ * false) instead of double-transitioning — nothing further to do here either
+ * way, so the boolean is intentionally unused.
+ */
+async function holdIfPending(paymentIntentId: string): Promise<void> {
   const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
 
   if (!deposit) {
     return;
   }
 
-  // Only transition from pending to held if not already transitioned. hold()
-  // itself is a CAS (updateMany guarded on status = "pending"), so a
-  // concurrent retry of this same webhook that also passes this check safely
-  // no-ops (returns false) instead of double-transitioning — nothing further
-  // to do here either way, so the boolean is intentionally unused.
   if (deposit.status === "pending") {
     await depositService.hold(deposit.id, paymentIntentId);
   }
+}
+
+async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  await holdIfPending(paymentIntent.id);
+}
+
+/**
+ * Deposits use `capture_method: "manual"` (an authorize-only hold), so a
+ * successful authorization fires `amount_capturable_updated`, not
+ * `payment_intent.succeeded` — that event only fires later, when the hold is
+ * captured. Without this handler a deposit never leaves `pending` (#5719).
+ */
+async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  await holdIfPending(paymentIntent.id);
 }
 
 async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
@@ -71,6 +88,7 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
 
 const webhookRouter = new WebhookEventRouter()
   .register("payment_intent.succeeded", onPaymentIntentSucceeded)
+  .register("payment_intent.amount_capturable_updated", onPaymentIntentAmountCapturableUpdated)
   .register("payment_intent.canceled", onPaymentIntentCanceled)
   .register("charge.refunded", onChargeRefunded);
 
