@@ -10,7 +10,11 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
   packages: write
+  # Required for the "Dispatch CI" step below -- GITHUB_TOKEN needs
+  # actions:write to call the workflow-dispatch API.
+  actions: write
 
 jobs:
   release:
@@ -35,79 +39,63 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check for pending changesets
-        id: changesets
-        run: |
-          COUNT=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-          if [ "$COUNT" -gt 0 ]; then
-            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
-            echo "Found $COUNT pending changeset(s) — proceeding with release"
-          else
-            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
-            echo "No pending changesets — nothing to release"
-          fi
-
-      - name: Configure git identity
-        if: steps.changesets.outputs.has_changesets == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Version packages
-        if: steps.changesets.outputs.has_changesets == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Detect whether changeset version skips CHANGELOG.md write silently.
-          # This happens when prettier cannot resolve @mbe/config (see gotchas.md).
-          PREV_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
-
-          # Bump versions in package.json, update CHANGELOG.md, consume .changeset/*.md files.
-          # GITHUB_TOKEN is required by @changesets/changelog-github to resolve PR links.
-          pnpm version-packages
-
-          # If the CHANGELOG hash is unchanged, prettier silently skipped the write.
-          # Prepend the version block manually so the file stays accurate.
-          CURR_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
-          if [ "$PREV_HASH" = "$CURR_HASH" ]; then
-            echo "::warning::packages/rialto/CHANGELOG.md was not updated — prepending manually"
-            NEW_VER=$(node -p "require('./packages/rialto/package.json').version")
-            EXISTING=$(cat packages/rialto/CHANGELOG.md 2>/dev/null || echo "# @mattbutlerengineering/rialto")
-            BODY=$(printf '%s' "$EXISTING" | sed '1{/^#[[:space:]]/d}')
-            printf '# @mattbutlerengineering/rialto\n\n## %s\n\n### Changes\n\nSee changeset details in git history.\n\n%s\n' \
-              "$NEW_VER" "$BODY" > packages/rialto/CHANGELOG.md
-          fi
-
       - name: Build rialto
-        if: steps.changesets.outputs.has_changesets == 'true'
+        # Runs on every push, before the action below decides whether to
+        # open/update a Version PR or publish. Harmless when there's nothing
+        # to release; required when there is, since `publish-script:` needs
+        # dist/ already built. changesets/action never runs `version-script`
+        # and `publish-script` in the same invocation (see the step
+        # comment), so there is no "built at the wrong version" hazard from
+        # building first.
         run: pnpm --filter @mattbutlerengineering/rialto build
 
-      - name: Commit version bump
-        if: steps.changesets.outputs.has_changesets == 'true'
-        run: |
-          # Stage everything: bumped package.json, CHANGELOG.md, consumed changesets,
-          # and any exports-map regeneration in packages/rialto/package.json (gotcha #3:
-          # pnpm release regenerates exports when a new component folder was added).
-          git add .
-          if git diff --staged --quiet; then
-            echo "Nothing staged after versioning"
-          else
-            # --no-verify: this is a bot commit of changeset-generated files; the
-            # husky pre-commit hook invokes the mbe CLI (tools/cli imports
-            # @mbe/agent-core/dist), which the Release job never builds, so the
-            # hook throws ERR_MODULE_NOT_FOUND. The hook's checks are redundant
-            # here (dedicated CI jobs enforce lint/ADR/integrity). Matches the
-            # bot-commit convention in revert-rca-detection.yml.
-            git commit --no-verify -m "chore: version packages [skip ci]"
-          fi
-
-      - name: Publish to GitHub Packages
-        if: steps.changesets.outputs.has_changesets == 'true'
+      - name: Create Version Packages PR or publish to GitHub Packages
+        id: changesets
+        # Standard changesets "Version PR" flow (#3322, replacing the old
+        # direct-push-to-main flow that #5713 exposed as broken -- see PR
+        # body for the "Invalid tree" history). On a push to main with
+        # pending changesets, this opens/updates a `changeset-release/main`
+        # PR running `version-script:`. Once that PR is reviewed and merged
+        # (no changesets left), the next run on main has nothing to version
+        # and runs `publish-script:` instead, using NODE_AUTH_TOKEN against
+        # the registry-url/scope configured above (#5713).
+        #
+        # Input/output names are v2 (verified against the pinned SHA's real
+        # action.yml, not assumed from v1 memory -- #5721 review, round 3):
+        # `version-script`/`publish-script`/`commit-message`/`pr-title`, and
+        # the output is `pr-number`, not `pullRequestNumber`.
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          # v2's version-script/publish-script inputs run through
+          # @actions/exec's exec()/getExecOutput() with no `args` array,
+          # which tokenizes the command STRING itself (argv splitting) --
+          # it does not spawn a shell. An inline multi-line block with `#`
+          # comments, `$(...)`, `if`/`fi`, and a redirect can't run that
+          # way. scripts/release-version.sh checks the same logic into a
+          # real file so `bash` -- not the tokenizer -- interprets it.
+          version-script: bash scripts/release-version.sh
+          publish-script: pnpm exec changeset publish
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm exec changeset publish
 
-      - name: Push version commit and release tags
-        if: steps.changesets.outputs.has_changesets == 'true'
-        run: git push --follow-tags
+      - name: Dispatch CI on the Version Packages PR branch
+        # The PR above is opened/updated with GITHUB_TOKEN, so its
+        # `pull_request` event never fires ci.yml (GitHub's anti-recursion
+        # rule for GITHUB_TOKEN-authored events) -- CI Gate would never
+        # appear and the PR would sit with no CI signal. workflow_dispatch
+        # is the documented exception (an explicit API call, not a passive
+        # event); ci.yml's CI Gate job also publishes a commit status (not
+        # just a check run), so a dispatched run's result surfaces on the PR
+        # even though it didn't come from `pull_request`. See
+        # .claude/rules/gotchas.md § CI ("GITHUB_TOKEN-authored PRs never
+        # fire CI Gate"). AUTOMATION_PAT, which would sidestep this by
+        # authoring the PR as a real identity, is not configured as a repo
+        # secret (docs/SECRETS.md) as of this writing -- see the PR body's
+        # open question for Matt.
+        if: steps.changesets.outputs.pr-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref changeset-release/main

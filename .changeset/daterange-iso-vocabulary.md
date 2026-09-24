@@ -1,5 +1,5 @@
 ---
-"@mattbutlerengineering/rialto": major
+"@mattbutlerengineering/rialto": minor
 ---
 
 **BREAKING: `DateRange` migrated from `Date` objects to `yyyy-mm-dd` ISO strings** (ADR-024), matching the vocabulary `Calendar`/`DatePicker` already use.

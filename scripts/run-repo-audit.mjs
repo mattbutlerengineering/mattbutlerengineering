@@ -83,6 +83,7 @@ export const REPO_AUDIT_CHECKS = [
   },
   { name: "check-story-coverage", command: "node", args: ["scripts/check-story-coverage.mjs"] },
   { name: "check-rialto-changeset", command: "node", args: ["scripts/check-rialto-changeset.mjs"] },
+  { name: "check-changeset-tree", command: "node", args: ["scripts/check-changeset-tree.mjs"] },
   {
     name: "check-claude-md-table-drift",
     command: "node",
