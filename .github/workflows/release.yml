@@ -42,10 +42,11 @@ jobs:
       - name: Build rialto
         # Runs on every push, before the action below decides whether to
         # open/update a Version PR or publish. Harmless when there's nothing
-        # to release; required when there is, since `publish:` needs dist/
-        # already built. changesets/action never runs `version` and
-        # `publish` in the same invocation (see the step comment), so there
-        # is no "built at the wrong version" hazard from building first.
+        # to release; required when there is, since `publish-script:` needs
+        # dist/ already built. changesets/action never runs `version-script`
+        # and `publish-script` in the same invocation (see the step
+        # comment), so there is no "built at the wrong version" hazard from
+        # building first.
         run: pnpm --filter @mattbutlerengineering/rialto build
 
       - name: Create Version Packages PR or publish to GitHub Packages
@@ -54,35 +55,28 @@ jobs:
         # direct-push-to-main flow that #5713 exposed as broken -- see PR
         # body for the "Invalid tree" history). On a push to main with
         # pending changesets, this opens/updates a `changeset-release/main`
-        # PR running `version:`. Once that PR is reviewed and merged (no
-        # changesets left), the next run on main has nothing to version and
-        # runs `publish:` instead, using NODE_AUTH_TOKEN against the
-        # registry-url/scope configured above (#5713).
+        # PR running `version-script:`. Once that PR is reviewed and merged
+        # (no changesets left), the next run on main has nothing to version
+        # and runs `publish-script:` instead, using NODE_AUTH_TOKEN against
+        # the registry-url/scope configured above (#5713).
+        #
+        # Input/output names are v2 (verified against the pinned SHA's real
+        # action.yml, not assumed from v1 memory -- #5721 review, round 3):
+        # `version-script`/`publish-script`/`commit-message`/`pr-title`, and
+        # the output is `pr-number`, not `pullRequestNumber`.
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          commit: "chore: version packages"
-          title: "chore: version packages"
-          version: |
-            # Detect whether changeset version skips CHANGELOG.md write silently.
-            # This happens when prettier cannot resolve @mbe/config (see gotchas.md).
-            PREV_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
-
-            # Bump versions in package.json, update CHANGELOG.md, consume .changeset/*.md files.
-            # GITHUB_TOKEN is required by @changesets/changelog-github to resolve PR links.
-            pnpm version-packages
-
-            # If the CHANGELOG hash is unchanged, prettier silently skipped the write.
-            # Prepend the version block manually so the file stays accurate.
-            CURR_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
-            if [ "$PREV_HASH" = "$CURR_HASH" ]; then
-              echo "::warning::packages/rialto/CHANGELOG.md was not updated — prepending manually"
-              NEW_VER=$(node -p "require('./packages/rialto/package.json').version")
-              EXISTING=$(cat packages/rialto/CHANGELOG.md 2>/dev/null || echo "# @mattbutlerengineering/rialto")
-              BODY=$(printf '%s' "$EXISTING" | sed '1{/^#[[:space:]]/d}')
-              printf '# @mattbutlerengineering/rialto\n\n## %s\n\n### Changes\n\nSee changeset details in git history.\n\n%s\n' \
-                "$NEW_VER" "$BODY" > packages/rialto/CHANGELOG.md
-            fi
-          publish: pnpm exec changeset publish
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          # v2's version-script/publish-script inputs run through
+          # @actions/exec's exec()/getExecOutput() with no `args` array,
+          # which tokenizes the command STRING itself (argv splitting) --
+          # it does not spawn a shell. An inline multi-line block with `#`
+          # comments, `$(...)`, `if`/`fi`, and a redirect can't run that
+          # way. scripts/release-version.sh checks the same logic into a
+          # real file so `bash` -- not the tokenizer -- interprets it.
+          version-script: bash scripts/release-version.sh
+          publish-script: pnpm exec changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +95,7 @@ jobs:
         # authoring the PR as a real identity, is not configured as a repo
         # secret (docs/SECRETS.md) as of this writing -- see the PR body's
         # open question for Matt.
-        if: steps.changesets.outputs.pullRequestNumber
+        if: steps.changesets.outputs.pr-number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --ref changeset-release/main
