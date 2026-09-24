@@ -20,7 +20,7 @@ export interface Deposit {
   appliedAt: string | null;
   refundedAt: string | null;
   forfeitedAt: string | null;
-  uncollectableAt: string | null;
+  uncollectableAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
