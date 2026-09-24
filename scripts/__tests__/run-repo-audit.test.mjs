@@ -134,6 +134,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-audit-persistence-caller",
       "check-story-coverage",
       "check-rialto-changeset",
+      "check-changeset-tree",
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
       "check-queue-telemetry-dupes",

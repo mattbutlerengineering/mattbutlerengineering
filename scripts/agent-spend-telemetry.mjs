@@ -53,8 +53,7 @@
  * The `check-` prefix in this repo means "wired into `pnpm repo-audit`, reds
  * the build" (scripts/__tests__/check-fitness-check-wiring.test.mjs). This
  * must not gate `main`: today's state is `uninstrumented`, unfixable by any PR
- * author, and resolvable only by a human setting a secret — exactly the shape
- * `scripts/metrics-freshness.mjs` documents for `DOMAIN_METRICS_VENUE_ID`. It
+ * author, and resolvable only by a human decision about CI credentials. It
  * reports through `.github/workflows/metrics-collectors.yml`, which turns a
  * non-zero verdict into a deduped issue rather than a red workflow.
  *
