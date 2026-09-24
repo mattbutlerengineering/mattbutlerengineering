@@ -749,6 +749,19 @@ jobs:
           DATABASE_URL: postgresql://rls_owner:rls_owner_ci_pw@localhost:5432/rls_scratch
         run: pnpm --filter @mbe/reservations-service db:migrate:deploy
 
+      # rls-route-sweep.integration.test.ts (#5369 PR 2) is the first suite in
+      # this job to call buildApp() — the other three test RLS directly
+      # against raw pg/Prisma clients and never touch @mbe/auth. `pnpm
+      # install` only LINKS workspace packages; it does not compile them, and
+      # @mbe/types' exports resolve to ./dist/*, so without this the sweep
+      # dies before its first test even runs:
+      #   Error: Failed to resolve entry for package "@mbe/types".
+      # (identical failure mode, same fix pattern, as mutation-testing.yml's
+      # own "Build workspace dependencies" step). `...` builds the service's
+      # transitive deps only, not the whole workspace.
+      - name: Build workspace dependencies
+        run: pnpm build --filter @mbe/reservations-service...
+
       # All FOUR `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
