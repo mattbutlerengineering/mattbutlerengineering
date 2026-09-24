@@ -1403,7 +1403,7 @@
       type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+      type DepositStripeOp = "refund" | "forfeit" | "refund_partial" | "apply";
     </item>
     <item priority="high">
       type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
@@ -1487,7 +1487,7 @@
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-leg-incompl | { outcome: "failed" };
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-leg-incompl | { outcome: "concurrent-retry"  | { outcome: "failed" };
     </item>
     <item priority="high">
       type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
