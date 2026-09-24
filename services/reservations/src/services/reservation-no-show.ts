@@ -37,7 +37,7 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: RecordNoShowResult = {
 
 /** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
-  | { outcome: "resolved" }
+  | { outcome: "resolved"; warning?: string }
   | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
   | { outcome: "failed" };
@@ -53,6 +53,13 @@ type NoShowDepositAction =
  * amount actually captured always matches what `formatCancellationTerms`
  * disclosed to the guest — never a full forfeit when only a partial
  * noShowFeePercent was disclosed (#5719 item 6).
+ *
+ * Evaluated at `max(now, startTime)`, never bare `now` (#5719 M4): staff
+ * marking a no-show a few minutes before the reservation's exact startTime
+ * clock tick must still resolve the NO-SHOW fee tier
+ * (`evaluateCancellationFee` treats `cancellationTime >= reservationTime` as
+ * the no-show boundary) rather than falling through to the — usually much
+ * lower — late-cancellation tier.
  */
 async function resolveNoShowDepositAction(
   deposit: Deposit,
@@ -72,7 +79,10 @@ async function resolveNoShowDepositAction(
         }
       : null;
 
-  const feeResult = evaluateCancellationFee(policy, new Date(reservation.startTime), new Date());
+  const startTime = new Date(reservation.startTime);
+  const now = new Date();
+  const evaluationTime = now > startTime ? now : startTime;
+  const feeResult = evaluateCancellationFee(policy, startTime, evaluationTime);
 
   if (feeResult.depositAction === "forfeit") return { op: "forfeit" };
   if (feeResult.depositAction === "refund_full") return { op: "refund_full" };
@@ -159,12 +169,24 @@ async function forfeitHeldDeposit(
   try {
     if (action.op === "forfeit") {
       await depositService.forfeit(depositId);
+      return { outcome: "resolved" };
     } else if (action.op === "refund_partial") {
       await depositService.refundPartial(depositId, action.refundAmountCents);
+      return {
+        outcome: "resolved",
+        // The policy resolved to less than a full forfeit (#5719 item 6) —
+        // surface it so staff aren't surprised the guest wasn't charged the
+        // full deposit (#5719 M4).
+        warning:
+          "Only part of the deposit was charged as a no-show fee; the remainder was refunded.",
+      };
     } else {
       await depositService.refund(depositId);
+      return {
+        outcome: "resolved",
+        warning: "The deposit was fully refunded — the no-show policy applied no fee.",
+      };
     }
-    return { outcome: "resolved" };
   } catch (err) {
     if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
       const current = await reservationService.getById(reservation.id);
@@ -240,6 +262,11 @@ export async function recordNoShow(
       // Stripe — so this is not the money-moved ghost-state case below.
       depositWarning = outcome.warning;
     } else {
+      // A refund_full/refund_partial resolution still moved money (or
+      // deliberately moved none) — the ghost-state guard below still
+      // applies, and staff still get a warning when the fee wasn't a full
+      // forfeit (#5719 M4).
+      depositWarning = outcome.warning;
       forfeitedDepositId = deposit.id;
     }
   } else if (deposit?.status === "partial_refunded") {

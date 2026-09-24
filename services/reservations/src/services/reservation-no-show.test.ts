@@ -391,6 +391,58 @@ describe("recordNoShow", () => {
     expect(result.success).toBe(true);
   });
 
+  it("evaluates the no-show fee tier even when marked slightly before the reservation's exact startTime (#5719 M4)", async () => {
+    // Staff clicking "Mark No-Show" a few minutes early (before the reservation's
+    // exact startTime clock tick) must still resolve the NO-SHOW fee tier, not
+    // fall through to the (usually lower) late-cancellation tier — evaluate at
+    // max(now, startTime), never bare `now`.
+    const futureStartTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const reservation = makeReservation({ startTime: futureStartTime });
+    const lateVsNoShowPolicy: VenuePolicy = {
+      ...fullNoShowFeeVenuePolicy,
+      lateCancellationFeePercent: 10,
+      noShowFeePercent: 60,
+    };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(lateVsNoShowPolicy);
+    vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    await recordNoShow(reservation, makeLogger());
+
+    // 60% no-show fee on 10000 cents = 6000 fee, 4000 refunded — NOT the 10%
+    // late-cancellation fee (9000 cents refunded).
+    expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 4000);
+  });
+
+  it("sets a depositWarning when the no-show resolves to a partial or full refund, so staff know the fee wasn't 100% (#5719 M4)", async () => {
+    const reservation = makeReservation();
+    const partialFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 60 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(partialFeePolicy);
+    vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.depositWarning).toMatch(/refund|60%|partial/i);
+    }
+  });
+
   it("returns a 409 conflict when a concurrent request already transitioned the reservation", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
