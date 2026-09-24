@@ -172,11 +172,19 @@ async function reconcileCaptureLegFailure(
     };
   }
 
-  if (current?.status === targetStatus) {
+  if (targetStatus === "forfeited" && current?.status === targetStatus) {
     // Stripe confirmed the charge actually went through (the failure was
     // purely transport-side) — the row is already correct despite the
     // thrown error. Report success rather than a false failure on top of a
-    // real one.
+    // real one. Restricted to `forfeited` (a single Stripe call) on purpose:
+    // for `partial_refunded`, `deposit.ts` itself now falls through to run
+    // the refund leg whenever it confirms the capture landed, so any error
+    // that still escapes `refundPartial` with the row at `partial_refunded`
+    // is either the refund leg's own `DepositRefundLegIncompleteError`
+    // (handled above, before this function is ever called) or something
+    // unexpected — never a case this generic status-match may treat as
+    // resolved (#5722, general re-review finding: never depend on a row
+    // status this invocation didn't itself verify).
     logger.warn(
       { err, reservationId: reservation.id, depositId },
       "Deposit capture reported an error but the row already reflects a completed capture; proceeding"

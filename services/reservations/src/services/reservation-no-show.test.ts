@@ -437,6 +437,39 @@ describe("recordNoShow", () => {
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
   });
 
+  it("never reports a partial no-show as resolved from a generic error left with the row at partial_refunded, even matching targetStatus (#5722, defense in depth)", async () => {
+    // By construction this specific mock combination (a bare, untyped error
+    // from refundPartial with the row read back as partial_refunded) should
+    // no longer arise from the real DepositService — a confirmed-succeeded
+    // capture now falls through to the refund leg, and a refund-leg failure
+    // is always a distinct DepositRefundLegIncompleteError caught earlier in
+    // forfeitHeldDeposit. This test pins the belt-and-braces guard for
+    // `partial_refunded`'s row-status fallback anyway: reconcileCaptureLegFailure
+    // must never resolve a two-leg refund from row status alone, so an
+    // unexpected error here still fails closed instead of guessing
+    // (stripe-flow-reviewer, PR #5722, general re-review finding).
+    const reservation = makeReservation();
+    const partialFeePolicy: VenuePolicy = { ...fullNoShowFeeVenuePolicy, noShowFeePercent: 60 };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(partialFeePolicy);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(new Error("stripe refund boom"));
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    const logger = makeLogger();
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+  });
+
   it("captures only the disclosed noShowFeePercent and refunds the remainder (integer cents)", async () => {
     // The guest was disclosed a noShowFeePercent% fee (formatCancellationTerms),
     // but forfeit() captures the FULL deposit — a disclosure/charge mismatch.

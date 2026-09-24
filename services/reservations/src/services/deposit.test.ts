@@ -989,6 +989,39 @@ describe("DepositService", () => {
       expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
+    it("still sends the guest's refund when the capture throws but Stripe confirms it succeeded (ambiguous capture) (#5722)", async () => {
+      // The capture leg's error was purely transport-side: retrieve confirms
+      // the charge landed. Skipping the refund leg here would leave the row
+      // `partial_refunded` with the guest's remainder never sent and nothing
+      // to retry it — a silent under-refund (stripe-flow-reviewer, PR #5722).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("socket hang up"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
+
+      const result = await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
+        "pi_test_123",
+        3000,
+        "dep-123:refundPartial:refund"
+      );
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      expect(result.status).toBe("partial_refunded");
+    });
+
     it("does NOT roll back to held when capture succeeds but the refund throws (card is captured) (#5722 H1)", async () => {
       // Money-safety: once captured, rolling back to `held` would lie about the
       // charge and re-capture on retry. The row must stay partial_refunded and

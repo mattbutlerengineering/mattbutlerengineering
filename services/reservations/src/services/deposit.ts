@@ -431,8 +431,15 @@ export class DepositService {
           // corrupt state (e.g. roll back a held row while the card is
           // actually captured). The same idempotency key makes the capture
           // retry safe without any DB reconciliation on this invocation.
+          //
+          // If `_reconcileCaptureFailure` confirms the capture actually
+          // landed despite the thrown error (a dropped connection after the
+          // request reached Stripe), fall through to the refund leg below
+          // instead of rethrowing — rethrowing here would leave the row
+          // `partial_refunded` with the guest's remainder never sent, a gap
+          // in the original H1/H2 fixes (stripe-flow-reviewer addendum).
           if (didTransition) {
-            await this._reconcileCaptureFailure(
+            captureConfirmedSucceeded = await this._reconcileCaptureFailure(
               depositId,
               deposit.stripePaymentIntentId,
               "partial_refunded",
@@ -440,7 +447,9 @@ export class DepositService {
               error
             );
           }
-          throw error;
+          if (!captureConfirmedSucceeded) {
+            throw error;
+          }
         }
       }
 
@@ -532,6 +541,7 @@ export class DepositService {
           timestampField,
           error
         );
+        throw error;
       }
     }
 
@@ -574,11 +584,20 @@ export class DepositService {
    *    can never mistake "kept because we don't know" for "kept because
    *    Stripe confirmed it" (#5722 M3).
    *
-   * In the confirmed cases the ORIGINAL capture error is rethrown so callers
-   * still see the underlying failure. If the verification retrieve itself
-   * throws, none of the above can be determined — rethrow the original error
-   * immediately rather than masking it with a retrieve-specific one, and
-   * leave the row untouched.
+   * Returns `true` only when Stripe confirms `succeeded` (the capture really
+   * landed) — never throws in that case, so a multi-leg caller like
+   * {@link refundPartial} can fall through to its own follow-up refund leg
+   * instead of rethrowing and leaving the guest's remainder unrefunded.
+   * Single-leg callers (`apply`/`forfeit`, via `_captureAndTransition`) still
+   * rethrow the original error themselves right after calling this, since
+   * they have no follow-up leg to run and must always surface the failure.
+   * In every other case this throws — the ORIGINAL capture error for the
+   * confirmed-rollback/write-off cases, or {@link DepositCaptureAmbiguousError}
+   * for the ambiguous case — so callers can rely on "returns normally" as the
+   * one unambiguous confirmed-success signal. If the verification retrieve
+   * itself throws, none of the above can be determined — rethrow the
+   * original error immediately rather than masking it with a
+   * retrieve-specific one, and leave the row untouched.
    */
   private async _reconcileCaptureFailure(
     depositId: string,
@@ -586,7 +605,7 @@ export class DepositService {
     targetStatus: "applied" | "forfeited" | "partial_refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt",
     error: unknown
-  ): Promise<never> {
+  ): Promise<boolean> {
     let intent: { status: string };
     try {
       intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
@@ -609,7 +628,7 @@ export class DepositService {
     }
 
     if (intent.status === "succeeded") {
-      throw error;
+      return true;
     }
 
     logger.error(
