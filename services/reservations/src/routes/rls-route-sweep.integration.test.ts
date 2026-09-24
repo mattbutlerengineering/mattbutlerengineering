@@ -129,6 +129,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const waitlistBId = `rls-sweep-wl-b-${randomUUID()}`;
     const depositAId = `rls-sweep-dep-a-${randomUUID()}`;
     const holdAId = `rls-sweep-hold-a-${randomUUID()}`;
+    const holdASessionId = `rls-sweep-session-${randomUUID()}`;
     const reservationAGuestEmail = "rls-sweep-guest-a@example.com";
 
     await seedClient.query(
@@ -192,7 +193,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       `INSERT INTO reservation_holds
          (id, venue_id, table_id, date, start_time, end_time, party_size, session_id, expires_at)
        VALUES ($1, $2, $3, '2026-10-02', '2026-10-02T18:00:00Z', '2026-10-02T19:00:00Z', 2, $4, now() + interval '10 minutes')`,
-      [holdAId, venueAId, tableAId, `rls-sweep-session-${randomUUID()}`]
+      [holdAId, venueAId, tableAId, holdASessionId]
     );
 
     ctx = {
@@ -213,6 +214,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       waitlistB: waitlistBId,
       depositA: depositAId,
       holdA: holdAId,
+      holdSessionId: holdASessionId,
+      lastRlsErrorName: null,
     };
 
     // FORCE goes on AFTER seeding: owner-side seed writes are themselves
@@ -229,6 +232,18 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
 
     const { buildApp } = await import("../app.js");
     app = await buildApp({ logger: false });
+
+    // Captures the RAW thrown error's name for `expectBroken` — the response
+    // BODY alone can't distinguish `RlsUnscopedQueryError` from any other
+    // uncaught error, since `classify-error.ts`'s generic fallback attaches
+    // no `extensions` for either. Must register before `app.ready()`;
+    // `inject()` (rls-route-sweep.fixtures.ts) resets `ctx.lastRlsErrorName`
+    // to `null` before every call, so a fixture with nothing to report reads
+    // that reset value, never a stale one from an earlier request.
+    app.addHook("onError", async (_request, _reply, error) => {
+      ctx.lastRlsErrorName = error.name;
+    });
+
     await app.ready();
     ctx.app = app;
 

@@ -116,7 +116,31 @@ export interface SweepContext {
   waitlistB: string;
   depositA: string;
   holdA: string;
+  /** The real session id `holdA` was created with — needed by every route
+   * that requires the `x-session-id` capability header before it will even
+   * look at the hold (staff `/confirm`, and all three public hold routes). */
+  holdSessionId: string;
+  /**
+   * Mutated by the `onError` hook the test file installs on `app`, reset to
+   * `null` before every `inject()` call below. Fastify only fires `onError`
+   * for a genuinely THROWN error (never a plain `reply.code(x).send(...)`),
+   * so this is how `expectBroken` tells "the RLS tripwire actually fired"
+   * apart from an unrelated 4xx/5xx that happens to share a status code —
+   * the response body alone can't: `RlsUnscopedQueryError` classifies through
+   * `classify-error.ts`'s generic fallback, which attaches no `extensions`.
+   */
+  lastRlsErrorName: string | null;
 }
+
+/**
+ * A payload value, or a factory reading it off {@link SweepContext} — needed
+ * wherever a KNOWN_BROKEN fixture's body must reference a seeded id (e.g.
+ * `ctx.tableA`) that doesn't exist yet when `FIXTURES` is built (module load
+ * time, before `beforeAll` seeds anything). Re-exported by
+ * `rls-route-sweep.fixtures-public.ts` rather than redeclared there.
+ */
+export type PayloadOrFactory =
+  InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
 
 /** `x-auth-bypass` short-circuits `requireAuth`/`requireVenueAccess` to a hardcoded platform-admin identity. */
 export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
@@ -138,6 +162,10 @@ function inject(
   headers: Record<string, string>,
   opts: InjectOptions
 ): Promise<LightMyRequestResponse> {
+  // Reset before every call: `expectBroken` reads this back immediately
+  // after the awaited inject() resolves, and by then the `onError` hook (if
+  // it fired) has already run — see SweepContext.lastRlsErrorName's doc.
+  ctx.lastRlsErrorName = null;
   return ctx.app.inject({
     ...opts,
     remoteAddress: randomUUID(),
@@ -165,20 +193,75 @@ export function expectDenied(res: LightMyRequestResponse, label: string): void {
   );
 }
 
+/** Options for the documented shapes of KNOWN_BROKEN that are NOT a cleanly-propagated tripwire error. */
+export interface ExpectBrokenOptions {
+  /**
+   * Covers two distinct non-tripwire shapes, both of which skip the
+   * thrown-error-name assertion and just check the status code:
+   *   1. A genuinely wrong-tenant RLS denial (a scoped read that resolves to
+   *      the WRONG venue, so the row is invisible) rather than an unscoped
+   *      read the tripwire catches — e.g. the public-waitlist
+   *      slug/body-venueId mismatch fixture (404).
+   *   2. A route or service function that catches the tripwire's thrown
+   *      error itself and manually formats its own response — either
+   *      swallowing it into an unrelated status (e.g. waitlist
+   *      seat/cancel/expire's try/catch-return-null turns it into a 404)
+   *      or re-emitting the SAME status (500) but via `reply.send(plainObject)`
+   *      rather than a re-thrown Error, so Fastify's `onError` hook never
+   *      fires (e.g. the unsubscribe and Stripe-webhook routes' own
+   *      try/catch blocks). Either way, the caught status is the only
+   *      evidence available — set this to that documented status.
+   */
+  deniedStatus?: number;
+  /**
+   * For the rare fixture whose tripwire-equivalent evidence is a genuinely
+   * DIFFERENT thrown error class than RlsUnscopedQueryError — e.g.
+   * `venueService.create()`'s admin path writes via an unwrapped
+   * `prisma.$transaction(...)` ($-prefixed methods pass through the
+   * venue-scoped-Prisma proxy unwrapped), so the write reaches real
+   * Postgres with no `app.venue_id` set and the FORCE'd RLS policy's
+   * `WITH CHECK` clause rejects it at the DB layer, surfacing as a plain
+   * `PrismaClientKnownRequestError` — still a 500, just not the app-level
+   * tripwire's own error class. Still requires 500; checks the thrown
+   * error's name against this instead of "RlsUnscopedQueryError".
+   */
+  expectedErrorName?: string;
+}
+
 /**
  * A KNOWN_BROKEN assertion (ADR-026 §3.3 items 1-8, plus anything else this
  * sweep found broken along the way). Under `RLS_CONTEXT_MODE=throw`, the
  * shared tripwire converts every unscoped RLS-model read into a thrown
- * `RlsUnscopedQueryError` before Postgres is even asked — so every one of
- * these fails with a 4xx/5xx, never a 200 with silently-wrong data. That is
- * the point of running the sweep in throw mode rather than FORCE alone.
+ * `RlsUnscopedQueryError` before Postgres is even asked — so asserting the
+ * status code alone (any 4xx/5xx) cannot tell that throw apart from an
+ * unrelated 401/404 the fixture happened to trip first (a missing auth
+ * header, a not-yet-reached business check). This requires BOTH the 500
+ * `classify-error.ts`'s generic fallback gives an uncaught error, AND that
+ * the error the `onError` hook captured really was `RlsUnscopedQueryError` —
+ * see `SweepContext.lastRlsErrorName`'s doc for how that's captured.
  */
-export function expectBroken(res: LightMyRequestResponse, label: string): void {
+export function expectBroken(
+  res: LightMyRequestResponse,
+  label: string,
+  ctx: SweepContext,
+  options: ExpectBrokenOptions = {}
+): void {
+  if (options.deniedStatus !== undefined) {
+    expect(res.statusCode, `${label}: expected the documented wrong-tenant denial status`).toBe(
+      options.deniedStatus
+    );
+    return;
+  }
+  const expectedErrorName = options.expectedErrorName ?? "RlsUnscopedQueryError";
   expect(
     res.statusCode,
-    `${label}: expected this KNOWN_BROKEN route to fail, but it returned ${res.statusCode} — ` +
+    `${label}: expected the RLS tripwire to fire (500), got ${res.statusCode}: ${res.body}`
+  ).toBe(500);
+  expect(
+    ctx.lastRlsErrorName,
+    `${label}: expected ${expectedErrorName}, got ${ctx.lastRlsErrorName ?? "no thrown error captured"} — ` +
       `remove it from KNOWN_BROKEN (and its ADR-026 §3.3 item) now that it's fixed`
-  ).toBeGreaterThanOrEqual(400);
+  ).toBe(expectedErrorName);
 }
 
 function ok(run: RouteFixture["run"]): RouteFixture {
@@ -260,11 +343,18 @@ function brokenEntity(
   blocker: string,
   method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
   urlFor: (ctx: SweepContext) => string,
-  payload?: InjectOptions["payload"]
+  payload?: PayloadOrFactory,
+  options?: ExpectBrokenOptions
 ): RouteFixture {
   return broken(blocker, async (ctx) => {
     const url = urlFor(ctx);
-    expectBroken(await asAdmin(ctx, { method, url, payload }), `admin ${method} ${url}`);
+    const body = typeof payload === "function" ? payload(ctx) : payload;
+    expectBroken(
+      await asAdmin(ctx, { method, url, payload: body }),
+      `admin ${method} ${url}`,
+      ctx,
+      options
+    );
   });
 }
 
@@ -402,7 +492,8 @@ const venueFixtures: Record<string, RouteFixture> = {
 
     expectBroken(
       await asMember(ctx, { method: "GET", url: "/api/v1/venues" }),
-      "member list (item-1: listForMember, unscoped venue.findMany)"
+      "member list (item-1: listForMember, unscoped venue.findMany)",
+      ctx
     );
   }),
   "POST /api/v1/venues": broken("item-8", async (ctx) => {
@@ -416,13 +507,23 @@ const venueFixtures: Record<string, RouteFixture> = {
           ianaTimezone: "UTC",
         },
       }),
-      "create venue"
+      "create venue",
+      ctx,
+      // venueService.create()'s admin path writes via an unwrapped
+      // prisma.$transaction(...) — $-prefixed methods pass through the
+      // venue-scoped-Prisma proxy unwrapped, so the app-level tripwire never
+      // sees this write. It reaches real Postgres with no app.venue_id set,
+      // and the FORCE'd RLS policy's WITH CHECK clause rejects it at the DB
+      // layer instead, surfacing as a plain PrismaClientKnownRequestError —
+      // equally valid "broken" evidence, just from a different layer.
+      { expectedErrorName: "PrismaClientKnownRequestError" }
     );
   }),
   "GET /api/v1/venues/by-slug/:slug": broken("item-3", async (ctx) => {
     expectBroken(
       await asAdmin(ctx, { method: "GET", url: `/api/v1/venues/by-slug/${ctx.venueA.slug}` }),
-      "get venue by slug"
+      "get venue by slug",
+      ctx
     );
   }),
   "GET /api/v1/venues/:id": brokenEntity(
@@ -498,7 +599,8 @@ const floorPlanFixtures: Record<string, RouteFixture> = {
     );
     expectBroken(
       await asAdmin(ctx, { method: "GET", url: "/api/v1/floor-plans" }),
-      "admin, no venueId (item-1: unscoped floorPlan.findMany)"
+      "admin, no venueId (item-1: unscoped floorPlan.findMany)",
+      ctx
     );
   }),
   "POST /api/v1/floor-plans": okCreateByBody("/api/v1/floor-plans", (venueId) => ({
@@ -625,13 +727,15 @@ const reservationFixtures: Record<string, RouteFixture> = {
     );
     expectBroken(
       await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations?guestId=${ctx.guestA}` }),
-      "admin, guestId (item-2: unscoped guestService.getById)"
+      "admin, guestId (item-2: unscoped guestService.getById)",
+      ctx
     );
   }),
   "GET /api/v1/reservations/me": broken("item-1", async (ctx) => {
     expectBroken(
       await asAdmin(ctx, { method: "GET", url: "/api/v1/reservations/me" }),
-      "listByUserId, unscoped"
+      "listByUserId, unscoped",
+      ctx
     );
   }),
   // A walk-in flips its table to OCCUPIED, so reusing `ctx.tableA` across the
@@ -725,20 +829,33 @@ const waitlistFixtures: Record<string, RouteFixture> = {
     "PUT",
     (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/notify`
   ),
+  // seat/cancel/expire (unlike getById/notify above) each wrap their
+  // prisma.waitlistEntry.update(...) call in `try { ... } catch { return
+  // null; }` (waitlistService), which SWALLOWS the tripwire's thrown
+  // RlsUnscopedQueryError and converts it into a false "not found" — the
+  // route handler then reports a plain 404, not the 500 the tripwire itself
+  // would have produced. Same swallowing shape as the WAITLIST_EXPIRY job
+  // handler (see the #5369 comment left on the tracking issue).
   "PUT /api/v1/waitlist/:id/seat": brokenEntity(
     "item-2",
     "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/seat`
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/seat`,
+    undefined,
+    { deniedStatus: 404 }
   ),
   "PUT /api/v1/waitlist/:id/cancel": brokenEntity(
     "item-2",
     "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/cancel`
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/cancel`,
+    undefined,
+    { deniedStatus: 404 }
   ),
   "PUT /api/v1/waitlist/:id/expire": brokenEntity(
     "item-2",
     "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/expire`
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/expire`,
+    undefined,
+    { deniedStatus: 404 }
   ),
 };
 
@@ -768,7 +885,8 @@ const depositFixtures: Record<string, RouteFixture> = {
         url: "/api/v1/deposits",
         payload: { reservationId: ctx.reservationB, amountCents: 1000 },
       }),
-      "create deposit"
+      "create deposit",
+      ctx
     );
   }),
   "GET /api/v1/deposits/:id": brokenEntity(

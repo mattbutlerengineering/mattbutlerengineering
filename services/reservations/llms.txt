@@ -420,14 +420,15 @@
       }> { /* ... */ }
     </item>
     <item priority="high">
-      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
+      type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record;
     </item>
     <item priority="medium">
       function brokenPublic(
         blocker: string,
         method: "GET" | "POST" | "PATCH" | "DELETE",
         urlFor: (ctx: SweepContext) => string,
-        payloadFor?: PayloadOrFactory
+        payloadFor?: PayloadOrFactory,
+        options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
       ): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
@@ -463,6 +464,9 @@
         tableA: string;
       }
     </item>
+    <item priority="low">
+      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
+    </item>
     <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
@@ -488,8 +492,19 @@
     <item priority="high">
       export function expectDenied(res: LightMyRequestResponse, label: string): void { /* ... */ }
     </item>
+    <item priority="low">
+      interface ExpectBrokenOptions {
+        deniedStatus?: number;
+        expectedErrorName?: string;
+      }
+    </item>
     <item priority="high">
-      export function expectBroken(res: LightMyRequestResponse, label: string): void { /* ... */ }
+      export function expectBroken(
+        res: LightMyRequestResponse,
+        label: string,
+        ctx: SweepContext,
+        options: ExpectBrokenOptions = {}
+      ): void { /* ... */ }
     </item>
     <item priority="medium">
       function ok(run: RouteFixture["run"]): RouteFixture { /* ... */ }
@@ -511,7 +526,8 @@
         blocker: string,
         method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
         urlFor: (ctx: SweepContext) => string,
-        payload?: InjectOptions["payload"]
+        payload?: PayloadOrFactory,
+        options?: ExpectBrokenOptions
       ): RouteFixture { /* ... */ }
     </item>
     <item priority="high">

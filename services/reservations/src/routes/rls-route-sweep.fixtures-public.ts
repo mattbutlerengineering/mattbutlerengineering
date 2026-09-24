@@ -1,9 +1,11 @@
 import Stripe from "stripe";
-import type { InjectOptions } from "fastify";
 import {
   ADMIN_HEADERS,
   asAdmin,
   expectBroken,
+  expectOk,
+  type ExpectBrokenOptions,
+  type PayloadOrFactory,
   type RouteFixture,
   type SweepContext,
 } from "./rls-route-sweep.fixtures.js";
@@ -38,14 +40,15 @@ async function loadTokenHelpers(): Promise<{
   return { generateManageToken, generateUnsubscribeToken };
 }
 
-type PayloadOrFactory =
-  InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+/** A headers value, or a factory reading it off {@link SweepContext} (e.g. the seeded `holdSessionId`). */
+type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record<string, string>);
 
 function brokenPublic(
   blocker: string,
   method: "GET" | "POST" | "PATCH" | "DELETE",
   urlFor: (ctx: SweepContext) => string,
-  payloadFor?: PayloadOrFactory
+  payloadFor?: PayloadOrFactory,
+  options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
 ): RouteFixture {
   return {
     kind: "broken",
@@ -53,7 +56,14 @@ function brokenPublic(
     run: async (ctx) => {
       const url = urlFor(ctx);
       const payload = typeof payloadFor === "function" ? payloadFor(ctx) : payloadFor;
-      expectBroken(await asAdmin(ctx, { method, url, payload }), `${method} ${url}`);
+      const headers =
+        typeof options.headersFor === "function" ? options.headersFor(ctx) : options.headersFor;
+      expectBroken(
+        await asAdmin(ctx, { method, url, payload, ...(headers ? { headers } : {}) }),
+        `${method} ${url}`,
+        ctx,
+        options.expectBrokenOptions
+      );
     },
   };
 }
@@ -75,27 +85,54 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
     (ctx) => `/public/v1/venues/${ctx.venueA.slug}/holds`,
     { date: "2026-10-08", startTime: "2026-10-08T18:00:00Z", partySize: 2 }
   ),
+  // Every route below that resolves `resolveVenueBySlug`/`getBySlug` before
+  // it ever looks at the hold requires SOME `x-session-id` header just to get
+  // PAST `readSessionId`'s 401 — none of these need a REAL session (the
+  // unscoped slug read throws before any session/hold comparison runs), so a
+  // fixed placeholder string is enough. Without it these five fixtures were
+  // passing on a coincidental 401, never reaching item-3 at all.
   "GET /public/v1/venues/:slug/holds/:holdId": brokenPublic(
     "item-3",
     "GET",
-    (ctx) => `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist`
+    (ctx) => `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist`,
+    undefined,
+    { headersFor: () => ({ "x-session-id": "rls-sweep-session" }) }
   ),
-  "DELETE /public/v1/venues/:slug/holds/:holdId": brokenPublic(
-    "item-3",
-    "DELETE",
-    (ctx) => `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist`
-  ),
+  // `reservation_holds` carries no RLS policy at all (ADR-026 §1) and this
+  // route never resolves the venue by slug at all — no `resolveVenueBySlug`
+  // call in `public-holds.ts`'s DELETE handler — so it's genuinely not-rls,
+  // not item-3, and `holdService.release` is idempotent (always 204,
+  // matching/nonexistent holdId alike).
+  "DELETE /public/v1/venues/:slug/holds/:holdId": {
+    kind: "not-rls",
+    run: async (ctx) => {
+      expectOk(
+        await asAdmin(ctx, {
+          method: "DELETE",
+          url: `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist`,
+          headers: { "x-session-id": "rls-sweep-session" },
+        }),
+        "release hold (public, always-204, not-rls)"
+      );
+    },
+  },
   "POST /public/v1/venues/:slug/holds/:holdId/confirm": brokenPublic(
     "item-3",
     "POST",
     (ctx) => `/public/v1/venues/${ctx.venueA.slug}/holds/does-not-exist/confirm`,
-    { guestName: "RLS Sweep", guestEmail: "rls-sweep-public@example.com" }
+    { guestName: "RLS Sweep", guestEmail: "rls-sweep-public@example.com" },
+    { headersFor: () => ({ "x-session-id": "rls-sweep-session" }) }
   ),
   "POST /public/v1/venues/:slug/reservations": brokenPublic(
     "item-3",
     "POST",
     (ctx) => `/public/v1/venues/${ctx.venueA.slug}/reservations`,
-    { holdId: "does-not-exist", guestName: "RLS Sweep", guestEmail: "rls-sweep-public@example.com" }
+    {
+      holdId: "does-not-exist",
+      guestName: "RLS Sweep",
+      guestEmail: "rls-sweep-public@example.com",
+    },
+    { headersFor: () => ({ "x-session-id": "rls-sweep-session" }) }
   ),
   "GET /public/v1/venues/:slug/guests/recognize": brokenPublic(
     "item-3",
@@ -118,6 +155,14 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
   // a mismatched id is what an untrusting client (or an attacker) actually
   // sends, and is what proves `getBySlug` is still the unscoped read #3 says
   // it is: scoped to the WRONG venue, venue A's own row becomes invisible.
+  //
+  // NAMED EXCEPTION to the tripwire assertion: `app.venue_id` IS resolved
+  // here (to venue B, from `body.venueId`), so `venueService.getBySlug`
+  // never hits the unscoped-context tripwire at all — it runs a genuinely
+  // SCOPED read that returns no rows because venue A's row is invisible
+  // under venue B's scope. That's still item-3 (the wrong-tenant denial is
+  // the same underlying bug), just the RLS-enforced-404 shape rather than a
+  // thrown `RlsUnscopedQueryError` — see `ExpectBrokenOptions.deniedStatus`.
   "POST /public/v1/venues/:slug/waitlist": brokenPublic(
     "item-3",
     "POST",
@@ -127,7 +172,8 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       partySize: 2,
       guestName: "RLS Sweep",
       guestPhone: "+15550002222",
-    })
+    }),
+    { expectBrokenOptions: { deniedStatus: 404 } }
   ),
   "POST /public/v1/venues/:slug/deposits/payment-intent": brokenPublic(
     "item-3",
@@ -148,13 +194,19 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
  * inside the scope it's computing" shape as items 1-8, just on a table the
  * ADR's own audit never named. Filed here rather than silently rolled into
  * the not-rls bucket precisely because it IS an RLS-table read.
+ *
+ * `confirmHold`'s session check (Step 2) runs BEFORE the unscoped venue
+ * lookup and rejects a mismatched session with `SESSION_MISMATCH` — so this
+ * needs the hold's REAL seeded session id, not a placeholder, to actually
+ * reach the bug rather than a coincidental 403 one step earlier.
  */
 const holdConfirmFixtures: Record<string, RouteFixture> = {
   "POST /api/v1/holds/:id/confirm": brokenPublic(
     "sweep-discovered",
     "POST",
     (ctx) => `/api/v1/holds/${ctx.holdA}/confirm`,
-    { guestName: "RLS Sweep", guestEmail: "rls-sweep-confirm@example.com" }
+    { guestName: "RLS Sweep", guestEmail: "rls-sweep-confirm@example.com" },
+    { headersFor: (ctx) => ({ "x-session-id": ctx.holdSessionId }) }
   ),
 };
 
@@ -175,7 +227,8 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       const token = generateManageToken(ctx.reservationA, ctx.reservationAGuestEmail);
       expectBroken(
         await asAdmin(ctx, { method: "GET", url: `/public/v1/reservations/manage?token=${token}` }),
-        "GET manage"
+        "GET manage",
+        ctx
       );
     },
   },
@@ -191,7 +244,8 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
           url: `/public/v1/reservations/manage?token=${token}`,
           payload: { partySize: 3 },
         }),
-        "PATCH manage"
+        "PATCH manage",
+        ctx
       );
     },
   },
@@ -206,7 +260,8 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
           method: "DELETE",
           url: `/public/v1/reservations/manage?token=${token}`,
         }),
-        "DELETE manage"
+        "DELETE manage",
+        ctx
       );
     },
   },
@@ -221,7 +276,8 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
           method: "PATCH",
           url: `/public/v1/reservations/confirm?token=${token}`,
         }),
-        "confirm attendance"
+        "confirm attendance",
+        ctx
       );
     },
   },
@@ -231,9 +287,16 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
     run: async (ctx) => {
       const { generateUnsubscribeToken } = await loadTokenHelpers();
       const token = generateUnsubscribeToken(ctx.guestA);
+      // public-unsubscribe.ts wraps guestService.markUnsubscribed(...) in its
+      // own try/catch and manually replies 500 with a plain problem-details
+      // object (never re-throws), so the tripwire's RlsUnscopedQueryError
+      // never propagates to Fastify's onError hook — status is the only
+      // evidence available here.
       expectBroken(
         await asAdmin(ctx, { method: "GET", url: `/public/v1/guests/unsubscribe?token=${token}` }),
-        "unsubscribe"
+        "unsubscribe",
+        ctx,
+        { deniedStatus: 500 }
       );
     },
   },
@@ -264,6 +327,11 @@ const stripeWebhookFixtures: Record<string, RouteFixture> = {
       const payload = JSON.stringify(event);
       const signature = await Stripe.webhooks.generateTestHeaderStringAsync({ payload, secret });
 
+      // Bypasses the shared `inject()` helper (raw body needed for the
+      // signature, and no `x-auth-bypass` gate applies to a webhook) — reset
+      // the tripwire tracker by hand, same contract `inject()` gives every
+      // other fixture.
+      ctx.lastRlsErrorName = null;
       const res = await ctx.app.inject({
         method: "POST",
         url: "/api/v1/stripe/webhook",
@@ -274,7 +342,11 @@ const stripeWebhookFixtures: Record<string, RouteFixture> = {
         },
         payload,
       });
-      expectBroken(res, "stripe webhook payment_intent.succeeded");
+      // stripe-webhook.ts's own try/catch around webhookRouter.dispatch(...)
+      // catches the tripwire's thrown error and manually replies 500 with a
+      // plain problem-details object (by design — Stripe should retry a
+      // handler failure) rather than re-throwing, so onError never fires.
+      expectBroken(res, "stripe webhook payment_intent.succeeded", ctx, { deniedStatus: 500 });
     },
   },
 };

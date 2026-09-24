@@ -757,8 +757,8 @@ jobs:
       # dies before its first test even runs:
       #   Error: Failed to resolve entry for package "@mbe/types".
       # (identical failure mode, same fix pattern, as mutation-testing.yml's
-      # own "Build workspace dependencies" step). `...` builds the service's
-      # transitive deps only, not the whole workspace.
+      # own "Build workspace dependencies" step). `...` builds the service
+      # itself plus its transitive deps, not the whole workspace.
       - name: Build workspace dependencies
         run: pnpm build --filter @mbe/reservations-service...
 

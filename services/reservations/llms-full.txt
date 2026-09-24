@@ -4462,13 +4462,13 @@
       ]);
       return { generateManageToken, generateUnsubscribeToken };
     }
-    type PayloadOrFactory =
-      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record<string, string>);
     function brokenPublic(
       blocker: string,
       method: "GET" | "POST" | "PATCH" | "DELETE",
       urlFor: (ctx: SweepContext) => string,
-      payloadFor?: PayloadOrFactory
+      payloadFor?: PayloadOrFactory,
+      options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
     ): RouteFixture {
       return {
         kind: "broken",
@@ -4476,7 +4476,14 @@
         run: async (ctx) => {
           const url = urlFor(ctx);
           const payload = typeof payloadFor === "function" ? payloadFor(ctx) : payloadFor;
-          expectBroken(await asAdmin(ctx, { method, url, payload }), `${method} ${url}`);
+          const headers =
+            typeof options.headersFor === "function" ? options.headersFor(ctx) : options.headersFor;
+          expectBroken(
+            await asAdmin(ctx, { method, url, payload, ...(headers ? { headers } : {}) }),
+            `${method} ${url}`,
+            ctx,
+            options.expectBrokenOptions
+          );
         },
       };
     }
@@ -4566,7 +4573,23 @@
       waitlistB: string;
       depositA: string;
       holdA: string;
+      /** The real session id `holdA` was created with — needed by every route
+       * that requires the `x-session-id` capability header before it will even
+       * look at the hold (staff `/confirm`, and all three public hold routes). */
+      holdSessionId: string;
+      /**
+       * Mutated by the `onError` hook the test file installs on `app`, reset to
+       * `null` before every `inject()` call below. Fastify only fires `onError`
+       * for a genuinely THROWN error (never a plain `reply.code(x).send(...)`),
+       * so this is how `expectBroken` tells "the RLS tripwire actually fired"
+       * apart from an unrelated 4xx/5xx that happens to share a status code —
+       * the response body alone can't: `RlsUnscopedQueryError` classifies through
+       * `classify-error.ts`'s generic fallback, which attaches no `extensions`.
+       */
+      lastRlsErrorName: string | null;
     }
+    export type PayloadOrFactory =
+      InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     function inject(
@@ -4574,6 +4597,10 @@
       headers: Record<string, string>,
       opts: InjectOptions
     ): Promise<LightMyRequestResponse> {
+      // Reset before every call: `expectBroken` reads this back immediately
+      // after the awaited inject() resolves, and by then the `onError` hook (if
+      // it fired) has already run — see SweepContext.lastRlsErrorName's doc.
+      ctx.lastRlsErrorName = null;
       return ctx.app.inject({
         ...opts,
         remoteAddress: randomUUID(),
@@ -4595,12 +4622,61 @@
         res.statusCode
       );
     }
-    export function expectBroken(res: LightMyRequestResponse, label: string): void {
+    export interface ExpectBrokenOptions {
+      /**
+       * Covers two distinct non-tripwire shapes, both of which skip the
+       * thrown-error-name assertion and just check the status code:
+       *   1. A genuinely wrong-tenant RLS denial (a scoped read that resolves to
+       *      the WRONG venue, so the row is invisible) rather than an unscoped
+       *      read the tripwire catches — e.g. the public-waitlist
+       *      slug/body-venueId mismatch fixture (404).
+       *   2. A route or service function that catches the tripwire's thrown
+       *      error itself and manually formats its own response — either
+       *      swallowing it into an unrelated status (e.g. waitlist
+       *      seat/cancel/expire's try/catch-return-null turns it into a 404)
+       *      or re-emitting the SAME status (500) but via `reply.send(plainObject)`
+       *      rather than a re-thrown Error, so Fastify's `onError` hook never
+       *      fires (e.g. the unsubscribe and Stripe-webhook routes' own
+       *      try/catch blocks). Either way, the caught status is the only
+       *      evidence available — set this to that documented status.
+       */
+      deniedStatus?: number;
+      /**
+       * For the rare fixture whose tripwire-equivalent evidence is a genuinely
+       * DIFFERENT thrown error class than RlsUnscopedQueryError — e.g.
+       * `venueService.create()`'s admin path writes via an unwrapped
+       * `prisma.$transaction(...)` ($-prefixed methods pass through the
+       * venue-scoped-Prisma proxy unwrapped), so the write reaches real
+       * Postgres with no `app.venue_id` set and the FORCE'd RLS policy's
+       * `WITH CHECK` clause rejects it at the DB layer, surfacing as a plain
+       * `PrismaClientKnownRequestError` — still a 500, just not the app-level
+       * tripwire's own error class. Still requires 500; checks the thrown
+       * error's name against this instead of "RlsUnscopedQueryError".
+       */
+      expectedErrorName?: string;
+    }
+    export function expectBroken(
+      res: LightMyRequestResponse,
+      label: string,
+      ctx: SweepContext,
+      options: ExpectBrokenOptions = {}
+    ): void {
+      if (options.deniedStatus !== undefined) {
+        expect(res.statusCode, `${label}: expected the documented wrong-tenant denial status`).toBe(
+          options.deniedStatus
+        );
+        return;
+      }
+      const expectedErrorName = options.expectedErrorName ?? "RlsUnscopedQueryError";
       expect(
         res.statusCode,
-        `${label}: expected this KNOWN_BROKEN route to fail, but it returned ${res.statusCode} — ` +
+        `${label}: expected the RLS tripwire to fire (500), got ${res.statusCode}: ${res.body}`
+      ).toBe(500);
+      expect(
+        ctx.lastRlsErrorName,
+        `${label}: expected ${expectedErrorName}, got ${ctx.lastRlsErrorName ?? "no thrown error captured"} — ` +
           `remove it from KNOWN_BROKEN (and its ADR-026 §3.3 item) now that it's fixed`
-      ).toBeGreaterThanOrEqual(400);
+      ).toBe(expectedErrorName);
     }
     function ok(run: RouteFixture["run"]): RouteFixture {
       return { kind: "ok", run };
@@ -4656,11 +4732,18 @@
       blocker: string,
       method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
       urlFor: (ctx: SweepContext) => string,
-      payload?: InjectOptions["payload"]
+      payload?: PayloadOrFactory,
+      options?: ExpectBrokenOptions
     ): RouteFixture {
       return broken(blocker, async (ctx) => {
         const url = urlFor(ctx);
-        expectBroken(await asAdmin(ctx, { method, url, payload }), `admin ${method} ${url}`);
+        const body = typeof payload === "function" ? payload(ctx) : payload;
+        expectBroken(
+          await asAdmin(ctx, { method, url, payload: body }),
+          `admin ${method} ${url}`,
+          ctx,
+          options
+        );
       });
     }
     export const FIXTURES: Record<string, RouteFixture> = {
