@@ -123,10 +123,16 @@
         $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
       }
     </item>
+    <item priority="low">
+      interface SetVenueContextOptions {
+        skipUnscopedQueryCheck?: boolean;
+      }
+    </item>
     <item priority="high">
       export async function setVenueContext(
         client: VenueContextClient,
-        venueId: string | null | undefined
+        venueId: string | null | undefined,
+        options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
@@ -1371,6 +1377,37 @@
       export const reservationService: unknown;
     </item>
   </file>
+  <file path="src/services/rls-context-mode.ts">
+    <item priority="low">
+      type RlsContextMode = "warn" | "throw" | "off";
+    </item>
+    <item priority="high">
+      export function resolveRlsContextMode(): RlsContextMode { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UnscopedRlsQueryDetails {
+        model: string | null;
+        method: string;
+        route: string | null;
+      }
+    </item>
+    <item priority="high">
+      class RlsUnscopedQueryError {
+        details: UnscopedRlsQueryDetails;
+      }
+    </item>
+    <item priority="low">
+      interface RlsTripwireLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setRlsTripwireLogger(next: RlsTripwireLogger): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recordUnscopedRlsQuery(details: Omit<UnscopedRlsQueryDetails, "route">): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/rls-force-coverage.ts">
     <item priority="high">
       export const MIGRATIONS_DIR: unknown;
@@ -1751,6 +1788,9 @@
     </item>
   </file>
   <file path="src/services/venue-scoped-prisma.ts">
+    <item priority="high">
+      export const RLS_MODELS: ReadonlySet<string>;
+    </item>
     <item priority="high">
       type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     </item>

@@ -62,6 +62,7 @@ import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
 import { venueContextPreHandler } from "./middleware/venue-context.js";
 import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/venue-access.js";
+import { setRlsTripwireLogger } from "./services/rls-context-mode.js";
 
 /**
  * Best-effort venue-id resolution for the global venue-context preHandler
@@ -131,6 +132,12 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     options
   );
+
+  // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
+  // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real
+  // shadow telemetry in production rather than logging into the module's
+  // no-op default (see `services/rls-context-mode.ts`).
+  setRlsTripwireLogger(fastify.log);
 
   // Wire notification port (injected or default Resend-backed)
   const notificationPort = options.notificationPort ?? createNotificationPort();

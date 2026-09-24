@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { VenueIdResolver } from "@mbe/auth/fastify";
 import { enterVenueContext } from "../services/venue-context-store.js";
+import { recordUnscopedRlsQuery } from "../services/rls-context-mode.js";
 
 /**
  * Postgres RLS venue-scoping backstop (ADR-026), part 5/7.
@@ -54,11 +55,37 @@ export interface VenueContextClient {
  * `$transaction`/raw-query call sites) read it back via `getCurrentVenueId`
  * and call this function against THEIR OWN transaction client.
  */
+export interface SetVenueContextOptions {
+  /**
+   * Set ONLY by `venue-scoped-prisma.ts`'s auto-wrap Proxy. That call site
+   * already runs its own `RLS_MODELS`-gated unscoped-query check (ADR-026
+   * §3.3 / #5369 PR 1) before calling this function — `setVenueContext` is
+   * generic over every model's explicit transaction (RLS-scoped or not, e.g.
+   * `venueGroup`/`reservationHold`/`venueMembership`, which carry no RLS
+   * policy at all) and has no way to tell them apart on its own. Without this
+   * flag, every non-RLS model call from the auto-wrap would also be
+   * misreported as an unscoped RLS query. Every other caller — the six
+   * explicit `prisma.$transaction` call sites that manage their own
+   * transaction boundary, all of which address an RLS-scoped table — leaves
+   * this unset and gets the check below.
+   */
+  skipUnscopedQueryCheck?: boolean;
+}
+
 export async function setVenueContext(
   client: VenueContextClient,
-  venueId: string | null | undefined
+  venueId: string | null | undefined,
+  options: SetVenueContextOptions = {}
 ): Promise<void> {
-  if (!venueId) return;
+  if (!venueId) {
+    if (!options.skipUnscopedQueryCheck) {
+      // `model: null` — this function doesn't know which table its caller's
+      // transaction addresses; see `UnscopedRlsQueryDetails.model`'s doc
+      // comment in `../services/rls-context-mode.ts`.
+      recordUnscopedRlsQuery({ model: null, method: "setVenueContext" });
+    }
+    return;
+  }
   await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
 }
 
