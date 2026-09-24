@@ -414,6 +414,14 @@
   </file>
   <file path="src/routes/stripe-webhook.ts">
     <item priority="low">
+      interface StripeWebhookLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setStripeWebhookLogger(next: StripeWebhookLogger): void { /* ... */ }
+    </item>
+    <item priority="low">
       async function holdIfPending(paymentIntentId: string): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
@@ -791,6 +799,14 @@
         | "cancelPaymentIntent"
         | "cap...;
     </item>
+    <item priority="low">
+      interface DepositServiceLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
+    </item>
     <item priority="high">
       class DepositNotFoundError {
         
@@ -799,6 +815,19 @@
     <item priority="high">
       class DepositConcurrentUpdateError {
         
+      }
+    </item>
+    <item priority="high">
+      class DepositRefundLegIncompleteError {
+        depositId: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
+      class DepositCaptureAmbiguousError {
+        depositId: string;
+        intentStatus: string;
+        cause: unknown;
       }
     </item>
     <item priority="low">
@@ -1336,7 +1365,7 @@
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "failed" };
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-leg-incompl | { outcome: "failed" };
     </item>
     <item priority="high">
       type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
