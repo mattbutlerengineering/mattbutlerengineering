@@ -49,5 +49,21 @@
       "overall_rubber_stamps": 0,
       "overall_approvals": 0
     }
+  },
+  {
+    "timestamp": "2026-09-24T15:51:44.264Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [],
+    "summary": {
+      "total_reviewers": 0,
+      "total_reviews": 0,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
+    }
   }
 ]
