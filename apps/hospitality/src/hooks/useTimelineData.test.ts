@@ -10,6 +10,7 @@ import type { Reservation, Table } from "@mbe/types";
 const mockReservationsList = vi.fn();
 const mockTablesList = vi.fn();
 const mockReservationsUpdate = vi.fn();
+const mockReservationsMarkNoShow = vi.fn();
 const mockReservationsCancelWithReason = vi.fn();
 const mockReservationsWalkIn = vi.fn();
 const mockTablesUpdateStatus = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("./useApiClient.js", () => ({
     reservations: {
       list: mockReservationsList,
       update: mockReservationsUpdate,
+      markNoShow: mockReservationsMarkNoShow,
       cancelWithReason: mockReservationsCancelWithReason,
       walkIn: mockReservationsWalkIn,
     },
@@ -362,6 +364,33 @@ describe("useTimelineData", () => {
 
       expect(mockReservationsUpdate).toHaveBeenCalledWith("r1", { partySize: 6 });
       expect(returnValue?.partySize).toBe(6);
+    });
+  });
+
+  describe("mutation: markNoShow", () => {
+    it("calls reservations.markNoShow and returns the reservation plus an optional warning (#5719 M2)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      const noShow = makeReservation({ status: "NO_SHOW" });
+      mockReservationsMarkNoShow.mockResolvedValue({
+        reservation: noShow,
+        warning: "Deposit authorization is still pending — no charge was made.",
+      });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      let returnValue: { reservation: Reservation; warning?: string } | undefined;
+      await act(async () => {
+        returnValue = await result.current.markNoShow("r1");
+      });
+
+      expect(mockReservationsMarkNoShow).toHaveBeenCalledWith("r1");
+      expect(returnValue?.reservation.status).toBe("NO_SHOW");
+      expect(returnValue?.warning).toMatch(/pending/i);
     });
   });
 

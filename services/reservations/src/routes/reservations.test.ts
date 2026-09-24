@@ -29,6 +29,7 @@ vi.mock("../services/reservation.js", () => ({
 vi.mock("../services/deposit.js", () => ({
   depositService: {
     getByReservationId: vi.fn(),
+    getById: vi.fn(),
     refund: vi.fn(),
     refundPartial: vi.fn(),
     forfeit: vi.fn(),
@@ -965,6 +966,31 @@ describe("Reservation Routes", () => {
         expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
         // Deposit forfeiture resolves BEFORE the status flip.
         expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+      });
+
+      it("surfaces a depositWarning as `warning` in the HTTP response body (#5719 M2)", async () => {
+        // The response.200 JSON schema previously had no `warning` property,
+        // so fast-json-stringify silently stripped it from the serialized
+        // body even though the handler returned it.
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "pending",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "NO_SHOW" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.warning).toMatch(/pending/i);
       });
 
       it("marks the reservation NO_SHOW with no deposit — no forfeiture attempted", async () => {

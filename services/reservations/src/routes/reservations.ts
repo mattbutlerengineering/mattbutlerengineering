@@ -492,6 +492,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             type: "object",
             properties: {
               data: { $ref: "Reservation#" },
+              // Set on a NO_SHOW transition when something non-fatal needs
+              // staff attention (e.g. the deposit was still pending, or was
+              // written off as uncollectable) — the reservation still moved
+              // to NO_SHOW, but the fee wasn't collected as expected (#5719
+              // M2, item 1/5).
+              warning: { type: "string" },
             },
           },
           400: {

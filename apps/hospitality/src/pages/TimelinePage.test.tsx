@@ -521,6 +521,7 @@ function makeTimelineData(overrides: Partial<UseTimelineDataResult> = {}): UseTi
     seatGuest: vi.fn().mockResolvedValue(defaultReservation),
     cancelReservation: vi.fn().mockResolvedValue(undefined),
     updateReservation: vi.fn().mockResolvedValue(defaultReservation),
+    markNoShow: vi.fn().mockResolvedValue({ reservation: defaultReservation }),
     createWalkIn: vi.fn().mockResolvedValue(WALK_IN_RESERVATION),
     updateTableStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -999,9 +1000,9 @@ describe("TimelinePage", () => {
   });
 
   describe("mark no-show flow (#5616)", () => {
-    it("opens the no-show dialog and calls updateReservation with status NO_SHOW on confirm", async () => {
-      const updateReservation = vi.fn().mockResolvedValue(defaultReservation);
-      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+    it("opens the no-show dialog and calls markNoShow on confirm", async () => {
+      const markNoShow = vi.fn().mockResolvedValue({ reservation: defaultReservation });
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ markNoShow }));
 
       renderPage();
       await waitFor(() => {
@@ -1017,7 +1018,33 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("no-show-confirm"));
       await waitFor(() => {
-        expect(updateReservation).toHaveBeenCalledWith("r1", { status: "NO_SHOW" });
+        expect(markNoShow).toHaveBeenCalledWith("r1");
+      });
+    });
+
+    it("appends the server's depositWarning to the announced status message (#5719 M2)", async () => {
+      const markNoShow = vi.fn().mockResolvedValue({
+        reservation: defaultReservation,
+        warning: "Deposit authorization is still pending — no charge was made.",
+      });
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ markNoShow }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Mark No-Show")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Mark No-Show"));
+      await waitFor(() => {
+        expect(screen.getByTestId("no-show-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("no-show-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/pending/i);
       });
     });
 
@@ -1041,8 +1068,8 @@ describe("TimelinePage", () => {
     });
 
     it("rethrows a failed capture so the dialog owns the failure — no silent success (hard rule)", async () => {
-      const updateReservation = vi.fn().mockRejectedValue(new Error("Capture failed"));
-      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+      const markNoShow = vi.fn().mockRejectedValue(new Error("Capture failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ markNoShow }));
 
       renderPage();
       await waitFor(() => {

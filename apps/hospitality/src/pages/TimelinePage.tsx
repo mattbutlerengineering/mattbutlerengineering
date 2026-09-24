@@ -167,6 +167,7 @@ export function TimelinePage() {
     seatGuest,
     cancelReservation,
     updateReservation,
+    markNoShow,
     createWalkIn,
     updateTableStatus,
   } = useTimelineData({ venueId: selectedVenueId ?? undefined, date: selectedDate });
@@ -276,15 +277,18 @@ export function TimelinePage() {
     focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
   };
 
-  // Reuses the existing update path — the backend's NO_SHOW transition (recordNoShow,
-  // services/reservations) captures any held deposit as a no-show fee via the same Stripe
-  // capture plumbing deposits already use. Rejects on failure; MarkNoShowDialog owns showing it.
+  // The backend's NO_SHOW transition (recordNoShow, services/reservations) captures any held
+  // deposit as a no-show fee via the same Stripe capture plumbing deposits already use, and may
+  // return a `warning` when something non-fatal needs staff attention (e.g. the deposit was still
+  // pending, or was written off as uncollectable — #5719 M2). Rejects on failure; MarkNoShowDialog
+  // owns showing it.
   const handleMarkNoShow = async () => {
     if (!selectedReservation) return;
-    const updated = await updateReservation(selectedReservation.id, { status: "NO_SHOW" });
+    const { reservation: updated, warning } = await markNoShow(selectedReservation.id);
     setShowNoShowDialog(false);
     clearSelection();
-    announce(`Marked ${whoseReservation(selectedReservation)} as a no-show.`);
+    const sentence = `Marked ${whoseReservation(selectedReservation)} as a no-show.`;
+    announce(warning ? `${sentence} ${warning}` : sentence);
     focusAfter({ kind: "testId", testId: blockTestId(updated.id) });
   };
 
