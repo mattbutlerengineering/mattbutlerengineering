@@ -25,6 +25,7 @@ vi.mock("./deposit.js", async () => {
       forfeit: vi.fn(),
       refundPartial: vi.fn(),
       refund: vi.fn(),
+      verifyCaptureCompleted: vi.fn(),
     },
   };
 });
@@ -236,7 +237,7 @@ describe("recordNoShow", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("still returns the 500 failure when the CAS loses but the reservation was NOT actually marked NO_SHOW", async () => {
+  it("still returns a 409 conflict (retry) when the CAS loses but the reservation was NOT actually marked NO_SHOW", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
     vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
@@ -252,7 +253,10 @@ describe("recordNoShow", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.status).toBe(500);
+      // A concurrent-loser is an in-progress conflict, not a failure — the
+      // winning request is still working; retrying should succeed once it
+      // finishes (#5722 R4 LOW-2).
+      expect(result.status).toBe(409);
     }
   });
 
@@ -277,6 +281,9 @@ describe("recordNoShow", () => {
     const result = await recordNoShow(reservation, makeLogger());
 
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
     expect(reservationService.update).not.toHaveBeenCalled();
     // The row-status re-read is the winner's business, not this loser's —
     // this invocation must bail out before ever consulting it.
@@ -677,6 +684,37 @@ describe("recordNoShow", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("reports an ambiguous-capture result (not the generic failure) when a stuck partial_refunded retry's replay is itself unconfirmed (#5722 R4 LOW-1)", async () => {
+    // The card was almost certainly already charged (this row only reaches
+    // partial_refunded via a prior successful DB-first transition) — the
+    // generic DEPOSIT_FAILURE_RESULT message ("could not process the
+    // deposit") would misleadingly suggest nothing happened.
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(
+      new DepositCaptureAmbiguousError(
+        "dep_1",
+        "unknown",
+        new Error("payment_intent_unexpected_state")
+      )
+    );
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // Both results are 500-class; the distinction is in the wording —
+      // the generic result implies nothing was charged, which would be
+      // wrong here.
+      expect(result.detail).not.toMatch(/could not process the deposit forfeiture/i);
+    }
+  });
+
   it("aborts with a clear log when a partial_refunded deposit is missing its persisted refund amount", async () => {
     const reservation = makeReservation();
     const logger = makeLogger();
@@ -718,5 +756,68 @@ describe("recordNoShow", () => {
       expect(result.reservation.status).toBe("NO_SHOW");
     }
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("re-verifies a stuck forfeited deposit and proceeds when the retry re-captures it (#5722 R4 MED-1)", async () => {
+    // A prior attempt's capture reconciliation couldn't confirm the charge
+    // with Stripe (DepositCaptureAmbiguousError, #5722 M3) and left the row
+    // at `forfeited` without proof. The old code had no branch for this
+    // status at all and would have marked NO_SHOW without ever checking
+    // Stripe — a ghost charge risk if the capture never actually landed.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("recaptured");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "forfeit");
+    expect(result.success).toBe(true);
+  });
+
+  it("re-verifies a stuck applied deposit using the apply action key and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "apply");
+    expect(result.success).toBe(true);
+  });
+
+  it("aborts rather than recording a no-show when a stuck forfeited deposit's capture cannot be verified (#5722 R4 MED-1)", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("failed");
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ depositId: "dep_1", reservationId: "res_1" }),
+      expect.stringMatching(/ghost charge|verify/i)
+    );
   });
 });

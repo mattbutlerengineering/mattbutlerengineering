@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
-import { depositService } from "./deposit.js";
+import { depositService, DepositCaptureAmbiguousError } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import type { BookingNotifier, CancelInitiator } from "./booking-notifications.js";
@@ -42,7 +42,7 @@ const DEPOSIT_FAILURE_RESULT: CancelReservationResult = {
 };
 
 /** Which Stripe money-move ran against the deposit during resolution. */
-type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+type DepositStripeOp = "refund" | "forfeit" | "refund_partial" | "apply";
 
 /**
  * What {@link resolveDeposit} did to the deposit, so a later status-write
@@ -68,6 +68,31 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: CancelReservationResult = {
   title: "Cancellation Incomplete",
   detail:
     "The deposit was resolved but the reservation status could not be updated. This requires manual reconciliation.",
+};
+
+/**
+ * A deposit capture whose Stripe outcome could not be confirmed (#5722 M3),
+ * covering two distinct retry shapes, both mirroring `reservation-no-show.ts`:
+ *
+ *  - A prior attempt left the deposit at a capture-based terminal status
+ *    (`forfeited`/`applied`) that was never confirmed, and this retry's own
+ *    {@link depositService.verifyCaptureCompleted} check couldn't verify it
+ *    either (#5722 R4 MED-1).
+ *  - A re-entrant `partial_refunded` capture-leg replay couldn't confirm
+ *    itself — the card was almost certainly already charged (this row only
+ *    reaches `partial_refunded` via a prior successful DB-first transition),
+ *    so {@link DEPOSIT_FAILURE_RESULT}'s "could not process the deposit
+ *    refund" wording would misleadingly suggest nothing happened (#5722 R4
+ *    LOW-1).
+ *
+ * Cancelling anyway in either case would risk a ghost charge.
+ */
+const DEPOSIT_CAPTURE_UNVERIFIED_RESULT: CancelReservationResult = {
+  success: false,
+  status: 500,
+  title: "Cancellation Incomplete",
+  detail:
+    "A previous deposit capture could not be verified with Stripe. This requires manual reconciliation before cancelling.",
 };
 
 /**
@@ -108,9 +133,38 @@ async function resolveDeposit(
         { err, reservationId: reservation.id, depositId: deposit.id },
         "Failed to replay partial refund on cancellation retry; aborting cancel"
       );
-      return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+      // A re-entrant replay that couldn't confirm itself (#5722 R4 LOW-1) —
+      // never the generic "could not process" wording, since the card was
+      // almost certainly already charged.
+      return {
+        ok: false,
+        failure:
+          err instanceof DepositCaptureAmbiguousError
+            ? DEPOSIT_CAPTURE_UNVERIFIED_RESULT
+            : DEPOSIT_FAILURE_RESULT,
+      };
     }
     return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund_partial" } };
+  }
+
+  if (deposit.status === "forfeited" || deposit.status === "applied") {
+    // Retry guard: a previous attempt's capture reconciliation couldn't
+    // confirm the charge with Stripe (DepositCaptureAmbiguousError, #5722
+    // M3) and left the row at this optimistic terminal status without ever
+    // proving it. Falling through to `resolved: null` below (the pre-fix
+    // behaviour) would cancel straight off the row's own unverified status —
+    // trusting a status this invocation never itself verified is exactly the
+    // ghost-charge risk (#5722 R4 MED-1). Re-verify against Stripe first.
+    const action = deposit.status === "forfeited" ? "forfeit" : "apply";
+    const verification = await depositService.verifyCaptureCompleted(deposit.id, action);
+    if (verification === "failed") {
+      logger.error(
+        { reservationId: reservation.id, depositId: deposit.id, depositStatus: deposit.status },
+        "Could not verify a previously-ambiguous deposit capture before cancelling; aborting to avoid a ghost charge"
+      );
+      return { ok: false, failure: DEPOSIT_CAPTURE_UNVERIFIED_RESULT };
+    }
+    return { ok: true, resolved: { depositId: deposit.id, stripeOp: action } };
   }
 
   if (deposit.status !== "held") return { ok: true, resolved: null };

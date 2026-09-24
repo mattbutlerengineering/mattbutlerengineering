@@ -56,12 +56,45 @@ const DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT: RecordNoShowResult = {
     "The deposit was captured but the guest's refund could not be completed. This requires manual reconciliation or a retry.",
 };
 
+/**
+ * This invocation lost the deposit-transition race to a concurrent request
+ * that is still in flight — it never touched Stripe and has nothing of its
+ * own to reconcile (see {@link forfeitHeldDeposit}'s doc comment). This is an
+ * in-progress conflict, not a failure: the winning request is still working,
+ * and retrying should succeed once it finishes. A 500 here would misreport a
+ * transient race as a permanent failure (#5722 R4 LOW-2).
+ */
+const DEPOSIT_CONCURRENT_RETRY_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 409,
+  title: "Conflict",
+  detail: "Another request is already processing this no-show. Please retry.",
+};
+
+/**
+ * A prior no-show attempt left the deposit at a capture-based terminal
+ * status (`forfeited`/`applied`) whose Stripe capture was never confirmed
+ * (#5722 M3), and this retry could not verify it either (Stripe still won't
+ * confirm the charge, or the re-capture attempt itself failed). Recording
+ * the no-show anyway would risk a ghost charge — a reservation marked
+ * NO_SHOW with no confirmed money ever moved and no webhook able to catch
+ * it after the fact (#5722 R4 MED-1).
+ */
+const DEPOSIT_CAPTURE_UNVERIFIED_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 500,
+  title: "No-Show Incomplete",
+  detail:
+    "A previous deposit capture could not be verified with Stripe. This requires manual reconciliation before recording a no-show.",
+};
+
 /** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
   | { outcome: "resolved"; warning?: string }
   | { outcome: "uncollectable"; warning: string }
   | { outcome: "already-no-show"; reservation: Reservation }
   | { outcome: "refund-leg-incomplete" }
+  | { outcome: "concurrent-retry" }
   | { outcome: "failed" };
 
 /** Which Stripe money-move a no-show resolves the deposit with. */
@@ -272,7 +305,7 @@ async function forfeitHeldDeposit(
         { err, reservationId: reservation.id, depositId },
         "Lost the deposit-transition race on no-show; the winning request owns reconciliation"
       );
-      return { outcome: "failed" };
+      return { outcome: "concurrent-retry" };
     }
     if (err instanceof DepositRefundLegIncompleteError) {
       // Capture succeeded but the refund never went out — never treat this
@@ -347,6 +380,9 @@ export async function recordNoShow(
     if (outcome.outcome === "failed") {
       return DEPOSIT_FAILURE_RESULT;
     }
+    if (outcome.outcome === "concurrent-retry") {
+      return DEPOSIT_CONCURRENT_RETRY_RESULT;
+    }
     if (outcome.outcome === "refund-leg-incomplete") {
       return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
     }
@@ -387,9 +423,35 @@ export async function recordNoShow(
         { err, reservationId: reservation.id, depositId: deposit.id },
         "Failed to replay partial refund on no-show retry; aborting to avoid ghost state"
       );
-      return err instanceof DepositRefundLegIncompleteError
-        ? DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT
+      if (err instanceof DepositRefundLegIncompleteError) {
+        return DEPOSIT_REFUND_LEG_INCOMPLETE_RESULT;
+      }
+      // A re-entrant capture-leg replay that couldn't confirm itself (#5722
+      // R4 LOW-1) — the card was almost certainly already charged (this row
+      // only reaches partial_refunded via a prior successful DB-first
+      // transition), so DEPOSIT_FAILURE_RESULT's "could not process the
+      // deposit" wording would misleadingly suggest nothing happened.
+      return err instanceof DepositCaptureAmbiguousError
+        ? DEPOSIT_CAPTURE_UNVERIFIED_RESULT
         : DEPOSIT_FAILURE_RESULT;
+    }
+    forfeitedDepositId = deposit.id;
+  } else if (deposit?.status === "forfeited" || deposit?.status === "applied") {
+    // Retry guard: a previous no-show's capture reconciliation couldn't
+    // confirm the charge with Stripe (DepositCaptureAmbiguousError, #5722
+    // M3) and left the row at this optimistic terminal status without ever
+    // proving it. The old code had no branch for this status and would have
+    // written NO_SHOW straight off the row's own status — trusting a status
+    // this invocation never itself verified is exactly the ghost-charge risk
+    // (#5722 R4 MED-1). Re-verify against Stripe before proceeding.
+    const action = deposit.status === "forfeited" ? "forfeit" : "apply";
+    const verification = await depositService.verifyCaptureCompleted(deposit.id, action);
+    if (verification === "failed") {
+      logger.error(
+        { reservationId: reservation.id, depositId: deposit.id, depositStatus: deposit.status },
+        "Could not verify a previously-ambiguous deposit capture before recording a no-show; aborting to avoid a ghost charge"
+      );
+      return DEPOSIT_CAPTURE_UNVERIFIED_RESULT;
     }
     forfeitedDepositId = deposit.id;
   }

@@ -18,7 +18,7 @@ export type StripePort = Pick<
   | "createPartialRefund"
   | "createCustomer"
   | "retrievePaymentIntent"
-  | "getRefundedAmountCents"
+  | "findDepositRefund"
 >;
 
 /**
@@ -251,29 +251,6 @@ export class DepositService {
   }
 
   /**
-   * Transitions deposit from `held` → `uncollectable` with NO Stripe call.
-   * Used when a capture attempt fails permanently (e.g. Stripe auto-canceled
-   * the authorization after ~7 days uncaptured) — the money is gone for
-   * good, so there is nothing left to reconcile against Stripe; this just
-   * records that fact so the row doesn't stay stuck showing `held`.
-   */
-  async markUncollectable(depositId: string): Promise<Deposit> {
-    const deposit = await this._requireDeposit(depositId);
-    transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
-
-    const { count } = await prisma.deposit.updateMany({
-      where: { id: depositId, status: deposit.status },
-      data: { status: "uncollectable", uncollectableAt: new Date() },
-    });
-
-    if (count === 0) {
-      throw new DepositConcurrentUpdateError(depositId, "markUncollectable");
-    }
-
-    return this._requireDeposit(depositId);
-  }
-
-  /**
    * Transitions deposit from `held` → `refunded`.
    * Cancels the Stripe PaymentIntent (releases the authorization).
    *
@@ -406,9 +383,11 @@ export class DepositService {
       // moved to `succeeded` fails with `payment_intent_unexpected_state`
       // rather than returning the cached response (#5722 H2).
       let captureConfirmedSucceeded = false;
+      let preCheckIntentStatus: string | null = null;
       if (!didTransition) {
         try {
           const intent = await this.stripe.retrievePaymentIntent(deposit.stripePaymentIntentId);
+          preCheckIntentStatus = intent.status;
           captureConfirmedSucceeded = intent.status === "succeeded";
         } catch {
           // Can't verify — fall through and let the capture call itself
@@ -448,7 +427,24 @@ export class DepositService {
             );
           }
           if (!captureConfirmedSucceeded) {
-            throw error;
+            if (didTransition) {
+              throw error;
+            }
+            // Re-entrant retry (!didTransition): a PRIOR invocation already
+            // wrote this row to partial_refunded DB-first, which structurally
+            // rules out "capture never happened" — a confirmed never-happened
+            // case would already have been rolled back to `held` by that
+            // prior invocation's own reconciliation. So this replay failure
+            // can only mean ambiguous or already-succeeded-elsewhere, never
+            // "nothing was charged". Throwing the raw error here previously
+            // surfaced a misleading "could not process the deposit" message
+            // even though the card was almost certainly already charged
+            // (#5722 R4 LOW-1).
+            throw new DepositCaptureAmbiguousError(
+              depositId,
+              preCheckIntentStatus ?? "unknown",
+              error
+            );
           }
         }
       }
@@ -458,23 +454,32 @@ export class DepositService {
       // a distinct error and leave the row `partial_refunded` — retry is
       // idempotent (#5722 H1).
       if (refundAmountCents > 0) {
-        let alreadyRefundedCents = 0;
+        let ourRefundAmountCents = 0;
         if (!didTransition) {
           // Same TTL concern as the capture leg above: a replayed refund call
           // past the key's expiry could otherwise double-refund (#5722 H2).
+          // If ground truth itself can't be verified, fail CLOSED rather than
+          // assuming "not yet refunded" and replaying — that default risks a
+          // double refund past the TTL, so the verify failure is surfaced as
+          // its own incomplete-leg error and createPartialRefund is never
+          // called on this path (#5722 R4 HIGH-1).
           try {
-            const amount = await this.stripe.getRefundedAmountCents(deposit.stripePaymentIntentId);
-            alreadyRefundedCents = amount ?? 0;
-          } catch {
-            alreadyRefundedCents = 0;
+            const ourRefund = await this.stripe.findDepositRefund(
+              deposit.stripePaymentIntentId,
+              depositId
+            );
+            ourRefundAmountCents = ourRefund?.amount ?? 0;
+          } catch (error) {
+            throw new DepositRefundLegIncompleteError(depositId, error);
           }
         }
 
-        if (alreadyRefundedCents < refundAmountCents) {
+        if (ourRefundAmountCents < refundAmountCents) {
           try {
             await this.stripe.createPartialRefund(
               deposit.stripePaymentIntentId,
               refundAmountCents,
+              depositId,
               refundKey
             );
           } catch (error) {
@@ -485,6 +490,66 @@ export class DepositService {
     }
 
     return updated;
+  }
+
+  /**
+   * Re-verifies a deposit ALREADY sitting at a capture-based terminal status
+   * (`forfeited`/`applied`) whose underlying Stripe capture was never
+   * confirmed. `_reconcileCaptureFailure` can leave a row at exactly this
+   * optimistic status without proof — the {@link DepositCaptureAmbiguousError}
+   * case (#5722 M3) — so a later retry (staff re-attempting a no-show or
+   * cancellation) must not trust that DB status alone before writing a final
+   * reservation status on top of it; an unconfirmed or dead capture would
+   * otherwise become a ghost charge no webhook or future retry can ever catch
+   * (#5722 R4 MED-1). Re-derives ground truth from Stripe directly:
+   *
+   *  - `succeeded` — the capture landed; nothing further to do.
+   *  - `requires_capture` — the authorization is still live and nothing was
+   *    ever charged; re-attempt the SAME capture, replaying the original
+   *    `${depositId}:${action}` idempotency key so Stripe's own idempotency
+   *    machinery either returns the cached prior result or genuinely
+   *    completes it now.
+   *  - anything else (`canceled`, a non-terminal status, the re-capture
+   *    itself throwing, or the verification retrieve itself throwing) is
+   *    never guessed at — fails closed so the caller aborts rather than
+   *    reporting a completion Stripe never confirmed.
+   *
+   * A deposit with no `stripePaymentIntentId` (a manual, non-Stripe deposit)
+   * has nothing to verify against Stripe and is reported `succeeded` outright.
+   */
+  async verifyCaptureCompleted(
+    depositId: string,
+    action: "apply" | "forfeit"
+  ): Promise<"succeeded" | "recaptured" | "failed"> {
+    const deposit = await this._requireDeposit(depositId);
+    if (!deposit.stripePaymentIntentId) {
+      return "succeeded";
+    }
+
+    let intent: { status: string };
+    try {
+      intent = await this.stripe.retrievePaymentIntent(deposit.stripePaymentIntentId);
+    } catch {
+      return "failed";
+    }
+
+    if (intent.status === "succeeded") {
+      return "succeeded";
+    }
+
+    if (intent.status === "requires_capture") {
+      try {
+        await this.stripe.capturePaymentIntent(
+          deposit.stripePaymentIntentId,
+          `${depositId}:${action}`
+        );
+        return "recaptured";
+      } catch {
+        return "failed";
+      }
+    }
+
+    return "failed";
   }
 
   /**

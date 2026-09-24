@@ -168,6 +168,7 @@ export class StripeService {
   async createPartialRefund(
     paymentIntentId: string,
     refundAmountCents: number,
+    depositId: string,
     idempotencyKey?: string
   ): Promise<{ id: string; status: string; amount: number }> {
     try {
@@ -187,6 +188,10 @@ export class StripeService {
         {
           charge: chargeId,
           amount: refundAmountCents,
+          // Tags this refund as OURS so a retry can find it specifically via
+          // findDepositRefund, rather than reading the charge's aggregate
+          // amount_refunded — which includes unrelated refunds (#5722 MED-2).
+          metadata: { depositId, leg: "refundPartial" },
         },
         idempotencyKey ? { idempotencyKey } : undefined
       );
@@ -214,27 +219,34 @@ export class StripeService {
   }
 
   /**
-   * Returns the amount (in cents) already refunded against a PaymentIntent's
-   * charge, or 0 if it has no associated charge yet. Ground truth for
+   * Finds OUR tagged partial refund (metadata `{ depositId, leg:
+   * "refundPartial" }`, set by {@link createPartialRefund}) among all
+   * refunds issued for a PaymentIntent, if one exists. Ground truth for
    * `refundPartial`'s retry guard: past Stripe's idempotency-key TTL (~24h) a
    * replayed refund call can no longer rely on the key returning a cached
-   * response, so whether the refund already went out must be checked
-   * directly against the charge before issuing another one.
+   * response, so whether OUR refund already went out must be checked
+   * directly. This replaces a prior implementation that read the charge's
+   * aggregate `amount_refunded` — a total across ALL refunds regardless of
+   * origin, so an unrelated (e.g. manually issued, dashboard) refund on the
+   * same charge could either mask ours (a smaller unrelated refund still
+   * looks "not yet fully refunded", triggering an over-refund) or falsely
+   * satisfy it (a larger unrelated refund reads as "already refunded",
+   * silently skipping ours) (#5722 MED-2).
    */
-  async getRefundedAmountCents(paymentIntentId: string): Promise<number> {
+  async findDepositRefund(
+    paymentIntentId: string,
+    depositId: string
+  ): Promise<{ id: string; amount: number } | null> {
     try {
-      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      const chargeId =
-        typeof intent.latest_charge === "string"
-          ? intent.latest_charge
-          : (intent.latest_charge?.id ?? null);
-
-      if (!chargeId) {
-        return 0;
-      }
-
-      const charge = await this.stripe.charges.retrieve(chargeId);
-      return charge.amount_refunded;
+      const refunds = await this.stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit: 100,
+      });
+      const ours = refunds.data.find(
+        (refund) =>
+          refund.metadata?.depositId === depositId && refund.metadata?.leg === "refundPartial"
+      );
+      return ours ? { id: ours.id, amount: ours.amount } : null;
     } catch (err) {
       wrapStripeError(err);
     }

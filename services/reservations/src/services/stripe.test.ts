@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so these refs are available inside the vi.mock factory
-const { mockPaymentIntents, mockCustomers, mockWebhooks, mockCharges } = vi.hoisted(() => ({
+const { mockPaymentIntents, mockCustomers, mockWebhooks, mockRefunds } = vi.hoisted(() => ({
   mockPaymentIntents: {
     create: vi.fn(),
     capture: vi.fn(),
@@ -14,8 +14,9 @@ const { mockPaymentIntents, mockCustomers, mockWebhooks, mockCharges } = vi.hois
   mockWebhooks: {
     constructEvent: vi.fn(),
   },
-  mockCharges: {
-    retrieve: vi.fn(),
+  mockRefunds: {
+    create: vi.fn(),
+    list: vi.fn(),
   },
 }));
 
@@ -24,7 +25,7 @@ vi.mock("stripe", () => {
     paymentIntents = mockPaymentIntents;
     customers = mockCustomers;
     webhooks = mockWebhooks;
-    charges = mockCharges;
+    refunds = mockRefunds;
     constructor(_key: string) {}
   }
   return { default: MockStripe };
@@ -189,51 +190,87 @@ describe("StripeService", () => {
     });
   });
 
-  describe("getRefundedAmountCents", () => {
-    it("returns the charge's amount_refunded", async () => {
+  describe("createPartialRefund", () => {
+    it("tags the refund with depositId + leg metadata so a retry can find it specifically (#5722 MED-2)", async () => {
       mockPaymentIntents.retrieve.mockResolvedValueOnce({
         id: "pi_test_123",
         latest_charge: "ch_test_123",
       });
-      mockCharges.retrieve.mockResolvedValueOnce({ amount_refunded: 1500 });
-
-      const result = await stripeService.getRefundedAmountCents("pi_test_123");
-
-      expect(mockCharges.retrieve).toHaveBeenCalledWith("ch_test_123");
-      expect(result).toBe(1500);
-    });
-
-    it("resolves latest_charge from an expanded charge object", async () => {
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({
-        id: "pi_test_123",
-        latest_charge: { id: "ch_test_456" },
-      });
-      mockCharges.retrieve.mockResolvedValueOnce({ amount_refunded: 0 });
-
-      await stripeService.getRefundedAmountCents("pi_test_123");
-
-      expect(mockCharges.retrieve).toHaveBeenCalledWith("ch_test_456");
-    });
-
-    it("returns 0 when the PaymentIntent has no associated charge yet", async () => {
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({
-        id: "pi_test_123",
-        latest_charge: null,
+      mockRefunds.create.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
       });
 
-      const result = await stripeService.getRefundedAmountCents("pi_test_123");
+      await stripeService.createPartialRefund("pi_test_123", 3000, "dep-123", "dep-123:refund");
 
-      expect(result).toBe(0);
-      expect(mockCharges.retrieve).not.toHaveBeenCalled();
+      expect(mockRefunds.create).toHaveBeenCalledWith(
+        {
+          charge: "ch_test_123",
+          amount: 3000,
+          metadata: { depositId: "dep-123", leg: "refundPartial" },
+        },
+        { idempotencyKey: "dep-123:refund" }
+      );
+    });
+  });
+
+  describe("findDepositRefund", () => {
+    it("finds OUR tagged refund among several refunds on the same PaymentIntent (#5722 MED-2)", async () => {
+      // An unrelated (e.g. dashboard-issued) refund sits alongside ours on
+      // the same charge — the lookup must return ours specifically, not an
+      // aggregate that would be thrown off by the unrelated one.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          { id: "re_unrelated", amount: 500, metadata: {} },
+          { id: "re_ours", amount: 3000, metadata: { depositId: "dep-123", leg: "refundPartial" } },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(mockRefunds.list).toHaveBeenCalledWith({
+        payment_intent: "pi_test_123",
+        limit: 100,
+      });
+      expect(result).toEqual({ id: "re_ours", amount: 3000 });
     });
 
-    it("wraps a Stripe error from the retrieve call", async () => {
+    it("returns null when only an unrelated (larger) refund exists — never mistaken for ours (#5722 MED-2)", async () => {
+      // A larger unrelated refund must not read as "our refund already went
+      // out" — that would silently skip issuing the guest's actual refund.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [{ id: "re_unrelated", amount: 999999, metadata: {} }],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("ignores a refund tagged for a different deposit on the same PaymentIntent", async () => {
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_other_dep",
+            amount: 3000,
+            metadata: { depositId: "dep-999", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("wraps a Stripe error from the list call", async () => {
       const connectionError = Object.assign(new Error("connection lost"), {
         type: "StripeConnectionError",
       });
-      mockPaymentIntents.retrieve.mockRejectedValueOnce(connectionError);
+      mockRefunds.list.mockRejectedValueOnce(connectionError);
 
-      await expect(stripeService.getRefundedAmountCents("pi_test_123")).rejects.toThrow(
+      await expect(stripeService.findDepositRefund("pi_test_123", "dep-123")).rejects.toThrow(
         "connection lost"
       );
     });
