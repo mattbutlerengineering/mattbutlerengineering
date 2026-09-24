@@ -159,16 +159,18 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          id: "hold_e2e_deposit_payment_001",
-          venueId: "ven_e2e_001",
-          tableId: "tbl_e2e_001",
-          date: "2026-05-17",
-          startTime: "2026-05-17T18:00:00.000Z",
-          endTime: "2026-05-17T19:30:00.000Z",
-          partySize: 2,
-          sessionId: "sess_e2e_deposit_payment_001",
-          expiresAt: new Date(Date.now() + 600_000).toISOString(),
-          createdAt: new Date().toISOString(),
+          data: {
+            id: "hold_e2e_deposit_payment_001",
+            venueId: "ven_e2e_001",
+            tableId: "tbl_e2e_001",
+            date: "2026-05-17",
+            startTime: "2026-05-17T18:00:00.000Z",
+            endTime: "2026-05-17T19:30:00.000Z",
+            partySize: 2,
+            sessionId: "sess_e2e_deposit_payment_001",
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            createdAt: new Date().toISOString(),
+          },
         }),
       })
     );
