@@ -35,6 +35,23 @@ export interface GenRunnerConfig {
   readonly modelId: string;
   readonly maxSteps: number;
   readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
+  /**
+   * Forces a specific tool call (e.g. `{ type: "tool", toolName: "render_component" }`)
+   * instead of leaving tool use to the model's discretion. Omit to keep the
+   * provider's default ("auto") behavior — existing callers are unaffected.
+   */
+  readonly toolChoice?: { readonly type: "tool"; readonly toolName: string };
+  /**
+   * When true, a `tool-error` part (schema-invalid tool input) throws
+   * immediately instead of letting it pass. Only safe when maxSteps === 1
+   * (no possible retry) — gen-ui sets this. With maxSteps > 1, ai@7's own
+   * multi-step loop resends the tool error to the model and can recover on a
+   * later step via the SAME fullStream; throwing unconditionally there would
+   * kill the turn before that recovery ever runs (verified against the real
+   * SDK — gen-agent regressed this way when the throw was unconditional).
+   * Leave unset for any runner where maxSteps > 1.
+   */
+  readonly failOnToolError?: boolean;
 }
 
 /** Tool names that require user confirmation before execution. */
@@ -83,6 +100,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         model: anthropic(config.modelId),
         messages: aiMessages,
         tools: tools as Parameters<typeof streamText>[0]["tools"],
+        toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata }) => {
@@ -102,10 +120,29 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
             tool: event.toolName,
             status: "complete",
           });
+        } else if (event.type === "error") {
+          // ai@7 does not throw on a failed model call (e.g. 529/401) — it
+          // yields this part and completes the stream normally. Without this,
+          // the loop just finishes: the caller sees a clean return and zero
+          // events, indistinguishable from "nothing to generate" rather than
+          // "the call failed". Always fatal — there is no recovery from a
+          // failed model call.
+          throw toError(event.error);
+        } else if (event.type === "tool-error" && config.failOnToolError) {
+          // Unlike `error`, a `tool-error` (schema-invalid tool input) is
+          // NOT always fatal: with maxSteps > 1, ai@7 resends it to the model
+          // and a later step can recover on this same fullStream. Only throw
+          // when the caller has said no retry is possible (see
+          // GenRunnerConfig.failOnToolError).
+          throw toError(event.error);
         }
       }
     },
   };
+}
+
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 async function handleToolCall(
