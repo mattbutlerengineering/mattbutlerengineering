@@ -2503,6 +2503,9 @@
       export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig { /* ... */ }
     </item>
     <item priority="high">
+      export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
