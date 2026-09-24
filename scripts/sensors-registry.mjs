@@ -425,52 +425,14 @@ export const SENSORS = [
     format: (data, name) => `${name}: ${data.entry_count} entries`,
   },
   {
-    id: "domainActivity",
-    category: "quality",
-    collect: ({ root }) => {
-      const rows = safe(() => read("domain-metrics", { root }));
-      if (!Array.isArray(rows) || rows.length === 0) return { available: false };
-
-      const latest = rows[rows.length - 1];
-      const reservations = latest.reservations ?? {};
-      const deposits = latest.deposits ?? {};
-      // "Created" = every reservation that existed for the venue that day,
-      // regardless of where it ended up in the funnel (pending/confirmed
-      // are still "created", just not yet resolved to cancelled/completed/no-show).
-      const created =
-        (reservations.pending ?? 0) +
-        (reservations.confirmed ?? 0) +
-        (reservations.cancelled ?? 0) +
-        (reservations.completed ?? 0) +
-        (reservations.noShow ?? 0);
-
-      return {
-        available: true,
-        date: latest.date ?? null,
-        venueId: latest.venueId ?? null,
-        reservations_created: created,
-        reservations_cancelled: reservations.cancelled ?? 0,
-        reservations_completed: reservations.completed ?? 0,
-        reservations_no_show: reservations.noShow ?? 0,
-        deposits_held: deposits.held ?? 0,
-        deposits_applied: deposits.applied ?? 0,
-        deposits_refunded: deposits.refunded ?? 0,
-        deposits_forfeited: deposits.forfeited ?? 0,
-      };
-    },
-    format: (data, name) =>
-      `${name}: ${data.reservations_created} created, ${data.reservations_cancelled} cancelled, ` +
-      `${data.reservations_completed} completed, ${data.reservations_no_show} no-show, ` +
-      `deposits held/applied/refunded/forfeited ${data.deposits_held}/${data.deposits_applied}/${data.deposits_refunded}/${data.deposits_forfeited} (${data.date ?? "unknown date"})`,
-  },
-  {
-    // The watchdog on the two collectors above and below (#5529). Both were
-    // silently dead for months — domain-metrics.jsonl at 0 bytes, review-burden
-    // at one entry from 2026-06-14 — and nothing noticed, because the only
-    // sensor reading either (`domainActivity`) reports `available: false` for
-    // "empty file" and "sensor not wired up" alike. `available: false` is a
-    // shrug; a regression is an alarm. This entry turns the former into the
-    // latter by reading the same files through the freshness policy.
+    // The watchdog on the collector below (#5529). It was silently dead for
+    // months — review-burden.json held one entry from 2026-06-14 — and
+    // nothing noticed, because nothing else was reading the file at all.
+    // This entry turns silence into an alarm by reading it through the
+    // freshness policy. (A sibling `domainActivity` sensor used to watch
+    // `metrics/domain-metrics.jsonl` the same way; both the collector and
+    // this sensor were retired together in #5561 — the collector needed a
+    // production credential nobody would provision.)
     id: "metricsFreshness",
     category: "quality",
     collect: ({ root, now = new Date() }) => {

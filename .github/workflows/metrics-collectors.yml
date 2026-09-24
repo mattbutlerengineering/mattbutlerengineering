@@ -1,35 +1,26 @@
 name: Metrics Collectors
 
-# Runs the two metrics collectors that had no home (#5528, tracking #5532).
+# Runs the review-burden metrics collector, which had no home (#5528,
+# tracking #5532).
 #
-# `scripts/collect-domain-metrics.mjs` was only ever invoked from
-# `.claude/skills/learning-loop/SKILL.md`, which runs as the `mbe-learning-loop`
-# RemoteTrigger — a Claude Code Remote cloud session with NO egress to
-# production (#2920). `scripts/acmm/review-burden-metrics.js` shells out to
-# the `gh` CLI, which does not exist in those sessions at all
-# (.claude/rules/gotchas.md § Claude Code Remote). So one collector could
-# never reach the API it reads and the other could never run its only data
-# source, and neither failure was visible: domain-metrics.jsonl sat at 0
-# bytes and review-burden.json at one entry from 2026-06-14.
+# `scripts/acmm/review-burden-metrics.js` shells out to the `gh` CLI, which
+# does not exist in a Claude Code Remote cloud session at all
+# (.claude/rules/gotchas.md § Claude Code Remote) — the only place it used to
+# be invoked from. So it could never run its only data source, and the
+# failure was invisible: review-burden.json sat at one entry from
+# 2026-06-14.
 #
-# GitHub Actions runners have both production egress and `gh` preinstalled.
-# Structure follows the proven `production-feedback.yml`: collect, open a PR
-# with the results (a bare `git push` to protected `main` is rejected with
-# GH006), dispatch CI on the automation branch, then route auto-merge
-# through the same eligibility gate every other automation PR uses.
+# GitHub Actions runners have `gh` preinstalled. Structure follows the proven
+# `production-feedback.yml`: collect, open a PR with the results (a bare
+# `git push` to protected `main` is rejected with GH006), dispatch CI on the
+# automation branch, then route auto-merge through the same eligibility gate
+# every other automation PR uses.
 #
-# See docs/fixes/silent-metrics-collectors/design.md for the full root-cause
-# write-up, including the human-only blocker this workflow cannot resolve:
-# `DOMAIN_METRICS_VENUE_ID` is a real production venue identifier no agent
-# can invent. Until it is set, the domain-metrics step degrades to a skip
-# (the script's own `main()` exits 0 on a missing venue id) and the freshness
-# self-check below reports it — loudly, in an issue, every day.
-#
-# That blocked report files under its OWN dedupe key, separate from the
-# actionable "stale or empty" one (#5561). They shared a key at first, so the
-# permanently-open blocked issue would have absorbed a genuine collector
-# failure and announced nothing — the human-gated condition masking the one
-# somebody could actually fix.
+# See docs/fixes/silent-metrics-collectors/design.md for the original
+# root-cause write-up (from when this workflow also ran a booking-funnel
+# domain-metrics collector). That collector was retired in #5561: it needed
+# a production venue id and auth token nobody would provision, so it never
+# produced a row and never could without a human-supplied credential.
 
 on:
   schedule:
@@ -52,7 +43,7 @@ permissions:
 
 jobs:
   collect:
-    name: Collect domain + review-burden metrics
+    name: Collect review-burden metrics
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -67,15 +58,6 @@ jobs:
       # No `pnpm install`: every script invoked by this job imports only
       # node builtins and sibling relative modules (enforced repo-wide by
       # scripts/check-workflow-deps.mjs).
-
-      - name: Collect booking-funnel domain metrics
-        env:
-          DOMAIN_METRICS_VENUE_ID: ${{ secrets.DOMAIN_METRICS_VENUE_ID }}
-          DOMAIN_METRICS_API_BASE_URL: ${{ secrets.DOMAIN_METRICS_API_BASE_URL }}
-          DOMAIN_METRICS_TOKEN: ${{ secrets.DOMAIN_METRICS_TOKEN }}
-        run: |
-          set -o pipefail
-          node scripts/collect-domain-metrics.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Collect review-burden metrics
         env:
@@ -128,58 +110,14 @@ jobs:
             exit 0
           fi
 
-          # Two classes of finding, two dedupe keys (#5561). `blocked` is
-          # waiting on a human credential and stays open indefinitely; if a
-          # genuine collector failure shared that key, the already-open blocked
-          # issue would absorb it and announce nothing.
-          BLOCKED_COUNT=$(jq '.blocked | length' /tmp/freshness.json)
+          # Only one class of finding remains since domain-metrics — the one
+          # metric that could be human-blocked on an unset credential — was
+          # retired (#5561). `metrics-freshness.mjs`'s `unconfigured`/`blocked`
+          # classification is still generic infrastructure for any future
+          # metric with a real credential prerequisite; it just has nothing to
+          # classify that way right now, so `.blocked` is always empty here.
           FAILURE_COUNT=$(jq '.failures | length' /tmp/freshness.json)
-          echo "blocked=$BLOCKED_COUNT failures=$FAILURE_COUNT"
-
-          # ── Human-blocked: a declared prerequisite credential is unset ──
-          if [ "$BLOCKED_COUNT" -gt 0 ]; then
-            {
-              echo "## Metrics collection blocked on an unset credential"
-              echo
-              echo "\`.github/workflows/metrics-collectors.yml\` ran. These metrics are"
-              echo "empty because a credential they declare has never been configured —"
-              echo "not because a collector is broken:"
-              echo
-              echo '```'
-              jq -r '.blocked[] | "  \(.metric): requires \(.requiresEnv); written by \(.producer)"' /tmp/freshness.json
-              echo '```'
-              echo
-              echo "### The fix is a human step"
-              echo
-              echo "\`DOMAIN_METRICS_VENUE_ID\` is a real production venue identifier no"
-              echo "agent can invent:"
-              echo
-              echo '```'
-              echo 'gh secret set DOMAIN_METRICS_VENUE_ID --body "<value>"'
-              echo '```'
-              echo
-              echo "Never omit \`--body\` — empty stdin silently sets an empty secret, and"
-              echo "a blank value reads as unset here."
-              echo
-              echo "This issue stays open until the credential is set, so it deliberately"
-              echo "does NOT share a dedupe key with the actionable"
-              echo "\"stale or empty\" issue — otherwise a genuine collector failure would"
-              echo "dedupe into this permanently-open one and announce nothing (#5561)."
-              echo
-              echo "---"
-              echo "*Auto-created by the metrics-collectors workflow*"
-            } > /tmp/freshness-blocked.md
-
-            # `ready-for-human`, never `ready`: no agent can supply this value,
-            # so it must stay out of implement-queue's autonomous pickup set.
-            node scripts/lib/file-issue-cli.mjs \
-              --title "Metrics collection blocked on an unset credential" \
-              --label "ready-for-human" \
-              --body-file /tmp/freshness-blocked.md \
-              --dedupe-key "metrics-collection-unconfigured" \
-              --search-label "ready-for-human" \
-              --contains "Metrics collection blocked on"
-          fi
+          echo "failures=$FAILURE_COUNT"
 
           # ── Actionable: a collector that should be producing, is not ──
           if [ "$FAILURE_COUNT" -gt 0 ]; then
@@ -197,10 +135,8 @@ jobs:
               echo
               echo "### Most likely causes"
               echo
-              echo "1. **\`domain-metrics\` stale** — the production endpoint is unreachable or"
-              echo "   erroring. Check this run's step summary for the collector's skip reason."
-              echo "2. **\`review-burden\` stale** — the collector or its \`gh pr list\` call failed."
-              echo "3. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"
+              echo "1. **\`review-burden\` stale** — the collector or its \`gh pr list\` call failed."
+              echo "2. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"
               echo "   moved, or the payload no longer parses."
               echo
               echo "Thresholds and states live in \`scripts/metrics-freshness.mjs\`"
@@ -315,8 +251,8 @@ jobs:
           # GITHUB_TOKEN, whose pushes park every pull_request check at
           # action_required (#3684).
           token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
-          commit-message: "chore: record domain + review-burden metrics"
-          title: "chore: record domain + review-burden metrics"
+          commit-message: "chore: record review-burden metrics"
+          title: "chore: record review-burden metrics"
           body: |
             Automated metrics collection.
 
@@ -324,7 +260,6 @@ jobs:
           branch: automation/metrics-collectors
           delete-branch: true
           add-paths: |
-            metrics/domain-metrics.jsonl
             metrics/review-burden.json
           labels: auto-merge
 

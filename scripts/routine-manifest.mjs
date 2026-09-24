@@ -73,7 +73,7 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     outOfScope: true,
     outOfScopeReason:
-      "Not a RemoteTrigger — runs in GitHub Actions (metrics-collectors.yml) because the domain-metrics and review-burden collectors need production egress and the gh CLI, neither available in a CCR session; already watched by scripts/scheduled-workflow-health.mjs.",
+      "Not a RemoteTrigger — runs in GitHub Actions (metrics-collectors.yml) because the review-burden collector needs the gh CLI, not available in a CCR session; already watched by scripts/scheduled-workflow-health.mjs.",
   },
   {
     name: "mbe-evening",

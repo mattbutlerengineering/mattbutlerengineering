@@ -110,15 +110,6 @@
       }
     </item>
     <item priority="low">
-      interface DomainActivitySensor {
-        available: boolean;
-        date?: string | null;
-        venueId?: string | null;
-        reservations_created?: number;
-        reservations_cancelled?: number;
-      }
-    </item>
-    <item priority="low">
       interface ReviewBurdenSensor {
         available: boolean;
         collected_at?: string | null;
@@ -168,15 +159,6 @@
       }
     </item>
     <item priority="low">
-      interface DomainActivityMetrics {
-        available: boolean;
-        date: string | null;
-        venueId: string | null;
-        reservationsCreated: number | null;
-        reservationsCancelled: number | null;
-      }
-    </item>
-    <item priority="low">
       interface ReviewBurdenMetrics {
         available: boolean;
         collectedAt: string | null;
@@ -217,9 +199,6 @@
     </item>
     <item priority="medium">
       function normalizeQueueEfficiency(sensors: Record<string, unknown>): QueueEfficiencyMetrics { /* ... */ }
-    </item>
-    <item priority="medium">
-      function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics { /* ... */ }
     </item>
     <item priority="medium">
       function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics { /* ... */ }

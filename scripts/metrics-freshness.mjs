@@ -1,26 +1,30 @@
 #!/usr/bin/env node
 
 /**
- * Staleness/emptiness self-check for the two metrics files that went
- * silently dead (#5529, tracking #5532).
+ * Staleness/emptiness self-check for the metrics files that went silently
+ * dead (#5529, tracking #5532).
  *
- * `metrics/domain-metrics.jsonl` has been 0 bytes since it was created;
- * `metrics/review-burden.json` holds exactly one entry, from 2026-06-14.
- * Neither absence reddened anything, because nothing was asking. The only
- * reason either was found was a human reading the directory by hand. Once
- * `.github/workflows/metrics-collectors.yml` (#5528) actually runs both
- * collectors, the next silent death — the workflow stops firing, a refactor
- * breaks the fetch, the venue credential expires — has to announce itself.
+ * `metrics/review-burden.json` held exactly one entry, from 2026-06-14, and
+ * nothing reddened for months because nothing was asking. The only reason it
+ * was found was a human reading the directory by hand. Once
+ * `.github/workflows/metrics-collectors.yml` (#5528) actually runs the
+ * collector, the next silent death — the workflow stops firing, a refactor
+ * breaks the `gh` call — has to announce itself.
+ *
+ * A sibling metric, `domain-metrics`, was watched here too until it was
+ * retired (#5561): it needed a production venue id and auth token nobody
+ * would provision, so it never produced a row. `requiresEnv` below (and the
+ * `unconfigured`/blocked classification it drives) is the mechanism that was
+ * built for it — kept as generic infrastructure for any future metric with a
+ * real credential prerequisite, even though no current policy entry uses it.
  *
  * ## Why this is not a `scripts/check-*.mjs` fitness check
  *
  * The `check-*` prefix in this repo means "wired into `pnpm repo-audit` /
  * CI, fails the build" (see scripts/__tests__/check-fitness-check-wiring.test.mjs).
- * This is deliberately NOT that. Both metrics are stale *right now* and
- * `domain-metrics` cannot become fresh until a human supplies
- * `DOMAIN_METRICS_VENUE_ID` — so gating `main` on it would red every PR for
- * a reason no PR author caused or can fix. Instead it reports through two
- * paths that already exist:
+ * This is deliberately NOT that. `review-burden` can be stale *right now* for
+ * reasons no PR author caused or can fix, so gating `main` on it would red
+ * every PR. Instead it reports through two paths that already exist:
  *
  *   1. the `metricsFreshness` sensor in scripts/sensors-registry.mjs, whose
  *      `detectRegression` feeds `/learning-loop`'s existing triage step; and
@@ -41,8 +45,9 @@
  * `unconfigured` (empty AND a declared prerequisite env var is absent) is
  * human-blocked; every other non-fresh state is actionable. They must file
  * under DIFFERENT dedupe keys — sharing one let the permanently-blocked
- * domain-metrics issue absorb a real review-burden failure (#5561). Both are
- * still findings, so the exit code is unchanged.
+ * domain-metrics issue absorb a real review-burden failure (#5561, the reason
+ * the two dedupe keys still exist even though no metric is currently
+ * `unconfigured`). Both are still findings, so the exit code is unchanged.
  *
  * Usage:
  *   node scripts/metrics-freshness.mjs           # human-readable
@@ -66,15 +71,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * @type {Array<{ metric: string, timestampField: string, maxAgeDays: number, producer: string }>}
  */
 export const FRESHNESS_POLICY = [
-  {
-    metric: "domain-metrics",
-    timestampField: "collected_at",
-    maxAgeDays: 3,
-    producer: "scripts/collect-domain-metrics.mjs",
-    // A real production venue identifier no agent can invent, so an empty
-    // domain-metrics is human-blocked rather than broken (#5561).
-    requiresEnv: "DOMAIN_METRICS_VENUE_ID",
-  },
   {
     metric: "review-burden",
     timestampField: "timestamp",
