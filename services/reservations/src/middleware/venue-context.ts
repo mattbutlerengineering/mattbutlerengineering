@@ -14,6 +14,23 @@ export interface VenueContextClient {
   $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
 }
 
+export interface SetVenueContextOptions {
+  /**
+   * Set ONLY by `venue-scoped-prisma.ts`'s auto-wrap Proxy. That call site
+   * already runs its own `RLS_MODELS`-gated unscoped-query check (ADR-026
+   * §3.3 / #5369 PR 1) before calling this function — `setVenueContext` is
+   * generic over every model's explicit transaction (RLS-scoped or not, e.g.
+   * `venueGroup`/`reservationHold`/`venueMembership`, which carry no RLS
+   * policy at all) and has no way to tell them apart on its own. Without this
+   * flag, every non-RLS model call from the auto-wrap would also be
+   * misreported as an unscoped RLS query. Every other caller — the seven
+   * explicit `prisma.$transaction` call sites that manage their own
+   * transaction boundary, all of which address an RLS-scoped table — leaves
+   * this unset and gets the check below.
+   */
+  skipUnscopedQueryCheck?: boolean;
+}
+
 /**
  * Sets the `app.venue_id` Postgres session variable (ADR-026 §4) via
  * `set_config('app.venue_id', <venueId>, true)`, using Prisma's
@@ -55,23 +72,6 @@ export interface VenueContextClient {
  * `$transaction`/raw-query call sites) read it back via `getCurrentVenueId`
  * and call this function against THEIR OWN transaction client.
  */
-export interface SetVenueContextOptions {
-  /**
-   * Set ONLY by `venue-scoped-prisma.ts`'s auto-wrap Proxy. That call site
-   * already runs its own `RLS_MODELS`-gated unscoped-query check (ADR-026
-   * §3.3 / #5369 PR 1) before calling this function — `setVenueContext` is
-   * generic over every model's explicit transaction (RLS-scoped or not, e.g.
-   * `venueGroup`/`reservationHold`/`venueMembership`, which carry no RLS
-   * policy at all) and has no way to tell them apart on its own. Without this
-   * flag, every non-RLS model call from the auto-wrap would also be
-   * misreported as an unscoped RLS query. Every other caller — the six
-   * explicit `prisma.$transaction` call sites that manage their own
-   * transaction boundary, all of which address an RLS-scoped table — leaves
-   * this unset and gets the check below.
-   */
-  skipUnscopedQueryCheck?: boolean;
-}
-
 export async function setVenueContext(
   client: VenueContextClient,
   venueId: string | null | undefined,
