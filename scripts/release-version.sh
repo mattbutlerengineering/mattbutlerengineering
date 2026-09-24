@@ -36,3 +36,11 @@ if [ "$PREV_HASH" = "$CURR_HASH" ]; then
   printf '# @mattbutlerengineering/rialto\n\n## %s\n\n### Changes\n\nSee changeset details in git history.\n\n%s\n' \
     "$NEW_VER" "$BODY" > packages/rialto/CHANGELOG.md
 fi
+
+# packages/rialto/registry.json embeds pkg.version (scripts/generate-all.ts's
+# buildRegistry(components, pkg.version)), so `changeset version`'s bump above
+# makes it stale. Nothing else regenerates it on the Version PR -- CI's
+# `pnpm regen --check` then fails with a one-family diff (#3322 follow-up).
+# generate-all.ts parses TS source directly (no built dist required), so this
+# is safe to run standalone here without a preceding `pnpm build`.
+pnpm --filter @mattbutlerengineering/rialto build:registry

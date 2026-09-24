@@ -62,6 +62,14 @@ afterEach(() => {
 });
 
 describe("release-version.sh", () => {
+  // Every stub below must also answer the registry-regen call
+  // (`pnpm --filter @mattbutlerengineering/rialto build:registry`) with
+  // exit 0, since release-version.sh now runs it unconditionally after
+  // `pnpm version-packages` succeeds (see the dedicated test further down).
+  const REGISTRY_REGEN_STUB = `if [ "$1" = "--filter" ] && [ "$2" = "@mattbutlerengineering/rialto" ] && [ "$3" = "build:registry" ]; then
+  exit 0
+fi`;
+
   it("runs pnpm version-packages as a plain command (no shell needed to invoke it)", () => {
     writeFileSync(join(dir, "packages/rialto/CHANGELOG.md"), "# @mattbutlerengineering/rialto\n");
     writeFileSync(
@@ -76,6 +84,7 @@ describe("release-version.sh", () => {
   echo "## 0.3.0" >> packages/rialto/CHANGELOG.md
   exit 0
 fi
+${REGISTRY_REGEN_STUB}
 exit 1`
     );
 
@@ -83,6 +92,35 @@ exit 1`
 
     expect(exitCode).toBe(0);
     expect(readChangelog()).toContain("## 0.3.0");
+  });
+
+  it("regenerates packages/rialto/registry.json after changeset version, since it embeds pkg.version (#3322 follow-up)", () => {
+    writeFileSync(join(dir, "packages/rialto/CHANGELOG.md"), "# @mattbutlerengineering/rialto\n");
+    writeFileSync(
+      join(dir, "packages/rialto/package.json"),
+      JSON.stringify({ name: "@mattbutlerengineering/rialto", version: "0.3.0" })
+    );
+    writeStub(
+      "pnpm",
+      `echo "$*" >> calls.log
+if [ "$1" = "version-packages" ]; then
+  echo "# @mattbutlerengineering/rialto" > packages/rialto/CHANGELOG.md
+  echo "" >> packages/rialto/CHANGELOG.md
+  echo "## 0.3.0" >> packages/rialto/CHANGELOG.md
+  exit 0
+fi
+${REGISTRY_REGEN_STUB}
+exit 1`
+    );
+
+    const { exitCode } = runScript();
+
+    expect(exitCode).toBe(0);
+    const calls = readFileSync(join(dir, "calls.log"), "utf-8").trim().split("\n");
+    expect(calls).toEqual([
+      "version-packages",
+      "--filter @mattbutlerengineering/rialto build:registry",
+    ]);
   });
 
   it("prepends a version block by hand when the CHANGELOG hash is unchanged (silent-skip fallback)", () => {
@@ -98,7 +136,12 @@ exit 1`
     // (bumped package.json, which the script doesn't touch here) but
     // prettier silently skipped the CHANGELOG.md write, so its content
     // (and hash) is identical before and after.
-    writeStub("pnpm", 'if [ "$1" = "version-packages" ]; then exit 0; fi\nexit 1');
+    writeStub(
+      "pnpm",
+      `if [ "$1" = "version-packages" ]; then exit 0; fi
+${REGISTRY_REGEN_STUB}
+exit 1`
+    );
 
     const { exitCode, output } = runScript();
 
