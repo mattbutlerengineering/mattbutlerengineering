@@ -198,6 +198,22 @@ export class StripeService {
   }
 
   /**
+   * Retrieves the current state of a PaymentIntent from Stripe. Used to
+   * verify ground truth after an ambiguous capture error (a retriable
+   * connection/rate-limit failure, or an unrecognized error) where the
+   * request may have reached Stripe and succeeded even though the response
+   * was lost.
+   */
+  async retrievePaymentIntent(paymentIntentId: string): Promise<{ id: string; status: string }> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
    * Creates a new Stripe customer linked to a guest.
    */
   async createCustomer(options: CreateCustomerOptions): Promise<CustomerResult> {

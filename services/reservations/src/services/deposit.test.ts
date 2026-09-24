@@ -19,6 +19,7 @@ vi.mock("./database.js", async () => {
 });
 
 import { DepositService, calculateDepositAmount } from "./deposit.js";
+import { StripeOperationError } from "./stripe.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -35,6 +36,7 @@ function createMockStripe() {
     capturePaymentIntent: vi.fn(),
     createPartialRefund: vi.fn(),
     createCustomer: vi.fn(),
+    retrievePaymentIntent: vi.fn(),
   };
 }
 
@@ -320,7 +322,7 @@ describe("DepositService", () => {
       expect(order).toEqual(["db", "stripe"]);
     });
 
-    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+    it("rolls back DB to held when Stripe capture fails after the DB update (verified via retrieve: not captured)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -329,10 +331,61 @@ describe("DepositService", () => {
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      // An unrecognized (non-StripeOperationError) error is ambiguous — verify
+      // via retrieve before rolling back. Still requires_capture: safe to roll back.
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
 
       expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({ status: "held", appliedAt: null }),
+        })
+      );
+    });
+
+    it("does NOT roll back when an ambiguous capture error verifies as already captured (money moved)", async () => {
+      // A connection error/timeout on the capture call is ambiguous — Stripe
+      // may have processed it before the response was lost. Rolling back to
+      // `held` here would strand the row claiming no capture happened while
+      // the card was actually charged (#5719 item 4).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("timeout"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/timeout/);
+
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
+    });
+
+    it("rolls back a definite (non-retriable) Stripe decline WITHOUT calling retrieve", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("card declined"), "StripeCardError", false)
+      );
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/card declined/);
+
+      expect(mockStripe.retrievePaymentIntent).not.toHaveBeenCalled();
       expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
@@ -350,6 +403,10 @@ describe("DepositService", () => {
       );
       mockDepositDb.update.mockRejectedValueOnce(new Error("db down")); // rollback write fails
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       // The caller must see the original Stripe failure, not the rollback DB error.
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
@@ -503,7 +560,7 @@ describe("DepositService", () => {
       );
     });
 
-    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+    it("rolls back DB to held when Stripe capture fails after the DB update (verified via retrieve: not captured)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -512,6 +569,10 @@ describe("DepositService", () => {
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
 
@@ -522,6 +583,24 @@ describe("DepositService", () => {
           data: expect.objectContaining({ status: "held", forfeitedAt: null }),
         })
       );
+    });
+
+    it("does NOT roll back a forfeit when an ambiguous capture error verifies as already captured", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", forfeitedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("timeout"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await expect(depositService.forfeit("dep-123")).rejects.toThrow(/timeout/);
+
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
     });
   });
 

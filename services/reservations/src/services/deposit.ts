@@ -1,6 +1,6 @@
 import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { StripeService } from "./stripe.js";
+import { StripeService, StripeOperationError } from "./stripe.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -13,7 +13,11 @@ import type { DepositType } from "@mbe/cancellation-policy";
  */
 export type StripePort = Pick<
   StripeService,
-  "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+  | "cancelPaymentIntent"
+  | "capturePaymentIntent"
+  | "createPartialRefund"
+  | "createCustomer"
+  | "retrievePaymentIntent"
 >;
 
 export class DepositNotFoundError extends Error {
@@ -345,15 +349,48 @@ export class DepositService {
           `${depositId}:${action}`
         );
       } catch (error) {
-        // Best-effort rollback. If the rollback itself fails (e.g. DB down),
-        // surface the original Stripe error rather than masking it — never
-        // swallow the cause of the failure.
-        await this._rollbackToHeld(depositId, timestampField).catch(() => {});
+        // A capture failure is only safe to roll back on if the capture
+        // definitely never reached Stripe's ledger. Best-effort rollback. If
+        // the rollback itself fails (e.g. DB down), surface the original
+        // Stripe error rather than masking it — never swallow the cause.
+        const shouldRollback = await this._shouldRollbackAfterCaptureFailure(
+          deposit.stripePaymentIntentId,
+          error
+        );
+        if (shouldRollback) {
+          await this._rollbackToHeld(depositId, timestampField).catch(() => {});
+        }
         throw error;
       }
     }
 
     return updated;
+  }
+
+  /**
+   * Decides whether a failed capture is safe to roll back to `held`.
+   *
+   * A definite, non-retriable Stripe rejection (e.g. a declined card) never
+   * reaches Stripe's processing pipeline for a partial outcome — the capture
+   * demonstrably never happened, so rolling back is safe without asking.
+   *
+   * A retriable (connection/rate-limit) or unrecognized error means the
+   * capture request may have reached Stripe and succeeded even though the
+   * response was lost — rolling back unconditionally here would strand the
+   * row at `held` while the card was actually charged. Ask Stripe for the
+   * ground truth instead of guessing, and only roll back if the capture
+   * demonstrably never happened (still `requires_capture`).
+   */
+  private async _shouldRollbackAfterCaptureFailure(
+    stripePaymentIntentId: string,
+    error: unknown
+  ): Promise<boolean> {
+    if (error instanceof StripeOperationError && !error.isRetriable) {
+      return true;
+    }
+
+    const intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
+    return intent.status === "requires_capture";
   }
 
   /**

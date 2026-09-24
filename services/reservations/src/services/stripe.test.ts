@@ -6,6 +6,7 @@ const { mockPaymentIntents, mockCustomers, mockWebhooks } = vi.hoisted(() => ({
     create: vi.fn(),
     capture: vi.fn(),
     cancel: vi.fn(),
+    retrieve: vi.fn(),
   },
   mockCustomers: {
     create: vi.fn(),
@@ -167,6 +168,20 @@ describe("StripeService", () => {
       expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, {
         idempotencyKey: "dep-123:refund",
       });
+    });
+  });
+
+  describe("retrievePaymentIntent", () => {
+    it("retrieves the current state of a PaymentIntent", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await stripeService.retrievePaymentIntent("pi_test_123");
+
+      expect(mockPaymentIntents.retrieve).toHaveBeenCalledWith("pi_test_123");
+      expect(result).toEqual({ id: "pi_test_123", status: "requires_capture" });
     });
   });
 
