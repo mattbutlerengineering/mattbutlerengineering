@@ -207,6 +207,37 @@ describe("ReservationsClient", () => {
     });
   });
 
+  describe("markNoShow", () => {
+    it("sends PATCH with status NO_SHOW and returns both the reservation and an optional warning (#5719 M2)", async () => {
+      const noShow = { ...fakeReservation, status: "NO_SHOW" };
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          data: noShow,
+          warning: "Deposit authorization is still pending — no charge was made.",
+        })
+      );
+
+      const result = await makeClient().markNoShow("r1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/reservations/r1");
+      expect(options?.method).toBe("PATCH");
+      expect(JSON.parse(options?.body as string)).toEqual({ status: "NO_SHOW" });
+      expect(result.reservation).toEqual(noShow);
+      expect(result.warning).toMatch(/pending/i);
+    });
+
+    it("omits warning when the response doesn't carry one", async () => {
+      const noShow = { ...fakeReservation, status: "NO_SHOW" };
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: noShow }));
+
+      const result = await makeClient().markNoShow("r1");
+
+      expect(result.reservation).toEqual(noShow);
+      expect(result.warning).toBeUndefined();
+    });
+  });
+
   describe("cancel", () => {
     it("sends DELETE /api/v1/reservations/:id", async () => {
       const cancelled = { ...fakeReservation, status: "CANCELLED" };

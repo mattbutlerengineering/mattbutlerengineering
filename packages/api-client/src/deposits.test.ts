@@ -30,6 +30,7 @@ const fakeDeposit = {
   appliedAt: null,
   refundedAt: null,
   forfeitedAt: null,
+  uncollectableAt: null,
   createdAt: "2026-05-26T00:00:00Z",
   updatedAt: "2026-05-26T00:00:00Z",
 };
@@ -77,6 +78,15 @@ describe("DepositsClient", () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "dep_1" } }));
 
       await expect(makeClient().get("dep_1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("tolerates a response from an older deploy that omits uncollectableAt entirely", async () => {
+      const { uncollectableAt: _uncollectableAt, ...legacyDeposit } = fakeDeposit;
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: legacyDeposit }));
+
+      const result = await makeClient().get("dep_1");
+
+      expect(result).toEqual(legacyDeposit);
     });
   });
 

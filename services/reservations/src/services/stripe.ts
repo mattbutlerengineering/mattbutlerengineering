@@ -168,6 +168,7 @@ export class StripeService {
   async createPartialRefund(
     paymentIntentId: string,
     refundAmountCents: number,
+    depositId: string,
     idempotencyKey?: string
   ): Promise<{ id: string; status: string; amount: number }> {
     try {
@@ -187,11 +188,65 @@ export class StripeService {
         {
           charge: chargeId,
           amount: refundAmountCents,
+          // Tags this refund as OURS so a retry can find it specifically via
+          // findDepositRefund, rather than reading the charge's aggregate
+          // amount_refunded — which includes unrelated refunds (#5722 MED-2).
+          metadata: { depositId, leg: "refundPartial" },
         },
         idempotencyKey ? { idempotencyKey } : undefined
       );
 
       return { id: refund.id, status: refund.status ?? "unknown", amount: refund.amount };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * Retrieves the current state of a PaymentIntent from Stripe. Used to
+   * verify ground truth after an ambiguous capture error (a retriable
+   * connection/rate-limit failure, or an unrecognized error) where the
+   * request may have reached Stripe and succeeded even though the response
+   * was lost.
+   */
+  async retrievePaymentIntent(paymentIntentId: string): Promise<{ id: string; status: string }> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
+  }
+
+  /**
+   * Finds OUR tagged partial refund (metadata `{ depositId, leg:
+   * "refundPartial" }`, set by {@link createPartialRefund}) among all
+   * refunds issued for a PaymentIntent, if one exists. Ground truth for
+   * `refundPartial`'s retry guard: past Stripe's idempotency-key TTL (~24h) a
+   * replayed refund call can no longer rely on the key returning a cached
+   * response, so whether OUR refund already went out must be checked
+   * directly. This replaces a prior implementation that read the charge's
+   * aggregate `amount_refunded` — a total across ALL refunds regardless of
+   * origin, so an unrelated (e.g. manually issued, dashboard) refund on the
+   * same charge could either mask ours (a smaller unrelated refund still
+   * looks "not yet fully refunded", triggering an over-refund) or falsely
+   * satisfy it (a larger unrelated refund reads as "already refunded",
+   * silently skipping ours) (#5722 MED-2).
+   */
+  async findDepositRefund(
+    paymentIntentId: string,
+    depositId: string
+  ): Promise<{ id: string; amount: number } | null> {
+    try {
+      const refunds = await this.stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit: 100,
+      });
+      const ours = refunds.data.find(
+        (refund) =>
+          refund.metadata?.depositId === depositId && refund.metadata?.leg === "refundPartial"
+      );
+      return ours ? { id: ours.id, amount: ours.amount } : null;
     } catch (err) {
       wrapStripeError(err);
     }

@@ -133,6 +133,25 @@ export class ReservationsClient {
   }
 
   /**
+   * Mark a reservation as a no-show. A thin wrapper over the same PATCH
+   * `update()` uses, but reads through `patch()` (not `patchOne()`'s
+   * `{ data: T }`-only envelope) to also surface the optional top-level
+   * `warning` the server sets when something non-fatal needs staff attention
+   * (e.g. the deposit was still pending, or was written off as
+   * uncollectable) — `patchOne()`'s envelope schema silently strips any key
+   * besides `data` (#5719 M2).
+   */
+  async markNoShow(id: string): Promise<{ reservation: Reservation; warning?: string }> {
+    const envelopeSchema = z.object({ data: ReservationSchema, warning: z.string().optional() });
+    const response = await this.client.patch(
+      `${RESERVATION_BASE_PATH}/${id}`,
+      { status: "NO_SHOW" },
+      envelopeSchema
+    );
+    return { reservation: response.data, ...(response.warning && { warning: response.warning }) };
+  }
+
+  /**
    * Cancel a reservation
    */
   async cancel(id: string): Promise<Reservation> {

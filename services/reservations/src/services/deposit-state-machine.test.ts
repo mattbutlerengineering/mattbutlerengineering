@@ -27,6 +27,10 @@ describe("deposit state machine — domain rules", () => {
     it("held -> partial_refunded is allowed", () => {
       expect(depositMachine.canTransition("held", "partial_refunded")).toBe(true);
     });
+
+    it("held -> uncollectable is allowed (permanent capture failure, e.g. expired authorization)", () => {
+      expect(depositMachine.canTransition("held", "uncollectable")).toBe(true);
+    });
   });
 
   describe("disallowed transitions", () => {
@@ -60,6 +64,14 @@ describe("deposit state machine — domain rules", () => {
 
     it("forfeited is a terminal state (no outgoing transitions)", () => {
       expect(depositMachine.allowedTransitions("forfeited")).toHaveLength(0);
+    });
+
+    it("uncollectable is a terminal state (no outgoing transitions)", () => {
+      expect(depositMachine.allowedTransitions("uncollectable")).toHaveLength(0);
+    });
+
+    it("pending -> uncollectable is not allowed (must go via held)", () => {
+      expect(depositMachine.canTransition("pending", "uncollectable")).toBe(false);
     });
   });
 });

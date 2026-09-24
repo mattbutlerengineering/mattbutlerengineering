@@ -38,6 +38,15 @@ describe("MarkNoShowDialog", () => {
     expect(screen.getByText(/no-show fee/i)).toBeDefined();
   });
 
+  it("does not assert a deposit will be captured — the dialog has no way to know one exists (#5719 item 8)", () => {
+    // The frontend has no visibility into whether this reservation even has a
+    // deposit (StaffDepositSection is unwired, no GET /deposits?reservationId=
+    // route — #5719 item 7, tracked separately). Stating "captures the held
+    // deposit" unconditionally is false whenever there is no deposit at all.
+    render(<MarkNoShowDialog {...defaultProps} />);
+    expect(screen.queryByText(/captures the held deposit/i)).toBeNull();
+  });
+
   it("uses the default guest name when guestName is null", () => {
     render(<MarkNoShowDialog {...defaultProps} guestName={null} />);
     expect(screen.getByText("Guest")).toBeDefined();

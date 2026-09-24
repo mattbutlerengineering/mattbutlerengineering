@@ -15,12 +15,24 @@ interface MarkNoShowDialogProps {
 
 /**
  * Confirms the CONFIRMED → NO_SHOW transition before firing it — the backend
- * (`recordNoShow`, `services/reservations`) captures any held deposit as a
- * no-show fee via the existing Stripe capture path, and that is a real,
- * irreversible charge. Modeled on `CancelReservationDialog`'s "dialog owns
- * its failure" contract: a rejected `onConfirm` becomes an `ErrorRetryBanner`,
- * the dialog stays open, and focus returns to Mark No-Show so pressing again
- * is the retry (safe — the backend transition is idempotent).
+ * (`recordNoShow`, `services/reservations`) resolves any held deposit against
+ * the venue's no-show fee policy via the existing Stripe capture path: a
+ * 100% fee forfeits the full deposit, a partial fee captures only the
+ * disclosed portion and refunds the rest, and a 0% fee cancels the hold
+ * outright (#5719 items 5-6, M4, LOW) — so the guest is not always charged
+ * the full amount, or charged at all. Whatever happens is real and
+ * irreversible. The dialog has no visibility into whether this reservation
+ * even has a deposit (StaffDepositSection is unwired, no
+ * `GET /deposits?reservationId=` route — #5719 item 7, tracked separately),
+ * so the disclosure below is conditional rather than asserting a charge that
+ * may not exist.
+ *
+ * Modeled on `CancelReservationDialog`'s "dialog owns its failure" contract:
+ * a rejected `onConfirm` becomes an `ErrorRetryBanner`, the dialog stays
+ * open, and focus returns to Mark No-Show so pressing again re-attempts the
+ * same request — NOT idempotent: the backend's NO_SHOW state is terminal, so
+ * if the first attempt actually succeeded server-side (e.g. its response was
+ * lost) a retry gets a 409 Conflict rather than a silent no-op.
  */
 export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -70,8 +82,9 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
               Mark No-Show
             </Text>
             <Text variant="body" color="secondary">
-              Marking <strong>{displayName}</strong> as a no-show captures the held deposit as a
-              no-show fee. This cannot be undone.
+              Marking <strong>{displayName}</strong> as a no-show cannot be undone. If a deposit is
+              on file, the venue&apos;s no-show fee policy applies — this may capture some or all of
+              it, or refund it if no fee applies.
             </Text>
           </div>
 

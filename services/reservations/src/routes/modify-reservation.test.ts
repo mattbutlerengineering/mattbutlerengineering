@@ -29,6 +29,7 @@ vi.mock("../services/deposit.js", () => ({
   depositService: {
     getByReservationId: vi.fn(),
   },
+  setDepositServiceLogger: vi.fn(),
 }));
 
 vi.mock("jose", () => ({

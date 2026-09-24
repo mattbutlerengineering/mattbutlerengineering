@@ -69,6 +69,7 @@ export const DepositStatusSchema = z.enum([
   "refunded",
   "partial_refunded",
   "forfeited",
+  "uncollectable",
 ]);
 
 export const DepositSchema = z.object({
@@ -83,6 +84,10 @@ export const DepositSchema = z.object({
   appliedAt: z.string().nullable(),
   refundedAt: z.string().nullable(),
   forfeitedAt: z.string().nullable(),
+  // Optional (not just nullable) so a client validating against this schema
+  // tolerates a response from an older, not-yet-redeployed server instance
+  // that predates this field entirely (rolling-deploy skew).
+  uncollectableAt: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

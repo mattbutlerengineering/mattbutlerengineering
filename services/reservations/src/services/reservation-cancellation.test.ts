@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Reservation } from "@mbe/types";
 import type { Mock } from "vitest";
+import type * as DepositModule from "./deposit.js";
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
@@ -15,19 +16,27 @@ vi.mock("./venue.js", () => ({
   },
 }));
 
-vi.mock("./deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-    refund: vi.fn(),
-    refundPartial: vi.fn(),
-    forfeit: vi.fn(),
-  },
-}));
+vi.mock("./deposit.js", async () => {
+  // The real error classes, not stand-ins: resolveDeposit's `instanceof`
+  // checks are only meaningful if the class the test throws is the class it
+  // imports.
+  const actual = await vi.importActual<typeof DepositModule>("./deposit.js");
+  return {
+    DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
+    depositService: {
+      getByReservationId: vi.fn(),
+      refund: vi.fn(),
+      refundPartial: vi.fn(),
+      forfeit: vi.fn(),
+      verifyCaptureCompleted: vi.fn(),
+    },
+  };
+});
 
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
-import { depositService } from "./deposit.js";
+import { depositService, DepositCaptureAmbiguousError } from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
   cancelReservationWithDeposit,
@@ -181,6 +190,100 @@ describe("cancelReservationWithDeposit", () => {
     expect(result.success).toBe(false);
     expect(depositService.refundPartial).not.toHaveBeenCalled();
     expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("reports a distinct (not the generic) failure detail when a stuck partial_refunded retry's replay is itself unconfirmed (#5722 R4 LOW-1)", async () => {
+    // Mirrors reservation-no-show.ts: the card was almost certainly already
+    // charged (this row only reaches partial_refunded via a prior successful
+    // DB-first transition) — the generic "Could not process the deposit
+    // refund" wording would misleadingly suggest nothing happened.
+    const reservation = makeReservation();
+    const partialRefundedDeposit = {
+      ...heldDeposit,
+      status: "partial_refunded",
+      feeAmountCents: 5000,
+      refundAmountCents: 5000,
+    };
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
+      partialRefundedDeposit as never
+    );
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(
+      new DepositCaptureAmbiguousError(
+        "dep_1",
+        "unknown",
+        new Error("payment_intent_unexpected_state")
+      )
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.detail).not.toMatch(/could not process the deposit refund/i);
+    }
+  });
+
+  it("re-verifies a stuck forfeited deposit and proceeds when the retry re-captures it (#5722 R4 MED-1)", async () => {
+    // Mirrors reservation-no-show.ts's identical retry guard: a prior
+    // attempt's capture reconciliation couldn't confirm the charge with
+    // Stripe (DepositCaptureAmbiguousError, #5722 M3) and left the row at
+    // `forfeited` without proof. The old code had no branch for this status
+    // and would have cancelled straight off the row's own status.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("recaptured");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "forfeit");
+    expect(result.success).toBe(true);
+  });
+
+  it("re-verifies a stuck applied deposit using the apply action key and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "apply");
+    expect(result.success).toBe(true);
+  });
+
+  it("aborts rather than cancelling when a stuck forfeited deposit's capture cannot be verified (#5722 R4 MED-1)", async () => {
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("failed");
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(500);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ depositId: "dep_1", reservationId: "res_1" }),
+      expect.stringMatching(/ghost charge|verify/i)
+    );
   });
 
   it("aborts the cancel and does not flip status when the deposit refund fails (no ghost state)", async () => {

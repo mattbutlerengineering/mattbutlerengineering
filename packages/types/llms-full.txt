@@ -782,6 +782,7 @@
       "refunded",
       "partial_refunded",
       "forfeited",
+      "uncollectable",
     ]);
     export const DepositSchema = z.object({
       id: z.string(),
@@ -795,6 +796,10 @@
       appliedAt: z.string().nullable(),
       refundedAt: z.string().nullable(),
       forfeitedAt: z.string().nullable(),
+      // Optional (not just nullable) so a client validating against this schema
+      // tolerates a response from an older, not-yet-redeployed server instance
+      // that predates this field entirely (rolling-deploy skew).
+      uncollectableAt: z.string().nullable().optional(),
       createdAt: z.string(),
       updatedAt: z.string(),
     });
@@ -1277,7 +1282,7 @@
   <file path="src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
-      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
     export interface Deposit {
       id: string;
       reservationId: string;
@@ -1290,6 +1295,7 @@
       appliedAt: string | null;
       refundedAt: string | null;
       forfeitedAt: string | null;
+      uncollectableAt?: string | null;
       createdAt: string;
       updatedAt: string;
     }

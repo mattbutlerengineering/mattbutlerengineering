@@ -32,6 +32,7 @@ vi.mock("../services/deposit.js", () => ({
     refundPartial: vi.fn(),
     forfeit: vi.fn(),
   },
+  setDepositServiceLogger: vi.fn(),
 }));
 
 vi.mock("jose", () => ({

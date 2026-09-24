@@ -133,6 +133,16 @@ describe("StaffDepositSection", () => {
     expect(screen.getByText(/Authorized/)).toBeDefined();
   });
 
+  it("labels an uncollectable deposit (#5719 LOW)", () => {
+    renderSection({ existingDeposit: { ...mockDeposit, status: "uncollectable" } });
+    expect(screen.getByText(/Uncollectable/)).toBeDefined();
+  });
+
+  it("labels a partially refunded deposit (#5719 LOW)", () => {
+    renderSection({ existingDeposit: { ...mockDeposit, status: "partial_refunded" } });
+    expect(screen.getByText(/Partially Refunded/)).toBeDefined();
+  });
+
   it("shows deposit form when collect button clicked", () => {
     renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));

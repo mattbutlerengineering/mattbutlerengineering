@@ -351,7 +351,7 @@ client-supplied `venueId`.
 | ------ | ------------------------ | ------------------------------------------------------ |
 | POST   | `/api/v1/stripe/webhook` | Receive Stripe events; verifies signature via raw body |
 
-Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.canceled` (`held → refunded`), `charge.refunded` (`held → refunded`).
+Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.amount_capturable_updated` (`pending → held` — the actual event a manual-capture authorization fires; `succeeded` only fires later, on capture), `payment_intent.canceled` (`held → refunded`), `charge.refunded` (`held → refunded`).
 
 Raw body access is required for HMAC signature verification — this route must be registered before any JSON body parsers.
 

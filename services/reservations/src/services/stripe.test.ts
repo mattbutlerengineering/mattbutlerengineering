@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so these refs are available inside the vi.mock factory
-const { mockPaymentIntents, mockCustomers, mockWebhooks } = vi.hoisted(() => ({
+const { mockPaymentIntents, mockCustomers, mockWebhooks, mockRefunds } = vi.hoisted(() => ({
   mockPaymentIntents: {
     create: vi.fn(),
     capture: vi.fn(),
     cancel: vi.fn(),
+    retrieve: vi.fn(),
   },
   mockCustomers: {
     create: vi.fn(),
   },
   mockWebhooks: {
     constructEvent: vi.fn(),
+  },
+  mockRefunds: {
+    create: vi.fn(),
+    list: vi.fn(),
   },
 }));
 
@@ -20,6 +25,7 @@ vi.mock("stripe", () => {
     paymentIntents = mockPaymentIntents;
     customers = mockCustomers;
     webhooks = mockWebhooks;
+    refunds = mockRefunds;
     constructor(_key: string) {}
   }
   return { default: MockStripe };
@@ -167,6 +173,106 @@ describe("StripeService", () => {
       expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, {
         idempotencyKey: "dep-123:refund",
       });
+    });
+  });
+
+  describe("retrievePaymentIntent", () => {
+    it("retrieves the current state of a PaymentIntent", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await stripeService.retrievePaymentIntent("pi_test_123");
+
+      expect(mockPaymentIntents.retrieve).toHaveBeenCalledWith("pi_test_123");
+      expect(result).toEqual({ id: "pi_test_123", status: "requires_capture" });
+    });
+  });
+
+  describe("createPartialRefund", () => {
+    it("tags the refund with depositId + leg metadata so a retry can find it specifically (#5722 MED-2)", async () => {
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({
+        id: "pi_test_123",
+        latest_charge: "ch_test_123",
+      });
+      mockRefunds.create.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
+
+      await stripeService.createPartialRefund("pi_test_123", 3000, "dep-123", "dep-123:refund");
+
+      expect(mockRefunds.create).toHaveBeenCalledWith(
+        {
+          charge: "ch_test_123",
+          amount: 3000,
+          metadata: { depositId: "dep-123", leg: "refundPartial" },
+        },
+        { idempotencyKey: "dep-123:refund" }
+      );
+    });
+  });
+
+  describe("findDepositRefund", () => {
+    it("finds OUR tagged refund among several refunds on the same PaymentIntent (#5722 MED-2)", async () => {
+      // An unrelated (e.g. dashboard-issued) refund sits alongside ours on
+      // the same charge — the lookup must return ours specifically, not an
+      // aggregate that would be thrown off by the unrelated one.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          { id: "re_unrelated", amount: 500, metadata: {} },
+          { id: "re_ours", amount: 3000, metadata: { depositId: "dep-123", leg: "refundPartial" } },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(mockRefunds.list).toHaveBeenCalledWith({
+        payment_intent: "pi_test_123",
+        limit: 100,
+      });
+      expect(result).toEqual({ id: "re_ours", amount: 3000 });
+    });
+
+    it("returns null when only an unrelated (larger) refund exists — never mistaken for ours (#5722 MED-2)", async () => {
+      // A larger unrelated refund must not read as "our refund already went
+      // out" — that would silently skip issuing the guest's actual refund.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [{ id: "re_unrelated", amount: 999999, metadata: {} }],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("ignores a refund tagged for a different deposit on the same PaymentIntent", async () => {
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_other_dep",
+            amount: 3000,
+            metadata: { depositId: "dep-999", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("wraps a Stripe error from the list call", async () => {
+      const connectionError = Object.assign(new Error("connection lost"), {
+        type: "StripeConnectionError",
+      });
+      mockRefunds.list.mockRejectedValueOnce(connectionError);
+
+      await expect(stripeService.findDepositRefund("pi_test_123", "dep-123")).rejects.toThrow(
+        "connection lost"
+      );
     });
   });
 

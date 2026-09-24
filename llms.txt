@@ -6232,7 +6232,21 @@
   </file>
   <file path="services/reservations/src/routes/stripe-webhook.ts">
     <item priority="low">
+      interface StripeWebhookLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setStripeWebhookLogger(next: StripeWebhookLogger): void { /* ... */ }
+    </item>
+    <item priority="low">
+      async function holdIfPending(paymentIntentId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
@@ -7834,7 +7848,16 @@
     <item priority="low">
       type StripePort = Pick<
         StripeService,
-        "cancelPaymentIntent" | "capture...;
+        | "cancelPaymentIntent"
+        | "cap...;
+    </item>
+    <item priority="low">
+      interface DepositServiceLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
     </item>
     <item priority="high">
       class DepositNotFoundError {
@@ -7844,6 +7867,19 @@
     <item priority="high">
       class DepositConcurrentUpdateError {
         
+      }
+    </item>
+    <item priority="high">
+      class DepositRefundLegIncompleteError {
+        depositId: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
+      class DepositCaptureAmbiguousError {
+        depositId: string;
+        intentStatus: string;
+        cause: unknown;
       }
     </item>
     <item priority="low">
@@ -8297,7 +8333,7 @@
       type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+      type DepositStripeOp = "refund" | "forfeit" | "refund_partial" | "apply";
     </item>
     <item priority="high">
       type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
@@ -8379,6 +8415,34 @@
   <file path="services/reservations/src/services/reservation-no-show.ts">
     <item priority="low">
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="high">
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-leg-incompl | { outcome: "concurrent-retry"  | { outcome: "failed" };
+    </item>
+    <item priority="high">
+      type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
+    </item>
+    <item priority="low">
+      async function resolveNoShowDepositAction(
+        deposit: Deposit,
+        reservation: Reservation
+      ): Promise<NoShowDepositAction> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function reconcileCaptureLegFailure(
+        depositId: string,
+        targetStatus: "forfeited" | "partial_refunded",
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        err: unknown
+      ): Promise<ForfeitOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function forfeitHeldDeposit(
+        deposit: Deposit,
+        reservation: Reservation,
+        logger: FastifyBaseLogger
+      ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function recordNoShow(
@@ -14547,7 +14611,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
     </item>
     <item priority="low">
       interface Deposit {

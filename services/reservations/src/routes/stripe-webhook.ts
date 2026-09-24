@@ -7,8 +7,28 @@ import { createRawBodyCaptureHook } from "../middleware/raw-body-capture.js";
 import { WebhookEventRouter } from "./webhook-event-router.js";
 
 /**
+ * Narrow logger shape `onChargeRefunded` needs — satisfied by
+ * `FastifyBaseLogger`. Defaults to a no-op so importing this module never
+ * requires a logger to exist yet (module load order, unit tests); `app.ts`
+ * wires the real fastify/pino logger in at bootstrap via
+ * {@link setStripeWebhookLogger}, mirroring `rls-context-mode.ts`'s
+ * tripwire-logger pattern.
+ */
+export interface StripeWebhookLogger {
+  info(details: object, msg: string): void;
+}
+
+let logger: StripeWebhookLogger = { info: () => undefined };
+
+/** Wires the service's real logger in — called once at app bootstrap. */
+export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
+  logger = next;
+}
+
+/**
  * Stripe webhook endpoint.
- * Handles: payment_intent.succeeded, payment_intent.canceled, charge.refunded
+ * Handles: payment_intent.succeeded, payment_intent.amount_capturable_updated,
+ * payment_intent.canceled, charge.refunded
  *
  * Signature verification requires the exact bytes Stripe sent. The plugin's
  * preParsing hook (see createRawBodyCaptureHook) captures them into
@@ -16,24 +36,40 @@ import { WebhookEventRouter } from "./webhook-event-router.js";
  * route via fastify.register encapsulation.
  */
 
-async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
-  const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  const paymentIntentId = paymentIntent.id;
-
+/**
+ * Shared pending -> held transition for both webhook events that can signal
+ * a successful authorization (see callers below). hold() itself is a CAS
+ * (updateMany guarded on status = "pending"), so a concurrent retry of the
+ * same event that also passes the `pending` check safely no-ops (returns
+ * false) instead of double-transitioning — nothing further to do here either
+ * way, so the boolean is intentionally unused.
+ */
+async function holdIfPending(paymentIntentId: string): Promise<void> {
   const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
 
   if (!deposit) {
     return;
   }
 
-  // Only transition from pending to held if not already transitioned. hold()
-  // itself is a CAS (updateMany guarded on status = "pending"), so a
-  // concurrent retry of this same webhook that also passes this check safely
-  // no-ops (returns false) instead of double-transitioning — nothing further
-  // to do here either way, so the boolean is intentionally unused.
   if (deposit.status === "pending") {
     await depositService.hold(deposit.id, paymentIntentId);
   }
+}
+
+async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  await holdIfPending(paymentIntent.id);
+}
+
+/**
+ * Deposits use `capture_method: "manual"` (an authorize-only hold), so a
+ * successful authorization fires `amount_capturable_updated`, not
+ * `payment_intent.succeeded` — that event only fires later, when the hold is
+ * captured. Without this handler a deposit never leaves `pending` (#5719).
+ */
+async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  await holdIfPending(paymentIntent.id);
 }
 
 async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
@@ -45,9 +81,12 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   if (!deposit) return;
 
   // If pending, can't directly refund (no transition pending → refunded)
-  // If held, we can refund
+  // If held, we can refund. Skip the Stripe cancel call — the intent is
+  // already canceled (that's this event); calling cancelPaymentIntent again
+  // would fail against an already-canceled intent and Stripe would retry the
+  // webhook forever on the resulting 500 (#5719).
   if (deposit.status === "held") {
-    await depositService.refund(deposit.id);
+    await depositService.refund(deposit.id, { skipStripeCancel: true });
   }
 }
 
@@ -65,12 +104,23 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
 
   // Only transition if currently held
   if (deposit.status === "held") {
-    await depositService.refund(deposit.id);
+    logger.info(
+      { depositId: deposit.id, paymentIntentId },
+      "charge.refunded received for a held deposit; refunding"
+    );
+    // A dashboard-issued refund can race with (or follow) the intent already
+    // being canceled — calling cancelPaymentIntent again would fail against
+    // an already-canceled intent and Stripe would retry the webhook forever
+    // on the resulting 500, the same class of bug fixed for
+    // payment_intent.canceled below (#5719 LOW).
+    const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
+    await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
   }
 }
 
 const webhookRouter = new WebhookEventRouter()
   .register("payment_intent.succeeded", onPaymentIntentSucceeded)
+  .register("payment_intent.amount_capturable_updated", onPaymentIntentAmountCapturableUpdated)
   .register("payment_intent.canceled", onPaymentIntentCanceled)
   .register("charge.refunded", onChargeRefunded);
 
