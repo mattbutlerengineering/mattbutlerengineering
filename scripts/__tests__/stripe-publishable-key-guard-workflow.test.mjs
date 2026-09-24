@@ -75,6 +75,16 @@ describe.each([
     file: ".github/workflows/deploy-static.yml",
     consumerMatcher: (t) => t.includes("pnpm build --filter=@mbe/hospitality"),
   },
+  // e2e-screenshots.yml runs the same hospitality E2E suite as e2e.yml (via
+  // `pnpm --dir apps/hospitality test:e2e`), so it hits the same spec files —
+  // including any that assert on VITE_STRIPE_PUBLISHABLE_KEY being present —
+  // and needs the identical guard + wiring, or it silently regresses the
+  // moment a spec starts depending on the key (as deposit-enabled-config.spec.ts
+  // now does, #4111).
+  {
+    file: ".github/workflows/e2e-screenshots.yml",
+    consumerMatcher: (t) => t.includes("name: Run E2E tests"),
+  },
 ])(
   "$file guards VITE_STRIPE_PUBLISHABLE_KEY before it is consumed",
   ({ file, consumerMatcher }) => {
