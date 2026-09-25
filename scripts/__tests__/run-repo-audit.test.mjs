@@ -128,6 +128,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-workflow-deps",
       "check-workflow-paths-coverage",
       "check-hook-wiring",
+      "check-hooks-active",
       "check-deploy-secret-provisioning",
       "check-orphaned-tests",
       "check-orphaned-collectors",

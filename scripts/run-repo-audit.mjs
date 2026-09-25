@@ -65,6 +65,7 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-workflow-paths-coverage.mjs"],
   },
   { name: "check-hook-wiring", command: "node", args: ["scripts/check-hook-wiring.mjs"] },
+  { name: "check-hooks-active", command: "node", args: ["scripts/check-hooks-active.mjs"] },
   {
     name: "check-deploy-secret-provisioning",
     command: "node",
