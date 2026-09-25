@@ -317,6 +317,57 @@ export class DepositService {
   }
 
   /**
+   * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
+   * authorization itself — e.g. the ~7-day hold auto-expired, or a dashboard
+   * cancel — before any capture was attempted. This is the SAME "authorization
+   * died before we could act" condition the no-show/forfeit capture-failure
+   * path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
+   * which write the row off as `uncollectable`; this webhook-first path used to
+   * call {@link refund} instead, landing the identical scenario at `refunded` —
+   * a label that wrongly implies an active refund decision rather than a dead,
+   * uncollectable authorization. Unifies both paths on `uncollectable`
+   * (#5725 item 3). No Stripe call is made: the intent is already canceled on
+   * Stripe's side (that is the event that triggers this).
+   */
+  async expireAuthorization(depositId: string): Promise<Deposit> {
+    const deposit = await this._requireDeposit(depositId);
+    transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+
+    // Atomic compare-and-swap: only update if the row is still in the observed
+    // status. count === 0 means another concurrent transition won the race.
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: deposit.status },
+      data: { status: "uncollectable", uncollectableAt: new Date() },
+    });
+
+    if (count === 0) {
+      throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
+    }
+
+    return this._requireDeposit(depositId);
+  }
+
+  /**
+   * Reconciles a `charge.refunded` webhook against a deposit that already
+   * reached a capture-based terminal status (`applied`/`forfeited`/
+   * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
+   * after our own capture. Persists Stripe's own cumulative `amount_refunded`
+   * on the charge directly — never derives it — so a retried or duplicate
+   * webhook delivery naturally overwrites with the same (or a larger,
+   * still-accurate) cumulative value rather than double-counting (#5725 item 2).
+   * Deliberately does not move `status`: this is a reconciliation annotation on
+   * an already-terminal state, not a new transition for the state machine to
+   * reason about.
+   */
+  async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
+    await prisma.deposit.update({
+      where: { id: depositId },
+      data: { postCaptureRefundCents: amountRefundedCents },
+    });
+    return this._requireDeposit(depositId);
+  }
+
+  /**
    * Transitions deposit from `held` → `partial_refunded` with a partial Stripe
    * refund. This is a two-step Stripe mutation: capture the PaymentIntent
    * (charges the deposit), then refund the portion owed back to the guest. Used

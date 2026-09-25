@@ -74,6 +74,7 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,
+    postCaptureRefundCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
     updatedAt: new Date("2026-01-25T00:00:00.000Z"),
     ...overrides,
@@ -654,6 +655,90 @@ describe("DepositService", () => {
 
       expect(result.status).toBe("refunded");
       expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("expireAuthorization (held -> uncollectable, #5725 item 3)", () => {
+    it("transitions a held deposit to uncollectable, never calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "uncollectable", uncollectableAt: new Date() })
+      );
+
+      const result = await depositService.expireAuthorization("dep-123");
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "held" },
+          data: expect.objectContaining({
+            status: "uncollectable",
+            uncollectableAt: expect.any(Date),
+          }),
+        })
+      );
+      expect(result.status).toBe("uncollectable");
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it("throws if the deposit is not in held state", async () => {
+      const pendingDeposit = makeDeposit({ status: "pending" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
+
+      await expect(depositService.expireAuthorization("dep-123")).rejects.toThrow(
+        /invalid.*transition|cannot transition/i
+      );
+    });
+
+    it("throws a conflict error if the CAS races (updateMany returns count 0)", async () => {
+      const heldDeposit = makeDeposit({ status: "held" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(depositService.expireAuthorization("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+    });
+  });
+
+  describe("recordPostCaptureRefund (#5725 item 2)", () => {
+    it("persists Stripe's cumulative amount_refunded without changing status", async () => {
+      const forfeitedDeposit = makeDeposit({
+        status: "forfeited",
+        forfeitedAt: new Date(),
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.update.mockResolvedValueOnce(undefined);
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...forfeitedDeposit,
+        postCaptureRefundCents: 2500,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 2500);
+
+      expect(mockDepositDb.update).toHaveBeenCalledWith({
+        where: { id: "dep-123" },
+        data: { postCaptureRefundCents: 2500 },
+      });
+      expect(result.status).toBe("forfeited");
+      expect(result.postCaptureRefundCents).toBe(2500);
+    });
+
+    it("overwrites a prior value on a later, larger cumulative amount (idempotent under retries)", async () => {
+      mockDepositDb.update.mockResolvedValueOnce(undefined);
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "partial_refunded", postCaptureRefundCents: 5000 })
+      );
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 5000);
+
+      expect(mockDepositDb.update).toHaveBeenCalledWith({
+        where: { id: "dep-123" },
+        data: { postCaptureRefundCents: 5000 },
+      });
+      expect(result.postCaptureRefundCents).toBe(5000);
     });
   });
 

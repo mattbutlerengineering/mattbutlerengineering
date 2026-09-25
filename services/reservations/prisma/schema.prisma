@@ -256,6 +256,14 @@ model Deposit {
   /// Persisted refund amount (in cents) at the time of a partial refund transition.
   /// Used to replay refundPartial on retry without re-deriving from the current clock.
   refundAmountCents     Int?          @map("refund_amount_cents")
+  /// Cumulative amount (in cents), sourced directly from Stripe's own
+  /// `amount_refunded` on the underlying charge, refunded AFTER this deposit
+  /// already reached a capture-based terminal status (`applied`/`forfeited`/
+  /// `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
+  /// after our own capture. Reconciliation only: does not change `status`,
+  /// so the existing terminal status stays an accurate record of how our own
+  /// state machine resolved the capture (#5725).
+  postCaptureRefundCents Int?         @map("post_capture_refund_cents")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 

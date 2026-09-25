@@ -3690,6 +3690,12 @@
   </file>
   <file path="apps/hospitality/src/hooks/useDeposits.ts">
     <item priority="high">
+      export const DEPOSITS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function useDepositByReservation(reservationId: string | null | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
       export const useCreateDeposit: unknown;
     </item>
   </file>
@@ -12136,8 +12142,8 @@
       class DepositsClient {
         async create(): Promise<unknown>;
         async get(): Promise<unknown>;
+        async getByReservation(): Promise<unknown>;
         async capture(): Promise<unknown>;
-        async refund(): Promise<unknown>;
       }
     </item>
   </file>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
 import { ReservationDetails, type ReservationDetailsProps } from "./ReservationDetails.js";
@@ -7,6 +7,26 @@ import type { Reservation, Table } from "@mbe/types";
 
 vi.mock("../crm/GuestCard.js", () => ({
   GuestCard: ({ guestId }: { guestId: string }) => <div data-testid="guest-card">{guestId}</div>,
+}));
+
+const mockUseDepositByReservation = vi.fn();
+
+vi.mock("../../hooks/useDeposits.js", () => ({
+  useDepositByReservation: (id: string | null | undefined) => mockUseDepositByReservation(id),
+}));
+
+vi.mock("./StaffDepositSection.js", () => ({
+  StaffDepositSection: ({
+    reservationId,
+    existingDeposit,
+  }: {
+    reservationId: string;
+    existingDeposit: { status: string } | null;
+  }) => (
+    <div data-testid="staff-deposit-section">
+      {reservationId}:{existingDeposit ? existingDeposit.status : "none"}
+    </div>
+  ),
 }));
 
 /** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
@@ -97,6 +117,48 @@ const seatButton = () => screen.queryByRole("button", { name: "Seat Guest" });
 /* ── Tests ──────────────────────────────────────────── */
 
 describe("ReservationDetails", () => {
+  beforeEach(() => {
+    mockUseDepositByReservation.mockReset();
+    mockUseDepositByReservation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+  });
+
+  describe("deposit visibility (#5725 item 1)", () => {
+    it("passes the reservation id and fetched deposit down to StaffDepositSection", () => {
+      mockUseDepositByReservation.mockReturnValue({
+        data: { status: "held" },
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderDetails({ reservation: makeReservation({ id: "r9" }) });
+
+      expect(mockUseDepositByReservation).toHaveBeenCalledWith("r9");
+      expect(screen.getByTestId("staff-deposit-section")).toHaveTextContent("r9:held");
+    });
+
+    it("passes null (not undefined) when the reservation has no deposit yet", () => {
+      renderDetails();
+      expect(screen.getByTestId("staff-deposit-section")).toHaveTextContent("r1:none");
+    });
+
+    it("stays inspectable for a NO_SHOW reservation — the deposit outcome is exactly what staff need to see", () => {
+      mockUseDepositByReservation.mockReturnValue({
+        data: { status: "uncollectable" },
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderDetails({ reservation: makeReservation({ status: "NO_SHOW" }) });
+
+      expect(screen.getByTestId("staff-deposit-section")).toHaveTextContent("r1:uncollectable");
+    });
+  });
+
   describe("status word and Seat Guest gating (A4.1, A4.2 sidebar half, P05)", () => {
     it("reads 'Seated' and hides Seat Guest for a CONFIRMED party seated at its OCCUPIED table", () => {
       renderDetails({ tables: [makeTable({ status: "OCCUPIED" })], seated: true });

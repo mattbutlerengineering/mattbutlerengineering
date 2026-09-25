@@ -1155,6 +1155,66 @@
         }
       );
     
+      // GET /api/v1/deposits?reservationId= — operator visibility: look up a
+      // reservation's deposit (or null if none exists yet), venue-scoped. Same
+      // venue-resolution shape as POST / above: the query carries an opaque
+      // reservation id, not a venueId, so the app-wide preHandler resolves
+      // nothing and this route resolves it itself (module comment, ADR-026).
+      fastify.get<{
+        Querystring: { reservationId?: string };
+        Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Get a reservation's deposit",
+            operationId: "getDepositByReservation",
+            description:
+              "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+            tags: ["Deposits"],
+            querystring: {
+              type: "object",
+              required: ["reservationId"],
+              properties: { reservationId: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit found, or null if the reservation has none yet",
+                type: "object",
+                properties: {
+                  data: {
+                    anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+                  },
+                },
+              },
+              400: { description: "Missing reservationId", type: "object" },
+              404: { description: "Reservation not found, or not in any venue", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { reservationId } = request.query;
+          if (!reservationId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+          }
+    
+          const venueId = await resolveReservationVenueId(reservationId);
+          if (!venueId) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          }
+    
+          const deposit = await runWithVenueContext(venueId, () =>
+            depositService.getByReservationId(reservationId)
+          );
+          return { data: deposit };
+        }
+      );
+    
       // GET /api/v1/deposits/:id — get deposit by ID
       fastify.get<{
         Params: { id: string };
@@ -4803,13 +4863,18 @@
     
       if (!deposit) return;
     
-      // If pending, can't directly refund (no transition pending → refunded)
-      // If held, we can refund. Skip the Stripe cancel call — the intent is
-      // already canceled (that's this event); calling cancelPaymentIntent again
-      // would fail against an already-canceled intent and Stripe would retry the
-      // webhook forever on the resulting 500 (#5719).
+      // If pending, can't directly transition (no transition pending → uncollectable).
+      // If held, this webhook firing means STRIPE (not us) canceled the intent —
+      // our own refund() is DB-first, so an app-initiated cancel would already
+      // have moved the row off `held` before this webhook is processed. That
+      // leaves one case: the ~7-day authorization auto-expired (or a dashboard
+      // cancel) before any capture was attempted — the same "authorization died
+      // before we could act" condition the no-show/forfeit capture-failure path
+      // already lands on `uncollectable` for. Unify on that label rather than
+      // `refunded`, which wrongly implies an active refund decision (#5725 item
+      // 3). No Stripe call is made either way — the intent is already canceled.
       if (deposit.status === "held") {
-        await depositService.refund(deposit.id, { skipStripeCancel: true });
+        await depositService.expireAuthorization(deposit.id);
       }
     }
     async function onChargeRefunded(event: Stripe.Event): Promise<void> {
@@ -4837,6 +4902,26 @@
         // payment_intent.canceled below (#5719 LOW).
         const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
         await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
+        return;
+      }
+    
+      // A refund issued through the Stripe dashboard AFTER our own capture
+      // (applied/forfeited/partial_refunded) never touched the DB before this —
+      // the deposit kept reporting stale money-collected state after the guest
+      // was actually made whole. Reconcile against Stripe's own cumulative
+      // `amount_refunded` on the charge; this never re-transitions `status` or
+      // calls Stripe (the refund already happened) — it's an annotation on an
+      // already-terminal row (#5725 item 2).
+      if (
+        deposit.status === "applied" ||
+        deposit.status === "forfeited" ||
+        deposit.status === "partial_refunded"
+      ) {
+        logger.info(
+          { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
+          "charge.refunded received for a captured deposit; reconciling post-capture refund"
+        );
+        await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
       }
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
@@ -7804,6 +7889,57 @@
         }
     
         return updated;
+      }
+    
+      /**
+       * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
+       * authorization itself — e.g. the ~7-day hold auto-expired, or a dashboard
+       * cancel — before any capture was attempted. This is the SAME "authorization
+       * died before we could act" condition the no-show/forfeit capture-failure
+       * path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
+       * which write the row off as `uncollectable`; this webhook-first path used to
+       * call {@link refund} instead, landing the identical scenario at `refunded` —
+       * a label that wrongly implies an active refund decision rather than a dead,
+       * uncollectable authorization. Unifies both paths on `uncollectable`
+       * (#5725 item 3). No Stripe call is made: the intent is already canceled on
+       * Stripe's side (that is the event that triggers this).
+       */
+      async expireAuthorization(depositId: string): Promise<Deposit> {
+        const deposit = await this._requireDeposit(depositId);
+        transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+    
+        // Atomic compare-and-swap: only update if the row is still in the observed
+        // status. count === 0 means another concurrent transition won the race.
+        const { count } = await prisma.deposit.updateMany({
+          where: { id: depositId, status: deposit.status },
+          data: { status: "uncollectable", uncollectableAt: new Date() },
+        });
+    
+        if (count === 0) {
+          throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
+        }
+    
+        return this._requireDeposit(depositId);
+      }
+    
+      /**
+       * Reconciles a `charge.refunded` webhook against a deposit that already
+       * reached a capture-based terminal status (`applied`/`forfeited`/
+       * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
+       * after our own capture. Persists Stripe's own cumulative `amount_refunded`
+       * on the charge directly — never derives it — so a retried or duplicate
+       * webhook delivery naturally overwrites with the same (or a larger,
+       * still-accurate) cumulative value rather than double-counting (#5725 item 2).
+       * Deliberately does not move `status`: this is a reconciliation annotation on
+       * an already-terminal state, not a new transition for the state machine to
+       * reason about.
+       */
+      async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
+        await prisma.deposit.update({
+          where: { id: depositId },
+          data: { postCaptureRefundCents: amountRefundedCents },
+        });
+        return this._requireDeposit(depositId);
       }
     
       /**

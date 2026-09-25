@@ -80,13 +80,18 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
 
   if (!deposit) return;
 
-  // If pending, can't directly refund (no transition pending → refunded)
-  // If held, we can refund. Skip the Stripe cancel call — the intent is
-  // already canceled (that's this event); calling cancelPaymentIntent again
-  // would fail against an already-canceled intent and Stripe would retry the
-  // webhook forever on the resulting 500 (#5719).
+  // If pending, can't directly transition (no transition pending → uncollectable).
+  // If held, this webhook firing means STRIPE (not us) canceled the intent —
+  // our own refund() is DB-first, so an app-initiated cancel would already
+  // have moved the row off `held` before this webhook is processed. That
+  // leaves one case: the ~7-day authorization auto-expired (or a dashboard
+  // cancel) before any capture was attempted — the same "authorization died
+  // before we could act" condition the no-show/forfeit capture-failure path
+  // already lands on `uncollectable` for. Unify on that label rather than
+  // `refunded`, which wrongly implies an active refund decision (#5725 item
+  // 3). No Stripe call is made either way — the intent is already canceled.
   if (deposit.status === "held") {
-    await depositService.refund(deposit.id, { skipStripeCancel: true });
+    await depositService.expireAuthorization(deposit.id);
   }
 }
 
@@ -115,6 +120,26 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
     // payment_intent.canceled below (#5719 LOW).
     const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
     await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
+    return;
+  }
+
+  // A refund issued through the Stripe dashboard AFTER our own capture
+  // (applied/forfeited/partial_refunded) never touched the DB before this —
+  // the deposit kept reporting stale money-collected state after the guest
+  // was actually made whole. Reconcile against Stripe's own cumulative
+  // `amount_refunded` on the charge; this never re-transitions `status` or
+  // calls Stripe (the refund already happened) — it's an annotation on an
+  // already-terminal row (#5725 item 2).
+  if (
+    deposit.status === "applied" ||
+    deposit.status === "forfeited" ||
+    deposit.status === "partial_refunded"
+  ) {
+    logger.info(
+      { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
+      "charge.refunded received for a captured deposit; reconciling post-capture refund"
+    );
+    await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
   }
 }
 

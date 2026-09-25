@@ -90,6 +90,27 @@ describe("DepositsClient", () => {
     });
   });
 
+  describe("getByReservation", () => {
+    it("GETs /api/v1/deposits?reservationId= and unwraps the validated deposit", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeDeposit }));
+
+      const result = await makeClient().getByReservation("res_1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/deposits?reservationId=res_1");
+      expect(options?.method ?? "GET").toBe("GET");
+      expect(result).toEqual(fakeDeposit);
+    });
+
+    it("returns null when the reservation has no deposit yet", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: null }));
+
+      const result = await makeClient().getByReservation("res_no_deposit");
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("capture", () => {
     it("POSTs /api/v1/deposits/:id/capture and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(
