@@ -289,12 +289,12 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
   });
 });
 
-// #5605 / #5612: mbe-daily-issue and mbe-monthly-meta-audit had no declared
-// liveness signature at all — the same gap #5344/#5373 closed for
-// mbe-weekly-improve. Their docs/routines/*.md prompts now specify a distinct,
-// greppable PR title, but their manifest entries deliberately stay
-// `unverifiable` until the live RemoteTrigger prompt at claude.ai is confirmed
-// to emit it — identical fail-closed reasoning to mbe-night/mbe-midday
+// #5612: mbe-monthly-meta-audit had no declared liveness signature at all —
+// the same gap #5344/#5373 closed for mbe-weekly-improve (mbe-daily-issue,
+// #5605, graduated on 2026-09-25; see the block at the end of this file). Its
+// docs/routines/*.md prompt now specifies a distinct, greppable PR title, but
+// its manifest entry deliberately stays `unverifiable` until the live
+// RemoteTrigger prompt at claude.ai is confirmed to emit it — identical fail-closed reasoning to mbe-night/mbe-midday
 // (#5604/#5608): a signature that searches for a title nothing emits yet
 // misclassifies a live routine as `dark`, strictly worse than an honest
 // `unverifiable`.
@@ -339,8 +339,8 @@ describe("prompt-documented PR-title signatures pending live-trigger confirmatio
 // docs/process-retro.md 2026-09-20 entry's liveness table, must report
 // mbe-weekly-improve dark and every other routine with a declared signature
 // alive. Routines marked `unverifiable` in the manifest (mbe-night,
-// mbe-midday, mbe-daily-issue, mbe-monthly-meta-audit — each has a
-// prompt-documented title now, none confirmed live at the trigger yet) are
+// mbe-midday, mbe-monthly-meta-audit — each has a prompt-documented title
+// now, none confirmed live at the trigger yet) are
 // asserted separately as `unverifiable`, not folded into the "every other
 // routine" alive claim — they are real, distinct findings the manifest
 // surfaces honestly rather than papering over with a fabricated signature.
