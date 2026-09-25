@@ -22,6 +22,15 @@ export type StripePort = Pick<
 >;
 
 /**
+ * Which flow produced a `forfeited` deposit — `DepositService#forfeit` is
+ * called from three distinct places (a no-show forfeit, a guest late-cancel
+ * forfeit, and the staff manual `/deposits/:id/forfeit` route), and only a
+ * no-show retry replaying its OWN forfeit key is safe to recapture at its
+ * full amount (#5744 LOW-A).
+ */
+export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
+
+/**
  * Narrow logger shape `_reconcileCaptureFailure`/CAS-guard writes need —
  * satisfied by `FastifyBaseLogger`. Defaults to a no-op so importing this
  * module never requires a logger to exist yet (module load order, unit
@@ -51,6 +60,31 @@ const CAPTURE_NEVER_HAPPENED_STRIPE_TYPES = new Set([
   "StripeAuthenticationError",
   "StripePermissionError",
 ]);
+
+/**
+ * Safety window for {@link DepositService.verifyCaptureCompleted}'s
+ * `requires_capture` rollback path: a `requires_capture` read alone does not
+ * prove the capture attempt that set `forfeited`/`applied` is actually
+ * finished — it may simply not have landed yet. Only once the capture
+ * timestamp is older than this may the row be rolled back to `held`;
+ * otherwise a concurrent retry could see `held`, re-issue its own action, and
+ * then have the original capture land moments later on top of it (#5744
+ * MEDIUM-A). Five minutes is comfortably beyond Stripe's own ~80s client
+ * timeout for a single capture request.
+ */
+const ROLLBACK_SAFETY_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * True once a capture-transition timestamp is old enough that the capture
+ * attempt it recorded can no longer plausibly still be in flight — see
+ * {@link ROLLBACK_SAFETY_WINDOW_MS}. Callers handle a missing timestamp
+ * separately (it can never be proven old enough, but unlike a too-recent
+ * timestamp it isn't retryable either) — see
+ * {@link DepositService.verifyCaptureCompleted}.
+ */
+function isOldEnoughToRollBack(capturedAt: Date): boolean {
+  return Date.now() - capturedAt.getTime() >= ROLLBACK_SAFETY_WINDOW_MS;
+}
 
 /** Wires the service's real logger in — called once at app bootstrap. */
 export function setDepositServiceLogger(next: DepositServiceLogger): void {
@@ -553,7 +587,21 @@ export class DepositService {
    *    itself evaluating actually called for (#5722 R5 MED-1, re-opens the
    *    #5719 item-6 partial-fee guarantee if violated). CAS-roll the row back
    *    to `held` instead, so the caller can re-derive the correct action from
-   *    a clean slate.
+   *    a clean slate — but only once the row's capture timestamp is older
+   *    than {@link ROLLBACK_SAFETY_WINDOW_MS}: a `requires_capture` read on
+   *    its own doesn't prove the original attempt is finished, so a rollback
+   *    that fires too early risks racing an in-flight capture that lands
+   *    moments later on top of a retry's own action (#5744 MEDIUM-A). It is
+   *    the caller's responsibility to only ever pass `allowRecapture: true`
+   *    when it has independently proven this retry is the SAME operation
+   *    that produced `forfeited` — e.g. by checking a persisted forfeit
+   *    origin (#5744 LOW-A) — not merely that the status happens to match.
+   *    A `requires_capture` read too recent to roll back safely reports
+   *    `"in-flight"` (retryable — see {@link ROLLBACK_SAFETY_WINDOW_MS}), and
+   *    a rollback whose CAS matches zero rows (a concurrent transition
+   *    already moved the row) reports `"concurrent"` — both distinct from
+   *    `"failed"`, which is reserved for genuinely unrecoverable-by-retry
+   *    cases (#5744 stripe-flow-reviewer follow-up).
    *  - anything else (a non-terminal status, the re-capture itself throwing,
    *    or the verification retrieve itself throwing) is never guessed at —
    *    fails closed so the caller aborts rather than reporting a completion
@@ -567,7 +615,15 @@ export class DepositService {
     fromStatus: "applied" | "forfeited",
     timestampField: "appliedAt" | "forfeitedAt",
     allowRecapture: boolean
-  ): Promise<"succeeded" | "recaptured" | "rolled-back-to-held" | "uncollectable" | "failed"> {
+  ): Promise<
+    | "succeeded"
+    | "recaptured"
+    | "rolled-back-to-held"
+    | "uncollectable"
+    | "in-flight"
+    | "concurrent"
+    | "failed"
+  > {
     const deposit = await this._requireDeposit(depositId);
     if (!deposit.stripePaymentIntentId) {
       return "succeeded";
@@ -585,8 +641,10 @@ export class DepositService {
     }
 
     if (intent.status === "canceled") {
-      await this._writeOffUncollectable(depositId, fromStatus, timestampField).catch(() => {});
-      return "uncollectable";
+      const count = await this._writeOffUncollectable(depositId, fromStatus, timestampField).catch(
+        () => 0
+      );
+      return count > 0 ? "uncollectable" : "failed";
     }
 
     if (intent.status === "requires_capture") {
@@ -601,7 +659,38 @@ export class DepositService {
           return "failed";
         }
       }
-      await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(() => {});
+
+      const capturedAt = deposit[timestampField];
+      if (capturedAt == null) {
+        // The row is missing the timestamp `_captureAndTransition` always
+        // sets — an anomaly no amount of waiting resolves (unlike the
+        // in-flight case below), so it needs manual reconciliation rather
+        // than a retry (#5744 stripe-flow-reviewer follow-up).
+        return "failed";
+      }
+
+      if (!isOldEnoughToRollBack(capturedAt)) {
+        // A `requires_capture` read alone doesn't prove the capture attempt
+        // that produced `fromStatus` has actually finished — it may simply
+        // not have landed yet. This IS retryable: once the safety window
+        // passes, a plain retry resolves it, so it must never be reported
+        // as the same "failed" outcome as a genuine, unrecoverable problem
+        // (#5744 stripe-flow-reviewer follow-up; #5744 MEDIUM-A originally
+        // reported this as "failed").
+        return "in-flight";
+      }
+
+      const count = await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(
+        () => 0
+      );
+      if (count === 0) {
+        // A concurrent transition already moved the row off `fromStatus` —
+        // an ordinary in-progress conflict, not a failure requiring manual
+        // reconciliation (#5744 stripe-flow-reviewer REGRESSION fix: this
+        // used to report "failed" here, losing the caller's own
+        // concurrent-retry re-check).
+        return "concurrent";
+      }
       return "rolled-back-to-held";
     }
 
@@ -614,22 +703,31 @@ export class DepositService {
    *
    * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
    * capture fails after the DB write.
+   *
+   * `origin` records which flow produced the forfeit — a no-show forfeit, a
+   * guest late-cancel forfeit, or the staff manual `/deposits/:id/forfeit`
+   * route all call this same method. It is persisted so a later no-show retry
+   * can require its own origin before treating a `forfeited` row as safe to
+   * recapture at its full amount (#5744 LOW-A) — see
+   * {@link verifyCaptureCompleted}'s doc comment.
    */
-  async forfeit(depositId: string): Promise<Deposit> {
-    return this._captureAndTransition(depositId, "forfeited", "forfeitedAt", "forfeit");
+  async forfeit(depositId: string, origin: DepositForfeitOrigin): Promise<Deposit> {
+    return this._captureAndTransition(depositId, "forfeited", "forfeitedAt", "forfeit", origin);
   }
 
   /**
    * Shared DB-first capture flow for the two capture-based transitions
    * (`apply` and `forfeit`). Updates the DB status first, then captures the
    * Stripe PaymentIntent with an idempotency key, rolling the DB back to `held`
-   * if Stripe fails after the write.
+   * if Stripe fails after the write. `forfeitOrigin` is only ever relevant to
+   * the `forfeited` target status; `apply()` never passes it.
    */
   private async _captureAndTransition(
     depositId: string,
     targetStatus: "applied" | "forfeited",
     timestampField: "appliedAt" | "forfeitedAt",
-    action: string
+    action: string,
+    forfeitOrigin?: DepositForfeitOrigin
   ): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, targetStatus); // throws if invalid
@@ -638,7 +736,11 @@ export class DepositService {
     // status. count === 0 means another concurrent transition won the race.
     const { count } = await prisma.deposit.updateMany({
       where: { id: depositId, status: deposit.status },
-      data: { status: targetStatus, [timestampField]: new Date() },
+      data: {
+        status: targetStatus,
+        [timestampField]: new Date(),
+        ...(forfeitOrigin ? { forfeitOrigin } : {}),
+      },
     });
 
     if (count === 0) {
@@ -767,24 +869,31 @@ export class DepositService {
    *
    * Compare-and-swap on `fromStatus`: only writes if the row is still at the
    * status this reconciliation observed. A concurrent write beating this one
-   * (count === 0) is logged rather than thrown — the caller always swallows
-   * this promise's rejection (`.catch(() => {})`), so throwing here would be
-   * silently discarded anyway (#5722 M1). `feeAmountCents`/`refundAmountCents`
-   * are only ever set by `refundPartial`, so they're cleared here too when
-   * writing off a `partial_refunded` row — otherwise they'd stay stale on a
-   * deposit that never ends up charging or refunding anything (#5722 LOW).
+   * (count === 0) is logged, and the CAS count is returned rather than
+   * swallowed — most callers still discard it via `.catch(() => 0)` (a
+   * failure here is not itself fatal to whatever the caller was already
+   * doing), but {@link verifyCaptureCompleted} uses the count to avoid
+   * reporting `uncollectable` when nothing was actually written (#5744
+   * LOW-C). `feeAmountCents`/`refundAmountCents` are only ever set by
+   * `refundPartial`, so they're cleared here too when writing off a
+   * `partial_refunded` row — otherwise they'd stay stale on a deposit that
+   * never ends up charging or refunding anything (#5722 LOW). `forfeitOrigin`
+   * is cleared unconditionally too: the row is no longer `forfeited`, so a
+   * stale origin must not survive to mislead a future recapture decision
+   * (#5744 stripe-flow-reviewer follow-up).
    */
   private async _writeOffUncollectable(
     depositId: string,
     fromStatus: "applied" | "forfeited" | "partial_refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
-  ): Promise<void> {
+  ): Promise<number> {
     const { count } = await prisma.deposit.updateMany({
       where: { id: depositId, status: fromStatus },
       data: {
         status: "uncollectable",
         uncollectableAt: new Date(),
         [timestampField]: null,
+        forfeitOrigin: null,
         ...(fromStatus === "partial_refunded"
           ? { feeAmountCents: null, refundAmountCents: null }
           : {}),
@@ -797,6 +906,7 @@ export class DepositService {
         "Deposit write-off to uncollectable lost a concurrent-update race; row was not at the expected status"
       );
     }
+    return count;
   }
 
   /**
@@ -805,19 +915,22 @@ export class DepositService {
    * retryable.
    *
    * Compare-and-swap on `fromStatus`, mirroring {@link _writeOffUncollectable}
-   * — see its doc comment for why a lost race logs instead of throwing, and
-   * why `partial_refunded` also clears the fee/refund fields (#5722 M1, LOW).
+   * — see its doc comment for why a lost race logs instead of throwing, why
+   * `partial_refunded` also clears the fee/refund fields (#5722 M1, LOW), and
+   * why `forfeitOrigin` is cleared unconditionally (#5744 stripe-flow-reviewer
+   * follow-up).
    */
   private async _rollbackToHeld(
     depositId: string,
     fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
     timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
-  ): Promise<void> {
+  ): Promise<number> {
     const { count } = await prisma.deposit.updateMany({
       where: { id: depositId, status: fromStatus },
       data: {
         status: "held",
         [timestampField]: null,
+        forfeitOrigin: null,
         ...(fromStatus === "partial_refunded"
           ? { feeAmountCents: null, refundAmountCents: null }
           : {}),
@@ -830,6 +943,7 @@ export class DepositService {
         "Deposit rollback to held lost a concurrent-update race; row was not at the expected status"
       );
     }
+    return count;
   }
 
   /**

@@ -24,6 +24,8 @@ vi.mock("./deposit.js", async () => {
   return {
     DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
     DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
+    DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
+    DepositTransitionError: actual.DepositTransitionError,
     depositService: {
       getByReservationId: vi.fn(),
       getById: vi.fn(),
@@ -42,6 +44,7 @@ import {
   depositService,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
+  DepositConcurrentUpdateError,
 } from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
@@ -141,7 +144,7 @@ describe("cancelReservationWithDeposit", () => {
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
     expect(result.success).toBe(true);
-    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
     expect(depositService.refund).not.toHaveBeenCalled();
     expect(depositService.refundPartial).not.toHaveBeenCalled();
   });
@@ -331,6 +334,43 @@ describe("cancelReservationWithDeposit", () => {
     );
   });
 
+  it("returns a harmless 409 (not the 500 failure result) when verifyCaptureCompleted reports concurrent — another retry's rollback already moved the row (#5744 stripe-flow-reviewer REGRESSION fix)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("concurrent");
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns a distinct retryable 409 (not the 500 manual-reconciliation result) when verifyCaptureCompleted reports in-flight — the prior capture may still be settling (#5744 stripe-flow-reviewer follow-up)", async () => {
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("in-flight");
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.detail).toMatch(/settl|retry/i);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(deps.logger.error).not.toHaveBeenCalled();
+  });
+
   it("staff cancel over a stuck applied deposit rolls back to held and refunds in full — never re-captures (#5722 R5 MED-1)", async () => {
     // Stripe still reports requires_capture (never confirmed captured), so
     // verifyCaptureCompleted rolls the row back to `held` instead of
@@ -467,6 +507,27 @@ describe("cancelReservationWithDeposit", () => {
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
     expect(result.success).toBe(false);
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns a harmless 409 (not the 500 failure result) when this invocation loses the deposit-transition race inside resolveHeldDeposit (#5744 LOW-B)", async () => {
+    // Two concurrent cancels of the SAME held deposit: the winner's refund
+    // already ran, so this invocation's own refund call loses the deposit's
+    // own CAS/state-machine guard. It never touched Stripe — this is an
+    // ordinary in-progress conflict, not a permanent failure.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
+    vi.mocked(depositService.refund).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "refund")
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
@@ -688,7 +749,7 @@ describe("cancelReservationWithDeposit", () => {
     }
     // (c) this is the post-resolution transition-error path: the deposit
     // money-move DID run, and no re-notification fires on the failed cancel.
-    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
     expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
 

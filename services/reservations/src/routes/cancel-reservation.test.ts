@@ -538,7 +538,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+      expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
       expect(depositService.refund).not.toHaveBeenCalled();
       expect(depositService.refundPartial).not.toHaveBeenCalled();
     });
