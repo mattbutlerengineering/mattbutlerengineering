@@ -39,6 +39,7 @@ import {
 import { tableStatusService } from "../services/table-status.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
+import { loadInVenueContext } from "./venue-access.js";
 
 /**
  * Reads a venue's own id from the `:id` route param, so requireVenueAccess can
@@ -466,7 +467,20 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const venue = await venueService.getById(request.params.id);
+      // ADR-026 §3.3 item 5 / #5369 PR 7: the global venue-context preHandler
+      // (`resolveGlobalVenueId` in `../app.ts`) only reads a `venueId` KEY off
+      // the query/body/params — this route addresses the venue by its own
+      // `:id` instead, so `app.venue_id` was never set for it. Resolved here
+      // through `app_resolve_venue_id("venue", id)` (`venue_isolation`'s own
+      // policy is keyed on the row's own `id`, so this is the correct kind),
+      // and the read runs inside that context so it succeeds under
+      // `FORCE ROW LEVEL SECURITY` too, not just resolves a venue id.
+      const venue = await loadInVenueContext(
+        "venue",
+        request.params.id,
+        () => venueService.getById(request.params.id),
+        null
+      );
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
@@ -538,7 +552,14 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const snapshot = await tableStatusService.getSnapshot(request.params.id);
+      // ADR-026 §3.3 item 5 / #5369 PR 7 — same venue-self-addressed gap as
+      // GET /:id above: resolve and load inside the venue's own context.
+      const snapshot = await loadInVenueContext(
+        "venue",
+        request.params.id,
+        () => tableStatusService.getSnapshot(request.params.id),
+        []
+      );
       return { data: snapshot };
     }
   );
@@ -759,35 +780,56 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { venueGroupId } = request.body;
-      if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
-        // requireVenueAccess above proves MEMBERSHIP of this venue only — it
-        // never inspects a per-venue role (ADR-020). Re-parenting a venue into
-        // a different venue group is an org-hierarchy-defining mutation, the
-        // same class as venue-group CRUD and venue creation, both admin-gated
-        // in this file. Every other editable field stays open to members, so
-        // the check is scoped to an actual CHANGE of venueGroupId rather than
-        // gating the whole route.
-        const current = await venueService.getById(request.params.id);
-        // A venue that does not exist is not a reassignment — fall through so
-        // the update below surfaces the existing 404.
-        if (current && (venueGroupId ?? null) !== current.venueGroupId) {
-          return reply
-            .code(403)
-            .send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "Admin role required to change a venue's venue group"
-              )
-            );
-        }
-      }
 
-      const venue = await venueService.update(request.params.id, request.body);
-      if (!venue) {
+      // ADR-026 §3.3 item 5 / #5369 PR 7: both the venueGroupId reassignment
+      // pre-check's read and the update itself run inside the venue's own
+      // resolved context now — `loadInVenueContext`'s `fallback` is a plain
+      // value evaluated by the CALLER, so the 403/404 replies are threaded out
+      // as a result and turned into the actual reply below (the same shape
+      // `deposit-transition-handler.ts` and `floor-plans.ts`'s
+      // `/tables/positions` route use).
+      const result = await loadInVenueContext(
+        "venue",
+        request.params.id,
+        async () => {
+          if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
+            // requireVenueAccess above proves MEMBERSHIP of this venue only —
+            // it never inspects a per-venue role (ADR-020). Re-parenting a
+            // venue into a different venue group is an org-hierarchy-defining
+            // mutation, the same class as venue-group CRUD and venue creation,
+            // both admin-gated in this file. Every other editable field stays
+            // open to members, so the check is scoped to an actual CHANGE of
+            // venueGroupId rather than gating the whole route.
+            const current = await venueService.getById(request.params.id);
+            // A venue that does not exist is not a reassignment — fall
+            // through so the update below surfaces the existing 404.
+            if (current && (venueGroupId ?? null) !== current.venueGroupId) {
+              return { kind: "forbidden" as const };
+            }
+          }
+
+          const venue = await venueService.update(request.params.id, request.body);
+          if (!venue) return { kind: "not-found" as const };
+          return { kind: "ok" as const, venue };
+        },
+        { kind: "not-found" as const }
+      );
+
+      if (result.kind === "forbidden") {
+        return reply
+          .code(403)
+          .send(
+            createProblemDetails(
+              403,
+              "Forbidden",
+              "Admin role required to change a venue's venue group"
+            )
+          );
+      }
+      if (result.kind === "not-found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
-      return { data: venue };
+      return { data: result.venue };
     }
   );
 
@@ -836,7 +878,14 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const outcome = await venueService.delete(request.params.id);
+      // ADR-026 §3.3 item 5 / #5369 PR 7: same venue-self-addressed gap as
+      // GET/PATCH above — resolve and delete inside the venue's own context.
+      const outcome = await loadInVenueContext(
+        "venue",
+        request.params.id,
+        () => venueService.delete(request.params.id),
+        "not_found" as const
+      );
       if (outcome === "not_found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }

@@ -100,7 +100,13 @@ vi.mock("../services/database.js", async () => {
 // ADR-026 §3.3 item 3 / #5369 PR 8: `GET /v1/venues/by-slug/:slug` now
 // resolves the venue via `resolveVenueId` (a raw `$queryRaw` call this
 // suite's plain `createMockDatabaseService()` stub can't answer) — see
-// public-venues.test.ts's identical comment.
+// public-venues.test.ts's identical comment. ADR-026 §3.3 item 5 / #5369
+// PR 7: GET/PATCH/DELETE /:id and GET /:id/table-statuses resolve venue ids
+// the same way. Route tests exercise application logic, not real RLS
+// resolution (that's `rls-route-sweep.integration.test.ts`) — `loadInVenueContext`
+// passes the resolved id only to `runWithVenueContext`, never to the (mocked)
+// `venueService` call the assertions below check, so any non-null value works
+// for every test in this file.
 vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue-123"),
 }));

@@ -192,6 +192,9 @@
       type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
     </item>
     <item priority="high">
+      type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
+    </item>
+    <item priority="high">
       export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
     </item>
   </file>
@@ -487,6 +490,9 @@
     <item priority="high">
       export const MEMBER_HEADERS: Record<string, string>;
     </item>
+    <item priority="high">
+      export const DINER_A_HEADERS: Record<string, string>;
+    </item>
     <item priority="medium">
       function inject(
         ctx: SweepContext,
@@ -499,6 +505,9 @@
     </item>
     <item priority="high">
       export const asMember: unknown;
+    </item>
+    <item priority="high">
+      export const asDiner: unknown;
     </item>
     <item priority="high">
       export function expectOk(res: LightMyRequestResponse, label: string): void { /* ... */ }
@@ -565,16 +574,14 @@
       async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
-      async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+      async function createDisposableReservation(
+        ctx: SweepContext,
+        venueId: string,
+        guestEmail = `rls-sweep-disposable-${randomUUID()}@example.com`
+      ): Promise<string> { /* ... */ }
     </item>
-    <item priority="medium">
-      function brokenEntity(
-        blocker: string,
-        method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
-        urlFor: (ctx: SweepContext) => string,
-        payload?: PayloadOrFactory,
-        options?: ExpectBrokenOptions
-      ): RouteFixture { /* ... */ }
+    <item priority="low">
+      async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
       export const FIXTURES: Record<string, RouteFixture>;

@@ -6,12 +6,15 @@ vi.mock("../services/deposit.js", () => ({
   DepositTransitionError: class DepositTransitionError extends Error {},
 }));
 
-vi.mock("../services/deposit-venue.js", () => ({
-  resolveReservationVenueId: vi.fn(),
+const { mockResolveVenueId } = vi.hoisted(() => ({
+  mockResolveVenueId: vi.fn(),
+}));
+
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: mockResolveVenueId,
 }));
 
 import { depositService, DepositTransitionError } from "../services/deposit.js";
-import { resolveReservationVenueId } from "../services/deposit-venue.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 
@@ -35,9 +38,27 @@ function makeReply() {
 describe("depositTransitionHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // ADR-026 (#5382): the handler resolves the deposit's venue through its
-    // reservation before transitioning. Default to a resolvable venue.
-    vi.mocked(resolveReservationVenueId).mockResolvedValue("venue-1");
+    // ADR-026 §3.3 item 6 / #5369 PR 7: the handler resolves the deposit's
+    // venue through `app_resolve_venue_id("deposit", id)` before loading it.
+    // Default to a resolvable venue.
+    mockResolveVenueId.mockResolvedValue("venue-1");
+  });
+
+  it("returns 404 without calling the transition when the venue cannot be resolved", async () => {
+    const transition = vi.fn();
+    mockResolveVenueId.mockResolvedValueOnce(null);
+    const reply = makeReply();
+
+    await depositTransitionHandler(transition)(makeRequest("dep-missing"), reply);
+
+    expect(mockResolveVenueId).toHaveBeenCalledWith("deposit", "dep-missing");
+    expect(reply.code).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 404, title: "Not Found", detail: "Deposit not found" })
+    );
+    // Unresolvable venue short-circuits before the deposit is ever loaded.
+    expect(depositService.getById).not.toHaveBeenCalled();
+    expect(transition).not.toHaveBeenCalled();
   });
 
   it("returns 404 without calling the transition when the deposit does not exist", async () => {
@@ -52,28 +73,9 @@ describe("depositTransitionHandler", () => {
       expect.objectContaining({ status: 404, title: "Not Found", detail: "Deposit not found" })
     );
     expect(transition).not.toHaveBeenCalled();
-    // No venue lookup either — a missing deposit is refused before it.
-    expect(resolveReservationVenueId).not.toHaveBeenCalled();
   });
 
-  it("returns 404 without calling the transition when the venue cannot be resolved", async () => {
-    vi.mocked(depositService.getById).mockResolvedValueOnce({
-      id: "dep-1",
-      reservationId: "res-1",
-    } as never);
-    vi.mocked(resolveReservationVenueId).mockResolvedValue(null);
-    const transition = vi.fn();
-    const reply = makeReply();
-
-    await depositTransitionHandler(transition)(makeRequest("dep-1"), reply);
-
-    expect(resolveReservationVenueId).toHaveBeenCalledWith("res-1");
-    expect(reply.code).toHaveBeenCalledWith(404);
-    // Fail closed on a payment surface: the state machine never runs.
-    expect(transition).not.toHaveBeenCalled();
-  });
-
-  it("runs the transition inside the resolved venue context", async () => {
+  it("runs the load and the transition inside the resolved venue context", async () => {
     vi.mocked(depositService.getById).mockResolvedValueOnce({
       id: "dep-1",
       reservationId: "res-1",

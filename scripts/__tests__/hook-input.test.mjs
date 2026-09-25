@@ -526,6 +526,43 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     },
     SEAM_TIMEOUT_MS
   );
+
+  it(
+    "pre-bash-guard warns (but does not block) an inert-hooks checkout before `git commit`",
+    () => {
+      // #5766: a fresh `git init` never configures core.hooksPath — exactly
+      // the "pnpm install never ran" state. Claude Code (2.1.282) shows
+      // NEITHER stdout nor stderr for a PreToolUse hook that exits 0, so a
+      // plain stderr warning is invisible to the user — the warning must be
+      // the PreToolUse JSON output contract on stdout instead: additionalContext
+      // reaches the model, systemMessage reaches the user. The commit itself
+      // must not be blocked (WARN, not BLOCK — see check-hooks-active.mjs's header).
+      const work = gitFixtureAheadOfOrigin();
+      const result = run("pre-bash-guard.sh", bashPayloadFor("git commit -m more"), work);
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+      const output = JSON.parse(result.stdout);
+      expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+      expect(output.hookSpecificOutput.additionalContext).toContain("pnpm install");
+      expect(output.systemMessage).toContain("pnpm install");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard stays silent (no stdout, no stderr) before `git push` once hooks are active",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      mkdirSync(join(work, ".husky", "_"), { recursive: true });
+      writeFileSync(join(work, ".husky", "_", "pre-commit"), "#!/bin/sh\n");
+      git(work, "config", "core.hooksPath", ".husky/_");
+      const result = run("pre-bash-guard.sh", bashPayloadFor("git push origin HEAD"), work);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
 });
 
 describe("no hook reads the fictional Bash-tool env vars", () => {

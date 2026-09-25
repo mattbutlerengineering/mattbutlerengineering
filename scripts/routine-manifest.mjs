@@ -106,9 +106,14 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-daily-issue",
     triggerId: "trig_01Df3XFeJnGYeH33NeqE1Mp3",
     periodDays: 1,
-    unverifiable: true,
-    unverifiableReason:
-      'docs/routines/mbe-daily-issue.md:41 now requires every PR this routine opens to end with the suffix `(mbe-daily-issue #<ISSUE>)` (#5605 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still opens PRs indistinguishable from ordinary implement-queue traffic, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. An `issue-label` signature is not an alternative: this routine CLOSES an existing issue rather than filing one, so liveness would key off the createdAt of that issue — the date it was filed, not the date the routine ran. Flip to a real signature (`searchTerm: "mbe-daily-issue"`, matching the suffix) in a follow-up PR once a PR carrying the new suffix is observed, proving the live trigger was updated.',
+    // Confirmed live 2026-09-25 by #5763, titled "… (mbe-daily-issue #5759)"
+    // (#5748). The routine closes an existing issue rather than filing one,
+    // so the PR it opens is its own artifact, marked by a title suffix.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`\(mbe-daily-issue #\d+\)`,
+      searchTerm: "mbe-daily-issue",
+    },
   },
   {
     name: "mbe-morning",

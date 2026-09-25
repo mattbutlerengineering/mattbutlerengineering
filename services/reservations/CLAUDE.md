@@ -605,23 +605,22 @@ resolved (public routes, background jobs), `app.venue_id` stays unset and
 every policy's `current_setting('app.venue_id', true)` evaluates to `NULL`
 — default-deny, not an error and not "every venue".
 
-**Known gap — venue-self-addressed routes:** the global resolver
-(`resolveGlobalVenueId` in `app.ts`) only reads a `venueId` key from the
-query, body, or route params; `GET/PATCH/DELETE /api/v1/venues/:id` (and
-`/:id/table-statuses`) address the venue by its own `:id` param instead, so
-that resolver returns `null` for these routes and `app.venue_id` is never
-set via the global preHandler for them (`requireVenueAccess`'s own
-`venueIdFromRouteId` resolver in `routes/venues.ts` does read `:id`
-correctly, but that only drives the application-layer membership check, not
-the RLS session variable). All of these routes still go through the
-venue-scoped `prisma.venue.*` wrapper (`venueService`, `services/venue.ts`),
-so nothing here is an unwrapped/bypassing call site — the gap is purely in
-venue-id _resolution_ for this one route family. Per the caveat below,
-`FORCE ROW LEVEL SECURITY` is not set, so this has no functional impact
-today (the app's own DB role is the table owner and bypasses RLS
-regardless); it does mean the DB-level backstop doesn't yet actually engage
-for these particular routes the way it does for routes that pass `venueId`
-via query/body/param.
+**Venue-self-addressed routes — closed (ADR-026 §3.3 item 5 / #5369 PR 7).**
+The global resolver (`resolveGlobalVenueId` in `app.ts`) only reads a
+`venueId` key from the query, body, or route params; `GET/PATCH/DELETE
+/api/v1/venues/:id` (and `/:id/table-statuses`) address the venue by its own
+`:id` param instead, so that resolver returns `null` for these routes and
+`app.venue_id` was never set via the global preHandler for them
+(`requireVenueAccess`'s own `venueIdFromRouteId` resolver in
+`routes/venues.ts` reads `:id` correctly, but that only ever drove the
+application-layer membership check, not the RLS session variable). Fixed by
+routing each handler through `resolveVenueId("venue", id)` /
+`loadInVenueContext` (`routes/venue-access.ts`) instead — the same helpers
+item 2 uses for entity-addressed routes; `venues`' own `venue_isolation`
+policy is keyed on the row's own `id`, so `"venue"` is the correct kind.
+`PATCH /:id`'s venueGroupId-reassignment pre-check now runs inside that same
+resolved context too. Proved against a real, migrated, FORCE'd database as a
+non-superuser owner role in `src/routes/rls-route-sweep.integration.test.ts`.
 
 **Current caveat:** the tables above do not have `FORCE ROW LEVEL SECURITY`
 set, so RLS does not apply to the table **owner** — and the service's own

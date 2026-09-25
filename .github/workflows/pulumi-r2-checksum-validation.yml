@@ -135,6 +135,11 @@ jobs:
         env:
           PULUMI_VERSION_INPUT: ${{ inputs.pulumi_version }}
         run: |
+          # Without pipefail a failed `curl` feeds an empty script to `sh`, which
+          # exits 0: the step goes green having installed nothing, and the arm
+          # below runs against the runner image's own preinstalled Pulumi instead
+          # of the version under test — reporting a verdict for the wrong version.
+          set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
 
@@ -175,6 +180,11 @@ jobs:
         env:
           PULUMI_VERSION_INPUT: ${{ inputs.pulumi_version }}
         run: |
+          # Without pipefail a failed `curl` feeds an empty script to `sh`, which
+          # exits 0: the step goes green having installed nothing, and the arm
+          # below runs against the runner image's own preinstalled Pulumi instead
+          # of the version under test — reporting a verdict for the wrong version.
+          set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
 
