@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Pre-bash safety guard: two cheap checks before a Bash command runs, each
-# targeting one of the two most-recurring CI failures in this monorepo
-# (documented in .claude/rules/gotchas.md).
+# Pre-bash safety guard: cheap checks before a Bash command runs, each
+# targeting a recurring failure class in this monorepo (documented in
+# .claude/rules/gotchas.md).
 #
 # Wired in via .claude/settings.json PreToolUse Bash matcher.
 # Receives the hook payload as JSON on stdin; the about-to-execute command
@@ -18,8 +18,19 @@
 #     `pnpm test` / `vitest` dies with "command not found" (#1 recurring
 #     failure). We block with the fix instead of letting it fail opaquely.
 #
+#   Check 3 — inert git hooks (WARN, exit 0, #5766):
+#     `core.hooksPath` (`.husky/_`) is created only by `pnpm install`'s
+#     `prepare` script. A checkout that skipped it has every local gate
+#     (pre-commit lint/check-adr, pre-push migration/antipattern/regen
+#     checks) silently disabled — a git hook itself cannot report this,
+#     since it would be exactly as inert. This runs through the Claude Code
+#     harness instead, independent of core.hooksPath, so it fires whether or
+#     not `pnpm install` has ever run. Warn only — see
+#     scripts/check-hooks-active.mjs's header for why a hard block is wrong
+#     here (it would break legitimate no-install flows).
+#
 # Skip mechanisms:
-#   - $SKIP_BASH_GUARD=1 → bypass both checks entirely.
+#   - $SKIP_BASH_GUARD=1 → bypass all checks entirely.
 set -uo pipefail
 
 cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
@@ -57,6 +68,16 @@ Set SKIP_BASH_GUARD=1 to bypass if node_modules lives elsewhere.
 EOF
       exit 2
     fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Check 3: warn when git hooks are inert (pnpm install never ran) before a
+# commit or push — the moment a silently-skipped gate actually matters.
+# ---------------------------------------------------------------------------
+case "$cmd" in
+  *"git commit"*|*"git push"*)
+    node "$CLAUDE_PROJECT_DIR/scripts/check-hooks-active.mjs" >/dev/null
     ;;
 esac
 
