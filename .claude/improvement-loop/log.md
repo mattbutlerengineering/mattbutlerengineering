@@ -2246,3 +2246,46 @@ None this run (`agent-skip` empty, 0 open).
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-25 (mbe-weekly-improve)
+
+**Skills:** `/improve` and `/improve-codebase-architecture` are user-level-only (retired from `.claude/skills/` by #3323, per CLAUDE.md § Skills), so this run did the equivalent analysis directly rather than reporting them as missing.
+
+### PR opened (step 2)
+
+**#5764 — `fix(ci): weekly improve 2026-09-25 — guard pipe-to-shell Pulumi installs with pipefail`. Merged 2026-09-25T18:50Z, all 37 checks green (`CI Gate` success), `tier:sensitive`.**
+
+GitHub runs every `run:` block under `bash -e` with no `pipefail`, so in `curl -fsSL https://get.pulumi.com | sh -s -- --version 3.253.0` a failed download exits 0 through the pipe: the step goes green having installed nothing, `$HOME/.pulumi/bin` is appended to `GITHUB_PATH` empty, and later `pulumi` calls resolve the runner image's floating binary — reinstating the #4117/#4118 R2 `InvalidDigest` outage wearing a green check. Confirmed empirically rather than reasoned: `bash -e -c 'curl -fsSL https://nonexistent.invalid/x | sh'` exits **0**; the same line under `set -euo pipefail` exits **22**.
+
+`pulumi-preview.yml` already carried the fix, with a comment. Three siblings were never swept — `pulumi-up.yml` (the **production apply path**) and both arms of `pulumi-r2-checksum-validation.yml` (where a silent no-install makes the harness report a verdict for the runner's version, not the version under test — and that harness's verdict is what a human will use to decide whether the 3.253.0 pin can be raised). Classic fix-one-instance-leave-the-siblings shape, already seeded in `docs/backlog.md`.
+
+Fixed all three, and generalised rather than re-asserting per file: `scripts/check-pipe-to-shell-pipefail.mjs` (pure `extractRunBlocks`/`checkWorkflow` + `runCheck`, wired into `REPO_AUDIT_CHECKS`) fails any workflow `run:` block piping curl/wget into a shell without pipefail **above** the pipeline. Guard proven to fail first: against the unfixed tree it reported exactly the three unguarded sites and correctly passed the already-guarded `pulumi-preview.yml`. Closes the `docs/backlog.md` pipefail seed.
+
+### Negative results (measured, deliberately NOT filed)
+
+Recording these so next week doesn't re-derive them:
+
+- **Broader pipefail class is clean.** A repo-wide scan for `run:` blocks piping into `tee`/`head`/`grep`/`jq` returned 136 hits, but all but one are `$(echo "$VAR" | jq …)` command substitutions — not the dangerous shape. Narrowed to statement-level gate commands whose exit code is the point: **1 hit** (`nightly-compliance.yml:62`, a summarizer whose exit code isn't the point). This is why the new check is scoped to downloader-into-shell rather than all pipes — a broad rule would have been ~135 false positives.
+- **`pulumi-preview.yml`'s version pins are already guarded** by `scripts/__tests__/pulumi-preview-workflow.test.mjs` (`PINNED_VERSION = "3.253.0"`, plus explicit `^3`/`latest` rejection). No drift gap.
+- **Wrangler and doctl are pinned and guarded** — `npx wrangler@3.114.17` at all 6 call sites, `digitalocean/action-doctl` SHA-pinned, and `scripts/__tests__/wrangler-cli-pin.test.mjs` exists. The generalised "runner image picks the version that deploys production" gotcha has no other live instance.
+- **api-client route-contract is NOT free to file.** #5688/#5691 are owned by the in-flight `maintenance:api-client-route-contract` run and explicitly labelled `blocked` + "Not for autonomous queue pickup" precisely to keep `scheduled-issue-completion.yml` from promoting them to `ready`. Filing a `ready` duplicate would have raced that run's own Implement stage.
+
+### Issues filed (step 3)
+
+- **#5765** `test(pulumi): assert the installed CLI version equals the pinned/requested one after install` (`ready`, `area:infra`) — #5764 closes the total-failure case; this closes the wrong-version case (installer succeeds, installs something else, every step stays green). Criteria call out the trap that would make it decorative: the assertion must invoke `"$HOME/.pulumi/bin/pulumi"` by explicit path, since `GITHUB_PATH` only affects _later_ steps and a bare `pulumi` would resolve the runner's binary and pass while proving nothing.
+- **#5766** `fix(hooks): make it loud when git hooks are inert because pnpm install has not run` (`ready`, `meta-improvement`) — promotes a measured `docs/backlog.md` seed, re-verified this run: `core.hooksPath=.husky/_`, `git ls-files .husky/_` = **0 tracked files**, generated only by `prepare: husky`. Git treats a missing hooks dir as "no hooks" silently, so pre-commit (eslint, check-adr) and pre-push (destructive-migration, antipattern ratchet, `regen --check`) are all inert in any checkout that skipped `pnpm install` — which is exactly the state of the worktree agents whose missing `pnpm install` is already the #1 recurring CI failure. Criteria state the mechanism constraint explicitly: a git hook cannot report this (it is itself inert), and a `postinstall` runs only when the problem is absent.
+
+### Weekly eval checkpoint (step 4)
+
+`pnpm build --filter @mbe/cli... && node tools/cli/dist/index.js agent eval` → **exit 2** (`suiteDidNotRun`, `Excluded (did not run): 1`, 0 turns / $0.00, no `ANTHROPIC_API_KEY`). Expected sandbox no-op per the standing #3571 decision not to provision eval credentials here. **No issue filed, no baseline reported, `metrics/eval-reports.jsonl` unchanged** — per the routine's own instruction. The structural defect (no caller can ever reach the scored path) remains the top `docs/backlog.md` seed and needs a human decision; it is deliberately not re-filed each week.
+
+### Notes
+
+- `gh` unavailable as ever (cloud session, gotchas.md § Claude Code Remote); GitHub MCP tools used throughout.
+- Baseline discipline: **31 test files already fail** in a fresh cloud checkout (unbuilt `@mbe/gh-client` and friends). Diffed against a clean-tree `git stash` baseline rather than expecting green — that isolated exactly one real new failure (`run-repo-audit.test.mjs`, which pins the `REPO_AUDIT_CHECKS` list verbatim) and prevented 31 false attributions.
+- Tripped the `git push | tail` trap from `docs/backlog.md` while pushing: the pipe masked the exit code and the push-verify hook reported the branch missing, when in fact the push had succeeded and a second attempt failed with `reference already exists`. The seed is real; recording a live re-occurrence.
+
+### Recommendations
+
+- #5765 and #5766 are both mechanically drainable by `/implement-queue` with no human decision required — unlike most of the current `ready` queue.
+- The `maintenance:api-client-route-contract` run's `blocked`-label convention works, but it is invisible to a routine that searches by topic rather than by label. Worth a line in the weekly-improve prompt: check for a `blocked` + "not for autonomous pickup" owner before filing anything adjacent to an in-flight `docs/fixes/` run.
