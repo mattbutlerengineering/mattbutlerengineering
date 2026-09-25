@@ -25,24 +25,29 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
-import { venueIdFromBody, venueIdFromParams, venueIdFromEntity } from "./venue-access.js";
+import {
+  venueIdFromBody,
+  venueIdFromParams,
+  venueIdFromEntity,
+  loadInVenueContext,
+} from "./venue-access.js";
 
 /** Resolves the venue owning a floor plan addressed by `:id` (→ 403 if absent). */
 const resolveFloorPlanVenueId: VenueIdResolver = venueIdFromEntity(
-  (request) => (request.params as { id?: unknown }).id,
-  floorPlanService.getById
+  "floor_plan",
+  (request) => (request.params as { id?: unknown }).id
 );
 
 /** Resolves the venue owning the floor plan named in the request body (`floorPlanId`). */
 const resolveFloorPlanBodyVenueId: VenueIdResolver = venueIdFromEntity(
-  (request) => (request.body as { floorPlanId?: unknown } | null | undefined)?.floorPlanId,
-  floorPlanService.getById
+  "floor_plan",
+  (request) => (request.body as { floorPlanId?: unknown } | null | undefined)?.floorPlanId
 );
 
 /** Resolves the venue owning a table addressed by `:tableId` (→ 403 if absent/unassigned). */
 const resolveTableParamVenueId: VenueIdResolver = venueIdFromEntity(
-  (request) => (request.params as { tableId?: unknown }).tableId,
-  tableService.getById
+  "table",
+  (request) => (request.params as { tableId?: unknown }).tableId
 );
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
@@ -129,7 +134,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const floorPlan = await floorPlanService.getById(request.params.id);
+      const floorPlan = await loadInVenueContext(
+        "floor_plan",
+        request.params.id,
+        () => floorPlanService.getById(request.params.id),
+        null
+      );
       if (!floorPlan) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
@@ -171,7 +181,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const cloned = await floorPlanService.clone(request.params.id);
+      const cloned = await loadInVenueContext(
+        "floor_plan",
+        request.params.id,
+        () => floorPlanService.clone(request.params.id),
+        null
+      );
       if (!cloned) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
@@ -202,7 +217,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const floorPlan = await floorPlanService.update(request.params.id, request.body);
+      const floorPlan = await loadInVenueContext(
+        "floor_plan",
+        request.params.id,
+        () => floorPlanService.update(request.params.id, request.body),
+        null
+      );
       if (!floorPlan) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
@@ -229,13 +249,20 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const floorPlan = await floorPlanService.getById(request.params.id);
-      if (!floorPlan) {
+      const updated = await loadInVenueContext(
+        "floor_plan",
+        request.params.id,
+        async () => {
+          const floorPlan = await floorPlanService.getById(request.params.id);
+          if (!floorPlan) return null;
+          return floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+        },
+        null
+      );
+      if (!updated) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
-
-      const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
-      return { data: updated! };
+      return { data: updated };
     }
   );
 
@@ -258,22 +285,45 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { floorPlanId, positions } = request.body;
 
-      const floorPlan = await floorPlanService.getById(floorPlanId);
-      if (!floorPlan) {
+      // Everything below — the floor plan pre-check, the cross-venue table
+      // scan, and the bulk update itself (which does its own internal
+      // unscoped floor-plan read, see floor-plan.ts's bulkUpdateTablePositions)
+      // resolves and runs inside ONE venue context (ADR-026 §3.3 item 2 /
+      // #5369 PR 5), so all three succeed under FORCE instead of repeating
+      // the unscoped-read trap. Note: once scoped, a genuinely cross-venue
+      // `positions[].tableId` becomes invisible here rather than "found,
+      // wrong venue" — the 403 below no longer fires for that case, but the
+      // attempt still fails (404 "One or more tables not found") because
+      // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
+      // `t.venue_id = …` predicate independent of RLS.
+      const result = await loadInVenueContext(
+        "floor_plan",
+        floorPlanId,
+        async () => {
+          const floorPlan = await floorPlanService.getById(floorPlanId);
+          if (!floorPlan) return { kind: "not-found" as const };
+
+          const tables = await Promise.all(
+            positions.map((pos) => tableService.getById(pos.tableId))
+          );
+          const crossVenueTable = tables.find(
+            (table) => table !== null && table.venueId !== floorPlan.venueId
+          );
+          if (crossVenueTable) return { kind: "cross-venue" as const };
+
+          const updatedTables = await floorPlanService.bulkUpdateTablePositions(
+            floorPlanId,
+            positions
+          );
+          return { kind: "ok" as const, updatedTables };
+        },
+        { kind: "not-found" as const }
+      );
+
+      if (result.kind === "not-found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
-
-      // Auth above is scoped to the body's floorPlanId, but the write below
-      // mutates each positions[].tableId directly with no venue awareness of
-      // its own — a caller who owns floorPlanId could otherwise re-point a
-      // table belonging to a DIFFERENT venue onto it. Same bug class as
-      // #5008's /assign fix; checked here (not in the DB layer) so a
-      // cross-venue table is rejected before any write is attempted.
-      const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
-      const crossVenueTable = tables.find(
-        (table) => table !== null && table.venueId !== floorPlan.venueId
-      );
-      if (crossVenueTable) {
+      if (result.kind === "cross-venue") {
         return reply
           .code(403)
           .send(
@@ -284,9 +334,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
             )
           );
       }
-
-      const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
-      return { data: updatedTables };
+      return { data: result.updatedTables };
     }
   );
 
@@ -319,10 +367,16 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const table = await floorPlanService.assignTableToFloorPlan(
+      const table = await loadInVenueContext(
+        "table",
         request.params.tableId,
-        request.body.floorPlanId,
-        request.body.shapeMetadata
+        () =>
+          floorPlanService.assignTableToFloorPlan(
+            request.params.tableId,
+            request.body.floorPlanId,
+            request.body.shapeMetadata
+          ),
+        null
       );
       if (!table) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
@@ -349,7 +403,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
+      const table = await loadInVenueContext(
+        "table",
+        request.params.tableId,
+        () => floorPlanService.removeTableFromFloorPlan(request.params.tableId),
+        null
+      );
       if (!table) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
       }
@@ -375,7 +434,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const success = await floorPlanService.delete(request.params.id);
+      const success = await loadInVenueContext(
+        "floor_plan",
+        request.params.id,
+        () => floorPlanService.delete(request.params.id),
+        false
+      );
       if (!success) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }

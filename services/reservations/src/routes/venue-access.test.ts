@@ -1,10 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyRequest } from "fastify";
+
+const { mockResolveVenueId, mockRunWithVenueContext } = vi.hoisted(() => ({
+  mockResolveVenueId: vi.fn(),
+  mockRunWithVenueContext: vi.fn(),
+}));
+
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: mockResolveVenueId,
+}));
+vi.mock("../services/venue-context-store.js", () => ({
+  runWithVenueContext: mockRunWithVenueContext,
+}));
+
 import {
   venueIdFromQuery,
   venueIdFromBody,
   venueIdFromParams,
   venueIdFromEntity,
+  loadInVenueContext,
 } from "./venue-access.js";
 
 describe("venueIdFromQuery", () => {
@@ -142,37 +156,59 @@ describe("venueIdFromParams", () => {
 describe("venueIdFromEntity", () => {
   const getKey = (request: FastifyRequest) => (request.params as { id?: unknown }).id;
 
-  it("returns null without loading when the key is missing", async () => {
-    const load = vi.fn();
-    const resolver = venueIdFromEntity(getKey, load);
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns null without resolving when the key is missing", async () => {
+    const resolver = venueIdFromEntity("table", getKey);
     const request = { params: {} } as unknown as FastifyRequest;
 
     await expect(resolver(request)).resolves.toBe(null);
-    expect(load).not.toHaveBeenCalled();
+    expect(mockResolveVenueId).not.toHaveBeenCalled();
   });
 
-  it("returns null when the entity is not found", async () => {
-    const load = vi.fn().mockResolvedValue(null);
-    const resolver = venueIdFromEntity(getKey, load);
-    const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
-
-    await expect(resolver(request)).resolves.toBe(null);
-    expect(load).toHaveBeenCalledWith("entity-1");
-  });
-
-  it("returns the entity's venueId when found", async () => {
-    const load = vi.fn().mockResolvedValue({ venueId: "venue-1" });
-    const resolver = venueIdFromEntity(getKey, load);
+  it("resolves the venue id via resolveVenueId for the given kind and key", async () => {
+    mockResolveVenueId.mockResolvedValue("venue-1");
+    const resolver = venueIdFromEntity("table", getKey);
     const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
 
     await expect(resolver(request)).resolves.toBe("venue-1");
+    expect(mockResolveVenueId).toHaveBeenCalledWith("table", "entity-1");
   });
 
-  it("returns null when the entity is found with a null venueId", async () => {
-    const load = vi.fn().mockResolvedValue({ venueId: null });
-    const resolver = venueIdFromEntity(getKey, load);
+  it("returns null when resolveVenueId cannot resolve a venue", async () => {
+    mockResolveVenueId.mockResolvedValue(null);
+    const resolver = venueIdFromEntity("guest", getKey);
     const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
 
     await expect(resolver(request)).resolves.toBe(null);
+  });
+});
+
+describe("loadInVenueContext", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the fallback without calling load when the venue cannot be resolved", async () => {
+    mockResolveVenueId.mockResolvedValue(null);
+    const load = vi.fn();
+
+    await expect(loadInVenueContext("table", "table-1", load, null)).resolves.toBe(null);
+    expect(load).not.toHaveBeenCalled();
+    expect(mockRunWithVenueContext).not.toHaveBeenCalled();
+  });
+
+  it("runs load inside the resolved venue's context and returns its result", async () => {
+    mockResolveVenueId.mockResolvedValue("venue-1");
+    const load = vi.fn().mockResolvedValue({ id: "table-1" });
+    mockRunWithVenueContext.mockImplementation((_venueId: string, fn: () => unknown) => fn());
+
+    await expect(loadInVenueContext("table", "table-1", load, null)).resolves.toEqual({
+      id: "table-1",
+    });
+    expect(mockResolveVenueId).toHaveBeenCalledWith("table", "table-1");
+    expect(mockRunWithVenueContext).toHaveBeenCalledWith("venue-1", load);
   });
 });

@@ -15,6 +15,15 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 2 / #5369 PR 5: `loadInVenueContext` (used by GET
+// /api/v1/tables/:id) resolves venue ids via `resolveVenueId`, a raw
+// `$queryRaw` call this suite's plain `createMockDatabaseService()` stub
+// can't answer. Resolve to a constant non-null venue id here — the mocked
+// `tableService.getById` still drives the specific-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 import { tableService } from "../services/table.js";
 
 const mockTable: Table = {

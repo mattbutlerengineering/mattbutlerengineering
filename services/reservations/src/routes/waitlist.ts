@@ -7,15 +7,20 @@ import {
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
-import { venueIdFromQuery, venueIdFromBody, venueIdFromEntity } from "./venue-access.js";
+import {
+  venueIdFromQuery,
+  venueIdFromBody,
+  venueIdFromEntity,
+  loadInVenueContext,
+} from "./venue-access.js";
 
 /**
  * Resolves the venue owning a waitlist entry addressed by `:id`, scoping by-id
  * actions to that venue. Null when the entry does not exist (→ 403).
  */
 const resolveWaitlistVenueId: VenueIdResolver = venueIdFromEntity(
-  (request) => (request.params as { id?: unknown }).id,
-  waitlistService.getById
+  "waitlist_entry",
+  (request) => (request.params as { id?: unknown }).id
 );
 
 /** Shared schema for a WaitlistEntry response object */
@@ -157,7 +162,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await waitlistService.getById(request.params.id);
+      const entry = await loadInVenueContext(
+        "waitlist_entry",
+        request.params.id,
+        () => waitlistService.getById(request.params.id),
+        null
+      );
       if (!entry) {
         return reply
           .code(404)
@@ -196,7 +206,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await waitlistService.getById(request.params.id);
+      const entry = await loadInVenueContext(
+        "waitlist_entry",
+        request.params.id,
+        () => waitlistService.getById(request.params.id),
+        null
+      );
       if (!entry) {
         return reply
           .code(404)
@@ -242,7 +257,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await waitlistService.seat(request.params.id);
+      const entry = await loadInVenueContext(
+        "waitlist_entry",
+        request.params.id,
+        () => waitlistService.seat(request.params.id),
+        null
+      );
       if (!entry) {
         return reply
           .code(404)
@@ -281,7 +301,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await waitlistService.cancel(request.params.id);
+      const entry = await loadInVenueContext(
+        "waitlist_entry",
+        request.params.id,
+        () => waitlistService.cancel(request.params.id),
+        null
+      );
       if (!entry) {
         return reply
           .code(404)
@@ -320,7 +345,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await waitlistService.expire(request.params.id);
+      const entry = await loadInVenueContext(
+        "waitlist_entry",
+        request.params.id,
+        () => waitlistService.expire(request.params.id),
+        null
+      );
       if (!entry) {
         return reply
           .code(404)
