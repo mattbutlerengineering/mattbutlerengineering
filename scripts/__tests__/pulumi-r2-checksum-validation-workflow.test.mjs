@@ -94,3 +94,33 @@ describe("pulumi-r2-checksum-validation.yml scratch bucket", () => {
     expect(step).toContain("aws s3api create-bucket");
   });
 });
+
+describe("pulumi-r2-checksum-validation.yml Pulumi CLI version assertion", () => {
+  // This harness exists to produce a citable verdict about a SPECIFIC version
+  // (#4119). If an arm silently ran a different version than
+  // inputs.pulumi_version asked for, the reported verdict would be
+  // attributed to the wrong version — worse than no verdict at all.
+  const installSteps = [...WORKFLOW.matchAll(/Install Pulumi CLI under test[\s\S]*?\n\n/g)].map(
+    (m) => m[0]
+  );
+
+  it("has exactly one install step per arm", () => {
+    expect(installSteps).toHaveLength(2);
+  });
+
+  it("asserts the installed binary against inputs.pulumi_version, by explicit path", () => {
+    for (const step of installSteps) {
+      // Explicit path, not bare `pulumi` — $GITHUB_PATH only affects *later*
+      // steps, so a bare call here would resolve the runner image's own
+      // binary and pass regardless of what actually got installed.
+      expect(step).toMatch(/"\$HOME\/\.pulumi\/bin\/pulumi"\s+version/);
+      expect(step).toContain('v$PULUMI_VERSION_INPUT"');
+      expect(step).toContain("exit 1");
+
+      const pathIdx = step.indexOf('>> "$GITHUB_PATH"');
+      const assertIdx = step.indexOf('"$HOME/.pulumi/bin/pulumi" version');
+      expect(pathIdx).toBeGreaterThan(-1);
+      expect(assertIdx).toBeGreaterThan(pathIdx);
+    }
+  });
+});
