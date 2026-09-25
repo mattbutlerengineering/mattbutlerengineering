@@ -522,6 +522,38 @@
       function okCreateByBody(path: string, bodyFor: (venueId: string) => object): RouteFixture { /* ... */ }
     </item>
     <item priority="medium">
+      function okEntityRead(
+        urlFor: (id: string) => string,
+        idA: (ctx: SweepContext) => string,
+        idB: (ctx: SweepContext) => string
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okEntityMutation(
+        createEntity: (ctx: SweepContext, venueId: string) => Promise<string>,
+        buildRequest: (id: string) => Pick<InjectOptions, "method" | "url" | "payload">,
+        otherVenueId: (ctx: SweepContext) => string
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractId(res: LightMyRequestResponse): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableTable(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="medium">
       function brokenEntity(
         blocker: string,
         method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
@@ -581,10 +613,18 @@
       export const venueIdFromParams: VenueIdResolver;
     </item>
     <item priority="high">
-      export function venueIdFromEntity<T extends { venueId: string | null }>(
-        getKey: (request: FastifyRequest) => unknown,
-        load: (key: string) => Promise<T | null | undefined>
+      export function venueIdFromEntity(
+        kind: EntityKind,
+        getKey: (request: FastifyRequest) => unknown
       ): VenueIdResolver { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadInVenueContext<T>(
+        kind: EntityKind,
+        key: string,
+        load: () => Promise<T>,
+        fallback: T
+      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/venues.ts">
@@ -1629,6 +1669,23 @@
     </item>
     <item priority="high">
       export const reservationService: unknown;
+    </item>
+  </file>
+  <file path="src/services/resolve-venue.ts">
+    <item priority="low">
+      type EntityKind = "reservation" | "table" | "guest" | "floor_plan" | "waitlist_entry" | "deposit" | "payment_intent" | "venue" | "venue_slug";
+    </item>
+    <item priority="high">
+      interface ResolvedVenueIdRow {
+        app_resolve_venue_id: string | null;
+      }
+    </item>
+    <item priority="high">
+      export async function resolveVenueId(
+        kind: EntityKind,
+        key: string,
+        group?: string | null
+      ): Promise<string | null> { /* ... */ }
     </item>
   </file>
   <file path="src/services/rls-context-mode.ts">
