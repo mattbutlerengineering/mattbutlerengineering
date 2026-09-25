@@ -19,7 +19,12 @@ import {
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import { venueIdFromBody, venueIdFromQuery, venueIdFromEntity } from "./venue-access.js";
+import {
+  venueIdFromBody,
+  venueIdFromQuery,
+  venueIdFromEntity,
+  loadInVenueContext,
+} from "./venue-access.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
@@ -33,8 +38,8 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
    * non-admins; platform admins bypass the check).
    */
   const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
-    (request) => (request.params as { id?: unknown }).id,
-    tableService.getById
+    "table",
+    (request) => (request.params as { id?: unknown }).id
   );
 
   // List tables
@@ -120,7 +125,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const table = await tableService.getById(request.params.id);
+      const table = await loadInVenueContext(
+        "table",
+        request.params.id,
+        () => tableService.getById(request.params.id),
+        null
+      );
       if (!table) {
         const error = new Error("Table not found") as Error & { statusCode?: number };
         error.statusCode = 404;
@@ -272,7 +282,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      const table = await tableService.update(request.params.id, request.body);
+      const table = await loadInVenueContext(
+        "table",
+        request.params.id,
+        () => tableService.update(request.params.id, request.body),
+        null
+      );
       if (!table) {
         const error = new Error("Table not found") as Error & { statusCode?: number };
         error.statusCode = 404;
@@ -341,7 +356,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       try {
-        const table = await tableService.updateStatus(request.params.id, request.body.status);
+        const table = await loadInVenueContext(
+          "table",
+          request.params.id,
+          () => tableService.updateStatus(request.params.id, request.body.status),
+          null
+        );
         if (!table) {
           const error = new Error("Table not found") as Error & { statusCode?: number };
           error.statusCode = 404;
@@ -412,7 +432,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const deleted = await tableService.delete(request.params.id);
+      const deleted = await loadInVenueContext(
+        "table",
+        request.params.id,
+        () => tableService.delete(request.params.id),
+        false
+      );
       if (!deleted) {
         const error = new Error("Table not found") as Error & { statusCode?: number };
         error.statusCode = 404;

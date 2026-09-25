@@ -82,6 +82,15 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// (used by the guest `/:id` routes) resolve venue ids via `resolveVenueId`,
+// a raw `$queryRaw` call this suite's plain `createMockDatabaseService()`
+// stub can't answer. Resolve to a constant non-null venue id here — the
+// mocked `guestService` calls still drive the specific-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn(),

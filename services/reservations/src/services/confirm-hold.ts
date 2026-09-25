@@ -5,6 +5,7 @@ import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
+import { runWithVenueContext } from "./venue-context-store.js";
 
 type ConfirmHoldErrorCode =
   "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -75,7 +76,13 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
   // enforced on every confirm path, not just hold create. Fetch venue settings
   // and conflict slices once; pass to assertBookable (pure rule, no DB access).
   if (hold.venueId) {
-    const venue = await prisma.venue.findUnique({ where: { id: hold.venueId } });
+    // ADR-026 §3.3 (sweep-discovered gap, #5369 PR 5): `venues` is RLS-scoped,
+    // and `hold.venueId` is already a known, trusted scalar (the hold's own
+    // column, not caller-supplied) — no ambiguity to resolve, so this reads
+    // it inside that venue's own context rather than through `resolveVenueId`.
+    const venue = await runWithVenueContext(hold.venueId, () =>
+      prisma.venue.findUnique({ where: { id: hold.venueId } })
+    );
     const settings = (venue?.settings ?? null) as VenueSettings | null;
     const dateStr = hold.date.toISOString().slice(0, 10);
     const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(

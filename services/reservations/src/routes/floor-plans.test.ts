@@ -84,6 +84,18 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// (used by entity-addressed preHandlers and handler bodies) now resolve venue
+// ids via `resolveVenueId`, a raw `$queryRaw` call this suite's plain
+// `createMockDatabaseService()` stub can't answer. Route tests exercise
+// application logic, not real RLS resolution (that's
+// `rls-route-sweep.integration.test.ts`), so resolve to a constant non-null
+// venue id here — each test's own service-layer mock still drives the
+// specific-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 // Mock jose library for JWT verification
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
@@ -343,7 +355,8 @@ describe("Floor Plan Routes", () => {
         payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      // Authorization is now resolved via `resolveVenueId` (module-mocked
+      // above), not `floorPlanService.getById` — no queued value needed here.
       const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
       const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
       await scopedApp.ready();

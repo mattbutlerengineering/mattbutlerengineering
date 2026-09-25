@@ -1619,7 +1619,12 @@
           },
         },
         async (request, reply) => {
-          const floorPlan = await floorPlanService.getById(request.params.id);
+          const floorPlan = await loadInVenueContext(
+            "floor_plan",
+            request.params.id,
+            () => floorPlanService.getById(request.params.id),
+            null
+          );
           if (!floorPlan) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
@@ -1661,7 +1666,12 @@
           },
         },
         async (request, reply) => {
-          const cloned = await floorPlanService.clone(request.params.id);
+          const cloned = await loadInVenueContext(
+            "floor_plan",
+            request.params.id,
+            () => floorPlanService.clone(request.params.id),
+            null
+          );
           if (!cloned) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
@@ -1692,7 +1702,12 @@
           },
         },
         async (request, reply) => {
-          const floorPlan = await floorPlanService.update(request.params.id, request.body);
+          const floorPlan = await loadInVenueContext(
+            "floor_plan",
+            request.params.id,
+            () => floorPlanService.update(request.params.id, request.body),
+            null
+          );
           if (!floorPlan) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
@@ -1719,13 +1734,20 @@
           },
         },
         async (request, reply) => {
-          const floorPlan = await floorPlanService.getById(request.params.id);
-          if (!floorPlan) {
+          const updated = await loadInVenueContext(
+            "floor_plan",
+            request.params.id,
+            async () => {
+              const floorPlan = await floorPlanService.getById(request.params.id);
+              if (!floorPlan) return null;
+              return floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+            },
+            null
+          );
+          if (!updated) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-    
-          const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
-          return { data: updated! };
+          return { data: updated };
         }
       );
     
@@ -1748,22 +1770,45 @@
         async (request, reply) => {
           const { floorPlanId, positions } = request.body;
     
-          const floorPlan = await floorPlanService.getById(floorPlanId);
-          if (!floorPlan) {
+          // Everything below — the floor plan pre-check, the cross-venue table
+          // scan, and the bulk update itself (which does its own internal
+          // unscoped floor-plan read, see floor-plan.ts's bulkUpdateTablePositions)
+          // resolves and runs inside ONE venue context (ADR-026 §3.3 item 2 /
+          // #5369 PR 5), so all three succeed under FORCE instead of repeating
+          // the unscoped-read trap. Note: once scoped, a genuinely cross-venue
+          // `positions[].tableId` becomes invisible here rather than "found,
+          // wrong venue" — the 403 below no longer fires for that case, but the
+          // attempt still fails (404 "One or more tables not found") because
+          // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
+          // `t.venue_id = …` predicate independent of RLS.
+          const result = await loadInVenueContext(
+            "floor_plan",
+            floorPlanId,
+            async () => {
+              const floorPlan = await floorPlanService.getById(floorPlanId);
+              if (!floorPlan) return { kind: "not-found" as const };
+    
+              const tables = await Promise.all(
+                positions.map((pos) => tableService.getById(pos.tableId))
+              );
+              const crossVenueTable = tables.find(
+                (table) => table !== null && table.venueId !== floorPlan.venueId
+              );
+              if (crossVenueTable) return { kind: "cross-venue" as const };
+    
+              const updatedTables = await floorPlanService.bulkUpdateTablePositions(
+                floorPlanId,
+                positions
+              );
+              return { kind: "ok" as const, updatedTables };
+            },
+            { kind: "not-found" as const }
+          );
+    
+          if (result.kind === "not-found") {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-    
-          // Auth above is scoped to the body's floorPlanId, but the write below
-          // mutates each positions[].tableId directly with no venue awareness of
-          // its own — a caller who owns floorPlanId could otherwise re-point a
-          // table belonging to a DIFFERENT venue onto it. Same bug class as
-          // #5008's /assign fix; checked here (not in the DB layer) so a
-          // cross-venue table is rejected before any write is attempted.
-          const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
-          const crossVenueTable = tables.find(
-            (table) => table !== null && table.venueId !== floorPlan.venueId
-          );
-          if (crossVenueTable) {
+          if (result.kind === "cross-venue") {
             return reply
               .code(403)
               .send(
@@ -1774,9 +1819,7 @@
                 )
               );
           }
-    
-          const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
-          return { data: updatedTables };
+          return { data: result.updatedTables };
         }
       );
     
@@ -1809,10 +1852,16 @@
           },
         },
         async (request, reply) => {
-          const table = await floorPlanService.assignTableToFloorPlan(
+          const table = await loadInVenueContext(
+            "table",
             request.params.tableId,
-            request.body.floorPlanId,
-            request.body.shapeMetadata
+            () =>
+              floorPlanService.assignTableToFloorPlan(
+                request.params.tableId,
+                request.body.floorPlanId,
+                request.body.shapeMetadata
+              ),
+            null
           );
           if (!table) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
@@ -1839,7 +1888,12 @@
           },
         },
         async (request, reply) => {
-          const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
+          const table = await loadInVenueContext(
+            "table",
+            request.params.tableId,
+            () => floorPlanService.removeTableFromFloorPlan(request.params.tableId),
+            null
+          );
           if (!table) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
           }
@@ -1865,7 +1919,12 @@
           },
         },
         async (request, reply) => {
-          const success = await floorPlanService.delete(request.params.id);
+          const success = await loadInVenueContext(
+            "floor_plan",
+            request.params.id,
+            () => floorPlanService.delete(request.params.id),
+            false
+          );
           if (!success) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
@@ -2034,7 +2093,12 @@
           },
         },
         async (request, reply) => {
-          const guest = await guestService.getById(request.params.id);
+          const guest = await loadInVenueContext(
+            "guest",
+            request.params.id,
+            () => guestService.getById(request.params.id),
+            null
+          );
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
@@ -2174,7 +2238,12 @@
           },
         },
         async (request, reply) => {
-          const guest = await guestService.update(request.params.id, request.body);
+          const guest = await loadInVenueContext(
+            "guest",
+            request.params.id,
+            () => guestService.update(request.params.id, request.body),
+            null
+          );
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
@@ -2241,7 +2310,12 @@
             return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
           }
           const createdBy = request.user?.id ?? "unknown";
-          const guest = await guestService.addNote(request.params.id, text, createdBy);
+          const guest = await loadInVenueContext(
+            "guest",
+            request.params.id,
+            () => guestService.addNote(request.params.id, text, createdBy),
+            null
+          );
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
@@ -2352,13 +2426,21 @@
           },
         },
         async (request, reply) => {
-          const guest = await guestService.getById(request.params.id);
-          if (!guest) {
+          const found = await loadInVenueContext(
+            "guest",
+            request.params.id,
+            async () => {
+              const guest = await guestService.getById(request.params.id);
+              if (!guest) return null;
+              const venue = await venueService.getById(guest.venueId);
+              return { guest, venueName: venue?.name ?? guest.venueId };
+            },
+            null
+          );
+          if (!found) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
-          const venue = await venueService.getById(guest.venueId);
-          const venueName = venue?.name ?? guest.venueId;
-          const sent = await sendWinBack(guest, fastify.notificationPort, venueName);
+          const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
           return { data: { sent } };
         }
       );
@@ -2392,7 +2474,12 @@
           },
         },
         async (request, reply) => {
-          const deleted = await guestService.delete(request.params.id);
+          const deleted = await loadInVenueContext(
+            "guest",
+            request.params.id,
+            () => guestService.delete(request.params.id),
+            false
+          );
           if (!deleted) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
@@ -4097,7 +4184,12 @@
           },
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.params.id);
+          const reservation = await loadInVenueContext(
+            "reservation",
+            request.params.id,
+            () => reservationService.getById(request.params.id),
+            null
+          );
           if (!reservation) {
             return reply
               .code(404)
@@ -4296,154 +4388,168 @@
           },
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.params.id);
-          if (!reservation) {
+          // ADR-026 §3.3 item 2 / #5369 PR 5: this handler's whole body — the
+          // initial read below plus every branch's own reservation/venue/deposit
+          // calls — runs inside the resolved venue context, so all of them
+          // succeed under FORCE instead of the unscoped-read trap `resolveVenueId`
+          // exists to close.
+          const venueId = await resolveVenueId("reservation", request.params.id);
+          if (!venueId) {
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
-          if (request.body.status === "CANCELLED") {
-            try {
-              const result = await cancelReservationForRequest(
-                reservation,
-                request.log,
-                request.authorization?.isAdmin === true,
-                {
-                  cancellationReason: request.body.cancellationReason,
-                  cancellationNote: request.body.cancellationNote,
-                }
-              );
-    
-              if (!result.success) {
-                return reply
-                  .code(result.status)
-                  .send(createProblemDetails(result.status, result.title, result.detail));
-              }
-    
-              fastify.reservationEvents.emitReservationCancelled(result.reservation);
-              return { data: result.reservation };
-            } catch (err) {
-              if (err instanceof ReservationTransitionError) {
-                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-              }
-              throw err;
-            }
-          }
-    
-          if (request.body.status === "NO_SHOW") {
-            try {
-              const result = await recordNoShow(reservation, request.log);
-    
-              if (!result.success) {
-                return reply
-                  .code(result.status)
-                  .send(createProblemDetails(result.status, result.title, result.detail));
-              }
-    
-              return {
-                data: result.reservation,
-                ...(result.depositWarning && { warning: result.depositWarning }),
-              };
-            } catch (err) {
-              if (err instanceof ReservationTransitionError) {
-                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-              }
-              throw err;
-            }
-          }
-    
-          // #2998: staff PATCH accepts partySize but previously bypassed the
-          // per_person-deposit guard added for the public manage route in
-          // #2997/#2931 (decision: Block) — route through the same check here
-          // so a staff caller can't silently diverge a held/pending deposit
-          // either. Staff who need to override should capture/refund the
-          // deposit first, or cancel and rebook.
-          if (
-            request.body.partySize !== undefined &&
-            (await isPartySizeDepositBlocked(reservation, request.body.partySize))
-          ) {
-            return reply
-              .code(409)
-              .send(
-                createProblemDetails(
-                  409,
-                  "Conflict",
-                  "This venue charges a per-person deposit and a payment is already pending or " +
-                    "held for this reservation. Capture or refund the deposit before changing party " +
-                    "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
-                  "about:blank",
-                  undefined,
-                  { code: "PARTY_SIZE_DEPOSIT_HELD" }
-                )
-              );
-          }
-    
-          try {
-            const result = await reservationService.updateWithConflictCheck(
-              request.params.id,
-              request.body
-            );
-    
-            if (!result.success) {
-              if (result.error === "Reservation not found") {
-                return reply
-                  .code(404)
-                  .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-              }
-    
-              if (result.conflict?.hasConflict) {
-                return reply
-                  .code(409)
-                  .send(
-                    createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
-                  );
-              }
-    
+          return runWithVenueContext(venueId, async () => {
+            const reservation = await reservationService.getById(request.params.id);
+            if (!reservation) {
               return reply
-                .code(400)
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+    
+            if (request.body.status === "CANCELLED") {
+              try {
+                const result = await cancelReservationForRequest(
+                  reservation,
+                  request.log,
+                  request.authorization?.isAdmin === true,
+                  {
+                    cancellationReason: request.body.cancellationReason,
+                    cancellationNote: request.body.cancellationNote,
+                  }
+                );
+    
+                if (!result.success) {
+                  return reply
+                    .code(result.status)
+                    .send(createProblemDetails(result.status, result.title, result.detail));
+                }
+    
+                fastify.reservationEvents.emitReservationCancelled(result.reservation);
+                return { data: result.reservation };
+              } catch (err) {
+                if (err instanceof ReservationTransitionError) {
+                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+                }
+                throw err;
+              }
+            }
+    
+            if (request.body.status === "NO_SHOW") {
+              try {
+                const result = await recordNoShow(reservation, request.log);
+    
+                if (!result.success) {
+                  return reply
+                    .code(result.status)
+                    .send(createProblemDetails(result.status, result.title, result.detail));
+                }
+    
+                return {
+                  data: result.reservation,
+                  ...(result.depositWarning && { warning: result.depositWarning }),
+                };
+              } catch (err) {
+                if (err instanceof ReservationTransitionError) {
+                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+                }
+                throw err;
+              }
+            }
+    
+            // #2998: staff PATCH accepts partySize but previously bypassed the
+            // per_person-deposit guard added for the public manage route in
+            // #2997/#2931 (decision: Block) — route through the same check here
+            // so a staff caller can't silently diverge a held/pending deposit
+            // either. Staff who need to override should capture/refund the
+            // deposit first, or cancel and rebook.
+            if (
+              request.body.partySize !== undefined &&
+              (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+            ) {
+              return reply
+                .code(409)
                 .send(
                   createProblemDetails(
-                    400,
-                    "Bad Request",
-                    result.error ?? "Failed to update reservation"
+                    409,
+                    "Conflict",
+                    "This venue charges a per-person deposit and a payment is already pending or " +
+                      "held for this reservation. Capture or refund the deposit before changing party " +
+                      "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                    "about:blank",
+                    undefined,
+                    { code: "PARTY_SIZE_DEPOSIT_HELD" }
                   )
                 );
             }
     
-            // Fire post-visit thank-you email when status transitions to COMPLETED
-            if (request.body.status === "COMPLETED" && result.reservation) {
-              const reservation = result.reservation;
-              const venue = reservation.venueId
-                ? await venueService.getById(reservation.venueId)
-                : null;
-              const settings = (venue?.settings ?? {}) as Record<string, unknown>;
-              const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+            try {
+              const result = await reservationService.updateWithConflictCheck(
+                request.params.id,
+                request.body
+              );
     
-              fastify.postVisitNotifier
-                .sendPostVisitEmail({
-                  reservationId: reservation.id,
-                  guestId: reservation.guestId ?? null,
-                  guestEmail: reservation.guestEmail ?? null,
-                  guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-                  unsubscribed: Boolean(reservation.guest?.unsubscribed),
-                  venueName: venue?.name ?? "",
-                  venuePostVisitEmailEnabled: postVisitEmailEnabled,
-                  visitDate: reservation.date,
-                  feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
-                })
-                .catch((err) =>
-                  fastify.log.error({ err }, "Failed to send post-visit thank-you email")
-                );
-            }
+              if (!result.success) {
+                if (result.error === "Reservation not found") {
+                  return reply
+                    .code(404)
+                    .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+                }
     
-            return { data: result.reservation! };
-          } catch (err) {
-            if (err instanceof ReservationTransitionError) {
-              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+                if (result.conflict?.hasConflict) {
+                  return reply
+                    .code(409)
+                    .send(
+                      createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+                    );
+                }
+    
+                return reply
+                  .code(400)
+                  .send(
+                    createProblemDetails(
+                      400,
+                      "Bad Request",
+                      result.error ?? "Failed to update reservation"
+                    )
+                  );
+              }
+    
+              // Fire post-visit thank-you email when status transitions to COMPLETED
+              if (request.body.status === "COMPLETED" && result.reservation) {
+                const reservation = result.reservation;
+                const venue = reservation.venueId
+                  ? await venueService.getById(reservation.venueId)
+                  : null;
+                const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+                const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+    
+                fastify.postVisitNotifier
+                  .sendPostVisitEmail({
+                    reservationId: reservation.id,
+                    guestId: reservation.guestId ?? null,
+                    guestEmail: reservation.guestEmail ?? null,
+                    guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+                    unsubscribed: Boolean(reservation.guest?.unsubscribed),
+                    venueName: venue?.name ?? "",
+                    venuePostVisitEmailEnabled: postVisitEmailEnabled,
+                    visitDate: reservation.date,
+                    feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+                  })
+                  .catch((err) =>
+                    fastify.log.error({ err }, "Failed to send post-visit thank-you email")
+                  );
+              }
+    
+              return { data: result.reservation! };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
             }
-            throw err;
-          }
+          });
         }
       );
     
@@ -4491,31 +4597,40 @@
           },
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.params.id);
-          if (!reservation) {
+          const venueId = await resolveVenueId("reservation", request.params.id);
+          if (!venueId) {
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
-          try {
-            const result = await cancelReservationForRequest(
-              reservation,
-              request.log,
-              request.authorization?.isAdmin === true
-            );
-            if (!result.success) {
+          return runWithVenueContext(venueId, async () => {
+            const reservation = await reservationService.getById(request.params.id);
+            if (!reservation) {
               return reply
-                .code(result.status)
-                .send(createProblemDetails(result.status, result.title, result.detail));
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
             }
-            return { data: result.reservation };
-          } catch (err) {
-            if (err instanceof ReservationTransitionError) {
-              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+    
+            try {
+              const result = await cancelReservationForRequest(
+                reservation,
+                request.log,
+                request.authorization?.isAdmin === true
+              );
+              if (!result.success) {
+                return reply
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
+              }
+              return { data: result.reservation };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
             }
-            throw err;
-          }
+          });
         }
       );
     };
@@ -4824,6 +4939,91 @@
         );
       });
     }
+    function okEntityRead(
+      urlFor: (id: string) => string,
+      idA: (ctx: SweepContext) => string,
+      idB: (ctx: SweepContext) => string
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(idA(ctx)) }), "admin venue A");
+        expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(idB(ctx)) }), "admin venue B");
+        expectOk(await asMember(ctx, { method: "GET", url: urlFor(idA(ctx)) }), "member venue A");
+        expectDenied(await asMember(ctx, { method: "GET", url: urlFor(idB(ctx)) }), "member venue B");
+      });
+    }
+    function okEntityMutation(
+      createEntity: (ctx: SweepContext, venueId: string) => Promise<string>,
+      buildRequest: (id: string) => Pick<InjectOptions, "method" | "url" | "payload">,
+      otherVenueId: (ctx: SweepContext) => string
+    ): RouteFixture {
+      return ok(async (ctx) => {
+        const adminEntity = await createEntity(ctx, ctx.venueA.id);
+        expectOk(await asAdmin(ctx, buildRequest(adminEntity)), "admin venue A");
+    
+        const memberEntity = await createEntity(ctx, ctx.venueA.id);
+        expectOk(await asMember(ctx, buildRequest(memberEntity)), "member venue A");
+    
+        expectDenied(await asMember(ctx, buildRequest(otherVenueId(ctx))), "member venue B");
+      });
+    }
+    function extractId(res: LightMyRequestResponse): string {
+      return (JSON.parse(res.body) as { data: { id: string } }).data.id;
+    }
+    async function createDisposableTable(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/tables",
+        payload: { name: `RLS Sweep Item-2 Table ${randomUUID()}`, capacity: 4, venueId },
+      });
+      return extractId(res);
+    }
+    async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/guests",
+        payload: { venueId, name: `RLS Sweep Item-2 Guest ${randomUUID()}` },
+      });
+      return extractId(res);
+    }
+    async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/floor-plans",
+        payload: { venueId, name: `RLS Sweep Item-2 Floor Plan ${randomUUID()}`, layoutJson: {} },
+      });
+      return extractId(res);
+    }
+    async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/waitlist",
+        payload: {
+          venueId,
+          partySize: 2,
+          guestName: `RLS Sweep Item-2 Waitlist ${randomUUID()}`,
+          guestPhone: "+15550009999",
+        },
+      });
+      return extractId(res);
+    }
+    async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> {
+      const tableId = await createDisposableTable(ctx, venueId);
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date: "2026-10-07",
+          startTime: "2026-10-07T18:00:00Z",
+          endTime: "2026-10-07T20:00:00Z",
+          partySize: 2,
+          tableId,
+          venueId,
+          guestName: "RLS Sweep Disposable Guest",
+          guestEmail: `rls-sweep-disposable-${randomUUID()}@example.com`,
+        },
+      });
+      return extractId(res);
+    }
     function brokenEntity(
       blocker: string,
       method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
@@ -5052,8 +5252,8 @@
        * non-admins; platform admins bypass the check).
        */
       const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
-        (request) => (request.params as { id?: unknown }).id,
-        tableService.getById
+        "table",
+        (request) => (request.params as { id?: unknown }).id
       );
     
       // List tables
@@ -5139,7 +5339,12 @@
           },
         },
         async (request) => {
-          const table = await tableService.getById(request.params.id);
+          const table = await loadInVenueContext(
+            "table",
+            request.params.id,
+            () => tableService.getById(request.params.id),
+            null
+          );
           if (!table) {
             const error = new Error("Table not found") as Error & { statusCode?: number };
             error.statusCode = 404;
@@ -5291,7 +5496,12 @@
             }
           }
     
-          const table = await tableService.update(request.params.id, request.body);
+          const table = await loadInVenueContext(
+            "table",
+            request.params.id,
+            () => tableService.update(request.params.id, request.body),
+            null
+          );
           if (!table) {
             const error = new Error("Table not found") as Error & { statusCode?: number };
             error.statusCode = 404;
@@ -5360,7 +5570,12 @@
         },
         async (request) => {
           try {
-            const table = await tableService.updateStatus(request.params.id, request.body.status);
+            const table = await loadInVenueContext(
+              "table",
+              request.params.id,
+              () => tableService.updateStatus(request.params.id, request.body.status),
+              null
+            );
             if (!table) {
               const error = new Error("Table not found") as Error & { statusCode?: number };
               error.statusCode = 404;
@@ -5431,7 +5646,12 @@
           },
         },
         async (request, reply) => {
-          const deleted = await tableService.delete(request.params.id);
+          const deleted = await loadInVenueContext(
+            "table",
+            request.params.id,
+            () => tableService.delete(request.params.id),
+            false
+          );
           if (!deleted) {
             const error = new Error("Table not found") as Error & { statusCode?: number };
             error.statusCode = 404;
@@ -5455,16 +5675,25 @@
       const params = request.params as { venueId?: unknown } | null | undefined;
       return typeof params?.venueId === "string" ? params.venueId : null;
     };
-    export function venueIdFromEntity<T extends { venueId: string | null }>(
-      getKey: (request: FastifyRequest) => unknown,
-      load: (key: string) => Promise<T | null | undefined>
+    export function venueIdFromEntity(
+      kind: EntityKind,
+      getKey: (request: FastifyRequest) => unknown
     ): VenueIdResolver {
       return async (request) => {
         const key = getKey(request);
         if (typeof key !== "string") return null;
-        const entity = await load(key);
-        return entity?.venueId ?? null;
+        return resolveVenueId(kind, key);
       };
+    }
+    export async function loadInVenueContext<T>(
+      kind: EntityKind,
+      key: string,
+      load: () => Promise<T>,
+      fallback: T
+    ): Promise<T> {
+      const venueId = await resolveVenueId(kind, key);
+      if (!venueId) return fallback;
+      return runWithVenueContext(venueId, load);
     }
   </file>
   <file path="src/routes/venues.ts">
@@ -6358,7 +6587,12 @@
           },
         },
         async (request, reply) => {
-          const entry = await waitlistService.getById(request.params.id);
+          const entry = await loadInVenueContext(
+            "waitlist_entry",
+            request.params.id,
+            () => waitlistService.getById(request.params.id),
+            null
+          );
           if (!entry) {
             return reply
               .code(404)
@@ -6397,7 +6631,12 @@
           },
         },
         async (request, reply) => {
-          const entry = await waitlistService.getById(request.params.id);
+          const entry = await loadInVenueContext(
+            "waitlist_entry",
+            request.params.id,
+            () => waitlistService.getById(request.params.id),
+            null
+          );
           if (!entry) {
             return reply
               .code(404)
@@ -6444,7 +6683,12 @@
           },
         },
         async (request, reply) => {
-          const entry = await waitlistService.seat(request.params.id);
+          const entry = await loadInVenueContext(
+            "waitlist_entry",
+            request.params.id,
+            () => waitlistService.seat(request.params.id),
+            null
+          );
           if (!entry) {
             return reply
               .code(404)
@@ -6483,7 +6727,12 @@
           },
         },
         async (request, reply) => {
-          const entry = await waitlistService.cancel(request.params.id);
+          const entry = await loadInVenueContext(
+            "waitlist_entry",
+            request.params.id,
+            () => waitlistService.cancel(request.params.id),
+            null
+          );
           if (!entry) {
             return reply
               .code(404)
@@ -6522,7 +6771,12 @@
           },
         },
         async (request, reply) => {
-          const entry = await waitlistService.expire(request.params.id);
+          const entry = await loadInVenueContext(
+            "waitlist_entry",
+            request.params.id,
+            () => waitlistService.expire(request.params.id),
+            null
+          );
           if (!entry) {
             return reply
               .code(404)
@@ -7563,7 +7817,13 @@
       // enforced on every confirm path, not just hold create. Fetch venue settings
       // and conflict slices once; pass to assertBookable (pure rule, no DB access).
       if (hold.venueId) {
-        const venue = await prisma.venue.findUnique({ where: { id: hold.venueId } });
+        // ADR-026 §3.3 (sweep-discovered gap, #5369 PR 5): `venues` is RLS-scoped,
+        // and `hold.venueId` is already a known, trusted scalar (the hold's own
+        // column, not caller-supplied) — no ambiguity to resolve, so this reads
+        // it inside that venue's own context rather than through `resolveVenueId`.
+        const venue = await runWithVenueContext(hold.venueId, () =>
+          prisma.venue.findUnique({ where: { id: hold.venueId } })
+        );
         const settings = (venue?.settings ?? null) as VenueSettings | null;
         const dateStr = hold.date.toISOString().slice(0, 10);
         const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(
@@ -12261,6 +12521,31 @@
         };
       },
     };
+  </file>
+  <file path="src/services/resolve-venue.ts">
+    export type EntityKind =
+      | "reservation"
+      | "table"
+      | "guest"
+      | "floor_plan"
+      | "waitlist_entry"
+      | "deposit"
+      | "payment_intent"
+      | "venue"
+      | "venue_slug";
+    interface ResolvedVenueIdRow {
+      app_resolve_venue_id: string | null;
+    }
+    export async function resolveVenueId(
+      kind: EntityKind,
+      key: string,
+      group?: string | null
+    ): Promise<string | null> {
+      const rows = await prisma.$queryRaw<ResolvedVenueIdRow[]>`
+        SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
+      `;
+      return rows[0]?.app_resolve_venue_id ?? null;
+    }
   </file>
   <file path="src/services/rls-context-mode.ts">
     export type RlsContextMode = "warn" | "throw" | "off";

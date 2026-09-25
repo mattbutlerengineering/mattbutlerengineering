@@ -358,6 +358,124 @@ function okCreateByBody(path: string, bodyFor: (venueId: string) => object): Rou
 }
 
 /**
+ * Generic "ok" fixture for a read-only entity-addressed route (ADR-026 §3.3
+ * item 2, fixed by #5369 PR 5's `resolveVenueId`/`loadInVenueContext`): both
+ * the seeded venue-A and venue-B rows are safe to read repeatedly (no
+ * mutation), so this reuses `idA`/`idB` directly rather than creating
+ * disposable rows the way the mutating variant below has to.
+ */
+function okEntityRead(
+  urlFor: (id: string) => string,
+  idA: (ctx: SweepContext) => string,
+  idB: (ctx: SweepContext) => string
+): RouteFixture {
+  return ok(async (ctx) => {
+    expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(idA(ctx)) }), "admin venue A");
+    expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(idB(ctx)) }), "admin venue B");
+    expectOk(await asMember(ctx, { method: "GET", url: urlFor(idA(ctx)) }), "member venue A");
+    expectDenied(await asMember(ctx, { method: "GET", url: urlFor(idB(ctx)) }), "member venue B");
+  });
+}
+
+/**
+ * Generic "ok" fixture for a mutating entity-addressed route (ADR-026 §3.3
+ * item 2, fixed by #5369 PR 5). Reusing the shared seeded rows across a
+ * write assertion would corrupt state for whichever fixture runs next (a
+ * `DELETE` in particular), so `createEntity` makes a disposable row in the
+ * given venue via an already-proven `ok` create route for each of the
+ * admin/member-own-venue success legs; the member-denied leg addresses
+ * `otherVenueId`'s row, which is never reached (denied before any write).
+ */
+function okEntityMutation(
+  createEntity: (ctx: SweepContext, venueId: string) => Promise<string>,
+  buildRequest: (id: string) => Pick<InjectOptions, "method" | "url" | "payload">,
+  otherVenueId: (ctx: SweepContext) => string
+): RouteFixture {
+  return ok(async (ctx) => {
+    const adminEntity = await createEntity(ctx, ctx.venueA.id);
+    expectOk(await asAdmin(ctx, buildRequest(adminEntity)), "admin venue A");
+
+    const memberEntity = await createEntity(ctx, ctx.venueA.id);
+    expectOk(await asMember(ctx, buildRequest(memberEntity)), "member venue A");
+
+    expectDenied(await asMember(ctx, buildRequest(otherVenueId(ctx))), "member venue B");
+  });
+}
+
+/** Extracts `data.id` from a successful `inject()` response body. */
+function extractId(res: LightMyRequestResponse): string {
+  return (JSON.parse(res.body) as { data: { id: string } }).data.id;
+}
+
+/** Creates a disposable table in `venueId` via the already-proven create route. */
+async function createDisposableTable(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/tables",
+    payload: { name: `RLS Sweep Item-2 Table ${randomUUID()}`, capacity: 4, venueId },
+  });
+  return extractId(res);
+}
+
+/** Creates a disposable guest in `venueId` via the already-proven create route. */
+async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/guests",
+    payload: { venueId, name: `RLS Sweep Item-2 Guest ${randomUUID()}` },
+  });
+  return extractId(res);
+}
+
+/** Creates a disposable floor plan in `venueId` via the already-proven create route. */
+async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/floor-plans",
+    payload: { venueId, name: `RLS Sweep Item-2 Floor Plan ${randomUUID()}`, layoutJson: {} },
+  });
+  return extractId(res);
+}
+
+/** Creates a disposable waitlist entry in `venueId` via the already-proven create route. */
+async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/waitlist",
+    payload: {
+      venueId,
+      partySize: 2,
+      guestName: `RLS Sweep Item-2 Waitlist ${randomUUID()}`,
+      guestPhone: "+15550009999",
+    },
+  });
+  return extractId(res);
+}
+
+/**
+ * Creates a disposable reservation in `venueId` on its own fresh table, so
+ * repeated calls never collide on a table/time slot.
+ */
+async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> {
+  const tableId = await createDisposableTable(ctx, venueId);
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/reservations",
+    payload: {
+      date: "2026-10-07",
+      startTime: "2026-10-07T18:00:00Z",
+      endTime: "2026-10-07T20:00:00Z",
+      partySize: 2,
+      tableId,
+      venueId,
+      guestName: "RLS Sweep Disposable Guest",
+      guestEmail: `rls-sweep-disposable-${randomUUID()}@example.com`,
+    },
+  });
+  return extractId(res);
+}
+
+/**
  * Generic KNOWN_BROKEN fixture for an entity-addressed route
  * (`venueIdFromEntity` — ADR-026 §3.3 item 2, or one of the other seven
  * items sharing the identical "lookup can't run inside the scope it's
@@ -465,8 +583,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
 /**
  * Tables: list/create scope by `?venueId=`/`body.venueId`; every entity-
  * addressed `:id` route (ADR-026 §3.3 item 2) resolves its venue via
- * `venueIdFromEntity(tableService.getById)` — an unscoped RLS read that
- * throws under `RLS_CONTEXT_MODE=throw` before the guard can even decide.
+ * `venueIdFromEntity`/`loadInVenueContext` (#5369 PR 5) — fixed.
  */
 const tableFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/tables": okScopedByQuery("/api/v1/tables"),
@@ -475,23 +592,33 @@ const tableFixtures: Record<string, RouteFixture> = {
     capacity: 4,
     venueId,
   })),
-  "GET /api/v1/tables/:id": brokenEntity("item-2", "GET", (ctx) => `/api/v1/tables/${ctx.tableA}`),
-  "PATCH /api/v1/tables/:id": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/tables/${ctx.tableA}`,
-    { name: "renamed" }
+  "GET /api/v1/tables/:id": okEntityRead(
+    (id) => `/api/v1/tables/${id}`,
+    (ctx) => ctx.tableA,
+    (ctx) => ctx.tableB
   ),
-  "DELETE /api/v1/tables/:id": brokenEntity(
-    "item-2",
-    "DELETE",
-    (ctx) => `/api/v1/tables/${ctx.tableA}`
+  "PATCH /api/v1/tables/:id": okEntityMutation(
+    createDisposableTable,
+    (id) => ({
+      method: "PATCH",
+      url: `/api/v1/tables/${id}`,
+      payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
+    }),
+    (ctx) => ctx.tableB
   ),
-  "PATCH /api/v1/tables/:id/status": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/tables/${ctx.tableA}/status`,
-    { status: "OCCUPIED" }
+  "DELETE /api/v1/tables/:id": okEntityMutation(
+    createDisposableTable,
+    (id) => ({ method: "DELETE", url: `/api/v1/tables/${id}` }),
+    (ctx) => ctx.tableB
+  ),
+  "PATCH /api/v1/tables/:id/status": okEntityMutation(
+    createDisposableTable,
+    (id) => ({
+      method: "PATCH",
+      url: `/api/v1/tables/${id}/status`,
+      payload: { status: "OCCUPIED" },
+    }),
+    (ctx) => ctx.tableB
   ),
 };
 
@@ -616,13 +743,17 @@ const availabilityFixtures: Record<string, RouteFixture> = {
   }),
 };
 
+/** A minimal valid `TableShapeMetadata` for the positions/assign fixtures below. */
+const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle" as const };
+
 /**
  * Floor plans. `GET /` is the sweep's SECOND mixed case: with `?venueId=`
  * the global preHandler resolves context and both `list`/`listForMember`
  * run scoped (ok); without it, `listForMember` (and, for an admin, `list`
  * itself) is an unscoped `floorPlan.findMany` — item 1's third bullet.
- * Every other route here is item 2 (`venueIdFromEntity` on the floor plan's
- * own `:id`, its `body.floorPlanId`, or a table's `:tableId`).
+ * Every other route here was item 2 (`venueIdFromEntity` on the floor
+ * plan's own `:id`, its `body.floorPlanId`, or a table's `:tableId`) —
+ * fixed by #5369 PR 5.
  */
 const floorPlanFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/floor-plans": ok(async (ctx) => {
@@ -651,53 +782,92 @@ const floorPlanFixtures: Record<string, RouteFixture> = {
     expectOk(await asMember(ctx, { method: "GET", url: url(ctx.venueA.id) }), "member venue A");
     expectDenied(await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }), "member venue B");
   }),
-  "POST /api/v1/floor-plans/tables/positions": brokenEntity(
-    "item-2",
-    "POST",
-    () => "/api/v1/floor-plans/tables/positions",
-    { floorPlanId: "rls-sweep-fp", positions: [] }
+  "POST /api/v1/floor-plans/tables/positions": ok(async (ctx) => {
+    const positionsPayload = async (venueId: string) => ({
+      floorPlanId: await createDisposableFloorPlan(ctx, venueId),
+      positions: [
+        { tableId: await createDisposableTable(ctx, venueId), shapeMetadata: DISPOSABLE_SHAPE },
+      ],
+    });
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/positions",
+        payload: await positionsPayload(ctx.venueA.id),
+      }),
+      "admin venue A"
+    );
+    expectOk(
+      await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/positions",
+        payload: await positionsPayload(ctx.venueA.id),
+      }),
+      "member venue A"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/positions",
+        payload: { floorPlanId: ctx.floorPlanB, positions: [] },
+      }),
+      "member venue B"
+    );
+  }),
+  "POST /api/v1/floor-plans/tables/:tableId/assign": ok(async (ctx) => {
+    const assignRequest = async (venueId: string) => {
+      const floorPlanId = await createDisposableFloorPlan(ctx, venueId);
+      const tableId = await createDisposableTable(ctx, venueId);
+      return {
+        method: "POST" as const,
+        url: `/api/v1/floor-plans/tables/${tableId}/assign`,
+        payload: { floorPlanId },
+      };
+    };
+    expectOk(await asAdmin(ctx, await assignRequest(ctx.venueA.id)), "admin venue A");
+    expectOk(await asMember(ctx, await assignRequest(ctx.venueA.id)), "member venue A");
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: `/api/v1/floor-plans/tables/${ctx.tableB}/assign`,
+        payload: { floorPlanId: ctx.floorPlanB },
+      }),
+      "member venue B"
+    );
+  }),
+  "POST /api/v1/floor-plans/tables/:tableId/remove": okEntityMutation(
+    createDisposableTable,
+    (id) => ({ method: "POST", url: `/api/v1/floor-plans/tables/${id}/remove` }),
+    (ctx) => ctx.tableB
   ),
-  "POST /api/v1/floor-plans/tables/:tableId/assign": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/floor-plans/tables/${ctx.tableA}/assign`,
-    { floorPlanId: "rls-sweep-fp" }
+  "GET /api/v1/floor-plans/:id": okEntityRead(
+    (id) => `/api/v1/floor-plans/${id}`,
+    (ctx) => ctx.floorPlanA,
+    (ctx) => ctx.floorPlanB
   ),
-  "POST /api/v1/floor-plans/tables/:tableId/remove": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/floor-plans/tables/${ctx.tableA}/remove`,
-    { floorPlanId: "rls-sweep-fp" }
+  "PATCH /api/v1/floor-plans/:id": okEntityMutation(
+    createDisposableFloorPlan,
+    (id) => ({ method: "PATCH", url: `/api/v1/floor-plans/${id}`, payload: { name: "renamed" } }),
+    (ctx) => ctx.floorPlanB
   ),
-  "GET /api/v1/floor-plans/:id": brokenEntity(
-    "item-2",
-    "GET",
-    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}`
+  "DELETE /api/v1/floor-plans/:id": okEntityMutation(
+    createDisposableFloorPlan,
+    (id) => ({ method: "DELETE", url: `/api/v1/floor-plans/${id}` }),
+    (ctx) => ctx.floorPlanB
   ),
-  "PATCH /api/v1/floor-plans/:id": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}`,
-    { name: "renamed" }
+  "POST /api/v1/floor-plans/:id/clone": okEntityMutation(
+    createDisposableFloorPlan,
+    (id) => ({ method: "POST", url: `/api/v1/floor-plans/${id}/clone` }),
+    (ctx) => ctx.floorPlanB
   ),
-  "DELETE /api/v1/floor-plans/:id": brokenEntity(
-    "item-2",
-    "DELETE",
-    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanB}`
-  ),
-  "POST /api/v1/floor-plans/:id/clone": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}/clone`
-  ),
-  "POST /api/v1/floor-plans/:id/activate": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/floor-plans/${ctx.floorPlanA}/activate`
+  "POST /api/v1/floor-plans/:id/activate": okEntityMutation(
+    createDisposableFloorPlan,
+    (id) => ({ method: "POST", url: `/api/v1/floor-plans/${id}/activate` }),
+    (ctx) => ctx.floorPlanB
   ),
 };
 
-/** Guests: list/create scope by `?venueId=`/`body.venueId`; every entity-addressed `:id` route is item 2. */
+/** Guests: list/create scope by `?venueId=`/`body.venueId`; every entity-addressed `:id` route was item 2, fixed by #5369 PR 5. */
 const guestFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/guests": okScopedByQuery("/api/v1/guests"),
   "GET /api/v1/guests/search": okScopedByQuery("/api/v1/guests/search"),
@@ -715,28 +885,37 @@ const guestFixtures: Record<string, RouteFixture> = {
       email: `${randomUUID()}@example.com`,
     })
   ),
-  "GET /api/v1/guests/:id": brokenEntity("item-2", "GET", (ctx) => `/api/v1/guests/${ctx.guestA}`),
-  "PATCH /api/v1/guests/:id": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/guests/${ctx.guestA}`,
-    { name: "renamed" }
+  "GET /api/v1/guests/:id": okEntityRead(
+    (id) => `/api/v1/guests/${id}`,
+    (ctx) => ctx.guestA,
+    (ctx) => ctx.guestB
   ),
-  "DELETE /api/v1/guests/:id": brokenEntity(
-    "item-2",
-    "DELETE",
-    (ctx) => `/api/v1/guests/${ctx.guestB}`
+  "PATCH /api/v1/guests/:id": okEntityMutation(
+    createDisposableGuest,
+    (id) => ({ method: "PATCH", url: `/api/v1/guests/${id}`, payload: { name: "renamed" } }),
+    (ctx) => ctx.guestB
   ),
-  "POST /api/v1/guests/:id/notes": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/guests/${ctx.guestA}/notes`,
-    { text: "sweep note" }
+  "DELETE /api/v1/guests/:id": okEntityMutation(
+    createDisposableGuest,
+    (id) => ({ method: "DELETE", url: `/api/v1/guests/${id}` }),
+    (ctx) => ctx.guestB
   ),
-  "POST /api/v1/guests/:id/win-back": brokenEntity(
-    "item-2",
-    "POST",
-    (ctx) => `/api/v1/guests/${ctx.guestA}/win-back`
+  "POST /api/v1/guests/:id/notes": okEntityMutation(
+    createDisposableGuest,
+    (id) => ({
+      method: "POST",
+      url: `/api/v1/guests/${id}/notes`,
+      payload: { text: "sweep note" },
+    }),
+    (ctx) => ctx.guestB
+  ),
+  // No email on the disposable guest (createDisposableGuest sets only
+  // `name`) — sendWinBack's own guard returns `false` before ever reaching
+  // the notification port, so this stays a real, no-network 200.
+  "POST /api/v1/guests/:id/win-back": okEntityMutation(
+    createDisposableGuest,
+    (id) => ({ method: "POST", url: `/api/v1/guests/${id}/win-back` }),
+    (ctx) => ctx.guestB
   ),
 };
 
@@ -820,22 +999,41 @@ const reservationFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
-  "GET /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "GET",
-    (ctx) => `/api/v1/reservations/${ctx.reservationA}`
-  ),
-  "PATCH /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/reservations/${ctx.reservationA}`,
-    { notes: "sweep" }
-  ),
-  "DELETE /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "DELETE",
-    (ctx) => `/api/v1/reservations/${ctx.reservationB}`
-  ),
+  // Reservation `/:id` routes authorize owner-or-admin (guest-email match via
+  // requireReservationOwnerOrAdmin), not venue membership, so a venue member
+  // who is not the guest is correctly refused, and there is no member leg to
+  // assert. The RLS fix is proven by the admin legs: under FORCE the owner
+  // lookup and the handler's own read now resolve in both venues.
+  "GET /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const [id, label] of [
+      [ctx.reservationA, "admin venue A"],
+      [ctx.reservationB, "admin venue B"],
+    ] as const) {
+      expectOk(await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations/${id}` }), label);
+    }
+  }),
+  "PATCH /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
+      const id = await createDisposableReservation(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, {
+          method: "PATCH",
+          url: `/api/v1/reservations/${id}`,
+          payload: { notes: "sweep" },
+        }),
+        `admin ${venueId}`
+      );
+    }
+  }),
+  "DELETE /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
+      const id = await createDisposableReservation(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, { method: "DELETE", url: `/api/v1/reservations/${id}` }),
+        `admin ${venueId}`
+      );
+    }
+  }),
   "POST /api/v1/reservations": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
@@ -864,43 +1062,48 @@ const waitlistFixtures: Record<string, RouteFixture> = {
     guestPhone: "+15550001111",
   })),
   "GET /api/v1/waitlist": okScopedByQuery("/api/v1/waitlist"),
-  "GET /api/v1/waitlist/:id": brokenEntity(
-    "item-2",
-    "GET",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}`
+  "GET /api/v1/waitlist/:id": okEntityRead(
+    (id) => `/api/v1/waitlist/${id}`,
+    (ctx) => ctx.waitlistA,
+    (ctx) => ctx.waitlistB
   ),
-  "PUT /api/v1/waitlist/:id/notify": brokenEntity(
-    "item-2",
-    "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/notify`
+  // notify's success path enqueues a WAITLIST_EXPIRY job (BullMQ/Redis),
+  // which this suite's CI job does not provision, so it asserts only the RLS
+  // half: the venue resolves for both own-venue identities (no 403/404 and no
+  // tripwire) and the member is denied on the other venue.
+  "PUT /api/v1/waitlist/:id/notify": ok(async (ctx) => {
+    for (const [as, label] of [
+      [asAdmin, "admin venue A"],
+      [asMember, "member venue A"],
+    ] as const) {
+      const id = await createDisposableWaitlistEntry(ctx, ctx.venueA.id);
+      const res = await as(ctx, { method: "PUT", url: `/api/v1/waitlist/${id}/notify` });
+      expect([403, 404], `${label}: venue must resolve, got ${res.statusCode}`).not.toContain(
+        res.statusCode
+      );
+      expect(ctx.lastRlsErrorName, `${label}: RLS tripwire fired`).not.toBe(
+        "RlsUnscopedQueryError"
+      );
+    }
+    expectDenied(
+      await asMember(ctx, { method: "PUT", url: `/api/v1/waitlist/${ctx.waitlistB}/notify` }),
+      "member venue B"
+    );
+  }),
+  "PUT /api/v1/waitlist/:id/seat": okEntityMutation(
+    createDisposableWaitlistEntry,
+    (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/seat` }),
+    (ctx) => ctx.waitlistB
   ),
-  // seat/cancel/expire (unlike getById/notify above) each wrap their
-  // prisma.waitlistEntry.update(...) call in `try { ... } catch { return
-  // null; }` (waitlistService), which SWALLOWS the tripwire's thrown
-  // RlsUnscopedQueryError and converts it into a false "not found" — the
-  // route handler then reports a plain 404, not the 500 the tripwire itself
-  // would have produced. Same swallowing shape as the WAITLIST_EXPIRY job
-  // handler (see the #5369 comment left on the tracking issue).
-  "PUT /api/v1/waitlist/:id/seat": brokenEntity(
-    "item-2",
-    "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistSeatTarget}/seat`,
-    undefined,
-    { deniedStatus: 404 }
+  "PUT /api/v1/waitlist/:id/cancel": okEntityMutation(
+    createDisposableWaitlistEntry,
+    (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/cancel` }),
+    (ctx) => ctx.waitlistB
   ),
-  "PUT /api/v1/waitlist/:id/cancel": brokenEntity(
-    "item-2",
-    "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/cancel`,
-    undefined,
-    { deniedStatus: 404 }
-  ),
-  "PUT /api/v1/waitlist/:id/expire": brokenEntity(
-    "item-2",
-    "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistB}/expire`,
-    undefined,
-    { deniedStatus: 404 }
+  "PUT /api/v1/waitlist/:id/expire": okEntityMutation(
+    createDisposableWaitlistEntry,
+    (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/expire` }),
+    (ctx) => ctx.waitlistB
   ),
 };
 

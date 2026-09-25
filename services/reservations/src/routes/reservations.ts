@@ -38,7 +38,9 @@ import { guestService } from "../services/guest.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { venueIdFromBody, loadInVenueContext } from "./venue-access.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 /**
  * Venue-id resolver for the staff reservations list (#4865, Sentry
@@ -63,8 +65,15 @@ const resolveReservationsListVenueId: VenueIdResolver = async (request) => {
   return null;
 };
 
+// ADR-026 §3.3 item 2 / #5369 PR 5: `reservationService.getById` is a direct
+// read of an RLS-scoped table with no venue context of its own — resolving
+// through `loadInVenueContext` (rather than calling it bare) is what lets a
+// genuine reservation owner's ownership check succeed under FORCE, the same
+// fix this PR applies to the entity-addressed `/:id` handlers below.
 const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
-  resolveReservationGuestEmail((id) => reservationService.getById(id)),
+  resolveReservationGuestEmail((id) =>
+    loadInVenueContext("reservation", id, () => reservationService.getById(id), null)
+  ),
   resolveCurrentUserEmail
 );
 
@@ -335,7 +344,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.getById(request.params.id);
+      const reservation = await loadInVenueContext(
+        "reservation",
+        request.params.id,
+        () => reservationService.getById(request.params.id),
+        null
+      );
       if (!reservation) {
         return reply
           .code(404)
@@ -534,154 +548,168 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.getById(request.params.id);
-      if (!reservation) {
+      // ADR-026 §3.3 item 2 / #5369 PR 5: this handler's whole body — the
+      // initial read below plus every branch's own reservation/venue/deposit
+      // calls — runs inside the resolved venue context, so all of them
+      // succeed under FORCE instead of the unscoped-read trap `resolveVenueId`
+      // exists to close.
+      const venueId = await resolveVenueId("reservation", request.params.id);
+      if (!venueId) {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
 
-      if (request.body.status === "CANCELLED") {
-        try {
-          const result = await cancelReservationForRequest(
-            reservation,
-            request.log,
-            request.authorization?.isAdmin === true,
-            {
-              cancellationReason: request.body.cancellationReason,
-              cancellationNote: request.body.cancellationNote,
-            }
-          );
-
-          if (!result.success) {
-            return reply
-              .code(result.status)
-              .send(createProblemDetails(result.status, result.title, result.detail));
-          }
-
-          fastify.reservationEvents.emitReservationCancelled(result.reservation);
-          return { data: result.reservation };
-        } catch (err) {
-          if (err instanceof ReservationTransitionError) {
-            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-          }
-          throw err;
-        }
-      }
-
-      if (request.body.status === "NO_SHOW") {
-        try {
-          const result = await recordNoShow(reservation, request.log);
-
-          if (!result.success) {
-            return reply
-              .code(result.status)
-              .send(createProblemDetails(result.status, result.title, result.detail));
-          }
-
-          return {
-            data: result.reservation,
-            ...(result.depositWarning && { warning: result.depositWarning }),
-          };
-        } catch (err) {
-          if (err instanceof ReservationTransitionError) {
-            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-          }
-          throw err;
-        }
-      }
-
-      // #2998: staff PATCH accepts partySize but previously bypassed the
-      // per_person-deposit guard added for the public manage route in
-      // #2997/#2931 (decision: Block) — route through the same check here
-      // so a staff caller can't silently diverge a held/pending deposit
-      // either. Staff who need to override should capture/refund the
-      // deposit first, or cancel and rebook.
-      if (
-        request.body.partySize !== undefined &&
-        (await isPartySizeDepositBlocked(reservation, request.body.partySize))
-      ) {
-        return reply
-          .code(409)
-          .send(
-            createProblemDetails(
-              409,
-              "Conflict",
-              "This venue charges a per-person deposit and a payment is already pending or " +
-                "held for this reservation. Capture or refund the deposit before changing party " +
-                "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
-              "about:blank",
-              undefined,
-              { code: "PARTY_SIZE_DEPOSIT_HELD" }
-            )
-          );
-      }
-
-      try {
-        const result = await reservationService.updateWithConflictCheck(
-          request.params.id,
-          request.body
-        );
-
-        if (!result.success) {
-          if (result.error === "Reservation not found") {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-
-          if (result.conflict?.hasConflict) {
-            return reply
-              .code(409)
-              .send(
-                createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
-              );
-          }
-
+      return runWithVenueContext(venueId, async () => {
+        const reservation = await reservationService.getById(request.params.id);
+        if (!reservation) {
           return reply
-            .code(400)
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+        }
+
+        if (request.body.status === "CANCELLED") {
+          try {
+            const result = await cancelReservationForRequest(
+              reservation,
+              request.log,
+              request.authorization?.isAdmin === true,
+              {
+                cancellationReason: request.body.cancellationReason,
+                cancellationNote: request.body.cancellationNote,
+              }
+            );
+
+            if (!result.success) {
+              return reply
+                .code(result.status)
+                .send(createProblemDetails(result.status, result.title, result.detail));
+            }
+
+            fastify.reservationEvents.emitReservationCancelled(result.reservation);
+            return { data: result.reservation };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
+            throw err;
+          }
+        }
+
+        if (request.body.status === "NO_SHOW") {
+          try {
+            const result = await recordNoShow(reservation, request.log);
+
+            if (!result.success) {
+              return reply
+                .code(result.status)
+                .send(createProblemDetails(result.status, result.title, result.detail));
+            }
+
+            return {
+              data: result.reservation,
+              ...(result.depositWarning && { warning: result.depositWarning }),
+            };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
+            throw err;
+          }
+        }
+
+        // #2998: staff PATCH accepts partySize but previously bypassed the
+        // per_person-deposit guard added for the public manage route in
+        // #2997/#2931 (decision: Block) — route through the same check here
+        // so a staff caller can't silently diverge a held/pending deposit
+        // either. Staff who need to override should capture/refund the
+        // deposit first, or cancel and rebook.
+        if (
+          request.body.partySize !== undefined &&
+          (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+        ) {
+          return reply
+            .code(409)
             .send(
               createProblemDetails(
-                400,
-                "Bad Request",
-                result.error ?? "Failed to update reservation"
+                409,
+                "Conflict",
+                "This venue charges a per-person deposit and a payment is already pending or " +
+                  "held for this reservation. Capture or refund the deposit before changing party " +
+                  "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                "about:blank",
+                undefined,
+                { code: "PARTY_SIZE_DEPOSIT_HELD" }
               )
             );
         }
 
-        // Fire post-visit thank-you email when status transitions to COMPLETED
-        if (request.body.status === "COMPLETED" && result.reservation) {
-          const reservation = result.reservation;
-          const venue = reservation.venueId
-            ? await venueService.getById(reservation.venueId)
-            : null;
-          const settings = (venue?.settings ?? {}) as Record<string, unknown>;
-          const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+        try {
+          const result = await reservationService.updateWithConflictCheck(
+            request.params.id,
+            request.body
+          );
 
-          fastify.postVisitNotifier
-            .sendPostVisitEmail({
-              reservationId: reservation.id,
-              guestId: reservation.guestId ?? null,
-              guestEmail: reservation.guestEmail ?? null,
-              guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-              unsubscribed: Boolean(reservation.guest?.unsubscribed),
-              venueName: venue?.name ?? "",
-              venuePostVisitEmailEnabled: postVisitEmailEnabled,
-              visitDate: reservation.date,
-              feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
-            })
-            .catch((err) =>
-              fastify.log.error({ err }, "Failed to send post-visit thank-you email")
-            );
-        }
+          if (!result.success) {
+            if (result.error === "Reservation not found") {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
 
-        return { data: result.reservation! };
-      } catch (err) {
-        if (err instanceof ReservationTransitionError) {
-          return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            if (result.conflict?.hasConflict) {
+              return reply
+                .code(409)
+                .send(
+                  createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+                );
+            }
+
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  result.error ?? "Failed to update reservation"
+                )
+              );
+          }
+
+          // Fire post-visit thank-you email when status transitions to COMPLETED
+          if (request.body.status === "COMPLETED" && result.reservation) {
+            const reservation = result.reservation;
+            const venue = reservation.venueId
+              ? await venueService.getById(reservation.venueId)
+              : null;
+            const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+            const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+
+            fastify.postVisitNotifier
+              .sendPostVisitEmail({
+                reservationId: reservation.id,
+                guestId: reservation.guestId ?? null,
+                guestEmail: reservation.guestEmail ?? null,
+                guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+                unsubscribed: Boolean(reservation.guest?.unsubscribed),
+                venueName: venue?.name ?? "",
+                venuePostVisitEmailEnabled: postVisitEmailEnabled,
+                visitDate: reservation.date,
+                feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+              })
+              .catch((err) =>
+                fastify.log.error({ err }, "Failed to send post-visit thank-you email")
+              );
+          }
+
+          return { data: result.reservation! };
+        } catch (err) {
+          if (err instanceof ReservationTransitionError) {
+            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
     }
   );
 
@@ -729,31 +757,40 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.getById(request.params.id);
-      if (!reservation) {
+      const venueId = await resolveVenueId("reservation", request.params.id);
+      if (!venueId) {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
 
-      try {
-        const result = await cancelReservationForRequest(
-          reservation,
-          request.log,
-          request.authorization?.isAdmin === true
-        );
-        if (!result.success) {
+      return runWithVenueContext(venueId, async () => {
+        const reservation = await reservationService.getById(request.params.id);
+        if (!reservation) {
           return reply
-            .code(result.status)
-            .send(createProblemDetails(result.status, result.title, result.detail));
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
-        return { data: result.reservation };
-      } catch (err) {
-        if (err instanceof ReservationTransitionError) {
-          return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+
+        try {
+          const result = await cancelReservationForRequest(
+            reservation,
+            request.log,
+            request.authorization?.isAdmin === true
+          );
+          if (!result.success) {
+            return reply
+              .code(result.status)
+              .send(createProblemDetails(result.status, result.title, result.detail));
+          }
+          return { data: result.reservation };
+        } catch (err) {
+          if (err instanceof ReservationTransitionError) {
+            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
     }
   );
 };
