@@ -841,6 +841,37 @@ describe("recordNoShow", () => {
     expect(result.success).toBe(true);
   });
 
+  it("returns a plain 409 (not the ghost-state alarm) when the status write fails after verifyCaptureCompleted reports a PRIOR capture already succeeded — no money moved this call (#5722 R5 follow-up)", async () => {
+    // "succeeded" means a prior attempt already captured the deposit; this
+    // invocation never touched Stripe. A subsequent status-write failure is
+    // therefore an ordinary concurrent-no-show conflict, not a ghost state —
+    // unlike "recaptured", where THIS invocation legitimately charged the
+    // card and a later status-write failure must be treated as unreconciled
+    // money.
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it("rolls an applied deposit back to held and re-runs no-show policy fresh when the retry cannot recapture it (#5722 R5 MED-1)", async () => {
     // The retry can't safely recapture an `applied` row (a different
     // operation set it), so DepositService rolls it back to `held`. The
