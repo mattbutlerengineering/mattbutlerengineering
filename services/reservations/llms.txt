@@ -1236,8 +1236,14 @@
       }
     </item>
     <item priority="low">
+      interface JobWorkerLogger {
+        
+      }
+    </item>
+    <item priority="low">
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
+        logger: JobWorkerLogger;
       }
     </item>
     <item priority="high">
@@ -2150,6 +2156,7 @@
         id: string;
         guestPhone: string;
         guestName: string | null;
+        venueId: string;
       }
     </item>
     <item priority="low">
