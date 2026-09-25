@@ -109,19 +109,6 @@ jobs:
           stack-name: prod
           work-dir: infrastructure/pulumi
           cloud-url: "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
-          # TEMPORARY BYPASS — maintenance:pulumi-refresh-blocks-apply (Refs #5169, #4848)
-          # Two Auth0 records were left in prod state by #4924 (applied 2026-09-09T17:05Z,
-          # 403 on update:*) and orphaned by revert #5165; the Pulumi M2M grant lacks
-          # read:tenant_settings / read:branding, so refreshing them 403s and blocks every
-          # apply. Excluding them here (refresh), on `Pulumi Up` below, and in pulumi-preview.yml is a
-          # bypass, not a fix. REMOVE all three blocks and
-          # scripts/__tests__/pulumi-orphan-exclude-bypass.test.mjs when EITHER
-          #   (a) the M2M grant carries read/update:tenant_settings + read/update:branding, OR
-          #   (b) both URNs below are deleted from prod state.
-          # Recipe and ordering: docs/fixes/pulumi-refresh-blocks-apply/release.md
-          exclude: |
-            urn:pulumi:prod::mbe-infrastructure::auth0:index/tenant:Tenant::mattbutlerengineering-tenant
-            urn:pulumi:prod::mbe-infrastructure::auth0:index/branding:Branding::mattbutlerengineering-branding
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -141,19 +128,6 @@ jobs:
           stack-name: prod
           work-dir: infrastructure/pulumi
           cloud-url: "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
-          # TEMPORARY BYPASS — maintenance:pulumi-refresh-blocks-apply (Refs #5169, #4848)
-          # Two Auth0 records were left in prod state by #4924 (applied 2026-09-09T17:05Z,
-          # 403 on update:*) and orphaned by revert #5165; the Pulumi M2M grant lacks
-          # read:tenant_settings / read:branding, so refreshing them 403s and blocks every
-          # apply. Excluding them here (up), on `Pulumi Refresh` above, and in pulumi-preview.yml is a
-          # bypass, not a fix. REMOVE all three blocks and
-          # scripts/__tests__/pulumi-orphan-exclude-bypass.test.mjs when EITHER
-          #   (a) the M2M grant carries read/update:tenant_settings + read/update:branding, OR
-          #   (b) both URNs below are deleted from prod state.
-          # Recipe and ordering: docs/fixes/pulumi-refresh-blocks-apply/release.md
-          exclude: |
-            urn:pulumi:prod::mbe-infrastructure::auth0:index/tenant:Tenant::mattbutlerengineering-tenant
-            urn:pulumi:prod::mbe-infrastructure::auth0:index/branding:Branding::mattbutlerengineering-branding
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
