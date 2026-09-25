@@ -7898,6 +7898,14 @@
       }
     </item>
     <item priority="high">
+      class DepositAlreadyCapturedError {
+        depositId: string;
+        stripePaymentIntentId: string;
+        intentStatus: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
       class DepositWrittenOffUncollectableError {
         depositId: string;
       }
