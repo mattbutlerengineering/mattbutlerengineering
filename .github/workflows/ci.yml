@@ -68,9 +68,6 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -92,14 +89,6 @@ jobs:
             PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
             pnpm --filter "$PKG" db:generate
           done
-
-      - name: Login to Turborepo Remote Cache
-        if: env.TURBO_TOKEN != ''
-        run: pnpm turbo login --token "$TURBO_TOKEN"
-
-      - name: Link to Turborepo Remote Cache
-        if: env.TURBO_TOKEN != ''
-        run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
 
   dependency-audit:
     name: Dependency Sync
@@ -234,6 +223,10 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - run: pnpm lint
 
   typecheck:
@@ -246,6 +239,22 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: backs Turborepo remote caching with GitHub Actions' own
+        # cache (actions/cache under the hood) instead of a Vercel
+        # TURBO_TOKEN — no Vercel account or secret needed. Starts a local
+        # proxy server and exports TURBO_API/TURBO_TOKEN/TURBO_TEAM (fixed,
+        # non-secret values — the action always sets `turbogha`/`turbogha`
+        # and a `localhost` API URL, see rharkor/caching-for-turbo's own
+        # src/lib/server/utils.ts) for every later step in this job that
+        # runs `turbo` (via `pnpm typecheck`/`lint`/`build`/`turbo
+        # test:coverage`). Wired into the four jobs that actually invoke
+        # turbo tasks (lint, typecheck, test, build) rather than the shared
+        # setup-workspace action, so jobs with no turbo task (integrity,
+        # docs-format, migrations, etc.) don't pay for a cache server they'd
+        # never use. Pinned by commit SHA per repo convention.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -253,9 +262,12 @@ jobs:
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Restore turbo local cache
-        # #4504: CI had zero turbo cache reuse of any kind — remote caching is
-        # inert (TURBO_TOKEN unset) and nothing ever cached the local
-        # `.turbo/cache` dir turbo.json pins (#3786). Keyed on the
+        # #4504: added when CI had zero turbo cache reuse of any kind (remote
+        # caching was inert — TURBO_TOKEN unset — and nothing ever cached the
+        # local `.turbo/cache` dir turbo.json pins, #3786). #3388 landed real
+        # remote caching via the "Cache for Turbo" step above; this step
+        # stays as a cheap, whole-directory same-lockfile restore that can
+        # beat a per-task remote-cache round-trip. Keyed on the
         # pnpm-lock.yaml hash so a lockfile-touching PR (a turbo
         # globalDependencies entry) rotates the key instead of restoring a
         # stale cache across the change that invalidates every task.
@@ -267,9 +279,6 @@ jobs:
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Typecheck
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
   architecture-audit:
@@ -330,6 +339,10 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -349,9 +362,6 @@ jobs:
         run: pnpm --filter @mattbutlerengineering/rialto exports:check
 
       - name: Build all packages
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
 
       - name: Run Full Repository Audit
@@ -489,6 +499,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -505,9 +519,6 @@ jobs:
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Run tests with coverage
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         # #4519 added `--concurrency=2` after that PR's Test job timed out
         # 3/3 while main stayed green. The comment here used to assert a
         # specific cause — that restoring .turbo/cache removed an incidental
