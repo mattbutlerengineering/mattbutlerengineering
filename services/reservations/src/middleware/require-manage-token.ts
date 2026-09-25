@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { verifyManageToken } from "../routes/public-reservations.js";
 import { reservationService } from "../services/reservation.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 /**
  * Extracts the manage token from the request, preferring an `Authorization:
@@ -73,15 +75,27 @@ export async function requireManageToken(
     return;
   }
 
-  const reservation = await reservationService.getById(result.reservationId!);
-  if (reservation && reservation.guestEmail !== result.guestEmail) {
-    await reply.status(403).send({
-      type: "about:blank",
-      title: "Forbidden",
-      status: 403,
-      detail: "Token does not match reservation",
-    });
-    return;
+  // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+  // SECURITY DEFINER function (never an unscoped `reservations` read) and run
+  // this ownership check inside that venue's RLS context. A NULL resolution
+  // (reservation gone, or carries no venue per ADR-026 §2) means there is
+  // nothing to check — the route handler's own lookup below reports "not
+  // found", matching this preHandler's pre-existing tolerance for a missing
+  // reservation.
+  const venueId = await resolveVenueId("reservation", result.reservationId!);
+  if (venueId) {
+    const reservation = await runWithVenueContext(venueId, () =>
+      reservationService.getById(result.reservationId!)
+    );
+    if (reservation && reservation.guestEmail !== result.guestEmail) {
+      await reply.status(403).send({
+        type: "about:blank",
+        title: "Forbidden",
+        status: 403,
+        detail: "Token does not match reservation",
+      });
+      return;
+    }
   }
 
   request.managedReservationId = result.reservationId!;

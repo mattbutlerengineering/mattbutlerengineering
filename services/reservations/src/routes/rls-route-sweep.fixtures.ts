@@ -142,6 +142,14 @@ export interface SweepContext {
    */
   waitlistSeatTarget: string;
   depositA: string;
+  /**
+   * A deposit carrying a real `stripe_payment_intent_id`, on its own
+   * dedicated reservation (#5369 PR 8) — `depositA` deliberately carries no
+   * PaymentIntent id (item-6 is its own, unrelated concern). Used only by
+   * the Stripe webhook's item-4 fixture.
+   */
+  depositWithPiA: string;
+  depositWithPiAPaymentIntentId: string;
   holdA: string;
   /** The real session id `holdA` was created with — needed by every route
    * that requires the `x-session-id` capability header before it will even
@@ -683,11 +691,25 @@ const venueFixtures: Record<string, RouteFixture> = {
       { expectedErrorName: "PrismaClientKnownRequestError" }
     );
   }),
-  "GET /api/v1/venues/by-slug/:slug": broken("item-3", async (ctx) => {
-    expectBroken(
-      await asAdmin(ctx, { method: "GET", url: `/api/v1/venues/by-slug/${ctx.venueA.slug}` }),
-      "get venue by slug",
-      ctx
+  // ADR-026 §3.3 item 3 — closed by #5369 PR 8, which resolves the slug via
+  // the SECURITY DEFINER `app_resolve_venue_id` (services/resolve-venue.ts)
+  // rather than an unscoped `venues` read, then runs the lookup inside that
+  // venue's RLS context.
+  "GET /api/v1/venues/by-slug/:slug": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "GET",
+      url: `/api/v1/venues/by-slug/${ctx.venueA.slug}`,
+    });
+    expectOk(res, "get venue by slug");
+    const body = JSON.parse(res.body) as { data: { slug: string } };
+    expect(body.data.slug, "must serve the venue matching the slug").toBe(ctx.venueA.slug);
+
+    expectDenied(
+      await asAdmin(ctx, {
+        method: "GET",
+        url: "/api/v1/venues/by-slug/rls-sweep-no-such-slug",
+      }),
+      "unknown slug"
     );
   }),
   "GET /api/v1/venues/:id": brokenEntity(

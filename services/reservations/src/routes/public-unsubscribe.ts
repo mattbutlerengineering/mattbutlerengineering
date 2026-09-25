@@ -2,6 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails, titleForStatus, publicUnsubscribeQueryJsonSchema } from "@mbe/types";
 import { verifyUnsubscribeToken } from "../services/post-visit-notifier.js";
 import { guestService } from "../services/guest.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 /**
  * Unsubscribe confirmation page HTML — escapes all user-supplied values.
@@ -74,8 +76,22 @@ export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
+      // ADR-026 §3.3 item 4: resolve the guest's venue through the SECURITY
+      // DEFINER function rather than an unscoped `guests` read, then run the
+      // update inside that venue's RLS context. A NULL resolution means the
+      // guest no longer exists (`Guest.venueId` is NOT NULL, so this is the
+      // only way it can resolve to nothing) — deny, never fall through.
+      const venueId = await resolveVenueId("guest", result.guestId);
+      if (!venueId) {
+        return reply.status(404).send(
+          createProblemDetails(404, "Not Found", "Guest not found", "about:blank", undefined, {
+            code: "GUEST_NOT_FOUND",
+          })
+        );
+      }
+
       try {
-        await guestService.markUnsubscribed(result.guestId);
+        await runWithVenueContext(venueId, () => guestService.markUnsubscribed(result.guestId!));
       } catch (err) {
         request.log.error({ err }, "Failed to mark guest as unsubscribed");
         return reply

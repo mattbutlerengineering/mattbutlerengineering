@@ -61,6 +61,17 @@ vi.mock("stripe", () => {
   return { default: MockStripe };
 });
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: the webhook handlers now resolve the
+// deposit's venue via `resolveVenueId` (a raw `$queryRaw` call the plain
+// `createMockDatabaseService()` stub above can't answer) before touching
+// `depositService` — see public-venues.test.ts's identical comment. This
+// suite exercises the deposit state-machine logic behind a mocked `prisma`,
+// not real RLS scoping (that's `rls-route-sweep.integration.test.ts`), so a
+// constant non-null venue id is enough.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 import { buildApp } from "../app.js";
 import { setStripeWebhookLogger } from "./stripe-webhook.js";
 

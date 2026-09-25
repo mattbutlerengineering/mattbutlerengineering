@@ -8,6 +8,8 @@ import {
 import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 interface PublicWaitlistJoinBody {
   venueId: string;
@@ -61,46 +63,58 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
       const { slug } = request.params;
       const { partySize, guestName, guestPhone } = request.body;
 
-      const venue = await venueService.getBySlug(slug);
-      if (!venue) {
+      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+      // run the rest of the join inside that venue's RLS context — never the
+      // client-supplied body.venueId, which could target another venue.
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      if (!validatePhone(guestPhone)) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
-      }
+      return runWithVenueContext(venueId, async () => {
+        const venue = await venueService.getBySlug(slug);
+        if (!venue) {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+        }
 
-      // Always join under the venue resolved from the trusted slug — never the
-      // client-supplied body.venueId, which could target another venue.
-      const entry = await waitlistService.create({
-        venueId: venue.id,
-        partySize,
-        guestName,
-        guestPhone,
-      });
+        if (!validatePhone(guestPhone)) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
+        }
 
-      // Fire-and-forget: SMS delivery failures must not block the response
-      fastify.waitlistNotifier
-        .notifyAdded({
-          id: entry.id,
-          guestPhone: entry.guestPhone,
-          guestName: entry.guestName,
-          position: entry.position,
-          estimatedWaitMinutes: entry.estimatedWaitMinutes,
-        })
-        .catch(() => {
-          // Already logged inside the notifier
+        // Always join under the venue resolved from the trusted slug — never the
+        // client-supplied body.venueId, which could target another venue.
+        const entry = await waitlistService.create({
+          venueId: venue.id,
+          partySize,
+          guestName,
+          guestPhone,
         });
 
-      return reply.code(201).send({
-        data: {
-          position: entry.position,
-          estimatedWaitMinutes: entry.estimatedWaitMinutes,
-        },
+        // Fire-and-forget: SMS delivery failures must not block the response
+        fastify.waitlistNotifier
+          .notifyAdded({
+            id: entry.id,
+            guestPhone: entry.guestPhone,
+            guestName: entry.guestName,
+            position: entry.position,
+            estimatedWaitMinutes: entry.estimatedWaitMinutes,
+          })
+          .catch(() => {
+            // Already logged inside the notifier
+          });
+
+        return reply.code(201).send({
+          data: {
+            position: entry.position,
+            estimatedWaitMinutes: entry.estimatedWaitMinutes,
+          },
+        });
       });
     }
   );

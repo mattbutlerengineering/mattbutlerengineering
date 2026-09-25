@@ -106,10 +106,19 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 3 / #5369 PR 8: see public-venues.test.ts's identical
+// comment for why this is mocked rather than hitting real `$queryRaw`.
+// Resolves to `mockVenue.id` so the "ignores a mismatched body.venueId" test
+// below still proves the write lands under the slug-resolved venue.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 // Import after mocks
 import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 const mockVenue = {
   id: "venue-1",
@@ -204,7 +213,7 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
   });
 
   it("returns 404 when the venue is not found", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValue(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const res = await app.inject({
       method: "POST",

@@ -37,6 +37,8 @@ import {
   VenueBootstrapForbiddenError,
 } from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 /**
  * Reads a venue's own id from the `:id` route param, so requireVenueAccess can
@@ -582,11 +584,24 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const venue = await venueService.getPublicBySlug(request.params.slug);
-      if (!venue) {
+      const { slug } = request.params;
+
+      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+      // run the actual lookup inside that venue's RLS context — this route
+      // has no `requireVenueAccess` guard (unauthenticated by design), so the
+      // slug is the only signal available.
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
-      return { data: venue };
+
+      return runWithVenueContext(venueId, async () => {
+        const venue = await venueService.getPublicBySlug(slug);
+        if (!venue) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+        }
+        return { data: venue };
+      });
     }
   );
 
