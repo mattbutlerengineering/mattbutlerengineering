@@ -397,6 +397,46 @@ describe("Deposit API routes", () => {
       await app.close();
     });
 
+    it('persists forfeitOrigin "staff" for the manual staff forfeit route (#5744 stripe-flow-reviewer follow-up)', async () => {
+      const heldDeposit = makeDeposit({
+        status: "held",
+        stripePaymentIntentId: "pi_test_123",
+        heldAt: new Date(),
+      });
+      const forfeitedDeposit = makeDeposit({
+        status: "forfeited",
+        forfeitedAt: new Date(),
+        forfeitOrigin: "staff",
+      });
+
+      mockDepositDb.findUnique
+        .mockResolvedValueOnce(heldDeposit) // route existence check
+        .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
+        .mockResolvedValueOnce(forfeitedDeposit); // post-CAS fetch
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPaymentIntents.capture.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: depositUrl("dep-123", "forfeit"),
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ forfeitOrigin: "staff" }),
+        })
+      );
+      await app.close();
+    });
+
     it("returns 422 if deposit is not in held state", async () => {
       const pendingDeposit = makeDeposit({ status: "pending" });
       mockDepositDb.findUnique

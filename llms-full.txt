@@ -31205,8 +31205,8 @@
     export interface DepositServiceLogger {
       error(details: object, msg: string): void;
     }
-    function isOldEnoughToRollBack(capturedAt: Date | null): boolean {
-      return capturedAt != null && Date.now() - capturedAt.getTime() >= ROLLBACK_SAFETY_WINDOW_MS;
+    function isOldEnoughToRollBack(capturedAt: Date): boolean {
+      return Date.now() - capturedAt.getTime() >= ROLLBACK_SAFETY_WINDOW_MS;
     }
     export function setDepositServiceLogger(next: DepositServiceLogger): void {
       logger = next;
@@ -31673,6 +31673,12 @@
        *    when it has independently proven this retry is the SAME operation
        *    that produced `forfeited` — e.g. by checking a persisted forfeit
        *    origin (#5744 LOW-A) — not merely that the status happens to match.
+       *    A `requires_capture` read too recent to roll back safely reports
+       *    `"in-flight"` (retryable — see {@link ROLLBACK_SAFETY_WINDOW_MS}), and
+       *    a rollback whose CAS matches zero rows (a concurrent transition
+       *    already moved the row) reports `"concurrent"` — both distinct from
+       *    `"failed"`, which is reserved for genuinely unrecoverable-by-retry
+       *    cases (#5744 stripe-flow-reviewer follow-up).
        *  - anything else (a non-terminal status, the re-capture itself throwing,
        *    or the verification retrieve itself throwing) is never guessed at —
        *    fails closed so the caller aborts rather than reporting a completion
@@ -31686,7 +31692,15 @@
         fromStatus: "applied" | "forfeited",
         timestampField: "appliedAt" | "forfeitedAt",
         allowRecapture: boolean
-      ): Promise<"succeeded" | "recaptured" | "rolled-back-to-held" | "uncollectable" | "failed"> {
+      ): Promise<
+        | "succeeded"
+        | "recaptured"
+        | "rolled-back-to-held"
+        | "uncollectable"
+        | "in-flight"
+        | "concurrent"
+        | "failed"
+      > {
         const deposit = await this._requireDeposit(depositId);
         if (!deposit.stripePaymentIntentId) {
           return "succeeded";
@@ -31723,17 +31737,38 @@
             }
           }
     
-          // A `requires_capture` read alone doesn't prove the capture attempt
-          // that produced `fromStatus` has actually finished — never roll back
-          // while it might still be in flight (#5744 MEDIUM-A).
-          if (!isOldEnoughToRollBack(deposit[timestampField])) {
+          const capturedAt = deposit[timestampField];
+          if (capturedAt == null) {
+            // The row is missing the timestamp `_captureAndTransition` always
+            // sets — an anomaly no amount of waiting resolves (unlike the
+            // in-flight case below), so it needs manual reconciliation rather
+            // than a retry (#5744 stripe-flow-reviewer follow-up).
             return "failed";
+          }
+    
+          if (!isOldEnoughToRollBack(capturedAt)) {
+            // A `requires_capture` read alone doesn't prove the capture attempt
+            // that produced `fromStatus` has actually finished — it may simply
+            // not have landed yet. This IS retryable: once the safety window
+            // passes, a plain retry resolves it, so it must never be reported
+            // as the same "failed" outcome as a genuine, unrecoverable problem
+            // (#5744 stripe-flow-reviewer follow-up; #5744 MEDIUM-A originally
+            // reported this as "failed").
+            return "in-flight";
           }
     
           const count = await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(
             () => 0
           );
-          return count > 0 ? "rolled-back-to-held" : "failed";
+          if (count === 0) {
+            // A concurrent transition already moved the row off `fromStatus` —
+            // an ordinary in-progress conflict, not a failure requiring manual
+            // reconciliation (#5744 stripe-flow-reviewer REGRESSION fix: this
+            // used to report "failed" here, losing the caller's own
+            // concurrent-retry re-check).
+            return "concurrent";
+          }
+          return "rolled-back-to-held";
         }
     
         return "failed";
@@ -31919,7 +31954,10 @@
        * LOW-C). `feeAmountCents`/`refundAmountCents` are only ever set by
        * `refundPartial`, so they're cleared here too when writing off a
        * `partial_refunded` row — otherwise they'd stay stale on a deposit that
-       * never ends up charging or refunding anything (#5722 LOW).
+       * never ends up charging or refunding anything (#5722 LOW). `forfeitOrigin`
+       * is cleared unconditionally too: the row is no longer `forfeited`, so a
+       * stale origin must not survive to mislead a future recapture decision
+       * (#5744 stripe-flow-reviewer follow-up).
        */
       private async _writeOffUncollectable(
         depositId: string,
@@ -31932,6 +31970,7 @@
             status: "uncollectable",
             uncollectableAt: new Date(),
             [timestampField]: null,
+            forfeitOrigin: null,
             ...(fromStatus === "partial_refunded"
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
@@ -31953,8 +31992,10 @@
        * retryable.
        *
        * Compare-and-swap on `fromStatus`, mirroring {@link _writeOffUncollectable}
-       * — see its doc comment for why a lost race logs instead of throwing, and
-       * why `partial_refunded` also clears the fee/refund fields (#5722 M1, LOW).
+       * — see its doc comment for why a lost race logs instead of throwing, why
+       * `partial_refunded` also clears the fee/refund fields (#5722 M1, LOW), and
+       * why `forfeitOrigin` is cleared unconditionally (#5744 stripe-flow-reviewer
+       * follow-up).
        */
       private async _rollbackToHeld(
         depositId: string,
@@ -31966,6 +32007,7 @@
           data: {
             status: "held",
             [timestampField]: null,
+            forfeitOrigin: null,
             ...(fromStatus === "partial_refunded"
               ? { feeAmountCents: null, refundAmountCents: null }
               : {}),
@@ -34160,6 +34202,19 @@
           );
           return { ok: false, failure: DEPOSIT_CAPTURE_UNVERIFIED_RESULT };
         }
+        if (verification === "concurrent") {
+          // A concurrent transition already moved the row off `deposit.status`
+          // before this rollback's own CAS write landed — an ordinary
+          // in-progress conflict, not a failure (#5744 stripe-flow-reviewer
+          // REGRESSION fix).
+          return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
+        }
+        if (verification === "in-flight") {
+          // The prior capture attempt may still be settling with Stripe — this
+          // is retryable, never a permanent failure (#5744 stripe-flow-reviewer
+          // follow-up).
+          return { ok: false, failure: DEPOSIT_CAPTURE_IN_FLIGHT_RESULT };
+        }
         if (verification === "uncollectable") {
           // No money moved — the deposit was written off, not captured. Nothing
           // for this cancel to resolve against Stripe (#5722 R5 LOW-2).
@@ -34738,6 +34793,19 @@
             "Could not verify a previously-ambiguous deposit capture before recording a no-show; aborting to avoid a ghost charge"
           );
           return DEPOSIT_CAPTURE_UNVERIFIED_RESULT;
+        }
+        if (verification === "concurrent") {
+          // A concurrent transition already moved the row off `deposit.status`
+          // before this rollback's own CAS write landed — an ordinary
+          // in-progress conflict, not a failure (#5744 stripe-flow-reviewer
+          // REGRESSION fix).
+          return DEPOSIT_CONCURRENT_RETRY_RESULT;
+        }
+        if (verification === "in-flight") {
+          // The prior capture attempt may still be settling with Stripe — this
+          // is retryable, never a permanent failure (#5744 stripe-flow-reviewer
+          // follow-up).
+          return DEPOSIT_CAPTURE_IN_FLIGHT_RESULT;
         }
         if (verification === "uncollectable") {
           // No money moved — the deposit was written off, not forfeited.

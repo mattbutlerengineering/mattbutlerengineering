@@ -887,6 +887,80 @@ describe("recordNoShow", () => {
     );
   });
 
+  it("never allows recapture over a NULL-origin forfeited row — a pre-migration deposit has no known origin and must fail closed (#5744 stripe-flow-reviewer follow-up)", async () => {
+    // Rows written before the forfeitOrigin column existed have no origin at
+    // all (not "cancellation", not "no_show" — undefined/null). Missing
+    // provenance must be treated the same as a wrong one: never assume it's
+    // safe to recapture.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+      forfeitOrigin: null,
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("rolled-back-to-held");
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "forfeited",
+      "forfeitedAt",
+      false
+    );
+  });
+
+  it("returns a harmless 409 when verifyCaptureCompleted reports concurrent — another retry's rollback already moved the row (#5744 stripe-flow-reviewer REGRESSION fix)", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("concurrent");
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("returns a distinct retryable 409 (not the 500 manual-reconciliation result) when verifyCaptureCompleted reports in-flight — the prior capture may still be settling (#5744 stripe-flow-reviewer follow-up)", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("in-flight");
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.detail).toMatch(/settl|retry/i);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
   it("re-verifies a stuck applied deposit, never allowing recapture, and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({

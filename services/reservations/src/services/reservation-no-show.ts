@@ -89,6 +89,23 @@ const DEPOSIT_CAPTURE_UNVERIFIED_RESULT: RecordNoShowResult = {
     "A previous deposit capture could not be verified with Stripe. This requires manual reconciliation before recording a no-show.",
 };
 
+/**
+ * A `requires_capture` read on a previously-ambiguous deposit is too recent
+ * to prove the underlying capture attempt has finished (`verifyCaptureCompleted`'s
+ * `"in-flight"` outcome — see its doc comment on the `ROLLBACK_SAFETY_WINDOW_MS`
+ * safety window in `deposit.ts`). Unlike {@link DEPOSIT_CAPTURE_UNVERIFIED_RESULT},
+ * this is retryable, not a permanent failure: once the window passes, a plain
+ * retry resolves it, so it must never be reported as needing manual
+ * reconciliation (#5744 stripe-flow-reviewer follow-up).
+ */
+const DEPOSIT_CAPTURE_IN_FLIGHT_RESULT: RecordNoShowResult = {
+  success: false,
+  status: 409,
+  title: "Conflict",
+  detail:
+    "A previous deposit capture attempt may still be settling with Stripe. Please retry in a few minutes.",
+};
+
 /** Outcome of resolving a `held` deposit against a no-show. */
 type ForfeitOutcome =
   | { outcome: "resolved"; warning?: string }
@@ -496,6 +513,19 @@ export async function recordNoShow(
         "Could not verify a previously-ambiguous deposit capture before recording a no-show; aborting to avoid a ghost charge"
       );
       return DEPOSIT_CAPTURE_UNVERIFIED_RESULT;
+    }
+    if (verification === "concurrent") {
+      // A concurrent transition already moved the row off `deposit.status`
+      // before this rollback's own CAS write landed — an ordinary
+      // in-progress conflict, not a failure (#5744 stripe-flow-reviewer
+      // REGRESSION fix).
+      return DEPOSIT_CONCURRENT_RETRY_RESULT;
+    }
+    if (verification === "in-flight") {
+      // The prior capture attempt may still be settling with Stripe — this
+      // is retryable, never a permanent failure (#5744 stripe-flow-reviewer
+      // follow-up).
+      return DEPOSIT_CAPTURE_IN_FLIGHT_RESULT;
     }
     if (verification === "uncollectable") {
       // No money moved — the deposit was written off, not forfeited.

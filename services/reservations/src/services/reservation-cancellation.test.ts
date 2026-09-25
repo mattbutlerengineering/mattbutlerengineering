@@ -334,6 +334,43 @@ describe("cancelReservationWithDeposit", () => {
     );
   });
 
+  it("returns a harmless 409 (not the 500 failure result) when verifyCaptureCompleted reports concurrent — another retry's rollback already moved the row (#5744 stripe-flow-reviewer REGRESSION fix)", async () => {
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("concurrent");
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns a distinct retryable 409 (not the 500 manual-reconciliation result) when verifyCaptureCompleted reports in-flight — the prior capture may still be settling (#5744 stripe-flow-reviewer follow-up)", async () => {
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("in-flight");
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.detail).toMatch(/settl|retry/i);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+    expect(deps.logger.error).not.toHaveBeenCalled();
+  });
+
   it("staff cancel over a stuck applied deposit rolls back to held and refunds in full — never re-captures (#5722 R5 MED-1)", async () => {
     // Stripe still reports requires_capture (never confirmed captured), so
     // verifyCaptureCompleted rolls the row back to `held` instead of

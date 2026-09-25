@@ -7860,7 +7860,7 @@
       }
     </item>
     <item priority="medium">
-      function isOldEnoughToRollBack(capturedAt: Date | null): boolean { /* ... */ }
+      function isOldEnoughToRollBack(capturedAt: Date): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
