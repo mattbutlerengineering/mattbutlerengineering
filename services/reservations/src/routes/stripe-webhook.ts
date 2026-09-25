@@ -84,23 +84,43 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   if (deposit.status !== "held") return;
 
   // Stripe's `cancellation_reason` is the only reliable signal for WHY this
-  // intent was canceled — "automatic" means Stripe itself expired the
-  // authorization (the ~7-day uncaptured-hold timeout) with nobody deciding
-  // anything, which is the same "authorization died before we could act"
-  // condition the no-show/forfeit capture-failure path already lands on
-  // `uncollectable` for. Every other reason — null/unset (what OUR OWN
-  // cancelPaymentIntent call sends, so this covers our own refund() when its
-  // Stripe call errors ambiguously after actually canceling), a dashboard
-  // cancel (`requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`)
-  // — is a deliberate release, not a dead authorization, and must be labeled
+  // intent was canceled. A human- or API-chosen reason (null/unset, which is
+  // what OUR OWN cancelPaymentIntent call sends, or a dashboard/API cancel:
+  // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
+  // deliberate release, not a dead authorization, and must be labeled
   // `refunded` via the same path a staff-initiated refund uses (#5725
-  // MEDIUM-3; unifying the `automatic` case onto `uncollectable` is item 3).
-  // No Stripe call is made either way — the intent is already canceled.
-  if (paymentIntent.cancellation_reason === "automatic") {
-    await depositService.expireAuthorization(deposit.id);
-  } else {
+  // MEDIUM-3). The null case covers our own refund() whose Stripe call errored
+  // ambiguously after actually canceling ONLY when this webhook arrives after
+  // refund() has rolled the row back to `held` (`_rollbackToHeld`); if it
+  // arrives before, the row is not `held` and the early return above drops
+  // it — that race is tracked in #5753.
+  //
+  // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
+  // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
+  // Stripe canceled the intent with nobody here deciding anything. That is the
+  // same "authorization died before we could act" condition the
+  // no-show/forfeit capture-failure path already lands on `uncollectable` for
+  // (#5725 item 3). Inverting the test this way fails toward `uncollectable`
+  // (money NOT collected, NOT returned by us) rather than falsely claiming a
+  // refund. No Stripe call is made either way — the intent is already canceled.
+  if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
     await depositService.refund(deposit.id, { skipStripeCancel: true });
+  } else {
+    await depositService.expireAuthorization(deposit.id);
   }
+}
+
+// Cancellation reasons a person (staff, the dashboard) or our own API call
+// chose. Anything not listed here is treated as a Stripe-internal cancel.
+const DELIBERATE_CANCELLATION_REASONS: ReadonlySet<string> = new Set([
+  "requested_by_customer",
+  "duplicate",
+  "fraudulent",
+  "abandoned",
+]);
+
+function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
+  return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
 }
 
 async function onChargeRefunded(event: Stripe.Event): Promise<void> {

@@ -352,10 +352,11 @@ export class DepositService {
 
   /**
    * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
-   * authorization itself — e.g. the ~7-day hold auto-expired, or a dashboard
-   * cancel — before any capture was attempted. This is the SAME "authorization
-   * died before we could act" condition the no-show/forfeit capture-failure
-   * path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
+   * authorization itself — a Stripe-internal cancellation such as the ~7-day
+   * hold expiring (`cancellation_reason` other than a human/API-chosen one; see
+   * `onPaymentIntentCanceled`) — before any capture was attempted. This is
+   * the SAME "authorization died before we could act" condition the
+   * no-show/forfeit capture-failure path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
    * which write the row off as `uncollectable`; this webhook-first path used to
    * call {@link refund} instead, landing the identical scenario at `refunded` —
    * a label that wrongly implies an active refund decision rather than a dead,

@@ -555,6 +555,9 @@
     <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
+    <item priority="medium">
+      function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean { /* ... */ }
+    </item>
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>

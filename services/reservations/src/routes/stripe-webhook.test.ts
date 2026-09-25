@@ -653,78 +653,89 @@ describe("POST /api/v1/stripe/webhook", () => {
     }
   );
 
-  it("moves a held deposit to uncollectable for an AUTOMATIC payment_intent.canceled (Stripe's own ~7-day expiry) WITHOUT calling Stripe again (#5725 item 3)", async () => {
-    // cancellation_reason: "automatic" is Stripe's own signal that the
-    // authorization expired on its side — nobody decided to cancel it. That
-    // is the same "authorization died before we could act" condition the
-    // no-show/forfeit capture-failure path already lands on `uncollectable`
-    // for. Calling cancelPaymentIntent again would fail against an
-    // already-canceled intent and Stripe would retry the webhook forever on
-    // the resulting 500 (#5719 item 5); unifying the label is #5725 item 3.
-    // Any OTHER reason (including null/unset, which is what our own
-    // cancelPaymentIntent call sends) is a deliberate cancel and must go
-    // through refund() instead (#5725 MEDIUM-3, see the tests below).
-    const mockEvent = {
-      type: "payment_intent.canceled",
-      data: {
-        object: {
-          id: "pi_canceled_held",
-          cancellation_reason: "automatic",
+  it.each([
+    ["automatic", "automatic"],
+    ["expired", "expired"],
+    ["failed_invoice (Stripe-internal)", "failed_invoice"],
+    ["void_invoice (Stripe-internal)", "void_invoice"],
+  ] as const)(
+    "moves a held deposit to uncollectable for a Stripe-internal payment_intent.canceled (cancellation_reason %s) WITHOUT calling Stripe again (#5725 item 3)",
+    async (_label, cancellationReason) => {
+      // cancellation_reason: "automatic" is Stripe's own signal that the
+      // authorization expired on its side — nobody decided to cancel it. That
+      // is the same "authorization died before we could act" condition the
+      // no-show/forfeit capture-failure path already lands on `uncollectable`
+      // for. Calling cancelPaymentIntent again would fail against an
+      // already-canceled intent and Stripe would retry the webhook forever on
+      // the resulting 500 (#5719 item 5); unifying the label is #5725 item 3.
+      // Any OTHER reason (including null/unset, which is what our own
+      // cancelPaymentIntent call sends) is a deliberate cancel and must go
+      // through refund() instead (#5725 MEDIUM-3, see the tests below).
+      const mockEvent = {
+        type: "payment_intent.canceled",
+        data: {
+          object: {
+            id: "pi_canceled_held",
+            cancellation_reason: cancellationReason,
+          },
         },
-      },
-    };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-    const depositMock = {
-      id: "dep_held_cancel",
-      reservationId: "res_held_cancel",
-      amountCents: 8000,
-      currency: "usd",
-      status: "held",
-      stripePaymentIntentId: "pi_canceled_held",
-      stripeCustomerId: null,
-      heldAt: new Date(),
-      appliedAt: null,
-      refundedAt: null,
-      forfeitedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
-    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
-    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
-    mockDepositFindUnique.mockResolvedValueOnce({
-      ...depositMock,
-      status: "uncollectable",
-      uncollectableAt: new Date(),
-    });
+      };
+      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+      const depositMock = {
+        id: "dep_held_cancel",
+        reservationId: "res_held_cancel",
+        amountCents: 8000,
+        currency: "usd",
+        status: "held",
+        stripePaymentIntentId: "pi_canceled_held",
+        stripeCustomerId: null,
+        heldAt: new Date(),
+        appliedAt: null,
+        refundedAt: null,
+        forfeitedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+      mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+      mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositFindUnique.mockResolvedValueOnce({
+        ...depositMock,
+        status: "uncollectable",
+        uncollectableAt: new Date(),
+      });
 
-    const app = await buildApp({ logger: false });
-    await app.ready();
+      const app = await buildApp({ logger: false });
+      await app.ready();
 
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/stripe/webhook",
-      payload: Buffer.from(JSON.stringify(mockEvent)),
-      headers: {
-        "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
-      },
-    });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/stripe/webhook",
+        payload: Buffer.from(JSON.stringify(mockEvent)),
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": "valid_test_sig",
+        },
+      });
 
-    expect(response.statusCode).toBe(200);
-    expect(mockDepositUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dep_held_cancel", status: "held" },
-        data: expect.objectContaining({ status: "uncollectable" }),
-      })
-    );
-    expect(mockStripeCancel).not.toHaveBeenCalled();
-    await app.close();
-  });
+      expect(response.statusCode).toBe(200);
+      expect(mockDepositUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep_held_cancel", status: "held" },
+          data: expect.objectContaining({ status: "uncollectable" }),
+        })
+      );
+      expect(mockStripeCancel).not.toHaveBeenCalled();
+      await app.close();
+    }
+  );
 
   it.each([
     ["null (our own cancelPaymentIntent call sends no reason)", null],
     ["requested_by_customer (a dashboard cancel)", "requested_by_customer"],
+    ["duplicate (a dashboard/API cancel)", "duplicate"],
+    ["fraudulent (a dashboard/API cancel)", "fraudulent"],
+    ["abandoned (a dashboard/API cancel)", "abandoned"],
   ] as const)(
     "moves a held deposit to refunded, not uncollectable, for payment_intent.canceled with cancellation_reason %s (#5725 MEDIUM-3)",
     async (_label, cancellationReason) => {

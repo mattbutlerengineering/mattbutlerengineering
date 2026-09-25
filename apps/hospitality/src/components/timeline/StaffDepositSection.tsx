@@ -98,6 +98,19 @@ export function StaffDepositSection({
             {depositStatusLabel(existingDeposit.status)}
           </Text>
         </div>
+        {/* A refund issued in the Stripe dashboard after our own capture is
+            reconciled onto the row without changing its status (#5725 item 2). */}
+        {existingDeposit.postCaptureRefundCents != null &&
+          existingDeposit.postCaptureRefundCents > 0 && (
+            <Text variant="caption" color="secondary">
+              Refunded{" "}
+              {formatCurrencyFromCents(
+                existingDeposit.postCaptureRefundCents,
+                existingDeposit.currency
+              )}{" "}
+              via Stripe
+            </Text>
+          )}
       </div>
     );
   }

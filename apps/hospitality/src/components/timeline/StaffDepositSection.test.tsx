@@ -159,6 +159,24 @@ describe("StaffDepositSection", () => {
     expect(screen.getByText(/Partially Refunded/)).toBeDefined();
   });
 
+  it("shows a post-capture Stripe refund when one was reconciled (#5749 MEDIUM-B)", () => {
+    renderSection({
+      existingDeposit: { ...mockDeposit, status: "applied", postCaptureRefundCents: 1250 },
+    });
+    expect(screen.getByText("Refunded $12.50 via Stripe")).toBeDefined();
+  });
+
+  it.each([
+    ["null", null],
+    ["zero", 0],
+    ["absent", undefined],
+  ] as const)("shows no post-capture refund line when it is %s", (_label, cents) => {
+    renderSection({
+      existingDeposit: { ...mockDeposit, status: "applied", postCaptureRefundCents: cents },
+    });
+    expect(screen.queryByText(/via Stripe/)).toBeNull();
+  });
+
   it("shows deposit form when collect button clicked", () => {
     renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
