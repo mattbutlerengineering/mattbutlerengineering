@@ -694,8 +694,6 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
     readMergedAiPrsPaged(ghClient, NOW);
 
     expect(ghClient.pr.list).toHaveBeenCalledWith([
-      "--state",
-      "merged",
       "--search",
       "merged:>=2026-09-17",
       "--limit",
@@ -706,9 +704,10 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
   });
 
   it("fetches commits per AI PR via pr.view, but skips non-AI PRs", () => {
+    const mergedAt = "2026-09-24T12:00:00Z";
     const prs = [
-      { number: 1, headRefName: "worktree-agent-abc", labels: [] },
-      { number: 2, headRefName: "feature/human-work", labels: [{ name: "feature" }] },
+      { number: 1, headRefName: "worktree-agent-abc", labels: [], mergedAt },
+      { number: 2, headRefName: "feature/human-work", labels: [{ name: "feature" }], mergedAt },
     ];
     const ghClient = {
       pr: {
@@ -743,13 +742,113 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
 
     expect(() => readMergedAiPrsPaged(ghClient, NOW)).toThrow("gh not authenticated");
   });
+
+  // GitHub's search API has no `state:merged` qualifier: under gh-client's
+  // REST fallback (no `gh` binary), `--state merged` becomes `state:merged`
+  // and the search returns total_count 0 (measured). `merged:>=` already
+  // implies merged, so the flag must not be sent at all.
+  it("does not pass --state merged (unrecognised by the REST search fallback)", () => {
+    const ghClient = { pr: { list: vi.fn().mockReturnValue([]), view: vi.fn() } };
+
+    readMergedAiPrsPaged(ghClient, NOW);
+
+    const args = ghClient.pr.list.mock.calls[0][0];
+    expect(args).not.toContain("--state");
+    expect(args).not.toContain("merged");
+  });
+
+  // The `merged:>=` qualifier is date-granular and searches one extra day
+  // of slack, so the list returns PRs merged up to ~8.5 days ago. Those
+  // must not reach collectQueueEfficiency: they land in baseline week 1
+  // (days 7-14) as a 1-1.5-day slice posing as a full 3-week baseline.
+  it("drops PRs merged before exactly 7 days ago, without fetching their commits", () => {
+    const prs = [
+      {
+        number: 1,
+        headRefName: "worktree-agent-old",
+        labels: [],
+        mergedAt: "2026-09-18T00:00:00Z",
+      },
+      {
+        number: 2,
+        headRefName: "worktree-agent-new",
+        labels: [],
+        mergedAt: "2026-09-18T12:00:00Z",
+      },
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "a" }] }),
+      },
+    };
+
+    const result = readMergedAiPrsPaged(ghClient, NOW);
+
+    expect(result.map((pr) => pr.number)).toEqual([2]);
+    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
+    expect(ghClient.pr.view).toHaveBeenCalledWith(2, ["--json", "commits"]);
+  });
+
+  it("a PR merged 7.5 days ago yields no baseline and no regression", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const at = (days) => new Date(+NOW - days * DAY).toISOString();
+    const prs = [
+      // Inside the 8-day search slack, outside the 7-day window: all 1-commit
+      // (perfect first pass), so if it leaked into baseline week 1 it would
+      // make the current window's multi-commit PRs look like a regression.
+      ...Array.from({ length: 10 }, (_, i) => ({
+        number: i,
+        headRefName: "worktree-agent-stale",
+        labels: [],
+        createdAt: at(7.6),
+        mergedAt: at(7.5),
+      })),
+      ...Array.from({ length: 20 }, (_, i) => ({
+        number: 100 + i,
+        headRefName: "worktree-agent-current",
+        labels: [],
+        createdAt: at(2.1),
+        mergedAt: at(2),
+      })),
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn((n) => ({
+          commits:
+            n >= 100 && n < 106
+              ? [{ messageHeadline: "a" }, { messageHeadline: "b" }, { messageHeadline: "c" }]
+              : [{ messageHeadline: "a" }],
+        })),
+      },
+    };
+
+    const result = collectQueueEfficiency(
+      () => readMergedAiPrsPaged(ghClient, NOW),
+      () => null,
+      NOW,
+      () => []
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.baseline).toBeNull();
+    expect(result.regressions).toEqual([]);
+  });
 });
 
 describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
   const NOW = new Date("2026-09-25T12:00:00Z");
 
   it("delegates to readMergedAiPrsPaged and derives commitCount for an AI PR", () => {
-    const prs = [{ number: 1, headRefName: "worktree-agent-abc", labels: [] }];
+    const prs = [
+      {
+        number: 1,
+        headRefName: "worktree-agent-abc",
+        labels: [],
+        mergedAt: "2026-09-24T12:00:00Z",
+      },
+    ];
     const ghClient = {
       pr: {
         list: vi.fn().mockReturnValue(prs),

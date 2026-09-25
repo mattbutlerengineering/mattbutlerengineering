@@ -48,15 +48,24 @@ export const QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE = 15;
  * slack past the 7-day current window `collectQueueEfficiency` computes, so
  * an exact-boundary PR is never missed to date-vs-timestamp truncation.
  *
+ * Because `merged:>=` is date-granular, this search returns PRs merged up to
+ * ~8.5 days ago. The reader then drops everything merged before exactly
+ * READ_PRS_WINDOW_DAYS ago: without that trim, the 7-8.5-day slack spills
+ * into baseline week 1 (days 7-14) as a 1-1.5-day slice that poses as the
+ * whole 3-week baseline (`weeks_sampled: 1`) and fires false `composite` /
+ * `first_pass_success_rate` regressions.
+ *
  * Scoped to the current window only, not the full 21-day/3-week baseline
- * window `collectQueueEfficiency` also computes: baseline has been null in
- * 100% of historical reports regardless (the old 45-PR-total cap never got
- * close), so extending coverage there isn't a regression to fix, and doing
- * so would multiply the per-PR `pr view` calls below roughly 4x (measured:
- * ~110 AI PRs/8 days vs. ~430/30 days) for a bonus this fix doesn't need to
- * ship. Revisit if a future change wants the 3-week baseline populated.
+ * window `collectQueueEfficiency` also computes, so the baseline is always
+ * null under this reader (as it was in 100% of historical reports under the
+ * old 45-PR-total cap). Populating it would multiply the per-PR `pr view`
+ * calls below roughly 4x (measured: ~110 AI PRs/8 days vs. ~430/30 days).
+ * Revisit if a future change wants the 3-week baseline populated.
  */
 const READ_PRS_LOOKBACK_DAYS = 8;
+
+/** The current window the reader returns — matches collectQueueEfficiency's. */
+const READ_PRS_WINDOW_DAYS = 7;
 
 /** Worktree branch patterns used by implement-queue agents. */
 const WORKER_BRANCH_RE = /^worktree-agent-/;
@@ -352,9 +361,12 @@ function fetchPrCommits(ghClient, prNumber) {
  */
 export function readMergedAiPrsPaged(ghClient, now) {
   const cutoff = isoDateDaysAgo(now, READ_PRS_LOOKBACK_DAYS);
+  const windowStart = +now - READ_PRS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // No `--state merged`: `merged:>=` already implies it, and under
+  // gh-client's REST fallback (no `gh` binary) `--state merged` becomes a
+  // `state:merged` search qualifier GitHub doesn't recognise — measured to
+  // return total_count 0.
   const prs = ghClient.pr.list([
-    "--state",
-    "merged",
     "--search",
     `merged:>=${cutoff}`,
     "--limit",
@@ -362,7 +374,8 @@ export function readMergedAiPrsPaged(ghClient, now) {
     "--json",
     "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
   ]);
-  return prs.map((pr) => {
+  const inWindow = prs.filter((pr) => Date.parse(pr.mergedAt) >= windowStart);
+  return inWindow.map((pr) => {
     if (!isAiPr(pr)) return { ...pr, commitCount: 1 };
     const commits = fetchPrCommits(ghClient, pr.number);
     return { ...pr, commits, commitCount: commits.length };

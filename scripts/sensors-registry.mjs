@@ -1051,11 +1051,12 @@ export const SENSORS = [
       // composite hard on a tiny denominator, so QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
       // is a sanity floor below which the comparison is skipped outright.
       // This is NOT backstopped by the baseline-vs-current regressions
-      // spread into `regressions` above: `baseline` requires PRs merged 8-28
-      // days ago, and readMergedAiPrsPaged's 8-day lookback (see its own
-      // comment) never reaches that range — baseline is null in 100% of
-      // historical `metrics/sensor-report.jsonl` reports. Below the floor,
-      // this sensor currently raises nothing for that report.
+      // spread into `regressions` above: `baseline` requires PRs merged 7-28
+      // days ago, and readMergedAiPrsPaged drops every PR merged before
+      // exactly 7 days ago (see its own comment), so baseline is always null
+      // under the live reader — as it was in 100% of historical
+      // `metrics/sensor-report.jsonl` reports. Below the floor, this sensor
+      // currently raises nothing for that report.
       if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {

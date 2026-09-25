@@ -634,7 +634,14 @@ describe("sensors-registry", () => {
     // collectQueueEfficiency's real (network-calling) default ccusage reader.
     it("readQueueEfficiencyPrs pages the fetch by merged date and derives commitCount from a per-PR pr.view call (#5746)", () => {
       const now = new Date("2026-09-25T12:00:00Z");
-      const prs = [{ number: 1, state: "MERGED", headRefName: "worktree-agent-1" }];
+      const prs = [
+        {
+          number: 1,
+          state: "MERGED",
+          headRefName: "worktree-agent-1",
+          mergedAt: "2026-09-24T12:00:00Z",
+        },
+      ];
       const ghClient = {
         pr: {
           list: vi.fn().mockReturnValue(prs),
@@ -645,8 +652,6 @@ describe("sensors-registry", () => {
       const result = readQueueEfficiencyPrs(ghClient, now);
 
       expect(ghClient.pr.list).toHaveBeenCalledWith([
-        "--state",
-        "merged",
         "--search",
         "merged:>=2026-09-17",
         "--limit",
