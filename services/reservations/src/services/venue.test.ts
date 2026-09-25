@@ -410,6 +410,27 @@ describe("venueService", () => {
       expect(result.pagination.total).toBe(2);
     });
 
+    it("sorts mixed-case and accented names the way the database collation did, not by code unit", async () => {
+      // The removed `orderBy: { name: "asc" }` sorted with Postgres's en_US
+      // collation; a raw `<` comparison would put "Bravo" before "alpha" and
+      // "Éclair" after "zeta", changing which venues land on page 1.
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "v-zeta" },
+        { venueId: "v-eclair" },
+        { venueId: "v-bravo" },
+        { venueId: "v-alpha" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-zeta", name: "zeta" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-eclair", name: "Éclair" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-bravo", name: "Bravo" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-alpha", name: "alpha" }) as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data.map((v) => v.name)).toEqual(["alpha", "Bravo", "Éclair", "zeta"]);
+    });
+
     it("filters out a venue id whose row no longer exists", async () => {
       vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
         { venueId: "venue-1" },

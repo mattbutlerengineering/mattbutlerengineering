@@ -270,6 +270,11 @@ export const venueGroupService = {
   },
 };
 
+// Approximates the en_US database collation the removed
+// `orderBy: { name: "asc" }` used (case- and accent-aware), so moving the
+// sort into application code doesn't reorder venues or change page 1.
+const VENUE_NAME_COLLATOR = new Intl.Collator("en-US");
+
 export const venueService = {
   /**
    * Lists venues across every venue — the platform-`admin` surface
@@ -363,7 +368,7 @@ export const venueService = {
     const venues = rows
       .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
       .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
-      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      .sort((a, b) => VENUE_NAME_COLLATOR.compare(a.name, b.name));
 
     const { skip, take } = paginate({ page, limit });
 
