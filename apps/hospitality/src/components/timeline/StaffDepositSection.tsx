@@ -9,6 +9,10 @@ import styles from "./StaffDepositSection.module.css";
 interface StaffDepositSectionProps {
   reservationId: string;
   existingDeposit?: Deposit | null;
+  /** True while the `GET /api/v1/deposits?reservationId=` lookup is in flight. */
+  isLoading?: boolean;
+  /** A failure from that same lookup — distinct from the create-deposit form's own `error` state. */
+  fetchError?: unknown;
 }
 
 function depositStatusLabel(status: string): string {
@@ -24,7 +28,12 @@ function depositStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-export function StaffDepositSection({ reservationId, existingDeposit }: StaffDepositSectionProps) {
+export function StaffDepositSection({
+  reservationId,
+  existingDeposit,
+  isLoading,
+  fetchError,
+}: StaffDepositSectionProps) {
   const createDeposit = useCreateDeposit();
   const [amountInput, setAmountInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +41,8 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
 
   const isCreating = createDeposit.isPending;
 
+  // Every hook must run before any early return below (rules-of-hooks) — the
+  // lookup-state branches short-circuit rendering, not hook order.
   const handleCollect = useCallback(async () => {
     const amountDollars = parseFloat(amountInput);
     if (isNaN(amountDollars) || amountDollars <= 0) {
@@ -54,6 +65,27 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
     }
   }, [amountInput, reservationId, createDeposit]);
 
+  // The lookup owns this section's visibility before anything else does: a
+  // stale fetchError from a prior render must never outrank a fresh
+  // isLoading, and neither may fall through to the "+ Collect Deposit"
+  // prompt — that would offer to create a second deposit while the read that
+  // would have found the first one is still in flight or failed (#5725 LOW-4).
+  if (isLoading) {
+    return null;
+  }
+
+  if (fetchError) {
+    const described = describeApiError(fetchError);
+    if (described.category === "forbidden") {
+      return null;
+    }
+    return (
+      <div className={styles.section}>
+        <Alert variant="error">{described.detail}</Alert>
+      </div>
+    );
+  }
+
   if (existingDeposit) {
     return (
       <div className={styles.section}>
@@ -66,6 +98,19 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
             {depositStatusLabel(existingDeposit.status)}
           </Text>
         </div>
+        {/* A refund issued in the Stripe dashboard after our own capture is
+            reconciled onto the row without changing its status (#5725 item 2). */}
+        {existingDeposit.postCaptureRefundCents != null &&
+          existingDeposit.postCaptureRefundCents > 0 && (
+            <Text variant="caption" color="secondary">
+              Refunded{" "}
+              {formatCurrencyFromCents(
+                existingDeposit.postCaptureRefundCents,
+                existingDeposit.currency
+              )}{" "}
+              via Stripe
+            </Text>
+          )}
       </div>
     );
   }

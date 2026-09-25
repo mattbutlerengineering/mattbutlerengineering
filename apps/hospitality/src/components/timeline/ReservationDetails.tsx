@@ -2,6 +2,7 @@ import { Button, Divider, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
+import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
 import {
   canSeat,
@@ -10,6 +11,7 @@ import {
   statusWord,
   useSeatGuest,
 } from "./seat-guest.js";
+import { StaffDepositSection } from "./StaffDepositSection.js";
 import styles from "./ReservationDetails.module.css";
 
 export interface ReservationDetailsProps {
@@ -62,6 +64,11 @@ export function ReservationDetails({
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
+  const {
+    data: deposit,
+    isLoading: depositLoading,
+    error: depositError,
+  } = useDepositByReservation(reservation.id);
 
   return (
     <Stack gap="lg" className={styles.detailsStack}>
@@ -167,6 +174,13 @@ export function ReservationDetails({
           </Text>
         </div>
       )}
+
+      <StaffDepositSection
+        reservationId={reservation.id}
+        existingDeposit={deposit ?? null}
+        isLoading={depositLoading}
+        fetchError={depositError}
+      />
 
       {failure && (
         <ErrorRetryBanner title="Guest not seated." error={failure.detail} details={failure.raw} />

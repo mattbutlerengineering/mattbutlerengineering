@@ -351,6 +351,85 @@ export class DepositService {
   }
 
   /**
+   * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
+   * authorization itself — a Stripe-internal cancellation such as the ~7-day
+   * hold expiring (`cancellation_reason` other than a human/API-chosen one; see
+   * `onPaymentIntentCanceled`) — before any capture was attempted. This is
+   * the SAME "authorization died before we could act" condition the
+   * no-show/forfeit capture-failure path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
+   * which write the row off as `uncollectable`; this webhook-first path used to
+   * call {@link refund} instead, landing the identical scenario at `refunded` —
+   * a label that wrongly implies an active refund decision rather than a dead,
+   * uncollectable authorization. Unifies both paths on `uncollectable`
+   * (#5725 item 3). No Stripe call is made: the intent is already canceled on
+   * Stripe's side (that is the event that triggers this).
+   */
+  async expireAuthorization(depositId: string): Promise<Deposit> {
+    const deposit = await this._requireDeposit(depositId);
+    transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+
+    // Atomic compare-and-swap: only update if the row is still in the observed
+    // status. count === 0 means another concurrent transition won the race.
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: deposit.status },
+      data: { status: "uncollectable", uncollectableAt: new Date() },
+    });
+
+    if (count === 0) {
+      throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
+    }
+
+    return this._requireDeposit(depositId);
+  }
+
+  /**
+   * Reconciles a `charge.refunded` webhook against a deposit that already
+   * reached a capture-based terminal status (`applied`/`forfeited`/
+   * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
+   * after our own capture. Deliberately does not move `status`: this is a
+   * reconciliation annotation on an already-terminal state, not a new
+   * transition for the state machine to reason about.
+   *
+   * `amountRefundedCents` is Stripe's own cumulative `amount_refunded` on the
+   * charge — it is NOT necessarily all "post-capture" money. `refundPartial`
+   * issues its OWN Stripe refund of `refundAmountCents` as part of the SAME
+   * `held` → `partial_refunded` transition, and that refund fires this exact
+   * `charge.refunded` webhook — so for a `partial_refunded` deposit, the
+   * cumulative amount already includes what WE sent back. Subtracting our own
+   * leg first means only a refund issued ON TOP of it (e.g. a further
+   * dashboard refund) is ever recorded as post-capture; an amount at or below
+   * our own leg records nothing (#5725 HIGH-1).
+   *
+   * The write is also monotonic: Stripe webhooks can be redelivered or arrive
+   * out of order, so a smaller/earlier cumulative amount must never regress an
+   * already-recorded larger one (#5725 MEDIUM-2).
+   */
+  async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
+    const deposit = await this._requireDeposit(depositId);
+
+    const ownRefundCents =
+      deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+    const postCaptureCents = amountRefundedCents - ownRefundCents;
+
+    if (postCaptureCents <= 0) {
+      return deposit;
+    }
+
+    await prisma.deposit.updateMany({
+      where: {
+        id: depositId,
+        OR: [
+          { postCaptureRefundCents: null },
+          { postCaptureRefundCents: { lt: postCaptureCents } },
+        ],
+      },
+      data: { postCaptureRefundCents: postCaptureCents },
+    });
+
+    return this._requireDeposit(depositId);
+  }
+
+  /**
    * Transitions deposit from `held` → `partial_refunded` with a partial Stripe
    * refund. This is a two-step Stripe mutation: capture the PaymentIntent
    * (charges the deposit), then refund the portion owed back to the guest. Used

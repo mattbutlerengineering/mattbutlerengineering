@@ -35,6 +35,7 @@ const depositProperties = {
   refundedAt: { type: ["string", "null"] },
   forfeitedAt: { type: ["string", "null"] },
   uncollectableAt: { type: ["string", "null"] },
+  postCaptureRefundCents: { type: ["integer", "null"] },
   createdAt: { type: "string" },
   updatedAt: { type: "string" },
 };
@@ -111,6 +112,66 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         })
       );
       return reply.code(201).send({ data: deposit });
+    }
+  );
+
+  // GET /api/v1/deposits?reservationId= — operator visibility: look up a
+  // reservation's deposit (or null if none exists yet), venue-scoped. Same
+  // venue-resolution shape as POST / above: the query carries an opaque
+  // reservation id, not a venueId, so the app-wide preHandler resolves
+  // nothing and this route resolves it itself (module comment, ADR-026).
+  fastify.get<{
+    Querystring: { reservationId?: string };
+    Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+  }>(
+    "/",
+    {
+      preHandler: [requireAuth, requireAdmin],
+      schema: {
+        summary: "Get a reservation's deposit",
+        operationId: "getDepositByReservation",
+        description:
+          "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+        tags: ["Deposits"],
+        querystring: {
+          type: "object",
+          required: ["reservationId"],
+          properties: { reservationId: { type: "string" } },
+        },
+        response: {
+          200: {
+            description: "Deposit found, or null if the reservation has none yet",
+            type: "object",
+            properties: {
+              data: {
+                anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+              },
+            },
+          },
+          400: { description: "Missing reservationId", type: "object" },
+          404: { description: "Reservation not found, or not in any venue", type: "object" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { reservationId } = request.query;
+      if (!reservationId) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+      }
+
+      const venueId = await resolveReservationVenueId(reservationId);
+      if (!venueId) {
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+
+      const deposit = await runWithVenueContext(venueId, () =>
+        depositService.getByReservationId(reservationId)
+      );
+      return { data: deposit };
     }
   );
 

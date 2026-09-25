@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
-import { createApiClient } from "@mbe/api-client";
+import { createApiClient, ApiClientError } from "@mbe/api-client";
 import { StaffDepositSection } from "./StaffDepositSection.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import { RESERVATIONS_QUERY_KEY } from "../../hooks/useReservations.js";
@@ -102,19 +102,35 @@ const mockDeposit: Deposit = {
 
 interface RenderOptions {
   existingDeposit?: Deposit | null;
+  isLoading?: boolean;
+  fetchError?: unknown;
 }
 
-function renderSection({ existingDeposit }: RenderOptions = {}) {
+function renderSection({ existingDeposit, isLoading, fetchError }: RenderOptions = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <StaffDepositSection reservationId="res-1" existingDeposit={existingDeposit} />
+      <StaffDepositSection
+        reservationId="res-1"
+        existingDeposit={existingDeposit}
+        isLoading={isLoading}
+        fetchError={fetchError}
+      />
     </QueryClientProvider>
   );
   return { ...utils, invalidateSpy };
+}
+
+/** A 403 the way `@mbe/api-client` raises it — non-admin looking up a deposit. */
+function forbiddenError(): ApiClientError {
+  return new ApiClientError(
+    { type: "about:blank", title: "Forbidden", status: 403, detail: "Admin role required" },
+    "GET",
+    "/api/v1/deposits"
+  );
 }
 
 describe("StaffDepositSection", () => {
@@ -141,6 +157,24 @@ describe("StaffDepositSection", () => {
   it("labels a partially refunded deposit (#5719 LOW)", () => {
     renderSection({ existingDeposit: { ...mockDeposit, status: "partial_refunded" } });
     expect(screen.getByText(/Partially Refunded/)).toBeDefined();
+  });
+
+  it("shows a post-capture Stripe refund when one was reconciled (#5749 MEDIUM-B)", () => {
+    renderSection({
+      existingDeposit: { ...mockDeposit, status: "applied", postCaptureRefundCents: 1250 },
+    });
+    expect(screen.getByText("Refunded $12.50 via Stripe")).toBeDefined();
+  });
+
+  it.each([
+    ["null", null],
+    ["zero", 0],
+    ["absent", undefined],
+  ] as const)("shows no post-capture refund line when it is %s", (_label, cents) => {
+    renderSection({
+      existingDeposit: { ...mockDeposit, status: "applied", postCaptureRefundCents: cents },
+    });
+    expect(screen.queryByText(/via Stripe/)).toBeNull();
   });
 
   it("shows deposit form when collect button clicked", () => {
@@ -235,5 +269,37 @@ describe("StaffDepositSection", () => {
     expect(screen.getByTestId("amount-input")).toBeDefined();
     fireEvent.click(screen.getByText("Cancel"));
     expect(screen.queryByTestId("amount-input")).toBeNull();
+  });
+
+  describe("deposit lookup state (#5725 LOW-4)", () => {
+    it("renders nothing while the deposit lookup is loading — never the collect-deposit prompt", () => {
+      const { container } = renderSection({ isLoading: true });
+      expect(screen.queryByText("+ Collect Deposit")).toBeNull();
+      expect(container.firstChild).toBeNull();
+    });
+
+    it("renders nothing on a 403 (non-admin) — never falls through to the collect-deposit prompt", () => {
+      const { container } = renderSection({ fetchError: forbiddenError() });
+      expect(screen.queryByText("+ Collect Deposit")).toBeNull();
+      expect(container.firstChild).toBeNull();
+    });
+
+    it("shows an error state for a non-403 lookup failure — never the collect-deposit prompt", () => {
+      renderSection({
+        fetchError: new ApiClientError(
+          { type: "about:blank", title: "Internal Server Error", status: 500, detail: "boom" },
+          "GET",
+          "/api/v1/deposits"
+        ),
+      });
+      expect(screen.queryByText("+ Collect Deposit")).toBeNull();
+      expect(screen.getByTestId("alert")).toBeDefined();
+    });
+
+    it("prefers isLoading over a stale fetchError from a prior render", () => {
+      renderSection({ isLoading: true, fetchError: forbiddenError() });
+      expect(screen.queryByTestId("alert")).toBeNull();
+      expect(screen.queryByText("+ Collect Deposit")).toBeNull();
+    });
   });
 });

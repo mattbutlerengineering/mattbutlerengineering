@@ -899,6 +899,11 @@ const depositFixtures: Record<string, RouteFixture> = {
       ctx
     );
   }),
+  "GET /api/v1/deposits": brokenEntity(
+    "item-6",
+    "GET",
+    (ctx) => `/api/v1/deposits?reservationId=${ctx.reservationA}`
+  ),
   "GET /api/v1/deposits/:id": brokenEntity(
     "item-6",
     "GET",

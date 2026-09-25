@@ -2531,8 +2531,12 @@
     }
   </file>
   <file path="src/hooks/useDeposits.ts">
+    export const DEPOSITS_QUERY_KEY = "deposits" as const;
+    export function useDepositByReservation(reservationId: string | null | undefined) {
+      return useDepositByReservationQuery({ reservationId });
+    }
     export const useCreateDeposit = createMutationHook<CreateDepositRequest, Deposit>({
-      invalidateKeys: RESERVATIONS_QUERY_KEY,
+      invalidateKeys: [RESERVATIONS_QUERY_KEY, DEPOSITS_QUERY_KEY],
       mutationFn: (api, data) => api.deposits.create(data),
     });
   </file>

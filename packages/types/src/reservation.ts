@@ -21,6 +21,10 @@ export interface Deposit {
   refundedAt: string | null;
   forfeitedAt: string | null;
   uncollectableAt?: string | null;
+  /** Cumulative cents refunded (Stripe's `amount_refunded`) after this
+   * deposit already reached a capture-based terminal status — e.g. a
+   * dashboard-issued refund after our own capture (#5725). */
+  postCaptureRefundCents?: number | null;
   createdAt: string;
   updatedAt: string;
 }

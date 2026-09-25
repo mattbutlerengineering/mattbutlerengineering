@@ -572,5 +572,26 @@ describe("useTimelineData", () => {
       expect(result.current.stats.total).toBe(3);
       expect(result.current.stats.totalCovers).toBe(6); // 4 + 2 (CANCELLED excluded)
     });
+
+    it("keeps a NO_SHOW reservation in the returned list — only excluded from the totalCovers count (#5725 item 1)", async () => {
+      const reservations = [
+        makeReservation({ id: "r1", status: "CONFIRMED", partySize: 4, date: todayStr }),
+        makeReservation({ id: "r2", status: "NO_SHOW", partySize: 2, date: todayStr }),
+      ];
+      mockReservationsList.mockResolvedValue({ data: reservations });
+      mockTablesList.mockResolvedValue({ data: [] });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Still selectable/inspectable — the block does not disappear from the grid.
+      expect(result.current.reservations.map((r) => r.id)).toContain("r2");
+      // Excluded from the "covers expected tonight" count — a no-show party
+      // never sat down, so it shouldn't count toward tonight's covers.
+      expect(result.current.stats.totalCovers).toBe(4);
+    });
   });
 });

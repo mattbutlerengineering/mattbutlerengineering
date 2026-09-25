@@ -337,13 +337,14 @@ client-supplied `venueId`.
 
 ### Deposits (authenticated)
 
-| Method | Path                           | Description                        |
-| ------ | ------------------------------ | ---------------------------------- |
-| POST   | `/api/v1/deposits`             | Create deposit in `pending` state  |
-| GET    | `/api/v1/deposits/:id`         | Get deposit by ID                  |
-| POST   | `/api/v1/deposits/:id/capture` | Apply (capture) a `held` deposit   |
-| POST   | `/api/v1/deposits/:id/refund`  | Refund a `held` deposit            |
-| POST   | `/api/v1/deposits/:id/forfeit` | Forfeit a `held` deposit (no-show) |
+| Method | Path                              | Description                                                             |
+| ------ | --------------------------------- | ----------------------------------------------------------------------- |
+| POST   | `/api/v1/deposits`                | Create deposit in `pending` state                                       |
+| GET    | `/api/v1/deposits?reservationId=` | Operator visibility: look up a reservation's deposit, or `null` if none |
+| GET    | `/api/v1/deposits/:id`            | Get deposit by ID                                                       |
+| POST   | `/api/v1/deposits/:id/capture`    | Apply (capture) a `held` deposit                                        |
+| POST   | `/api/v1/deposits/:id/refund`     | Refund a `held` deposit                                                 |
+| POST   | `/api/v1/deposits/:id/forfeit`    | Forfeit a `held` deposit (no-show)                                      |
 
 ### Stripe Webhook (unauthenticated)
 
@@ -351,7 +352,7 @@ client-supplied `venueId`.
 | ------ | ------------------------ | ------------------------------------------------------ |
 | POST   | `/api/v1/stripe/webhook` | Receive Stripe events; verifies signature via raw body |
 
-Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.amount_capturable_updated` (`pending → held` — the actual event a manual-capture authorization fires; `succeeded` only fires later, on capture), `payment_intent.canceled` (`held → refunded`), `charge.refunded` (`held → refunded`).
+Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.amount_capturable_updated` (`pending → held` — the actual event a manual-capture authorization fires; `succeeded` only fires later, on capture), `payment_intent.canceled` on a `held` deposit branches on Stripe's own `cancellation_reason` — `automatic` (Stripe's ~7-day auto-expiry, nobody decided to cancel) goes to `uncollectable`, unified with the no-show/forfeit capture-failure path's own label for the identical "authorization died before capture" condition; every other reason, including `null`/unset (what our own `cancelPaymentIntent` call sends) and a dashboard cancel, is a deliberate release and goes to `refunded` via the same path a staff-initiated refund uses (#5725 item 3, MEDIUM-3). `charge.refunded` (`held → refunded`; for a deposit already `applied`/`forfeited`/`partial_refunded` — a dashboard-issued refund after our own capture — reconciles `postCaptureRefundCents` against Stripe's `amount_refunded` minus any `refundAmountCents` leg `refundPartial` already issued itself, monotonically, without changing `status`, #5725).
 
 Raw body access is required for HMAC signature verification — this route must be registered before any JSON body parsers.
 
