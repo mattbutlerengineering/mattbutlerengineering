@@ -12,30 +12,30 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 ## Rotation Schedule
 
-| Secret                        | Purpose                                                                                                  | Cadence                 | Next Rotation |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------- | ------------- |
-| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                                                               | Quarterly               | —             |
-| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                                                          | Quarterly               | —             |
-| `DATABASE_URL`                | PostgreSQL connection string (services)                                                                  | Quarterly               | —             |
-| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)                                              | Quarterly               | —             |
-| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)                                              | Quarterly               | —             |
-| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                                                     | Semi-annually           | —             |
-| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                                                                      | Semi-annually           | —             |
-| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)                                                        | Semi-annually           | —             |
-| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                                                                        | Semi-annually           | —             |
-| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)                                                   | Semi-annually           | —             |
-| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                                                               | No rotation needed      | N/A           |
-| `GITHUB_TOKEN`                | GitHub Actions built-in token                                                                            | Auto-rotated by Actions | N/A           |
-| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)                                                      | No rotation needed      | N/A           |
-| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                                                             | No rotation needed      | N/A           |
-| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                                                               | No rotation needed      | N/A           |
-| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                                                                     | No rotation needed      | N/A           |
-| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                                                                     | No rotation needed      | N/A           |
-| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                                                                 | No rotation needed      | N/A           |
-| `TURBO_TOKEN`                 | Turborepo remote cache token                                                                             | Semi-annually           | —             |
-| `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                            | No rotation needed      | N/A           |
-| `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                   | Semi-annually           | —             |
-| `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below) | Semi-annually           | —             |
+| Secret                        | Purpose                                                                                                  | Cadence                         | Next Rotation |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------- |
+| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                                                               | Quarterly                       | —             |
+| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                                                          | Quarterly                       | —             |
+| `DATABASE_URL`                | PostgreSQL connection string (services)                                                                  | Quarterly                       | —             |
+| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)                                              | Quarterly                       | —             |
+| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)                                              | Quarterly                       | —             |
+| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                                                     | Semi-annually                   | —             |
+| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                                                                      | Semi-annually                   | —             |
+| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)                                                        | Semi-annually                   | —             |
+| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                                                                        | Semi-annually                   | —             |
+| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)                                                   | Semi-annually                   | —             |
+| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                                                               | No rotation needed              | N/A           |
+| `GITHUB_TOKEN`                | GitHub Actions built-in token                                                                            | Auto-rotated by Actions         | N/A           |
+| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)                                                      | No rotation needed              | N/A           |
+| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                                                             | No rotation needed              | N/A           |
+| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                                                               | No rotation needed              | N/A           |
+| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                                                                     | No rotation needed              | N/A           |
+| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                                                                     | No rotation needed              | N/A           |
+| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                                                                 | No rotation needed              | N/A           |
+| `TURBO_TOKEN`                 | Turborepo remote cache token                                                                             | Semi-annually                   | —             |
+| `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                            | No rotation needed              | N/A           |
+| `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                   | Semi-annually                   | —             |
+| `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below) | Optional -- unset skips publish | —             |
 
 ## Rotation Runbooks
 
@@ -176,15 +176,23 @@ no longer attributed to `github-actions[bot]`.
 
 ### RIALTO_PACKAGES_TOKEN
 
-**Cadence:** Semi-annually
+**Cadence:** Optional -- unset intentionally skips publish; rotate semi-annually once set.
 
-**Why `GITHUB_TOKEN` doesn't work here:** `@mattbutlerengineering/rialto` was hand-published to
-GitHub Packages in April with no `repository` field set, so npm.pkg.github.com never linked the
-package to this repo. `GITHUB_TOKEN` can only read/write packages GitHub Packages considers
-linked to the repo that's running it, so `release.yml`'s `changeset publish` step 403s against
-an orphaned package with `E403 permission_denied: read_package` (runs 35961368353, attempts
-1-3). A PAT authenticating as a real identity with explicit access to the package sidesteps the
-link requirement entirely.
+**This secret is optional (Matt, refs #3322 follow-up):** nothing outside this monorepo installs
+`@mattbutlerengineering/rialto` -- every consumer (`apps/*`, other `packages/*`) pulls it in via
+`workspace:*`. Publishing to GitHub Packages is not needed for any current consumer, so it's
+opt-in: leave this secret unset and `release.yml` skips the publish step and exits 0, rather than
+failing the whole Release workflow on every push to main.
+
+**Why `GITHUB_TOKEN` doesn't work here, if you do want to publish:** `@mattbutlerengineering/rialto`
+was hand-published to GitHub Packages in April with no `repository` field set, so
+npm.pkg.github.com never linked the package to this repo. `GITHUB_TOKEN` can only read/write
+packages GitHub Packages considers linked to the repo that's running it, so `release.yml`'s
+`changeset publish` step 403s against an orphaned package with `E403 permission_denied:
+read_package` (runs 35961368353, attempts 1-3). A PAT authenticating as a real identity with
+explicit access to the package sidesteps the link requirement entirely.
+
+To resume publishing:
 
 1. Generate a classic PAT (fine-grained PATs cannot scope to GitHub Packages publish as of this
    writing) with the `write:packages` scope only.
@@ -192,11 +200,11 @@ link requirement entirely.
 3. **Verify:** Trigger `release.yml` on a run with nothing to version (so it takes the publish
    path); confirm the "Create Version Packages PR or publish to GitHub Packages" step succeeds
    with no `E403`/`E401`.
-4. Revoke the old token before generating a replacement at next rotation.
+4. Once set, rotate semi-annually: revoke the old token before generating a replacement.
 
-Used by `release.yml`'s `publish-script` (`scripts/release-publish.sh`), which fails loud with
-`::error::RIALTO_PACKAGES_TOKEN secret is not set` before attempting a publish if this secret is
-missing, rather than surfacing a cryptic registry error mid-run.
+Used by `release.yml`'s `publish-script` (`scripts/release-publish.sh`), which emits
+`::notice::RIALTO_PACKAGES_TOKEN is not set -- skipping publish` and exits 0 when this secret is
+missing, rather than failing the run or surfacing a cryptic registry error mid-publish.
 
 ### `packages/gh-client` REST-fallback token precedence
 

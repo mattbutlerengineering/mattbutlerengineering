@@ -29,9 +29,15 @@ const SCRIPT = resolve(ROOT, "scripts/release-publish.sh");
  * `repository` field, so GitHub Packages never linked it to this repo --
  * GITHUB_TOKEN can only read/write packages GitHub Packages considers linked
  * to the repo running it. release.yml sets NODE_AUTH_TOKEN from the
- * RIALTO_PACKAGES_TOKEN secret instead, and this script fails loud (rather
- * than letting npm emit a cryptic E401 mid-publish) when that secret isn't
- * configured.
+ * RIALTO_PACKAGES_TOKEN secret instead.
+ *
+ * Publishing is currently opt-in (refs #3322 follow-up): nothing outside
+ * this monorepo installs @mattbutlerengineering/rialto (every consumer uses
+ * `workspace:*`), so an unset RIALTO_PACKAGES_TOKEN is an intentional
+ * "publishing disabled" state, not a misconfiguration -- the script skips
+ * the publish step and exits 0 rather than red-ing the Release workflow on
+ * every push to main (runs 36054320926, 36053448723, 36051601574,
+ * 36035638679). Setting the secret resumes publishing automatically.
  */
 let dir;
 
@@ -67,13 +73,13 @@ afterEach(() => {
 });
 
 describe("release-publish.sh", () => {
-  it("fails loud with no pnpm call when NODE_AUTH_TOKEN is unset", () => {
+  it("skips publish with no pnpm call when NODE_AUTH_TOKEN is unset", () => {
     writeStub("pnpm", 'echo "$*" >> calls.log\nexit 0');
 
     const { exitCode, output } = runScript({ NODE_AUTH_TOKEN: "" });
 
-    expect(exitCode).not.toBe(0);
-    expect(output).toContain("::error::RIALTO_PACKAGES_TOKEN secret is not set");
+    expect(exitCode).toBe(0);
+    expect(output).toContain("::notice::RIALTO_PACKAGES_TOKEN is not set -- skipping publish");
     expect(existsSync(join(dir, "calls.log"))).toBe(false);
   });
 
