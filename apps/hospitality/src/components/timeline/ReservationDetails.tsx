@@ -64,7 +64,11 @@ export function ReservationDetails({
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
-  const { data: deposit } = useDepositByReservation(reservation.id);
+  const {
+    data: deposit,
+    isLoading: depositLoading,
+    error: depositError,
+  } = useDepositByReservation(reservation.id);
 
   return (
     <Stack gap="lg" className={styles.detailsStack}>
@@ -171,7 +175,12 @@ export function ReservationDetails({
         </div>
       )}
 
-      <StaffDepositSection reservationId={reservation.id} existingDeposit={deposit ?? null} />
+      <StaffDepositSection
+        reservationId={reservation.id}
+        existingDeposit={deposit ?? null}
+        isLoading={depositLoading}
+        fetchError={depositError}
+      />
 
       {failure && (
         <ErrorRetryBanner title="Guest not seated." error={failure.detail} details={failure.raw} />

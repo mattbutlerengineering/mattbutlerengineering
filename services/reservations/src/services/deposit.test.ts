@@ -704,13 +704,14 @@ describe("DepositService", () => {
   });
 
   describe("recordPostCaptureRefund (#5725 item 2)", () => {
-    it("persists Stripe's cumulative amount_refunded without changing status", async () => {
+    it("persists Stripe's cumulative amount_refunded for a forfeited deposit without changing status", async () => {
       const forfeitedDeposit = makeDeposit({
         status: "forfeited",
         forfeitedAt: new Date(),
         stripePaymentIntentId: "pi_test_123",
       });
-      mockDepositDb.update.mockResolvedValueOnce(undefined);
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce({
         ...forfeitedDeposit,
         postCaptureRefundCents: 2500,
@@ -718,27 +719,80 @@ describe("DepositService", () => {
 
       const result = await depositService.recordPostCaptureRefund("dep-123", 2500);
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith({
-        where: { id: "dep-123" },
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "dep-123",
+          OR: [{ postCaptureRefundCents: null }, { postCaptureRefundCents: { lt: 2500 } }],
+        },
         data: { postCaptureRefundCents: 2500 },
       });
       expect(result.status).toBe("forfeited");
       expect(result.postCaptureRefundCents).toBe(2500);
     });
 
-    it("overwrites a prior value on a later, larger cumulative amount (idempotent under retries)", async () => {
-      mockDepositDb.update.mockResolvedValueOnce(undefined);
-      mockDepositDb.findUnique.mockResolvedValueOnce(
-        makeDeposit({ status: "partial_refunded", postCaptureRefundCents: 5000 })
-      );
-
-      const result = await depositService.recordPostCaptureRefund("dep-123", 5000);
-
-      expect(mockDepositDb.update).toHaveBeenCalledWith({
-        where: { id: "dep-123" },
-        data: { postCaptureRefundCents: 5000 },
+    // #5725 HIGH-1: refundPartial's OWN Stripe refund of refundAmountCents
+    // fires this exact charge.refunded webhook, so amount_refunded already
+    // includes money WE sent back — only the amount ABOVE our own leg is a
+    // genuine post-capture (dashboard) refund.
+    it("subtracts our own refundPartial leg for a partial_refunded deposit — equal amounts record nothing", async () => {
+      const partiallyRefunded = makeDeposit({
+        status: "partial_refunded",
+        refundAmountCents: 2000,
       });
-      expect(result.postCaptureRefundCents).toBe(5000);
+      mockDepositDb.findUnique.mockResolvedValueOnce(partiallyRefunded);
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 2000);
+
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+      expect(result.postCaptureRefundCents).toBe(partiallyRefunded.postCaptureRefundCents);
+    });
+
+    it("records only the amount beyond our own refundPartial leg", async () => {
+      const partiallyRefunded = makeDeposit({
+        status: "partial_refunded",
+        refundAmountCents: 2000,
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partiallyRefunded);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...partiallyRefunded,
+        postCaptureRefundCents: 1000,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 3000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { postCaptureRefundCents: 1000 } })
+      );
+      expect(result.postCaptureRefundCents).toBe(1000);
+    });
+
+    // #5725 MEDIUM-2: Stripe webhooks can be redelivered or arrive out of
+    // order — a smaller/earlier cumulative amount must never regress an
+    // already-recorded larger one.
+    it("is monotonic — a smaller, later delivery does not regress an already-recorded larger amount", async () => {
+      const forfeitedDeposit = makeDeposit({ status: "forfeited" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
+      // The DB-level guard (postCaptureRefundCents is null OR lt new value)
+      // is what actually prevents the regression; simulate it losing the
+      // race here by returning count: 0.
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...forfeitedDeposit,
+        postCaptureRefundCents: 2500,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 1000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "dep-123",
+          OR: [{ postCaptureRefundCents: null }, { postCaptureRefundCents: { lt: 1000 } }],
+        },
+        data: { postCaptureRefundCents: 1000 },
+      });
+      // The stale write never landed — the row still reads the earlier, larger value.
+      expect(result.postCaptureRefundCents).toBe(2500);
     });
   });
 

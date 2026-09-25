@@ -24339,18 +24339,26 @@
     
       if (!deposit) return;
     
-      // If pending, can't directly transition (no transition pending → uncollectable).
-      // If held, this webhook firing means STRIPE (not us) canceled the intent —
-      // our own refund() is DB-first, so an app-initiated cancel would already
-      // have moved the row off `held` before this webhook is processed. That
-      // leaves one case: the ~7-day authorization auto-expired (or a dashboard
-      // cancel) before any capture was attempted — the same "authorization died
-      // before we could act" condition the no-show/forfeit capture-failure path
-      // already lands on `uncollectable` for. Unify on that label rather than
-      // `refunded`, which wrongly implies an active refund decision (#5725 item
-      // 3). No Stripe call is made either way — the intent is already canceled.
-      if (deposit.status === "held") {
+      // If pending, can't directly transition (no transition pending → uncollectable/refunded).
+      if (deposit.status !== "held") return;
+    
+      // Stripe's `cancellation_reason` is the only reliable signal for WHY this
+      // intent was canceled — "automatic" means Stripe itself expired the
+      // authorization (the ~7-day uncaptured-hold timeout) with nobody deciding
+      // anything, which is the same "authorization died before we could act"
+      // condition the no-show/forfeit capture-failure path already lands on
+      // `uncollectable` for. Every other reason — null/unset (what OUR OWN
+      // cancelPaymentIntent call sends, so this covers our own refund() when its
+      // Stripe call errors ambiguously after actually canceling), a dashboard
+      // cancel (`requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`)
+      // — is a deliberate release, not a dead authorization, and must be labeled
+      // `refunded` via the same path a staff-initiated refund uses (#5725
+      // MEDIUM-3; unifying the `automatic` case onto `uncollectable` is item 3).
+      // No Stripe call is made either way — the intent is already canceled.
+      if (paymentIntent.cancellation_reason === "automatic") {
         await depositService.expireAuthorization(deposit.id);
+      } else {
+        await depositService.refund(deposit.id, { skipStripeCancel: true });
       }
     }
     async function onChargeRefunded(event: Stripe.Event): Promise<void> {
@@ -31552,19 +31560,46 @@
        * Reconciles a `charge.refunded` webhook against a deposit that already
        * reached a capture-based terminal status (`applied`/`forfeited`/
        * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
-       * after our own capture. Persists Stripe's own cumulative `amount_refunded`
-       * on the charge directly — never derives it — so a retried or duplicate
-       * webhook delivery naturally overwrites with the same (or a larger,
-       * still-accurate) cumulative value rather than double-counting (#5725 item 2).
-       * Deliberately does not move `status`: this is a reconciliation annotation on
-       * an already-terminal state, not a new transition for the state machine to
-       * reason about.
+       * after our own capture. Deliberately does not move `status`: this is a
+       * reconciliation annotation on an already-terminal state, not a new
+       * transition for the state machine to reason about.
+       *
+       * `amountRefundedCents` is Stripe's own cumulative `amount_refunded` on the
+       * charge — it is NOT necessarily all "post-capture" money. `refundPartial`
+       * issues its OWN Stripe refund of `refundAmountCents` as part of the SAME
+       * `held` → `partial_refunded` transition, and that refund fires this exact
+       * `charge.refunded` webhook — so for a `partial_refunded` deposit, the
+       * cumulative amount already includes what WE sent back. Subtracting our own
+       * leg first means only a refund issued ON TOP of it (e.g. a further
+       * dashboard refund) is ever recorded as post-capture; an amount at or below
+       * our own leg records nothing (#5725 HIGH-1).
+       *
+       * The write is also monotonic: Stripe webhooks can be redelivered or arrive
+       * out of order, so a smaller/earlier cumulative amount must never regress an
+       * already-recorded larger one (#5725 MEDIUM-2).
        */
       async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
-        await prisma.deposit.update({
-          where: { id: depositId },
-          data: { postCaptureRefundCents: amountRefundedCents },
+        const deposit = await this._requireDeposit(depositId);
+    
+        const ownRefundCents =
+          deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+        const postCaptureCents = amountRefundedCents - ownRefundCents;
+    
+        if (postCaptureCents <= 0) {
+          return deposit;
+        }
+    
+        await prisma.deposit.updateMany({
+          where: {
+            id: depositId,
+            OR: [
+              { postCaptureRefundCents: null },
+              { postCaptureRefundCents: { lt: postCaptureCents } },
+            ],
+          },
+          data: { postCaptureRefundCents: postCaptureCents },
         });
+    
         return this._requireDeposit(depositId);
       }
     

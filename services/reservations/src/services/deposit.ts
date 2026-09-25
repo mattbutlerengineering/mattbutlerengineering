@@ -351,19 +351,46 @@ export class DepositService {
    * Reconciles a `charge.refunded` webhook against a deposit that already
    * reached a capture-based terminal status (`applied`/`forfeited`/
    * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
-   * after our own capture. Persists Stripe's own cumulative `amount_refunded`
-   * on the charge directly — never derives it — so a retried or duplicate
-   * webhook delivery naturally overwrites with the same (or a larger,
-   * still-accurate) cumulative value rather than double-counting (#5725 item 2).
-   * Deliberately does not move `status`: this is a reconciliation annotation on
-   * an already-terminal state, not a new transition for the state machine to
-   * reason about.
+   * after our own capture. Deliberately does not move `status`: this is a
+   * reconciliation annotation on an already-terminal state, not a new
+   * transition for the state machine to reason about.
+   *
+   * `amountRefundedCents` is Stripe's own cumulative `amount_refunded` on the
+   * charge — it is NOT necessarily all "post-capture" money. `refundPartial`
+   * issues its OWN Stripe refund of `refundAmountCents` as part of the SAME
+   * `held` → `partial_refunded` transition, and that refund fires this exact
+   * `charge.refunded` webhook — so for a `partial_refunded` deposit, the
+   * cumulative amount already includes what WE sent back. Subtracting our own
+   * leg first means only a refund issued ON TOP of it (e.g. a further
+   * dashboard refund) is ever recorded as post-capture; an amount at or below
+   * our own leg records nothing (#5725 HIGH-1).
+   *
+   * The write is also monotonic: Stripe webhooks can be redelivered or arrive
+   * out of order, so a smaller/earlier cumulative amount must never regress an
+   * already-recorded larger one (#5725 MEDIUM-2).
    */
   async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
-    await prisma.deposit.update({
-      where: { id: depositId },
-      data: { postCaptureRefundCents: amountRefundedCents },
+    const deposit = await this._requireDeposit(depositId);
+
+    const ownRefundCents =
+      deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+    const postCaptureCents = amountRefundedCents - ownRefundCents;
+
+    if (postCaptureCents <= 0) {
+      return deposit;
+    }
+
+    await prisma.deposit.updateMany({
+      where: {
+        id: depositId,
+        OR: [
+          { postCaptureRefundCents: null },
+          { postCaptureRefundCents: { lt: postCaptureCents } },
+        ],
+      },
+      data: { postCaptureRefundCents: postCaptureCents },
     });
+
     return this._requireDeposit(depositId);
   }
 

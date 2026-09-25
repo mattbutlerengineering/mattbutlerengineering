@@ -31,6 +31,18 @@ vi.mock("../hooks/useReservations.js", () => ({
   RESERVATIONS_QUERY_KEY: "reservations",
 }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn(), TABLES_QUERY_KEY: "tables" }));
+// ReservationDetails/ReservationSheet are stubbed via the "../components/timeline" barrel mock
+// below for most consumers, but TimelinePage imports the real ReservationDetails directly
+// (bypassing that barrel) — so its real useDepositByReservation call runs for real here too.
+// Without this mock the deposit lookup would call the mocked (undefined) useApiClient and throw,
+// surfacing as an unrelated page-level "Can't reach the reservations service" alert (#5725 LOW-4
+// made the deposit lookup's own errors visible for the first time — this test suite isn't testing
+// deposits, so it stays out of the lookup's error path with a benign default).
+vi.mock("../hooks/useDeposits.js", () => ({
+  useDepositByReservation: vi.fn().mockReturnValue({ data: null, isLoading: false, error: null }),
+  useCreateDeposit: vi.fn().mockReturnValue({ isPending: false, mutateAsync: vi.fn() }),
+  DEPOSITS_QUERY_KEY: "deposits",
+}));
 
 vi.mock("../components/PageHeader", () => ({
   // tabIndex={-1} like the real one: useFocusAfter's pageHeading target lands here after Retry.

@@ -62,7 +62,11 @@ export function ReservationSheet({
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
   const { data: guest } = useGuest(reservation.guestId);
-  const { data: deposit } = useDepositByReservation(reservation.id);
+  const {
+    data: deposit,
+    isLoading: depositLoading,
+    error: depositError,
+  } = useDepositByReservation(reservation.id);
 
   const segmentLabel = guest ? getSegmentLabel(guest.visitCount, guest.tags) : null;
   const allergies = (guest?.dietaryRestrictions ?? []).filter(isAllergyTag);
@@ -210,7 +214,12 @@ export function ReservationSheet({
                 </Text>
               </div>
             )}
-            <StaffDepositSection reservationId={reservation.id} existingDeposit={deposit ?? null} />
+            <StaffDepositSection
+              reservationId={reservation.id}
+              existingDeposit={deposit ?? null}
+              isLoading={depositLoading}
+              fetchError={depositError}
+            />
           </Stack>
         )}
       </Stack>

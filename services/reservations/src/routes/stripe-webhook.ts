@@ -80,18 +80,26 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
 
   if (!deposit) return;
 
-  // If pending, can't directly transition (no transition pending → uncollectable).
-  // If held, this webhook firing means STRIPE (not us) canceled the intent —
-  // our own refund() is DB-first, so an app-initiated cancel would already
-  // have moved the row off `held` before this webhook is processed. That
-  // leaves one case: the ~7-day authorization auto-expired (or a dashboard
-  // cancel) before any capture was attempted — the same "authorization died
-  // before we could act" condition the no-show/forfeit capture-failure path
-  // already lands on `uncollectable` for. Unify on that label rather than
-  // `refunded`, which wrongly implies an active refund decision (#5725 item
-  // 3). No Stripe call is made either way — the intent is already canceled.
-  if (deposit.status === "held") {
+  // If pending, can't directly transition (no transition pending → uncollectable/refunded).
+  if (deposit.status !== "held") return;
+
+  // Stripe's `cancellation_reason` is the only reliable signal for WHY this
+  // intent was canceled — "automatic" means Stripe itself expired the
+  // authorization (the ~7-day uncaptured-hold timeout) with nobody deciding
+  // anything, which is the same "authorization died before we could act"
+  // condition the no-show/forfeit capture-failure path already lands on
+  // `uncollectable` for. Every other reason — null/unset (what OUR OWN
+  // cancelPaymentIntent call sends, so this covers our own refund() when its
+  // Stripe call errors ambiguously after actually canceling), a dashboard
+  // cancel (`requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`)
+  // — is a deliberate release, not a dead authorization, and must be labeled
+  // `refunded` via the same path a staff-initiated refund uses (#5725
+  // MEDIUM-3; unifying the `automatic` case onto `uncollectable` is item 3).
+  // No Stripe call is made either way — the intent is already canceled.
+  if (paymentIntent.cancellation_reason === "automatic") {
     await depositService.expireAuthorization(deposit.id);
+  } else {
+    await depositService.refund(deposit.id, { skipStripeCancel: true });
   }
 }
 
