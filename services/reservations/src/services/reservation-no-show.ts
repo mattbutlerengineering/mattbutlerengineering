@@ -274,7 +274,7 @@ async function forfeitHeldDeposit(
   const action = await resolveNoShowDepositAction(deposit, reservation);
   try {
     if (action.op === "forfeit") {
-      await depositService.forfeit(depositId);
+      await depositService.forfeit(depositId, "no_show");
       return { outcome: "resolved" };
     } else if (action.op === "refund_partial") {
       await depositService.refundPartial(depositId, action.refundAmountCents);
@@ -477,12 +477,18 @@ export async function recordNoShow(
     // Recapture is only ever safe when this retry IS the operation that
     // produced the status — a no-show retry replaying its own forfeit key.
     // `applied` is only ever set by the separate staff capture route, never
-    // by a no-show (#5722 R5 MED-1).
+    // by a no-show (#5722 R5 MED-1). `forfeited` alone isn't proof enough: a
+    // guest late-cancel forfeit or the staff manual forfeit route can ALSO
+    // land here, so require the persisted origin to actually say "no_show"
+    // before trusting this is the SAME operation retrying itself (#5744
+    // LOW-A) — otherwise a no-show could recapture the full deposit even
+    // when its own policy calls for a lower (or zero) fee.
+    const allowRecapture = isForfeited && deposit.forfeitOrigin === "no_show";
     const verification = await depositService.verifyCaptureCompleted(
       deposit.id,
       deposit.status,
       timestampField,
-      isForfeited
+      allowRecapture
     );
     if (verification === "failed") {
       logger.error(

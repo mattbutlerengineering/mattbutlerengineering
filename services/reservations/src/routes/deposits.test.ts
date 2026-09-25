@@ -111,6 +111,7 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    forfeitOrigin: null,
     uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,

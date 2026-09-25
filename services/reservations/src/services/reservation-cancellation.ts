@@ -7,6 +7,8 @@ import {
   depositService,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
+  DepositConcurrentUpdateError,
+  DepositTransitionError,
 } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
@@ -116,6 +118,33 @@ const DEPOSIT_CONCURRENT_RETRY_RESULT: CancelReservationResult = {
 };
 
 /**
+ * Maps a `resolveHeldDeposit` Stripe-call failure to the result it should
+ * surface. A lost deposit-level CAS/state-machine race
+ * (`DepositConcurrentUpdateError`/`DepositTransitionError`) means this
+ * invocation never touched Stripe — the winning concurrent request is still
+ * working and owns reconciliation — so it is an ordinary in-progress
+ * conflict, not a permanent failure; logging it at `error` alongside a real
+ * Stripe/DB failure previously mapped it to a 500 (#5744 LOW-B).
+ */
+function classifyDepositFailure(
+  err: unknown,
+  reservation: Reservation,
+  depositId: string,
+  logger: FastifyBaseLogger,
+  message: string
+): CancelReservationResult {
+  if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
+    logger.warn(
+      { err, reservationId: reservation.id, depositId },
+      "Lost the deposit-transition race on cancellation; the winning request owns reconciliation"
+    );
+    return DEPOSIT_CONCURRENT_RETRY_RESULT;
+  }
+  logger.error({ err, reservationId: reservation.id, depositId }, message);
+  return DEPOSIT_FAILURE_RESULT;
+}
+
+/**
  * Resolves a `held` deposit against the cancellation policy — staff cancels
  * waive fees and refund in full, guest cancels evaluate the venue's
  * cancellation-fee policy against the current clock. Factored out of
@@ -135,11 +164,16 @@ async function resolveHeldDeposit(
     try {
       await depositService.refund(deposit.id);
     } catch (err) {
-      logger.error(
-        { err, reservationId: reservation.id, depositId: deposit.id },
-        "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
-      );
-      return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+      return {
+        ok: false,
+        failure: classifyDepositFailure(
+          err,
+          reservation,
+          deposit.id,
+          logger,
+          "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
+        ),
+      };
     }
     return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund" } };
   }
@@ -166,7 +200,7 @@ async function resolveHeldDeposit(
       await depositService.refund(deposit.id);
       stripeOp = "refund";
     } else if (feeResult.depositAction === "forfeit") {
-      await depositService.forfeit(deposit.id);
+      await depositService.forfeit(deposit.id, "cancellation");
       stripeOp = "forfeit";
     } else {
       // refund_partial: capture then partially refund (also covers a partial
@@ -175,11 +209,16 @@ async function resolveHeldDeposit(
       stripeOp = "refund_partial";
     }
   } catch (err) {
-    logger.error(
-      { err, reservationId: reservation.id, depositId: deposit.id },
-      "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
-    );
-    return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+    return {
+      ok: false,
+      failure: classifyDepositFailure(
+        err,
+        reservation,
+        deposit.id,
+        logger,
+        "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
+      ),
+    };
   }
 
   return { ok: true, resolved: { depositId: deposit.id, stripeOp } };

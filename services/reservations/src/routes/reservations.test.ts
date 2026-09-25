@@ -964,7 +964,7 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
         expect(body.data.status).toBe("NO_SHOW");
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "no_show");
         // Deposit forfeiture resolves BEFORE the status flip.
         expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
       });
@@ -1807,7 +1807,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "cancellation");
         expect(depositService.refund).not.toHaveBeenCalled();
       });
 
@@ -1862,7 +1862,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "cancellation");
         expect(depositService.refund).not.toHaveBeenCalled();
       });
 

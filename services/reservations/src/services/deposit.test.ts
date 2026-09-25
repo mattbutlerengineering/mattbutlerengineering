@@ -58,6 +58,9 @@ function makeVenueDepositConfig(overrides: Partial<VenueDepositConfig> = {}): Ve
   };
 }
 
+/** Well past `verifyCaptureCompleted`'s 5-minute rollback safety window (#5744 MEDIUM-A). */
+const BEYOND_ROLLBACK_SAFETY_WINDOW = new Date(Date.now() - 10 * 60 * 1000);
+
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
   return {
     id: "dep-123",
@@ -71,6 +74,7 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    forfeitOrigin: null,
     uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,
@@ -669,7 +673,7 @@ describe("DepositService", () => {
         status: "succeeded",
       });
 
-      const result = await depositService.forfeit("dep-123");
+      const result = await depositService.forfeit("dep-123", "no_show");
 
       expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -683,11 +687,32 @@ describe("DepositService", () => {
       expect(result.status).toBe("forfeited");
     });
 
+    it("persists the caller-supplied origin so a later retry can gate recapture on it (#5744 LOW-A)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", forfeitOrigin: "cancellation" })
+      );
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await depositService.forfeit("dep-123", "cancellation");
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ forfeitOrigin: "cancellation" }),
+        })
+      );
+    });
+
     it("throws if deposit not in held state", async () => {
       const appliedDeposit = makeDeposit({ status: "applied" });
       mockDepositDb.findUnique.mockResolvedValueOnce(appliedDeposit);
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(
         /invalid.*transition|cannot transition/i
       );
     });
@@ -697,7 +722,7 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
       expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
@@ -713,7 +738,7 @@ describe("DepositService", () => {
         status: "succeeded",
       });
 
-      await depositService.forfeit("dep-123");
+      await depositService.forfeit("dep-123", "no_show");
 
       expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
         "pi_test_123",
@@ -737,7 +762,7 @@ describe("DepositService", () => {
         status: "requires_capture",
       });
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(/stripe boom/);
 
       expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
       expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
@@ -762,7 +787,7 @@ describe("DepositService", () => {
         status: "succeeded",
       });
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(/timeout/);
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(/timeout/);
 
       // Only the initial CAS write happened — no rollback.
       expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
@@ -1358,7 +1383,11 @@ describe("DepositService", () => {
       // NEVER re-capture the full deposit against a policy this retry isn't
       // itself evaluating.
       mockDepositDb.findUnique.mockResolvedValueOnce(
-        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
       );
       mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
         id: "pi_test_123",
@@ -1388,7 +1417,11 @@ describe("DepositService", () => {
       // route — a no-show or cancel retry landing on it is, by construction,
       // a DIFFERENT operation than whatever produced this status.
       mockDepositDb.findUnique.mockResolvedValueOnce(
-        makeDeposit({ status: "applied", stripePaymentIntentId: "pi_test_123" })
+        makeDeposit({
+          status: "applied",
+          stripePaymentIntentId: "pi_test_123",
+          appliedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
       );
       mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
         id: "pi_test_123",
@@ -1411,6 +1444,98 @@ describe("DepositService", () => {
           data: expect.objectContaining({ status: "held", appliedAt: null }),
         })
       );
+    });
+
+    it("does NOT roll back within the safety window — a requires_capture read alone doesn't prove the in-flight capture is finished (#5744 MEDIUM-A)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: new Date(), // just now — well within the 5 min window
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("failed");
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("fails closed instead of rolling back when the capture timestamp is missing — cannot prove the attempt is old enough (#5744 MEDIUM-A)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: null,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("failed");
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("reports failed (not rolled-back-to-held) when the rollback CAS write matches zero rows — a concurrent transition already moved the row (#5744 LOW-C)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("failed");
+    });
+
+    it("reports failed (not uncollectable) when the write-off CAS write matches zero rows — a concurrent transition already moved the row (#5744 LOW-C)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("failed");
     });
 
     it("fails closed when the re-capture attempt itself throws", async () => {

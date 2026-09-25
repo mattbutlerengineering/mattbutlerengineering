@@ -20784,7 +20784,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.forfeit(id))
+        depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
       );
     };
   </file>
@@ -31201,8 +31201,12 @@
       | "retrievePaymentIntent"
       | "findDepositRefund"
     >;
+    export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
     export interface DepositServiceLogger {
       error(details: object, msg: string): void;
+    }
+    function isOldEnoughToRollBack(capturedAt: Date | null): boolean {
+      return capturedAt != null && Date.now() - capturedAt.getTime() >= ROLLBACK_SAFETY_WINDOW_MS;
     }
     export function setDepositServiceLogger(next: DepositServiceLogger): void {
       logger = next;
@@ -31660,7 +31664,15 @@
        *    itself evaluating actually called for (#5722 R5 MED-1, re-opens the
        *    #5719 item-6 partial-fee guarantee if violated). CAS-roll the row back
        *    to `held` instead, so the caller can re-derive the correct action from
-       *    a clean slate.
+       *    a clean slate — but only once the row's capture timestamp is older
+       *    than {@link ROLLBACK_SAFETY_WINDOW_MS}: a `requires_capture` read on
+       *    its own doesn't prove the original attempt is finished, so a rollback
+       *    that fires too early risks racing an in-flight capture that lands
+       *    moments later on top of a retry's own action (#5744 MEDIUM-A). It is
+       *    the caller's responsibility to only ever pass `allowRecapture: true`
+       *    when it has independently proven this retry is the SAME operation
+       *    that produced `forfeited` — e.g. by checking a persisted forfeit
+       *    origin (#5744 LOW-A) — not merely that the status happens to match.
        *  - anything else (a non-terminal status, the re-capture itself throwing,
        *    or the verification retrieve itself throwing) is never guessed at —
        *    fails closed so the caller aborts rather than reporting a completion
@@ -31692,8 +31704,10 @@
         }
     
         if (intent.status === "canceled") {
-          await this._writeOffUncollectable(depositId, fromStatus, timestampField).catch(() => {});
-          return "uncollectable";
+          const count = await this._writeOffUncollectable(depositId, fromStatus, timestampField).catch(
+            () => 0
+          );
+          return count > 0 ? "uncollectable" : "failed";
         }
     
         if (intent.status === "requires_capture") {
@@ -31708,8 +31722,18 @@
               return "failed";
             }
           }
-          await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(() => {});
-          return "rolled-back-to-held";
+    
+          // A `requires_capture` read alone doesn't prove the capture attempt
+          // that produced `fromStatus` has actually finished — never roll back
+          // while it might still be in flight (#5744 MEDIUM-A).
+          if (!isOldEnoughToRollBack(deposit[timestampField])) {
+            return "failed";
+          }
+    
+          const count = await this._rollbackToHeld(depositId, fromStatus, timestampField).catch(
+            () => 0
+          );
+          return count > 0 ? "rolled-back-to-held" : "failed";
         }
     
         return "failed";
@@ -31721,22 +31745,31 @@
        *
        * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
        * capture fails after the DB write.
+       *
+       * `origin` records which flow produced the forfeit — a no-show forfeit, a
+       * guest late-cancel forfeit, or the staff manual `/deposits/:id/forfeit`
+       * route all call this same method. It is persisted so a later no-show retry
+       * can require its own origin before treating a `forfeited` row as safe to
+       * recapture at its full amount (#5744 LOW-A) — see
+       * {@link verifyCaptureCompleted}'s doc comment.
        */
-      async forfeit(depositId: string): Promise<Deposit> {
-        return this._captureAndTransition(depositId, "forfeited", "forfeitedAt", "forfeit");
+      async forfeit(depositId: string, origin: DepositForfeitOrigin): Promise<Deposit> {
+        return this._captureAndTransition(depositId, "forfeited", "forfeitedAt", "forfeit", origin);
       }
     
       /**
        * Shared DB-first capture flow for the two capture-based transitions
        * (`apply` and `forfeit`). Updates the DB status first, then captures the
        * Stripe PaymentIntent with an idempotency key, rolling the DB back to `held`
-       * if Stripe fails after the write.
+       * if Stripe fails after the write. `forfeitOrigin` is only ever relevant to
+       * the `forfeited` target status; `apply()` never passes it.
        */
       private async _captureAndTransition(
         depositId: string,
         targetStatus: "applied" | "forfeited",
         timestampField: "appliedAt" | "forfeitedAt",
-        action: string
+        action: string,
+        forfeitOrigin?: DepositForfeitOrigin
       ): Promise<Deposit> {
         const deposit = await this._requireDeposit(depositId);
         transitionDeposit(deposit.status, targetStatus); // throws if invalid
@@ -31745,7 +31778,11 @@
         // status. count === 0 means another concurrent transition won the race.
         const { count } = await prisma.deposit.updateMany({
           where: { id: depositId, status: deposit.status },
-          data: { status: targetStatus, [timestampField]: new Date() },
+          data: {
+            status: targetStatus,
+            [timestampField]: new Date(),
+            ...(forfeitOrigin ? { forfeitOrigin } : {}),
+          },
         });
     
         if (count === 0) {
@@ -31874,18 +31911,21 @@
        *
        * Compare-and-swap on `fromStatus`: only writes if the row is still at the
        * status this reconciliation observed. A concurrent write beating this one
-       * (count === 0) is logged rather than thrown — the caller always swallows
-       * this promise's rejection (`.catch(() => {})`), so throwing here would be
-       * silently discarded anyway (#5722 M1). `feeAmountCents`/`refundAmountCents`
-       * are only ever set by `refundPartial`, so they're cleared here too when
-       * writing off a `partial_refunded` row — otherwise they'd stay stale on a
-       * deposit that never ends up charging or refunding anything (#5722 LOW).
+       * (count === 0) is logged, and the CAS count is returned rather than
+       * swallowed — most callers still discard it via `.catch(() => 0)` (a
+       * failure here is not itself fatal to whatever the caller was already
+       * doing), but {@link verifyCaptureCompleted} uses the count to avoid
+       * reporting `uncollectable` when nothing was actually written (#5744
+       * LOW-C). `feeAmountCents`/`refundAmountCents` are only ever set by
+       * `refundPartial`, so they're cleared here too when writing off a
+       * `partial_refunded` row — otherwise they'd stay stale on a deposit that
+       * never ends up charging or refunding anything (#5722 LOW).
        */
       private async _writeOffUncollectable(
         depositId: string,
         fromStatus: "applied" | "forfeited" | "partial_refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
-      ): Promise<void> {
+      ): Promise<number> {
         const { count } = await prisma.deposit.updateMany({
           where: { id: depositId, status: fromStatus },
           data: {
@@ -31904,6 +31944,7 @@
             "Deposit write-off to uncollectable lost a concurrent-update race; row was not at the expected status"
           );
         }
+        return count;
       }
     
       /**
@@ -31919,7 +31960,7 @@
         depositId: string,
         fromStatus: "applied" | "forfeited" | "partial_refunded" | "refunded",
         timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
-      ): Promise<void> {
+      ): Promise<number> {
         const { count } = await prisma.deposit.updateMany({
           where: { id: depositId, status: fromStatus },
           data: {
@@ -31937,6 +31978,7 @@
             "Deposit rollback to held lost a concurrent-update race; row was not at the expected status"
           );
         }
+        return count;
       }
     
       /**
@@ -33949,6 +33991,23 @@
     type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
     type ResolveDepositOutcome =
       { ok: false; failure: CancelReservationResult } | { ok: true; resolved: ResolvedDeposit | null };
+    function classifyDepositFailure(
+      err: unknown,
+      reservation: Reservation,
+      depositId: string,
+      logger: FastifyBaseLogger,
+      message: string
+    ): CancelReservationResult {
+      if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
+        logger.warn(
+          { err, reservationId: reservation.id, depositId },
+          "Lost the deposit-transition race on cancellation; the winning request owns reconciliation"
+        );
+        return DEPOSIT_CONCURRENT_RETRY_RESULT;
+      }
+      logger.error({ err, reservationId: reservation.id, depositId }, message);
+      return DEPOSIT_FAILURE_RESULT;
+    }
     async function resolveHeldDeposit(
       deposit: Deposit,
       reservation: Reservation,
@@ -33961,11 +34020,16 @@
         try {
           await depositService.refund(deposit.id);
         } catch (err) {
-          logger.error(
-            { err, reservationId: reservation.id, depositId: deposit.id },
-            "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
-          );
-          return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+          return {
+            ok: false,
+            failure: classifyDepositFailure(
+              err,
+              reservation,
+              deposit.id,
+              logger,
+              "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
+            ),
+          };
         }
         return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund" } };
       }
@@ -33992,7 +34056,7 @@
           await depositService.refund(deposit.id);
           stripeOp = "refund";
         } else if (feeResult.depositAction === "forfeit") {
-          await depositService.forfeit(deposit.id);
+          await depositService.forfeit(deposit.id, "cancellation");
           stripeOp = "forfeit";
         } else {
           // refund_partial: capture then partially refund (also covers a partial
@@ -34001,11 +34065,16 @@
           stripeOp = "refund_partial";
         }
       } catch (err) {
-        logger.error(
-          { err, reservationId: reservation.id, depositId: deposit.id },
-          "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
-        );
-        return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+        return {
+          ok: false,
+          failure: classifyDepositFailure(
+            err,
+            reservation,
+            deposit.id,
+            logger,
+            "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
+          ),
+        };
       }
     
       return { ok: true, resolved: { depositId: deposit.id, stripeOp } };
@@ -34472,7 +34541,7 @@
       const action = await resolveNoShowDepositAction(deposit, reservation);
       try {
         if (action.op === "forfeit") {
-          await depositService.forfeit(depositId);
+          await depositService.forfeit(depositId, "no_show");
           return { outcome: "resolved" };
         } else if (action.op === "refund_partial") {
           await depositService.refundPartial(depositId, action.refundAmountCents);
@@ -34650,12 +34719,18 @@
         // Recapture is only ever safe when this retry IS the operation that
         // produced the status — a no-show retry replaying its own forfeit key.
         // `applied` is only ever set by the separate staff capture route, never
-        // by a no-show (#5722 R5 MED-1).
+        // by a no-show (#5722 R5 MED-1). `forfeited` alone isn't proof enough: a
+        // guest late-cancel forfeit or the staff manual forfeit route can ALSO
+        // land here, so require the persisted origin to actually say "no_show"
+        // before trusting this is the SAME operation retrying itself (#5744
+        // LOW-A) — otherwise a no-show could recapture the full deposit even
+        // when its own policy calls for a lower (or zero) fee.
+        const allowRecapture = isForfeited && deposit.forfeitOrigin === "no_show";
         const verification = await depositService.verifyCaptureCompleted(
           deposit.id,
           deposit.status,
           timestampField,
-          isForfeited
+          allowRecapture
         );
         if (verification === "failed") {
           logger.error(

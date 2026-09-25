@@ -24,6 +24,8 @@ vi.mock("./deposit.js", async () => {
   return {
     DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
     DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
+    DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
+    DepositTransitionError: actual.DepositTransitionError,
     depositService: {
       getByReservationId: vi.fn(),
       getById: vi.fn(),
@@ -42,6 +44,7 @@ import {
   depositService,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
+  DepositConcurrentUpdateError,
 } from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
@@ -141,7 +144,7 @@ describe("cancelReservationWithDeposit", () => {
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
     expect(result.success).toBe(true);
-    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
     expect(depositService.refund).not.toHaveBeenCalled();
     expect(depositService.refundPartial).not.toHaveBeenCalled();
   });
@@ -470,6 +473,27 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("returns a harmless 409 (not the 500 failure result) when this invocation loses the deposit-transition race inside resolveHeldDeposit (#5744 LOW-B)", async () => {
+    // Two concurrent cancels of the SAME held deposit: the winner's refund
+    // already ran, so this invocation's own refund call loses the deposit's
+    // own CAS/state-machine guard. It never touched Stripe — this is an
+    // ordinary in-progress conflict, not a permanent failure.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
+    vi.mocked(depositService.refund).mockRejectedValueOnce(
+      new DepositConcurrentUpdateError("dep_1", "refund")
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
   it("returns a 409 failure BEFORE touching the deposit when the reservation cannot transition to CANCELLED (stranded-deposit guard, #2930)", async () => {
     // Reproduces the prod bug: a staff cancel of an already-CANCELLED
     // reservation that (in prod) still has a held deposit. resolveDeposit()
@@ -688,7 +712,7 @@ describe("cancelReservationWithDeposit", () => {
     }
     // (c) this is the post-resolution transition-error path: the deposit
     // money-move DID run, and no re-notification fires on the failed cancel.
-    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
     expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
 
