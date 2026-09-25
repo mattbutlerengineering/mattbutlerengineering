@@ -13522,7 +13522,7 @@
         const venues = rows
           .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
           .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
-          .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+          .sort((a, b) => VENUE_NAME_COLLATOR.compare(a.name, b.name));
     
         const { skip, take } = paginate({ page, limit });
     
