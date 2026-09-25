@@ -124,6 +124,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-dockerfile-deps",
       "check-schema-compat",
       "check-ci-dispatch",
+      "check-pipe-to-shell-pipefail",
       "check-issue-filing-seam",
       "check-workflow-deps",
       "check-workflow-paths-coverage",

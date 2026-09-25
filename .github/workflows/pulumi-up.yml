@@ -74,6 +74,12 @@ jobs:
       # changes. Pin so the runner image cannot pick the version that deploys prod.
       - name: Pin Pulumi CLI
         run: |
+          # `set -o pipefail` is not decorative here: without it a failed `curl`
+          # feeds an empty script to `sh`, which exits 0, the step goes green
+          # with no Pulumi installed, and the steps below silently resolve the
+          # runner image's floating binary — the exact outage this pin exists to
+          # prevent, now wearing a green check.
+          set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version 3.253.0
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
 
