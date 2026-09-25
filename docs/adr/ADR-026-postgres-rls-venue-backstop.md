@@ -397,13 +397,21 @@ the #5369 sweep and none of them fixed by it:
    express it as one query. Proved against a real, migrated, FORCE'd database
    as a non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
    (the item-1 fixtures for both routes).
-2. **Every entity-addressed route.** `venueIdFromEntity`
-   (`routes/venue-access.ts`) resolves a route's venue by loading the addressed
-   entity, and that load is itself an unscoped read of an RLS table — so under
-   FORCE it resolves `null` and `requireVenueAccess` answers **403**, on every
-   `/:id` route of `tables`, `guests`, `floor-plans`, `waitlist` and
-   `reservations`. This is the residual already recorded below the #5382
-   addendum, now enumerated: it fails loudly rather than silently, but it fails.
+2. **Closed (#5369 PR 5).** Every entity-addressed route used to fail under
+   FORCE: `venueIdFromEntity` (`routes/venue-access.ts`) resolved a route's
+   venue by loading the addressed entity, itself an unscoped read of an RLS
+   table, so it resolved `null` and `requireVenueAccess` answered **403** on
+   every `/:id` route of `tables`, `guests`, `floor-plans`, `waitlist` and
+   `reservations`. `venueIdFromEntity` now takes an entity kind and resolves
+   the venue through the `SECURITY DEFINER` `app_resolve_venue_id` (PR 3) via
+   the shared `resolveVenueId` helper (`services/resolve-venue.ts`, a
+   parameterized `$queryRaw` on the raw client; `null` always means deny).
+   Handlers then load or mutate the entity inside that venue's context
+   (`loadInVenueContext`), so their own reads are scoped too.
+   `POST /api/v1/holds/:id/confirm` resolves its venue the same way. Proved
+   against a real, migrated, FORCE'd database as a non-superuser owner role
+   in `routes/rls-route-sweep.integration.test.ts` (the item-2 fixtures now
+   assert admin and member-own-venue success and member-other-venue denial).
 3. **The whole public booking funnel.** Every `/public/v1/venues/:slug/*` route
    opens with `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug`
    — a `venues` read addressed by slug, which the global resolver cannot turn

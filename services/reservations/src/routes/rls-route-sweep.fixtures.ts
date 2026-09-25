@@ -453,6 +453,29 @@ async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string)
 }
 
 /**
+ * Creates a disposable reservation in `venueId` on its own fresh table, so
+ * repeated calls never collide on a table/time slot.
+ */
+async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> {
+  const tableId = await createDisposableTable(ctx, venueId);
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/reservations",
+    payload: {
+      date: "2026-10-07",
+      startTime: "2026-10-07T18:00:00Z",
+      endTime: "2026-10-07T20:00:00Z",
+      partySize: 2,
+      tableId,
+      venueId,
+      guestName: "RLS Sweep Disposable Guest",
+      guestEmail: `rls-sweep-disposable-${randomUUID()}@example.com`,
+    },
+  });
+  return extractId(res);
+}
+
+/**
  * Generic KNOWN_BROKEN fixture for an entity-addressed route
  * (`venueIdFromEntity` — ADR-026 §3.3 item 2, or one of the other seven
  * items sharing the identical "lookup can't run inside the scope it's
@@ -576,7 +599,11 @@ const tableFixtures: Record<string, RouteFixture> = {
   ),
   "PATCH /api/v1/tables/:id": okEntityMutation(
     createDisposableTable,
-    (id) => ({ method: "PATCH", url: `/api/v1/tables/${id}`, payload: { name: "renamed" } }),
+    (id) => ({
+      method: "PATCH",
+      url: `/api/v1/tables/${id}`,
+      payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
+    }),
     (ctx) => ctx.tableB
   ),
   "DELETE /api/v1/tables/:id": okEntityMutation(
@@ -972,22 +999,41 @@ const reservationFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
-  "GET /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "GET",
-    (ctx) => `/api/v1/reservations/${ctx.reservationA}`
-  ),
-  "PATCH /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "PATCH",
-    (ctx) => `/api/v1/reservations/${ctx.reservationA}`,
-    { notes: "sweep" }
-  ),
-  "DELETE /api/v1/reservations/:id": brokenEntity(
-    "item-2",
-    "DELETE",
-    (ctx) => `/api/v1/reservations/${ctx.reservationB}`
-  ),
+  // Reservation `/:id` routes authorize owner-or-admin (guest-email match via
+  // requireReservationOwnerOrAdmin), not venue membership, so a venue member
+  // who is not the guest is correctly refused, and there is no member leg to
+  // assert. The RLS fix is proven by the admin legs: under FORCE the owner
+  // lookup and the handler's own read now resolve in both venues.
+  "GET /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const [id, label] of [
+      [ctx.reservationA, "admin venue A"],
+      [ctx.reservationB, "admin venue B"],
+    ] as const) {
+      expectOk(await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations/${id}` }), label);
+    }
+  }),
+  "PATCH /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
+      const id = await createDisposableReservation(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, {
+          method: "PATCH",
+          url: `/api/v1/reservations/${id}`,
+          payload: { notes: "sweep" },
+        }),
+        `admin ${venueId}`
+      );
+    }
+  }),
+  "DELETE /api/v1/reservations/:id": ok(async (ctx) => {
+    for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
+      const id = await createDisposableReservation(ctx, venueId);
+      expectOk(
+        await asAdmin(ctx, { method: "DELETE", url: `/api/v1/reservations/${id}` }),
+        `admin ${venueId}`
+      );
+    }
+  }),
   "POST /api/v1/reservations": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
@@ -1021,11 +1067,29 @@ const waitlistFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.waitlistA,
     (ctx) => ctx.waitlistB
   ),
-  "PUT /api/v1/waitlist/:id/notify": okEntityMutation(
-    createDisposableWaitlistEntry,
-    (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/notify` }),
-    (ctx) => ctx.waitlistB
-  ),
+  // notify's success path enqueues a WAITLIST_EXPIRY job (BullMQ/Redis),
+  // which this suite's CI job does not provision, so it asserts only the RLS
+  // half: the venue resolves for both own-venue identities (no 403/404 and no
+  // tripwire) and the member is denied on the other venue.
+  "PUT /api/v1/waitlist/:id/notify": ok(async (ctx) => {
+    for (const [as, label] of [
+      [asAdmin, "admin venue A"],
+      [asMember, "member venue A"],
+    ] as const) {
+      const id = await createDisposableWaitlistEntry(ctx, ctx.venueA.id);
+      const res = await as(ctx, { method: "PUT", url: `/api/v1/waitlist/${id}/notify` });
+      expect([403, 404], `${label}: venue must resolve, got ${res.statusCode}`).not.toContain(
+        res.statusCode
+      );
+      expect(ctx.lastRlsErrorName, `${label}: RLS tripwire fired`).not.toBe(
+        "RlsUnscopedQueryError"
+      );
+    }
+    expectDenied(
+      await asMember(ctx, { method: "PUT", url: `/api/v1/waitlist/${ctx.waitlistB}/notify` }),
+      "member venue B"
+    );
+  }),
   "PUT /api/v1/waitlist/:id/seat": okEntityMutation(
     createDisposableWaitlistEntry,
     (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/seat` }),
