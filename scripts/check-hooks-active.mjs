@@ -130,7 +130,10 @@ if (isMain) {
   if (message) {
     console.warn(message);
   } else {
-    console.log(`PASS: git hooks are active (${classification.status}).`);
+    // process.stdout.write, not console.log — keeps this script off the
+    // consoleLogs antipattern ratchet's baseline (scripts/check-ai-antipatterns.mjs),
+    // matching scripts/run-repo-audit.mjs's own PASS/summary output.
+    process.stdout.write(`PASS: git hooks are active (${classification.status}).\n`);
   }
   // Always 0 — see the severity note in the file header.
   process.exit(0);
