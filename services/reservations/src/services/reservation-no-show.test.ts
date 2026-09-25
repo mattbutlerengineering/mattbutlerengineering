@@ -19,6 +19,7 @@ vi.mock("./deposit.js", async () => {
     DepositTransitionError: actual.DepositTransitionError,
     DepositRefundLegIncompleteError: actual.DepositRefundLegIncompleteError,
     DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
+    DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
     depositService: {
       getByReservationId: vi.fn(),
       getById: vi.fn(),
@@ -42,6 +43,7 @@ import {
   DepositConcurrentUpdateError,
   DepositRefundLegIncompleteError,
   DepositCaptureAmbiguousError,
+  DepositWrittenOffUncollectableError,
 } from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
 import { venueService } from "./venue.js";
@@ -684,6 +686,32 @@ describe("recordNoShow", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("reports uncollectable and still records the no-show when a stuck partial_refunded retry's replay is written off (#5722 R5 LOW-2)", async () => {
+    // The authorization died (canceled) before this row's capture ever
+    // landed — nothing was ever charged. The write-off must not block the
+    // no-show from being recorded, just report that no fee was collected.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "partial_refunded",
+      refundAmountCents: 4000,
+    } as never);
+    vi.mocked(depositService.refundPartial).mockRejectedValueOnce(
+      new DepositWrittenOffUncollectableError("dep_1")
+    );
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.depositWarning).toMatch(/uncollectable/i);
+    }
+  });
+
   it("reports an ambiguous-capture result (not the generic failure) when a stuck partial_refunded retry's replay is itself unconfirmed (#5722 R4 LOW-1)", async () => {
     // The card was almost certainly already charged (this row only reaches
     // partial_refunded via a prior successful DB-first transition) — the
@@ -777,11 +805,18 @@ describe("recordNoShow", () => {
 
     const result = await recordNoShow(reservation, makeLogger());
 
-    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "forfeit");
+    // allowRecapture=true: a no-show retry over its own forfeited row is the
+    // ONE case where re-capturing the same forfeit key is safe (#5722 R5 MED-1).
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "forfeited",
+      "forfeitedAt",
+      true
+    );
     expect(result.success).toBe(true);
   });
 
-  it("re-verifies a stuck applied deposit using the apply action key and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
+  it("re-verifies a stuck applied deposit, never allowing recapture, and proceeds when already succeeded (#5722 R4 MED-1)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       ...heldDeposit,
@@ -795,8 +830,98 @@ describe("recordNoShow", () => {
 
     const result = await recordNoShow(reservation, makeLogger());
 
-    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith("dep_1", "apply");
+    // allowRecapture=false: `applied` is only ever set by the separate staff
+    // capture route — never the same operation as this no-show (#5722 R5 MED-1).
+    expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
+      "dep_1",
+      "applied",
+      "appliedAt",
+      false
+    );
     expect(result.success).toBe(true);
+  });
+
+  it("returns a plain 409 (not the ghost-state alarm) when the status write fails after verifyCaptureCompleted reports a PRIOR capture already succeeded — no money moved this call (#5722 R5 follow-up)", async () => {
+    // "succeeded" means a prior attempt already captured the deposit; this
+    // invocation never touched Stripe. A subsequent status-write failure is
+    // therefore an ordinary concurrent-no-show conflict, not a ghost state —
+    // unlike "recaptured", where THIS invocation legitimately charged the
+    // card and a later status-write failure must be treated as unreconciled
+    // money.
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("succeeded");
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce({
+      ...reservation,
+      status: "CANCELLED",
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("rolls an applied deposit back to held and re-runs no-show policy fresh when the retry cannot recapture it (#5722 R5 MED-1)", async () => {
+    // The retry can't safely recapture an `applied` row (a different
+    // operation set it), so DepositService rolls it back to `held`. The
+    // no-show must then re-derive its own action against the now-held row —
+    // exactly as if it started there — rather than doing nothing.
+    const reservation = makeReservation();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "applied",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("rolled-back-to-held");
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "held",
+    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
+    vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, makeLogger());
+
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(result.success).toBe(true);
+  });
+
+  it("reports uncollectable and still records the no-show when verifyCaptureCompleted confirms the authorization was canceled (#5722 R5 LOW-2)", async () => {
+    const reservation = makeReservation();
+    const logger = makeLogger();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("uncollectable");
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...reservation,
+      status: "NO_SHOW",
+    } as never);
+
+    const result = await recordNoShow(reservation, logger);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.depositWarning).toMatch(/uncollectable/i);
+    }
   });
 
   it("aborts rather than recording a no-show when a stuck forfeited deposit's capture cannot be verified (#5722 R4 MED-1)", async () => {
