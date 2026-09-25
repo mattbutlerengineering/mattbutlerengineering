@@ -179,7 +179,7 @@ describe("buildReport", () => {
       queueEfficiency: {
         available: true,
         composite: 0.5,
-        sub_metrics: { issues_merged: 19 }, // below QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE (30)
+        sub_metrics: { issues_merged: 10 }, // below QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE (15)
         regressions: [],
       },
     };

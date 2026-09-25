@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { GhAuthError, GhRateLimitError, MissingGithubTokenError } from "@mbe/gh-client";
-import { collectQueueEfficiency, defaultReadPrs } from "../collect-queue-efficiency.mjs";
+import {
+  collectQueueEfficiency,
+  defaultReadPrs,
+  readMergedAiPrsPaged,
+} from "../collect-queue-efficiency.mjs";
 
 const TEST_NOW = new Date("2026-06-27T12:00:00Z");
 
@@ -671,22 +675,91 @@ describe("collectQueueEfficiency — review_coverage", () => {
   });
 });
 
-describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
-  it("calls ghClient.pr.list with the expected query and derives commitCount", () => {
-    const prs = [{ number: 1, state: "MERGED", commits: [{}, {}] }];
-    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+// ── readMergedAiPrsPaged / defaultReadPrs — paged fetch (#5746) ────────────
+//
+// Replaces the old single `pr list --limit 45 --json ...,commits,...` call
+// (which capped total PRs to stay under GitHub's GraphQL node budget, and in
+// practice covered only ~2.5 days rather than the intended 7 — root cause of
+// #5738's false regression) with two passes: a cheap list call over the
+// lookback window without `commits`, then a per-PR `pr view` call for
+// `commits` — but only for AI PRs, since non-AI PRs are filtered out by
+// collectQueueEfficiency immediately anyway.
 
-    const result = defaultReadPrs(ghClient);
+describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
+  const NOW = new Date("2026-09-25T12:00:00Z");
+
+  it("fetches merged PRs over the lookback window without requesting commits", () => {
+    const ghClient = { pr: { list: vi.fn().mockReturnValue([]), view: vi.fn() } };
+
+    readMergedAiPrsPaged(ghClient, NOW);
 
     expect(ghClient.pr.list).toHaveBeenCalledWith([
       "--state",
-      "all",
+      "merged",
+      "--search",
+      "merged:>=2026-09-17",
       "--limit",
-      "45",
+      "500",
       "--json",
-      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
     ]);
-    expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
+  });
+
+  it("fetches commits per AI PR via pr.view, but skips non-AI PRs", () => {
+    const prs = [
+      { number: 1, headRefName: "worktree-agent-abc", labels: [] },
+      { number: 2, headRefName: "feature/human-work", labels: [{ name: "feature" }] },
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({
+          commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
+        }),
+      },
+    };
+
+    const result = readMergedAiPrsPaged(ghClient, NOW);
+
+    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
+    expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+    expect(result[0]).toMatchObject({
+      commitCount: 2,
+      commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
+    });
+    expect(result[1]).toMatchObject({ commitCount: 1 });
+    expect(result[1].commits).toBeUndefined();
+  });
+
+  it("propagates a thrown error from the list call", () => {
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockImplementation(() => {
+          throw new Error("gh not authenticated");
+        }),
+        view: vi.fn(),
+      },
+    };
+
+    expect(() => readMergedAiPrsPaged(ghClient, NOW)).toThrow("gh not authenticated");
+  });
+});
+
+describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
+  const NOW = new Date("2026-09-25T12:00:00Z");
+
+  it("delegates to readMergedAiPrsPaged and derives commitCount for an AI PR", () => {
+    const prs = [{ number: 1, headRefName: "worktree-agent-abc", labels: [] }];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "x" }] }),
+      },
+    };
+
+    const result = defaultReadPrs(ghClient, NOW);
+
+    expect(result).toEqual([{ ...prs[0], commits: [{ messageHeadline: "x" }], commitCount: 1 }]);
   });
 
   it("returns null when ghClient.pr.list throws", () => {
@@ -695,9 +768,10 @@ describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
         list: vi.fn().mockImplementation(() => {
           throw new Error("gh not authenticated");
         }),
+        view: vi.fn(),
       },
     };
 
-    expect(defaultReadPrs(ghClient)).toBeNull();
+    expect(defaultReadPrs(ghClient, NOW)).toBeNull();
   });
 });
