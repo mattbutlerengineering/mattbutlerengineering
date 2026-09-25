@@ -773,7 +773,7 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm build --filter @mbe/reservations-service...
 
-      # All FOUR `DATABASE_URL`-gated suites, listed explicitly rather than
+      # All FIVE `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
       # lapsed-guest-cron.rls.integration.test.ts was the third suite nobody
@@ -785,8 +785,12 @@ jobs:
       # every registered route (a drift guard fails if a new route ships
       # with no fixture) under RLS_CONTEXT_MODE=throw, plus three direct,
       # non-HTTP-invocation tests for the job-worker handlers and the
-      # lapsed-guest cron. Measured locally against this same postgres:15 +
-      # rls_owner setup: 4 files / 121 tests pass in ~3s, well inside the 15s
+      # lapsed-guest cron. rls-venue-resolution.integration.test.ts (#5369
+      # PR 3) is the fifth: proves app_resolve_venue_id and
+      # app_reservation_venue_ids_for_user against the same owner role, under
+      # its own FORCE window (so a pass means the admitting policy actually
+      # ran, not owner-bypass). Measured locally against this same postgres:15
+      # + rls_owner setup: 5 files pass in a few seconds, well inside the 15s
       # hookTimeout that bounds the advisory-lock wait.
       - name: Run RLS integration suites against the owner role
         env:
@@ -798,6 +802,7 @@ jobs:
             src/routes/rls-isolation.integration.test.ts \
             src/services/lapsed-guest-cron.rls.integration.test.ts \
             src/routes/rls-route-sweep.integration.test.ts \
+            src/routes/rls-venue-resolution.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 
       # `describe.skipIf` reports as a file-level PASS when its guard is

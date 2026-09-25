@@ -127,6 +127,14 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const reservationBId = `rls-sweep-res-b-${randomUUID()}`;
     const waitlistAId = `rls-sweep-wl-a-${randomUUID()}`;
     const waitlistBId = `rls-sweep-wl-b-${randomUUID()}`;
+    // Dedicated row for the "seat" fixture (#5369 PR 3): the item-7
+    // WAITLIST_EXPIRY non-HTTP test also asserts `waitlistA` stays "waiting"
+    // after its own call, so a fixture that mutates the same row (even one
+    // that today 404s before ever reaching the DB, per the tripwire) is a
+    // latent coupling — the moment item-2's fix makes `seat` actually write,
+    // it would flip a status a different test depends on. Seat gets its own
+    // row instead.
+    const waitlistSeatTargetId = `rls-sweep-wl-seat-${randomUUID()}`;
     const depositAId = `rls-sweep-dep-a-${randomUUID()}`;
     const holdAId = `rls-sweep-hold-a-${randomUUID()}`;
     const holdASessionId = `rls-sweep-session-${randomUUID()}`;
@@ -185,6 +193,12 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       [waitlistBId, venueBId]
     );
     await seedClient.query(
+      `INSERT INTO waitlist_entries
+         (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
+       VALUES ($1, $2, 2, 'RLS Sweep Waitlist Seat Target', '+15550000003', 1, 10, now())`,
+      [waitlistSeatTargetId, venueAId]
+    );
+    await seedClient.query(
       `INSERT INTO deposits (id, reservation_id, amount_cents, currency, updated_at)
        VALUES ($1, $2, 5000, 'usd', now())`,
       [depositAId, reservationAId]
@@ -212,6 +226,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       reservationAGuestEmail,
       waitlistA: waitlistAId,
       waitlistB: waitlistBId,
+      waitlistSeatTarget: waitlistSeatTargetId,
       depositA: depositAId,
       holdA: holdAId,
       holdSessionId: holdASessionId,

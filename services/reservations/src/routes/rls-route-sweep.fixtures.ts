@@ -114,6 +114,16 @@ export interface SweepContext {
   reservationAGuestEmail: string;
   waitlistA: string;
   waitlistB: string;
+  /**
+   * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
+   * other fixture or suite. `waitlistA` is also read by the item-7
+   * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
+   * which asserts it stays `"waiting"` after its own call — sharing it with
+   * a fixture that writes (even one that 404s before reaching the DB today,
+   * per the tripwire) would couple the two the moment item-2's fix makes
+   * `seat` actually succeed.
+   */
+  waitlistSeatTarget: string;
   depositA: string;
   holdA: string;
   /** The real session id `holdA` was created with — needed by every route
@@ -839,7 +849,7 @@ const waitlistFixtures: Record<string, RouteFixture> = {
   "PUT /api/v1/waitlist/:id/seat": brokenEntity(
     "item-2",
     "PUT",
-    (ctx) => `/api/v1/waitlist/${ctx.waitlistA}/seat`,
+    (ctx) => `/api/v1/waitlist/${ctx.waitlistSeatTarget}/seat`,
     undefined,
     { deniedStatus: 404 }
   ),
