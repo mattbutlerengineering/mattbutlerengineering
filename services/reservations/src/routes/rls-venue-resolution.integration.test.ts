@@ -72,6 +72,11 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
   const venueBId = `rls-resolve-venue-b-${randomUUID()}`;
   const venueASlug = `rls-resolve-a-${randomUUID()}`;
   const groupAId = `rls-resolve-group-a-${randomUUID()}`;
+  // A second venue in a SECOND group, sharing venueA's slug — venues.slug is
+  // only unique per group (`@@unique([venueGroupId, slug])`), so this is a
+  // legitimately ambiguous slug when no group is supplied.
+  const groupBId = `rls-resolve-group-b-${randomUUID()}`;
+  const venueCId = `rls-resolve-venue-c-${randomUUID()}`;
   const tableAId = `rls-resolve-table-a-${randomUUID()}`;
   const tableBId = `rls-resolve-table-b-${randomUUID()}`;
   const guestAId = `rls-resolve-guest-a-${randomUUID()}`;
@@ -135,6 +140,18 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       `INSERT INTO venues (id, name, slug, iana_timezone, updated_at)
        VALUES ($1, 'RLS Resolve Venue B', $1, 'UTC', now())`,
       [venueBId]
+    );
+    // A second group + venue sharing venueA's slug — proves the no-group
+    // lookup refuses to guess between them instead of returning whichever
+    // row the planner happens to visit first.
+    await owner.query(
+      `INSERT INTO venue_groups (id, name, slug, created_at) VALUES ($1, 'RLS Resolve Group B', $1, now())`,
+      [groupBId]
+    );
+    await owner.query(
+      `INSERT INTO venues (id, name, slug, iana_timezone, venue_group_id, updated_at)
+       VALUES ($1, 'RLS Resolve Venue C', $2, 'UTC', $3, now())`,
+      [venueCId, venueASlug, groupBId]
     );
     await owner.query(
       `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
@@ -209,8 +226,8 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
     await owner.query("DELETE FROM floor_plans WHERE id = $1", [floorPlanAId]);
     await owner.query("DELETE FROM guests WHERE id = $1", [guestAId]);
     await owner.query("DELETE FROM tables WHERE id = ANY($1)", [[tableAId, tableBId]]);
-    await owner.query("DELETE FROM venues WHERE id = ANY($1)", [[venueAId, venueBId]]);
-    await owner.query("DELETE FROM venue_groups WHERE id = $1", [groupAId]);
+    await owner.query("DELETE FROM venues WHERE id = ANY($1)", [[venueAId, venueBId, venueCId]]);
+    await owner.query("DELETE FROM venue_groups WHERE id = ANY($1)", [[groupAId, groupBId]]);
 
     await probe.end();
     await owner.end();
@@ -220,26 +237,30 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
 
   describe("app_resolve_venue_id", () => {
     it.each([
-      ["reservation", () => reservationAId, () => venueAId],
-      ["table", () => tableAId, () => venueAId],
-      ["guest", () => guestAId, () => venueAId],
-      ["floor_plan", () => floorPlanAId, () => venueAId],
-      ["waitlist_entry", () => waitlistAId, () => venueAId],
-      ["deposit", () => depositAId, () => venueAId],
-      ["payment_intent", () => paymentIntentId, () => venueAId],
-      ["venue", () => venueAId, () => venueAId],
-      ["venue_slug", () => venueASlug, () => venueAId],
+      ["reservation", () => reservationAId, () => venueAId, null],
+      ["table", () => tableAId, () => venueAId, null],
+      ["guest", () => guestAId, () => venueAId, null],
+      ["floor_plan", () => floorPlanAId, () => venueAId, null],
+      ["waitlist_entry", () => waitlistAId, () => venueAId, null],
+      ["deposit", () => depositAId, () => venueAId, null],
+      ["payment_intent", () => paymentIntentId, () => venueAId, null],
+      ["venue", () => venueAId, () => venueAId, null],
+      // Scoped by group: venueA and venueC now deliberately share a slug
+      // (see the ambiguity test below), so an unscoped venue_slug lookup is
+      // no longer unambiguous on its own — group it here to keep this table
+      // focused on "does the resolver find the right row", not slug collision.
+      ["venue_slug", () => venueASlug, () => venueAId, () => groupAId],
     ] as const)(
       "resolves the owning venue for kind=%s, THROUGH the admitting policy (owner-side ordinary reads are default-deny under FORCE)",
-      async (kind, key, expectedVenueId) => {
+      async (kind, key, expectedVenueId, group) => {
         // Positive control: proves this suite's FORCE window is real — an
         // ordinary owner-side read with no app.venue_id set returns nothing.
         const ordinary = await owner.query("SELECT id FROM venues WHERE id = $1", [venueAId]);
         expect(ordinary.rows).toEqual([]);
 
         const { rows } = await owner.query<{ venue_id: string | null }>(
-          "SELECT app_resolve_venue_id($1, $2) AS venue_id",
-          [kind, key()]
+          "SELECT app_resolve_venue_id($1, $2, $3) AS venue_id",
+          [kind, key(), group ? group() : null]
         );
         expect(rows[0]?.venue_id).toBe(expectedVenueId());
       }
@@ -256,6 +277,38 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       await expect(
         owner.query("SELECT app_resolve_venue_id('not-a-real-kind', $1)", [reservationAId])
       ).rejects.toThrow(/unknown kind/);
+    });
+
+    it("raises on an unrecognized kind even when the key is NULL (kind is validated BEFORE the NULL-key early return)", async () => {
+      // A prior version returned NULL for this combination because the
+      // `p_key IS NULL` short-circuit ran before kind validation — an unknown
+      // kind with a NULL key silently looked identical to "no match found".
+      await expect(
+        owner.query("SELECT app_resolve_venue_id('not-a-real-kind', NULL)")
+      ).rejects.toThrow(/unknown kind/);
+    });
+
+    it("returns NULL for an ambiguous slug when no group is given, but still resolves correctly when scoped by group", async () => {
+      // venueA and venueC share a slug across two different groups — without
+      // a group, the function must refuse to guess rather than return
+      // whichever row the planner happens to visit first.
+      const unscoped = await owner.query<{ venue_id: string | null }>(
+        "SELECT app_resolve_venue_id('venue_slug', $1) AS venue_id",
+        [venueASlug]
+      );
+      expect(unscoped.rows[0]?.venue_id).toBeNull();
+
+      const scopedToA = await owner.query<{ venue_id: string | null }>(
+        "SELECT app_resolve_venue_id('venue_slug', $1, $2) AS venue_id",
+        [venueASlug, groupAId]
+      );
+      expect(scopedToA.rows[0]?.venue_id).toBe(venueAId);
+
+      const scopedToC = await owner.query<{ venue_id: string | null }>(
+        "SELECT app_resolve_venue_id('venue_slug', $1, $2) AS venue_id",
+        [venueASlug, groupBId]
+      );
+      expect(scopedToC.rows[0]?.venue_id).toBe(venueCId);
     });
 
     it("scopes venue/venue_slug lookups to a venue group when one is passed", async () => {
@@ -307,6 +360,49 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       );
       expect(rows).toEqual([]);
     });
+  });
+
+  describe("the cross_venue marker is restored after each call, not left ON", () => {
+    // Both functions save the caller's marker before flipping it "on" and
+    // are supposed to restore it afterward. Deleting either restore
+    // statement still passes every other test in this file — only a direct
+    // before/after read of the marker inside the SAME transaction proves the
+    // restore actually runs.
+    it.each(["", "off"] as const)(
+      "app_resolve_venue_id restores the marker to %j after resolving",
+      async (presetValue) => {
+        await owner.query("BEGIN");
+        try {
+          await owner.query("SELECT set_config('app.cross_venue', $1, true)", [presetValue]);
+          await owner.query("SELECT app_resolve_venue_id('reservation', $1)", [reservationAId]);
+          const { rows } = await owner.query<{ marker: string }>(
+            "SELECT current_setting('app.cross_venue', true) AS marker"
+          );
+          expect(rows[0]?.marker).toBe(presetValue);
+        } finally {
+          await owner.query("ROLLBACK");
+        }
+      }
+    );
+
+    it.each(["", "off"] as const)(
+      "app_reservation_venue_ids_for_user restores the marker to %j after resolving",
+      async (presetValue) => {
+        await owner.query("BEGIN");
+        try {
+          await owner.query("SELECT set_config('app.cross_venue', $1, true)", [presetValue]);
+          await owner.query("SELECT * FROM app_reservation_venue_ids_for_user($1)", [
+            reservationUserId,
+          ]);
+          const { rows } = await owner.query<{ marker: string }>(
+            "SELECT current_setting('app.cross_venue', true) AS marker"
+          );
+          expect(rows[0]?.marker).toBe(presetValue);
+        } finally {
+          await owner.query("ROLLBACK");
+        }
+      }
+    );
   });
 
   describe("EXECUTE is revoked from PUBLIC", () => {
@@ -365,9 +461,12 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       expect(rows).toHaveLength(2);
       for (const row of rows) {
         expect(row.prosecdef, `${row.proname} must be SECURITY DEFINER`).toBe(true);
-        expect(row.proconfig, `${row.proname} must pin search_path`).toEqual(
-          expect.arrayContaining([expect.stringContaining("search_path=")])
-        );
+        // pg_temp must be pinned LAST — it's the schema an attacker-controlled
+        // search_path entry would otherwise be able to shadow ahead of.
+        expect(
+          row.proconfig,
+          `${row.proname} must pin search_path to pg_catalog, public, pg_temp`
+        ).toEqual(expect.arrayContaining(["search_path=pg_catalog, public, pg_temp"]));
       }
     });
 
@@ -380,6 +479,36 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       );
       expect(rows.map((row) => row.relname)).toEqual([...RLS_TABLES].sort());
     });
+  });
+});
+
+/**
+ * Static, no-database assertion — runs unconditionally (never gated on
+ * `DATABASE_URL`) so a missing `lock_timeout` statement fails CI even when no
+ * Postgres is attached. `CREATE POLICY` takes an `AccessExclusiveLock` on six
+ * hot tables; without a bounded `lock_timeout` a slow migration can queue
+ * behind (and block) ordinary traffic indefinitely.
+ */
+describe("migration safety (#5369 PR 3 review follow-up)", () => {
+  it("sets a bounded lock_timeout before the first CREATE POLICY", () => {
+    const migrationSql = readFileSync(
+      join(MIGRATIONS_DIR, "20260924000000_add_rls_venue_resolution_functions", "migration.sql"),
+      "utf8"
+    );
+    // Strip `--` line comments first — the migration's own prose explains
+    // AccessExclusiveLock/CREATE POLICY ahead of the real statement, and a
+    // naive indexOf would match that mention instead of the executable one.
+    const executableSql = migrationSql
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+
+    const lockTimeoutIndex = executableSql.indexOf("SET lock_timeout");
+    const firstPolicyIndex = executableSql.indexOf("CREATE POLICY");
+
+    expect(lockTimeoutIndex, "migration must set lock_timeout").toBeGreaterThanOrEqual(0);
+    expect(firstPolicyIndex, "migration must create at least one policy").toBeGreaterThanOrEqual(0);
+    expect(lockTimeoutIndex).toBeLessThan(firstPolicyIndex);
   });
 });
 

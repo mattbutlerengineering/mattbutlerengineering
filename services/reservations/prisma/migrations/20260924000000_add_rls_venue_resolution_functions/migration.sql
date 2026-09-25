@@ -26,6 +26,17 @@
 --   * the owner conjunct costs nothing today (the service connects AS the
 --     owner) and becomes the real gate the moment #5369's other half lands.
 --
+-- `app_cross_venue_venues` itself (separate, already-merged migration) still
+-- pins `search_path = pg_catalog, public` without `pg_temp` -- left
+-- deliberately untouched here; see the PR discussion for why pg_temp is
+-- added to the two NEW functions below but not backfilled onto that one.
+--
+-- CREATE POLICY takes an AccessExclusiveLock on the target table; six of
+-- them below are hot tables under live traffic, so bound how long this
+-- migration will wait for that lock rather than risk queuing behind (and
+-- blocking) ordinary reads/writes indefinitely.
+SET lock_timeout = '5s';
+
 -- One admitting SELECT policy is added per table below (all six RLS tables
 -- besides `venues`, whose `venue_cross_venue_read` policy already exists) so
 -- the resolver function can read whichever table a given `kind` needs, and so
@@ -109,10 +120,9 @@ CREATE POLICY waitlist_entries_cross_venue_read ON "waitlist_entries"
 --
 -- `p_group`, when supplied, additionally scopes the `venue`/`venue_slug`
 -- kinds to one `venue_group_id` -- `venues.slug` is unique only per group
--- (`@@unique([venueGroupId, slug])`), so a slug lookup with no group is only
--- as unambiguous as the app's own `venueService.getPublicConfigBySlug` today
--- (also group-less); this parameter exists so a future caller that DOES know
--- the group can disambiguate, without weakening the group-less case.
+-- (`@@unique([venueGroupId, slug])`), so a slug lookup with no group can be
+-- genuinely ambiguous across groups; see the `venue_slug` branch below for
+-- how the no-group case handles that instead of guessing.
 --
 -- Returns ONLY the resolved venue id (`text`), or `NULL` when the key does
 -- not resolve to one -- never a row, so this cannot become a data-leakage
@@ -122,19 +132,30 @@ CREATE POLICY waitlist_entries_cross_venue_read ON "waitlist_entries"
 -- calling query (per the sibling function's own comment), which would hoist
 -- the lookup out of the marker's scope.
 --
--- `p_kind` is validated against a fixed allowlist (the CASE below); an
--- unrecognized kind raises rather than silently returning NULL, so a typo'd
--- or forged kind fails loudly instead of reading as "entity not found".
+-- `p_kind` is validated against a fixed allowlist FIRST -- before even the
+-- NULL-key check below -- so an unrecognized kind always raises, including
+-- when paired with a NULL key. Validating after the NULL-key check would let
+-- `app_resolve_venue_id('bogus-kind', NULL)` silently return NULL instead of
+-- raising, indistinguishable from "kind is fine, key just didn't match".
 CREATE FUNCTION app_resolve_venue_id(p_kind text, p_key text, p_group text DEFAULT NULL)
   RETURNS text
   LANGUAGE plpgsql
   SECURITY DEFINER
-  SET search_path = pg_catalog, public
+  SET search_path = pg_catalog, public, pg_temp
   AS $fn$
 DECLARE
   prior_marker text;
   result_venue_id text;
+  match_count integer;
 BEGIN
+  IF p_kind NOT IN (
+    'reservation', 'table', 'guest', 'floor_plan', 'waitlist_entry',
+    'deposit', 'payment_intent', 'venue', 'venue_slug'
+  ) THEN
+    RAISE EXCEPTION 'app_resolve_venue_id: unknown kind "%"', p_kind
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
   IF p_key IS NULL THEN
     RETURN NULL;
   END IF;
@@ -179,14 +200,26 @@ BEGIN
       WHERE v.id = p_key
         AND (p_group IS NULL OR v.venue_group_id = p_group);
     WHEN 'venue_slug' THEN
-      SELECT v.id INTO result_venue_id
-      FROM public."venues" v
-      WHERE v.slug = p_key
-        AND (p_group IS NULL OR v.venue_group_id = p_group)
-      LIMIT 1;
-    ELSE
-      RAISE EXCEPTION 'app_resolve_venue_id: unknown kind "%"', p_kind
-        USING ERRCODE = 'invalid_parameter_value';
+      IF p_group IS NOT NULL THEN
+        -- Scoped by group: the DB's own unique constraint
+        -- (`@@unique([venueGroupId, slug])`) guarantees at most one match,
+        -- so a plain SELECT INTO is safe here.
+        SELECT v.id INTO result_venue_id
+        FROM public."venues" v
+        WHERE v.slug = p_key
+          AND v.venue_group_id = p_group;
+      ELSE
+        -- No group given: the slug can legitimately collide across groups.
+        -- Refuse to guess which venue the caller means -- only resolve when
+        -- the slug is globally unambiguous.
+        SELECT count(*), min(v.id) INTO match_count, result_venue_id
+        FROM public."venues" v
+        WHERE v.slug = p_key;
+
+        IF match_count <> 1 THEN
+          result_venue_id := NULL;
+        END IF;
+      END IF;
   END CASE;
 
   PERFORM set_config('app.cross_venue', coalesce(prior_marker, ''), true);
@@ -211,7 +244,7 @@ CREATE FUNCTION app_reservation_venue_ids_for_user(p_user_id text)
   RETURNS SETOF text
   LANGUAGE plpgsql
   SECURITY DEFINER
-  SET search_path = pg_catalog, public
+  SET search_path = pg_catalog, public, pg_temp
   AS $fn$
 DECLARE
   prior_marker text := current_setting('app.cross_venue', true);
