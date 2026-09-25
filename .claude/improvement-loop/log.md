@@ -2289,6 +2289,7 @@ Recording these so next week doesn't re-derive them:
 
 - #5765 and #5766 are both mechanically drainable by `/implement-queue` with no human decision required — unlike most of the current `ready` queue.
 - The `maintenance:api-client-route-contract` run's `blocked`-label convention works, but it is invisible to a routine that searches by topic rather than by label. Worth a line in the weekly-improve prompt: check for a `blocked` + "not for autonomous pickup" owner before filing anything adjacent to an in-flight `docs/fixes/` run.
+
 ## 2026-09-25 (mbe-learning-loop)
 
 **Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 10 entries, metricsFreshness 0 unhealthy — review-burden=fresh 0.1d, domain-metrics entry retired per #5728/#5561 and no longer tracked, reviewBurden no formal review stage (100 PRs, 0 review submissions), prCategoryMetrics 91/94 merged, ccusageCost $0 30d/7d/today cache_hit 98%, ciHealth 100% pass rate 22/22, sessionLogs 0 sessions/7d, codeChurn 1% churn); lighthouse/agentCost/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback/queueEfficiency query failed — GitHub REST fallback credential rejected (403), the same recurring, accepted-by-design class closed out at #3937 (fix scope was a loud typed failure, not a repo-fixable root cause — this session type's `GITHUB_TOKEN` only carries git-over-HTTPS scope; `mcp__github__*` tools were used for all issue/PR search, read, and dedup work instead, per gotchas.md § Claude Code Remote).
