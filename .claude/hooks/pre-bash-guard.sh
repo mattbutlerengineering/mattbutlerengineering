@@ -29,6 +29,13 @@
 #     scripts/check-hooks-active.mjs's header for why a hard block is wrong
 #     here (it would break legitimate no-install flows).
 #
+#     `--hook-json`, not a plain stdout/stderr warning: Claude Code
+#     (2.1.282) shows NEITHER stream to the user for a PreToolUse hook that
+#     exits 0, so a plain warning would be invisible — the exact silent
+#     failure #5766 exists to fix, one layer up. The script itself decides
+#     whether to print (nothing when healthy, one line of JSON when inert),
+#     so this line must never redirect its stdout.
+#
 # Skip mechanisms:
 #   - $SKIP_BASH_GUARD=1 → bypass all checks entirely.
 set -uo pipefail
@@ -77,7 +84,7 @@ esac
 # ---------------------------------------------------------------------------
 case "$cmd" in
   *"git commit"*|*"git push"*)
-    node "$CLAUDE_PROJECT_DIR/scripts/check-hooks-active.mjs" >/dev/null
+    node "$CLAUDE_PROJECT_DIR/scripts/check-hooks-active.mjs" --hook-json
     ;;
 esac
 

@@ -14,13 +14,21 @@
  * indistinguishable from one where every gate passed.
  *
  * A git hook cannot report this itself: in the broken state it is exactly
- * as inert as everything else `.husky/_` would run. So this check is
- * invoked from `.claude/hooks/pre-bash-guard.sh`, a Claude Code PreToolUse
- * hook wired via `.claude/settings.json` — a mechanism that runs through
- * the harness itself, entirely independent of git's `core.hooksPath`, and
- * therefore fires whether or not `pnpm install` has ever run. It is also
- * wired into `pnpm repo-audit` (REPO_AUDIT_CHECKS) so CI documents the
- * state of its own checkout, even though CI always installs first.
+ * as inert as everything else `.husky/_` would run. The caller that
+ * actually runs in the broken state is `.claude/hooks/pre-bash-guard.sh`, a
+ * Claude Code PreToolUse hook wired via `.claude/settings.json` — a
+ * mechanism that runs through the harness itself, entirely independent of
+ * git's `core.hooksPath`, and therefore fires whether or not `pnpm install`
+ * has ever run.
+ *
+ * This is also wired into `pnpm repo-audit` (REPO_AUDIT_CHECKS), but that
+ * wiring is NOT a second line of coverage for the same gap: CI always runs
+ * a normal `pnpm install` (which creates `.husky/_`) before `repo-audit`
+ * runs, so in a CI job this check can only ever report healthy. The only
+ * way the repo-audit caller observes the inert state at all is a local
+ * `pnpm install --ignore-scripts` (skips husky's `prepare` step) followed
+ * by `pnpm repo-audit` in that same checkout — it documents that one
+ * narrower case, not a general backstop for #5766.
  *
  * Severity is a deliberate WARN, never a hard failure: `process.exit(0)`
  * unconditionally, in both the CLI entry point and the pre-bash-guard
@@ -31,13 +39,36 @@
  * remain the real backstop regardless of local hook state; this only makes
  * the otherwise-silent gap visible before push, cheaper than a CI round trip.
  *
- * Usage: node scripts/check-hooks-active.mjs
- * Exit code: always 0 (warning-only, see above).
+ * Two output modes, both exit 0 always:
+ *
+ *   node scripts/check-hooks-active.mjs
+ *     Plain text: "PASS: ..." to stdout when healthy, a "⚠️ ..." warning to
+ *     stderr when inert. Used by `pnpm repo-audit`.
+ *
+ *   node scripts/check-hooks-active.mjs --hook-json
+ *     Silent (no stdout) when healthy. When inert, writes ONE line of JSON
+ *     to stdout and nothing else — the Claude Code PreToolUse output
+ *     contract — built with `JSON.stringify`, never hand-escaped:
+ *       {"systemMessage":"<msg>","hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"<msg>"}}
+ *     `additionalContext` reaches the model, `systemMessage` reaches the
+ *     user. This mode exists because a PreToolUse hook that exits 0 shows
+ *     NEITHER stdout nor stderr to the user in Claude Code (2.1.282) — the
+ *     plain-text stderr warning above is invisible there, which was exactly
+ *     #5766's original failure mode reproduced one layer up. Used by
+ *     .claude/hooks/pre-bash-guard.sh's Check 3.
  */
 
 import { existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { isAbsolute, join } from "node:path";
+
+/**
+ * Hook filenames husky writes for a git hook it actually installed. A
+ * directory can be non-empty and still fire nothing — husky's shared `h`
+ * helper and its own `.gitignore` are always written, hook or no hook — so
+ * "populated" requires at least one of these, not just a non-empty listing.
+ */
+const REAL_HOOK_FILES = ["pre-commit", "pre-push"];
 
 /**
  * Pure classification of git hook activation state — no I/O.
@@ -49,7 +80,7 @@ import { isAbsolute, join } from "node:path";
  *   directory exists on disk. Ignored when hooksPath is falsy.
  * @param {string[]} input.entries - directory listing of hooksPath. Ignored
  *   when dirExists is false.
- * @returns {{ status: "unset"|"missing"|"empty"|"populated", inert: boolean }}
+ * @returns {{ status: "unset"|"missing"|"empty"|"no-hook-files"|"populated", inert: boolean }}
  */
 export function classifyHooksActivation({ hooksPath, dirExists, entries }) {
   if (!hooksPath) {
@@ -61,6 +92,9 @@ export function classifyHooksActivation({ hooksPath, dirExists, entries }) {
   if (!entries || entries.length === 0) {
     return { status: "empty", inert: true };
   }
+  if (!entries.some((entry) => REAL_HOOK_FILES.includes(entry))) {
+    return { status: "no-hook-files", inert: true };
+  }
   return { status: "populated", inert: false };
 }
 
@@ -68,6 +102,8 @@ const REASONS = {
   unset: "git config core.hooksPath is not set — this checkout has never run `pnpm install`",
   missing: "git config core.hooksPath points at a directory that does not exist",
   empty: "git config core.hooksPath points at an empty directory",
+  "no-hook-files":
+    "git config core.hooksPath points at a directory with no pre-commit or pre-push hook file (only husky's own internal files are present)",
 };
 
 /**
@@ -85,6 +121,28 @@ export function formatHooksStatusMessage(classification) {
     "antipattern ratchet, regen). Until then, commits and pushes will NOT run local " +
     "gates — CI is the only backstop."
   );
+}
+
+/**
+ * Builds the Claude Code PreToolUse JSON output for an inert-hooks warning
+ * — pure, no serialization. The CLI entry point is the only thing that
+ * calls `JSON.stringify` on it, so escaping is never hand-rolled.
+ *
+ * `additionalContext` reaches the model; `systemMessage` reaches the user
+ * (Claude Code 2.1.282 shows neither stdout nor stderr for a PreToolUse
+ * hook that exits 0, so this is the only way the warning becomes visible).
+ *
+ * @param {string} message
+ * @returns {{ systemMessage: string, hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: string } }}
+ */
+export function buildHookJsonOutput(message) {
+  return {
+    systemMessage: message,
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      additionalContext: message,
+    },
+  };
 }
 
 /* c8 ignore start -- CLI entrypoint, exercised by running the script itself */
@@ -121,11 +179,22 @@ function resolveRepoRoot() {
 const isMain = process.argv[1] && process.argv[1].endsWith("check-hooks-active.mjs");
 
 if (isMain) {
+  const hookJsonMode = process.argv.includes("--hook-json");
   const root = resolveRepoRoot();
   const hooksPath = resolveHooksPath(root);
   const { dirExists, entries } = readHooksDirState(root, hooksPath);
   const classification = classifyHooksActivation({ hooksPath, dirExists, entries });
   const message = formatHooksStatusMessage(classification);
+
+  if (hookJsonMode) {
+    // Healthy: write nothing to stdout. Inert: exactly one line of JSON,
+    // the only stdout this mode ever produces — see the file header for
+    // why (the Claude Code PreToolUse output contract).
+    if (message) {
+      process.stdout.write(`${JSON.stringify(buildHookJsonOutput(message))}\n`);
+    }
+    process.exit(0);
+  }
 
   if (message) {
     console.warn(message);
