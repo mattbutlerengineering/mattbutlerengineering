@@ -207,6 +207,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         id: entry.id,
         guestPhone: entry.guestPhone,
         guestName: entry.guestName,
+        venueId: entry.venueId,
       });
 
       return reply.send({ data: entry });

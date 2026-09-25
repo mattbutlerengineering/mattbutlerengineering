@@ -683,19 +683,23 @@ event, no failed health check (`/health` is liveness-only and stays 200; even
 rather than erroring). The observable symptom is "no bookings today". Treat any
 post-flip verification that only checks for errors as having verified nothing.
 
-**Background jobs do not go through the request middleware at all — one half
-of this was unguarded and is now fixed, the other half remains open.**
-`src/services/lapsed-guest-cron.ts` is fine (it sets per-venue context on its
-own transaction, #5401). `src/services/job-worker.ts`'s `BOOKING_REMINDER` /
-`DAY_OF_REMINDER` handlers, wired in `app.ts`, call `reservationService.getById`
-/ `venueService.getById` from a BullMQ consumer with no request — `deliverReminder`
-now wraps its whole body in `runWithVenueContext(payload.venueId, …)` (ADR-026
-§3.3 item 7, reminder-handler half), since `ReminderPayload` already declares
-`venueId` required at dispatch. `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry`
-is the harder half and remains open: its payload's `venueId` is optional and
-unenqueued, so it derives the venue by reading the RLS-protected row itself —
-see ADR-026 §3.3 item 7 for why that needs a different fix. When adding any new
-background/scheduled caller that touches the seven tables, wrap it in
+**Background jobs do not go through the request middleware at all — both
+halves of this are now fixed.** `src/services/lapsed-guest-cron.ts` is fine
+(it sets per-venue context on its own transaction, #5401).
+`src/services/job-worker.ts`'s `BOOKING_REMINDER` / `DAY_OF_REMINDER` handlers,
+wired in `app.ts`, call `reservationService.getById` / `venueService.getById`
+from a BullMQ consumer with no request — `deliverReminder` wraps its whole
+body in `runWithVenueContext(payload.venueId, …)` (ADR-026 §3.3 item 7,
+reminder-handler half), since `ReminderPayload` already declares `venueId`
+required at dispatch. `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` is
+the other half and is closed too: `handleWaitlistExpiryJob` does the same
+`runWithVenueContext` wrap whenever `payload.venueId` is present, populated at
+the job's one enqueue site (`waitlist-notifier.ts`'s `notifyTableReady`). Its
+`venueId` stays optional on the payload type (not required, unlike
+`ReminderPayload`) for a job already sitting in Redis when this shipped — see
+ADR-026 §3.3 item 7 for the legacy-payload fallback and its deletion
+condition. When adding any new background/scheduled caller that touches the
+seven tables, wrap it in
 `runWithVenueContext(venueId, …)` and say so in its doc comment; nothing else in
 the service will do it for you.
 

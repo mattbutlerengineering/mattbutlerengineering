@@ -415,11 +415,11 @@ the #5369 sweep and none of them fixed by it:
    than visible to a user**, which makes it the one most likely to survive a
    post-flip smoke test. The cron in the same service is _not_ affected (it sets
    per-venue context, §3's table); nothing generalises from that to the worker.
-   **The `BOOKING_REMINDER` / `DAY_OF_REMINDER` half is now closed:**
-   `deliverReminder` (`job-worker.ts`) runs its whole body inside
-   `runWithVenueContext(payload.venueId, …)`, exactly the decided fix below.
-   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` remains open — see the
-   split immediately below, which this closure does not touch.
+   **Both halves are now closed:** `deliverReminder` (`job-worker.ts`) runs its
+   whole body inside `runWithVenueContext(payload.venueId, …)`, exactly the
+   decided fix below, and `handleWaitlistExpiryJob` does the same for
+   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` — see the split
+   immediately below for how its payload-compatibility wrinkle was handled.
 
 Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the
@@ -441,17 +441,35 @@ a unit test that asserts `getCurrentVenueId()` — read from inside the handler,
 via the finder mocks — equals `payload.venueId` for both `BOOKING_REMINDER` and
 `DAY_OF_REMINDER` (`services/reservations/src/services/job-worker.test.ts`); a
 test that only asserted the finders were called would not have distinguished
-this from the pre-fix behavior. `WAITLIST_EXPIRY` is unchanged and remains open,
-per the next paragraph.
+this from the pre-fix behavior.
 
-`WAITLIST_EXPIRY` is the other shape and is genuinely harder: `WaitlistExpiryPayload`
-carries only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
-nothing** (its own comment says so), and `expireEntry(waitlistEntryId)` derives the
-venue by reading the RLS-protected `waitlist_entries` row. That is items 2–6's
-trapped-lookup shape wearing a job payload. Its cheapest fix is not a database
-mechanism at all — make `venueId` required on the payload and populate it at
-enqueue time, where the venue is known — but that is a payload-compatibility change
-across in-flight BullMQ jobs, so it is named here rather than assumed easy.
+`WAITLIST_EXPIRY` was the other shape and was genuinely harder: `WaitlistExpiryPayload`
+carried only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
+nothing**, and `expireEntry(waitlistEntryId)` derived the venue by reading the
+RLS-protected `waitlist_entries` row. That was items 2–6's trapped-lookup shape
+wearing a job payload.
+
+**Closed.** The cheapest fix — populate `venueId` at enqueue time, where the
+venue is known — is what shipped, at the job's one enqueue site
+(`waitlist-notifier.ts`'s `notifyTableReady`, called from `routes/waitlist.ts`'s
+`PUT /:id/notify` and from `handleExpiry`'s own next-guest re-notify).
+`WaitlistExpiryPayload.venueId` stays **optional on the type**, not required,
+because that enqueue-time change is a payload-compatibility change across
+in-flight BullMQ jobs: a job already sitting in Redis when this deployed was
+serialized under the old shape and BullMQ never re-serializes a queued
+payload. `job-worker.ts`'s `handleWaitlistExpiryJob` branches on
+`payload.venueId` — present, it wraps `deps.handleWaitlistExpiry` in
+`runWithVenueContext(payload.venueId, …)`, exactly `deliverReminder`'s
+mechanism above; absent (the legacy in-flight case), it falls back to the
+pre-fix behavior and logs a warning naming the job and entry id, rather than
+inventing a cross-venue lookup. That legacy branch is safe to delete once one
+WAITLIST_EXPIRY TTL (`FIVE_MINUTES_MS`, `waitlist-notifier.ts`) has elapsed
+post-deploy — every job enqueued before the fix will have drained by then.
+Proved by `services/reservations/src/services/job-worker.test.ts` (the
+venue-context-carrying case, the enqueue-site case in
+`waitlist-notifier.test.ts`, and the legacy no-`venueId` case) and by
+`services/reservations/src/routes/rls-route-sweep.integration.test.ts`'s
+non-HTTP `WAITLIST_EXPIRY` case against a real, migrated database.
 
 **Measured, not predicted (2026-09-21, #5369).** The list above was derived by
 reading code. It has since been run: the real `buildApp()` was booted against a

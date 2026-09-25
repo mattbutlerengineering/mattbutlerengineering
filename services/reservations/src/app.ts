@@ -301,6 +301,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           dispatcher: notificationPort,
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+          logger: fastify.log,
         }),
       });
       fastify.addHook("onReady", async () => jobWorker.start(fastify.log));

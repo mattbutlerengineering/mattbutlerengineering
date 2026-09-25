@@ -352,7 +352,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
    * `findGuestsForVenue`), not a re-implementation of their internals.
    */
   describe("non-HTTP entry points", () => {
-    it("[broken/item-7] WAITLIST_EXPIRY job handler silently no-ops instead of expiring the entry", async () => {
+    it("[ok] WAITLIST_EXPIRY job handler expires the entry when the payload carries venueId (item-7, fixed half)", async () => {
       const { createReservationJobHandlers } = await import("../services/job-worker.js");
       const { waitlistService } = await import("../services/waitlist.js");
       const { JOB_TYPES } = await import("@mbe/jobs");
@@ -363,9 +363,11 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       // `waitlistService.expire(id)`. That call is the one this test
       // isolates; the SMS/scheduler half of the notifier that runs AFTER a
       // successful expire is exercised by `waitlist-notifier.test.ts`, not
-      // here — a job worker consumer has no HTTP request and never calls
-      // `runWithVenueContext`, so `waitlistService.expire`'s
-      // `prisma.waitlistEntry.update` runs with no venue context resolved.
+      // here. A job worker consumer has no HTTP request, so it is
+      // `handleWaitlistExpiryJob`'s own `runWithVenueContext(payload.venueId,
+      // …)` wrap — not any request middleware — that has to make
+      // `waitlistService.expire`'s `prisma.waitlistEntry.update` resolve a
+      // venue context at all.
       const handlers = createReservationJobHandlers({
         getReservation: async () => null,
         getVenue: async () => null,
@@ -373,19 +375,24 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
         generateManageToken: () => "unused",
         handleWaitlistExpiry: (input) =>
           waitlistService.expire(input.waitlistEntryId).then(() => undefined),
+        logger: { warn: () => undefined },
       });
 
-      await handlers[JOB_TYPES.WAITLIST_EXPIRY]!({ waitlistEntryId: ctx.waitlistA });
+      // Correct payload: notifyTableReady (waitlist-notifier.ts) enqueues
+      // venueId alongside waitlistEntryId, so the handler wraps the whole
+      // body in runWithVenueContext(payload.venueId, …) before calling
+      // waitlistService.expire.
+      await handlers[JOB_TYPES.WAITLIST_EXPIRY]!({
+        waitlistEntryId: ctx.waitlistA,
+        venueId: ctx.venueA.id,
+      });
 
-      // The RLS tripwire throws INSIDE `prisma.waitlistEntry.update`, and
-      // `waitlistService.expire`'s own try/catch swallows it and returns
-      // `null` — no error reaches the job worker, no BullMQ retry, and the
-      // row is left exactly as it was. Read it back through the SAME
-      // production scoping helper the app itself uses (`runWithVenueContext`
-      // + the wrapped `prisma` export), not `seedClient` — FORCE is on for
-      // the whole suite, so `seedClient` (connected as the table OWNER, with
-      // no `app.venue_id` of its own) is itself subject to RLS here and
-      // would see zero rows regardless of what this test is proving.
+      // Read it back through the SAME production scoping helper the app
+      // itself uses (`runWithVenueContext` + the wrapped `prisma` export),
+      // not `seedClient` — FORCE is on for the whole suite, so `seedClient`
+      // (connected as the table OWNER, with no `app.venue_id` of its own) is
+      // itself subject to RLS here and would see zero rows regardless of
+      // what this test is proving.
       const { prisma } = await import("../services/database.js");
       const { runWithVenueContext } = await import("../services/venue-context-store.js");
       const entry = await runWithVenueContext(ctx.venueA.id, () =>
@@ -393,8 +400,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       );
       expect(
         entry?.status,
-        "item-7: waitlistService.expire swallowed the RLS tripwire and reported success-shaped null instead of expiring the row"
-      ).toBe("waiting");
+        "item-7: the venue-context wrap should let waitlistService.expire's update through, expiring the row"
+      ).toBe("expired");
     });
 
     it("[ok] BOOKING_REMINDER / DAY_OF_REMINDER job handler is correctly venue-scoped (item-7, fixed half)", async () => {
@@ -410,6 +417,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
         dispatcher: { sendBookingReminder },
         generateManageToken: () => "fake-manage-token",
         handleWaitlistExpiry: async () => undefined,
+        logger: { warn: () => undefined },
       });
 
       // Correct payload: `deliverReminder` wraps its whole body in
