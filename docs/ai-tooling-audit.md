@@ -216,8 +216,8 @@ The `ai-tooling` repo ships a `.claude-plugin/marketplace.json`. The skills (aud
 **To install from the marketplace:**
 
 ```bash
-claude plugins:add-marketplace https://github.com/mattbutlerengineering/ai-tooling.git
-claude plugins:install ai-tooling
+claude plugin marketplace add https://github.com/mattbutlerengineering/ai-tooling.git
+claude plugin install ai-tooling
 ```
 
 The marketplace entry is added to `extraKnownMarketplaces` in `~/.claude/settings.json` (user-level) and the plugin is tracked in `~/.claude/plugins/installed_plugins.json`. This is a global user install, not project-committed — no project files need to change for the skills to be available. The skills are source-of-truth in the `ai-tooling` repo and are invoked via the slash commands documented there.
