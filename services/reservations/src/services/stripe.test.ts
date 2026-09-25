@@ -317,7 +317,7 @@ describe("StripeService", () => {
       expect(result).toBeNull();
     });
 
-    it("accepts a tagged refund with status pending or requires_action as already sent", async () => {
+    it("accepts a tagged refund with status pending as already sent", async () => {
       mockRefunds.list.mockResolvedValueOnce({
         data: [
           {
@@ -332,6 +332,26 @@ describe("StripeService", () => {
       const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
 
       expect(result).toEqual({ id: "re_pending", amount: 3000 });
+    });
+
+    it("accepts a tagged refund with status requires_action as already sent (#5744)", async () => {
+      // A refund can require additional guest action (e.g. a bank redirect)
+      // before it lands — it isn't done, but it also isn't "never sent", so a
+      // retry must not treat it as still owing and issue a second refund.
+      mockRefunds.list.mockResolvedValueOnce({
+        data: [
+          {
+            id: "re_requires_action",
+            amount: 3000,
+            status: "requires_action",
+            metadata: { depositId: "dep-123", leg: "refundPartial" },
+          },
+        ],
+      });
+
+      const result = await stripeService.findDepositRefund("pi_test_123", "dep-123");
+
+      expect(result).toEqual({ id: "re_requires_action", amount: 3000 });
     });
   });
 

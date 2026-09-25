@@ -127,6 +127,7 @@ const mockDeposit: Deposit = {
   appliedAt: null,
   refundedAt: null,
   forfeitedAt: null,
+  forfeitOrigin: null,
   uncollectableAt: null,
   feeAmountCents: null,
   refundAmountCents: null,

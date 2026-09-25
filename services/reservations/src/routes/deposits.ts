@@ -332,7 +332,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    depositTransitionHandler((id) => depositService.forfeit(id))
+    depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
   );
 };
 

@@ -7858,9 +7858,15 @@
         | "cap...;
     </item>
     <item priority="low">
+      type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
+    </item>
+    <item priority="low">
       interface DepositServiceLogger {
         
       }
+    </item>
+    <item priority="medium">
+      function isOldEnoughToRollBack(capturedAt: Date): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
@@ -8351,6 +8357,15 @@
     </item>
     <item priority="high">
       type ResolveDepositOutcome = { ok: false; failure: CancelRe | { ok: true; resolved: Resolved;
+    </item>
+    <item priority="medium">
+      function classifyDepositFailure(
+        err: unknown,
+        reservation: Reservation,
+        depositId: string,
+        logger: FastifyBaseLogger,
+        message: string
+      ): CancelReservationResult { /* ... */ }
     </item>
     <item priority="low">
       async function resolveHeldDeposit(

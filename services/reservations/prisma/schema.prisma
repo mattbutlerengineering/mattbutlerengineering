@@ -246,6 +246,12 @@ model Deposit {
   appliedAt             DateTime?     @map("applied_at")
   refundedAt            DateTime?     @map("refunded_at")
   forfeitedAt           DateTime?     @map("forfeited_at")
+  /// Which flow set the deposit to `forfeited` ("no_show" | "cancellation" |
+  /// "staff") — `forfeited` is produced by three different callers of
+  /// DepositService#forfeit, and only a no-show retry replaying its OWN
+  /// forfeit key is safe to recapture at its full amount (#5744 LOW-A).
+  /// Nullable: rows written before this column existed have no known origin.
+  forfeitOrigin         String?       @map("forfeit_origin")
   /// Set when a capture fails permanently (e.g. the ~7-day Stripe
   /// authorization expired and was auto-canceled) — the money is gone for
   /// good, so there's nothing left to reconcile against Stripe.
