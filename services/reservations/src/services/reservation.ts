@@ -15,7 +15,7 @@ import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { setVenueContext } from "../middleware/venue-context.js";
-import { getCurrentVenueId } from "./venue-context-store.js";
+import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { venueLocalDateString } from "./slot-rules.js";
@@ -57,6 +57,19 @@ export interface UpdateReservationResult {
   reservation?: Reservation;
   error?: string;
   conflict?: ConflictCheckResult;
+}
+
+/**
+ * Merge-sort comparator matching `listByUserId`'s pre-#5369 `orderBy: [{
+ * date: "desc" }, { startTime: "desc" }]` — needed once the per-venue fan-out
+ * replaces that single query's own ordering with an in-process merge.
+ */
+function compareReservationDateDesc(
+  a: { date: Date; startTime: Date },
+  b: { date: Date; startTime: Date }
+): number {
+  const dateDiff = b.date.getTime() - a.date.getTime();
+  return dateDiff !== 0 ? dateDiff : b.startTime.getTime() - a.startTime.getTime();
 }
 
 export const reservationService = {
@@ -101,29 +114,52 @@ export const reservationService = {
     };
   },
 
+  /**
+   * A diner's own reservations can span whatever venues they booked at
+   * (ADR-026 §3.2 item 2, #5369) — a single `reservation.findMany({ where:
+   * { userId } })` has no single venue to name, so it returns ZERO rows under
+   * `FORCE ROW LEVEL SECURITY`. Fixed the same way as
+   * {@link venueService.listForMember}: resolve the set of venues this user's
+   * reservations span via `app_reservation_venue_ids_for_user()` (a
+   * `SECURITY DEFINER` function, `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`
+   * — returns venue ids only, never a reservation row), then read each venue's
+   * reservations inside its own `runWithVenueContext` and merge. Pagination
+   * moves from the database into this function because the fan-out can no
+   * longer express it as one query; the merge sort keeps today's
+   * `date desc, startTime desc` ordering.
+   */
   async listByUserId(
     userId: string,
     page: number,
     limit: number
   ): Promise<PaginatedResponse<Reservation>> {
-    const [reservations, total] = await Promise.all([
-      prisma.reservation.findMany({
-        where: { userId },
-        ...paginate({ page, limit }),
-        orderBy: [{ date: "desc" }, { startTime: "desc" }],
-        include: {
-          table: true,
-          guest: {
-            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
-          },
-        },
-      }),
-      prisma.reservation.count({ where: { userId } }),
-    ]);
+    const venueRows = await prisma.$queryRaw<
+      { app_reservation_venue_ids_for_user: string }[]
+    >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+
+    const perVenue = await Promise.all(
+      venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>
+        runWithVenueContext(venueId, () =>
+          prisma.reservation.findMany({
+            where: { userId, venueId },
+            orderBy: [{ date: "desc" }, { startTime: "desc" }],
+            include: {
+              table: true,
+              guest: {
+                select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+              },
+            },
+          })
+        )
+      )
+    );
+
+    const reservations = perVenue.flat().sort(compareReservationDateDesc);
+    const { skip, take } = paginate({ page, limit });
 
     return {
-      data: reservations.map(toReservation),
-      pagination: toPaginationMeta(page, limit, total),
+      data: reservations.slice(skip, skip + take).map(toReservation),
+      pagination: toPaginationMeta(page, limit, reservations.length),
     };
   },
 

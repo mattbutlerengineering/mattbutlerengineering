@@ -19,6 +19,8 @@ import {
 } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { runWithVenueContext } from "./venue-context-store.js";
+import { getMemberVenueIds } from "./member-venues.js";
 
 /**
  * Outcome of {@link venueService.delete} — distinguishes "gone" from "blocked
@@ -268,6 +270,11 @@ export const venueGroupService = {
   },
 };
 
+// Approximates the en_US database collation the removed
+// `orderBy: { name: "asc" }` used (case- and accent-aware), so moving the
+// sort into application code doesn't reorder venues or change page 1.
+const VENUE_NAME_COLLATOR = new Intl.Collator("en-US");
+
 export const venueService = {
   /**
    * Lists venues across every venue — the platform-`admin` surface
@@ -326,8 +333,21 @@ export const venueService = {
   /**
    * Lists only the venues the given operator is a member of (owns or was
    * invited to), scoped via VenueMembership (ADR-020). Platform admins bypass
-   * this and use `list` instead. The `count` shares the same filter so
-   * pagination totals reflect the scoped set.
+   * this and use `list` instead.
+   *
+   * This is the other of ADR-026 §3.2's two newly-open cross-venue reads (#5369):
+   * a single `venue.findMany` filtered by `memberships: { some: { userSub } }`
+   * is an application predicate, not a value of `app.venue_id`, so it returns
+   * ZERO rows under `FORCE ROW LEVEL SECURITY` for any member of more than one
+   * venue. Fixed by fanning out one venue at a time instead of a single
+   * cross-venue delegate call: {@link getMemberVenueIds} reads the member's
+   * venue ids straight off `venue_memberships` (no RLS policy at all, so this
+   * first step needs no escape hatch), then each venue is read inside
+   * `runWithVenueContext` — `venues`' own `venue_isolation` policy admits a
+   * session whose `app.venue_id` equals that row's own `id`, so this is a
+   * correctly-scoped single-venue read, not a cross-venue one. Ordering,
+   * `venueGroupId` filtering and pagination move from the database into this
+   * function because the fan-out can no longer express them as one query.
    */
   async listForMember(
     userSub: string,
@@ -335,24 +355,26 @@ export const venueService = {
     limit: number,
     venueGroupId?: string
   ): Promise<PaginatedResponse<Venue>> {
-    const where: Prisma.VenueWhereInput = {
-      memberships: { some: { userSub } },
-      ...(venueGroupId ? { venueGroupId } : {}),
-    };
+    const venueIds = await getMemberVenueIds(userSub);
 
-    const [venues, total] = await Promise.all([
-      prisma.venue.findMany({
-        where,
-        ...paginate({ page, limit }),
-        orderBy: { name: "asc" },
-        include: { venueGroup: true },
-      }),
-      prisma.venue.count({ where }),
-    ]);
+    const rows = await Promise.all(
+      venueIds.map((venueId) =>
+        runWithVenueContext(venueId, () =>
+          prisma.venue.findUnique({ where: { id: venueId }, include: { venueGroup: true } })
+        )
+      )
+    );
+
+    const venues = rows
+      .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
+      .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
+      .sort((a, b) => VENUE_NAME_COLLATOR.compare(a.name, b.name));
+
+    const { skip, take } = paginate({ page, limit });
 
     return {
-      data: venues.map(mapPrismaVenue),
-      pagination: toPaginationMeta(page, limit, total),
+      data: venues.slice(skip, skip + take).map(mapPrismaVenue),
+      pagination: toPaginationMeta(page, limit, venues.length),
     };
   },
 

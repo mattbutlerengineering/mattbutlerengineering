@@ -24,6 +24,7 @@ vi.mock("./database.js", async () => {
       venueMembership: {
         create: vi.fn(),
         count: vi.fn(),
+        findMany: vi.fn(),
       },
       $queryRaw: vi.fn(),
       $transaction: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("./database.js", async () => {
 
 import { venueService, venueGroupService, VenueBootstrapForbiddenError } from "./venue.js";
 import { prisma } from "./database.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
 
@@ -346,44 +348,129 @@ describe("venueService", () => {
   });
 
   describe("listForMember", () => {
-    it("filters venues to those the given user is a member of", async () => {
-      const dbVenue = makePrismaVenue();
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([dbVenue] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(1 as never);
+    it("resolves the member's venue ids from venue_memberships (no RLS read), never a cross-venue venue.findMany (#5369)", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
 
       const result = await venueService.listForMember("auth0|user-1", 1, 10);
 
+      expect(prisma.venueMembership.findMany).toHaveBeenCalledWith({
+        where: { userSub: "auth0|user-1" },
+        select: { venueId: true },
+        distinct: ["venueId"],
+      });
       expect(result.data).toHaveLength(1);
       const [venue] = result.data;
       if (!venue) throw new Error("expected a venue");
       expect(venue.id).toBe("venue-1");
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { memberships: { some: { userSub: "auth0|user-1" } } },
-        })
-      );
-      // count must apply the same membership filter so pagination totals match
-      expect(prisma.venue.count).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { memberships: { some: { userSub: "auth0|user-1" } } },
-        })
-      );
+      expect(prisma.venue.findMany).not.toHaveBeenCalled();
     });
 
-    it("combines the membership filter with venueGroupId", async () => {
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(0 as never);
+    it("reads each member venue inside its own runWithVenueContext (one venue at a time)", async () => {
+      // `venueIds.map(...)` invokes `runWithVenueContext` synchronously in
+      // array order (`AsyncLocalStorage.run` calls its callback synchronously
+      // before any `await` inside it), so the two mocked calls below fire in
+      // the same order `getMemberVenueIds` returned.
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      const observedVenueIds: Array<string | null> = [];
+      vi.mocked(prisma.venue.findUnique)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return makePrismaVenue({ id: "venue-1", name: "Alpha" });
+        }) as never)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return makePrismaVenue({ id: "venue-2", name: "Bravo" });
+        }) as never);
 
-      await venueService.listForMember("auth0|user-1", 1, 10, "group-1");
+      await venueService.listForMember("auth0|user-1", 1, 10);
 
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            memberships: { some: { userSub: "auth0|user-1" } },
-            venueGroupId: "group-1",
-          },
-        })
-      );
+      expect(observedVenueIds).toEqual(["venue-1", "venue-2"]);
+      // The context must not leak past listForMember's own execution.
+      expect(getCurrentVenueId()).toBeNull();
+    });
+
+    it("returns both of a member's venues, sorted by name, when they belong to more than one", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1", name: "Zeta" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-2", name: "Alpha" }) as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data.map((v) => v.id)).toEqual(["venue-2", "venue-1"]);
+      expect(result.pagination.total).toBe(2);
+    });
+
+    it("sorts mixed-case and accented names the way the database collation did, not by code unit", async () => {
+      // The removed `orderBy: { name: "asc" }` sorted with Postgres's en_US
+      // collation; a raw `<` comparison would put "Bravo" before "alpha" and
+      // "Éclair" after "zeta", changing which venues land on page 1.
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "v-zeta" },
+        { venueId: "v-eclair" },
+        { venueId: "v-bravo" },
+        { venueId: "v-alpha" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-zeta", name: "zeta" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-eclair", name: "Éclair" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-bravo", name: "Bravo" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-alpha", name: "alpha" }) as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data.map((v) => v.name)).toEqual(["alpha", "Bravo", "Éclair", "zeta"]);
+    });
+
+    it("filters out a venue id whose row no longer exists", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-deleted" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1" }) as never)
+        .mockResolvedValueOnce(null as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("filters the fanned-out venues by venueGroupId in-process", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1", venueGroupId: "group-1" }) as never)
+        .mockResolvedValueOnce(
+          makePrismaVenue({ id: "venue-2", venueGroupId: "group-2" }) as never
+        );
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10, "group-1");
+
+      expect(result.data.map((v) => v.id)).toEqual(["venue-1"]);
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("returns an empty page when the user holds no membership at all", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([] as never);
+
+      const result = await venueService.listForMember("auth0|no-memberships", 1, 10);
+
+      expect(result.data).toEqual([]);
+      expect(result.pagination.total).toBe(0);
+      expect(prisma.venue.findUnique).not.toHaveBeenCalled();
     });
   });
 

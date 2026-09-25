@@ -6163,7 +6163,7 @@
         memberSub: string;
         venueA: { id: string; slug: string };
         venueB: { id: string; slug: string };
-        tableA: string;
+        venueC: { id: string };
       }
     </item>
     <item priority="low">
@@ -8288,6 +8288,14 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/member-venues.ts">
+    <item priority="high">
+      export async function getMemberVenueIds(
+        userSub: string,
+        client: PrismaClient = prisma
+      ): Promise<string[]> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
@@ -8540,6 +8548,12 @@
         error?: string;
         conflict?: ConflictCheckResult;
       }
+    </item>
+    <item priority="medium">
+      function compareReservationDateDesc(
+        a: { date: Date; startTime: Date },
+        b: { date: Date; startTime: Date }
+      ): number { /* ... */ }
     </item>
     <item priority="high">
       export const reservationService: unknown;
