@@ -80,4 +80,28 @@ describe("pulumi-up.yml Pulumi CLI pin", () => {
     expect(WORKFLOW).not.toMatch(/pulumi-version:\s*["']?\^?3["']?\s*$/);
     expect(WORKFLOW).not.toMatch(/pulumi-version:\s*["']?latest["']?\s*$/);
   });
+
+  it("asserts the installed binary is actually the pinned version, by explicit path", () => {
+    // #5764's pipefail closes the total-failure case (a failed curl exiting 0
+    // through the pipe). It does not close the wrong-version case: a redirect,
+    // a yanked release, or a partial install could still leave the step green
+    // on a Pulumi nobody verified — and this is the workflow that deploys prod.
+    const pinBlock = WORKFLOW.slice(
+      WORKFLOW.indexOf("- name: Pin Pulumi CLI"),
+      WORKFLOW.indexOf("- name: Pulumi Cancel")
+    );
+
+    // Explicit path, not bare `pulumi` — $GITHUB_PATH only affects *later*
+    // steps, so a bare call here would resolve the runner image's own binary
+    // and pass regardless of what actually got installed.
+    expect(pinBlock).toMatch(/"\$HOME\/\.pulumi\/bin\/pulumi"\s+version/);
+    expect(pinBlock).toContain(`v${PINNED_VERSION}`);
+    expect(pinBlock).toContain("exit 1");
+
+    // The assertion must sit after the $GITHUB_PATH line, not before it.
+    const pathIdx = pinBlock.indexOf('>> "$GITHUB_PATH"');
+    const assertIdx = pinBlock.indexOf('"$HOME/.pulumi/bin/pulumi" version');
+    expect(pathIdx).toBeGreaterThan(-1);
+    expect(assertIdx).toBeGreaterThan(pathIdx);
+  });
 });

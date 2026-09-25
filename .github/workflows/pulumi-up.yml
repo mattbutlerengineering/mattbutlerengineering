@@ -82,6 +82,17 @@ jobs:
           set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version 3.253.0
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+          # A successful download is not proof of the right download: a redirect,
+          # a changed installer contract, a yanked release, or a partially
+          # populated $HOME/.pulumi/bin would all leave this step green. Query the
+          # binary by its explicit path — $GITHUB_PATH only affects *later* steps,
+          # so a bare `pulumi version` here would silently resolve the runner
+          # image's own binary and pass regardless of what actually got installed.
+          installed="$("$HOME/.pulumi/bin/pulumi" version)"
+          if [ "$installed" != "v3.253.0" ]; then
+            echo "Pulumi version mismatch: expected v3.253.0, got \"$installed\"" >&2
+            exit 1
+          fi
 
       - name: Pulumi Cancel + Clear Pending Operations
         run: |
