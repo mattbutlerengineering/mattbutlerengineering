@@ -23,6 +23,7 @@ import {
   calculateDepositAmount,
   setDepositServiceLogger,
   DepositCaptureAmbiguousError,
+  DepositAlreadyCapturedError,
   DepositRefundLegIncompleteError,
   DepositWrittenOffUncollectableError,
 } from "./deposit.js";
@@ -698,9 +699,16 @@ describe("DepositService", () => {
     // both orderings land on the identical terminal state (never `held`) is
     // the point of #5753 — see that test for the webhook-side half.
 
+    // Stripe-flow review of #5757: leaving the row `refunded` whenever the
+    // cancel isn't PROVEN is unsafe — a live hold (retrieve failed during an
+    // egress outage) or captured money (`succeeded`/`processing`) would be
+    // labeled refunded with nothing ever correcting it. Only a retrieved
+    // `canceled` keeps `refunded`; every other outcome rolls back to `held`,
+    // which is recoverable (a later refund() retrieves `canceled`, or a later
+    // forfeit/apply writes it off as `uncollectable`).
     it(
-      "retrieve-fails case: does not roll back and rethrows the original error when the " +
-        "PaymentIntent cannot be retrieved after an ambiguous cancel failure (#5753)",
+      "retrieve-fails case: rolls back to held and rethrows the original error when the " +
+        "PaymentIntent cannot be retrieved after a cancel failure (#5753)",
       async () => {
         const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
         mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
@@ -708,17 +716,74 @@ describe("DepositService", () => {
         mockDepositDb.findUnique.mockResolvedValueOnce(
           makeDeposit({ status: "refunded", refundedAt: new Date() })
         );
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
         mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
         mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("network blip"));
 
         await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
 
-        // Never guessed at a rollback — the row is left at its DB-first
-        // `refunded` write (never silently stranded at `held`) for a later
-        // webhook or manual reconciliation to resolve.
-        expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+        expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+        expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            where: { id: "dep-123", status: "refunded" },
+            data: expect.objectContaining({ status: "held", refundedAt: null }),
+          })
+        );
       }
     );
+
+    it.each(["succeeded", "processing"])(
+      "already-captured case: rolls back to held and throws DepositAlreadyCapturedError when the " +
+        "retrieved PaymentIntent is %s — never records a refund for captured money (#5753)",
+      async (intentStatus) => {
+        const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+        mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({ status: "refunded", refundedAt: new Date() })
+        );
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("cannot cancel"));
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: intentStatus,
+        });
+
+        const error = await depositService.refund("dep-123").catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(DepositAlreadyCapturedError);
+        expect(error).toMatchObject({
+          depositId: "dep-123",
+          stripePaymentIntentId: "pi_test_123",
+          intentStatus,
+        });
+        expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            where: { id: "dep-123", status: "refunded" },
+            data: expect.objectContaining({ status: "held" }),
+          })
+        );
+      }
+    );
+
+    it("still rethrows the original error when the rollback itself fails (#5753)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "refunded", refundedAt: new Date() })
+      );
+      mockDepositDb.updateMany.mockRejectedValueOnce(new Error("db down"));
+      mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
+    });
 
     it("skips the Stripe cancel call when skipStripeCancel is set (intent already canceled)", async () => {
       // The canceled webhook fires because Stripe already canceled the intent

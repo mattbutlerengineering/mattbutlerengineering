@@ -89,18 +89,13 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
   // deliberate release, not a dead authorization, and must be labeled
   // `refunded` via the same path a staff-initiated refund uses (#5725
-  // MEDIUM-3). The null case is what OUR OWN refund() sends. #5753 fixed the
-  // race this used to have with refund()'s error handling: refund()'s
-  // ambiguous-cancel-error handling (`_reconcileCancelFailure`) now confirms
-  // the PaymentIntent's real status before deciding anything, and only rolls
-  // the row back to `held` when Stripe proves the cancel did NOT happen
-  // (`requires_capture`) — a case where Stripe never fires this webhook at
-  // all, since it never canceled the intent. So whenever Stripe DID cancel
-  // the intent, refund() never leaves the row at `held`, and this webhook —
-  // whether it arrives before that reconciliation finishes (finding the row
-  // already non-`held`, an early-return no-op above) or after (finding it
-  // `refunded`, same no-op) — always lands on the identical terminal state.
-  // Every interleaving ends terminal; the row is never stranded.
+  // MEDIUM-3). The null case is what OUR OWN refund() sends. When refund()'s
+  // own cancel call errors, `_reconcileCancelFailure` keeps `refunded` only if
+  // it retrieves `canceled`; otherwise it rolls back to `held` (#5753). If
+  // Stripe did cancel after all and this webhook already no-op'd against the
+  // interim `refunded` row, the row sits at `held` against a canceled intent
+  // until the next action settles it: refund() retrieves `canceled` and keeps
+  // `refunded`, and forfeit/apply write it off as `uncollectable`.
   //
   // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
   // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
@@ -148,13 +143,16 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
       { depositId: deposit.id, paymentIntentId },
       "charge.refunded received for a held deposit; refunding"
     );
-    // A dashboard-issued refund can race with (or follow) the intent already
-    // being canceled — calling cancelPaymentIntent again would fail against
-    // an already-canceled intent and Stripe would retry the webhook forever
-    // on the resulting 500, the same class of bug fixed for
-    // payment_intent.canceled below (#5719 LOW).
+    // Only a live authorization (`requires_capture`) has anything to cancel.
+    // A dashboard refund can follow an already-canceled intent, and a held
+    // row whose intent `succeeded` was captured and then refunded. Calling
+    // cancelPaymentIntent in either case fails, refund() then rolls back and
+    // throws (#5753), and Stripe would retry this webhook forever on the 500
+    // (#5719 LOW).
     const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-    await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
+    await depositService.refund(deposit.id, {
+      skipStripeCancel: intent.status !== "requires_capture",
+    });
     return;
   }
 
