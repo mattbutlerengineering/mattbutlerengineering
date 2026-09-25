@@ -421,15 +421,40 @@ the #5369 sweep and none of them fixed by it:
    `/confirm`, `/public/v1/guests/unsubscribe`) and the **Stripe webhook**'s
    `depositService.getByPaymentIntentId` lookup, all of which address a row by
    an opaque id or token with no venue in the request.
-5. **The venue-self-addressed family** (`GET/PATCH/DELETE /api/v1/venues/:id`,
-   `/:id/table-statuses`), already recorded in
-   `services/reservations/CLAUDE.md`.
-6. **The deposits admin family** (`GET /api/v1/deposits/:id` and its
-   `/capture`, `/refund`, `/forfeit` siblings). Listed here explicitly, not
-   folded into item 2, because §3.2 records these five routes as **resolved** by
-   #5382 and a reader could reasonably move them off this list on that basis —
-   they are not off it. Measured 404 under FORCE (§3.3's table below); see the
-   blockquote in §3.2 for why.
+5. **Closed (#5369 PR 7).** The venue-self-addressed family
+   (`GET/PATCH/DELETE /api/v1/venues/:id`, `/:id/table-statuses`) — the
+   global preHandler (`resolveGlobalVenueId` in `app.ts`) only reads a
+   `venueId` KEY off the query/body/params, and these routes address the
+   venue by its own `:id` instead, so `app.venue_id` was never set for them.
+   Fixed the same way item 2 was: `resolveVenueId("venue", id)` /
+   `loadInVenueContext` (`routes/venue-access.ts`) — `venues`' own
+   `venue_isolation` policy is keyed on the row's own `id`, so `"venue"` is
+   the correct kind. `PATCH /:id`'s venueGroupId-reassignment pre-check (its
+   own unscoped `venueService.getById`, #5515-adjacent) now runs inside the
+   same resolved context too. Proved against a real, migrated,
+   FORCE'd database as a non-superuser owner role in
+   `routes/rls-route-sweep.integration.test.ts`.
+6. **Closed (#5369 PR 7).** The deposits admin family
+   (`GET /api/v1/deposits?reservationId=`, `GET /api/v1/deposits/:id` and its
+   `/capture`, `/refund`, `/forfeit` siblings, and `POST /api/v1/deposits`).
+   Listed here explicitly, not folded into item 2, because §3.2 records these
+   five routes as **resolved** by #5382 and a reader could reasonably move
+   them off this list on that basis — they were not off it: measured 404
+   under FORCE (§3.3's table below), because `resolveReservationVenueId`
+   (`services/deposit-venue.ts`) and the `/:id` family's own
+   scope-determining read were themselves unscoped reads of RLS-scoped
+   tables (`reservations` / `deposits`) — exactly item 2's trap, just not yet
+   closed here when §3.2 landed. Both now resolve through the same
+   `SECURITY DEFINER` `app_resolve_venue_id` function
+   (`resolveVenueId`/`loadInVenueContext`) — the `"deposit"` kind joins to
+   the owning reservation inside the resolver's own definer body, so the
+   venue resolves without a separate unscoped Prisma read. Proved against a
+   real, migrated, FORCE'd database in
+   `routes/rls-route-sweep.integration.test.ts`; capture/refund/forfeit are
+   proven only up to the point Stripe is required (this environment
+   provisions no Stripe key) — the assertion is that the venue resolves (no
+   403/404/tripwire), not a full 2xx, the same shape the waitlist `/notify`
+   fixture uses for its own unprovisioned dependency.
 7. **The in-process job worker** (`services/reservations/src/services/job-worker.ts`,
    wired in `app.ts`). Its `BOOKING_REMINDER` / `DAY_OF_REMINDER` handlers call
    `reservationService.getById` and `venueService.getById`, and `WAITLIST_EXPIRY`
@@ -450,6 +475,25 @@ the #5369 sweep and none of them fixed by it:
    decided fix below, and `handleWaitlistExpiryJob` does the same for
    `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` — see the split
    immediately below for how its payload-compatibility wrinkle was handled.
+8. **Closed (#5369 PR 7).** `POST /api/v1/venues` — added here rather than
+   left as a fixtures-only `"item-8"` label (its name in
+   `routes/rls-route-sweep.fixtures.ts` and the #5369 PR 3 migration-review
+   carry-forward that first found it): the INSERT has no PRIOR venue context
+   to satisfy its own `WITH CHECK`, because the row's own `id` — what
+   `venue_isolation` checks — does not exist until this statement creates
+   it. `venueService.create()`'s writes went through an unwrapped
+   `prisma.$transaction(...)` ($-prefixed methods pass through
+   `withVenueScopedQueries`'s proxy unscoped by design, §3.3 item 2's own
+   note), so the app-level unscoped-query tripwire never saw this write — it
+   reached real Postgres with no `app.venue_id` set and failed the FORCE'd
+   `WITH CHECK` at the DB layer as a plain `PrismaClientKnownRequestError`,
+   not the app's own tripwire error. Fixed by generating the id up front
+   (`randomUUID()`, overriding the schema's client-side `@default(cuid())`)
+   and calling `setVenueContext(tx, id)` as the first statement of the SAME
+   transaction that inserts the row — never `app.cross_venue` (that marker
+   is for reads that cannot name a single venue; this INSERT names exactly
+   one, the venue it is creating). Proved against a real, migrated, FORCE'd
+   database in `routes/rls-route-sweep.integration.test.ts`.
 
 Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the

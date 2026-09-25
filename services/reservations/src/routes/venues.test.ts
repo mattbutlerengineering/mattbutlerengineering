@@ -97,6 +97,16 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 5 / #5369 PR 7: GET/PATCH/DELETE /:id and
+// GET /:id/table-statuses now resolve venue ids via `resolveVenueId`, a raw
+// `$queryRaw` call this suite's plain `createMockDatabaseService()` stub
+// can't answer. Route tests exercise application logic, not real RLS
+// resolution (that's `rls-route-sweep.integration.test.ts`), so resolve to a
+// constant non-null venue id here — same convention as `tables.test.ts`.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 // Mock jose library for JWT verification
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),

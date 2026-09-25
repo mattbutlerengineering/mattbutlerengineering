@@ -4,6 +4,7 @@ import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { depositService, DepositNotFoundError } from "../services/deposit.js";
 import { resolveReservationVenueId } from "../services/deposit-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
+import { loadInVenueContext } from "./venue-access.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -61,12 +62,18 @@ const depositProperties = {
  * would conclude (ADR-026 §2/§5), and ADR-020 already treats an unresolvable
  * venue as a refusal.
  *
- * Residual, deliberately not solved here: the ONE lookup that determines the
- * scope (reading the addressed deposit, and its reservation's `venue_id`)
- * cannot itself run inside the scope it is computing. That is a property of
- * every entity-addressed route in this service — `venueIdFromEntity`
- * (`./venue-access.ts`) has the same shape — not something deposits can fix
- * alone; see ADR-026 §3.
+ * Closed (ADR-026 §3.3 item 6 / #5369 PR 7): the lookup that determines the
+ * scope used to be an unscoped read of the addressed deposit (or the
+ * reservation `resolveReservationVenueId` loaded), which is itself one of the
+ * seven RLS-scoped tables — the same "lookup can't run inside the scope it's
+ * computing" shape as `venueIdFromEntity` (`./venue-access.ts`), and measured
+ * broken under FORCE (ADR-026 §3.2's blockquote). Both
+ * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and this
+ * file's own GET/:id route now resolve through the `SECURITY DEFINER`
+ * `app_resolve_venue_id` function instead (`resolveVenueId`/
+ * `loadInVenueContext`, `../services/resolve-venue.ts` /
+ * `./venue-access.ts`), which performs the reservation join inside its own
+ * definer body rather than as a separate unscoped Prisma read.
  */
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/v1/deposits — create a deposit
@@ -206,22 +213,17 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      // Scope-determining read (see the module comment): it cannot run inside
-      // the scope it computes, and is used ONLY to reach the owning venue.
-      const addressed = await depositService.getById(request.params.id);
-      if (!addressed) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      const venueId = await resolveReservationVenueId(addressed.reservationId);
-      if (!venueId) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      // The row actually returned is the one read under the resolved venue
-      // context, so it is the row the `deposit_isolation` policy admits.
-      const deposit = await runWithVenueContext(venueId, () =>
-        depositService.getById(request.params.id)
+      // ADR-026 §3.3 item 6 / #5369 PR 7: resolves straight through the
+      // `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
+      // the deposit's own reservation done INSIDE the resolver, not via a
+      // prior unscoped `depositService.getById` — so the read below already
+      // runs inside the resolved venue context instead of repeating the
+      // "lookup can't run inside the scope it's computing" trap.
+      const deposit = await loadInVenueContext(
+        "deposit",
+        request.params.id,
+        () => depositService.getById(request.params.id),
+        null
       );
       if (!deposit) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));

@@ -173,6 +173,14 @@ export type PayloadOrFactory =
 export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
 /** Matched by the `jose` mock in the test file to a non-admin member of venue A. */
 export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
+/**
+ * Matched by the `jose` mock in the test file to a diner whose verified email
+ * equals `reservationA`'s `guestEmail` — `requireReservationOwnerOrAdmin`'s
+ * non-admin, non-staff identity space (#5369 PR 7 / PR 5 carry-forward: the
+ * `/reservations/:id` sweep used to prove only the admin path, never the
+ * `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
+ */
+export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
 
 /**
  * A fresh, unique `remoteAddress` per call. `@fastify/rate-limit`'s default
@@ -204,6 +212,8 @@ export const asAdmin = (ctx: SweepContext, opts: InjectOptions): Promise<LightMy
   inject(ctx, ADMIN_HEADERS, opts);
 export const asMember = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
   inject(ctx, MEMBER_HEADERS, opts);
+export const asDiner = (ctx: SweepContext, opts: InjectOptions): Promise<LightMyRequestResponse> =>
+  inject(ctx, DINER_A_HEADERS, opts);
 
 /** A successful response (< 300) — the RLS + venue-context plumbing did not interfere. */
 export function expectOk(res: LightMyRequestResponse, label: string): void {
@@ -454,9 +464,16 @@ async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string)
 
 /**
  * Creates a disposable reservation in `venueId` on its own fresh table, so
- * repeated calls never collide on a table/time slot.
+ * repeated calls never collide on a table/time slot. `guestEmail` defaults to
+ * a fresh disposable address; pass the diner's own email (#5369 PR 7) to seed
+ * a reservation `requireReservationOwnerOrAdmin`'s owner resolver will admit
+ * for that diner.
  */
-async function createDisposableReservation(ctx: SweepContext, venueId: string): Promise<string> {
+async function createDisposableReservation(
+  ctx: SweepContext,
+  venueId: string,
+  guestEmail = `rls-sweep-disposable-${randomUUID()}@example.com`
+): Promise<string> {
   const tableId = await createDisposableTable(ctx, venueId);
   const res = await asAdmin(ctx, {
     method: "POST",
@@ -469,38 +486,10 @@ async function createDisposableReservation(ctx: SweepContext, venueId: string): 
       tableId,
       venueId,
       guestName: "RLS Sweep Disposable Guest",
-      guestEmail: `rls-sweep-disposable-${randomUUID()}@example.com`,
+      guestEmail,
     },
   });
   return extractId(res);
-}
-
-/**
- * Generic KNOWN_BROKEN fixture for an entity-addressed route
- * (`venueIdFromEntity` — ADR-026 §3.3 item 2, or one of the other seven
- * items sharing the identical "lookup can't run inside the scope it's
- * computing" shape). One admin request is enough to prove it: the ADR's own
- * §3.3 measurement table is admin-only for the same reason — the failure
- * mode (404 admin / 403 non-admin) is already established there, and running
- * every one of these as both identities would not add information.
- */
-function brokenEntity(
-  blocker: string,
-  method: "GET" | "PATCH" | "DELETE" | "PUT" | "POST",
-  urlFor: (ctx: SweepContext) => string,
-  payload?: PayloadOrFactory,
-  options?: ExpectBrokenOptions
-): RouteFixture {
-  return broken(blocker, async (ctx) => {
-    const url = urlFor(ctx);
-    const body = typeof payload === "function" ? payload(ctx) : payload;
-    expectBroken(
-      await asAdmin(ctx, { method, url, payload: body }),
-      `admin ${method} ${url}`,
-      ctx,
-      options
-    );
-  });
 }
 
 /**
@@ -597,15 +586,70 @@ const tableFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.tableA,
     (ctx) => ctx.tableB
   ),
-  "PATCH /api/v1/tables/:id": okEntityMutation(
-    createDisposableTable,
-    (id) => ({
+  "PATCH /api/v1/tables/:id": ok(async (ctx) => {
+    const adminEntity = await createDisposableTable(ctx, ctx.venueA.id);
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PATCH",
+        url: `/api/v1/tables/${adminEntity}`,
+        payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
+      }),
+      "admin venue A"
+    );
+
+    const memberEntity = await createDisposableTable(ctx, ctx.venueA.id);
+    expectOk(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: `/api/v1/tables/${memberEntity}`,
+        payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
+      }),
+      "member venue A"
+    );
+
+    expectDenied(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: `/api/v1/tables/${ctx.tableB}`,
+        payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
+      }),
+      "member venue B"
+    );
+
+    // PR 5 carry-forward (#5369 PR 7): the floor-plan reassignment pre-check
+    // in routes/tables.ts now runs inside the table's own resolved venue
+    // context too (moved there from two unscoped reads) — prove both legs,
+    // not just the plain rename above.
+    const sameVenueTable = await createDisposableTable(ctx, ctx.venueA.id);
+    const sameVenueFloorPlan = await createDisposableFloorPlan(ctx, ctx.venueA.id);
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PATCH",
+        url: `/api/v1/tables/${sameVenueTable}`,
+        payload: { floorPlanId: sameVenueFloorPlan },
+      }),
+      "admin same-venue floorPlanId reassignment"
+    );
+
+    // Under FORCE, once the pre-check's own read runs inside the table's
+    // resolved venue context (venueA), a genuinely cross-venue floor plan
+    // (venueB) is invisible under RLS rather than "found, wrong venue" — the
+    // 403 branch in tables.ts never fires, and the attempt still fails, but
+    // as the plain 404 from the update's own nested `connect` instead
+    // (identical, already-documented consequence to
+    // `floor-plans.ts`'s `/tables/positions` route — see its own comment).
+    const crossVenueTable = await createDisposableTable(ctx, ctx.venueA.id);
+    const otherVenueFloorPlan = await createDisposableFloorPlan(ctx, ctx.venueB.id);
+    const crossVenueRes = await asAdmin(ctx, {
       method: "PATCH",
-      url: `/api/v1/tables/${id}`,
-      payload: { name: `RLS Sweep Renamed ${randomUUID()}` },
-    }),
-    (ctx) => ctx.tableB
-  ),
+      url: `/api/v1/tables/${crossVenueTable}`,
+      payload: { floorPlanId: otherVenueFloorPlan },
+    });
+    expect(
+      crossVenueRes.statusCode,
+      `cross-venue floorPlanId: expected 404 (floor plan invisible under RLS), got ${crossVenueRes.statusCode}: ${crossVenueRes.body}`
+    ).toBe(404);
+  }),
   "DELETE /api/v1/tables/:id": okEntityMutation(
     createDisposableTable,
     (id) => ({ method: "DELETE", url: `/api/v1/tables/${id}` }),
@@ -622,17 +666,40 @@ const tableFixtures: Record<string, RouteFixture> = {
   ),
 };
 
+/** Creates a disposable, dependency-free venue owned by admin. Used for item-5's
+ * PATCH/DELETE and item-8's own fixtures — the addressed entity IS the venue
+ * itself, so unlike `createDisposableTable` et al. there is no parent venue to
+ * nest it inside, and (unlike a table/guest/floor-plan) there is no HTTP path
+ * that can grant `memberSub` ownership of a freshly created venue: `POST
+ * /api/v1/venues` denies a non-admin caller who already holds a membership
+ * (`requireVenueCreateAccess`), which `memberSub` does (venue A and C). */
+async function createDisposableVenue(ctx: SweepContext): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/venues",
+    payload: {
+      name: `RLS Sweep Item-5 Venue ${randomUUID()}`,
+      slug: `rls-sweep-item-5-venue-${randomUUID()}`,
+      ianaTimezone: "UTC",
+    },
+  });
+  return extractId(res);
+}
+
 /**
  * Venues. `GET /` was the ONE mixed case in this sweep: the admin branch
  * (`venueService.list`) is RESOLVED by ADR-026 §3.1's `app_cross_venue_venues()`
  * hatch, and the non-admin branch (`venueService.listForMember`) — item 1 — is
  * now RESOLVED too (#5369 PR 6), via a per-venue fan-out over
  * `venue_memberships` (no RLS policy) instead of a single cross-venue
- * `venue.findMany`. Everything else here is item 5 (venue-self-addressed `:id`
- * routes — the global preHandler only reads a `venueId` KEY, and these routes
- * address the venue by its own `:id`) or item 8 (`POST /` inserts a venue row
- * with no context to satisfy its own `WITH CHECK`) or item 3 (public-shaped
- * slug lookup, reused by the authenticated `by-slug` route too).
+ * `venue.findMany`. Item 5 (venue-self-addressed `:id` routes — the global
+ * preHandler only reads a `venueId` KEY, and these routes address the venue by
+ * its own `:id`) and item 8 (`POST /` inserts a venue row with no context to
+ * satisfy its own `WITH CHECK`) are now RESOLVED too (#5369 PR 7), via
+ * `resolveVenueId`/`loadInVenueContext` for item 5 and a generated-up-front id
+ * plus `setVenueContext` on the create's own transaction for item 8. Item 3
+ * (public-shaped slug lookup, reused by the authenticated `by-slug` route too)
+ * remains open.
  */
 const venueFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/venues": ok(async (ctx) => {
@@ -660,8 +727,13 @@ const venueFixtures: Record<string, RouteFixture> = {
       "member list must not include a venue the member does not belong to"
     ).not.toContain(ctx.venueB.id);
   }),
-  "POST /api/v1/venues": broken("item-8", async (ctx) => {
-    expectBroken(
+  "POST /api/v1/venues": ok(async (ctx) => {
+    // Admin-only in practice: a non-admin who already holds a membership
+    // (every `memberSub` in this sweep) is refused by
+    // `requireVenueCreateAccess` before the handler — and thus before
+    // item-8's fix — is ever reached, so there is no member leg to prove
+    // here (same shape as the deposits family below).
+    expectOk(
       await asAdmin(ctx, {
         method: "POST",
         url: "/api/v1/venues",
@@ -671,16 +743,7 @@ const venueFixtures: Record<string, RouteFixture> = {
           ianaTimezone: "UTC",
         },
       }),
-      "create venue",
-      ctx,
-      // venueService.create()'s admin path writes via an unwrapped
-      // prisma.$transaction(...) — $-prefixed methods pass through the
-      // venue-scoped-Prisma proxy unwrapped, so the app-level tripwire never
-      // sees this write. It reaches real Postgres with no app.venue_id set,
-      // and the FORCE'd RLS policy's WITH CHECK clause rejects it at the DB
-      // layer instead, surfacing as a plain PrismaClientKnownRequestError —
-      // equally valid "broken" evidence, just from a different layer.
-      { expectedErrorName: "PrismaClientKnownRequestError" }
+      "create venue"
     );
   }),
   "GET /api/v1/venues/by-slug/:slug": broken("item-3", async (ctx) => {
@@ -690,29 +753,62 @@ const venueFixtures: Record<string, RouteFixture> = {
       ctx
     );
   }),
-  "GET /api/v1/venues/:id": brokenEntity(
-    "item-5",
-    "GET",
-    (ctx) => `/api/v1/venues/${ctx.venueA.id}`
+  "GET /api/v1/venues/:id": okEntityRead(
+    (id) => `/api/v1/venues/${id}`,
+    (ctx) => ctx.venueA.id,
+    (ctx) => ctx.venueB.id
   ),
-  "PATCH /api/v1/venues/:id": brokenEntity(
-    "item-5",
-    "PATCH",
-    (ctx) => `/api/v1/venues/${ctx.venueA.id}`,
-    { name: "renamed" }
-  ),
-  // venueB, not venueA: this route is expected to stay broken, but using the
-  // venue nothing else in the sweep depends on keeps the blast radius of a
-  // surprise fix (a DELETE that actually runs) contained to this one entry.
-  "DELETE /api/v1/venues/:id": brokenEntity(
-    "item-5",
-    "DELETE",
-    (ctx) => `/api/v1/venues/${ctx.venueB.id}`
-  ),
-  "GET /api/v1/venues/:id/table-statuses": brokenEntity(
-    "item-5",
-    "GET",
-    (ctx) => `/api/v1/venues/${ctx.venueA.id}/table-statuses`
+  "PATCH /api/v1/venues/:id": ok(async (ctx) => {
+    // The addressed entity IS the venue, so — unlike `okEntityMutation`'s
+    // disposable-row-inside-venueA pattern — there is nowhere to nest a
+    // disposable row for the member-own leg; it reuses venueA directly (a
+    // rename is safe to repeat: only `id`/`slug` are asserted elsewhere in
+    // this sweep). The admin leg still gets its own fresh, dependency-free
+    // venue via `createDisposableVenue`, matching every other admin-only
+    // create/mutate leg in this sweep.
+    const adminVenue = await createDisposableVenue(ctx);
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PATCH",
+        url: `/api/v1/venues/${adminVenue}`,
+        payload: { name: `RLS Sweep Item-5 Renamed ${randomUUID()}` },
+      }),
+      "admin disposable venue"
+    );
+    expectOk(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: `/api/v1/venues/${ctx.venueA.id}`,
+        payload: { name: `RLS Sweep Venue A ${randomUUID()}` },
+      }),
+      "member venue A (own venue)"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: `/api/v1/venues/${ctx.venueB.id}`,
+        payload: { name: "should not apply" },
+      }),
+      "member venue B (not a member)"
+    );
+  }),
+  // DELETE /:id is requireAdmin-only (no requireVenueAccess), so there is no
+  // member-own-venue or member-denial leg to prove — unlike GET/PATCH above.
+  // Both legs use disposable, dependency-free venues: venueA/B carry
+  // tables/reservations/etc., so a real DELETE against either would hit
+  // has_dependents (409) instead of proving the RLS write, and deleting them
+  // would corrupt every other fixture in this sweep.
+  "DELETE /api/v1/venues/:id": ok(async (ctx) => {
+    const disposableVenue = await createDisposableVenue(ctx);
+    expectOk(
+      await asAdmin(ctx, { method: "DELETE", url: `/api/v1/venues/${disposableVenue}` }),
+      "admin disposable venue"
+    );
+  }),
+  "GET /api/v1/venues/:id/table-statuses": okEntityRead(
+    (id) => `/api/v1/venues/${id}/table-statuses`,
+    (ctx) => ctx.venueA.id,
+    (ctx) => ctx.venueB.id
   ),
 };
 
@@ -999,11 +1095,17 @@ const reservationFixtures: Record<string, RouteFixture> = {
       "member venue B"
     );
   }),
-  // Reservation `/:id` routes authorize owner-or-admin (guest-email match via
-  // requireReservationOwnerOrAdmin), not venue membership, so a venue member
-  // who is not the guest is correctly refused, and there is no member leg to
-  // assert. The RLS fix is proven by the admin legs: under FORCE the owner
-  // lookup and the handler's own read now resolve in both venues.
+  // Reservation `/:id` routes authorize owner-or-admin
+  // (`requireReservationOwnerOrAdmin`): admin always short-circuits past the
+  // resolver entirely (`requireOwnershipOrAdmin`'s `isAdmin` branch), so the
+  // admin-only legs below prove the HANDLER'S OWN `loadInVenueContext` read
+  // resolves in both venues, but never exercise the owner resolver's
+  // identical `loadInVenueContext` wrap — the actual non-admin path (#5369
+  // PR 5 carry-forward). The diner-owner leg does: `asDiner` authenticates as
+  // the guest whose verified email matches `reservationA`'s `guestEmail`, a
+  // genuine non-admin owner. The non-owner-member leg proves the opposite —
+  // a venue STAFF member who is not the guest is still refused, the same
+  // result as before this PR, now actually asserted rather than assumed.
   "GET /api/v1/reservations/:id": ok(async (ctx) => {
     for (const [id, label] of [
       [ctx.reservationA, "admin venue A"],
@@ -1011,6 +1113,14 @@ const reservationFixtures: Record<string, RouteFixture> = {
     ] as const) {
       expectOk(await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations/${id}` }), label);
     }
+    expectOk(
+      await asDiner(ctx, { method: "GET", url: `/api/v1/reservations/${ctx.reservationA}` }),
+      "diner (owner)"
+    );
+    expectDenied(
+      await asMember(ctx, { method: "GET", url: `/api/v1/reservations/${ctx.reservationA}` }),
+      "member (not the owner, not admin)"
+    );
   }),
   "PATCH /api/v1/reservations/:id": ok(async (ctx) => {
     for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
@@ -1024,6 +1134,27 @@ const reservationFixtures: Record<string, RouteFixture> = {
         `admin ${venueId}`
       );
     }
+    const dinerOwned = await createDisposableReservation(
+      ctx,
+      ctx.venueA.id,
+      ctx.reservationAGuestEmail
+    );
+    expectOk(
+      await asDiner(ctx, {
+        method: "PATCH",
+        url: `/api/v1/reservations/${dinerOwned}`,
+        payload: { notes: "sweep (diner)" },
+      }),
+      "diner (owner)"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: `/api/v1/reservations/${ctx.reservationA}`,
+        payload: { notes: "should not apply" },
+      }),
+      "member (not the owner, not admin)"
+    );
   }),
   "DELETE /api/v1/reservations/:id": ok(async (ctx) => {
     for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
@@ -1033,6 +1164,19 @@ const reservationFixtures: Record<string, RouteFixture> = {
         `admin ${venueId}`
       );
     }
+    const dinerOwned = await createDisposableReservation(
+      ctx,
+      ctx.venueA.id,
+      ctx.reservationAGuestEmail
+    );
+    expectOk(
+      await asDiner(ctx, { method: "DELETE", url: `/api/v1/reservations/${dinerOwned}` }),
+      "diner (owner)"
+    );
+    expectDenied(
+      await asMember(ctx, { method: "DELETE", url: `/api/v1/reservations/${ctx.reservationA}` }),
+      "member (not the owner, not admin)"
+    );
   }),
   "POST /api/v1/reservations": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
@@ -1119,49 +1263,83 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
 };
 
 /**
- * Deposits (ADR-026 §3.2/§3.3 item 6): `requireAdmin` only, addressed by an
- * opaque deposit/reservation id — every route resolves its venue via
- * `resolveReservationVenueId`'s own unscoped `reservation.findUnique`.
- * `§3.2` resolves the *authorization* gap (#5382); it does not clear these
- * for the FORCE flip, per its own corrected blockquote.
+ * Deposits (ADR-026 §3.2/§3.3 item 6, closed #5369 PR 7): `requireAdmin`
+ * only — no `requireVenueAccess`, so there is no member leg to prove for any
+ * route in this family — addressed by an opaque deposit/reservation id.
+ * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and the
+ * capture/refund/forfeit family now resolve through the `SECURITY DEFINER`
+ * `app_resolve_venue_id` function (`resolveVenueId`/`loadInVenueContext`)
+ * instead of an unscoped `reservation.findUnique`/`deposit.findUnique` read.
  */
 const depositFixtures: Record<string, RouteFixture> = {
-  "POST /api/v1/deposits": broken("item-6", async (ctx) => {
-    expectBroken(
+  "POST /api/v1/deposits": ok(async (ctx) => {
+    // reservationB, not A: reservationA already owns depositA (Deposit.reservationId
+    // is unique), so creating a second deposit for it would fail on the
+    // constraint rather than prove anything about venue resolution.
+    expectOk(
       await asAdmin(ctx, {
         method: "POST",
         url: "/api/v1/deposits",
         payload: { reservationId: ctx.reservationB, amountCents: 1000 },
       }),
-      "create deposit",
-      ctx
+      "create deposit"
     );
   }),
-  "GET /api/v1/deposits": brokenEntity(
-    "item-6",
-    "GET",
-    (ctx) => `/api/v1/deposits?reservationId=${ctx.reservationA}`
-  ),
-  "GET /api/v1/deposits/:id": brokenEntity(
-    "item-6",
-    "GET",
-    (ctx) => `/api/v1/deposits/${ctx.depositA}`
-  ),
-  "POST /api/v1/deposits/:id/capture": brokenEntity(
-    "item-6",
-    "POST",
-    (ctx) => `/api/v1/deposits/${ctx.depositA}/capture`
-  ),
-  "POST /api/v1/deposits/:id/refund": brokenEntity(
-    "item-6",
-    "POST",
-    (ctx) => `/api/v1/deposits/${ctx.depositA}/refund`
-  ),
-  "POST /api/v1/deposits/:id/forfeit": brokenEntity(
-    "item-6",
-    "POST",
-    (ctx) => `/api/v1/deposits/${ctx.depositA}/forfeit`
-  ),
+  "GET /api/v1/deposits": ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/deposits?reservationId=${ctx.reservationA}`,
+      }),
+      "get deposit by reservationId"
+    );
+  }),
+  "GET /api/v1/deposits/:id": ok(async (ctx) => {
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: `/api/v1/deposits/${ctx.depositA}` }),
+      "get deposit by id"
+    );
+  }),
+  // capture/refund/forfeit all require a `held` deposit; depositA seeds as
+  // `pending` (never transitioned elsewhere in this sweep, so it stays safe
+  // to read repeatedly from the GET fixtures above), so each of these throws
+  // DepositTransitionError (422) before ever reaching Stripe — this suite
+  // provisions no Stripe key. That 422 is still the right evidence: it is
+  // only reachable once `resolveVenueId("deposit", id)` resolves the venue
+  // and the deposit load inside that context succeeds, so the assertion
+  // below checks exactly the RLS-relevant half (no 403/404, no tripwire) —
+  // the same pattern the waitlist `/notify` fixture uses for its own
+  // unprovisioned dependency (BullMQ/Redis).
+  "POST /api/v1/deposits/:id/capture": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: `/api/v1/deposits/${ctx.depositA}/capture`,
+    });
+    expect([403, 404], `capture: venue must resolve, got ${res.statusCode}`).not.toContain(
+      res.statusCode
+    );
+    expect(ctx.lastRlsErrorName, "capture: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
+  }),
+  "POST /api/v1/deposits/:id/refund": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: `/api/v1/deposits/${ctx.depositA}/refund`,
+    });
+    expect([403, 404], `refund: venue must resolve, got ${res.statusCode}`).not.toContain(
+      res.statusCode
+    );
+    expect(ctx.lastRlsErrorName, "refund: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
+  }),
+  "POST /api/v1/deposits/:id/forfeit": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: `/api/v1/deposits/${ctx.depositA}/forfeit`,
+    });
+    expect([403, 404], `forfeit: venue must resolve, got ${res.statusCode}`).not.toContain(
+      res.statusCode
+    );
+    expect(ctx.lastRlsErrorName, "forfeit: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
+  }),
 };
 
 export const FIXTURES: Record<string, RouteFixture> = {

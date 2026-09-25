@@ -71,6 +71,10 @@ const MEMBER_SUB = "auth0|rls-sweep-member";
 const ADMIN_SUB = "auth0|user-123";
 /** A second diner, never the caller of any fixture — proves `/me` never leaks another diner's booking. */
 const OTHER_DINER_SUB = "auth0|rls-sweep-other-diner";
+/** The diner-owner identity for the `/reservations/:id` sweep's owner leg (#5369 PR 7). */
+const DINER_A_SUB = "auth0|rls-sweep-diner-a";
+/** `reservationA`'s `guestEmail` — shared with the seed insert below and `ctx.reservationAGuestEmail`. */
+const RESERVATION_A_GUEST_EMAIL = "rls-sweep-guest-a@example.com";
 const MEMBER_JWT_PAYLOAD = {
   sub: MEMBER_SUB,
   iss: "https://test.auth0.com/",
@@ -78,6 +82,24 @@ const MEMBER_JWT_PAYLOAD = {
   exp: Math.floor(Date.now() / 1000) + 3600,
   iat: Math.floor(Date.now() / 1000),
   email: "rls-sweep-member@example.com",
+  // #5369 PR 7: needed so the new `/reservations/:id` non-owner-member-denial
+  // leg resolves a real identity (403, ownership mismatch) rather than 401
+  // (unresolvable identity, `resolveCurrentUserEmail`'s fail-closed default)
+  // — no other resolver in this service reads `emailVerified` (grep confirms
+  // `reservation-owner.ts` is the only consumer), so this cannot change the
+  // outcome of any other fixture in this sweep.
+  email_verified: true,
+  permissions: [] as string[],
+};
+/** Matched by `DINER_A_HEADERS` — a genuine, non-admin, non-staff owner of `reservationA`. */
+const DINER_A_JWT_PAYLOAD = {
+  sub: DINER_A_SUB,
+  iss: "https://test.auth0.com/",
+  aud: "https://api.example.com",
+  exp: Math.floor(Date.now() / 1000) + 3600,
+  iat: Math.floor(Date.now() / 1000),
+  email: RESERVATION_A_GUEST_EMAIL,
+  email_verified: true,
   permissions: [] as string[],
 };
 
@@ -167,7 +189,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const depositAId = `rls-sweep-dep-a-${randomUUID()}`;
     const holdAId = `rls-sweep-hold-a-${randomUUID()}`;
     const holdASessionId = `rls-sweep-session-${randomUUID()}`;
-    const reservationAGuestEmail = "rls-sweep-guest-a@example.com";
+    const reservationAGuestEmail = RESERVATION_A_GUEST_EMAIL;
 
     await seedClient.query(
       `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
@@ -313,10 +335,19 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     await app.ready();
     ctx.app = app;
 
-    vi.mocked(jwtVerify).mockResolvedValue({
-      payload: MEMBER_JWT_PAYLOAD,
-      protectedHeader: { alg: "RS256" },
-    } as never);
+    // #5369 PR 7: the `/reservations/:id` diner-owner leg needs a SECOND
+    // non-admin identity distinct from `MEMBER_JWT_PAYLOAD` — dispatch on the
+    // raw bearer token (`plugin.ts` strips "Bearer " before calling
+    // `jwtVerify`), matching `DINER_A_HEADERS`'s token to `DINER_A_JWT_PAYLOAD`
+    // and defaulting every other token (i.e. `MEMBER_HEADERS`'s) to the
+    // existing member payload, so every fixture predating this PR is unaffected.
+    vi.mocked(jwtVerify).mockImplementation(
+      async (token) =>
+        ({
+          payload: token === "diner-a-token" ? DINER_A_JWT_PAYLOAD : MEMBER_JWT_PAYLOAD,
+          protectedHeader: { alg: "RS256" },
+        }) as never
+    );
   }, 30_000);
 
   afterAll(async () => {
