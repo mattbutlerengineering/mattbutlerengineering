@@ -7,7 +7,10 @@ running after you close your terminal, and they push to **PRs for review** rathe
 than auto-merging.
 
 - **Manage / disable / inspect:** https://claude.ai/code/routines
-- **Create or edit from the CLI:** the `/schedule` skill (uses the `RemoteTrigger` tool).
+- **Create or edit from the CLI:** call the discrete Claude Code Remote MCP
+  trigger tools (`list_triggers`, `create_trigger`, `update_trigger`,
+  `fire_trigger`, `delete_trigger`) directly from a Claude Code session — see
+  [Editing a routine](#editing-a-routine) below.
 - Routines can be deleted via the API (`delete_trigger`) — see
   [Editing a routine](#editing-a-routine) below — or disabled in the web UI.
 
@@ -521,16 +524,17 @@ See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
 
 ## Editing a routine
 
+Call the discrete Claude Code Remote MCP trigger tools directly, e.g.
+`list_triggers` to find a routine's `trigger_id`, then `update_trigger` with
+that id and the field(s) to change:
+
 ```text
-/schedule          # then: "list routines", "update mbe-weekly-improve to ...", etc.
+list_triggers                                    # find trigger_id for mbe-weekly-improve
+update_trigger trigger_id=trig_... prompt="..."   # apply the change
 ```
 
-Or call the discrete Claude Code Remote MCP trigger tools directly —
-`list_triggers`, `create_trigger`, `update_trigger`, `fire_trigger`,
-`delete_trigger` — rather than a single `RemoteTrigger` tool with an `action`
-parameter. Each routine's prompt is self-contained — the cloud agent starts
-with **zero context**, so any behavior change must be made in the prompt
-itself.
+Each routine's prompt is self-contained — the cloud agent starts with **zero
+context**, so any behavior change must be made in the prompt itself.
 
 1. Edit `docs/routines/<name>.md` first, in a reviewable PR — it is the
    authoritative copy.
