@@ -63,6 +63,14 @@ vi.mock("jose", () => ({
 
 /** The one non-admin identity every fixture's "member" leg authenticates as. */
 const MEMBER_SUB = "auth0|rls-sweep-member";
+/**
+ * The hardcoded sub `x-auth-bypass` assigns (`packages/auth/src/fastify/plugin.ts`) —
+ * every fixture's "admin" leg authenticates as this identity, so it doubles
+ * as the diner sub for the `/reservations/me` fixture (#5369 PR 6).
+ */
+const ADMIN_SUB = "auth0|user-123";
+/** A second diner, never the caller of any fixture — proves `/me` never leaks another diner's booking. */
+const OTHER_DINER_SUB = "auth0|rls-sweep-other-diner";
 const MEMBER_JWT_PAYLOAD = {
   sub: MEMBER_SUB,
   iss: "https://test.auth0.com/",
@@ -100,8 +108,10 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
 
     const venueAId = `rls-sweep-venue-a-${randomUUID()}`;
     const venueBId = `rls-sweep-venue-b-${randomUUID()}`;
+    const venueCId = `rls-sweep-venue-c-${randomUUID()}`;
     const venueASlug = `rls-sweep-a-${randomUUID()}`;
     const venueBSlug = `rls-sweep-b-${randomUUID()}`;
+    const venueCSlug = `rls-sweep-c-${randomUUID()}`;
 
     await seedClient.query(
       `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
@@ -111,10 +121,23 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
       [venueBId, "RLS Sweep Venue B", venueBSlug]
     );
+    // #5369 PR 6: a second venue the member belongs to, so the item-1 fixture
+    // can prove `listForMember`'s fan-out returns EVERY venue the member is a
+    // member of, not just one. Deliberately not `venueB` — many other
+    // fixtures in this sweep rely on `memberSub` staying a non-member of it.
+    await seedClient.query(
+      `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
+      [venueCId, "RLS Sweep Venue C", venueCSlug]
+    );
     await seedClient.query(
       `INSERT INTO venue_memberships (id, user_sub, venue_id, role, updated_at)
        VALUES ($1, $2, $3, 'staff', now())`,
       [`rls-sweep-membership-${randomUUID()}`, MEMBER_SUB, venueAId]
+    );
+    await seedClient.query(
+      `INSERT INTO venue_memberships (id, user_sub, venue_id, role, updated_at)
+       VALUES ($1, $2, $3, 'staff', now())`,
+      [`rls-sweep-membership-c-${randomUUID()}`, MEMBER_SUB, venueCId]
     );
 
     const tableAId = `rls-sweep-table-a-${randomUUID()}`;
@@ -125,6 +148,12 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const floorPlanBId = `rls-sweep-fp-b-${randomUUID()}`;
     const reservationAId = `rls-sweep-res-a-${randomUUID()}`;
     const reservationBId = `rls-sweep-res-b-${randomUUID()}`;
+    // #5369 PR 6: the diner-scoped `/reservations/me` fixture's own rows —
+    // two booked by the admin-bypass identity (one per venue, proving the
+    // per-venue fan-out spans both), one booked by a different diner.
+    const reservationMineAId = `rls-sweep-res-mine-a-${randomUUID()}`;
+    const reservationMineBId = `rls-sweep-res-mine-b-${randomUUID()}`;
+    const reservationOtherUserId = `rls-sweep-res-other-${randomUUID()}`;
     const waitlistAId = `rls-sweep-wl-a-${randomUUID()}`;
     const waitlistBId = `rls-sweep-wl-b-${randomUUID()}`;
     // Dedicated row for the "seat" fixture (#5369 PR 3): the item-7
@@ -181,6 +210,24 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       [reservationBId, venueBId, tableBId, guestBId]
     );
     await seedClient.query(
+      `INSERT INTO reservations
+         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+       VALUES ($1, $2, $3, $4, 'rls-sweep-mine-a@example.com', '2026-11-01', '2026-11-01T18:00:00Z', '2026-11-01T20:00:00Z', 2, now())`,
+      [reservationMineAId, venueAId, tableAId, ADMIN_SUB]
+    );
+    await seedClient.query(
+      `INSERT INTO reservations
+         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+       VALUES ($1, $2, $3, $4, 'rls-sweep-mine-b@example.com', '2026-11-02', '2026-11-02T18:00:00Z', '2026-11-02T20:00:00Z', 2, now())`,
+      [reservationMineBId, venueBId, tableBId, ADMIN_SUB]
+    );
+    await seedClient.query(
+      `INSERT INTO reservations
+         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+       VALUES ($1, $2, $3, $4, 'rls-sweep-other-diner@example.com', '2026-11-03', '2026-11-03T18:00:00Z', '2026-11-03T20:00:00Z', 2, now())`,
+      [reservationOtherUserId, venueAId, tableAId, OTHER_DINER_SUB]
+    );
+    await seedClient.query(
       `INSERT INTO waitlist_entries
          (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
        VALUES ($1, $2, 2, 'RLS Sweep Waitlist A', '+15550000001', 1, 10, now())`,
@@ -215,6 +262,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       memberSub: MEMBER_SUB,
       venueA: { id: venueAId, slug: venueASlug },
       venueB: { id: venueBId, slug: venueBSlug },
+      venueC: { id: venueCId },
       tableA: tableAId,
       tableB: tableBId,
       guestA: guestAId,
@@ -224,6 +272,9 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       reservationA: reservationAId,
       reservationB: reservationBId,
       reservationAGuestEmail,
+      reservationMineA: reservationMineAId,
+      reservationMineB: reservationMineBId,
+      reservationOtherUser: reservationOtherUserId,
       waitlistA: waitlistAId,
       waitlistB: waitlistBId,
       waitlistSeatTarget: waitlistSeatTargetId,
@@ -300,7 +351,7 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       [ctx.venueA.id, ctx.venueB.id],
     ]);
     await seedClient.query("DELETE FROM venues WHERE id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
+      [ctx.venueA.id, ctx.venueB.id, ctx.venueC.id],
     ]);
 
     await seedClient.end();

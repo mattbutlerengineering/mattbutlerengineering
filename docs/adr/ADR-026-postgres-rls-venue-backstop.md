@@ -162,7 +162,7 @@ degrade quietly — it would fail the `db-migrate` deploy outright.
 | Cron's venue-list read (`getAllVenueIds`)                              | **Resolved** (#5369) via `app_cross_venue_venues()` — see §3.1. Correct today and under FORCE, proven as a non-owner role in `routes/rls-isolation.integration.test.ts`.                                                                                                 |
 | Admin `venueService.list()`                                            | **Resolved** (#5369) via the same function, with the venue-group filter passed as its one argument.                                                                                                                                                                      |
 | Admin `venueGroupService.list()`                                       | **Not an RLS problem at all** — corrected here. `venue_groups` carries no RLS policy: §1's table list never included it and no migration enables it (measured against a migrated database, 2026-09-20: `relrowsecurity` is false for `venue_groups`). It needs no hatch. |
-| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **NEWLY OPEN** — two cross-venue reads this audit missed. See §3.2.                                                                                                                                                                                                      |
+| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **Resolved** (#5369 PR 6) via a per-venue fan-out — see §3.2 and §3.3 item 1. Correct today and under FORCE, proven in `routes/rls-route-sweep.integration.test.ts`.                                                                                                     |
 
 ### 3.1 The cross-venue mechanism: a `SECURITY DEFINER` function plus one admitting policy
 
@@ -265,7 +265,7 @@ no cross-venue `INSERT`/`UPDATE`/`DELETE` is reachable through the marker
 the ADR exists to close, and it is why the hatch returns rows rather than
 granting a mode.
 
-### 3.2 Two more cross-venue reads this audit missed (open)
+### 3.2 Two more cross-venue reads this audit missed (resolved, #5369 PR 6)
 
 The sweep accompanying §3.1 found two reads with the same irreducible shape as
 the admin venue list, both of which this section previously waved past:
@@ -281,9 +281,10 @@ the admin venue list, both of which this section previously waved past:
    `reservationService.listByUserId`). A diner's own reservations span whatever
    venues they booked at; same shape, same zero-rows outcome.
 
-Neither is fixed here — they are reported rather than patched, so each gets its
-own reviewed change. They sit in the table above so nothing claims this audit is
-closed on the strength of §3.1 alone.
+Neither was fixed here — they were reported rather than patched, each getting
+its own reviewed change (both closed by #5369 PR 6 — see §3.3 item 1 for how).
+They sit in the table above so nothing claims this audit was closed on the
+strength of §3.1 alone.
 
 **The general lesson is #5382's, in the other direction:** "does this query read
 across venues" was asked of the query but answered from the route's intent.
@@ -373,8 +374,29 @@ same class is already recorded for the venue-self-addressed
 migration in this repo sets FORCE. The flip is gated on these, all identified by
 the #5369 sweep and none of them fixed by it:
 
-1. **The two newly-open cross-venue reads in §3.2** (`listForMember`,
-   `GET /api/v1/reservations/me`) — zero rows under FORCE.
+1. **Closed (#5369 PR 6).** The two newly-open cross-venue reads in §3.2
+   (`listForMember`, `GET /api/v1/reservations/me`) used to return zero rows
+   under FORCE — a single delegate call filtered by an application predicate
+   (`memberships: { some: { userSub } } }` / `{ userId }`) has no single venue
+   to name. Fixed by fanning out one venue at a time instead of one
+   cross-venue query: `listForMember` resolves the member's venue ids from
+   `venue_memberships` (`services/venue-membership.ts`'s sibling helper,
+   `getMemberVenueIds` in `services/member-venues.ts` — no RLS policy on that
+   table at all, so this first step needs no escape hatch), then reads each
+   venue inside `runWithVenueContext`, admitted by `venues`' own
+   `venue_isolation` policy (the row's own `id` equals `app.venue_id`) — a
+   correctly-scoped single-venue read, not a cross-venue one.
+   `GET /api/v1/reservations/me` resolves the set of venues a diner's
+   reservations span via `app_reservation_venue_ids_for_user()` (the
+   `SECURITY DEFINER` function added in PR 3,
+   `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`),
+   then reads each venue's reservations for that user inside its own
+   `runWithVenueContext` and merges, preserving the pre-existing
+   `date desc, startTime desc` ordering. Pagination moves from the database
+   into application code in both cases, since the fan-out can no longer
+   express it as one query. Proved against a real, migrated, FORCE'd database
+   as a non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
+   (the item-1 fixtures for both routes).
 2. **Every entity-addressed route.** `venueIdFromEntity`
    (`routes/venue-access.ts`) resolves a route's venue by loading the addressed
    entity, and that load is itself an unscoped read of an RLS table — so under

@@ -24041,6 +24041,13 @@
       memberSub: string;
       venueA: { id: string; slug: string };
       venueB: { id: string; slug: string };
+      /**
+       * A second venue `memberSub` belongs to (#5369 PR 6), used only to prove
+       * `venueService.listForMember` returns every venue a multi-venue member
+       * belongs to, not just one. Never touched by any other fixture — `memberSub`
+       * deliberately stays a non-member of `venueB` everywhere else in this sweep.
+       */
+      venueC: { id: string };
       tableA: string;
       tableB: string;
       guestA: string;
@@ -24050,6 +24057,16 @@
       reservationA: string;
       reservationB: string;
       reservationAGuestEmail: string;
+      /**
+       * Two reservations booked by the same diner (the platform-admin bypass
+       * identity, `asAdmin`'s sub) at venue A and venue B respectively, and one
+       * booked by a DIFFERENT diner — #5369 PR 6's proof that
+       * `GET /api/v1/reservations/me` returns a diner's bookings across every
+       * venue they visited, and never another diner's.
+       */
+      reservationMineA: string;
+      reservationMineB: string;
+      reservationOtherUser: string;
       waitlistA: string;
       waitlistB: string;
       /**
@@ -33817,6 +33834,19 @@
       return lapsing;
     }
   </file>
+  <file path="services/reservations/src/services/member-venues.ts">
+    export async function getMemberVenueIds(
+      userSub: string,
+      client: PrismaClient = prisma
+    ): Promise<string[]> {
+      const memberships = await client.venueMembership.findMany({
+        where: { userSub },
+        select: { venueId: true },
+        distinct: ["venueId"],
+      });
+      return memberships.map((membership) => membership.venueId);
+    }
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
     export interface NotifierRuntime {
@@ -34933,6 +34963,13 @@
       error?: string;
       conflict?: ConflictCheckResult;
     }
+    function compareReservationDateDesc(
+      a: { date: Date; startTime: Date },
+      b: { date: Date; startTime: Date }
+    ): number {
+      const dateDiff = b.date.getTime() - a.date.getTime();
+      return dateDiff !== 0 ? dateDiff : b.startTime.getTime() - a.startTime.getTime();
+    }
     export const reservationService = {
       async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
         const { page, limit, date, status, tableId, venueId, guestId } = options;
@@ -34975,29 +35012,52 @@
         };
       },
     
+      /**
+       * A diner's own reservations can span whatever venues they booked at
+       * (ADR-026 §3.2 item 2, #5369) — a single `reservation.findMany({ where:
+       * { userId } })` has no single venue to name, so it returns ZERO rows under
+       * `FORCE ROW LEVEL SECURITY`. Fixed the same way as
+       * {@link venueService.listForMember}: resolve the set of venues this user's
+       * reservations span via `app_reservation_venue_ids_for_user()` (a
+       * `SECURITY DEFINER` function, `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`
+       * — returns venue ids only, never a reservation row), then read each venue's
+       * reservations inside its own `runWithVenueContext` and merge. Pagination
+       * moves from the database into this function because the fan-out can no
+       * longer express it as one query; the merge sort keeps today's
+       * `date desc, startTime desc` ordering.
+       */
       async listByUserId(
         userId: string,
         page: number,
         limit: number
       ): Promise<PaginatedResponse<Reservation>> {
-        const [reservations, total] = await Promise.all([
-          prisma.reservation.findMany({
-            where: { userId },
-            ...paginate({ page, limit }),
-            orderBy: [{ date: "desc" }, { startTime: "desc" }],
-            include: {
-              table: true,
-              guest: {
-                select: { visitCount: true, communicationPreference: true, unsubscribed: true },
-              },
-            },
-          }),
-          prisma.reservation.count({ where: { userId } }),
-        ]);
+        const venueRows = await prisma.$queryRaw<
+          { app_reservation_venue_ids_for_user: string }[]
+        >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+    
+        const perVenue = await Promise.all(
+          venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>
+            runWithVenueContext(venueId, () =>
+              prisma.reservation.findMany({
+                where: { userId, venueId },
+                orderBy: [{ date: "desc" }, { startTime: "desc" }],
+                include: {
+                  table: true,
+                  guest: {
+                    select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+                  },
+                },
+              })
+            )
+          )
+        );
+    
+        const reservations = perVenue.flat().sort(compareReservationDateDesc);
+        const { skip, take } = paginate({ page, limit });
     
         return {
-          data: reservations.map(toReservation),
-          pagination: toPaginationMeta(page, limit, total),
+          data: reservations.slice(skip, skip + take).map(toReservation),
+          pagination: toPaginationMeta(page, limit, reservations.length),
         };
       },
     
@@ -37044,8 +37104,21 @@
       /**
        * Lists only the venues the given operator is a member of (owns or was
        * invited to), scoped via VenueMembership (ADR-020). Platform admins bypass
-       * this and use `list` instead. The `count` shares the same filter so
-       * pagination totals reflect the scoped set.
+       * this and use `list` instead.
+       *
+       * This is the other of ADR-026 §3.2's two newly-open cross-venue reads (#5369):
+       * a single `venue.findMany` filtered by `memberships: { some: { userSub } }`
+       * is an application predicate, not a value of `app.venue_id`, so it returns
+       * ZERO rows under `FORCE ROW LEVEL SECURITY` for any member of more than one
+       * venue. Fixed by fanning out one venue at a time instead of a single
+       * cross-venue delegate call: {@link getMemberVenueIds} reads the member's
+       * venue ids straight off `venue_memberships` (no RLS policy at all, so this
+       * first step needs no escape hatch), then each venue is read inside
+       * `runWithVenueContext` — `venues`' own `venue_isolation` policy admits a
+       * session whose `app.venue_id` equals that row's own `id`, so this is a
+       * correctly-scoped single-venue read, not a cross-venue one. Ordering,
+       * `venueGroupId` filtering and pagination move from the database into this
+       * function because the fan-out can no longer express them as one query.
        */
       async listForMember(
         userSub: string,
@@ -37053,24 +37126,26 @@
         limit: number,
         venueGroupId?: string
       ): Promise<PaginatedResponse<Venue>> {
-        const where: Prisma.VenueWhereInput = {
-          memberships: { some: { userSub } },
-          ...(venueGroupId ? { venueGroupId } : {}),
-        };
+        const venueIds = await getMemberVenueIds(userSub);
     
-        const [venues, total] = await Promise.all([
-          prisma.venue.findMany({
-            where,
-            ...paginate({ page, limit }),
-            orderBy: { name: "asc" },
-            include: { venueGroup: true },
-          }),
-          prisma.venue.count({ where }),
-        ]);
+        const rows = await Promise.all(
+          venueIds.map((venueId) =>
+            runWithVenueContext(venueId, () =>
+              prisma.venue.findUnique({ where: { id: venueId }, include: { venueGroup: true } })
+            )
+          )
+        );
+    
+        const venues = rows
+          .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
+          .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
+          .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    
+        const { skip, take } = paginate({ page, limit });
     
         return {
-          data: venues.map(mapPrismaVenue),
-          pagination: toPaginationMeta(page, limit, total),
+          data: venues.slice(skip, skip + take).map(mapPrismaVenue),
+          pagination: toPaginationMeta(page, limit, venues.length),
         };
       },
     
