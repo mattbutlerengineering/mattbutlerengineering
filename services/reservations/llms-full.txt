@@ -11066,10 +11066,17 @@
           if (applied.done) return applied.result;
           depositWarning = applied.depositWarning;
           forfeitedDepositId = applied.forfeitedDepositId;
-        } else {
-          // "succeeded" or "recaptured"
+        } else if (verification === "recaptured") {
+          // This invocation legitimately just charged the card via
+          // allowRecapture — money moved, so a later status-write failure must
+          // be reconciled as a ghost state, not a harmless retry conflict.
           forfeitedDepositId = deposit.id;
         }
+        // "succeeded": a PRIOR attempt already captured the deposit — nothing
+        // moved this call, so forfeitedDepositId stays at its `null` default and
+        // a later status-write failure falls through to the ordinary
+        // concurrent-retry 409 path, mirroring `resolveDeposit`'s identical
+        // split in reservation-cancellation.ts (#5722 R5 follow-up).
       }
     
       let updated: Reservation | null;
