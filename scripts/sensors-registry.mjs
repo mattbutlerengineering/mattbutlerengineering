@@ -35,6 +35,8 @@ import {
   collectQueueEfficiency,
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
+  QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE,
+  readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
 import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
@@ -144,32 +146,21 @@ function parseGitNumstat(root) {
 }
 
 /**
- * Wraps `gh pr list` for the queue-efficiency collector — includes the
- * `commits` field (needed for first-pass-success classification) and
- * normalises it to a `commitCount`.
+ * Wraps readMergedAiPrsPaged for the queue-efficiency collector — pages the
+ * fetch by merged date so the 7-day current window is actually covered
+ * (#5746; see readMergedAiPrsPaged's own comment for why and the commits
+ * field's per-PR fetch).
  *
  * Lets a thrown error (e.g. auth failure) propagate rather than swallowing it
  * (#3937/#3946) — collectQueueEfficiency's own catch surfaces it via
  * describeGhError, distinct from a legitimately empty result.
  *
  * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {Date} [now]
  * @returns {Array<object>}
  */
-export function readQueueEfficiencyPrs(ghClient) {
-  // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
-  // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-  const prs = ghClient.pr.list([
-    "--state",
-    "all",
-    "--limit",
-    "45",
-    "--json",
-    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-  ]);
-  return prs.map((pr) => ({
-    ...pr,
-    commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
-  }));
+export function readQueueEfficiencyPrs(ghClient, now = new Date()) {
+  return readMergedAiPrsPaged(ghClient, now);
 }
 
 /**
@@ -1039,7 +1030,7 @@ export const SENSORS = [
       confidence: "low",
     }),
     collect: ({ ghClient, now }) =>
-      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient), undefined, now),
+      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient, now), undefined, now),
     format: (data, name) => {
       const baselineStr =
         data.baseline != null
@@ -1054,7 +1045,19 @@ export const SENSORS = [
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
       const regressions = [...(current.regressions ?? [])];
-      if (previous?.available) {
+      const sampleSize = current.sub_metrics?.issues_merged ?? 0;
+      // #5746: this comparison is day-over-day on the CURRENT window alone —
+      // a genuinely quiet window (holiday, repo pause) can still swing the
+      // composite hard on a tiny denominator, so QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
+      // is a sanity floor below which the comparison is skipped outright.
+      // This is NOT backstopped by the baseline-vs-current regressions
+      // spread into `regressions` above: `baseline` requires PRs merged 7-28
+      // days ago, and readMergedAiPrsPaged drops every PR merged before
+      // exactly 7 days ago (see its own comment), so baseline is always null
+      // under the live reader — as it was in 100% of historical
+      // `metrics/sensor-report.jsonl` reports. Below the floor, this sensor
+      // currently raises nothing for that report.
+      if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {
           regressions.push({

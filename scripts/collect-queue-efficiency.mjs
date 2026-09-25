@@ -28,6 +28,45 @@ import { read } from "./metrics-store.mjs";
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
 export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 
+/**
+ * Sanity floor on the current-window PR count before sensor-report.mjs's
+ * day-over-day `composite_vs_previous_report` regression is allowed to fire
+ * (#5746). Now that `readMergedAiPrsPaged` pages the fetch by merged date
+ * instead of capping total PRs, the current window reliably holds ~90-110 AI
+ * PRs (measured) — this floor exists only to guard a genuinely quiet window
+ * (holiday, repo pause), not to compensate for a truncated fetch the way the
+ * old value of 30 had to. Measured against 57 historical
+ * `metrics/sensor-report.jsonl` reports (produced under the old, truncated
+ * fetch): 56/57 already reached 15, so it isn't a meaningfully looser bar
+ * than before — it just stops being the thing doing the suppressing now that
+ * the fetch itself is accurate.
+ */
+export const QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE = 15;
+
+/**
+ * Days back `readMergedAiPrsPaged`'s cheap first pass searches — one day of
+ * slack past the 7-day current window `collectQueueEfficiency` computes, so
+ * an exact-boundary PR is never missed to date-vs-timestamp truncation.
+ *
+ * Because `merged:>=` is date-granular, this search returns PRs merged up to
+ * ~8.5 days ago. The reader then drops everything merged before exactly
+ * READ_PRS_WINDOW_DAYS ago: without that trim, the 7-8.5-day slack spills
+ * into baseline week 1 (days 7-14) as a 1-1.5-day slice that poses as the
+ * whole 3-week baseline (`weeks_sampled: 1`) and fires false `composite` /
+ * `first_pass_success_rate` regressions.
+ *
+ * Scoped to the current window only, not the full 21-day/3-week baseline
+ * window `collectQueueEfficiency` also computes, so the baseline is always
+ * null under this reader (as it was in 100% of historical reports under the
+ * old 45-PR-total cap). Populating it would multiply the per-PR `pr view`
+ * calls below roughly 4x (measured: ~110 AI PRs/8 days vs. ~430/30 days).
+ * Revisit if a future change wants the 3-week baseline populated.
+ */
+const READ_PRS_LOOKBACK_DAYS = 8;
+
+/** The current window the reader returns — matches collectQueueEfficiency's. */
+const READ_PRS_WINDOW_DAYS = 7;
+
 /** Worktree branch patterns used by implement-queue agents. */
 const WORKER_BRANCH_RE = /^worktree-agent-/;
 
@@ -110,6 +149,54 @@ function sizeTier(pr) {
   return "size:xl";
 }
 
+/**
+ * Matches git's default merge-commit subject ("Merge branch 'x'", "Merge
+ * remote-tracking branch 'origin/main' into y", "Merge pull request #N from
+ * ..."). Used as a proxy for "more than one parent" (#5746's own framing)
+ * because `gh pr list --json commits` has no `parents` sub-field to request —
+ * confirmed against `gh pr list --json commits --help`'s fixed JSON-FIELDS
+ * enum and against a live commit's shape (authors/committedDate/messageBody/
+ * messageHeadline/oid only). Every merge commit this repo's worktree agents
+ * produce comes from `git merge origin/main` to resolve conflicts, which
+ * always writes one of git's default subjects, so the subject is a reliable
+ * stand-in for the real parent count here.
+ */
+const MERGE_COMMIT_SUBJECT_RE = /^merge\b/i;
+
+/**
+ * Housekeeping automation commits (llms regen, antipattern-baseline bumps) a
+ * worktree agent's branch picks up while merging/rebasing — real chores, not
+ * rework. Root cause of the #5738 false regression: these inflated raw
+ * commitCount past 2 and scored a clean first-pass PR as a failure (#5746).
+ */
+const HOUSEKEEPING_SUBJECT_RE = /regenerate .*llms|antipattern.*baseline/i;
+
+/**
+ * @param {{ messageHeadline?: string }} commit
+ * @returns {boolean}
+ */
+function isNonReworkCommit(commit) {
+  const subject = commit.messageHeadline ?? "";
+  return MERGE_COMMIT_SUBJECT_RE.test(subject) || HOUSEKEEPING_SUBJECT_RE.test(subject);
+}
+
+/**
+ * Commit count used for the first-pass-success check, with merge commits and
+ * housekeeping-automation commits excluded (#5746) — neither is rework, but
+ * both inflate the raw `commits.length` a PR's branch accumulates while
+ * merging main or picking up a regen/baseline commit.
+ *
+ * Falls back to `pr.commitCount` when the raw `commits` array isn't present
+ * (e.g. test fixtures that set `commitCount` directly).
+ *
+ * @param {{ commits?: Array<{ messageHeadline?: string }>, commitCount?: number }} pr
+ * @returns {number}
+ */
+function effectiveCommitCount(pr) {
+  if (!Array.isArray(pr.commits)) return pr.commitCount ?? 1;
+  return pr.commits.filter((c) => !isNonReworkCommit(c)).length;
+}
+
 // ── Score functions — higher is always better (0–1) ──────────────────────
 
 /** @param {number} rate - Already 0-1. */
@@ -184,7 +271,7 @@ function reviewCoverage(windowPrs, windowRows) {
  * @returns {object}
  */
 function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
-  const firstPassCount = windowPrs.filter((pr) => (pr.commitCount ?? 1) <= 2).length;
+  const firstPassCount = windowPrs.filter((pr) => effectiveCommitCount(pr) <= 2).length;
   const firstPassRate = Math.round((firstPassCount / windowPrs.length) * 1000) / 1000;
 
   const commitCounts = windowPrs.map((pr) => pr.commitCount ?? 1);
@@ -223,30 +310,92 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
 }
 
 /**
- * Default PR reader — calls `gh pr list` via the injected ghClient and
- * normalises the commits array to a count.
+ * `YYYY-MM-DD` string N days before `now`, for GitHub search's `merged:>=`
+ * qualifier (date granularity only — no time-of-day component).
+ *
+ * @param {Date} now
+ * @param {number} days
+ * @returns {string}
+ */
+function isoDateDaysAgo(now, days) {
+  return new Date(+now - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Fetches one PR's commits (for effectiveCommitCount) via a single `pr view`
+ * call. Only called for AI PRs — see readMergedAiPrsPaged.
+ *
+ * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {number} prNumber
+ * @returns {Array<{ messageHeadline?: string }>}
+ */
+function fetchPrCommits(ghClient, prNumber) {
+  const detail = ghClient.pr.view(prNumber, ["--json", "commits"]);
+  return Array.isArray(detail?.commits) ? detail.commits : [];
+}
+
+/**
+ * Fetches merged PRs paged by merged date instead of a single commits-
+ * inclusive `pr list` call (#5746). Lets errors propagate — the caller
+ * decides whether to catch (see defaultReadPrs) or let collectQueueEfficiency
+ * classify the failure via describeGhError (see readQueueEfficiencyPrs in
+ * sensors-registry.mjs, #3946).
+ *
+ * The old approach requested `commits` for every PR in one `pr list --limit
+ * 45` call, capping the *total* PR count to stay under GitHub's ~500k
+ * GraphQL node budget (the commits sub-field multiplies PRs × ~11k
+ * potential nodes/PR) — but this repo merges ~20-30 PRs/day, so 45 PRs
+ * covered only ~2.5 days, not the intended 7 (measured against #5738's
+ * false regression).
+ *
+ * Two passes instead:
+ *   1. One cheap `pr list` call over the lookback window, WITHOUT `commits`
+ *      — no per-PR node multiplication, so ~200 PRs in one call is safe
+ *      (measured: 216 merged PRs in the last 8 days).
+ *   2. `commits` fetched per-PR (one `pr view` call each), but only for AI
+ *      PRs — ~110/8 days in this repo, not the full merged-PR volume.
+ *
+ * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {Date} now
+ * @returns {Array<object>}
+ */
+export function readMergedAiPrsPaged(ghClient, now) {
+  const cutoff = isoDateDaysAgo(now, READ_PRS_LOOKBACK_DAYS);
+  const windowStart = +now - READ_PRS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // No `--state merged`: `merged:>=` already implies it, and under
+  // gh-client's REST fallback (no `gh` binary) `--state merged` becomes a
+  // `state:merged` search qualifier GitHub doesn't recognise — measured to
+  // return total_count 0.
+  const prs = ghClient.pr.list([
+    "--search",
+    `merged:>=${cutoff}`,
+    "--limit",
+    "500",
+    "--json",
+    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
+  ]);
+  const inWindow = prs.filter((pr) => Date.parse(pr.mergedAt) >= windowStart);
+  return inWindow.map((pr) => {
+    if (!isAiPr(pr)) return { ...pr, commitCount: 1 };
+    const commits = fetchPrCommits(ghClient, pr.number);
+    return { ...pr, commits, commitCount: commits.length };
+  });
+}
+
+/**
+ * Default PR reader — wraps readMergedAiPrsPaged, catching any error to
+ * `null` (distinct from readQueueEfficiencyPrs in sensors-registry.mjs,
+ * which lets the same error propagate for collectQueueEfficiency's own
+ * classification — this default is only used when collectQueueEfficiency
+ * is called with no explicit readPrs, i.e. not by the live sensor).
  *
  * @param {import("@mbe/gh-client").GhClient} [ghClient]
+ * @param {Date} [now]
  * @returns {Array<object>|null}
  */
-export function defaultReadPrs(ghClient = createGhClient()) {
+export function defaultReadPrs(ghClient = createGhClient(), now = new Date()) {
   try {
-    // Limit to 45 PRs: GitHub's GraphQL caps nodes at 500k; the commits sub-field
-    // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-    // For repos with ≥5 AI PRs/day this covers ~9 days of history — enough for the
-    // 7-day current window plus partial prior-week baseline.
-    const prs = ghClient.pr.list([
-      "--state",
-      "all",
-      "--limit",
-      "45",
-      "--json",
-      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-    ]);
-    return prs.map((pr) => ({
-      ...pr,
-      commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
-    }));
+    return readMergedAiPrsPaged(ghClient, now);
   } catch {
     return null;
   }
