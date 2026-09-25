@@ -34,7 +34,10 @@
 -- CREATE POLICY takes an AccessExclusiveLock on the target table; six of
 -- them below are hot tables under live traffic, so bound how long this
 -- migration will wait for that lock rather than risk queuing behind (and
--- blocking) ordinary reads/writes indefinitely.
+-- blocking) ordinary reads/writes indefinitely. `SET lock_timeout` is
+-- session-level, not transaction-scoped -- it is explicitly RESET at the end
+-- of this file so it doesn't silently apply to whatever migration `prisma
+-- migrate deploy` runs next in the same session.
 SET lock_timeout = '5s';
 
 -- One admitting SELECT policy is added per table below (all six RLS tables
@@ -136,7 +139,11 @@ CREATE POLICY waitlist_entries_cross_venue_read ON "waitlist_entries"
 -- NULL-key check below -- so an unrecognized kind always raises, including
 -- when paired with a NULL key. Validating after the NULL-key check would let
 -- `app_resolve_venue_id('bogus-kind', NULL)` silently return NULL instead of
--- raising, indistinguishable from "kind is fine, key just didn't match".
+-- raising, indistinguishable from "kind is fine, key just didn't match". The
+-- check is `p_kind IS NULL OR p_kind NOT IN (...)`, not bare `NOT IN`: SQL's
+-- `NULL NOT IN (...)` evaluates to NULL (neither true nor false), so a bare
+-- `NOT IN` check is never satisfied by a NULL kind and silently bypasses the
+-- allowlist entirely.
 CREATE FUNCTION app_resolve_venue_id(p_kind text, p_key text, p_group text DEFAULT NULL)
   RETURNS text
   LANGUAGE plpgsql
@@ -148,7 +155,7 @@ DECLARE
   result_venue_id text;
   match_count integer;
 BEGIN
-  IF p_kind NOT IN (
+  IF p_kind IS NULL OR p_kind NOT IN (
     'reservation', 'table', 'guest', 'floor_plan', 'waitlist_entry',
     'deposit', 'payment_intent', 'venue', 'venue_slug'
   ) THEN
@@ -262,3 +269,9 @@ END;
 $fn$;
 
 REVOKE EXECUTE ON FUNCTION app_reservation_venue_ids_for_user(text) FROM PUBLIC;
+
+-- Session-level SET at the top of this file would otherwise bleed into
+-- whatever migration `prisma migrate deploy` applies next in the same
+-- session/connection -- RESET it back to the server default now that every
+-- CREATE POLICY in this migration has run.
+RESET lock_timeout;

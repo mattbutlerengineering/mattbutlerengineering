@@ -288,6 +288,21 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
       ).rejects.toThrow(/unknown kind/);
     });
 
+    it("raises on a NULL kind instead of silently bypassing the allowlist", async () => {
+      // `NULL NOT IN (...)` evaluates to NULL (not TRUE) in SQL, so a naive
+      // `IF p_kind NOT IN (...)` check is never satisfied by a NULL kind and
+      // the allowlist is skipped entirely -- a NULL kind with a NULL key
+      // returned NULL instead of raising, and a NULL kind with a real key
+      // fell through to an unhandled "case not found" error instead of the
+      // intended "unknown kind" one.
+      await expect(owner.query("SELECT app_resolve_venue_id(NULL, NULL)")).rejects.toThrow(
+        /unknown kind/
+      );
+      await expect(
+        owner.query("SELECT app_resolve_venue_id(NULL, $1)", [reservationAId])
+      ).rejects.toThrow(/unknown kind/);
+    });
+
     it("returns NULL for an ambiguous slug when no group is given, but still resolves correctly when scoped by group", async () => {
       // venueA and venueC share a slug across two different groups — without
       // a group, the function must refuse to guess rather than return
@@ -509,6 +524,29 @@ describe("migration safety (#5369 PR 3 review follow-up)", () => {
     expect(lockTimeoutIndex, "migration must set lock_timeout").toBeGreaterThanOrEqual(0);
     expect(firstPolicyIndex, "migration must create at least one policy").toBeGreaterThanOrEqual(0);
     expect(lockTimeoutIndex).toBeLessThan(firstPolicyIndex);
+  });
+
+  it("resets lock_timeout after the last CREATE POLICY, so it doesn't bleed into later migrations in the same deploy run", () => {
+    // `SET lock_timeout` is session-level (not transaction-scoped like
+    // `SET LOCAL`), so without an explicit RESET it would stay in effect for
+    // every migration `prisma migrate deploy` applies afterward in the same
+    // session -- silently imposing a 5s cap on unrelated, possibly slower
+    // migrations later in the same deploy run.
+    const migrationSql = readFileSync(
+      join(MIGRATIONS_DIR, "20260924000000_add_rls_venue_resolution_functions", "migration.sql"),
+      "utf8"
+    );
+    const executableSql = migrationSql
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+
+    const lastPolicyIndex = executableSql.lastIndexOf("CREATE POLICY");
+    const resetIndex = executableSql.indexOf("RESET lock_timeout");
+
+    expect(lastPolicyIndex, "migration must create at least one policy").toBeGreaterThanOrEqual(0);
+    expect(resetIndex, "migration must reset lock_timeout").toBeGreaterThanOrEqual(0);
+    expect(resetIndex).toBeGreaterThan(lastPolicyIndex);
   });
 });
 
