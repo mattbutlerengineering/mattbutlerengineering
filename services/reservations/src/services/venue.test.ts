@@ -133,6 +133,12 @@ function crossVenueValueCalls(): unknown[][] {
 interface TxLike {
   venue: { create: Mock };
   venueMembership: { create: Mock; count?: Mock };
+  $executeRaw: Mock;
+}
+
+/** A `$executeRaw` stub satisfying `setVenueContext`'s call in every create() test below. */
+function makeTxExecuteRaw(): Mock {
+  return vi.fn().mockResolvedValue(0);
 }
 
 describe("venueGroupService", () => {
@@ -710,8 +716,25 @@ describe("venueService", () => {
   });
 
   describe("create", () => {
+    // ADR-026 §3.3 item 8 / #5369 PR 7: the ownerSub-less branch now runs the
+    // insert inside an explicit `prisma.$transaction` too (previously the
+    // top-level `prisma.venue.create` directly), so `setVenueContext` can set
+    // `app.venue_id` to the generated id on the SAME transaction — there is
+    // no prior venue context for a row that doesn't exist yet.
+    function mockTransactionOnce(venueCreate: Mock): void {
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: makeTxExecuteRaw(),
+        })) as never);
+    }
+
     it("creates venue with all fields", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      mockTransactionOnce(venueCreate);
 
       const result = await venueService.create({
         name: "Test Venue",
@@ -721,9 +744,10 @@ describe("venueService", () => {
       });
 
       expect(result.name).toBe("Test Venue");
-      expect(prisma.venue.create).toHaveBeenCalledWith(
+      expect(venueCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            id: expect.any(String),
             name: "Test Venue",
             currencyCode: "USD",
           }),
@@ -731,8 +755,35 @@ describe("venueService", () => {
       );
     });
 
+    it("sets app.venue_id to the generated id on the same transaction before the insert", async () => {
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      const executeRaw = makeTxExecuteRaw();
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: executeRaw,
+        })) as never);
+
+      await venueService.create({ name: "Venue", slug: "venue", ianaTimezone: "UTC" });
+
+      const insertedId = (venueCreate.mock.calls[0]?.[0] as { data: { id: string } }).data.id;
+      expect(executeRaw).toHaveBeenCalledTimes(1);
+      // `setVenueContext`'s tagged-template call binds the venue id as its
+      // one parameter — matching resolve-venue.test.ts's own convention for
+      // asserting a tagged-template call's bound values.
+      expect(executeRaw.mock.calls[0]?.slice(1)).toEqual([insertedId]);
+      // Called BEFORE the insert, not after.
+      expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        venueCreate.mock.invocationCallOrder[0]!
+      );
+    });
+
     it("defaults currencyCode to USD", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      mockTransactionOnce(venueCreate);
 
       await venueService.create({
         name: "Venue",
@@ -740,7 +791,7 @@ describe("venueService", () => {
         ianaTimezone: "UTC",
       });
 
-      expect(prisma.venue.create).toHaveBeenCalledWith(
+      expect(venueCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ currencyCode: "USD" }),
         })
@@ -769,6 +820,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       const result = await venueService.create(
@@ -802,6 +854,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await expect(
@@ -835,6 +888,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       const result = await venueService.create(
@@ -867,6 +921,7 @@ describe("venueService", () => {
             }),
             count: membershipCount,
           },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await venueService.create(
@@ -899,6 +954,7 @@ describe("venueService", () => {
             }),
             count: vi.fn().mockResolvedValue(0),
           },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await venueService.create(
@@ -913,12 +969,23 @@ describe("venueService", () => {
       );
     });
 
-    it("does not open a transaction or seed membership when ownerSub is omitted", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+    it("does not seed membership when ownerSub is omitted", async () => {
+      // ADR-026 §3.3 item 8 / #5369 PR 7: this branch now opens its own
+      // `prisma.$transaction` too (to set `app.venue_id` before the insert),
+      // so the distinguishing behavior is no membership seeding, not "no
+      // transaction" — see `mockTransactionOnce` above.
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: makeTxExecuteRaw(),
+        })) as never);
 
       await venueService.create({ name: "Venue", slug: "venue", ianaTimezone: "UTC" });
 
-      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.venueMembership.create).not.toHaveBeenCalled();
     });
   });

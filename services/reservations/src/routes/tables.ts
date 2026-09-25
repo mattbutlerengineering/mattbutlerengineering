@@ -254,46 +254,71 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { floorPlanId } = request.body;
-      if (floorPlanId) {
-        // The guard above only proves the caller belongs to the TABLE's own
-        // venue. `floorPlanId` is a client-supplied id that the update connects
-        // with no venue awareness of its own, so a member of the table's venue
-        // could otherwise re-point it onto ANOTHER venue's floor plan. Same bug
-        // class as #5008 (/tables/:tableId/assign) and #5042
-        // (/tables/positions) in floor-plans.ts. Checked here rather than in
-        // the DB layer because `Table` has no compound floorPlanId/venueId
-        // constraint, and ADR-026's RLS does not apply to the app's own role.
-        const [current, floorPlan] = await Promise.all([
-          tableService.getById(request.params.id),
-          floorPlanService.getById(floorPlanId),
-        ]);
-        // A missing table or floor plan is not a cross-venue reassignment —
-        // fall through so the update below surfaces the existing 404.
-        if (current && floorPlan && floorPlan.venueId !== current.venueId) {
-          return reply
-            .code(403)
-            .send(
-              createProblemDetails(
-                403,
-                titleForStatus(403),
-                "The requested floor plan does not belong to this table's venue"
-              )
-            );
-        }
-      }
 
-      const table = await loadInVenueContext(
+      // ADR-026 §3.3 item 5 / #5369 PR 7 (PR 5 carry-forward): the
+      // floor-plan reassignment pre-check now runs INSIDE the table's
+      // resolved venue context, the way `floor-plans.ts`'s
+      // `/tables/positions` route does. Both reads used to run before any
+      // venue context was resolved — under FORCE they'd both return null,
+      // silently skipping this check (still refused, but as a 404 from the
+      // update's own nested `connect` instead of this 403).
+      const result = await loadInVenueContext(
         "table",
         request.params.id,
-        () => tableService.update(request.params.id, request.body),
-        null
+        async () => {
+          if (floorPlanId) {
+            // The guard above only proves the caller belongs to the TABLE's
+            // own venue. `floorPlanId` is a client-supplied id that the
+            // update connects with no venue awareness of its own, so a
+            // member of the table's venue could otherwise re-point it onto
+            // ANOTHER venue's floor plan. Same bug class as #5008
+            // (/tables/:tableId/assign) and #5042 (/tables/positions) in
+            // floor-plans.ts. Checked here rather than in the DB layer
+            // because `Table` has no compound floorPlanId/venueId
+            // constraint, and ADR-026's RLS does not apply to the app's own
+            // role.
+            const [current, floorPlan] = await Promise.all([
+              tableService.getById(request.params.id),
+              floorPlanService.getById(floorPlanId),
+            ]);
+            // A missing table or floor plan is not a cross-venue
+            // reassignment — fall through so the update below surfaces the
+            // existing 404. Note (matching `floor-plans.ts`'s
+            // `/tables/positions` route): once this read runs inside the
+            // table's own resolved venue context, a GENUINELY cross-venue
+            // `floorPlanId` becomes invisible here under RLS rather than
+            // "found, wrong venue" — `floorPlan` resolves `null`, this 403
+            // never fires, and the attempt still fails, but as the 404 below
+            // (from `tableService.update`'s own nested `connect`) instead.
+            if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+              return { kind: "cross-venue" as const };
+            }
+          }
+
+          const table = await tableService.update(request.params.id, request.body);
+          if (!table) return { kind: "not-found" as const };
+          return { kind: "ok" as const, table };
+        },
+        { kind: "not-found" as const }
       );
-      if (!table) {
+
+      if (result.kind === "cross-venue") {
+        return reply
+          .code(403)
+          .send(
+            createProblemDetails(
+              403,
+              titleForStatus(403),
+              "The requested floor plan does not belong to this table's venue"
+            )
+          );
+      }
+      if (result.kind === "not-found") {
         const error = new Error("Table not found") as Error & { statusCode?: number };
         error.statusCode = 404;
         throw error;
       }
-      return { data: table };
+      return { data: result.table };
     }
   );
 

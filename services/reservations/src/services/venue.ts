@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type {
   Venue,
   VenueGroup,
@@ -21,6 +22,7 @@ import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { runWithVenueContext } from "./venue-context-store.js";
 import { getMemberVenueIds } from "./member-venues.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 
 /**
  * Outcome of {@link venueService.delete} — distinguishes "gone" from "blocked
@@ -508,19 +510,33 @@ export const venueService = {
   },
 
   /**
-   * Creates a venue. When `ownerSub` is supplied, the creator is atomically
-   * seeded as the venue `owner` via a VenueMembership row (ADR-020) so their
-   * scoped venue list (`listForMember`) surfaces the new venue immediately —
-   * both writes share one transaction so a venue never persists without its
-   * owner grant.
-   */
-  /**
-   * Creates a venue, optionally seeding `ownerSub` as its owner.
+   * Creates a venue, optionally seeding `ownerSub` as its owner. Both
+   * writes (the venue row and, when `ownerSub` is supplied, its owner
+   * VenueMembership) share one transaction so a venue never persists without
+   * its owner grant.
    *
    * When an `ownerSub` is supplied, `opts.isAdmin` decides whether the
    * first-venue bootstrap invariant applies (ADR-020, third case). It defaults
    * to `false` — the fail-CLOSED direction — so a caller that forgets to pass
    * it gets the invariant enforced rather than silently skipped.
+   *
+   * ADR-026 §3.3 item 8 / #5369 PR 7: `venues`' `venue_isolation` policy keys
+   * on the row's own `id`, but that id does not exist until this call creates
+   * it — there is no PRIOR venue context a preHandler could have resolved for
+   * an INSERT. The id is generated up front (`randomUUID()`, overriding the
+   * schema's client-side `@default(cuid())`, which is inert if a caller
+   * already supplies `data.id`) so it can be set as `app.venue_id` on the
+   * SAME transaction that inserts the row — `setVenueContext(tx, id)` as the
+   * transaction's first statement, matching the explicit-transaction pattern
+   * `reservation.ts`/`floor-plan.ts` already use, never
+   * `app.cross_venue` (that marker is for reads that cannot name a single
+   * venue; this INSERT names exactly one, the venue it is creating).
+   * Previously this used the top-level `prisma` export for the ownerSub-less
+   * branch (its own per-call auto-wrap transaction, but with
+   * `getCurrentVenueId()` reading whatever the REQUEST resolved — never this
+   * new row's id) and an unwrapped `prisma.$transaction(...)` with no venue
+   * context at all for the ownerSub branch — both left `app.venue_id` unset,
+   * so the FORCE'd policy's `WITH CHECK` rejected every create.
    */
   async create(
     data: CreateVenueRequest,
@@ -528,6 +544,7 @@ export const venueService = {
     opts: { isAdmin?: boolean } = {}
   ): Promise<Venue> {
     const venueData = {
+      id: randomUUID(),
       venueGroupId: data.venueGroupId,
       name: data.name,
       slug: data.slug,
@@ -538,15 +555,17 @@ export const venueService = {
     };
 
     if (!ownerSub) {
-      const venue = await prisma.venue.create({
-        data: venueData,
-        include: { venueGroup: true },
+      const venue = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueData.id);
+        return tx.venue.create({ data: venueData, include: { venueGroup: true } });
       });
       return mapPrismaVenue(venue);
     }
 
     const venue = await prisma.$transaction(
       async (tx) => {
+        await setVenueContext(tx, venueData.id);
+
         // The preHandler guard reads membership OUTSIDE this transaction, so
         // two concurrent bootstraps can both pass it. This re-check is the
         // authority; Serializable isolation below closes the remaining window
