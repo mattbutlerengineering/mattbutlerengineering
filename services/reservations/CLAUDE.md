@@ -337,13 +337,14 @@ client-supplied `venueId`.
 
 ### Deposits (authenticated)
 
-| Method | Path                           | Description                        |
-| ------ | ------------------------------ | ---------------------------------- |
-| POST   | `/api/v1/deposits`             | Create deposit in `pending` state  |
-| GET    | `/api/v1/deposits/:id`         | Get deposit by ID                  |
-| POST   | `/api/v1/deposits/:id/capture` | Apply (capture) a `held` deposit   |
-| POST   | `/api/v1/deposits/:id/refund`  | Refund a `held` deposit            |
-| POST   | `/api/v1/deposits/:id/forfeit` | Forfeit a `held` deposit (no-show) |
+| Method | Path                              | Description                                                             |
+| ------ | --------------------------------- | ----------------------------------------------------------------------- |
+| POST   | `/api/v1/deposits`                | Create deposit in `pending` state                                       |
+| GET    | `/api/v1/deposits?reservationId=` | Operator visibility: look up a reservation's deposit, or `null` if none |
+| GET    | `/api/v1/deposits/:id`            | Get deposit by ID                                                       |
+| POST   | `/api/v1/deposits/:id/capture`    | Apply (capture) a `held` deposit                                        |
+| POST   | `/api/v1/deposits/:id/refund`     | Refund a `held` deposit                                                 |
+| POST   | `/api/v1/deposits/:id/forfeit`    | Forfeit a `held` deposit (no-show)                                      |
 
 ### Stripe Webhook (unauthenticated)
 
@@ -351,7 +352,7 @@ client-supplied `venueId`.
 | ------ | ------------------------ | ------------------------------------------------------ |
 | POST   | `/api/v1/stripe/webhook` | Receive Stripe events; verifies signature via raw body |
 
-Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.amount_capturable_updated` (`pending → held` — the actual event a manual-capture authorization fires; `succeeded` only fires later, on capture), `payment_intent.canceled` (`held → refunded`), `charge.refunded` (`held → refunded`).
+Handled event types: `payment_intent.succeeded` (`pending → held`), `payment_intent.amount_capturable_updated` (`pending → held` — the actual event a manual-capture authorization fires; `succeeded` only fires later, on capture), `payment_intent.canceled` on a `held` deposit branches on Stripe's own `cancellation_reason` — `automatic` (Stripe's ~7-day auto-expiry, nobody decided to cancel) goes to `uncollectable`, unified with the no-show/forfeit capture-failure path's own label for the identical "authorization died before capture" condition; every other reason, including `null`/unset (what our own `cancelPaymentIntent` call sends) and a dashboard cancel, is a deliberate release and goes to `refunded` via the same path a staff-initiated refund uses (#5725 item 3, MEDIUM-3). `charge.refunded` (`held → refunded`; for a deposit already `applied`/`forfeited`/`partial_refunded` — a dashboard-issued refund after our own capture — reconciles `postCaptureRefundCents` against Stripe's `amount_refunded` minus any `refundAmountCents` leg `refundPartial` already issued itself, monotonically, without changing `status`, #5725).
 
 Raw body access is required for HMAC signature verification — this route must be registered before any JSON body parsers.
 
@@ -682,19 +683,23 @@ event, no failed health check (`/health` is liveness-only and stays 200; even
 rather than erroring). The observable symptom is "no bookings today". Treat any
 post-flip verification that only checks for errors as having verified nothing.
 
-**Background jobs do not go through the request middleware at all — one half
-of this was unguarded and is now fixed, the other half remains open.**
-`src/services/lapsed-guest-cron.ts` is fine (it sets per-venue context on its
-own transaction, #5401). `src/services/job-worker.ts`'s `BOOKING_REMINDER` /
-`DAY_OF_REMINDER` handlers, wired in `app.ts`, call `reservationService.getById`
-/ `venueService.getById` from a BullMQ consumer with no request — `deliverReminder`
-now wraps its whole body in `runWithVenueContext(payload.venueId, …)` (ADR-026
-§3.3 item 7, reminder-handler half), since `ReminderPayload` already declares
-`venueId` required at dispatch. `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry`
-is the harder half and remains open: its payload's `venueId` is optional and
-unenqueued, so it derives the venue by reading the RLS-protected row itself —
-see ADR-026 §3.3 item 7 for why that needs a different fix. When adding any new
-background/scheduled caller that touches the seven tables, wrap it in
+**Background jobs do not go through the request middleware at all — both
+halves of this are now fixed.** `src/services/lapsed-guest-cron.ts` is fine
+(it sets per-venue context on its own transaction, #5401).
+`src/services/job-worker.ts`'s `BOOKING_REMINDER` / `DAY_OF_REMINDER` handlers,
+wired in `app.ts`, call `reservationService.getById` / `venueService.getById`
+from a BullMQ consumer with no request — `deliverReminder` wraps its whole
+body in `runWithVenueContext(payload.venueId, …)` (ADR-026 §3.3 item 7,
+reminder-handler half), since `ReminderPayload` already declares `venueId`
+required at dispatch. `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` is
+the other half and is closed too: `handleWaitlistExpiryJob` does the same
+`runWithVenueContext` wrap whenever `payload.venueId` is present, populated at
+the job's one enqueue site (`waitlist-notifier.ts`'s `notifyTableReady`). Its
+`venueId` stays optional on the payload type (not required, unlike
+`ReminderPayload`) for a job already sitting in Redis when this shipped — see
+ADR-026 §3.3 item 7 for the legacy-payload fallback and its deletion
+condition. When adding any new background/scheduled caller that touches the
+seven tables, wrap it in
 `runWithVenueContext(venueId, …)` and say so in its doc comment; nothing else in
 the service will do it for you.
 

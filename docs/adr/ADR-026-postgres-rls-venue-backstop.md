@@ -162,7 +162,7 @@ degrade quietly — it would fail the `db-migrate` deploy outright.
 | Cron's venue-list read (`getAllVenueIds`)                              | **Resolved** (#5369) via `app_cross_venue_venues()` — see §3.1. Correct today and under FORCE, proven as a non-owner role in `routes/rls-isolation.integration.test.ts`.                                                                                                 |
 | Admin `venueService.list()`                                            | **Resolved** (#5369) via the same function, with the venue-group filter passed as its one argument.                                                                                                                                                                      |
 | Admin `venueGroupService.list()`                                       | **Not an RLS problem at all** — corrected here. `venue_groups` carries no RLS policy: §1's table list never included it and no migration enables it (measured against a migrated database, 2026-09-20: `relrowsecurity` is false for `venue_groups`). It needs no hatch. |
-| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **NEWLY OPEN** — two cross-venue reads this audit missed. See §3.2.                                                                                                                                                                                                      |
+| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **Resolved** (#5369 PR 6) via a per-venue fan-out — see §3.2 and §3.3 item 1. Correct today and under FORCE, proven in `routes/rls-route-sweep.integration.test.ts`.                                                                                                     |
 
 ### 3.1 The cross-venue mechanism: a `SECURITY DEFINER` function plus one admitting policy
 
@@ -265,7 +265,7 @@ no cross-venue `INSERT`/`UPDATE`/`DELETE` is reachable through the marker
 the ADR exists to close, and it is why the hatch returns rows rather than
 granting a mode.
 
-### 3.2 Two more cross-venue reads this audit missed (open)
+### 3.2 Two more cross-venue reads this audit missed (resolved, #5369 PR 6)
 
 The sweep accompanying §3.1 found two reads with the same irreducible shape as
 the admin venue list, both of which this section previously waved past:
@@ -281,9 +281,10 @@ the admin venue list, both of which this section previously waved past:
    `reservationService.listByUserId`). A diner's own reservations span whatever
    venues they booked at; same shape, same zero-rows outcome.
 
-Neither is fixed here — they are reported rather than patched, so each gets its
-own reviewed change. They sit in the table above so nothing claims this audit is
-closed on the strength of §3.1 alone.
+Neither was fixed here — they were reported rather than patched, each getting
+its own reviewed change (both closed by #5369 PR 6 — see §3.3 item 1 for how).
+They sit in the table above so nothing claims this audit was closed on the
+strength of §3.1 alone.
 
 **The general lesson is #5382's, in the other direction:** "does this query read
 across venues" was asked of the query but answered from the route's intent.
@@ -373,8 +374,29 @@ same class is already recorded for the venue-self-addressed
 migration in this repo sets FORCE. The flip is gated on these, all identified by
 the #5369 sweep and none of them fixed by it:
 
-1. **The two newly-open cross-venue reads in §3.2** (`listForMember`,
-   `GET /api/v1/reservations/me`) — zero rows under FORCE.
+1. **Closed (#5369 PR 6).** The two newly-open cross-venue reads in §3.2
+   (`listForMember`, `GET /api/v1/reservations/me`) used to return zero rows
+   under FORCE — a single delegate call filtered by an application predicate
+   (`memberships: { some: { userSub } } }` / `{ userId }`) has no single venue
+   to name. Fixed by fanning out one venue at a time instead of one
+   cross-venue query: `listForMember` resolves the member's venue ids from
+   `venue_memberships` (`services/venue-membership.ts`'s sibling helper,
+   `getMemberVenueIds` in `services/member-venues.ts` — no RLS policy on that
+   table at all, so this first step needs no escape hatch), then reads each
+   venue inside `runWithVenueContext`, admitted by `venues`' own
+   `venue_isolation` policy (the row's own `id` equals `app.venue_id`) — a
+   correctly-scoped single-venue read, not a cross-venue one.
+   `GET /api/v1/reservations/me` resolves the set of venues a diner's
+   reservations span via `app_reservation_venue_ids_for_user()` (the
+   `SECURITY DEFINER` function added in PR 3,
+   `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`),
+   then reads each venue's reservations for that user inside its own
+   `runWithVenueContext` and merges, preserving the pre-existing
+   `date desc, startTime desc` ordering. Pagination moves from the database
+   into application code in both cases, since the fan-out can no longer
+   express it as one query. Proved against a real, migrated, FORCE'd database
+   as a non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
+   (the item-1 fixtures for both routes).
 2. **Every entity-addressed route.** `venueIdFromEntity`
    (`routes/venue-access.ts`) resolves a route's venue by loading the addressed
    entity, and that load is itself an unscoped read of an RLS table — so under
@@ -415,11 +437,11 @@ the #5369 sweep and none of them fixed by it:
    than visible to a user**, which makes it the one most likely to survive a
    post-flip smoke test. The cron in the same service is _not_ affected (it sets
    per-venue context, §3's table); nothing generalises from that to the worker.
-   **The `BOOKING_REMINDER` / `DAY_OF_REMINDER` half is now closed:**
-   `deliverReminder` (`job-worker.ts`) runs its whole body inside
-   `runWithVenueContext(payload.venueId, …)`, exactly the decided fix below.
-   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` remains open — see the
-   split immediately below, which this closure does not touch.
+   **Both halves are now closed:** `deliverReminder` (`job-worker.ts`) runs its
+   whole body inside `runWithVenueContext(payload.venueId, …)`, exactly the
+   decided fix below, and `handleWaitlistExpiryJob` does the same for
+   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` — see the split
+   immediately below for how its payload-compatibility wrinkle was handled.
 
 Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the
@@ -441,17 +463,35 @@ a unit test that asserts `getCurrentVenueId()` — read from inside the handler,
 via the finder mocks — equals `payload.venueId` for both `BOOKING_REMINDER` and
 `DAY_OF_REMINDER` (`services/reservations/src/services/job-worker.test.ts`); a
 test that only asserted the finders were called would not have distinguished
-this from the pre-fix behavior. `WAITLIST_EXPIRY` is unchanged and remains open,
-per the next paragraph.
+this from the pre-fix behavior.
 
-`WAITLIST_EXPIRY` is the other shape and is genuinely harder: `WaitlistExpiryPayload`
-carries only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
-nothing** (its own comment says so), and `expireEntry(waitlistEntryId)` derives the
-venue by reading the RLS-protected `waitlist_entries` row. That is items 2–6's
-trapped-lookup shape wearing a job payload. Its cheapest fix is not a database
-mechanism at all — make `venueId` required on the payload and populate it at
-enqueue time, where the venue is known — but that is a payload-compatibility change
-across in-flight BullMQ jobs, so it is named here rather than assumed easy.
+`WAITLIST_EXPIRY` was the other shape and was genuinely harder: `WaitlistExpiryPayload`
+carried only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
+nothing**, and `expireEntry(waitlistEntryId)` derived the venue by reading the
+RLS-protected `waitlist_entries` row. That was items 2–6's trapped-lookup shape
+wearing a job payload.
+
+**Closed.** The cheapest fix — populate `venueId` at enqueue time, where the
+venue is known — is what shipped, at the job's one enqueue site
+(`waitlist-notifier.ts`'s `notifyTableReady`, called from `routes/waitlist.ts`'s
+`PUT /:id/notify` and from `handleExpiry`'s own next-guest re-notify).
+`WaitlistExpiryPayload.venueId` stays **optional on the type**, not required,
+because that enqueue-time change is a payload-compatibility change across
+in-flight BullMQ jobs: a job already sitting in Redis when this deployed was
+serialized under the old shape and BullMQ never re-serializes a queued
+payload. `job-worker.ts`'s `handleWaitlistExpiryJob` branches on
+`payload.venueId` — present, it wraps `deps.handleWaitlistExpiry` in
+`runWithVenueContext(payload.venueId, …)`, exactly `deliverReminder`'s
+mechanism above; absent (the legacy in-flight case), it falls back to the
+pre-fix behavior and logs a warning naming the job and entry id, rather than
+inventing a cross-venue lookup. That legacy branch is safe to delete once one
+WAITLIST_EXPIRY TTL (`FIVE_MINUTES_MS`, `waitlist-notifier.ts`) has elapsed
+post-deploy — every job enqueued before the fix will have drained by then.
+Proved by `services/reservations/src/services/job-worker.test.ts` (the
+venue-context-carrying case, the enqueue-site case in
+`waitlist-notifier.test.ts`, and the legacy no-`venueId` case) and by
+`services/reservations/src/routes/rls-route-sweep.integration.test.ts`'s
+non-HTTP `WAITLIST_EXPIRY` case against a real, migrated database.
 
 **Measured, not predicted (2026-09-21, #5369).** The list above was derived by
 reading code. It has since been run: the real `buildApp()` was booted against a

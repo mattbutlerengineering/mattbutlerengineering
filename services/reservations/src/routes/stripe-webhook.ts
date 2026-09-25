@@ -80,14 +80,49 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
 
   if (!deposit) return;
 
-  // If pending, can't directly refund (no transition pending → refunded)
-  // If held, we can refund. Skip the Stripe cancel call — the intent is
-  // already canceled (that's this event); calling cancelPaymentIntent again
-  // would fail against an already-canceled intent and Stripe would retry the
-  // webhook forever on the resulting 500 (#5719).
-  if (deposit.status === "held") {
+  // If pending, can't directly transition (no transition pending → uncollectable/refunded).
+  if (deposit.status !== "held") return;
+
+  // Stripe's `cancellation_reason` is the only reliable signal for WHY this
+  // intent was canceled. A human- or API-chosen reason (null/unset, which is
+  // what OUR OWN cancelPaymentIntent call sends, or a dashboard/API cancel:
+  // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
+  // deliberate release, not a dead authorization, and must be labeled
+  // `refunded` via the same path a staff-initiated refund uses (#5725
+  // MEDIUM-3). The null case is what OUR OWN refund() sends. When refund()'s
+  // own cancel call errors, `_reconcileCancelFailure` keeps `refunded` only if
+  // it retrieves `canceled`; otherwise it rolls back to `held` (#5753). If
+  // Stripe did cancel after all and this webhook already no-op'd against the
+  // interim `refunded` row, the row sits at `held` against a canceled intent
+  // until the next action settles it: refund() retrieves `canceled` and keeps
+  // `refunded`, and forfeit/apply write it off as `uncollectable`.
+  //
+  // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
+  // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
+  // Stripe canceled the intent with nobody here deciding anything. That is the
+  // same "authorization died before we could act" condition the
+  // no-show/forfeit capture-failure path already lands on `uncollectable` for
+  // (#5725 item 3). Inverting the test this way fails toward `uncollectable`
+  // (money NOT collected, NOT returned by us) rather than falsely claiming a
+  // refund. No Stripe call is made either way — the intent is already canceled.
+  if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
     await depositService.refund(deposit.id, { skipStripeCancel: true });
+  } else {
+    await depositService.expireAuthorization(deposit.id);
   }
+}
+
+// Cancellation reasons a person (staff, the dashboard) or our own API call
+// chose. Anything not listed here is treated as a Stripe-internal cancel.
+const DELIBERATE_CANCELLATION_REASONS: ReadonlySet<string> = new Set([
+  "requested_by_customer",
+  "duplicate",
+  "fraudulent",
+  "abandoned",
+]);
+
+function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
+  return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
 }
 
 async function onChargeRefunded(event: Stripe.Event): Promise<void> {
@@ -108,13 +143,36 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
       { depositId: deposit.id, paymentIntentId },
       "charge.refunded received for a held deposit; refunding"
     );
-    // A dashboard-issued refund can race with (or follow) the intent already
-    // being canceled — calling cancelPaymentIntent again would fail against
-    // an already-canceled intent and Stripe would retry the webhook forever
-    // on the resulting 500, the same class of bug fixed for
-    // payment_intent.canceled below (#5719 LOW).
+    // Only a live authorization (`requires_capture`) has anything to cancel.
+    // A dashboard refund can follow an already-canceled intent, and a held
+    // row whose intent `succeeded` was captured and then refunded. Calling
+    // cancelPaymentIntent in either case fails, refund() then rolls back and
+    // throws (#5753), and Stripe would retry this webhook forever on the 500
+    // (#5719 LOW).
     const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-    await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
+    await depositService.refund(deposit.id, {
+      skipStripeCancel: intent.status !== "requires_capture",
+    });
+    return;
+  }
+
+  // A refund issued through the Stripe dashboard AFTER our own capture
+  // (applied/forfeited/partial_refunded) never touched the DB before this —
+  // the deposit kept reporting stale money-collected state after the guest
+  // was actually made whole. Reconcile against Stripe's own cumulative
+  // `amount_refunded` on the charge; this never re-transitions `status` or
+  // calls Stripe (the refund already happened) — it's an annotation on an
+  // already-terminal row (#5725 item 2).
+  if (
+    deposit.status === "applied" ||
+    deposit.status === "forfeited" ||
+    deposit.status === "partial_refunded"
+  ) {
+    logger.info(
+      { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
+      "charge.refunded received for a captured deposit; reconciling post-capture refund"
+    );
+    await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
   }
 }
 

@@ -12798,8 +12798,12 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useDeposits.ts">
+    export const DEPOSITS_QUERY_KEY = "deposits" as const;
+    export function useDepositByReservation(reservationId: string | null | undefined) {
+      return useDepositByReservationQuery({ reservationId });
+    }
     export const useCreateDeposit = createMutationHook<CreateDepositRequest, Deposit>({
-      invalidateKeys: RESERVATIONS_QUERY_KEY,
+      invalidateKeys: [RESERVATIONS_QUERY_KEY, DEPOSITS_QUERY_KEY],
       mutationFn: (api, data) => api.deposits.create(data),
     });
   </file>
@@ -20627,6 +20631,66 @@
         }
       );
     
+      // GET /api/v1/deposits?reservationId= — operator visibility: look up a
+      // reservation's deposit (or null if none exists yet), venue-scoped. Same
+      // venue-resolution shape as POST / above: the query carries an opaque
+      // reservation id, not a venueId, so the app-wide preHandler resolves
+      // nothing and this route resolves it itself (module comment, ADR-026).
+      fastify.get<{
+        Querystring: { reservationId?: string };
+        Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Get a reservation's deposit",
+            operationId: "getDepositByReservation",
+            description:
+              "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+            tags: ["Deposits"],
+            querystring: {
+              type: "object",
+              required: ["reservationId"],
+              properties: { reservationId: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit found, or null if the reservation has none yet",
+                type: "object",
+                properties: {
+                  data: {
+                    anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+                  },
+                },
+              },
+              400: { description: "Missing reservationId", type: "object" },
+              404: { description: "Reservation not found, or not in any venue", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { reservationId } = request.query;
+          if (!reservationId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+          }
+    
+          const venueId = await resolveReservationVenueId(reservationId);
+          if (!venueId) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          }
+    
+          const deposit = await runWithVenueContext(venueId, () =>
+            depositService.getByReservationId(reservationId)
+          );
+          return { data: deposit };
+        }
+      );
+    
       // GET /api/v1/deposits/:id — get deposit by ID
       fastify.get<{
         Params: { id: string };
@@ -24041,6 +24105,13 @@
       memberSub: string;
       venueA: { id: string; slug: string };
       venueB: { id: string; slug: string };
+      /**
+       * A second venue `memberSub` belongs to (#5369 PR 6), used only to prove
+       * `venueService.listForMember` returns every venue a multi-venue member
+       * belongs to, not just one. Never touched by any other fixture — `memberSub`
+       * deliberately stays a non-member of `venueB` everywhere else in this sweep.
+       */
+      venueC: { id: string };
       tableA: string;
       tableB: string;
       guestA: string;
@@ -24050,6 +24121,16 @@
       reservationA: string;
       reservationB: string;
       reservationAGuestEmail: string;
+      /**
+       * Two reservations booked by the same diner (the platform-admin bypass
+       * identity, `asAdmin`'s sub) at venue A and venue B respectively, and one
+       * booked by a DIFFERENT diner — #5369 PR 6's proof that
+       * `GET /api/v1/reservations/me` returns a diner's bookings across every
+       * venue they visited, and never another diner's.
+       */
+      reservationMineA: string;
+      reservationMineB: string;
+      reservationOtherUser: string;
       waitlistA: string;
       waitlistB: string;
       /**
@@ -24285,14 +24366,39 @@
     
       if (!deposit) return;
     
-      // If pending, can't directly refund (no transition pending → refunded)
-      // If held, we can refund. Skip the Stripe cancel call — the intent is
-      // already canceled (that's this event); calling cancelPaymentIntent again
-      // would fail against an already-canceled intent and Stripe would retry the
-      // webhook forever on the resulting 500 (#5719).
-      if (deposit.status === "held") {
+      // If pending, can't directly transition (no transition pending → uncollectable/refunded).
+      if (deposit.status !== "held") return;
+    
+      // Stripe's `cancellation_reason` is the only reliable signal for WHY this
+      // intent was canceled. A human- or API-chosen reason (null/unset, which is
+      // what OUR OWN cancelPaymentIntent call sends, or a dashboard/API cancel:
+      // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
+      // deliberate release, not a dead authorization, and must be labeled
+      // `refunded` via the same path a staff-initiated refund uses (#5725
+      // MEDIUM-3). The null case is what OUR OWN refund() sends. When refund()'s
+      // own cancel call errors, `_reconcileCancelFailure` keeps `refunded` only if
+      // it retrieves `canceled`; otherwise it rolls back to `held` (#5753). If
+      // Stripe did cancel after all and this webhook already no-op'd against the
+      // interim `refunded` row, the row sits at `held` against a canceled intent
+      // until the next action settles it: refund() retrieves `canceled` and keeps
+      // `refunded`, and forfeit/apply write it off as `uncollectable`.
+      //
+      // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
+      // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
+      // Stripe canceled the intent with nobody here deciding anything. That is the
+      // same "authorization died before we could act" condition the
+      // no-show/forfeit capture-failure path already lands on `uncollectable` for
+      // (#5725 item 3). Inverting the test this way fails toward `uncollectable`
+      // (money NOT collected, NOT returned by us) rather than falsely claiming a
+      // refund. No Stripe call is made either way — the intent is already canceled.
+      if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
         await depositService.refund(deposit.id, { skipStripeCancel: true });
+      } else {
+        await depositService.expireAuthorization(deposit.id);
       }
+    }
+    function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
+      return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
     }
     async function onChargeRefunded(event: Stripe.Event): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
@@ -24312,13 +24418,36 @@
           { depositId: deposit.id, paymentIntentId },
           "charge.refunded received for a held deposit; refunding"
         );
-        // A dashboard-issued refund can race with (or follow) the intent already
-        // being canceled — calling cancelPaymentIntent again would fail against
-        // an already-canceled intent and Stripe would retry the webhook forever
-        // on the resulting 500, the same class of bug fixed for
-        // payment_intent.canceled below (#5719 LOW).
+        // Only a live authorization (`requires_capture`) has anything to cancel.
+        // A dashboard refund can follow an already-canceled intent, and a held
+        // row whose intent `succeeded` was captured and then refunded. Calling
+        // cancelPaymentIntent in either case fails, refund() then rolls back and
+        // throws (#5753), and Stripe would retry this webhook forever on the 500
+        // (#5719 LOW).
         const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-        await depositService.refund(deposit.id, { skipStripeCancel: intent.status === "canceled" });
+        await depositService.refund(deposit.id, {
+          skipStripeCancel: intent.status !== "requires_capture",
+        });
+        return;
+      }
+    
+      // A refund issued through the Stripe dashboard AFTER our own capture
+      // (applied/forfeited/partial_refunded) never touched the DB before this —
+      // the deposit kept reporting stale money-collected state after the guest
+      // was actually made whole. Reconcile against Stripe's own cumulative
+      // `amount_refunded` on the charge; this never re-transitions `status` or
+      // calls Stripe (the refund already happened) — it's an annotation on an
+      // already-terminal row (#5725 item 2).
+      if (
+        deposit.status === "applied" ||
+        deposit.status === "forfeited" ||
+        deposit.status === "partial_refunded"
+      ) {
+        logger.info(
+          { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
+          "charge.refunded received for a captured deposit; reconciling post-capture refund"
+        );
+        await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
       }
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
@@ -25755,6 +25884,7 @@
             id: entry.id,
             guestPhone: entry.guestPhone,
             guestName: entry.guestName,
+            venueId: entry.venueId,
           });
     
           return reply.send({ data: entry });
@@ -27129,6 +27259,11 @@
       // tolerates a response from an older, not-yet-redeployed server instance
       // that predates this field entirely (rolling-deploy skew).
       uncollectableAt: z.string().nullable().optional(),
+      // Cumulative cents refunded (Stripe's own `amount_refunded`) AFTER this
+      // deposit already reached a capture-based terminal status — e.g. a
+      // dashboard-issued refund after our own capture (#5725). Same
+      // rolling-deploy-skew tolerance as uncollectableAt above.
+      postCaptureRefundCents: z.number().nullable().optional(),
       createdAt: z.string(),
       updatedAt: z.string(),
     });
@@ -31261,6 +31396,28 @@
         this.cause = cause;
       }
     }
+    export class DepositAlreadyCapturedError extends Error {
+      readonly depositId: string;
+      readonly stripePaymentIntentId: string;
+      readonly intentStatus: string;
+      override readonly cause: unknown;
+    
+      constructor(
+        depositId: string,
+        stripePaymentIntentId: string,
+        intentStatus: string,
+        cause: unknown
+      ) {
+        super(
+          `Deposit ${depositId} could not be released: PaymentIntent ${stripePaymentIntentId} is already ${intentStatus}`
+        );
+        this.name = "DepositAlreadyCapturedError";
+        this.depositId = depositId;
+        this.stripePaymentIntentId = stripePaymentIntentId;
+        this.intentStatus = intentStatus;
+        this.cause = cause;
+      }
+    }
     export class DepositWrittenOffUncollectableError extends Error {
       readonly depositId: string;
     
@@ -31396,8 +31553,10 @@
        * Transitions deposit from `held` → `refunded`.
        * Cancels the Stripe PaymentIntent (releases the authorization).
        *
-       * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
-       * cancel fails after the DB write.
+       * DB-first with a Stripe idempotency key. If the Stripe cancel call
+       * throws, {@link _reconcileCancelFailure} checks the PaymentIntent's REAL
+       * status: only a confirmed `canceled` keeps `refunded`; anything else rolls
+       * back to `held` (#5753).
        *
        * `skipStripeCancel` is for the Stripe-initiated path
        * (`payment_intent.canceled` webhook): the intent is already canceled on
@@ -31426,15 +31585,130 @@
           try {
             await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
           } catch (error) {
-            // Best-effort rollback. If the rollback itself fails (e.g. DB down),
-            // surface the original Stripe error rather than masking it — never
-            // swallow the cause of the failure.
-            await this._rollbackToHeld(depositId, "refunded", "refundedAt").catch(() => {});
-            throw error;
+            await this._reconcileCancelFailure(depositId, deposit.stripePaymentIntentId, error);
           }
         }
     
         return updated;
+      }
+    
+      /**
+       * Transitions deposit from `held` → `uncollectable` when Stripe cancels the
+       * authorization itself — a Stripe-internal cancellation such as the ~7-day
+       * hold expiring (`cancellation_reason` other than a human/API-chosen one; see
+       * `onPaymentIntentCanceled`) — before any capture was attempted. This is
+       * the SAME "authorization died before we could act" condition the
+       * no-show/forfeit capture-failure path already reaches via `_reconcileCaptureFailure`/`verifyCaptureCompleted`,
+       * which write the row off as `uncollectable`; this webhook-first path used to
+       * call {@link refund} instead, landing the identical scenario at `refunded` —
+       * a label that wrongly implies an active refund decision rather than a dead,
+       * uncollectable authorization. Unifies both paths on `uncollectable`
+       * (#5725 item 3). No Stripe call is made: the intent is already canceled on
+       * Stripe's side (that is the event that triggers this).
+       */
+      async expireAuthorization(depositId: string): Promise<Deposit> {
+        const deposit = await this._requireDeposit(depositId);
+        transitionDeposit(deposit.status, "uncollectable"); // throws if invalid
+    
+        // Atomic compare-and-swap: only update if the row is still in the observed
+        // status. count === 0 means another concurrent transition won the race.
+        const { count } = await prisma.deposit.updateMany({
+          where: { id: depositId, status: deposit.status },
+          data: { status: "uncollectable", uncollectableAt: new Date() },
+        });
+    
+        if (count === 0) {
+          throw new DepositConcurrentUpdateError(depositId, "expireAuthorization");
+        }
+    
+        return this._requireDeposit(depositId);
+      }
+    
+      /**
+       * Reconciles a `charge.refunded` webhook against a deposit that already
+       * reached a capture-based terminal status (`applied`/`forfeited`/
+       * `partial_refunded`) — e.g. a refund issued through the Stripe dashboard
+       * after our own capture. Deliberately does not move `status`: this is a
+       * reconciliation annotation on an already-terminal state, not a new
+       * transition for the state machine to reason about.
+       *
+       * `amountRefundedCents` is Stripe's own cumulative `amount_refunded` on the
+       * charge — it is NOT necessarily all "post-capture" money. `refundPartial`
+       * issues its OWN Stripe refund of `refundAmountCents` as part of the SAME
+       * `held` → `partial_refunded` transition, and that refund fires this exact
+       * `charge.refunded` webhook — so for a `partial_refunded` deposit, the
+       * cumulative amount already includes what WE sent back. Subtracting our own
+       * leg first means only a refund issued ON TOP of it (e.g. a further
+       * dashboard refund) is ever recorded as post-capture; an amount at or below
+       * our own leg records nothing (#5725 HIGH-1). "Our own leg" is resolved via
+       * {@link _ownPartialRefundLegCents} against Stripe's ground truth, never
+       * the row's planned `refundAmountCents` directly (#5753 LOW-C) — see that
+       * method's doc comment for why the planned amount can lie.
+       *
+       * The write is also monotonic: Stripe webhooks can be redelivered or arrive
+       * out of order, so a smaller/earlier cumulative amount must never regress an
+       * already-recorded larger one (#5725 MEDIUM-2). This means a refund that
+       * later FAILS — Stripe lowers `amount_refunded` and reports it via
+       * `charge.refund.updated` — is never reflected here: `postCaptureRefundCents`
+       * would stay at the higher, now-stale amount (#5753 LOW-D). Fixing that
+       * requires reconciling on `charge.refund.updated`, which needs a webhook-
+       * endpoint subscription change in the Stripe dashboard/API that cannot be
+       * verified from this repo alone — deliberately not implemented here.
+       * Deposits are refund/hold instruments, not charges we depend on for
+       * revenue, so an overstated `postCaptureRefundCents` after a rare refund
+       * failure is a stale reporting number, not a money-safety bug; the trade-
+       * off is accepted rather than guessed at.
+       */
+      async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
+        const deposit = await this._requireDeposit(depositId);
+    
+        const ownRefundCents = await this._ownPartialRefundLegCents(deposit);
+        const postCaptureCents = amountRefundedCents - ownRefundCents;
+    
+        if (postCaptureCents <= 0) {
+          return deposit;
+        }
+    
+        await prisma.deposit.updateMany({
+          where: {
+            id: depositId,
+            OR: [
+              { postCaptureRefundCents: null },
+              { postCaptureRefundCents: { lt: postCaptureCents } },
+            ],
+          },
+          data: { postCaptureRefundCents: postCaptureCents },
+        });
+    
+        return this._requireDeposit(depositId);
+      }
+    
+      /**
+       * Resolves how much of `refundPartial`'s OWN refund leg actually reached
+       * Stripe for a `partial_refunded` deposit — ground truth via
+       * {@link StripePort.findDepositRefund}, never the row's planned
+       * `refundAmountCents` (#5753 LOW-C). `refundAmountCents` is written
+       * DB-first, before `refundPartial`'s own Stripe refund call runs, so it
+       * stays populated even when that call never reached Stripe (a thrown
+       * {@link DepositRefundLegIncompleteError}) or landed at a `failed` status.
+       * Subtracting the planned amount unconditionally can erase a genuine,
+       * later manual refund of the exact same amount: staff completing in the
+       * dashboard what our own leg never actually sent makes
+       * `amount_refunded - refundAmountCents` come out to 0, even though nothing
+       * of OURS was ever returned. `findDepositRefund` already excludes
+       * `failed`/`canceled` refunds, so a leg that never truly succeeded
+       * correctly resolves to 0 here too — no separate check needed.
+       */
+      private async _ownPartialRefundLegCents(deposit: Deposit): Promise<number> {
+        if (deposit.status !== "partial_refunded" || !deposit.stripePaymentIntentId) {
+          return 0;
+        }
+    
+        const ownRefund = await this.stripe.findDepositRefund(
+          deposit.stripePaymentIntentId,
+          deposit.id
+        );
+        return ownRefund?.amount ?? 0;
       }
     
       /**
@@ -31946,6 +32220,74 @@
           "Deposit capture failed and Stripe's PaymentIntent status is not confirmed; row left at its optimistic status pending manual reconciliation"
         );
         throw new DepositCaptureAmbiguousError(depositId, intent.status, error);
+      }
+    
+      /**
+       * Reconciles `refund()`'s Stripe `cancelPaymentIntent` failure against the
+       * PaymentIntent's real status, rather than assuming the worst case
+       * (rollback to `held`) unconditionally — the same class of ambiguous-Stripe-
+       * error problem the capture paths already solve via
+       * {@link _reconcileCaptureFailure} (#5753).
+       *
+       * `refund()` is DB-first: the row is already written to `refunded` before
+       * this runs, so every branch below decides whether to UNDO that write,
+       * never whether to make it.
+       *
+       *  - retrieve confirms `canceled` — the cancel actually succeeded; only
+       *    our response was lost. The row is already correct at `refunded`, so
+       *    this returns normally: the operation's goal was achieved.
+       *  - anything else — `requires_capture`, `succeeded`/`processing`, any
+       *    other status, or the retrieve itself failing — roll back to `held`
+       *    and throw. Keeping `refunded` without proof would mislabel a live hold
+       *    (e.g. an egress outage failing both calls) or captured money, and
+       *    `refunded` is terminal, so nothing would ever correct it. `held` is
+       *    the recoverable state: if Stripe did cancel after all (our request
+       *    landed despite the error, and its `payment_intent.canceled` webhook
+       *    already no-op'd against `refunded`), the next refund() retrieves
+       *    `canceled` and settles at `refunded`, and the next forfeit/apply
+       *    writes the row off as `uncollectable`. `succeeded`/`processing` throw
+       *    {@link DepositAlreadyCapturedError} so callers can tell captured money
+       *    apart from a retryable failure.
+       */
+      private async _reconcileCancelFailure(
+        depositId: string,
+        stripePaymentIntentId: string,
+        error: unknown
+      ): Promise<void> {
+        let intent: { status: string };
+        try {
+          intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
+        } catch (retrieveError) {
+          logger.error(
+            { depositId, action: "refund", err: error, retrieveErr: retrieveError },
+            "Deposit refund's Stripe cancel failed and the PaymentIntent could not be retrieved to verify; rolling back to held"
+          );
+          await this._rollbackRefundToHeld(depositId);
+          throw error;
+        }
+    
+        if (intent.status === "canceled") {
+          return;
+        }
+    
+        await this._rollbackRefundToHeld(depositId);
+    
+        if (intent.status === "succeeded" || intent.status === "processing") {
+          throw new DepositAlreadyCapturedError(depositId, stripePaymentIntentId, intent.status, error);
+        }
+        throw error;
+      }
+    
+      /** Undo refund()'s DB-first write; a failed rollback is logged, never swallowed silently. */
+      private async _rollbackRefundToHeld(depositId: string): Promise<void> {
+        await this._rollbackToHeld(depositId, "refunded", "refundedAt").catch(
+          (rollbackError: unknown) => {
+            logger.error(
+              { depositId, action: "refund", err: rollbackError },
+              "Deposit refund rollback to held failed; row left at refunded pending manual reconciliation"
+            );
+          }
+        );
       }
     
       /**
@@ -33527,6 +33869,9 @@
         preference: CommunicationPreference
       ): Promise<void>;
     }
+    export interface JobWorkerLogger {
+      warn(details: object, msg: string): void;
+    }
     export interface ReservationJobHandlerDeps {
       /** Finder: load the reservation the reminder targets. */
       getReservation(id: string): Promise<Reservation | null>;
@@ -33538,6 +33883,8 @@
       generateManageToken(reservationId: string, guestEmail: string): string;
       /** Waitlist re-notify path — expires the entry and notifies the next guest. */
       handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
+      /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
+      logger: JobWorkerLogger;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
       async function deliverReminder(payload: ReminderPayload): Promise<void> {
@@ -33574,11 +33921,38 @@
         });
       }
     
+      /**
+       * WAITLIST_EXPIRY runs inside `runWithVenueContext(payload.venueId, …)`
+       * exactly like `deliverReminder` above, closing the other half of ADR-026
+       * §3.3 item 7. `payload.venueId` is populated at the job's one enqueue
+       * site (`waitlist-notifier.ts`'s `notifyTableReady`) — see
+       * `WaitlistExpiryPayload` (`@mbe/jobs`) for why it stays optional rather
+       * than required: a job enqueued before this fix shipped is already
+       * sitting in Redis without it, and BullMQ never re-serializes a payload
+       * once queued. For that legacy case, fall back to the pre-fix behavior
+       * (no venue context) and log a warning naming the job and entry id,
+       * rather than inventing a cross-venue lookup — safe to delete once one
+       * WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS, waitlist-notifier.ts) has elapsed
+       * post-deploy.
+       */
+      async function handleWaitlistExpiryJob(payload: WaitlistExpiryPayload): Promise<void> {
+        if (payload.venueId) {
+          return runWithVenueContext(payload.venueId, () =>
+            deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId })
+          );
+        }
+    
+        deps.logger.warn(
+          { jobType: JOB_TYPES.WAITLIST_EXPIRY, waitlistEntryId: payload.waitlistEntryId },
+          "WAITLIST_EXPIRY job has no venueId (legacy payload enqueued before the venue-context fix) — running without RLS venue context"
+        );
+        return deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId });
+      }
+    
       return {
         [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
         [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
-        [JOB_TYPES.WAITLIST_EXPIRY]: (payload) =>
-          deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId }),
+        [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
       };
     }
     export interface ReservationJobWorkerConfig {
@@ -33815,6 +34189,19 @@
       }
     
       return lapsing;
+    }
+  </file>
+  <file path="services/reservations/src/services/member-venues.ts">
+    export async function getMemberVenueIds(
+      userSub: string,
+      client: PrismaClient = prisma
+    ): Promise<string[]> {
+      const memberships = await client.venueMembership.findMany({
+        where: { userSub },
+        select: { venueId: true },
+        distinct: ["venueId"],
+      });
+      return memberships.map((membership) => membership.venueId);
     }
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
@@ -34933,6 +35320,13 @@
       error?: string;
       conflict?: ConflictCheckResult;
     }
+    function compareReservationDateDesc(
+      a: { date: Date; startTime: Date },
+      b: { date: Date; startTime: Date }
+    ): number {
+      const dateDiff = b.date.getTime() - a.date.getTime();
+      return dateDiff !== 0 ? dateDiff : b.startTime.getTime() - a.startTime.getTime();
+    }
     export const reservationService = {
       async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
         const { page, limit, date, status, tableId, venueId, guestId } = options;
@@ -34975,29 +35369,52 @@
         };
       },
     
+      /**
+       * A diner's own reservations can span whatever venues they booked at
+       * (ADR-026 §3.2 item 2, #5369) — a single `reservation.findMany({ where:
+       * { userId } })` has no single venue to name, so it returns ZERO rows under
+       * `FORCE ROW LEVEL SECURITY`. Fixed the same way as
+       * {@link venueService.listForMember}: resolve the set of venues this user's
+       * reservations span via `app_reservation_venue_ids_for_user()` (a
+       * `SECURITY DEFINER` function, `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`
+       * — returns venue ids only, never a reservation row), then read each venue's
+       * reservations inside its own `runWithVenueContext` and merge. Pagination
+       * moves from the database into this function because the fan-out can no
+       * longer express it as one query; the merge sort keeps today's
+       * `date desc, startTime desc` ordering.
+       */
       async listByUserId(
         userId: string,
         page: number,
         limit: number
       ): Promise<PaginatedResponse<Reservation>> {
-        const [reservations, total] = await Promise.all([
-          prisma.reservation.findMany({
-            where: { userId },
-            ...paginate({ page, limit }),
-            orderBy: [{ date: "desc" }, { startTime: "desc" }],
-            include: {
-              table: true,
-              guest: {
-                select: { visitCount: true, communicationPreference: true, unsubscribed: true },
-              },
-            },
-          }),
-          prisma.reservation.count({ where: { userId } }),
-        ]);
+        const venueRows = await prisma.$queryRaw<
+          { app_reservation_venue_ids_for_user: string }[]
+        >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+    
+        const perVenue = await Promise.all(
+          venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>
+            runWithVenueContext(venueId, () =>
+              prisma.reservation.findMany({
+                where: { userId, venueId },
+                orderBy: [{ date: "desc" }, { startTime: "desc" }],
+                include: {
+                  table: true,
+                  guest: {
+                    select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+                  },
+                },
+              })
+            )
+          )
+        );
+    
+        const reservations = perVenue.flat().sort(compareReservationDateDesc);
+        const { skip, take } = paginate({ page, limit });
     
         return {
-          data: reservations.map(toReservation),
-          pagination: toPaginationMeta(page, limit, total),
+          data: reservations.slice(skip, skip + take).map(toReservation),
+          pagination: toPaginationMeta(page, limit, reservations.length),
         };
       },
     
@@ -37044,8 +37461,21 @@
       /**
        * Lists only the venues the given operator is a member of (owns or was
        * invited to), scoped via VenueMembership (ADR-020). Platform admins bypass
-       * this and use `list` instead. The `count` shares the same filter so
-       * pagination totals reflect the scoped set.
+       * this and use `list` instead.
+       *
+       * This is the other of ADR-026 §3.2's two newly-open cross-venue reads (#5369):
+       * a single `venue.findMany` filtered by `memberships: { some: { userSub } }`
+       * is an application predicate, not a value of `app.venue_id`, so it returns
+       * ZERO rows under `FORCE ROW LEVEL SECURITY` for any member of more than one
+       * venue. Fixed by fanning out one venue at a time instead of a single
+       * cross-venue delegate call: {@link getMemberVenueIds} reads the member's
+       * venue ids straight off `venue_memberships` (no RLS policy at all, so this
+       * first step needs no escape hatch), then each venue is read inside
+       * `runWithVenueContext` — `venues`' own `venue_isolation` policy admits a
+       * session whose `app.venue_id` equals that row's own `id`, so this is a
+       * correctly-scoped single-venue read, not a cross-venue one. Ordering,
+       * `venueGroupId` filtering and pagination move from the database into this
+       * function because the fan-out can no longer express them as one query.
        */
       async listForMember(
         userSub: string,
@@ -37053,24 +37483,26 @@
         limit: number,
         venueGroupId?: string
       ): Promise<PaginatedResponse<Venue>> {
-        const where: Prisma.VenueWhereInput = {
-          memberships: { some: { userSub } },
-          ...(venueGroupId ? { venueGroupId } : {}),
-        };
+        const venueIds = await getMemberVenueIds(userSub);
     
-        const [venues, total] = await Promise.all([
-          prisma.venue.findMany({
-            where,
-            ...paginate({ page, limit }),
-            orderBy: { name: "asc" },
-            include: { venueGroup: true },
-          }),
-          prisma.venue.count({ where }),
-        ]);
+        const rows = await Promise.all(
+          venueIds.map((venueId) =>
+            runWithVenueContext(venueId, () =>
+              prisma.venue.findUnique({ where: { id: venueId }, include: { venueGroup: true } })
+            )
+          )
+        );
+    
+        const venues = rows
+          .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
+          .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
+          .sort((a, b) => VENUE_NAME_COLLATOR.compare(a.name, b.name));
+    
+        const { skip, take } = paginate({ page, limit });
     
         return {
-          data: venues.map(mapPrismaVenue),
-          pagination: toPaginationMeta(page, limit, total),
+          data: venues.slice(skip, skip + take).map(mapPrismaVenue),
+          pagination: toPaginationMeta(page, limit, venues.length),
         };
       },
     
@@ -37330,11 +37762,10 @@
       scheduler: Pick<NotifierScheduler, "schedule">;
       expireEntry(id: string): Promise<{ id: string; venueId: string; status: string } | null>;
       listWaiting(venueId: string): Promise<WaitlistEntryRef[]>;
-      notifyTableReady(entry: {
-        id: string;
-        guestPhone: string;
-        guestName: string | null;
-      }): Promise<void>;
+      // Same shape as the public notifyTableReady method below — the default
+      // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
+      // the notifier's own public method, so both must accept venueId.
+      notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -37356,6 +37787,13 @@
       id: string;
       guestPhone: string;
       guestName: string | null;
+      /**
+       * Passed straight through to the WAITLIST_EXPIRY job payload at enqueue
+       * time (ADR-026 §3.3 item 7), so the job worker can run the expiry handler
+       * inside `runWithVenueContext(venueId, ...)` instead of deriving it from an
+       * RLS-protected read.
+       */
+      venueId: string;
     }
     export interface HandleExpiryInput {
       /**
@@ -37430,7 +37868,7 @@
         // Always schedule expiry regardless of SMS outcome
         await scheduler.schedule(
           JOB_TYPES.WAITLIST_EXPIRY,
-          { waitlistEntryId: input.id },
+          { waitlistEntryId: input.id, venueId: input.venueId },
           FIVE_MINUTES_MS,
           `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
         );
@@ -37444,10 +37882,15 @@
         const next = waiting[0];
         if (!next) return;
     
+        // expired.venueId (not next.venueId — WaitlistEntryRef declares it
+        // optional for looser test doubles) is the venue this whole call is
+        // already scoped to; listWaiting(expired.venueId) guarantees `next`
+        // belongs to it.
         await notifyNextTableReady({
           id: next.id,
           guestPhone: next.guestPhone,
           guestName: next.guestName,
+          venueId: expired.venueId,
         });
       }
     
@@ -47675,6 +48118,19 @@
       }
     
       /**
+       * Operator visibility: look up a reservation's deposit, or `null` if the
+       * reservation has none yet (a reservation with no deposit is a normal
+       * state, not an error).
+       */
+      async getByReservation(reservationId: string): Promise<Deposit | null> {
+        return this.client.getOne<Deposit | null>(
+          DEPOSIT_BASE_PATH,
+          { reservationId },
+          DepositSchema.nullable()
+        );
+      }
+    
+      /**
        * Capture (apply) a held deposit — charges the card.
        */
       async capture(id: string): Promise<Deposit> {
@@ -50382,12 +50838,22 @@
     }
     export interface WaitlistExpiryPayload {
       waitlistEntryId: string;
-      // The WAITLIST_EXPIRY handler derives the venue and next-in-line guest from
-      // expireEntry(waitlistEntryId), so only the entry id is required. These stay
-      // declared (optional) for forward-compatible payload enrichment; nothing
-      // enqueues or reads them today.
+      // guestPhone/guestEmail stay declared (optional) for forward-compatible
+      // payload enrichment; nothing enqueues or reads them today.
       guestPhone?: string | null;
       guestEmail?: string | null;
+      // Populated at enqueue time (services/reservations' waitlist-notifier.ts —
+      // notifyTableReady, this job's one enqueue site) so the handler can run
+      // inside runWithVenueContext(venueId, ...) instead of deriving the venue
+      // from an RLS-protected read with no context (ADR-026 §3.3 item 7). Stays
+      // optional rather than required: a job enqueued before this fix shipped is
+      // already sitting in Redis without it, and BullMQ never re-serializes a
+      // payload once queued. The handler (services/reservations'
+      // job-worker.ts) falls back to its pre-fix behavior, with a warning log,
+      // for any payload missing it. Safe to make required (and delete that
+      // fallback) once one WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS,
+      // waitlist-notifier.ts) has elapsed post-deploy — every legacy job will
+      // have drained by then.
       venueId?: string;
     }
     export type JobPayloadMap = {
@@ -54167,6 +54633,10 @@
       refundedAt: string | null;
       forfeitedAt: string | null;
       uncollectableAt?: string | null;
+      /** Cumulative cents refunded (Stripe's `amount_refunded`) after this
+       * deposit already reached a capture-based terminal status — e.g. a
+       * dashboard-issued refund after our own capture (#5725). */
+      postCaptureRefundCents?: number | null;
       createdAt: string;
       updatedAt: string;
     }
@@ -54945,6 +55415,7 @@
               dispatcher: notificationPort,
               generateManageToken,
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+              logger: fastify.log,
             }),
           });
           fastify.addHook("onReady", async () => jobWorker.start(fastify.log));

@@ -21,11 +21,11 @@ interface MarkNoShowDialogProps {
  * disclosed portion and refunds the rest, and a 0% fee cancels the hold
  * outright (#5719 items 5-6, M4, LOW) — so the guest is not always charged
  * the full amount, or charged at all. Whatever happens is real and
- * irreversible. The dialog has no visibility into whether this reservation
- * even has a deposit (StaffDepositSection is unwired, no
- * `GET /deposits?reservationId=` route — #5719 item 7, tracked separately),
- * so the disclosure below is conditional rather than asserting a charge that
- * may not exist.
+ * irreversible. The dialog itself does not fetch the deposit (the
+ * reservation's deposit is shown alongside it by StaffDepositSection in
+ * ReservationDetails/ReservationSheet, backed by
+ * `GET /deposits?reservationId=`), so the disclosure below is conditional
+ * rather than asserting a charge that may not exist.
  *
  * Modeled on `CancelReservationDialog`'s "dialog owns its failure" contract:
  * a rejected `onConfirm` becomes an `ErrorRetryBanner`, the dialog stays

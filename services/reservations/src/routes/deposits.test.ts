@@ -115,6 +115,7 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,
+    postCaptureRefundCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
     updatedAt: new Date("2026-01-25T00:00:00.000Z"),
     ...overrides,
@@ -233,6 +234,129 @@ describe("Deposit API routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+      await app.close();
+    });
+  });
+
+  describe("GET /api/v1/deposits?reservationId= (operator visibility, #5725 item 1)", () => {
+    it("returns the deposit for the reservation, venue-scoped", async () => {
+      const mockDeposit = makeDeposit();
+      mockDepositDb.findUnique.mockResolvedValueOnce(mockDeposit);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?reservationId=res-123`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body) as { data: Deposit | null };
+      expect(body.data?.id).toBe("dep-123");
+      expect(mockDepositDb.findUnique).toHaveBeenCalledWith({
+        where: { reservationId: "res-123" },
+      });
+      await app.close();
+    });
+
+    it("returns 200 with null data when the reservation has no deposit yet", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(null);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?reservationId=res-no-deposit`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body) as { data: Deposit | null };
+      expect(body.data).toBeNull();
+      await app.close();
+    });
+
+    it("returns 400 when reservationId is missing", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(400);
+      await app.close();
+    });
+
+    it("returns 404 when the reservation does not exist", async () => {
+      mockReservationDb.findUnique.mockResolvedValueOnce(null);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?reservationId=res-missing`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(mockDepositDb.findUnique).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("returns 403 as non-admin", async () => {
+      vi.mocked(requireAuth).mockImplementationOnce(async (request: { user?: unknown }) => {
+        request.user = {
+          sub: "auth0|guest-456",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          iat: Math.floor(Date.now() / 1000),
+          email: "guest@example.com",
+          email_verified: true,
+          name: "Guest User",
+          picture: "https://example.com/pic.jpg",
+          permissions: [],
+        };
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?reservationId=res-123`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("reads inside the reservation's resolved venue context (ADR-026)", async () => {
+      const observed: { current: string | null | undefined } = { current: undefined };
+      mockDepositDb.findUnique.mockImplementationOnce(async () => {
+        observed.current = getCurrentVenueId();
+        return makeDeposit();
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?reservationId=res-123`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(observed.current).toBe(VENUE_ID);
       await app.close();
     });
   });

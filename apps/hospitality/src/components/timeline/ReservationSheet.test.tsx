@@ -11,13 +11,32 @@ import type { Guest, Reservation, Table } from "@mbe/types";
 /* ── Mocks ──────────────────────────────────────────── */
 
 const mockUseGuest = vi.fn();
+const mockUseDepositByReservation = vi.fn();
 
 vi.mock("../../hooks/useGuests.js", () => ({
   useGuest: (id: string | null | undefined) => mockUseGuest(id),
 }));
 
+vi.mock("../../hooks/useDeposits.js", () => ({
+  useDepositByReservation: (id: string | null | undefined) => mockUseDepositByReservation(id),
+}));
+
 vi.mock("../crm/GuestCard.js", () => ({
   GuestCard: ({ guestId }: { guestId: string }) => <div data-testid="guest-card">{guestId}</div>,
+}));
+
+vi.mock("./StaffDepositSection.js", () => ({
+  StaffDepositSection: ({
+    reservationId,
+    existingDeposit,
+  }: {
+    reservationId: string;
+    existingDeposit: { status: string } | null;
+  }) => (
+    <div data-testid="staff-deposit-section">
+      {reservationId}:{existingDeposit ? existingDeposit.status : "none"}
+    </div>
+  ),
 }));
 
 // Mock scrollIntoView for JSDOM (the Drawer's focus trap scrolls its first target).
@@ -160,6 +179,13 @@ beforeEach(() => {
     error: null,
     refetch: vi.fn(),
   });
+  mockUseDepositByReservation.mockReset();
+  mockUseDepositByReservation.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  });
 });
 
 /* ── Tests ──────────────────────────────────────────── */
@@ -216,6 +242,37 @@ describe("ReservationSheet", () => {
       expect(screen.getByText("priya@example.com")).toBeInTheDocument();
       expect(screen.getByText("+1 555 0100")).toBeInTheDocument();
       expect(screen.getByText("Window seat")).toBeInTheDocument();
+    });
+  });
+
+  describe("deposit visibility (#5725 item 1)", () => {
+    it("reveals StaffDepositSection with the fetched deposit only once expanded", () => {
+      mockUseDepositByReservation.mockReturnValue({
+        data: { status: "forfeited" },
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderSheet({ reservation: makeReservation({ id: "r9" }) });
+
+      expect(mockUseDepositByReservation).toHaveBeenCalledWith("r9");
+      expect(screen.queryByTestId("staff-deposit-section")).toBeNull();
+
+      fireEvent.click(moreButton());
+      expect(screen.getByTestId("staff-deposit-section")).toHaveTextContent("r9:forfeited");
+    });
+
+    it("stays inspectable for a NO_SHOW reservation — the deposit outcome is exactly what staff need to see", () => {
+      mockUseDepositByReservation.mockReturnValue({
+        data: { status: "uncollectable" },
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderSheet({ reservation: makeReservation({ status: "NO_SHOW" }) });
+
+      fireEvent.click(moreButton());
+      expect(screen.getByTestId("staff-deposit-section")).toHaveTextContent("r1:uncollectable");
     });
   });
 

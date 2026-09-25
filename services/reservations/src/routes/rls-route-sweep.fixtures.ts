@@ -103,6 +103,13 @@ export interface SweepContext {
   memberSub: string;
   venueA: { id: string; slug: string };
   venueB: { id: string; slug: string };
+  /**
+   * A second venue `memberSub` belongs to (#5369 PR 6), used only to prove
+   * `venueService.listForMember` returns every venue a multi-venue member
+   * belongs to, not just one. Never touched by any other fixture — `memberSub`
+   * deliberately stays a non-member of `venueB` everywhere else in this sweep.
+   */
+  venueC: { id: string };
   tableA: string;
   tableB: string;
   guestA: string;
@@ -112,6 +119,16 @@ export interface SweepContext {
   reservationA: string;
   reservationB: string;
   reservationAGuestEmail: string;
+  /**
+   * Two reservations booked by the same diner (the platform-admin bypass
+   * identity, `asAdmin`'s sub) at venue A and venue B respectively, and one
+   * booked by a DIFFERENT diner — #5369 PR 6's proof that
+   * `GET /api/v1/reservations/me` returns a diner's bookings across every
+   * venue they visited, and never another diner's.
+   */
+  reservationMineA: string;
+  reservationMineB: string;
+  reservationOtherUser: string;
   waitlistA: string;
   waitlistB: string;
   /**
@@ -579,16 +596,16 @@ const tableFixtures: Record<string, RouteFixture> = {
 };
 
 /**
- * Venues. `GET /` is the ONE mixed case in this sweep: the admin branch
- * (`venueService.list`) is already RESOLVED by ADR-026 §3.1's
- * `app_cross_venue_venues()` hatch, but the non-admin branch
- * (`venueService.listForMember`) is item 1 — a real RLS-model delegate call
- * with no single venue to name. Everything else here is item 5 (venue-
- * self-addressed `:id` routes — the global preHandler only reads a
- * `venueId` KEY, and these routes address the venue by its own `:id`) or
- * item 8 (`POST /` inserts a venue row with no context to satisfy its own
- * `WITH CHECK`) or item 3 (public-shaped slug lookup, reused by the
- * authenticated `by-slug` route too).
+ * Venues. `GET /` was the ONE mixed case in this sweep: the admin branch
+ * (`venueService.list`) is RESOLVED by ADR-026 §3.1's `app_cross_venue_venues()`
+ * hatch, and the non-admin branch (`venueService.listForMember`) — item 1 — is
+ * now RESOLVED too (#5369 PR 6), via a per-venue fan-out over
+ * `venue_memberships` (no RLS policy) instead of a single cross-venue
+ * `venue.findMany`. Everything else here is item 5 (venue-self-addressed `:id`
+ * routes — the global preHandler only reads a `venueId` KEY, and these routes
+ * address the venue by its own `:id`) or item 8 (`POST /` inserts a venue row
+ * with no context to satisfy its own `WITH CHECK`) or item 3 (public-shaped
+ * slug lookup, reused by the authenticated `by-slug` route too).
  */
 const venueFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/venues": ok(async (ctx) => {
@@ -600,11 +617,21 @@ const venueFixtures: Record<string, RouteFixture> = {
       expect.arrayContaining([ctx.venueA.id, ctx.venueB.id])
     );
 
-    expectBroken(
-      await asMember(ctx, { method: "GET", url: "/api/v1/venues" }),
-      "member list (item-1: listForMember, unscoped venue.findMany)",
-      ctx
+    // #5369 PR 6: listForMember's per-venue fan-out (venue_memberships has no
+    // RLS policy) must return BOTH of a multi-venue member's venues, and must
+    // not leak venue B — `memberSub` is never a member of it.
+    const member = await asMember(ctx, { method: "GET", url: "/api/v1/venues" });
+    expectOk(member, "member list (item-1: listForMember, per-venue fan-out)");
+    const memberIds = (JSON.parse(member.body) as { data: Array<{ id: string }> }).data.map(
+      (v) => v.id
     );
+    expect(memberIds, "member list must include both of the member's venues").toEqual(
+      expect.arrayContaining([ctx.venueA.id, ctx.venueC.id])
+    );
+    expect(
+      memberIds,
+      "member list must not include a venue the member does not belong to"
+    ).not.toContain(ctx.venueB.id);
   }),
   "POST /api/v1/venues": broken("item-8", async (ctx) => {
     expectBroken(
@@ -868,9 +895,10 @@ const guestFixtures: Record<string, RouteFixture> = {
 /**
  * Reservations. `GET /` is a THIRD mixed case: `?venueId=` is scoped
  * correctly (ok), but `?guestId=` resolves via an unscoped `guestService.getById`
- * (item 2's own text names this). `/me` is item 1 (`listByUserId`, cross-venue
- * by construction — a diner's bookings span whatever venues they visited).
- * `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
+ * (item 2's own text names this). `/me` was item 1 (`listByUserId`, cross-venue
+ * by construction — a diner's bookings span whatever venues they visited) and
+ * is now RESOLVED (#5369 PR 6) via a per-venue fan-out over
+ * `app_reservation_venue_ids_for_user()`. `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
  * own unscoped lookup — admin-only here, since the guard's non-admin path is
  * ownership (guest-email match), a different axis than the staff-membership
  * identity this sweep's "member" represents. `POST /` and `/walk-in` are
@@ -893,11 +921,18 @@ const reservationFixtures: Record<string, RouteFixture> = {
       ctx
     );
   }),
-  "GET /api/v1/reservations/me": broken("item-1", async (ctx) => {
-    expectBroken(
-      await asAdmin(ctx, { method: "GET", url: "/api/v1/reservations/me" }),
-      "listByUserId, unscoped",
-      ctx
+  "GET /api/v1/reservations/me": ok(async (ctx) => {
+    // `asAdmin`'s bypass identity is the diner who booked reservationMineA
+    // (venue A) and reservationMineB (venue B); reservationOtherUser is a
+    // different diner's booking and must never appear.
+    const res = await asAdmin(ctx, { method: "GET", url: "/api/v1/reservations/me" });
+    expectOk(res, "listByUserId, per-venue fan-out (item-1: #5369 PR 6)");
+    const ids = (JSON.parse(res.body) as { data: Array<{ id: string }> }).data.map((r) => r.id);
+    expect(ids, "must include reservations from both of the diner's venues").toEqual(
+      expect.arrayContaining([ctx.reservationMineA, ctx.reservationMineB])
+    );
+    expect(ids, "must not include another diner's reservation").not.toContain(
+      ctx.reservationOtherUser
     );
   }),
   // A walk-in flips its table to OCCUPIED, so reusing `ctx.tableA` across the
@@ -1038,6 +1073,11 @@ const depositFixtures: Record<string, RouteFixture> = {
       ctx
     );
   }),
+  "GET /api/v1/deposits": brokenEntity(
+    "item-6",
+    "GET",
+    (ctx) => `/api/v1/deposits?reservationId=${ctx.reservationA}`
+  ),
   "GET /api/v1/deposits/:id": brokenEntity(
     "item-6",
     "GET",

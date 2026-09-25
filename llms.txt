@@ -3690,6 +3690,12 @@
   </file>
   <file path="apps/hospitality/src/hooks/useDeposits.ts">
     <item priority="high">
+      export const DEPOSITS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function useDepositByReservation(reservationId: string | null | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
       export const useCreateDeposit: unknown;
     </item>
   </file>
@@ -6157,7 +6163,7 @@
         memberSub: string;
         venueA: { id: string; slug: string };
         venueB: { id: string; slug: string };
-        tableA: string;
+        venueC: { id: string };
       }
     </item>
     <item priority="low">
@@ -6250,6 +6256,9 @@
     </item>
     <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean { /* ... */ }
     </item>
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
@@ -7889,6 +7898,14 @@
       }
     </item>
     <item priority="high">
+      class DepositAlreadyCapturedError {
+        depositId: string;
+        stripePaymentIntentId: string;
+        intentStatus: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
       class DepositWrittenOffUncollectableError {
         depositId: string;
       }
@@ -8166,8 +8183,14 @@
       }
     </item>
     <item priority="low">
+      interface JobWorkerLogger {
+        
+      }
+    </item>
+    <item priority="low">
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
+        logger: JobWorkerLogger;
       }
     </item>
     <item priority="high">
@@ -8271,6 +8294,14 @@
         venueId: string,
         deps: LapsedGuestScanDeps
       ): Promise<LapsingGuest[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/member-venues.ts">
+    <item priority="high">
+      export async function getMemberVenueIds(
+        userSub: string,
+        client: PrismaClient = prisma
+      ): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
@@ -8525,6 +8556,12 @@
         error?: string;
         conflict?: ConflictCheckResult;
       }
+    </item>
+    <item priority="medium">
+      function compareReservationDateDesc(
+        a: { date: Date; startTime: Date },
+        b: { date: Date; startTime: Date }
+      ): number { /* ... */ }
     </item>
     <item priority="high">
       export const reservationService: unknown;
@@ -9080,6 +9117,7 @@
         id: string;
         guestPhone: string;
         guestName: string | null;
+        venueId: string;
       }
     </item>
     <item priority="low">
@@ -12151,8 +12189,8 @@
       class DepositsClient {
         async create(): Promise<unknown>;
         async get(): Promise<unknown>;
+        async getByReservation(): Promise<unknown>;
         async capture(): Promise<unknown>;
-        async refund(): Promise<unknown>;
       }
     </item>
   </file>
