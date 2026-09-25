@@ -382,13 +382,21 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     await setForce(declaredForce.has("venues"));
 
     await seedClient.query("DELETE FROM venue_memberships WHERE user_sub = $1", [MEMBER_SUB]);
-    // By deposit id (not reservation_id): `depositWithPiA` (#5369 PR 8, the
-    // Stripe webhook item-4 fixture) sits on its own dedicated reservation,
-    // not `reservationA`/`reservationB` — filtering by id covers both without
-    // widening the reservation_id list.
-    await seedClient.query("DELETE FROM deposits WHERE id = ANY($1)", [
-      [ctx.depositA, ctx.depositWithPiA].filter(Boolean),
-    ]);
+    // By the OWNING reservation's venue, not a fixed list of deposit ids:
+    // `depositWithPiA` (#5369 PR 8, the Stripe webhook item-4 fixture) sits on
+    // its own dedicated reservation (still under venue A), and the `POST
+    // /api/v1/deposits` item-6 fixture (#5369 PR 7) creates a THIRD, unseeded
+    // deposit against `reservationB` live during the run — a fixed
+    // `[depositA, depositWithPiA]` id list misses that one and leaves it
+    // referencing a row the `reservations` delete below is about to remove,
+    // violating `deposits_reservation_id_fkey`. Every reservation in this
+    // sweep is created under venue A or B (seeded or disposable), so scoping
+    // by their venue catches every deposit regardless of which fixture
+    // created it.
+    await seedClient.query(
+      "DELETE FROM deposits WHERE reservation_id IN (SELECT id FROM reservations WHERE venue_id = ANY($1))",
+      [[ctx.venueA.id, ctx.venueB.id]]
+    );
     await seedClient.query("DELETE FROM waitlist_entries WHERE venue_id = ANY($1)", [
       [ctx.venueA.id, ctx.venueB.id],
     ]);

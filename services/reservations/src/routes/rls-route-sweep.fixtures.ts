@@ -1323,41 +1323,40 @@ const depositFixtures: Record<string, RouteFixture> = {
   // `pending` (never transitioned elsewhere in this sweep, so it stays safe
   // to read repeatedly from the GET fixtures above), so each of these throws
   // DepositTransitionError (422) before ever reaching Stripe — this suite
-  // provisions no Stripe key. That 422 is still the right evidence: it is
-  // only reachable once `resolveVenueId("deposit", id)` resolves the venue
-  // and the deposit load inside that context succeeds, so the assertion
-  // below checks exactly the RLS-relevant half (no 403/404, no tripwire) —
-  // the same pattern the waitlist `/notify` fixture uses for its own
-  // unprovisioned dependency (BullMQ/Redis).
+  // provisions no Stripe key. Asserting the exact 422 (not merely "not
+  // 403/404") is the point: a bare `not.toContain([403, 404])` also passes on
+  // an unrelated 500, which would let a genuine regression slip through
+  // silently (#5369 PR 7 review). 422 is only reachable once
+  // `resolveVenueId("deposit", id)` resolves the venue and the deposit load
+  // inside that context succeeds, so it is still exactly the RLS-relevant
+  // evidence the waitlist `/notify` fixture's own unprovisioned-dependency
+  // pattern is after — just precise about which non-403/404 status counts.
   "POST /api/v1/deposits/:id/capture": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/capture`,
     });
-    expect([403, 404], `capture: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `capture: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "capture: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
   "POST /api/v1/deposits/:id/refund": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/refund`,
     });
-    expect([403, 404], `refund: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `refund: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "refund: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
   "POST /api/v1/deposits/:id/forfeit": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/forfeit`,
     });
-    expect([403, 404], `forfeit: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `forfeit: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "forfeit: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
 };
 

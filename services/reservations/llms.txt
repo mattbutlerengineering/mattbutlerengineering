@@ -536,9 +536,6 @@
       function notRls(run: RouteFixture["run"]): RouteFixture { /* ... */ }
     </item>
     <item priority="medium">
-      function broken(blocker: string, run: RouteFixture["run"]): RouteFixture { /* ... */ }
-    </item>
-    <item priority="medium">
       function okScopedByQuery(path: string, extraQuery = ""): RouteFixture { /* ... */ }
     </item>
     <item priority="medium">
@@ -599,11 +596,12 @@
     <item priority="low">
       async function withDepositVenueContext(
         paymentIntentId: string,
+        eventType: string,
         work: () => Promise<void>
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function holdIfPending(paymentIntentId: string): Promise<void> { /* ... */ }
+      async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }

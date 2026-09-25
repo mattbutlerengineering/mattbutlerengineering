@@ -5116,9 +5116,6 @@
     function notRls(run: RouteFixture["run"]): RouteFixture {
       return { kind: "not-rls", run };
     }
-    function broken(blocker: string, run: RouteFixture["run"]): RouteFixture {
-      return { kind: "broken", blocker, run };
-    }
     function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
       const url = (venueId: string) => `${path}?venueId=${venueId}${extraQuery}`;
       return ok(async (ctx) => {
@@ -5278,20 +5275,28 @@
   <file path="src/routes/stripe-webhook.ts">
     export interface StripeWebhookLogger {
       info(details: object, msg: string): void;
+      warn(details: object, msg: string): void;
     }
     export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
       logger = next;
     }
     async function withDepositVenueContext(
       paymentIntentId: string,
+      eventType: string,
       work: () => Promise<void>
     ): Promise<void> {
       const venueId = await resolveVenueId("payment_intent", paymentIntentId);
-      if (!venueId) return;
+      if (!venueId) {
+        logger.warn(
+          { paymentIntentId, eventType },
+          "webhook PaymentIntent did not resolve to exactly one venue; no-op"
+        );
+        return;
+      }
       await runWithVenueContext(venueId, work);
     }
-    async function holdIfPending(paymentIntentId: string): Promise<void> {
-      await withDepositVenueContext(paymentIntentId, async () => {
+    async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+      await withDepositVenueContext(paymentIntentId, eventType, async () => {
         const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) {
@@ -5305,17 +5310,17 @@
     }
     async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id);
+      await holdIfPending(paymentIntent.id, event.type);
     }
     async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id);
+      await holdIfPending(paymentIntent.id, event.type);
     }
     async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const paymentIntentId = paymentIntent.id;
     
-      await withDepositVenueContext(paymentIntentId, async () => {
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
         const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;
@@ -5363,7 +5368,7 @@
     
       if (!paymentIntentId) return;
     
-      await withDepositVenueContext(paymentIntentId, async () => {
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
         const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;

@@ -18,9 +18,10 @@ import { runWithVenueContext } from "../services/venue-context-store.js";
  */
 export interface StripeWebhookLogger {
   info(details: object, msg: string): void;
+  warn(details: object, msg: string): void;
 }
 
-let logger: StripeWebhookLogger = { info: () => undefined };
+let logger: StripeWebhookLogger = { info: () => undefined, warn: () => undefined };
 
 /** Wires the service's real logger in — called once at app bootstrap. */
 export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
@@ -48,14 +49,22 @@ export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
  * one does — `stripe_payment_intent_id` is indexed, not unique) means deny:
  * `work` is never called, matching every caller's own pre-existing
  * "no deposit found" no-op rather than surfacing as a 500 Stripe would retry
- * forever.
+ * forever. Logged at `warn` (not `info`) so the no-op is observable without
+ * becoming a 500 — an event that never resolves would otherwise be silent.
  */
 async function withDepositVenueContext(
   paymentIntentId: string,
+  eventType: string,
   work: () => Promise<void>
 ): Promise<void> {
   const venueId = await resolveVenueId("payment_intent", paymentIntentId);
-  if (!venueId) return;
+  if (!venueId) {
+    logger.warn(
+      { paymentIntentId, eventType },
+      "webhook PaymentIntent did not resolve to exactly one venue; no-op"
+    );
+    return;
+  }
   await runWithVenueContext(venueId, work);
 }
 
@@ -67,8 +76,8 @@ async function withDepositVenueContext(
  * false) instead of double-transitioning — nothing further to do here either
  * way, so the boolean is intentionally unused.
  */
-async function holdIfPending(paymentIntentId: string): Promise<void> {
-  await withDepositVenueContext(paymentIntentId, async () => {
+async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+  await withDepositVenueContext(paymentIntentId, eventType, async () => {
     const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) {
@@ -83,7 +92,7 @@ async function holdIfPending(paymentIntentId: string): Promise<void> {
 
 async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  await holdIfPending(paymentIntent.id);
+  await holdIfPending(paymentIntent.id, event.type);
 }
 
 /**
@@ -94,14 +103,14 @@ async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
  */
 async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  await holdIfPending(paymentIntent.id);
+  await holdIfPending(paymentIntent.id, event.type);
 }
 
 async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
   const paymentIntentId = paymentIntent.id;
 
-  await withDepositVenueContext(paymentIntentId, async () => {
+  await withDepositVenueContext(paymentIntentId, event.type, async () => {
     const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) return;
@@ -160,7 +169,7 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
 
   if (!paymentIntentId) return;
 
-  await withDepositVenueContext(paymentIntentId, async () => {
+  await withDepositVenueContext(paymentIntentId, event.type, async () => {
     const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) return;
