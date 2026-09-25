@@ -197,10 +197,17 @@ BEGIN
       JOIN public."reservations" r ON r.id = d.reservation_id
       WHERE d.id = p_key;
     WHEN 'payment_intent' THEN
-      SELECT r.venue_id INTO result_venue_id
+      -- stripe_payment_intent_id is indexed, not unique: refuse to guess when
+      -- more than one deposit carries the same PaymentIntent id (same rule
+      -- as the unscoped venue_slug branch below).
+      SELECT count(*), min(r.venue_id) INTO match_count, result_venue_id
       FROM public."deposits" d
       JOIN public."reservations" r ON r.id = d.reservation_id
       WHERE d.stripe_payment_intent_id = p_key;
+
+      IF match_count <> 1 THEN
+        result_venue_id := NULL;
+      END IF;
     WHEN 'venue' THEN
       SELECT v.id INTO result_venue_id
       FROM public."venues" v

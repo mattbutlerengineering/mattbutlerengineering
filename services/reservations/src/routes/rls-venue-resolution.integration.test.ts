@@ -8,7 +8,7 @@ import { MIGRATIONS_DIR, parseRlsDeclarations } from "../services/rls-force-cove
 /**
  * ADR-026 §3.3 / issue #5369, PR 3 of the enforcement sequence: proves the
  * venue-resolution primitives added by
- * `20260924000000_add_rls_venue_resolution_functions` — `app_resolve_venue_id`
+ * `20260925010000_add_rls_venue_resolution_functions` — `app_resolve_venue_id`
  * and `app_reservation_venue_ids_for_user` — against a real, migrated
  * Postgres, using the SAME production-shaped non-superuser owner role the
  * sibling RLS suites use (`rls-owner-enforcement.integration.test.ts`'s
@@ -87,6 +87,12 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
   const reservationBId = `rls-resolve-res-b-${randomUUID()}`;
   const depositAId = `rls-resolve-dep-a-${randomUUID()}`;
   const paymentIntentId = `pi_rls_resolve_${randomUUID()}`;
+  // deposits.stripe_payment_intent_id is indexed, not unique — two deposits in
+  // DIFFERENT venues sharing one PaymentIntent id is representable, so the
+  // resolver must refuse to guess between them.
+  const dupPaymentIntentId = `pi_rls_resolve_dup_${randomUUID()}`;
+  const depositDupAId = `rls-resolve-dep-dup-a-${randomUUID()}`;
+  const depositDupBId = `rls-resolve-dep-dup-b-${randomUUID()}`;
   const reservationUserId = `rls-resolve-user-${randomUUID()}`;
 
   async function setForce(on: boolean): Promise<void> {
@@ -205,6 +211,11 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
        VALUES ($1, $2, 5000, 'usd', $3, now())`,
       [depositAId, reservationAId, paymentIntentId]
     );
+    await owner.query(
+      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
+       VALUES ($1, $2, 5000, 'usd', $5, now()), ($3, $4, 5000, 'usd', $5, now())`,
+      [depositDupAId, reservationA2Id, depositDupBId, reservationBId, dupPaymentIntentId]
+    );
 
     // Force goes on AFTER seeding — the moment the resolver tests below
     // start, the OWNER connection is subject to RLS on ordinary queries too,
@@ -218,7 +229,9 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
     // tables NO FORCE would silently undo it on the target database.
     await setForce(declaredForce.has("venues"));
 
-    await owner.query("DELETE FROM deposits WHERE id = $1", [depositAId]);
+    await owner.query("DELETE FROM deposits WHERE id = ANY($1)", [
+      [depositAId, depositDupAId, depositDupBId],
+    ]);
     await owner.query("DELETE FROM reservations WHERE id = ANY($1)", [
       [reservationAId, reservationA2Id, reservationBId],
     ]);
@@ -324,6 +337,14 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
         [venueASlug, groupBId]
       );
       expect(scopedToC.rows[0]?.venue_id).toBe(venueCId);
+    });
+
+    it("returns NULL for a payment_intent shared by deposits in different venues instead of picking one", async () => {
+      const { rows } = await owner.query<{ venue_id: string | null }>(
+        "SELECT app_resolve_venue_id('payment_intent', $1) AS venue_id",
+        [dupPaymentIntentId]
+      );
+      expect(rows[0]?.venue_id).toBeNull();
     });
 
     it("scopes venue/venue_slug lookups to a venue group when one is passed", async () => {
@@ -507,7 +528,7 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
 describe("migration safety (#5369 PR 3 review follow-up)", () => {
   it("sets a bounded lock_timeout before the first CREATE POLICY", () => {
     const migrationSql = readFileSync(
-      join(MIGRATIONS_DIR, "20260924000000_add_rls_venue_resolution_functions", "migration.sql"),
+      join(MIGRATIONS_DIR, "20260925010000_add_rls_venue_resolution_functions", "migration.sql"),
       "utf8"
     );
     // Strip `--` line comments first — the migration's own prose explains
@@ -533,7 +554,7 @@ describe("migration safety (#5369 PR 3 review follow-up)", () => {
     // session -- silently imposing a 5s cap on unrelated, possibly slower
     // migrations later in the same deploy run.
     const migrationSql = readFileSync(
-      join(MIGRATIONS_DIR, "20260924000000_add_rls_venue_resolution_functions", "migration.sql"),
+      join(MIGRATIONS_DIR, "20260925010000_add_rls_venue_resolution_functions", "migration.sql"),
       "utf8"
     );
     const executableSql = migrationSql
