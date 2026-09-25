@@ -33,6 +33,24 @@ function makeCcusage(daysAgo, totalCost) {
   return { period: dayStrAgo(daysAgo), totalCost };
 }
 
+/** A raw commit as returned by `gh pr list --json commits` (messageHeadline only needed here). */
+function makeCommit(messageHeadline) {
+  return { messageHeadline };
+}
+
+/**
+ * A PR fixture carrying a raw `commits` array, matching what defaultReadPrs
+ * actually produces: commitCount mirrors commits.length (the pre-#5746 raw
+ * count), so a test against this fixture only passes once the effective,
+ * filtered count — not the raw one — drives first-pass scoring (#5746).
+ */
+function makePrWithCommits(opts, commitMessages) {
+  return {
+    ...makePr({ commitCount: commitMessages.length, ...opts }),
+    commits: commitMessages.map(makeCommit),
+  };
+}
+
 // ── Fixture sets ────────────────────────────────────────
 
 /** 3 AI PRs merged in current 7-day window — clean first-pass scenario */
@@ -133,6 +151,44 @@ describe("collectQueueEfficiency", () => {
     const result = collectQueueEfficiency(() => CLEAN_PRS, NO_CCUSAGE, TEST_NOW);
     // All 3 have commitCount <= 2 (1, 1, 2)
     expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  // ── #5746: housekeeping/merge commits must not count as rework ──────────
+
+  it("scores a PR whose extra commits are all housekeeping (llms regen + antipattern baseline) as first-pass", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "fix(reservations): the real code change",
+      "chore: accept AI antipattern baseline increases from the sweep",
+      "chore: regenerate root llms.txt after review fixes",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  it("scores a PR whose extra commit is a merge-from-main as first-pass (merge commits excluded)", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "fix(reservations): the real code change",
+      "chore(metrics): progress-tracker 2026-09-23",
+      "Merge remote-tracking branch 'origin/main' into worktree-agent-abc123",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  it("still scores real multi-round review rework as NOT first-pass after excluding housekeeping/merge commits", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "test(reservations): add the route-sweep suite",
+      "fix(ci): build workspace deps before the suite runs",
+      "fix(reservations): verify the tripwire actually fired",
+      "chore: accept AI antipattern baseline increases",
+      "chore: regenerate root llms.txt after review fixes",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    // 5 raw commits − 2 housekeeping = 3 real commits, still > 2 → not first-pass.
+    expect(result.sub_metrics.first_pass_success_rate).toBe(0);
   });
 
   it("computes median_time_to_merge_hours from createdAt → mergedAt", () => {

@@ -28,6 +28,16 @@ import { read } from "./metrics-store.mjs";
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
 export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 
+/**
+ * Minimum current-window PR count required before sensor-report.mjs's
+ * day-over-day `composite_vs_previous_report` regression is allowed to fire
+ * (#5746). `defaultReadPrs` caps at 45 PRs total (see its own comment), which
+ * in practice covers ~2.5 days rather than the intended 7 — small enough
+ * that a single multi-commit PR moves `first_pass_success_rate` by ~5 points
+ * and swings the composite day-over-day on noise, not a real regression.
+ */
+export const QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE = 30;
+
 /** Worktree branch patterns used by implement-queue agents. */
 const WORKER_BRANCH_RE = /^worktree-agent-/;
 
@@ -110,6 +120,54 @@ function sizeTier(pr) {
   return "size:xl";
 }
 
+/**
+ * Matches git's default merge-commit subject ("Merge branch 'x'", "Merge
+ * remote-tracking branch 'origin/main' into y", "Merge pull request #N from
+ * ..."). Used as a proxy for "more than one parent" (#5746's own framing)
+ * because `gh pr list --json commits` has no `parents` sub-field to request —
+ * confirmed against `gh pr list --json commits --help`'s fixed JSON-FIELDS
+ * enum and against a live commit's shape (authors/committedDate/messageBody/
+ * messageHeadline/oid only). Every merge commit this repo's worktree agents
+ * produce comes from `git merge origin/main` to resolve conflicts, which
+ * always writes one of git's default subjects, so the subject is a reliable
+ * stand-in for the real parent count here.
+ */
+const MERGE_COMMIT_SUBJECT_RE = /^merge\b/i;
+
+/**
+ * Housekeeping automation commits (llms regen, antipattern-baseline bumps) a
+ * worktree agent's branch picks up while merging/rebasing — real chores, not
+ * rework. Root cause of the #5738 false regression: these inflated raw
+ * commitCount past 2 and scored a clean first-pass PR as a failure (#5746).
+ */
+const HOUSEKEEPING_SUBJECT_RE = /regenerate .*llms|antipattern.*baseline/i;
+
+/**
+ * @param {{ messageHeadline?: string }} commit
+ * @returns {boolean}
+ */
+function isNonReworkCommit(commit) {
+  const subject = commit.messageHeadline ?? "";
+  return MERGE_COMMIT_SUBJECT_RE.test(subject) || HOUSEKEEPING_SUBJECT_RE.test(subject);
+}
+
+/**
+ * Commit count used for the first-pass-success check, with merge commits and
+ * housekeeping-automation commits excluded (#5746) — neither is rework, but
+ * both inflate the raw `commits.length` a PR's branch accumulates while
+ * merging main or picking up a regen/baseline commit.
+ *
+ * Falls back to `pr.commitCount` when the raw `commits` array isn't present
+ * (e.g. test fixtures that set `commitCount` directly).
+ *
+ * @param {{ commits?: Array<{ messageHeadline?: string }>, commitCount?: number }} pr
+ * @returns {number}
+ */
+function effectiveCommitCount(pr) {
+  if (!Array.isArray(pr.commits)) return pr.commitCount ?? 1;
+  return pr.commits.filter((c) => !isNonReworkCommit(c)).length;
+}
+
 // ── Score functions — higher is always better (0–1) ──────────────────────
 
 /** @param {number} rate - Already 0-1. */
@@ -184,7 +242,7 @@ function reviewCoverage(windowPrs, windowRows) {
  * @returns {object}
  */
 function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
-  const firstPassCount = windowPrs.filter((pr) => (pr.commitCount ?? 1) <= 2).length;
+  const firstPassCount = windowPrs.filter((pr) => effectiveCommitCount(pr) <= 2).length;
   const firstPassRate = Math.round((firstPassCount / windowPrs.length) * 1000) / 1000;
 
   const commitCounts = windowPrs.map((pr) => pr.commitCount ?? 1);

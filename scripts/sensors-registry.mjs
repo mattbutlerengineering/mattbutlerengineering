@@ -35,6 +35,7 @@ import {
   collectQueueEfficiency,
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
+  QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
 import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
@@ -1054,7 +1055,12 @@ export const SENSORS = [
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
       const regressions = [...(current.regressions ?? [])];
-      if (previous?.available) {
+      const sampleSize = current.sub_metrics?.issues_merged ?? 0;
+      // #5746: defaultReadPrs's 45-PR cap covers ~2.5 days in practice, not
+      // the intended 7 — small enough that one multi-commit PR swings the
+      // composite day-over-day on noise. Below the minimum sample, only the
+      // (separately gated) baseline-vs-current regressions above can fire.
+      if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {
           regressions.push({

@@ -150,7 +150,16 @@ describe("buildReport", () => {
   });
 
   it("adds a composite_vs_previous_report regression when queueEfficiency drops vs the prior report", () => {
-    const current = { queueEfficiency: { available: true, composite: 0.5, regressions: [] } };
+    const current = {
+      // sub_metrics.issues_merged must clear QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
+      // (#5746) or this regression is suppressed by the sample-size gate.
+      queueEfficiency: {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 30 },
+        regressions: [],
+      },
+    };
     const previous = { queueEfficiency: { available: true, composite: 0.7 } };
     const report = buildReport(current, previous, THRESHOLDS, NOW);
     expect(report.regressions).toEqual([
@@ -163,6 +172,20 @@ describe("buildReport", () => {
         severity: "high",
       },
     ]);
+  });
+
+  it("does not add a composite_vs_previous_report regression when the current window sample is too small (#5746)", () => {
+    const current = {
+      queueEfficiency: {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 19 }, // below QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE (30)
+        regressions: [],
+      },
+    };
+    const previous = { queueEfficiency: { available: true, composite: 0.9 } };
+    const report = buildReport(current, previous, THRESHOLDS, NOW);
+    expect(report.regressions).toEqual([]);
   });
 });
 

@@ -984,7 +984,15 @@ describe("sensors-registry", () => {
         looseOverride: { code_churn_rate_max: 0.9 },
       },
       queueEfficiency: {
-        current: { available: true, composite: 0.5, regressions: [] },
+        // sub_metrics.issues_merged must clear QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
+        // (#5746) or the sample-size gate below suppresses the regression
+        // before this fixture's threshold delta is ever evaluated.
+        current: {
+          available: true,
+          composite: 0.5,
+          sub_metrics: { issues_merged: 30 },
+          regressions: [],
+        },
         previous: { available: true, composite: 0.6 }, // delta -0.1
         looseOverride: { queue_efficiency_composite_drop: 0.5 },
       },
@@ -1031,6 +1039,49 @@ describe("sensors-registry", () => {
       expect(shimSource).not.toMatch(/CODE_CHURN_THRESHOLD/);
       expect(shimSource).not.toMatch(/QUEUE_EFFICIENCY_(COMPOSITE|FPS)_DROP/);
       expect(shimSource).toMatch(/buildThresholds/);
+    });
+  });
+
+  describe("queueEfficiency detectRegression — minimum sample size gate (#5746)", () => {
+    const sensor = () => SENSORS.find((s) => s.id === "queueEfficiency");
+
+    it("does not flag composite_vs_previous_report when the current window sample is below the minimum size", () => {
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 19 }, // below QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE (30)
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.9 }; // delta -0.4, well past threshold
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeUndefined();
+    });
+
+    it("still flags composite_vs_previous_report once the sample reaches the minimum size", () => {
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 30 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.9 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
+    });
+
+    it("still surfaces collectQueueEfficiency's own baseline-vs-current regressions regardless of sample size", () => {
+      // The internal regressions array (baseline-median comparison) is a
+      // separate mechanism from the day-over-day report comparison and must
+      // not be swallowed by the sample-size gate.
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 5 },
+        regressions: [{ sensor: "queueEfficiency", metric: "composite", delta: -0.2 }],
+      };
+      const regressions = sensor().detectRegression(current, undefined, sensor().thresholds);
+      expect(regressions).toHaveLength(1);
+      expect(regressions[0].metric).toBe("composite");
     });
   });
 
