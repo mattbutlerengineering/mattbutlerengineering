@@ -8,6 +8,7 @@ const {
   mockDepositUpdateMany,
   mockStripeCancel,
   mockStripeRetrieve,
+  mockStripeRefundsList,
 } = vi.hoisted(() => ({
   mockWebhooks: {
     constructEvent: vi.fn(),
@@ -18,6 +19,11 @@ const {
   mockDepositUpdateMany: vi.fn(),
   mockStripeCancel: vi.fn(),
   mockStripeRetrieve: vi.fn(),
+  // Default: no tagged refundPartial leg found. recordPostCaptureRefund
+  // (#5753 LOW-C) calls this for every partial_refunded deposit, so tests
+  // that don't care about "our own leg" still need a sane default rather
+  // than throwing on an unmocked `.data` access.
+  mockStripeRefundsList: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
 vi.mock("../services/database.js", async () => {
@@ -47,6 +53,7 @@ vi.mock("stripe", () => {
       cancel: mockStripeCancel,
       retrieve: mockStripeRetrieve,
     };
+    refunds = { list: mockStripeRefundsList };
     customers = { create: vi.fn() };
     webhooks = mockWebhooks;
     constructor(_key: string) {}
@@ -798,6 +805,66 @@ describe("POST /api/v1/stripe/webhook", () => {
       await app.close();
     }
   );
+
+  // #5753 ordering: webhook-after-rollback — the mirror of the
+  // webhook-before-rollback ordering covered in deposit.test.ts's refund()
+  // suite. There, refund()'s OWN ambiguous-cancel reconciliation (this
+  // module's #5753 fix) confirms the cancel and keeps the row `refunded`
+  // WITHOUT ever rolling it back to `held`. If Stripe's `payment_intent.canceled`
+  // webhook instead arrives AFTER that reconciliation has already finished —
+  // rather than racing in earlier and finding the row already non-`held` — it
+  // must land on the exact same no-op: the row is `refunded`, not `held`, so
+  // this handler's own guard drops the event. Asserting this ordering too is
+  // the point of #5753: no matter which side finishes first, the row is never
+  // left at `held` against an already-canceled PaymentIntent.
+  it("ordering: webhook-after-rollback — no-ops when payment_intent.canceled arrives for a deposit refund() has already reconciled to refunded (#5753)", async () => {
+    const mockEvent = {
+      type: "payment_intent.canceled",
+      data: {
+        object: {
+          id: "pi_already_refunded",
+          // null matches what OUR OWN cancelPaymentIntent call sends — the
+          // exact signal #5753's race is about.
+          cancellation_reason: null,
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    mockDepositFindFirst.mockResolvedValueOnce({
+      id: "dep_already_refunded",
+      reservationId: "res_already_refunded",
+      amountCents: 8000,
+      currency: "usd",
+      status: "refunded", // refund()'s own reconciliation already finished
+      stripePaymentIntentId: "pi_already_refunded",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: new Date(),
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Not `held` — the early-return guard drops the event before any write.
+    expect(mockDepositUpdateMany).not.toHaveBeenCalled();
+    expect(mockStripeCancel).not.toHaveBeenCalled();
+    await app.close();
+  });
 
   it("verifies against the literal raw request bytes, not a JSON.stringify(JSON.parse()) reconstruction", async () => {
     const mockEvent = {

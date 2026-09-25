@@ -309,8 +309,11 @@ export class DepositService {
    * Transitions deposit from `held` → `refunded`.
    * Cancels the Stripe PaymentIntent (releases the authorization).
    *
-   * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
-   * cancel fails after the DB write.
+   * DB-first with a Stripe idempotency key. If the Stripe cancel call
+   * throws, {@link _reconcileCancelFailure} decides whether to roll back to
+   * `held` by checking the PaymentIntent's REAL status first — never
+   * unconditionally, which used to race Stripe's own `payment_intent.canceled`
+   * webhook and could strand the row at `held` forever (#5753).
    *
    * `skipStripeCancel` is for the Stripe-initiated path
    * (`payment_intent.canceled` webhook): the intent is already canceled on
@@ -339,11 +342,7 @@ export class DepositService {
       try {
         await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
       } catch (error) {
-        // Best-effort rollback. If the rollback itself fails (e.g. DB down),
-        // surface the original Stripe error rather than masking it — never
-        // swallow the cause of the failure.
-        await this._rollbackToHeld(depositId, "refunded", "refundedAt").catch(() => {});
-        throw error;
+        await this._reconcileCancelFailure(depositId, deposit.stripePaymentIntentId, error);
       }
     }
 
@@ -398,17 +397,29 @@ export class DepositService {
    * cumulative amount already includes what WE sent back. Subtracting our own
    * leg first means only a refund issued ON TOP of it (e.g. a further
    * dashboard refund) is ever recorded as post-capture; an amount at or below
-   * our own leg records nothing (#5725 HIGH-1).
+   * our own leg records nothing (#5725 HIGH-1). "Our own leg" is resolved via
+   * {@link _ownPartialRefundLegCents} against Stripe's ground truth, never
+   * the row's planned `refundAmountCents` directly (#5753 LOW-C) — see that
+   * method's doc comment for why the planned amount can lie.
    *
    * The write is also monotonic: Stripe webhooks can be redelivered or arrive
    * out of order, so a smaller/earlier cumulative amount must never regress an
-   * already-recorded larger one (#5725 MEDIUM-2).
+   * already-recorded larger one (#5725 MEDIUM-2). This means a refund that
+   * later FAILS — Stripe lowers `amount_refunded` and reports it via
+   * `charge.refund.updated` — is never reflected here: `postCaptureRefundCents`
+   * would stay at the higher, now-stale amount (#5753 LOW-D). Fixing that
+   * requires reconciling on `charge.refund.updated`, which needs a webhook-
+   * endpoint subscription change in the Stripe dashboard/API that cannot be
+   * verified from this repo alone — deliberately not implemented here.
+   * Deposits are refund/hold instruments, not charges we depend on for
+   * revenue, so an overstated `postCaptureRefundCents` after a rare refund
+   * failure is a stale reporting number, not a money-safety bug; the trade-
+   * off is accepted rather than guessed at.
    */
   async recordPostCaptureRefund(depositId: string, amountRefundedCents: number): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
 
-    const ownRefundCents =
-      deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+    const ownRefundCents = await this._ownPartialRefundLegCents(deposit);
     const postCaptureCents = amountRefundedCents - ownRefundCents;
 
     if (postCaptureCents <= 0) {
@@ -427,6 +438,34 @@ export class DepositService {
     });
 
     return this._requireDeposit(depositId);
+  }
+
+  /**
+   * Resolves how much of `refundPartial`'s OWN refund leg actually reached
+   * Stripe for a `partial_refunded` deposit — ground truth via
+   * {@link StripePort.findDepositRefund}, never the row's planned
+   * `refundAmountCents` (#5753 LOW-C). `refundAmountCents` is written
+   * DB-first, before `refundPartial`'s own Stripe refund call runs, so it
+   * stays populated even when that call never reached Stripe (a thrown
+   * {@link DepositRefundLegIncompleteError}) or landed at a `failed` status.
+   * Subtracting the planned amount unconditionally can erase a genuine,
+   * later manual refund of the exact same amount: staff completing in the
+   * dashboard what our own leg never actually sent makes
+   * `amount_refunded - refundAmountCents` come out to 0, even though nothing
+   * of OURS was ever returned. `findDepositRefund` already excludes
+   * `failed`/`canceled` refunds, so a leg that never truly succeeded
+   * correctly resolves to 0 here too — no separate check needed.
+   */
+  private async _ownPartialRefundLegCents(deposit: Deposit): Promise<number> {
+    if (deposit.status !== "partial_refunded" || !deposit.stripePaymentIntentId) {
+      return 0;
+    }
+
+    const ownRefund = await this.stripe.findDepositRefund(
+      deposit.stripePaymentIntentId,
+      deposit.id
+    );
+    return ownRefund?.amount ?? 0;
   }
 
   /**
@@ -938,6 +977,76 @@ export class DepositService {
       "Deposit capture failed and Stripe's PaymentIntent status is not confirmed; row left at its optimistic status pending manual reconciliation"
     );
     throw new DepositCaptureAmbiguousError(depositId, intent.status, error);
+  }
+
+  /**
+   * Reconciles `refund()`'s Stripe `cancelPaymentIntent` failure against the
+   * PaymentIntent's real status, rather than assuming the worst case
+   * (rollback to `held`) unconditionally — the same class of ambiguous-Stripe-
+   * error problem the capture paths already solve via
+   * {@link _reconcileCaptureFailure} (#5753).
+   *
+   * `refund()` is DB-first: the row is already written to `refunded` before
+   * this runs, so every branch below decides whether to UNDO that write,
+   * never whether to make it.
+   *
+   *  - retrieve confirms `canceled` — the cancel actually succeeded; the
+   *    thrown error was purely in receiving our own response. The row is
+   *    already correct at `refunded`. Returns normally (no throw): the
+   *    operation's goal (a canceled PaymentIntent, a row that reflects that)
+   *    was actually achieved, so this must never be reported as a failure.
+   *  - retrieve confirms `requires_capture` — proves the cancel did NOT
+   *    happen. Safe to roll back to `held` (no webhook race is possible
+   *    here: Stripe never canceled the intent, so `payment_intent.canceled`
+   *    will never fire for it) and rethrow the original error so the action
+   *    is surfaced as retryable.
+   *  - the retrieve itself throws (ground truth undeterminable) — do NOT
+   *    roll back. A rollback here is exactly the bug this method exists to
+   *    fix: Stripe's `payment_intent.canceled` webhook only acts on `held`
+   *    rows, so if it already ran and found this row `refunded` (a no-op)
+   *    BEFORE this reconciliation, rolling back now would strand the row at
+   *    `held` forever — Stripe fires that webhook only once. Leaving the row
+   *    at its DB-first `refunded` write is the safer failure mode either
+   *    way: if the cancel truly failed and the authorization is still open,
+   *    the customer's card simply holds it until Stripe's own ~7-day
+   *    auto-expiry — whose later `payment_intent.canceled` (reason
+   *    `automatic`/`expired`) then finds this row `refunded`, not `held`, and
+   *    correctly no-ops rather than mislabeling it `uncollectable`; nothing
+   *    was ever charged either way, so `refunded` is the accurate resting
+   *    state. Logs for manual reconciliation and rethrows the original error.
+   *  - any other retrieved status — same "don't guess" posture as the
+   *    retrieve-failure case: leave the row at `refunded`, log, and rethrow.
+   */
+  private async _reconcileCancelFailure(
+    depositId: string,
+    stripePaymentIntentId: string,
+    error: unknown
+  ): Promise<void> {
+    let intent: { status: string };
+    try {
+      intent = await this.stripe.retrievePaymentIntent(stripePaymentIntentId);
+    } catch {
+      logger.error(
+        { depositId, action: "refund", err: error },
+        "Deposit refund's Stripe cancel failed and the PaymentIntent could not be retrieved to verify; row left at refunded pending manual reconciliation"
+      );
+      throw error;
+    }
+
+    if (intent.status === "canceled") {
+      return;
+    }
+
+    if (intent.status === "requires_capture") {
+      await this._rollbackToHeld(depositId, "refunded", "refundedAt").catch(() => {});
+      throw error;
+    }
+
+    logger.error(
+      { depositId, action: "refund", intentStatus: intent.status, err: error },
+      "Deposit refund's Stripe cancel failed and Stripe's PaymentIntent status is not confirmed; row left at refunded pending manual reconciliation"
+    );
+    throw error;
   }
 
   /**

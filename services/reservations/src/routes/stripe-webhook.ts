@@ -89,11 +89,18 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
   // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
   // deliberate release, not a dead authorization, and must be labeled
   // `refunded` via the same path a staff-initiated refund uses (#5725
-  // MEDIUM-3). The null case covers our own refund() whose Stripe call errored
-  // ambiguously after actually canceling ONLY when this webhook arrives after
-  // refund() has rolled the row back to `held` (`_rollbackToHeld`); if it
-  // arrives before, the row is not `held` and the early return above drops
-  // it — that race is tracked in #5753.
+  // MEDIUM-3). The null case is what OUR OWN refund() sends. #5753 fixed the
+  // race this used to have with refund()'s error handling: refund()'s
+  // ambiguous-cancel-error handling (`_reconcileCancelFailure`) now confirms
+  // the PaymentIntent's real status before deciding anything, and only rolls
+  // the row back to `held` when Stripe proves the cancel did NOT happen
+  // (`requires_capture`) — a case where Stripe never fires this webhook at
+  // all, since it never canceled the intent. So whenever Stripe DID cancel
+  // the intent, refund() never leaves the row at `held`, and this webhook —
+  // whether it arrives before that reconciliation finishes (finding the row
+  // already non-`held`, an early-return no-op above) or after (finding it
+  // `refunded`, same no-op) — always lands on the identical terminal state.
+  // Every interleaving ends terminal; the row is never stranded.
   //
   // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
   // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
