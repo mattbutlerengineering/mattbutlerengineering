@@ -152,16 +152,20 @@ trigger via `RemoteTrigger get` on 2026-08-03 (#3582).
    and went unnoticed 19 days; recreating it meant rewriting every prompt from
    memory, because nothing was version-controlled.
 
-**The rule when editing a live trigger — always resend the complete
-`job_config`, then verify with a `get`:**
+**The rule when editing a live trigger — get, edit, verify:**
+
+The raw job_config-clobbering API that caused incident 1 above has since been
+replaced by the `update_trigger` MCP tool, which changes only the field(s) you
+pass it (per the tool's own description: "Only provided fields are changed;
+omit a field to leave it as-is") — there is no full-`job_config` payload to
+reconstruct by hand anymore. A successful call is still not confirmation on
+its own:
 
 ```text
-1. get the trigger — copy its full current job_config as your starting point.
-2. Edit only the field you actually want to change, in that copied object.
-3. update with the FULL job_config (never a partial/single-field payload) —
-   partial updates replace job_config wholesale, they do not deep-merge.
-4. get the trigger again and diff the result against what you intended.
-   A 200 response is not confirmation; only a get is.
+1. list_triggers (or get_trigger) — read the trigger's current state.
+2. update_trigger with only the field(s) you actually want to change.
+3. get_trigger (or list_triggers) again and diff the result against what you
+   intended.
 ```
 
 `docs/routines/<name>.md` is the file that wins if it and the live trigger
@@ -542,7 +546,7 @@ context**, so any behavior change must be made in the prompt itself.
    **`update_trigger` now changes only the fields you pass it** ("Only
    provided fields are changed; omit a field to leave it as-is," per the
    tool's own description) — this replaced the old raw `job_config`-clobbering
-   API that caused the incident below. Still `list_triggers` (or re-check
+   API that caused the incident above. Still `list_triggers` (or re-check
    after updating) to confirm the change landed as intended — a successful
    call is not itself confirmation. See [Prompt files](#prompt-files) above
    for the incident that made this doc paranoid about verifying updates.
