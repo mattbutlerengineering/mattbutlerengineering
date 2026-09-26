@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-25T18:10:32.448Z",
+  "generated_at": "2026-09-26T18:04:35.884Z",
   "period": {
-    "start": "2026-09-18",
-    "end": "2026-09-25"
+    "start": "2026-09-19",
+    "end": "2026-09-26"
   },
   "sensors": {
     "acmm": {
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.1,
-          "latest": "2026-09-25T15:51:51.540Z",
+          "age_days": 0.13,
+          "latest": "2026-09-26T15:02:12.399Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-25T15:51:51.540Z",
+      "collected_at": "2026-09-26T15:02:12.399Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -68,22 +68,22 @@
       "total_closed_without_merge": 3,
       "by_category": {
         "tier:trivial": {
-          "merged": 35,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 21,
+          "merged": 36,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 6,
+          "merged": 8,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:sensitive": {
+          "merged": 19,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 27,
+          "merged": 26,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -112,17 +112,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 6603101,
-      "output_tokens": 17328,
-      "cache_creation_tokens": 157548,
-      "cache_hit_rate": 0.9767,
+      "cache_read_tokens": 1049670,
+      "output_tokens": 2142,
+      "cache_creation_tokens": 70846,
+      "cache_hit_rate": 0.9368,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 90,
-          "output_tokens": 17328,
-          "cache_read_tokens": 6603101,
-          "cache_creation_tokens": 157548
+          "input_tokens": 18,
+          "output_tokens": 2142,
+          "cache_read_tokens": 1049670,
+          "cache_creation_tokens": 70846
         }
       }
     },
@@ -130,17 +130,17 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 22,
+      "passed": 20,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36171554876,
+        "databaseId": 36259670862,
         "status": "completed",
         "conclusion": "success",
-        "createdAt": "2026-09-25T18:08:47Z",
-        "name": "Venue Journey",
+        "createdAt": "2026-09-26T17:37:13Z",
+        "name": "Sentry Triage",
         "headBranch": "main",
-        "headSha": "a6fb4fb1f846737f1b1650859f92fa5c7eafb6e8"
+        "headSha": "42bf9d02b684cbc3aea3f7ba90987004e1d4d709"
       }
     },
     "lighthouse": {
@@ -153,7 +153,7 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-24T18:06:35.676Z",
+      "collected_at": "2026-09-25T18:25:24.023Z",
       "stale": false
     },
     "sessionLogs": {
@@ -166,9 +166,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.005,
-      "total_lines_added_7d": 662294,
-      "lines_churned_7d": 3348,
+      "churn_rate": 0.006,
+      "total_lines_added_7d": 663777,
+      "lines_churned_7d": 3846,
       "window_days": 7,
       "churn_threshold": 0.3
     },
