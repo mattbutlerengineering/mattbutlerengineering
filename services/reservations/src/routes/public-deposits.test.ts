@@ -70,8 +70,16 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 3 / #5369 PR 8: see public-venues.test.ts's identical
+// comment for why this is mocked rather than hitting real `$queryRaw`.
+// Resolves to `mockVenuePolicy.id` so the happy-path tests still line up.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 import { buildApp } from "../app.js";
 import { venueService } from "../services/venue.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import type { VenuePolicy } from "../services/venue.js";
 import { reservationService } from "../services/reservation.js";
 import { depositService, calculateDepositAmount } from "../services/deposit.js";
@@ -142,7 +150,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 404 when venue is not found", async () => {
-    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const app = await buildApp({ logger: false });
     await app.ready();
@@ -659,7 +667,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // flow 11 times — the rate limiter runs at the `onRequest` stage, before
     // any handler logic, so it must count and reject regardless of what the
     // downstream business logic would have returned.
-    vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(null);
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
 
     const app = await buildApp({ logger: false });
     await app.ready();

@@ -83,6 +83,14 @@ vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
 });
+// ADR-026 §3.3 item 3 / #5369 PR 8: the public hold routes now resolve the
+// venue via `resolveVenueId` rather than `venueService.getBySlug` — see
+// public-venues.test.ts's identical comment. Resolves to `mockVenue.id` (not
+// a placeholder) so the hold-ownership `hold.venueId !== venueId` comparison
+// still behaves for the existing `mockHold` fixture below.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
+}));
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -91,6 +99,7 @@ vi.mock("jose", () => ({
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
@@ -191,7 +200,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
   });
 
   it("returns 404 for unknown venue", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "POST",
@@ -203,7 +212,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
   });
 
   it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "POST",
@@ -433,7 +442,7 @@ describe("GET /public/v1/venues/:slug/holds/:holdId", () => {
   });
 
   it("returns 404 for an unknown venue slug", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",
@@ -562,7 +571,7 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
   });
 
   it("returns 404 for an unknown venue slug without touching the hold", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "POST",

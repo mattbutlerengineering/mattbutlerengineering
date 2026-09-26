@@ -333,7 +333,7 @@
   </file>
   <file path="src/routes/public-holds.ts">
     <item priority="low">
-      async function resolveVenueBySlug(slug: string, reply: FastifyReply) { /* ... */ }
+      async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> { /* ... */ }
     </item>
     <item priority="medium">
       function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
@@ -434,6 +434,20 @@
         options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
       ): RouteFixture { /* ... */ }
     </item>
+    <item priority="low">
+      async function createDisposablePublicHold(
+        ctx: SweepContext,
+        slug: string,
+        date: string
+      ): Promise<{ id: string; sessionId: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableManagedReservation(
+        ctx: SweepContext,
+        guestEmail: string,
+        date: string
+      ): Promise<string> { /* ... */ }
+    </item>
     <item priority="high">
       export const PUBLIC_FIXTURES: Record<string, RouteFixture>;
     </item>
@@ -522,9 +536,6 @@
       function notRls(run: RouteFixture["run"]): RouteFixture { /* ... */ }
     </item>
     <item priority="medium">
-      function broken(blocker: string, run: RouteFixture["run"]): RouteFixture { /* ... */ }
-    </item>
-    <item priority="medium">
       function okScopedByQuery(path: string, extraQuery = ""): RouteFixture { /* ... */ }
     </item>
     <item priority="medium">
@@ -583,7 +594,14 @@
       export function setStripeWebhookLogger(next: StripeWebhookLogger): void { /* ... */ }
     </item>
     <item priority="low">
-      async function holdIfPending(paymentIntentId: string): Promise<void> { /* ... */ }
+      async function withDepositVenueContext(
+        paymentIntentId: string,
+        eventType: string,
+        work: () => Promise<void>
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }

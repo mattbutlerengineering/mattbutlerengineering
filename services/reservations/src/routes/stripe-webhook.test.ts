@@ -61,8 +61,20 @@ vi.mock("stripe", () => {
   return { default: MockStripe };
 });
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: the webhook handlers now resolve the
+// deposit's venue via `resolveVenueId` (a raw `$queryRaw` call the plain
+// `createMockDatabaseService()` stub above can't answer) before touching
+// `depositService` — see public-venues.test.ts's identical comment. This
+// suite exercises the deposit state-machine logic behind a mocked `prisma`,
+// not real RLS scoping (that's `rls-route-sweep.integration.test.ts`), so a
+// constant non-null venue id is enough.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 import { buildApp } from "../app.js";
 import { setStripeWebhookLogger } from "./stripe-webhook.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 describe("POST /api/v1/stripe/webhook", () => {
   const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -246,6 +258,46 @@ describe("POST /api/v1/stripe/webhook", () => {
     await app.close();
   });
 
+  it("returns 200 and never calls getByPaymentIntentId when the PaymentIntent doesn't resolve to a venue (ADR-026 §3.3 item 4)", async () => {
+    const mockEvent = {
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_unresolved",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    const logSpy = { info: vi.fn(), warn: vi.fn() };
+    setStripeWebhookLogger(logSpy);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    // NULL resolution is the pre-existing no-deposit no-op, never a 500 retry loop.
+    expect(response.statusCode).toBe(200);
+    expect(mockDepositFindFirst).not.toHaveBeenCalled();
+    expect(logSpy.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentIntentId: "pi_unresolved",
+        eventType: "payment_intent.succeeded",
+      }),
+      expect.stringMatching(/did not resolve to exactly one venue/)
+    );
+    await app.close();
+  });
+
   it("calls depositService.hold for payment_intent.amount_capturable_updated when deposit is pending", async () => {
     // Manual-capture PaymentIntents (capture_method: "manual") fire
     // amount_capturable_updated on authorization, NOT payment_intent.succeeded
@@ -415,7 +467,7 @@ describe("POST /api/v1/stripe/webhook", () => {
 
     const app = await buildApp({ logger: false });
     await app.ready();
-    const logSpy = { info: vi.fn() };
+    const logSpy = { info: vi.fn(), warn: vi.fn() };
     setStripeWebhookLogger(logSpy);
 
     const response = await app.inject({

@@ -6,12 +6,13 @@ import {
   publicHoldConfirmBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
-import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 import {
   getActiveHoldCount,
   incrementHoldCount,
@@ -42,17 +43,22 @@ const CONFIRM_ERROR_TITLE: Record<string, string> = {
  * Server-side venue resolution: every public hold route names its venue by
  * slug and looks it up here, never trusting a client-supplied `venueId`.
  *
- * Returns the venue, or `null` having already replied 404.
+ * Resolves through `resolveVenueId("venue_slug", ...)` (ADR-026 §3.3 item 3)
+ * rather than a plain `venueService.getBySlug` — that would be an unscoped
+ * read of an RLS-protected table, exactly the trap this closes under
+ * `FORCE ROW LEVEL SECURITY`.
+ *
+ * Returns the resolved venue id, or `null` having already replied 404.
  */
-async function resolveVenueBySlug(slug: string, reply: FastifyReply) {
-  const venue = await venueService.getBySlug(slug);
-  if (!venue) {
+async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> {
+  const venueId = await resolveVenueId("venue_slug", slug);
+  if (!venueId) {
     reply
       .status(404)
       .send(createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`));
     return null;
   }
-  return venue;
+  return venueId;
 }
 
 /**
@@ -114,29 +120,31 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const venue = await resolveVenueBySlug(slug, reply);
-      if (venue === null) return reply;
+      const venueId = await resolveVenueBySlug(slug, reply);
+      if (venueId === null) return reply;
 
-      const sessionId = randomUUID();
-      const result = await holdService.create(
-        { venueId: venue.id, date, time: startTime, partySize },
-        sessionId
-      );
+      return runWithVenueContext(venueId, async () => {
+        const sessionId = randomUUID();
+        const result = await holdService.create(
+          { venueId, date, time: startTime, partySize },
+          sessionId
+        );
 
-      if (!result.success) {
-        return reply
-          .status(409)
-          .send(
-            createProblemDetails(
-              409,
-              "Slot Unavailable",
-              result.error ?? "The requested time slot is no longer available."
-            )
-          );
-      }
+        if (!result.success) {
+          return reply
+            .status(409)
+            .send(
+              createProblemDetails(
+                409,
+                "Slot Unavailable",
+                result.error ?? "The requested time slot is no longer available."
+              )
+            );
+        }
 
-      incrementHoldCount(ip);
-      return reply.status(201).send({ data: result.hold! });
+        incrementHoldCount(ip);
+        return reply.status(201).send({ data: result.hold! });
+      });
     }
   );
 
@@ -190,20 +198,22 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = readSessionId(request, reply, "read");
       if (sessionId === null) return reply;
 
-      const venue = await resolveVenueBySlug(slug, reply);
-      if (venue === null) return reply;
+      const venueId = await resolveVenueBySlug(slug, reply);
+      if (venueId === null) return reply;
 
-      const hold = await holdService.getById(holdId);
-      // A hold from another venue, or one this session does not own, is
-      // reported as absent — never as a distinct status that would confirm it
-      // exists somewhere.
-      if (!hold || hold.venueId !== venue.id || hold.sessionId !== sessionId) {
-        return reply
-          .status(404)
-          .send(createProblemDetails(404, "Not Found", "Hold not found or expired."));
-      }
+      return runWithVenueContext(venueId, async () => {
+        const hold = await holdService.getById(holdId);
+        // A hold from another venue, or one this session does not own, is
+        // reported as absent — never as a distinct status that would confirm it
+        // exists somewhere.
+        if (!hold || hold.venueId !== venueId || hold.sessionId !== sessionId) {
+          return reply
+            .status(404)
+            .send(createProblemDetails(404, "Not Found", "Hold not found or expired."));
+        }
 
-      return reply.send({ data: hold });
+        return reply.send({ data: hold });
+      });
     }
   );
 
@@ -238,39 +248,43 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = readSessionId(request, reply, "confirm");
       if (sessionId === null) return reply;
 
-      const venue = await resolveVenueBySlug(slug, reply);
-      if (venue === null) return reply;
+      const venueId = await resolveVenueBySlug(slug, reply);
+      if (venueId === null) return reply;
 
-      // Fields are named explicitly rather than forwarding the parsed body:
-      // Fastify leaves unknown properties on `request.body`, so spreading it
-      // would let an anonymous caller smuggle a `guestId` and attach its
-      // reservation to someone else's guest record.
-      const { guestName, guestEmail, guestPhone, notes } = request.body;
-      const result = await confirmHold({
-        holdId,
-        sessionId,
-        venueId: venue.id,
-        guestDetails: { guestName, guestEmail, guestPhone, notes },
+      return runWithVenueContext(venueId, async () => {
+        // Fields are named explicitly rather than forwarding the parsed body:
+        // Fastify leaves unknown properties on `request.body`, so spreading it
+        // would let an anonymous caller smuggle a `guestId` and attach its
+        // reservation to someone else's guest record.
+        const { guestName, guestEmail, guestPhone, notes } = request.body;
+        const result = await confirmHold({
+          holdId,
+          sessionId,
+          venueId,
+          guestDetails: { guestName, guestEmail, guestPhone, notes },
+        });
+
+        if (!result.success) {
+          const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
+          const title = CONFIRM_ERROR_TITLE[result.errorCode] ?? "Conflict";
+          return reply
+            .status(httpStatus)
+            .send(createProblemDetails(httpStatus, title, result.error));
+        }
+
+        // The hold is consumed, so it no longer counts against the per-IP
+        // active-hold cap — same bookkeeping the release path does.
+        decrementHoldCount(ip);
+
+        // Only mint a manage token when an email was actually supplied: a
+        // phone-only booking is stored with `guestEmail: null`, and a token
+        // signed with "" could never validate against it.
+        const manageToken = guestEmail
+          ? generateManageToken(result.reservation.id, guestEmail)
+          : undefined;
+
+        return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
       });
-
-      if (!result.success) {
-        const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
-        const title = CONFIRM_ERROR_TITLE[result.errorCode] ?? "Conflict";
-        return reply.status(httpStatus).send(createProblemDetails(httpStatus, title, result.error));
-      }
-
-      // The hold is consumed, so it no longer counts against the per-IP
-      // active-hold cap — same bookkeeping the release path does.
-      decrementHoldCount(ip);
-
-      // Only mint a manage token when an email was actually supplied: a
-      // phone-only booking is stored with `guestEmail: null`, and a token
-      // signed with "" could never validate against it.
-      const manageToken = guestEmail
-        ? generateManageToken(result.reservation.id, guestEmail)
-        : undefined;
-
-      return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
     }
   );
 };

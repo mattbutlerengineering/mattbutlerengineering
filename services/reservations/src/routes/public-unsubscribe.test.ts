@@ -42,7 +42,15 @@ vi.mock("../services/guest.js", () => ({
   },
 }));
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: this route now resolves the guest's
+// venue via `resolveVenueId` — see public-venues.test.ts's identical comment
+// for why this is mocked rather than hitting real `$queryRaw`.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 import { guestService } from "../services/guest.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 describe("GET /public/v1/guests/unsubscribe", () => {
   let app: FastifyInstance;
@@ -95,6 +103,20 @@ describe("GET /public/v1/guests/unsubscribe", () => {
     expect(response.headers["content-type"]).toContain("text/html");
     expect(guestService.markUnsubscribed).toHaveBeenCalledWith("guest-abc");
     expect(response.body).toContain("unsubscribed");
+  });
+
+  it("returns 404 with a code extension when the guest no longer exists (ADR-026 §3.3 item 4)", async () => {
+    const token = generateUnsubscribeToken("guest-gone");
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/guests/unsubscribe?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("GUEST_NOT_FOUND");
+    expect(guestService.markUnsubscribed).not.toHaveBeenCalled();
   });
 
   it("returns 500 with the canonical RFC title when markUnsubscribed fails", async () => {

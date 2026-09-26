@@ -280,15 +280,27 @@
         return;
       }
     
-      const reservation = await reservationService.getById(result.reservationId!);
-      if (reservation && reservation.guestEmail !== result.guestEmail) {
-        await reply.status(403).send({
-          type: "about:blank",
-          title: "Forbidden",
-          status: 403,
-          detail: "Token does not match reservation",
-        });
-        return;
+      // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+      // SECURITY DEFINER function (never an unscoped `reservations` read) and run
+      // this ownership check inside that venue's RLS context. A NULL resolution
+      // (reservation gone, or carries no venue per ADR-026 §2) means there is
+      // nothing to check — the route handler's own lookup below reports "not
+      // found", matching this preHandler's pre-existing tolerance for a missing
+      // reservation.
+      const venueId = await resolveVenueId("reservation", result.reservationId!);
+      if (venueId) {
+        const reservation = await runWithVenueContext(venueId, () =>
+          reservationService.getById(result.reservationId!)
+        );
+        if (reservation && reservation.guestEmail !== result.guestEmail) {
+          await reply.status(403).send({
+            type: "about:blank",
+            title: "Forbidden",
+            status: 403,
+            detail: "Token does not match reservation",
+          });
+          return;
+        }
       }
     
       request.managedReservationId = result.reservationId!;
@@ -1021,29 +1033,39 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const preamble = await loadReservationForManage(request.managedReservationId);
-          if (!preamble.ok) {
-            return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
+          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+          // SECURITY DEFINER function, then run the whole cancel flow inside
+          // that venue's RLS context.
+          const venueId = await resolveVenueId("reservation", request.managedReservationId);
+          if (!venueId) {
+            return reply.status(404).send(reservationNotFoundProblem());
           }
     
-          const result = await cancelReservationWithDeposit(
-            preamble.reservation,
-            request.manageToken,
-            { bookingNotifier: fastify.bookingNotifier, logger: request.log },
-            {
-              cancellationReason: request.body?.cancellationReason,
-              cancellationNote: request.body?.cancellationNote,
+          return runWithVenueContext(venueId, async () => {
+            const preamble = await loadReservationForManage(request.managedReservationId);
+            if (!preamble.ok) {
+              return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
             }
-          );
     
-          if (!result.success) {
-            return reply
-              .status(result.status)
-              .send(createProblemDetails(result.status, result.title, result.detail));
-          }
+            const result = await cancelReservationWithDeposit(
+              preamble.reservation,
+              request.manageToken,
+              { bookingNotifier: fastify.bookingNotifier, logger: request.log },
+              {
+                cancellationReason: request.body?.cancellationReason,
+                cancellationNote: request.body?.cancellationNote,
+              }
+            );
     
-          return reply.status(200).send({
-            data: { status: result.reservation.status },
+            if (!result.success) {
+              return reply
+                .status(result.status)
+                .send(createProblemDetails(result.status, result.title, result.detail));
+            }
+    
+            return reply.status(200).send({
+              data: { status: result.reservation.status },
+            });
           });
         }
       );
@@ -1060,16 +1082,26 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.managedReservationId);
-          if (!reservation) {
+          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+          // SECURITY DEFINER function, then run the read + confirm inside that
+          // venue's RLS context.
+          const venueId = await resolveVenueId("reservation", request.managedReservationId);
+          if (!venueId) {
             return reply.status(401).type("text/html").send(invalidHtml);
           }
     
-          if (reservation.status === "PENDING") {
-            await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
-          }
+          return runWithVenueContext(venueId, async () => {
+            const reservation = await reservationService.getById(request.managedReservationId);
+            if (!reservation) {
+              return reply.status(401).type("text/html").send(invalidHtml);
+            }
     
-          return reply.status(200).type("text/html").send(successHtml);
+            if (reservation.status === "PENDING") {
+              await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
+            }
+    
+            return reply.status(200).type("text/html").send(successHtml);
+          });
         }
       );
     };
@@ -2862,26 +2894,38 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.managedReservationId);
-          if (!reservation) {
+          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+          // SECURITY DEFINER function rather than an unscoped `reservations`
+          // read, then run the actual lookup inside that venue's RLS context. A
+          // NULL resolution (reservation gone, or has no venue per ADR-026 §2)
+          // is reported the same way a missing reservation already was.
+          const venueId = await resolveVenueId("reservation", request.managedReservationId);
+          if (!venueId) {
             return reply.status(404).send(reservationNotFoundProblem());
           }
     
-          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
+          return runWithVenueContext(venueId, async () => {
+            const reservation = await reservationService.getById(request.managedReservationId);
+            if (!reservation) {
+              return reply.status(404).send(reservationNotFoundProblem());
+            }
     
-          return reply.status(200).send({
-            data: {
-              reservation: serializeManagedReservation(reservation),
-              venue: venue
-                ? {
-                    id: venue.id,
-                    name: venue.name,
-                    slug: venue.slug,
-                    ianaTimezone: venue.ianaTimezone,
-                    phone: venue.settings?.phone,
-                  }
-                : null,
-            },
+            const venue = await venueService.getById(venueId);
+    
+            return reply.status(200).send({
+              data: {
+                reservation: serializeManagedReservation(reservation),
+                venue: venue
+                  ? {
+                      id: venue.id,
+                      name: venue.name,
+                      slug: venue.slug,
+                      ianaTimezone: venue.ianaTimezone,
+                      phone: venue.settings?.phone,
+                    }
+                  : null,
+              },
+            });
           });
         }
       );
@@ -2908,41 +2952,51 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const preamble = await loadReservationForManage(request.managedReservationId);
-          if (!preamble.ok) {
-            return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
+          // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+          // SECURITY DEFINER function, then run the whole modify flow inside
+          // that venue's RLS context.
+          const venueId = await resolveVenueId("reservation", request.managedReservationId);
+          if (!venueId) {
+            return reply.status(404).send(reservationNotFoundProblem());
           }
     
-          const result = await modifyReservationWithNotifications(
-            preamble.reservation,
-            request.body ?? {},
-            request.manageToken,
-            {
-              bookingNotifier: fastify.bookingNotifier,
-              notificationPort: fastify.notificationPort,
-              logger: request.log,
+          return runWithVenueContext(venueId, async () => {
+            const preamble = await loadReservationForManage(request.managedReservationId);
+            if (!preamble.ok) {
+              return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
-          );
     
-          if (!result.success) {
-            return reply.status(result.status).send(
-              createProblemDetails(
-                result.status,
-                result.title,
-                result.detail,
-                "about:blank",
-                undefined,
-                {
-                  code: result.code,
-                }
-              )
+            const result = await modifyReservationWithNotifications(
+              preamble.reservation,
+              request.body ?? {},
+              request.manageToken,
+              {
+                bookingNotifier: fastify.bookingNotifier,
+                notificationPort: fastify.notificationPort,
+                logger: request.log,
+              }
             );
-          }
     
-          return reply.status(200).send({
-            data: {
-              reservation: serializeManagedReservation(result.reservation),
-            },
+            if (!result.success) {
+              return reply.status(result.status).send(
+                createProblemDetails(
+                  result.status,
+                  result.title,
+                  result.detail,
+                  "about:blank",
+                  undefined,
+                  {
+                    code: result.code,
+                  }
+                )
+              );
+            }
+    
+            return reply.status(200).send({
+              data: {
+                reservation: serializeManagedReservation(result.reservation),
+              },
+            });
           });
         }
       );
@@ -2973,8 +3027,11 @@
           const { slug } = request.params;
           const { date, partySize } = request.query;
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the rest of the lookup (venue re-fetch + slot generation) inside
+          // that venue's RLS context, never an unscoped slug read.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .status(404)
               .send(
@@ -2982,21 +3039,32 @@
               );
           }
     
-          const partySizeResult = validatePartySize(partySize);
-          if (!partySizeResult.valid) {
-            return reply
-              .status(400)
-              .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
-          }
+          return runWithVenueContext(venueId, async () => {
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(
+                  createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+                );
+            }
     
-          const slots = await availabilityService.generateTimeSlots(
-            venue.id,
-            date,
-            partySizeResult.value
-          );
-          const availableOnly = slots.filter((s: TimeSlot) => s.available);
+            const partySizeResult = validatePartySize(partySize);
+            if (!partySizeResult.valid) {
+              return reply
+                .status(400)
+                .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
+            }
     
-          return reply.send({ data: availableOnly });
+            const slots = await availabilityService.generateTimeSlots(
+              venue.id,
+              date,
+              partySizeResult.value
+            );
+            const availableOnly = slots.filter((s: TimeSlot) => s.available);
+    
+            return reply.send({ data: availableOnly });
+          });
         }
       );
     };
@@ -3046,134 +3114,150 @@
           const { slug } = request.params;
           const { reservationId, guestEmail, guestName } = request.body;
     
-          // Typed deposit/cancellation policy for this venue — no raw Prisma row.
-          const policy = await venueService.getPolicyBySlug(slug);
-          if (!policy) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the whole flow (policy lookup, reservation ownership check,
+          // deposit create) inside that venue's RLS context.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          if (!policy.depositEnabled) {
-            return reply
-              .status(422)
-              .send(
-                createProblemDetails(
-                  422,
-                  "Unprocessable Entity",
-                  "Deposits are not enabled for this venue."
-                )
-              );
-          }
-    
-          // Verify reservation belongs to this venue
-          const reservation = await reservationService.getById(reservationId);
-          if (!reservation || reservation.venueId !== policy.id) {
-            return reply
-              .status(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
-          }
-    
-          // Check no deposit already exists for this reservation
-          const existingDeposit = await depositService.getByReservationId(reservationId);
-          if (existingDeposit) {
-            return reply
-              .status(409)
-              .send(
-                createProblemDetails(409, "Conflict", "A deposit already exists for this reservation.")
-              );
-          }
-    
-          // Calculate deposit amount
-          const depositAmountCents = calculateDepositAmount(policy, reservation.partySize);
-          const currency = policy.currencyCode.toLowerCase();
-    
-          // Create Stripe PaymentIntent (manual capture = authorize-only hold)
-          let stripeCustomerId: string | undefined;
-          if (guestEmail || guestName) {
-            try {
-              const customer = await stripeService.createCustomer({
-                email: guestEmail,
-                name: guestName,
-                // Stable key so a lost-response retry reuses the same customer
-                // instead of minting a new one — otherwise the second attempt would
-                // change the PaymentIntent's customer param and break its own
-                // idempotency key, degrading a safe retry into a 502.
-                idempotencyKey: `${reservationId}:customer`,
-              });
-              stripeCustomerId = customer.id;
-            } catch (err) {
-              // A retriable transient failure must fail-fast, not be swallowed:
-              // swallowing mints a customer-less PaymentIntent under the shared
-              // `${reservationId}:paymentIntent:${amount}` key, so a later retry that
-              // succeeds at customer-create would attach a customer and 502 on the
-              // Stripe idempotency param mismatch. Returning 502 here lets the retry
-              // re-attempt customer creation deterministically.
-              if (err instanceof StripeOperationError && err.isRetriable) {
-                request.log.error({ err }, "Stripe customer creation failed (retriable)");
-                return reply
-                  .status(502)
-                  .send(
-                    createProblemDetails(
-                      502,
-                      "Bad Gateway",
-                      "Failed to create payment intent with the payment provider."
-                    )
-                  );
-              }
-              // Non-retriable (permanent) customer error — degrade gracefully and
-              // take the deposit without a Stripe customer attached.
-              request.log.warn(
-                { err },
-                "Stripe customer creation failed (non-retriable), continuing without customer"
-              );
+          return runWithVenueContext(venueId, async () => {
+            // Typed deposit/cancellation policy for this venue — no raw Prisma row.
+            const policy = await venueService.getPolicyBySlug(slug);
+            if (!policy) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
             }
-          }
     
-          // Stable idempotency key (reservationId + amount) makes a lost-response
-          // retry safe — Stripe returns the original PaymentIntent instead of
-          // minting a second hold. Matches the `${id}:${action}` key convention
-          // used by the capture/cancel/refund flows.
-          let paymentIntent;
-          try {
-            paymentIntent = await stripeService.createPaymentIntent({
-              amountCents: depositAmountCents,
-              currency,
-              customerId: stripeCustomerId,
+            if (!policy.depositEnabled) {
+              return reply
+                .status(422)
+                .send(
+                  createProblemDetails(
+                    422,
+                    "Unprocessable Entity",
+                    "Deposits are not enabled for this venue."
+                  )
+                );
+            }
+    
+            // Verify reservation belongs to this venue
+            const reservation = await reservationService.getById(reservationId);
+            if (!reservation || reservation.venueId !== policy.id) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
+            }
+    
+            // Check no deposit already exists for this reservation
+            const existingDeposit = await depositService.getByReservationId(reservationId);
+            if (existingDeposit) {
+              return reply
+                .status(409)
+                .send(
+                  createProblemDetails(
+                    409,
+                    "Conflict",
+                    "A deposit already exists for this reservation."
+                  )
+                );
+            }
+    
+            // Calculate deposit amount
+            const depositAmountCents = calculateDepositAmount(policy, reservation.partySize);
+            const currency = policy.currencyCode.toLowerCase();
+    
+            // Create Stripe PaymentIntent (manual capture = authorize-only hold)
+            let stripeCustomerId: string | undefined;
+            if (guestEmail || guestName) {
+              try {
+                const customer = await stripeService.createCustomer({
+                  email: guestEmail,
+                  name: guestName,
+                  // Stable key so a lost-response retry reuses the same customer
+                  // instead of minting a new one — otherwise the second attempt would
+                  // change the PaymentIntent's customer param and break its own
+                  // idempotency key, degrading a safe retry into a 502.
+                  idempotencyKey: `${reservationId}:customer`,
+                });
+                stripeCustomerId = customer.id;
+              } catch (err) {
+                // A retriable transient failure must fail-fast, not be swallowed:
+                // swallowing mints a customer-less PaymentIntent under the shared
+                // `${reservationId}:paymentIntent:${amount}` key, so a later retry that
+                // succeeds at customer-create would attach a customer and 502 on the
+                // Stripe idempotency param mismatch. Returning 502 here lets the retry
+                // re-attempt customer creation deterministically.
+                if (err instanceof StripeOperationError && err.isRetriable) {
+                  request.log.error({ err }, "Stripe customer creation failed (retriable)");
+                  return reply
+                    .status(502)
+                    .send(
+                      createProblemDetails(
+                        502,
+                        "Bad Gateway",
+                        "Failed to create payment intent with the payment provider."
+                      )
+                    );
+                }
+                // Non-retriable (permanent) customer error — degrade gracefully and
+                // take the deposit without a Stripe customer attached.
+                request.log.warn(
+                  { err },
+                  "Stripe customer creation failed (non-retriable), continuing without customer"
+                );
+              }
+            }
+    
+            // Stable idempotency key (reservationId + amount) makes a lost-response
+            // retry safe — Stripe returns the original PaymentIntent instead of
+            // minting a second hold. Matches the `${id}:${action}` key convention
+            // used by the capture/cancel/refund flows.
+            let paymentIntent;
+            try {
+              paymentIntent = await stripeService.createPaymentIntent({
+                amountCents: depositAmountCents,
+                currency,
+                customerId: stripeCustomerId,
+                reservationId,
+                idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
+              });
+            } catch (err) {
+              request.log.error({ err }, "Stripe PaymentIntent creation failed");
+              return reply
+                .status(502)
+                .send(
+                  createProblemDetails(
+                    502,
+                    "Bad Gateway",
+                    "Failed to create payment intent with the payment provider."
+                  )
+                );
+            }
+    
+            // Create deposit record in pending state with the PaymentIntent id already
+            // set, in one atomic write. This guarantees the succeeded webhook can always
+            // find the row — no create → link two-write window that could strand it.
+            const deposit = await depositService.create({
               reservationId,
-              idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
-            });
-          } catch (err) {
-            request.log.error({ err }, "Stripe PaymentIntent creation failed");
-            return reply
-              .status(502)
-              .send(
-                createProblemDetails(
-                  502,
-                  "Bad Gateway",
-                  "Failed to create payment intent with the payment provider."
-                )
-              );
-          }
-    
-          // Create deposit record in pending state with the PaymentIntent id already
-          // set, in one atomic write. This guarantees the succeeded webhook can always
-          // find the row — no create → link two-write window that could strand it.
-          const deposit = await depositService.create({
-            reservationId,
-            amountCents: depositAmountCents,
-            currency,
-            stripePaymentIntentId: paymentIntent.id,
-            stripeCustomerId,
-          });
-    
-          return reply.status(201).send({
-            data: {
-              clientSecret: paymentIntent.clientSecret!,
-              depositId: deposit.id,
               amountCents: depositAmountCents,
               currency,
-            },
+              stripePaymentIntentId: paymentIntent.id,
+              stripeCustomerId,
+            });
+    
+            return reply.status(201).send({
+              data: {
+                clientSecret: paymentIntent.clientSecret!,
+                depositId: deposit.id,
+                amountCents: depositAmountCents,
+                currency,
+              },
+            });
           });
         }
       );
@@ -3224,17 +3308,27 @@
               .send(createProblemDetails(400, "Bad Request", "email query parameter is required"));
           }
     
-          const venue = await venueService.getBySlug(slug);
-    
-          if (!venue) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the guest lookup inside that venue's RLS context.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          const recognition = await recognizeGuest(venue.id, email);
+          return runWithVenueContext(venueId, async () => {
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+            }
     
-          return reply.send({ data: recognition });
+            const recognition = await recognizeGuest(venue.id, email);
+    
+            return reply.send({ data: recognition });
+          });
         }
       );
     };
@@ -3284,48 +3378,59 @@
               );
           }
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the guest lookup inside that venue's RLS context.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          const guest = email
-            ? await guestService.findByEmail(venue.id, email)
-            : phone
-              ? await guestService.findByPhone(venue.id, phone)
-              : null;
+          return runWithVenueContext(venueId, async () => {
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+            }
     
-          if (!guest) {
-            // New guest — always trusted
+            const guest = email
+              ? await guestService.findByEmail(venue.id, email)
+              : phone
+                ? await guestService.findByPhone(venue.id, phone)
+                : null;
+    
+            if (!guest) {
+              // New guest — always trusted
+              return reply.send({
+                data: { riskScore: "trusted", requiresDeposit: false },
+              });
+            }
+    
+            const riskScore = assessGuestReliability(guest, venue.settings);
+    
             return reply.send({
-              data: { riskScore: "trusted", requiresDeposit: false },
+              data: {
+                riskScore,
+                requiresDeposit: riskScore === "risky",
+              },
             });
-          }
-    
-          const riskScore = assessGuestReliability(guest, venue.settings);
-    
-          return reply.send({
-            data: {
-              riskScore,
-              requiresDeposit: riskScore === "risky",
-            },
           });
         }
       );
     };
   </file>
   <file path="src/routes/public-holds.ts">
-    async function resolveVenueBySlug(slug: string, reply: FastifyReply) {
-      const venue = await venueService.getBySlug(slug);
-      if (!venue) {
+    async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> {
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) {
         reply
           .status(404)
           .send(createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`));
         return null;
       }
-      return venue;
+      return venueId;
     }
     function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null {
       const sessionId = request.headers[SESSION_ID_HEADER];
@@ -3377,29 +3482,31 @@
               );
           }
     
-          const venue = await resolveVenueBySlug(slug, reply);
-          if (venue === null) return reply;
+          const venueId = await resolveVenueBySlug(slug, reply);
+          if (venueId === null) return reply;
     
-          const sessionId = randomUUID();
-          const result = await holdService.create(
-            { venueId: venue.id, date, time: startTime, partySize },
-            sessionId
-          );
+          return runWithVenueContext(venueId, async () => {
+            const sessionId = randomUUID();
+            const result = await holdService.create(
+              { venueId, date, time: startTime, partySize },
+              sessionId
+            );
     
-          if (!result.success) {
-            return reply
-              .status(409)
-              .send(
-                createProblemDetails(
-                  409,
-                  "Slot Unavailable",
-                  result.error ?? "The requested time slot is no longer available."
-                )
-              );
-          }
+            if (!result.success) {
+              return reply
+                .status(409)
+                .send(
+                  createProblemDetails(
+                    409,
+                    "Slot Unavailable",
+                    result.error ?? "The requested time slot is no longer available."
+                  )
+                );
+            }
     
-          incrementHoldCount(ip);
-          return reply.status(201).send({ data: result.hold! });
+            incrementHoldCount(ip);
+            return reply.status(201).send({ data: result.hold! });
+          });
         }
       );
     
@@ -3453,20 +3560,22 @@
           const sessionId = readSessionId(request, reply, "read");
           if (sessionId === null) return reply;
     
-          const venue = await resolveVenueBySlug(slug, reply);
-          if (venue === null) return reply;
+          const venueId = await resolveVenueBySlug(slug, reply);
+          if (venueId === null) return reply;
     
-          const hold = await holdService.getById(holdId);
-          // A hold from another venue, or one this session does not own, is
-          // reported as absent — never as a distinct status that would confirm it
-          // exists somewhere.
-          if (!hold || hold.venueId !== venue.id || hold.sessionId !== sessionId) {
-            return reply
-              .status(404)
-              .send(createProblemDetails(404, "Not Found", "Hold not found or expired."));
-          }
+          return runWithVenueContext(venueId, async () => {
+            const hold = await holdService.getById(holdId);
+            // A hold from another venue, or one this session does not own, is
+            // reported as absent — never as a distinct status that would confirm it
+            // exists somewhere.
+            if (!hold || hold.venueId !== venueId || hold.sessionId !== sessionId) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", "Hold not found or expired."));
+            }
     
-          return reply.send({ data: hold });
+            return reply.send({ data: hold });
+          });
         }
       );
     
@@ -3501,39 +3610,43 @@
           const sessionId = readSessionId(request, reply, "confirm");
           if (sessionId === null) return reply;
     
-          const venue = await resolveVenueBySlug(slug, reply);
-          if (venue === null) return reply;
+          const venueId = await resolveVenueBySlug(slug, reply);
+          if (venueId === null) return reply;
     
-          // Fields are named explicitly rather than forwarding the parsed body:
-          // Fastify leaves unknown properties on `request.body`, so spreading it
-          // would let an anonymous caller smuggle a `guestId` and attach its
-          // reservation to someone else's guest record.
-          const { guestName, guestEmail, guestPhone, notes } = request.body;
-          const result = await confirmHold({
-            holdId,
-            sessionId,
-            venueId: venue.id,
-            guestDetails: { guestName, guestEmail, guestPhone, notes },
+          return runWithVenueContext(venueId, async () => {
+            // Fields are named explicitly rather than forwarding the parsed body:
+            // Fastify leaves unknown properties on `request.body`, so spreading it
+            // would let an anonymous caller smuggle a `guestId` and attach its
+            // reservation to someone else's guest record.
+            const { guestName, guestEmail, guestPhone, notes } = request.body;
+            const result = await confirmHold({
+              holdId,
+              sessionId,
+              venueId,
+              guestDetails: { guestName, guestEmail, guestPhone, notes },
+            });
+    
+            if (!result.success) {
+              const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
+              const title = CONFIRM_ERROR_TITLE[result.errorCode] ?? "Conflict";
+              return reply
+                .status(httpStatus)
+                .send(createProblemDetails(httpStatus, title, result.error));
+            }
+    
+            // The hold is consumed, so it no longer counts against the per-IP
+            // active-hold cap — same bookkeeping the release path does.
+            decrementHoldCount(ip);
+    
+            // Only mint a manage token when an email was actually supplied: a
+            // phone-only booking is stored with `guestEmail: null`, and a token
+            // signed with "" could never validate against it.
+            const manageToken = guestEmail
+              ? generateManageToken(result.reservation.id, guestEmail)
+              : undefined;
+    
+            return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           });
-    
-          if (!result.success) {
-            const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
-            const title = CONFIRM_ERROR_TITLE[result.errorCode] ?? "Conflict";
-            return reply.status(httpStatus).send(createProblemDetails(httpStatus, title, result.error));
-          }
-    
-          // The hold is consumed, so it no longer counts against the per-IP
-          // active-hold cap — same bookkeeping the release path does.
-          decrementHoldCount(ip);
-    
-          // Only mint a manage token when an email was actually supplied: a
-          // phone-only booking is stored with `guestEmail: null`, and a token
-          // signed with "" could never validate against it.
-          const manageToken = guestEmail
-            ? generateManageToken(result.reservation.id, guestEmail)
-            : undefined;
-    
-          return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
         }
       );
     };
@@ -3632,61 +3745,67 @@
             );
           }
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function rather
+          // than an unscoped `venues` read by slug, then run the rest of this
+          // booking (guest-link lookup, hold confirmation) inside that venue's
+          // RLS context.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
           }
     
-          // Read-only recognition by the contact the guest typed — never by an id in the body,
-          // which the schema does not declare and this handler never reads (SC12). Both lookups
-          // run whenever their input is present, so a known contact costs the same as an unknown
-          // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
-          // branch only keeps the union honest.
-          const link = await resolveGuestLink({ venueId: venue.id, guestEmail, guestPhone });
+          return runWithVenueContext(venueId, async () => {
+            // Read-only recognition by the contact the guest typed — never by an id in the body,
+            // which the schema does not declare and this handler never reads (SC12). Both lookups
+            // run whenever their input is present, so a known contact costs the same as an unknown
+            // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
+            // branch only keeps the union honest.
+            const link = await resolveGuestLink({ venueId, guestEmail, guestPhone });
     
-          const result = await confirmHold({
-            holdId,
-            sessionId,
-            guestDetails: {
-              guestName,
-              guestEmail,
-              guestPhone,
-              notes: specialRequests,
-              guestId: link.ok ? (link.guestId ?? undefined) : undefined,
-            },
-          });
+            const result = await confirmHold({
+              holdId,
+              sessionId,
+              guestDetails: {
+                guestName,
+                guestEmail,
+                guestPhone,
+                notes: specialRequests,
+                guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+              },
+            });
     
-          if (!result.success) {
-            // A hold the caller does not own answers exactly as a hold that does not
-            // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
-            if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
-              throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+            if (!result.success) {
+              // A hold the caller does not own answers exactly as a hold that does not
+              // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
+              if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
+                throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+              }
+    
+              const statusMap: Record<string, number> = {
+                EXPIRED: 410,
+                CONFLICT: 409,
+                PACING_EXCEEDED: 422,
+              };
+              const httpStatus = statusMap[result.errorCode] ?? 409;
+              throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
             }
     
-            const statusMap: Record<string, number> = {
-              EXPIRED: 410,
-              CONFLICT: 409,
-              PACING_EXCEEDED: 422,
-            };
-            const httpStatus = statusMap[result.errorCode] ?? 409;
-            throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
-          }
+            decrementHoldCount(ip);
     
-          decrementHoldCount(ip);
+            const manageToken = generateManageToken(result.reservation.id, guestEmail);
     
-          const manageToken = generateManageToken(result.reservation.id, guestEmail);
+            // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
+            fastify.bookingNotifier
+              .scheduleBookingNotifications(result.reservation, manageToken)
+              .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
     
-          // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
-          fastify.bookingNotifier
-            .scheduleBookingNotifications(result.reservation, manageToken)
-            .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
-    
-          // The notifier above gets the linked reservation; the caller never learns of the link.
-          return reply.status(201).send({
-            data: {
-              reservation: withoutGuestLink(result.reservation),
-              manageToken,
-            },
+            // The notifier above gets the linked reservation; the caller never learns of the link.
+            return reply.status(201).send({
+              data: {
+                reservation: withoutGuestLink(result.reservation),
+                manageToken,
+              },
+            });
           });
         }
       );
@@ -3759,8 +3878,22 @@
               );
           }
     
+          // ADR-026 §3.3 item 4: resolve the guest's venue through the SECURITY
+          // DEFINER function rather than an unscoped `guests` read, then run the
+          // update inside that venue's RLS context. A NULL resolution means the
+          // guest no longer exists (`Guest.venueId` is NOT NULL, so this is the
+          // only way it can resolve to nothing) — deny, never fall through.
+          const venueId = await resolveVenueId("guest", result.guestId);
+          if (!venueId) {
+            return reply.status(404).send(
+              createProblemDetails(404, "Not Found", "Guest not found", "about:blank", undefined, {
+                code: "GUEST_NOT_FOUND",
+              })
+            );
+          }
+    
           try {
-            await guestService.markUnsubscribed(result.guestId);
+            await runWithVenueContext(venueId, () => guestService.markUnsubscribed(result.guestId!));
           } catch (err) {
             request.log.error({ err }, "Failed to mark guest as unsubscribed");
             return reply
@@ -3808,15 +3941,29 @@
         },
         async (request, reply) => {
           const { slug } = request.params;
-          const publicVenue = await venueService.getPublicConfigBySlug(slug);
     
-          if (!publicVenue) {
+          // ADR-026 §3.3 item 3: resolve the venue through the SECURITY DEFINER
+          // `app_resolve_venue_id` (#5369 PR 3) rather than reading `venues` by
+          // slug unscoped — the exact unscoped-read trap this closes — then run
+          // the rest of the lookup inside that venue's RLS context.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .status(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          return reply.send({ data: publicVenue });
+          return runWithVenueContext(venueId, async () => {
+            const publicVenue = await venueService.getPublicConfigBySlug(slug);
+    
+            if (!publicVenue) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+            }
+    
+            return reply.send({ data: publicVenue });
+          });
         }
       );
     };
@@ -3866,46 +4013,58 @@
           const { slug } = request.params;
           const { partySize, guestName, guestPhone } = request.body;
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the rest of the join inside that venue's RLS context — never the
+          // client-supplied body.venueId, which could target another venue.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
-          if (!validatePhone(guestPhone)) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
-          }
+          return runWithVenueContext(venueId, async () => {
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+            }
     
-          // Always join under the venue resolved from the trusted slug — never the
-          // client-supplied body.venueId, which could target another venue.
-          const entry = await waitlistService.create({
-            venueId: venue.id,
-            partySize,
-            guestName,
-            guestPhone,
-          });
+            if (!validatePhone(guestPhone)) {
+              return reply
+                .code(400)
+                .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
+            }
     
-          // Fire-and-forget: SMS delivery failures must not block the response
-          fastify.waitlistNotifier
-            .notifyAdded({
-              id: entry.id,
-              guestPhone: entry.guestPhone,
-              guestName: entry.guestName,
-              position: entry.position,
-              estimatedWaitMinutes: entry.estimatedWaitMinutes,
-            })
-            .catch(() => {
-              // Already logged inside the notifier
+            // Always join under the venue resolved from the trusted slug — never the
+            // client-supplied body.venueId, which could target another venue.
+            const entry = await waitlistService.create({
+              venueId: venue.id,
+              partySize,
+              guestName,
+              guestPhone,
             });
     
-          return reply.code(201).send({
-            data: {
-              position: entry.position,
-              estimatedWaitMinutes: entry.estimatedWaitMinutes,
-            },
+            // Fire-and-forget: SMS delivery failures must not block the response
+            fastify.waitlistNotifier
+              .notifyAdded({
+                id: entry.id,
+                guestPhone: entry.guestPhone,
+                guestName: entry.guestName,
+                position: entry.position,
+                estimatedWaitMinutes: entry.estimatedWaitMinutes,
+              })
+              .catch(() => {
+                // Already logged inside the notifier
+              });
+    
+            return reply.code(201).send({
+              data: {
+                position: entry.position,
+                estimatedWaitMinutes: entry.estimatedWaitMinutes,
+              },
+            });
           });
         }
       );
@@ -4676,6 +4835,52 @@
         },
       };
     }
+    async function createDisposablePublicHold(
+      ctx: SweepContext,
+      slug: string,
+      date: string
+    ): Promise<{ id: string; sessionId: string }> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/venues/${slug}/holds`,
+        payload: { date, startTime: `${date}T18:00:00Z`, partySize: 2 },
+      });
+      const { data } = JSON.parse(res.body) as { data: { id: string; sessionId: string } };
+      return { id: data.id, sessionId: data.sessionId };
+    }
+    async function createDisposableManagedReservation(
+      ctx: SweepContext,
+      guestEmail: string,
+      date: string
+    ): Promise<string> {
+      const tableRes = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/tables",
+        payload: {
+          name: `RLS Sweep Item-4 Table ${randomUUID()}`,
+          capacity: 4,
+          venueId: ctx.venueA.id,
+        },
+      });
+      const { data: table } = JSON.parse(tableRes.body) as { data: { id: string } };
+    
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date,
+          startTime: `${date}T18:00:00Z`,
+          endTime: `${date}T20:00:00Z`,
+          partySize: 2,
+          tableId: table.id,
+          venueId: ctx.venueA.id,
+          guestName: "RLS Sweep Item-4 Guest",
+          guestEmail,
+        },
+      });
+      const { data } = JSON.parse(res.body) as { data: { id: string } };
+      return data.id;
+    }
     export const PUBLIC_FIXTURES: Record<string, RouteFixture> = {
       ...publicFunnelFixtures,
       ...holdConfirmFixtures,
@@ -4788,6 +4993,14 @@
        */
       waitlistSeatTarget: string;
       depositA: string;
+      /**
+       * A deposit carrying a real `stripe_payment_intent_id`, on its own
+       * dedicated reservation (#5369 PR 8) — `depositA` deliberately carries no
+       * PaymentIntent id (item-6 is its own, unrelated concern). Used only by
+       * the Stripe webhook's item-4 fixture.
+       */
+      depositWithPiA: string;
+      depositWithPiAPaymentIntentId: string;
       holdA: string;
       /** The real session id `holdA` was created with — needed by every route
        * that requires the `x-session-id` capability header before it will even
@@ -4902,9 +5115,6 @@
     }
     function notRls(run: RouteFixture["run"]): RouteFixture {
       return { kind: "not-rls", run };
-    }
-    function broken(blocker: string, run: RouteFixture["run"]): RouteFixture {
-      return { kind: "broken", blocker, run };
     }
     function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
       const url = (venueId: string) => `${path}?venueId=${venueId}${extraQuery}`;
@@ -5065,67 +5275,87 @@
   <file path="src/routes/stripe-webhook.ts">
     export interface StripeWebhookLogger {
       info(details: object, msg: string): void;
+      warn(details: object, msg: string): void;
     }
     export function setStripeWebhookLogger(next: StripeWebhookLogger): void {
       logger = next;
     }
-    async function holdIfPending(paymentIntentId: string): Promise<void> {
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
-    
-      if (!deposit) {
+    async function withDepositVenueContext(
+      paymentIntentId: string,
+      eventType: string,
+      work: () => Promise<void>
+    ): Promise<void> {
+      const venueId = await resolveVenueId("payment_intent", paymentIntentId);
+      if (!venueId) {
+        logger.warn(
+          { paymentIntentId, eventType },
+          "webhook PaymentIntent did not resolve to exactly one venue; no-op"
+        );
         return;
       }
+      await runWithVenueContext(venueId, work);
+    }
+    async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+      await withDepositVenueContext(paymentIntentId, eventType, async () => {
+        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
-      if (deposit.status === "pending") {
-        await depositService.hold(deposit.id, paymentIntentId);
-      }
+        if (!deposit) {
+          return;
+        }
+    
+        if (deposit.status === "pending") {
+          await depositService.hold(deposit.id, paymentIntentId);
+        }
+      });
     }
     async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id);
+      await holdIfPending(paymentIntent.id, event.type);
     }
     async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id);
+      await holdIfPending(paymentIntent.id, event.type);
     }
     async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const paymentIntentId = paymentIntent.id;
     
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
+        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
-      if (!deposit) return;
+        if (!deposit) return;
     
-      // If pending, can't directly transition (no transition pending → uncollectable/refunded).
-      if (deposit.status !== "held") return;
+        // If pending, can't directly transition (no transition pending → uncollectable/refunded).
+        if (deposit.status !== "held") return;
     
-      // Stripe's `cancellation_reason` is the only reliable signal for WHY this
-      // intent was canceled. A human- or API-chosen reason (null/unset, which is
-      // what OUR OWN cancelPaymentIntent call sends, or a dashboard/API cancel:
-      // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
-      // deliberate release, not a dead authorization, and must be labeled
-      // `refunded` via the same path a staff-initiated refund uses (#5725
-      // MEDIUM-3). The null case is what OUR OWN refund() sends. When refund()'s
-      // own cancel call errors, `_reconcileCancelFailure` keeps `refunded` only if
-      // it retrieves `canceled`; otherwise it rolls back to `held` (#5753). If
-      // Stripe did cancel after all and this webhook already no-op'd against the
-      // interim `refunded` row, the row sits at `held` against a canceled intent
-      // until the next action settles it: refund() retrieves `canceled` and keeps
-      // `refunded`, and forfeit/apply write it off as `uncollectable`.
-      //
-      // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
-      // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
-      // Stripe canceled the intent with nobody here deciding anything. That is the
-      // same "authorization died before we could act" condition the
-      // no-show/forfeit capture-failure path already lands on `uncollectable` for
-      // (#5725 item 3). Inverting the test this way fails toward `uncollectable`
-      // (money NOT collected, NOT returned by us) rather than falsely claiming a
-      // refund. No Stripe call is made either way — the intent is already canceled.
-      if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
-        await depositService.refund(deposit.id, { skipStripeCancel: true });
-      } else {
-        await depositService.expireAuthorization(deposit.id);
-      }
+        // Stripe's `cancellation_reason` is the only reliable signal for WHY this
+        // intent was canceled. A human- or API-chosen reason (null/unset, which is
+        // what OUR OWN cancelPaymentIntent call sends, or a dashboard/API cancel:
+        // `requested_by_customer`, `duplicate`, `fraudulent`, `abandoned`) is a
+        // deliberate release, not a dead authorization, and must be labeled
+        // `refunded` via the same path a staff-initiated refund uses (#5725
+        // MEDIUM-3). The null case is what OUR OWN refund() sends. When refund()'s
+        // own cancel call errors, `_reconcileCancelFailure` keeps `refunded` only if
+        // it retrieves `canceled`; otherwise it rolls back to `held` (#5753). If
+        // Stripe did cancel after all and this webhook already no-op'd against the
+        // interim `refunded` row, the row sits at `held` against a canceled intent
+        // until the next action settles it: refund() retrieves `canceled` and keeps
+        // `refunded`, and forfeit/apply write it off as `uncollectable`.
+        //
+        // Every OTHER reason — `automatic`, `expired`, and the Stripe-internal
+        // `failed_invoice`/`void_invoice`, plus any reason a future SDK adds — means
+        // Stripe canceled the intent with nobody here deciding anything. That is the
+        // same "authorization died before we could act" condition the
+        // no-show/forfeit capture-failure path already lands on `uncollectable` for
+        // (#5725 item 3). Inverting the test this way fails toward `uncollectable`
+        // (money NOT collected, NOT returned by us) rather than falsely claiming a
+        // refund. No Stripe call is made either way — the intent is already canceled.
+        if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
+          await depositService.refund(deposit.id, { skipStripeCancel: true });
+        } else {
+          await depositService.expireAuthorization(deposit.id);
+        }
+      });
     }
     function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
       return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
@@ -5138,47 +5368,49 @@
     
       if (!paymentIntentId) return;
     
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+      await withDepositVenueContext(paymentIntentId, event.type, async () => {
+        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
     
-      if (!deposit) return;
+        if (!deposit) return;
     
-      // Only transition if currently held
-      if (deposit.status === "held") {
-        logger.info(
-          { depositId: deposit.id, paymentIntentId },
-          "charge.refunded received for a held deposit; refunding"
-        );
-        // Only a live authorization (`requires_capture`) has anything to cancel.
-        // A dashboard refund can follow an already-canceled intent, and a held
-        // row whose intent `succeeded` was captured and then refunded. Calling
-        // cancelPaymentIntent in either case fails, refund() then rolls back and
-        // throws (#5753), and Stripe would retry this webhook forever on the 500
-        // (#5719 LOW).
-        const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-        await depositService.refund(deposit.id, {
-          skipStripeCancel: intent.status !== "requires_capture",
-        });
-        return;
-      }
+        // Only transition if currently held
+        if (deposit.status === "held") {
+          logger.info(
+            { depositId: deposit.id, paymentIntentId },
+            "charge.refunded received for a held deposit; refunding"
+          );
+          // Only a live authorization (`requires_capture`) has anything to cancel.
+          // A dashboard refund can follow an already-canceled intent, and a held
+          // row whose intent `succeeded` was captured and then refunded. Calling
+          // cancelPaymentIntent in either case fails, refund() then rolls back and
+          // throws (#5753), and Stripe would retry this webhook forever on the 500
+          // (#5719 LOW).
+          const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
+          await depositService.refund(deposit.id, {
+            skipStripeCancel: intent.status !== "requires_capture",
+          });
+          return;
+        }
     
-      // A refund issued through the Stripe dashboard AFTER our own capture
-      // (applied/forfeited/partial_refunded) never touched the DB before this —
-      // the deposit kept reporting stale money-collected state after the guest
-      // was actually made whole. Reconcile against Stripe's own cumulative
-      // `amount_refunded` on the charge; this never re-transitions `status` or
-      // calls Stripe (the refund already happened) — it's an annotation on an
-      // already-terminal row (#5725 item 2).
-      if (
-        deposit.status === "applied" ||
-        deposit.status === "forfeited" ||
-        deposit.status === "partial_refunded"
-      ) {
-        logger.info(
-          { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
-          "charge.refunded received for a captured deposit; reconciling post-capture refund"
-        );
-        await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
-      }
+        // A refund issued through the Stripe dashboard AFTER our own capture
+        // (applied/forfeited/partial_refunded) never touched the DB before this —
+        // the deposit kept reporting stale money-collected state after the guest
+        // was actually made whole. Reconcile against Stripe's own cumulative
+        // `amount_refunded` on the charge; this never re-transitions `status` or
+        // calls Stripe (the refund already happened) — it's an annotation on an
+        // already-terminal row (#5725 item 2).
+        if (
+          deposit.status === "applied" ||
+          deposit.status === "forfeited" ||
+          deposit.status === "partial_refunded"
+        ) {
+          logger.info(
+            { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
+            "charge.refunded received for a captured deposit; reconciling post-capture refund"
+          );
+          await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
+        }
+      });
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -6261,11 +6493,24 @@
           },
         },
         async (request, reply) => {
-          const venue = await venueService.getPublicBySlug(request.params.slug);
-          if (!venue) {
+          const { slug } = request.params;
+    
+          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+          // run the actual lookup inside that venue's RLS context — this route
+          // has no `requireVenueAccess` guard (unauthenticated by design), so the
+          // slug is the only signal available.
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
-          return { data: venue };
+    
+          return runWithVenueContext(venueId, async () => {
+            const venue = await venueService.getPublicBySlug(slug);
+            if (!venue) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+            }
+            return { data: venue };
+          });
         }
       );
     
