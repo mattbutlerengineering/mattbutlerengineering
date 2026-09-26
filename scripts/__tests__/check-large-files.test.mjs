@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { describe, it, expect, afterEach } from "vitest";
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { isExemptLargeFile, filterLargeFiles } from "../check-large-files.mjs";
+import { isExemptLargeFile, filterLargeFiles, countLines } from "../check-large-files.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -52,6 +53,41 @@ describe("filterLargeFiles", () => {
       { path: "packages/rialto/src/small.ts", lines: 10 },
     ]);
     expect(result).toEqual([{ path: "packages/rialto/src/huge.ts", lines: 900 }]);
+  });
+
+  it("reports a genuinely oversized non-exempt markdown file, proving this isn't a blanket .md carve-out", () => {
+    const result = filterLargeFiles([
+      { path: "docs/architecture/dependency-graph.md", lines: 2272 },
+      { path: ".claude/improvement-loop/log.md", lines: 2264 },
+    ]);
+    expect(result).toEqual([{ path: "docs/architecture/dependency-graph.md", lines: 2272 }]);
+  });
+});
+
+describe("countLines", () => {
+  const tmpFile = resolve(tmpdir(), `check-large-files-test-${process.pid}.txt`);
+
+  afterEach(() => {
+    if (existsSync(tmpFile)) unlinkSync(tmpFile);
+  });
+
+  it("matches `wc -l` for a file ending in a trailing newline", () => {
+    writeFileSync(tmpFile, "a\nb\nc\n");
+    expect(countLines(tmpFile)).toBe(3);
+  });
+
+  it("matches `wc -l` for a file with NO trailing newline (the off-by-one case)", () => {
+    // `wc -l` counts newline characters, not physical lines: "a\nb\nc" has only
+    // 2 newlines, so `wc -l` reports 2, not 3. A naive split("\n").length would
+    // over-count by one here, and would have flagged an 800-newline file with
+    // one trailing unterminated line as 801 lines when `wc -l` reports 800.
+    writeFileSync(tmpFile, "a\nb\nc");
+    expect(countLines(tmpFile)).toBe(2);
+  });
+
+  it("returns 0 for an empty file", () => {
+    writeFileSync(tmpFile, "");
+    expect(countLines(tmpFile)).toBe(0);
   });
 });
 

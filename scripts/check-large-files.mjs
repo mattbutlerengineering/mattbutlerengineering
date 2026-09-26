@@ -47,10 +47,16 @@ export function filterLargeFiles(files) {
   return files.filter((file) => file.lines > LARGE_FILE_THRESHOLD && !isExemptLargeFile(file.path));
 }
 
-function countLines(filePath) {
+/**
+ * Counts lines the way `wc -l` does: newline characters, not physical lines —
+ * a file missing its trailing newline is one line short of split("\n").length.
+ * @param {string} filePath
+ * @returns {number}
+ */
+export function countLines(filePath) {
   const content = readFileSync(filePath, "utf8");
   if (content === "") return 0;
-  return content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+  return content.split("\n").length - 1;
 }
 
 function readStdin() {
