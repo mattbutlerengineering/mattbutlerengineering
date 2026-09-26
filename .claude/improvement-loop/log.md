@@ -2262,3 +2262,19 @@ None this run (`agent-skip` empty, 0 open).
 **Skill proposals:** 0 — today is Friday (weekly extraction day) but `.claude/session-logs/` has 0 entries in the last 7 days (matches the `sessionLogs` sensor: 0 sessions, 0 commits), so there is no session data to mine for a repeated pattern.
 
 **Threshold notes:** auto-tuner (bundled in `verify-fixes.mjs`) reports no adjustments needed. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-403 gap as the `issues` sensor — budgets file left at its existing error state (defaults to 3/category, unchanged from prior runs).
+
+## 2026-09-26 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 10 entries, metricsFreshness 0 unhealthy — review-burden=fresh 0.13d, reviewBurden no formal review stage (100 PRs, 0 review submissions), prCategoryMetrics 91/94 merged by category, ccusageCost $0 30d/7d/today cache_hit 94%, ciHealth 100% pass rate 20/20, sessionLogs 0 sessions/7d 0 commits, codeChurn 1% churn rate); agentCost/lighthouse/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback/queueEfficiency query failed — GitHub REST fallback credential rejected (403), the same recurring, accepted-by-design class as prior runs (#3937) — `mcp__github__*` tools were used for all issue/PR read and dedup work instead, per gotchas.md § Claude Code Remote.
+
+**Regressions:** 0 detected, 0 issues created. Status: Healthy.
+
+**Verifications:** 5 checked (48h window) — 1 verified (#5762 "AI audit trail: 2026-W39", ACMM L6 97/114 criteria passing), 0 failed/reopened, 4 skipped (#5766 no matching verifier for labels; #5760/#5759 no Lighthouse inventory to check against; #5746 no completed CI runs to verify against). 30-day non-skip verification sample (3 entries) reads 100% fix-effectiveness — well above the 50% floor, no note needed. False-positive rate (wontfix/invalid closures over learning-loop-created issues) could not be computed this run: no live feedback data (see below).
+
+**Sentry triage:** skipped — `sentry.io` is not in this cloud environment's network egress allowlist (403 "Host not in allowlist"), consistent with the no-production-egress constraint (#2920) this routine already runs under.
+
+**Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day.
+
+**Threshold notes:** auto-tuner (bundled in `verify-fixes.mjs`) reports no adjustments needed. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-403 gap as the `issues` sensor — `metrics/ai-issue-feedback.json` left at its existing error state (only the `collected_at` timestamp moved), so per-category budgets still default to 3 (no live feedback data to compute a false-positive rate or halve any budget).
+
+**Environment note (not a repo defect):** fresh checkout arrived in detached-HEAD state with no `node_modules` and no built package `dist/`s — standard cloud-session cold start. Needed `pnpm install --frozen-lockfile`, then `pnpm build --filter @mbe/gh-client...` (for `sensor-report.mjs`'s `@mbe/gh-client` import) and `pnpm build --filter @mbe/cli...` (agent-core + CLI transitive deps) before any script would run.
