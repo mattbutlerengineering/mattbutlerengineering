@@ -145,6 +145,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-memory-refs",
       "check-skill-references",
       "boundaries",
+      "check-boundaries-coverage",
     ]);
   });
 

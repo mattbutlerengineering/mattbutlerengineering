@@ -118,6 +118,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-skill-references.mjs"],
   },
   { name: "boundaries", command: "pnpm", args: ["check:boundaries"] },
+  {
+    name: "check-boundaries-coverage",
+    command: "node",
+    args: ["scripts/check-boundaries-coverage.mjs"],
+  },
 ];
 
 /**

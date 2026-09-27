@@ -93,6 +93,7 @@ module.exports = {
           "(^|/)setupTests\\.[jt]s$",
           "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$",
           "(^|/)scripts/",
+          "(^|/)infrastructure/pulumi/github\\.ts$",
           ...TEST_PATHS,
         ],
       },
