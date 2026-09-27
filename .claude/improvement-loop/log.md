@@ -2363,3 +2363,11 @@ Recording these so next week doesn't re-derive them:
 
 **queueEfficiency:** unavailable (credential_rejected)
 **Issues filed:** 0
+
+## 2026-09-27 (mbe-learning-loop)
+
+**Sensors:** 9/17 available
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 3 checked, 0 verified, 0 failed (reopened) — all skipped: #5790 (lighthouse inventory unavailable), #5787 and #5786 (no matching verifier for labels)
+**Skill proposals:** 0 (not Friday — skill-extraction step skipped)
+**Threshold notes:** Auto-tuner reports no adjustments needed. `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 (`credential_rejected`) already logged today by the optimize-implement-queue run — `issues`, `issueFeedback`, and `queueEfficiency` sensors were unavailable for the same reason. This is the known CCR auth limitation (gotchas.md § Claude Code Remote), not a new regression; AI-issue-feedback budgets carried over unchanged from the last successful collection.
