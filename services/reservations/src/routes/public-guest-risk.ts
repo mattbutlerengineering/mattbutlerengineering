@@ -8,6 +8,8 @@ import {
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRiskResultJsonSchema);
@@ -53,33 +55,44 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const venue = await venueService.getBySlug(slug);
-      if (!venue) {
+      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+      // run the guest lookup inside that venue's RLS context.
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) {
         return reply
           .status(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      const guest = email
-        ? await guestService.findByEmail(venue.id, email)
-        : phone
-          ? await guestService.findByPhone(venue.id, phone)
-          : null;
+      return runWithVenueContext(venueId, async () => {
+        const venue = await venueService.getBySlug(slug);
+        if (!venue) {
+          return reply
+            .status(404)
+            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+        }
 
-      if (!guest) {
-        // New guest — always trusted
+        const guest = email
+          ? await guestService.findByEmail(venue.id, email)
+          : phone
+            ? await guestService.findByPhone(venue.id, phone)
+            : null;
+
+        if (!guest) {
+          // New guest — always trusted
+          return reply.send({
+            data: { riskScore: "trusted", requiresDeposit: false },
+          });
+        }
+
+        const riskScore = assessGuestReliability(guest, venue.settings);
+
         return reply.send({
-          data: { riskScore: "trusted", requiresDeposit: false },
+          data: {
+            riskScore,
+            requiresDeposit: riskScore === "risky",
+          },
         });
-      }
-
-      const riskScore = assessGuestReliability(guest, venue.settings);
-
-      return reply.send({
-        data: {
-          riskScore,
-          requiresDeposit: riskScore === "risky",
-        },
       });
     }
   );

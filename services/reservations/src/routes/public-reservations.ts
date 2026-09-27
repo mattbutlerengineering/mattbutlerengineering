@@ -2,13 +2,14 @@ import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
 import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
-import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { resolveGuestLink } from "../services/guest-link.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 import { getManageTokenConfig } from "../config/manage-token.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 const TOKEN_SECRET = getManageTokenConfig({
   nodeEnv: process.env.NODE_ENV,
@@ -125,61 +126,67 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         );
       }
 
-      const venue = await venueService.getBySlug(slug);
-      if (!venue) {
+      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function rather
+      // than an unscoped `venues` read by slug, then run the rest of this
+      // booking (guest-link lookup, hold confirmation) inside that venue's
+      // RLS context.
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) {
         throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
       }
 
-      // Read-only recognition by the contact the guest typed — never by an id in the body,
-      // which the schema does not declare and this handler never reads (SC12). Both lookups
-      // run whenever their input is present, so a known contact costs the same as an unknown
-      // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
-      // branch only keeps the union honest.
-      const link = await resolveGuestLink({ venueId: venue.id, guestEmail, guestPhone });
+      return runWithVenueContext(venueId, async () => {
+        // Read-only recognition by the contact the guest typed — never by an id in the body,
+        // which the schema does not declare and this handler never reads (SC12). Both lookups
+        // run whenever their input is present, so a known contact costs the same as an unknown
+        // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
+        // branch only keeps the union honest.
+        const link = await resolveGuestLink({ venueId, guestEmail, guestPhone });
 
-      const result = await confirmHold({
-        holdId,
-        sessionId,
-        guestDetails: {
-          guestName,
-          guestEmail,
-          guestPhone,
-          notes: specialRequests,
-          guestId: link.ok ? (link.guestId ?? undefined) : undefined,
-        },
-      });
+        const result = await confirmHold({
+          holdId,
+          sessionId,
+          guestDetails: {
+            guestName,
+            guestEmail,
+            guestPhone,
+            notes: specialRequests,
+            guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+          },
+        });
 
-      if (!result.success) {
-        // A hold the caller does not own answers exactly as a hold that does not
-        // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
-        if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
-          throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+        if (!result.success) {
+          // A hold the caller does not own answers exactly as a hold that does not
+          // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
+          if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
+            throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+          }
+
+          const statusMap: Record<string, number> = {
+            EXPIRED: 410,
+            CONFLICT: 409,
+            PACING_EXCEEDED: 422,
+          };
+          const httpStatus = statusMap[result.errorCode] ?? 409;
+          throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
         }
 
-        const statusMap: Record<string, number> = {
-          EXPIRED: 410,
-          CONFLICT: 409,
-          PACING_EXCEEDED: 422,
-        };
-        const httpStatus = statusMap[result.errorCode] ?? 409;
-        throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
-      }
+        decrementHoldCount(ip);
 
-      decrementHoldCount(ip);
+        const manageToken = generateManageToken(result.reservation.id, guestEmail);
 
-      const manageToken = generateManageToken(result.reservation.id, guestEmail);
+        // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
+        fastify.bookingNotifier
+          .scheduleBookingNotifications(result.reservation, manageToken)
+          .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
 
-      // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
-      fastify.bookingNotifier
-        .scheduleBookingNotifications(result.reservation, manageToken)
-        .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
-
-      // The notifier above gets the linked reservation; the caller never learns of the link.
-      return reply.status(201).send({
-        data: {
-          reservation: withoutGuestLink(result.reservation),
-          manageToken,
-        },
+        // The notifier above gets the linked reservation; the caller never learns of the link.
+        return reply.status(201).send({
+          data: {
+            reservation: withoutGuestLink(result.reservation),
+            manageToken,
+          },
+        });
       });
     }
   );

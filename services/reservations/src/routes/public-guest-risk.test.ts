@@ -84,9 +84,16 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 3 / #5369 PR 8: see public-venues.test.ts's identical
+// comment for why this is mocked rather than hitting real `$queryRaw`.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 // Import after mocks
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import type { Guest } from "@mbe/types";
 import { GuestRiskResultSchema } from "@mbe/types/schemas";
 
@@ -265,7 +272,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
   });
 
   it("returns 404 when venue is not found", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValue(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const res = await app.inject({
       method: "GET",
@@ -276,7 +283,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
   });
 
   it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValue(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const res = await app.inject({
       method: "GET",

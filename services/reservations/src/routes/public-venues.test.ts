@@ -90,12 +90,24 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 3 / #5369 PR 8: the public slug routes now resolve the
+// venue via `resolveVenueId`, a raw `$queryRaw` call this suite's plain
+// `createMockDatabaseService()` stub can't answer. Route tests exercise
+// application logic, not real RLS resolution (that's
+// `rls-route-sweep.integration.test.ts`), so resolve to a constant non-null
+// venue id here — each test's own service-layer mock still drives the
+// specific-case behavior; the "not found" tests override this per-call.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
 import { venueService } from "../services/venue.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import type { PublicVenueConfig } from "@mbe/types";
 import { PublicVenueConfigSchema } from "@mbe/types/schemas";
 
@@ -160,7 +172,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns 404 for non-existent slug", async () => {
-    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",
@@ -171,7 +183,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
-    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",

@@ -412,15 +412,56 @@ the #5369 sweep and none of them fixed by it:
    against a real, migrated, FORCE'd database as a non-superuser owner role
    in `routes/rls-route-sweep.integration.test.ts` (the item-2 fixtures now
    assert admin and member-own-venue success and member-other-venue denial).
-3. **The whole public booking funnel.** Every `/public/v1/venues/:slug/*` route
-   opens with `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug`
-   — a `venues` read addressed by slug, which the global resolver cannot turn
-   into an `app.venue_id` — so under FORCE each answers 404 before reaching the
-   feature behind it.
-4. **The token-addressed guest surfaces** (`/public/v1/reservations/manage`,
-   `/confirm`, `/public/v1/guests/unsubscribe`) and the **Stripe webhook**'s
-   `depositService.getByPaymentIntentId` lookup, all of which address a row by
-   an opaque id or token with no venue in the request.
+3. **Closed (#5369 PR 8).** Every `/public/v1/venues/:slug/*` route (plus the
+   authenticated `GET /api/v1/venues/by-slug/:slug`, which shared the same
+   unscoped read) used to open with
+   `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug` — a
+   `venues` read addressed by slug, which the global resolver cannot turn into
+   an `app.venue_id`. Each route now resolves the slug first, through the same
+   `SECURITY DEFINER` `app_resolve_venue_id` (PR 3) via
+   `resolveVenueId("venue_slug", slug, group?)`, then runs the rest of the
+   request — the venue re-fetch, availability generation, hold create/read/
+   confirm, reservation creation, guest recognition/risk lookups, the waitlist
+   join, and the deposit PaymentIntent flow — inside `runWithVenueContext`. A
+   NULL resolution answers the route's pre-existing 404, never a fall-through.
+   Proved against a real, migrated, FORCE'd database as a non-superuser owner
+   role in `routes/rls-route-sweep.integration.test.ts` (the item-3 fixtures
+   now assert the correct venue is served by slug and an unknown or
+   wrong-venue slug is denied or 404'd, split across `rls-route-sweep.fixtures.ts`'s
+   `by-slug` entry and `rls-route-sweep.fixtures-public.ts`'s public-funnel
+   entries).
+4. **Closed (#5369 PR 8).** The token-addressed guest surfaces
+   (`/public/v1/reservations/manage`, `/confirm`,
+   `/public/v1/guests/unsubscribe`) each resolved their target row by an
+   opaque id or token with no venue in the request —
+   `reservationService.getById`/`guestService.markUnsubscribed` read an RLS
+   table unscoped. Each now resolves its venue first, via
+   `resolveVenueId("reservation", id)` / `resolveVenueId("guest", id)`, then
+   runs the read or mutation inside `runWithVenueContext`; a NULL resolution
+   answers the route's existing 404 (`public-unsubscribe.ts` gained a
+   `GUEST_NOT_FOUND` extension for its case, since it previously fell through
+   to a manually-caught 500). `requireManageToken`'s own venue-scoped
+   ownership check uses `runWithVenueContext`, not `enterVenueContext` — the
+   latter's AsyncLocalStorage `.enterWith()` resolves one full request late
+   when called after an `await` inside a preHandler (`venue-context-store.ts`'s
+   own doc comment), a landmine that would have silently corrupted every other
+   route sharing the same global preHandler chain. The **Stripe webhook**'s
+   `depositService.getByPaymentIntentId` lookup (`onPaymentIntentSucceeded`,
+   `onPaymentIntentAmountCapturableUpdated`, `onPaymentIntentCanceled`,
+   `onChargeRefunded`, all funneled through the shared `holdIfPending`/
+   `withDepositVenueContext` helper) resolves via
+   `resolveVenueId("payment_intent", paymentIntentId)` the same way; a NULL
+   resolution is the handler's pre-existing no-deposit no-op, so Stripe never
+   sees a 500 and never retries an event no deposit exists for — the helper
+   also logs a warning naming the PaymentIntent id and event type on this
+   branch, so a payload that never resolves is observable without becoming a 500. No deposit state-machine logic changed — only the scope the lookups
+   run inside. Proved against a real, migrated, FORCE'd database as a
+   non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
+   (the item-4 fixtures assert the correct reservation/guest is reached, the
+   deposit transitions `pending` → `held` for its own PaymentIntent id, and a
+   gone token or an unknown PaymentIntent id is denied, 404'd, or silently
+   no-op'd — the fixture does not exercise a PaymentIntent id belonging to
+   another venue's deposit).
 5. **Closed (#5369 PR 7).** The venue-self-addressed family
    (`GET/PATCH/DELETE /api/v1/venues/:id`, `/:id/table-statuses`) — the
    global preHandler (`resolveGlobalVenueId` in `app.ts`) only reads a

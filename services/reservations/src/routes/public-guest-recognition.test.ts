@@ -79,6 +79,12 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// ADR-026 §3.3 item 3 / #5369 PR 8: see public-venues.test.ts's identical
+// comment for why this is mocked rather than hitting real `$queryRaw`.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
+
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -86,6 +92,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import { GuestRecognitionSchema } from "@mbe/types/schemas";
 
 const mockVenue = {
@@ -162,7 +169,7 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
   });
 
   it("returns 404 for invalid venue slug", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",
@@ -173,7 +180,7 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
   });
 
   it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",

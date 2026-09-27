@@ -190,6 +190,15 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const holdAId = `rls-sweep-hold-a-${randomUUID()}`;
     const holdASessionId = `rls-sweep-session-${randomUUID()}`;
     const reservationAGuestEmail = RESERVATION_A_GUEST_EMAIL;
+    // #5369 PR 8: a dedicated reservation + deposit pair for the Stripe
+    // webhook's item-4 "ok" fixture (`depositA` above carries no PaymentIntent
+    // id and is item-6's own — deliberately not shared with it). A `pending`
+    // status + a real `stripe_payment_intent_id` lets `holdIfPending` run its
+    // whole DB-only transition (no live Stripe call needed) and actually
+    // observe the deposit moving to `held` under the resolved venue's context.
+    const reservationForWebhookId = `rls-sweep-res-webhook-a-${randomUUID()}`;
+    const depositWithPiAId = `rls-sweep-dep-pi-a-${randomUUID()}`;
+    const depositWithPiAPaymentIntentId = `pi_rls_sweep_${randomUUID()}`;
 
     await seedClient.query(
       `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
@@ -273,6 +282,17 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       [depositAId, reservationAId]
     );
     await seedClient.query(
+      `INSERT INTO reservations
+         (id, venue_id, table_id, guest_email, date, start_time, end_time, party_size, updated_at)
+       VALUES ($1, $2, $3, 'rls-sweep-webhook@example.com', '2026-10-05', '2026-10-05T18:00:00Z', '2026-10-05T20:00:00Z', 2, now())`,
+      [reservationForWebhookId, venueAId, tableAId]
+    );
+    await seedClient.query(
+      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, status, stripe_payment_intent_id, updated_at)
+       VALUES ($1, $2, 5000, 'usd', 'pending', $3, now())`,
+      [depositWithPiAId, reservationForWebhookId, depositWithPiAPaymentIntentId]
+    );
+    await seedClient.query(
       `INSERT INTO reservation_holds
          (id, venue_id, table_id, date, start_time, end_time, party_size, session_id, expires_at)
        VALUES ($1, $2, $3, '2026-10-02', '2026-10-02T18:00:00Z', '2026-10-02T19:00:00Z', 2, $4, now() + interval '10 minutes')`,
@@ -301,6 +321,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       waitlistB: waitlistBId,
       waitlistSeatTarget: waitlistSeatTargetId,
       depositA: depositAId,
+      depositWithPiA: depositWithPiAId,
+      depositWithPiAPaymentIntentId,
       holdA: holdAId,
       holdSessionId: holdASessionId,
       lastRlsErrorName: null,
@@ -360,9 +382,21 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     await setForce(declaredForce.has("venues"));
 
     await seedClient.query("DELETE FROM venue_memberships WHERE user_sub = $1", [MEMBER_SUB]);
-    await seedClient.query("DELETE FROM deposits WHERE reservation_id = ANY($1)", [
-      [ctx.reservationA, ctx.reservationB].filter(Boolean),
-    ]);
+    // By the OWNING reservation's venue, not a fixed list of deposit ids:
+    // `depositWithPiA` (#5369 PR 8, the Stripe webhook item-4 fixture) sits on
+    // its own dedicated reservation (still under venue A), and the `POST
+    // /api/v1/deposits` item-6 fixture (#5369 PR 7) creates a THIRD, unseeded
+    // deposit against `reservationB` live during the run — a fixed
+    // `[depositA, depositWithPiA]` id list misses that one and leaves it
+    // referencing a row the `reservations` delete below is about to remove,
+    // violating `deposits_reservation_id_fkey`. Every reservation in this
+    // sweep is created under venue A or B (seeded or disposable), so scoping
+    // by their venue catches every deposit regardless of which fixture
+    // created it.
+    await seedClient.query(
+      "DELETE FROM deposits WHERE reservation_id IN (SELECT id FROM reservations WHERE venue_id = ANY($1))",
+      [[ctx.venueA.id, ctx.venueB.id]]
+    );
     await seedClient.query("DELETE FROM waitlist_entries WHERE venue_id = ANY($1)", [
       [ctx.venueA.id, ctx.venueB.id],
     ]);

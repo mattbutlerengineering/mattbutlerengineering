@@ -82,6 +82,13 @@ vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
 });
+// ADR-026 §3.3 item 3 / #5369 PR 8: this route now resolves the venue via
+// `resolveVenueId` rather than `venueService.getBySlug` — see
+// public-venues.test.ts's identical comment. Resolves to `mockVenue.id` so
+// the guest-link `venueId` assertions below still match.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
+}));
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -90,6 +97,7 @@ vi.mock("jose", () => ({
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { guestService } from "../services/guest.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
@@ -229,7 +237,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
   });
 
   it("returns 404 with VENUE_NOT_FOUND code for an unknown venue slug", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "POST",

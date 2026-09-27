@@ -97,14 +97,18 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-// ADR-026 §3.3 item 5 / #5369 PR 7: GET/PATCH/DELETE /:id and
-// GET /:id/table-statuses now resolve venue ids via `resolveVenueId`, a raw
-// `$queryRaw` call this suite's plain `createMockDatabaseService()` stub
-// can't answer. Route tests exercise application logic, not real RLS
-// resolution (that's `rls-route-sweep.integration.test.ts`), so resolve to a
-// constant non-null venue id here — same convention as `tables.test.ts`.
+// ADR-026 §3.3 item 3 / #5369 PR 8: `GET /v1/venues/by-slug/:slug` now
+// resolves the venue via `resolveVenueId` (a raw `$queryRaw` call this
+// suite's plain `createMockDatabaseService()` stub can't answer) — see
+// public-venues.test.ts's identical comment. ADR-026 §3.3 item 5 / #5369
+// PR 7: GET/PATCH/DELETE /:id and GET /:id/table-statuses resolve venue ids
+// the same way. Route tests exercise application logic, not real RLS
+// resolution (that's `rls-route-sweep.integration.test.ts`) — `loadInVenueContext`
+// passes the resolved id only to `runWithVenueContext`, never to the (mocked)
+// `venueService` call the assertions below check, so any non-null value works
+// for every test in this file.
 vi.mock("../services/resolve-venue.js", () => ({
-  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+  resolveVenueId: vi.fn().mockResolvedValue("venue-123"),
 }));
 
 // Mock jose library for JWT verification
@@ -121,6 +125,7 @@ import {
 import { VENUE_CREATE_RATE_LIMIT } from "./venues.js";
 import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockVenueGroup = {
@@ -766,7 +771,7 @@ describe("Venue Routes", () => {
       });
 
       it("returns 404 when venue slug not found", async () => {
-        vi.mocked(venueService.getPublicBySlug).mockResolvedValueOnce(null);
+        vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
         const response = await app.inject({
           method: "GET",

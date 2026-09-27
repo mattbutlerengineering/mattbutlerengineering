@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { reservationService } from "../services/reservation.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 
 const successHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -32,16 +34,26 @@ export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: requireManageToken,
     },
     async (request, reply) => {
-      const reservation = await reservationService.getById(request.managedReservationId);
-      if (!reservation) {
+      // ADR-026 §3.3 item 4: resolve the reservation's venue through the
+      // SECURITY DEFINER function, then run the read + confirm inside that
+      // venue's RLS context.
+      const venueId = await resolveVenueId("reservation", request.managedReservationId);
+      if (!venueId) {
         return reply.status(401).type("text/html").send(invalidHtml);
       }
 
-      if (reservation.status === "PENDING") {
-        await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
-      }
+      return runWithVenueContext(venueId, async () => {
+        const reservation = await reservationService.getById(request.managedReservationId);
+        if (!reservation) {
+          return reply.status(401).type("text/html").send(invalidHtml);
+        }
 
-      return reply.status(200).type("text/html").send(successHtml);
+        if (reservation.status === "PENDING") {
+          await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
+        }
+
+        return reply.status(200).type("text/html").send(successHtml);
+      });
     }
   );
 };

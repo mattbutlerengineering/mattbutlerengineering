@@ -53,6 +53,15 @@ vi.mock("resend", () => ({
   })),
 }));
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: `requireManageToken` and this route now
+// resolve the reservation's venue via `resolveVenueId` — see
+// public-venues.test.ts's identical comment. Resolves to `mockReservation
+// .venueId`/`mockVenue.id` so both call sites' own service mocks stay in
+// control of the actual test-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
+}));
+
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 
@@ -144,6 +153,8 @@ describe("GET /public/v1/reservations/manage", () => {
   it("returns 404 with a code extension when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
 
     const response = await app.inject({

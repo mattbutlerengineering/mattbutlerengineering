@@ -142,6 +142,14 @@ export interface SweepContext {
    */
   waitlistSeatTarget: string;
   depositA: string;
+  /**
+   * A deposit carrying a real `stripe_payment_intent_id`, on its own
+   * dedicated reservation (#5369 PR 8) — `depositA` deliberately carries no
+   * PaymentIntent id (item-6 is its own, unrelated concern). Used only by
+   * the Stripe webhook's item-4 fixture.
+   */
+  depositWithPiA: string;
+  depositWithPiAPaymentIntentId: string;
   holdA: string;
   /** The real session id `holdA` was created with — needed by every route
    * that requires the `x-session-id` capability header before it will even
@@ -306,9 +314,6 @@ function ok(run: RouteFixture["run"]): RouteFixture {
 }
 function notRls(run: RouteFixture["run"]): RouteFixture {
   return { kind: "not-rls", run };
-}
-function broken(blocker: string, run: RouteFixture["run"]): RouteFixture {
-  return { kind: "broken", blocker, run };
 }
 
 /**
@@ -746,11 +751,25 @@ const venueFixtures: Record<string, RouteFixture> = {
       "create venue"
     );
   }),
-  "GET /api/v1/venues/by-slug/:slug": broken("item-3", async (ctx) => {
-    expectBroken(
-      await asAdmin(ctx, { method: "GET", url: `/api/v1/venues/by-slug/${ctx.venueA.slug}` }),
-      "get venue by slug",
-      ctx
+  // ADR-026 §3.3 item 3 — closed by #5369 PR 8, which resolves the slug via
+  // the SECURITY DEFINER `app_resolve_venue_id` (services/resolve-venue.ts)
+  // rather than an unscoped `venues` read, then runs the lookup inside that
+  // venue's RLS context.
+  "GET /api/v1/venues/by-slug/:slug": ok(async (ctx) => {
+    const res = await asAdmin(ctx, {
+      method: "GET",
+      url: `/api/v1/venues/by-slug/${ctx.venueA.slug}`,
+    });
+    expectOk(res, "get venue by slug");
+    const body = JSON.parse(res.body) as { data: { slug: string } };
+    expect(body.data.slug, "must serve the venue matching the slug").toBe(ctx.venueA.slug);
+
+    expectDenied(
+      await asAdmin(ctx, {
+        method: "GET",
+        url: "/api/v1/venues/by-slug/rls-sweep-no-such-slug",
+      }),
+      "unknown slug"
     );
   }),
   "GET /api/v1/venues/:id": okEntityRead(
@@ -1304,41 +1323,40 @@ const depositFixtures: Record<string, RouteFixture> = {
   // `pending` (never transitioned elsewhere in this sweep, so it stays safe
   // to read repeatedly from the GET fixtures above), so each of these throws
   // DepositTransitionError (422) before ever reaching Stripe — this suite
-  // provisions no Stripe key. That 422 is still the right evidence: it is
-  // only reachable once `resolveVenueId("deposit", id)` resolves the venue
-  // and the deposit load inside that context succeeds, so the assertion
-  // below checks exactly the RLS-relevant half (no 403/404, no tripwire) —
-  // the same pattern the waitlist `/notify` fixture uses for its own
-  // unprovisioned dependency (BullMQ/Redis).
+  // provisions no Stripe key. Asserting the exact 422 (not merely "not
+  // 403/404") is the point: a bare `not.toContain([403, 404])` also passes on
+  // an unrelated 500, which would let a genuine regression slip through
+  // silently (#5369 PR 7 review). 422 is only reachable once
+  // `resolveVenueId("deposit", id)` resolves the venue and the deposit load
+  // inside that context succeeds, so it is still exactly the RLS-relevant
+  // evidence the waitlist `/notify` fixture's own unprovisioned-dependency
+  // pattern is after — just precise about which non-403/404 status counts.
   "POST /api/v1/deposits/:id/capture": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/capture`,
     });
-    expect([403, 404], `capture: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `capture: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "capture: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
   "POST /api/v1/deposits/:id/refund": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/refund`,
     });
-    expect([403, 404], `refund: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `refund: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "refund: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
   "POST /api/v1/deposits/:id/forfeit": ok(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
       url: `/api/v1/deposits/${ctx.depositA}/forfeit`,
     });
-    expect([403, 404], `forfeit: venue must resolve, got ${res.statusCode}`).not.toContain(
-      res.statusCode
+    expect(res.statusCode, `forfeit: expected the pending-deposit 422, got ${res.statusCode}`).toBe(
+      422
     );
-    expect(ctx.lastRlsErrorName, "forfeit: RLS tripwire fired").not.toBe("RlsUnscopedQueryError");
   }),
 };
 
