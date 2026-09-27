@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-27T01:23:18.728Z",
+  "generated_at": "2026-09-27T18:04:59.664Z",
   "period": {
     "start": "2026-09-20",
     "end": "2026-09-27"
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.43,
-          "latest": "2026-09-26T15:02:12.399Z",
+          "age_days": 0.1,
+          "latest": "2026-09-27T15:42:30.992Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-26T15:02:12.399Z",
+      "collected_at": "2026-09-27T15:42:30.992Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -63,22 +63,22 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 98,
-      "total_merged": 95,
-      "total_closed_without_merge": 3,
+      "total_prs": 99,
+      "total_merged": 97,
+      "total_closed_without_merge": 2,
       "by_category": {
+        "tier:trivial": {
+          "merged": 40,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:sensitive": {
-          "merged": 20,
+          "merged": 21,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 28,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:trivial": {
-          "merged": 36,
+          "merged": 25,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -94,8 +94,8 @@
         },
         "dependencies": {
           "merged": 1,
-          "closed_without_merge": 2,
-          "acceptance_rate": 0.33
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.5
         },
         "priority:critical": {
           "merged": 0,
@@ -112,24 +112,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 105906050,
-      "output_tokens": 102431,
-      "cache_creation_tokens": 1532109,
-      "cache_hit_rate": 0.9857,
+      "cache_read_tokens": 1296470,
+      "output_tokens": 1514,
+      "cache_creation_tokens": 69567,
+      "cache_hit_rate": 0.9491,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 955,
-          "output_tokens": 102230,
-          "cache_read_tokens": 100583809,
-          "cache_creation_tokens": 1184765
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 932,
-          "output_tokens": 201,
-          "cache_read_tokens": 5322241,
-          "cache_creation_tokens": 347344
+          "input_tokens": 22,
+          "output_tokens": 1514,
+          "cache_read_tokens": 1296470,
+          "cache_creation_tokens": 69567
         }
       }
     },
@@ -137,17 +130,17 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 20,
+      "passed": 23,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36285376857,
+        "databaseId": 36339205351,
         "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-09-27T01:23:16Z",
-        "name": "Auto-Merge Policy",
+        "conclusion": "success",
+        "createdAt": "2026-09-27T18:03:12Z",
+        "name": "Sentry Triage",
         "headBranch": "main",
-        "headSha": "4c7487ad60e9636f2364443b1fc619dcf2b25d5e"
+        "headSha": "bce2567f3a8860c959a68e86c326d4ab4de17731"
       }
     },
     "lighthouse": {
@@ -165,17 +158,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 8,
-      "logs_7d": 8,
-      "total_commits_7d": 32,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.007,
-      "total_lines_added_7d": 665731,
-      "lines_churned_7d": 4558,
+      "churn_rate": 0.004,
+      "total_lines_added_7d": 664184,
+      "lines_churned_7d": 2740,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -184,11 +177,8 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": true,
-      "flaky_count": 0,
-      "flaky_tests": [],
-      "total_runs": 12085,
-      "window_shas": 3
+      "available": false,
+      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
     },
     "e2eStability": {
       "available": false
@@ -211,7 +201,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 10,
+    "sensors_available": 9,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
