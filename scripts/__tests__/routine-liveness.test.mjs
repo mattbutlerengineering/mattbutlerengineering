@@ -334,6 +334,40 @@ describe("prompt-documented PR-title signatures pending live-trigger confirmatio
   );
 });
 
+// #5603: the daily checker flagged mbe-evening `dark`. Investigation found the
+// signature itself was never the problem — it has been a real, matching
+// `pr-title` signature since the manifest's inception (#5557), and process
+// retros repeatedly observed it producing real PRs (e.g. #5718's "chore
+// (metrics): optimize-implement-queue 2026-09-24"). The actual cause was a
+// genuine one-day operational skip: `.claude/improvement-loop/log.md` has no
+// 2026-09-26 entry, so the most recent matching artifact aged past the
+// `periodDays: 1` routine's 2-day dark threshold. These assertions pin that
+// finding so a future reader doesn't re-diagnose the "no signature declared"
+// gap #5344/#5373 closed for other routines — that gap does not apply here.
+describe("mbe-evening liveness signature (#5603 investigation)", () => {
+  const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-evening");
+  const manifestSource = readFileSync(resolve(ROOT, "scripts", "routine-manifest.mjs"), "utf-8");
+
+  it("keeps a real pr-title signature, never falling back to unverifiable", () => {
+    expect(entry.signature).toEqual({
+      type: "pr-title",
+      pattern: String.raw`chore\(metrics\): optimize-implement-queue \d{4}-\d{2}-\d{2}`,
+      searchTerm: "optimize-implement-queue",
+    });
+    expect(entry.unverifiable).toBeFalsy();
+    expect(entry.outOfScope).toBeFalsy();
+  });
+
+  it("documents the #5603 investigation finding next to the entry", () => {
+    expect(manifestSource).toContain("#5603");
+  });
+
+  it("docs/routines/mbe-evening.md documents the exact PR title the signature searches for", () => {
+    const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-evening.md"), "utf-8");
+    expect(prompt).toContain("chore(metrics): optimize-implement-queue <date>");
+  });
+});
+
 // The known-good fixture (#5552 acceptance criterion 3): running the checker
 // against the 2026-09-13 -> 2026-09-20 window, as documented in the
 // docs/process-retro.md 2026-09-20 entry's liveness table, must report

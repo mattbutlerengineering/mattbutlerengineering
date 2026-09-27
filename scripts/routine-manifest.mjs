@@ -82,6 +82,19 @@ export const ROUTINE_MANIFEST = [
     // Step 1's "queue telemetry" PR title is shared with mbe-midday/mbe-night
     // (all three run the same /implement-queue step); step 3's
     // "optimize-implement-queue" PR is the one title unique to mbe-evening.
+    //
+    // #5603: the daily checker flagged this routine `dark`. The signature
+    // below was never the problem — it has been a real, matching pr-title
+    // signature since this manifest's inception (#5557), and has repeatedly
+    // been observed producing real PRs (e.g. #5718's "chore(metrics):
+    // optimize-implement-queue 2026-09-24"). The actual cause was a genuine
+    // one-day operational skip: `.claude/improvement-loop/log.md` has no
+    // 2026-09-26 entry, so the most recent matching artifact aged past this
+    // `periodDays: 1` routine's 2-day dark threshold. No manifest change was
+    // needed — this comment (and the pinning tests in
+    // scripts/__tests__/routine-liveness.test.mjs) exist so a future reader
+    // doesn't re-diagnose this as the "no signature declared" gap #5344/#5373
+    // closed for other routines; that gap does not apply here.
     signature: {
       type: "pr-title",
       pattern: String.raw`chore\(metrics\): optimize-implement-queue \d{4}-\d{2}-\d{2}`,
