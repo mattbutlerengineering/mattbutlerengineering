@@ -71,17 +71,8 @@ jobs:
 
           DIFF=$(gh pr diff "$PR_NUMBER")
 
-          # Check 1: Large files added
-          LARGE_FILES=""
-          while IFS= read -r FILE; do
-            [ -z "$FILE" ] && continue
-            [ ! -f "$FILE" ] && continue
-            LINES=$(wc -l < "$FILE" | tr -d ' ')
-            if [ "$LINES" -gt 800 ]; then
-              LARGE_FILES="${LARGE_FILES}- \`${FILE}\` (${LINES} lines)\n"
-            fi
-          done < /tmp/changed-files.txt
-
+          # Check 1: Large files added (exempts append-only logs, see scripts/check-large-files.mjs)
+          LARGE_FILES=$(node scripts/check-large-files.mjs < /tmp/changed-files.txt)
           if [ -n "$LARGE_FILES" ]; then
             FINDINGS="${FINDINGS}### Large Files (>800 lines)\n${LARGE_FILES}\nConsider splitting into smaller, focused modules.\n\n"
             SEVERITY="warning"
