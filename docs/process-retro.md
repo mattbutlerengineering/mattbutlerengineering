@@ -209,6 +209,29 @@ third time and _earned its `gotchas.md` entry this week_ (#5558, 09-21), rather
 than being rediscovered a fourth time. That is the harvest path working as
 designed.
 
+**And the inverse, found by this retro's own PR (#5818).** `auto-review` flagged
+`docs/process-retro.md` at 2556 lines under "Large Files (>800 lines) — consider
+splitting into smaller, focused modules." Splitting is the wrong action: this is
+an append-only, newest-first weekly log, exactly as its own header states, and it
+grows by one dated entry per week forever by design.
+
+The fix already exists in this repo and was scoped one file too narrowly. #5786 →
+PR #5792 (merged 09-26, one day before this run) added precisely this exemption —
+but `APPEND_ONLY_LOGS` in `scripts/check-large-files.mjs:32` lists only
+`.claude/improvement-loop/log.md` and `.claude/improvement-loop/revert-log.md`.
+`docs/process-retro.md` is the same class and is absent, so this warning will fire
+on **every** weekly retro PR from now on — a permanent false positive on the one
+artifact this routine exists to produce, which is how a reviewer learns to skim
+past `auto-review` entirely.
+
+Not filed: this run's three-issue budget went to the findings above, all of which
+outrank a cosmetic recurring warning. Recorded here instead so next week's run can
+file it without re-deriving it. The fix is a one-line addition to
+`APPEND_ONLY_LOGS` plus a test; the general lesson is the one this file keeps
+restating — #5792 fixed an _instance_ where the class was one list entry away,
+and the class is "repo-committed append-only logs", not "the improvement-loop
+log".
+
 ### Throughput
 
 | Metric                                    | Value                                                    |
