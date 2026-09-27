@@ -2358,3 +2358,8 @@ Recording these so next week doesn't re-derive them:
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-09-27
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
