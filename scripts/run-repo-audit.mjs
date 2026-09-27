@@ -59,6 +59,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-pipe-to-shell-pipefail.mjs"],
   },
   {
+    name: "check-pulumi-version-assertion",
+    command: "node",
+    args: ["scripts/check-pulumi-version-assertion.mjs"],
+  },
+  {
     name: "check-issue-filing-seam",
     command: "node",
     args: ["scripts/check-issue-filing-seam.mjs"],

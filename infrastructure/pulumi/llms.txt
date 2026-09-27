@@ -17,6 +17,12 @@
       export const e2eNonAdminUser: unknown;
     </item>
     <item priority="high">
+      export const tenant: unknown;
+    </item>
+    <item priority="high">
+      export const branding: unknown;
+    </item>
+    <item priority="high">
       export const auth0Outputs: unknown;
     </item>
   </file>

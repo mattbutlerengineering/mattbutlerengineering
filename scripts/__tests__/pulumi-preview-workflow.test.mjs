@@ -236,6 +236,21 @@ describe("pulumi-preview.yml — Pulumi CLI pin (4.1c)", () => {
       expect(pin.index).toBeLessThan(consumer.index);
     }
   });
+
+  it("asserts the installed binary is actually the pinned version, by explicit path", () => {
+    // A preview on an unverified engine answers a different question than the
+    // one that will apply — same wrong-version exposure as pulumi-up.yml.
+    const pinBody = runBody(stepNamed("Pin Pulumi CLI"));
+
+    expect(pinBody).toMatch(/"\$HOME\/\.pulumi\/bin\/pulumi"\s+version/);
+    expect(pinBody).toContain(`v${PINNED_VERSION}`);
+    expect(pinBody).toContain("exit 1");
+
+    const pathIdx = pinBody.indexOf('>> "$GITHUB_PATH"');
+    const assertIdx = pinBody.indexOf('"$HOME/.pulumi/bin/pulumi" version');
+    expect(pathIdx).toBeGreaterThan(-1);
+    expect(assertIdx).toBeGreaterThan(pathIdx);
+  });
 });
 
 describe("pulumi-preview.yml — build prerequisites (4.1b)", () => {

@@ -142,6 +142,18 @@ jobs:
           set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+          # This harness exists to produce a citable verdict about a SPECIFIC
+          # version (#4119). If the arm silently installed a different version
+          # than inputs.pulumi_version asked for, the reported verdict would be
+          # attributed to the wrong version — worse than no verdict at all. Query
+          # the binary by its explicit path — $GITHUB_PATH only affects *later*
+          # steps, so a bare `pulumi version` here would resolve the runner
+          # image's own binary regardless of what actually got installed.
+          installed="$("$HOME/.pulumi/bin/pulumi" version)"
+          if [ "$installed" != "v$PULUMI_VERSION_INPUT" ]; then
+            echo "Pulumi version mismatch: expected v$PULUMI_VERSION_INPUT, got \"$installed\"" >&2
+            exit 1
+          fi
 
       - name: Run validation arm (with fix)
         id: run-arm
@@ -187,6 +199,18 @@ jobs:
           set -euo pipefail
           curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
           echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+          # This harness exists to produce a citable verdict about a SPECIFIC
+          # version (#4119). If the arm silently installed a different version
+          # than inputs.pulumi_version asked for, the reported verdict would be
+          # attributed to the wrong version — worse than no verdict at all. Query
+          # the binary by its explicit path — $GITHUB_PATH only affects *later*
+          # steps, so a bare `pulumi version` here would resolve the runner
+          # image's own binary regardless of what actually got installed.
+          installed="$("$HOME/.pulumi/bin/pulumi" version)"
+          if [ "$installed" != "v$PULUMI_VERSION_INPUT" ]; then
+            echo "Pulumi version mismatch: expected v$PULUMI_VERSION_INPUT, got \"$installed\"" >&2
+            exit 1
+          fi
 
       - name: Run validation arm (without fix - control)
         id: run-arm
