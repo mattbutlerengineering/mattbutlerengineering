@@ -14,7 +14,7 @@
     "db:push": "pnpm --filter './services/*' exec prisma db push",
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "node scripts/run-repo-audit.mjs",
-    "check:prettier": "prettier --check .",
+    "check:prettier": "prettier --check . \".claude/**/*.md\"",
     "check:boundaries": "depcruise apps services packages tools infrastructure/worker --config .dependency-cruiser.cjs",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
