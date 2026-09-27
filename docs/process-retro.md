@@ -11,6 +11,290 @@ no retro.
 
 ---
 
+## 2026-09-27
+
+Window: **2026-09-20 → 2026-09-27**. Sources: GitHub MCP tool surface (PR/issue
+search, workflow-run/job endpoints, job logs), `.github/workflows/routine-liveness.yml`
+run `36323989915` (2026-09-27T13:54Z), `scripts/routine-manifest.mjs`,
+`scripts/scheduled-workflow-health.mjs`, `scripts/stale-human-blocked.mjs`,
+`scripts/merge-queue-eligibility.mjs`, `.claude/skills/implement-queue/SKILL.md`,
+`metrics/stale-human-blocked.jsonl`, `.claude/improvement-loop/log.md`,
+`docs/SECRETS.md`, `docs/scheduled-tasks.md`, and the working tree at `1862301`.
+
+**211 PRs opened, 210 closed, 1 still open. 100 issues filed, 159 closed (net
+−59).** Median PR lived **23.4 minutes**; 156 of 210 (74.3%) closed inside an
+hour, only 4 took over 24 h. `ci.yml` on `main` passed **79 of 80** non-cancelled
+runs (98.8%; 20 cancelled by concurrency, excluded per the `ciHealth` denominator
+rule). One revert, one broken-main incident. The `ready` queue stands at **6**.
+
+**All four of last week's escalations are closed.** #3253 (TypeScript 7) and
+#3277 (Pulumi `ignoreChanges` ownership) closed 09-23 after ~75 days stale;
+#3388 (`TURBO_TOKEN`) closed 09-25; #3389 (merge queue) had already closed
+08-17. The escalation channel works — three items that had outlived five retros
+cleared in one week.
+
+**`mbe-weekly-improve` is alive.** Last week's headline finding was that it was
+provably dark. It produced PRs on Friday 09-25 and the liveness checker now
+reports it `alive`. Both of last week's instrumentation escalations landed.
+
+This was a heavy week, not a quiet one, and flow was largely clean. Every finding
+below is an **instrumentation blind spot** rather than a stalled queue: three
+places where the factory cannot see itself, all three confirmed by measurement
+this run rather than inferred.
+
+### Routine liveness
+
+`routine-liveness.yml` (#5552/#5557, built 09-21) is now the authoritative
+instrument and replaces this section's hand-rolled artifact tally. Verdicts are
+read from run `36323989915`, not re-derived:
+
+| Verdict              | Routines                                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **alive (8)**        | `mbe-evening`, `mbe-auditor`, `mbe-daily-issue`, `mbe-morning`, `mbe-learning-loop`, `mbe-weekly-improve`, `mbe-doc-rot`, `mbe-weekly-retro` |
+| **unverifiable (3)** | `mbe-night` (#5604), `mbe-midday` (#5608), `mbe-monthly-meta-audit` (#5612)                                                                  |
+| **dark (0)**         | —                                                                                                                                            |
+
+The three `unverifiable` routines share one cause and one fix, and it is not a
+code fix: `docs/routines/*.md` now specifies a distinct PR title for each, but
+the **live RemoteTrigger prompt at claude.ai was never updated to match**, so
+searching for the new signature would misclassify a live routine as dark. The
+manifest fails closed and says so honestly instead. See Escalations.
+
+**New finding — a scheduled workflow that does not run produces no signal at
+all.** Both fleet-health checkers silently skipped days this week:
+
+| Workflow                        | Cron         | Runs observed 09-20 → 09-27                        | Missing          |
+| ------------------------------- | ------------ | -------------------------------------------------- | ---------------- |
+| `routine-liveness.yml`          | `10 8 * * *` | 09-21, 09-24, 09-25, 09-26, 09-27 (run_number 1→5) | **09-22, 09-23** |
+| `scheduled-workflow-health.yml` | daily        | 09-20, 09-21, 09-22, 09-24, 09-25, 09-26, 09-27    | **09-23**        |
+
+Nothing went red, because nothing ran. `scheduled-workflow-health.mjs` detects
+**consecutive failure streaks** (`buildScheduledFailureTitle`), and a workflow
+that never executed has no failed runs to streak — so the non-execution is
+structurally invisible to the only thing watching. `findScheduledWorkflows()`
+does enumerate `routine-liveness.yml` correctly; coverage is not the gap,
+**liveness-vs-failure is**. 09-22 is plausibly the cron not yet registered after
+the 09-21 merge; 09-23 hit _both_ checkers, which no repo change explains.
+Secondary observation: every observed run started 4h51m–6h54m after its
+scheduled minute, so `10 8 * * *` is in practice a ~13:00–15:00 UTC job.
+
+This is the same mechanism as the silent-collector entries in
+`.claude/rules/gotchas.md` § Metrics — a graceful non-event is byte-identical to
+success from outside — applied one level up, to the watchers themselves. It has
+now produced two instances in one week and is **not** in `gotchas.md`. Filed as
+#5815.
+
+### Blockers
+
+Only **two** open issues carry a blocker label (`ready-for-human`,
+`needs-review`, `blocked`, `agent-failed`, `stealable`) — the cleanest this
+section has been. Neither is a queue stall.
+
+| Issue | Labels                     | Age of last **human** touch               | Status                                                              |
+| ----- | -------------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| #4670 | `audit`, `ready-for-human` | **29 days** (last human touch 2026-08-29) | Genuine human-blocked item — see Escalations                        |
+| #5369 | `ready`, `needs-review`, … | 2 days (updated 09-25)                    | Active: the ADR-026 RLS chain shipped four PRs against it this week |
+
+Per `gotchas.md` § Metrics, `updatedAt` is not usable here — bot writes bump it.
+Ages above come from `metrics/stale-human-blocked.jsonl`'s persisted
+`last_human_touch_at`, not from `updatedAt` (#4670's `updatedAt` reads 09-26,
+which is bot noise).
+
+**And that instrument is itself broken — the #4274 trap recurring inside the
+#4274 fix.** `findStaleHumanBlockedIssues()`
+(`scripts/stale-human-blocked.mjs:118`) selects its candidate set with
+`nowMs - Date.parse(i.updatedAt) > thresholdMs`. The #4274 fix taught
+_consumers_ to read the persisted `last_human_touch_at` instead of `updatedAt`;
+the **detector's own candidate gate still reads `updatedAt`**. Consequences,
+measured:
+
+- #4670 last got a row on **09-13** recording `days_stale: 15`. Its true value
+  today is **29**. Any consumer reading the persisted field — which is what
+  #4274 instructed them to do — gets a number frozen two weeks ago.
+- Today's run (`36342992649`, 19:04Z, **success**) appended **zero rows**. The
+  jsonl's newest `detected_at` is still `2026-09-20`, the same run last week's
+  retro cited. A week of successful runs produced no measurement.
+- The failure direction is the dangerous one: any bot write — including this
+  detector's own `ready-for-human` label, `auto-label.yml`, or a PR
+  cross-reference — refreshes `updatedAt` and drops the issue out of the
+  candidate set. The detector is blindest to exactly the issues it has already
+  touched.
+
+Filed as #5816. This is why this section reports #4670's age from a 09-13 row
+and flags it explicitly rather than computing a fresh number.
+
+### Friction
+
+Median PR lifetime 23.4 min; 74.3% under an hour. Tier mix across the 211 PRs:
+88 `tier:trivial`, 56 `tier:standard`, 44 `tier:sensitive`, 20 `tier:critical`,
+3 unlabelled.
+
+**Checked and dismissed:** the 20 `tier:critical` PRs merged with a 58.7-minute
+median, 10 of them inside an hour, which looks like a bypassed T4 gate. It is
+not. `.claude/skills/implement-queue/SKILL.md` § "No tier hold" records this as
+deliberate standing policy (2026-07-12, reaffirmed 2026-08-06): tier labels do
+not block a merge that passed the review gate, because reintroducing a tier
+check deadlocked the queue on 2026-08-06. `isAutoMergeEligible` still blocks
+T2+ on the _unreviewed automation_ path, which is the path CLAUDE.md's merge-gate
+table describes. No finding — though CLAUDE.md's table states T4 "blocks
+auto-merge … plus Matt personally" with no mention of the carve-out, which is a
+documentation-consistency item owned by `mbe-doc-rot`, not this retro.
+
+**Real friction: Friday and weekend routine PRs have no one to enqueue them.**
+All four PRs that lived over 24 h are this pattern, not CI:
+
+| PR    | Lifetime | What it is                            |
+| ----- | -------- | ------------------------------------- |
+| #5767 | 33.0 h   | `docs: weekly rot sweep 2026-09-25`   |
+| #5771 | 32.5 h   | `chore(acmm): daily audit 2026-09-25` |
+| #5781 | 31.6 h   | ADR-026 RLS scoping (chain tail, T4)  |
+| #5783 | 29.2 h   | `weekly improve 2026-09-25` run log   |
+
+Three of the four are Friday-routine artifacts that sat until a single session
+drained them between **00:15 and 01:27 on 09-27** — they were CI-green the whole
+time, just never enqueued. `.claude/improvement-loop/log.md`'s own 09-27 entry
+independently reports the same thing from the other side: that session's Phase 0
+"found **7 stale-but-CI-green open PRs** sitting unmerged for 1-2 days … None
+were in a failed state, so nothing blocked new work, but nothing had actually
+enqueued them either — they just sat green." Live instance as this retro runs:
+#5811 (`chore(acmm): daily audit 2026-09-27`) has been open and green for ~7 h.
+
+Not filed. The loop log already flags it as a watch item pending recurrence, and
+the producer-side cause (nothing wires `--auto` for these producers) overlaps
+the `AUTOMATION_PAT` escalation below — fixing that secret is the cheaper first
+move. Re-check next week; if it recurs, it earns a `gotchas.md` entry.
+
+`update-branch` churn was **not** measured this run. Per `gotchas.md` § CI,
+`main` is not `strict` (measured 2026-08-17: `{"strict": false, "contexts":
+["CI Gate"]}`), so the ADR-016/ADR-023 N² tax should not be load-bearing; the
+rescue machinery built when it was `strict` is belt-and-braces. Two points of
+corroboration this week: zero `BEHIND`-related stalls surfaced, and the four
+slow PRs above are explained without it.
+
+### Recurring causes
+
+58 `ci.yml` runs failed across all branches. Grouped by cause, not count:
+
+| Cause                                                        | Runs | Real defect?            | In `gotchas.md`?            |
+| ------------------------------------------------------------ | ---: | ----------------------- | --------------------------- |
+| `automation/*` branch runs that never execute a job          |   32 | No — infrastructure     | Yes (§ CI, #3684/#4025)     |
+| `dependabot/*` grouped-bump pair + secret-scoped jobs        |   10 | Mixed, known            | Yes — **entry added 09-21** |
+| Feature branches (ordinary pre-merge red, fixed then merged) |    8 | Yes, resolved in-branch | n/a                         |
+| `worktree-agent/*`                                           |    3 | Yes, resolved in-branch | n/a                         |
+| `changeset-release/main`                                     |    2 | Yes — #5721 tree fix    | Yes (§ Releases, #3322)     |
+| `main` (broken main 09-22)                                   |    1 | **Yes**                 | n/a — reverted              |
+| `revert-broken-main-…`                                       |    1 | Follow-on of the above  | n/a                         |
+| `chaos/*`                                                    |    1 | No — seeded on purpose  | n/a                         |
+
+**32 of 58 (55%) of this week's CI failure signal is one unconfigured secret.**
+Every `automation/*` run inspected concluded `failure` with **zero jobs
+executed** (run `36349727696`: `total_jobs: 0`), and its terminal timestamp
+matches its PR's merge to the second (run `updated_at` 21:02:15, PR #5814 closed
+21:02:14) — i.e. the run sat parked awaiting manual approval and was killed when
+the PR merged by another path. `automation/production-feedback` alone accounts
+for 24 of them, one per production-health PR, four times a day, every day.
+`docs/SECRETS.md` § `AUTOMATION_PAT` states plainly: _"Not currently set … the
+fallback is a silent no-op, not a working alternative."_ See Escalations.
+
+**Broken main, 09-22.** #5662 landed at `328467be` and broke `main`'s AI
+Antipattern Ratchet job, which took `CI Gate` down with it (run `35680209172`,
+2 failed jobs of 23). Detected and reverted by #5665 inside **35 minutes**
+(#5664 opened 02:55, revert merged 03:33). Green-main policy held. The same
+night the deploy circuit breaker tripped twice (#5659, #5671) on the DO
+`patches/` Dockerfile incident — already root-caused and recorded in
+`gotchas.md` § Deploy (#5677 → #5681), nothing new to add.
+
+**Closed loop worth naming:** the Dependabot grouped-bump failure pair hit a
+third time and _earned its `gotchas.md` entry this week_ (#5558, 09-21), rather
+than being rediscovered a fourth time. That is the harvest path working as
+designed.
+
+### Throughput
+
+| Metric                                    | Value                                                    |
+| ----------------------------------------- | -------------------------------------------------------- |
+| Issues filed (window)                     | **100**                                                  |
+| Issues closed (window, `updatedAt` proxy) | **159**                                                  |
+| Net                                       | **−59** — backlog shrinking                              |
+| PRs opened / closed                       | 211 / 210 (1 in flight)                                  |
+| `ready` queue depth                       | **6** (#5805, #5806, #5807, #5748, #5612, #5369)         |
+| `agent-failed` / `agent-skip` open        | **0 / 0**                                                |
+| Reverts                                   | **1** (#5665 → #5662), under the >3/week alert threshold |
+
+The 100-filed figure is exact, cross-checked two ways: 311 numbers were
+allocated in the window (`#5504`–`#5814`), of which 211 are PRs, leaving 100
+issues — and an independent count of `created_at >= 2026-09-20` across both
+pages of the issue listing also gives 100. The 159-closed figure uses
+`updatedAt` as a proxy for `closedAt` (the same proxy
+`.claude/improvement-loop/log.md` uses) and is therefore an upper bound: some of
+those 159 were closed earlier and merely touched this week. The direction (net
+negative, backlog draining) is robust to that; the exact magnitude is not.
+
+Three weeks of filed-vs-closed now exist (09-13: 60/123; 09-20: 60/123;
+09-27: 100/159), all net-negative. That is a trend, but a shallow one on a
+metric whose closed-side is proxied — treat "backlog is draining" as supported
+and any rate estimate as not.
+
+### Top 3 changes
+
+1. **Detect a scheduled workflow that did not run, not just one that failed**
+   (#5815). Two missed days this week went entirely unsignalled. The fix is a
+   cadence/last-run check beside the existing failure-streak logic, with
+   `scripts/metrics-freshness.mjs`'s `classifyFreshness()` as the in-repo
+   precedent for the shape — including its rule that an empty result set must
+   fail rather than pass vacuously. Highest leverage because it protects every
+   other detector in the fleet: a blind watcher makes all of its subjects
+   unobservable, which is the 19-day outage this routine exists to prevent.
+2. **Stop gating the staleness detector's candidate set on `updatedAt`**
+   (#5816). One field reference is making the entire Pass-2 instrument report
+   zero rows while a 29-day-stale item sits unmeasured. Small, surgical, and it
+   restores the only trustworthy view of human-blocked aging — without which
+   this section is guessing.
+3. **Have `routine-liveness.mjs` close its own resolved findings** (#5817).
+   #5603 (`routine mbe-evening is dark`) is still open while today's run of the
+   very checker that filed it reports `mbe-evening` **alive**; the manifest
+   already carries a comment explaining the original flag was a one-day
+   operational skip. A detector that opens issues but never closes them trains
+   readers to ignore its issues, which costs more than the one stale issue —
+   the same reasoning this file's own header applies to padded retros.
+
+### Escalations
+
+Nothing here is agent-implementable; none are filed as `ready`.
+
+1. **Set the `AUTOMATION_PAT` repo secret.** _Ask:_ generate a PAT (or
+   bot-account token) with `repo` + `workflow` scope and run
+   `gh secret set AUTOMATION_PAT --body "<token>"`, per the runbook already
+   written at `docs/SECRETS.md` § `AUTOMATION_PAT` (steps 2–4). _Why it is
+   worth your time:_ it removes 32 of 58 (55%) of this week's CI-failure
+   signal, and it lets the five-step workaround chain those producers carry
+   today — dispatch `ci.yml`, dispatch `tier-classifier.yml`, approve pending
+   runs, `wait-for-tier-label.mjs`, then enable auto-merge — collapse back to
+   ordinary `pull_request` CI. It is also the cheapest lever on the
+   never-enqueued-green-PR friction above. This is the single highest-value
+   human action available in the repo right now.
+2. **Sync three live RemoteTrigger prompts to their committed captures.**
+   _Ask:_ at https://claude.ai/code/scheduled, edit the prompts for
+   `mbe-night` (`trig_01E6UxiwdsWcjBNwRGZSjmSV`), `mbe-midday`
+   (`trig_0118ZgGfEndrMqQSuTQNXQwT`) and `mbe-monthly-meta-audit`
+   (`trig_01SoWm7jxBGnJHxiyTMEKX1i`) so each emits the PR title its
+   `docs/routines/*.md` already specifies — `chore(metrics): night queue
+telemetry <date>`, `chore(metrics): midday queue telemetry <date>`, and
+   `chore(meta): monthly meta-audit <YYYY-MM-DD>`. _Then:_ #5748 (already
+   `ready`) flips the manifest signatures from `unverifiable` to real ones, and
+   #5604/#5608/#5612 close. Only a human can edit a trigger prompt; #5742
+   correctly identified this as the one unautomatable step and was closed on
+   that basis. Three of eleven routines stay structurally unverifiable until
+   this happens.
+3. **Decide what to do with #4670, "Orphaned resources found (201)."** _Ask:_
+   rule on whether the 201 orphaned resources get swept or allowlisted — a
+   one-line direction is enough for an agent to execute. _Why now:_ 29 days
+   since its last human touch, it is the only genuinely aged human-blocked item
+   in the repo, and the detector that is supposed to keep surfacing it has
+   stopped seeing it (#5816). Related cleanup already landed in #5756.
+
+---
+
 ## 2026-09-20
 
 Window: **2026-09-13 → 2026-09-20**. Sources: GitHub MCP tool surface (PR/issue
