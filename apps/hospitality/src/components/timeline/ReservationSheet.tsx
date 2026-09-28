@@ -15,6 +15,8 @@ import {
   useSeatGuest,
 } from "./seat-guest.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
+import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
+import { reservationSheetSize } from "./sheet-size.js";
 import styles from "./ReservationSheet.module.css";
 
 export interface ReservationSheetProps {
@@ -40,10 +42,10 @@ export interface ReservationSheetProps {
 }
 
 /**
- * The phone's bottom sheet (ux.md Screen 4): the summary row, the guest's signals, and the actions,
- * at compact height; More ▾ grows it to the default height and reveals the `GuestCard`, contact
- * details and notes. The height change is a class swap — no transition — so the sheet never
- * animates under a thumb.
+ * The phone's bottom sheet (ux.md Screen 4): the summary row, the guest's signals, any Special
+ * Requests, and the actions, at compact height, or at the default height when there are Special
+ * Requests; More ▾ grows it to the default height and reveals the `GuestCard` and contact details.
+ * The height change is a class swap — no transition — so the sheet never animates under a thumb.
  */
 export function ReservationSheet({
   reservation,
@@ -79,7 +81,7 @@ export function ReservationSheet({
       open={open}
       onClose={onClose}
       side="bottom"
-      size={expanded ? "default" : "compact"}
+      size={reservationSheetSize(reservation.notes, expanded)}
       title={reservation.guestName || "Guest"}
     >
       <Stack gap="md">
@@ -136,6 +138,8 @@ export function ReservationSheet({
             ))}
           </Stack>
         )}
+
+        <SpecialRequestsTicket notes={reservation.notes} />
 
         {failure && (
           <ErrorRetryBanner
@@ -204,16 +208,6 @@ export function ReservationSheet({
                 </Text>
                 <Text variant="body" as="div">
                   {reservation.guestPhone}
-                </Text>
-              </div>
-            )}
-            {reservation.notes && (
-              <div>
-                <Text variant="label" color="secondary">
-                  Notes
-                </Text>
-                <Text variant="body" as="div">
-                  {reservation.notes}
                 </Text>
               </div>
             )}

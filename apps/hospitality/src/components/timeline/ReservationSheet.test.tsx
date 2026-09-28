@@ -7,6 +7,7 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { ApiClientError } from "@mbe/api-client";
 import { ReservationSheet, type ReservationSheetProps } from "./ReservationSheet.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
+import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
 import type { Guest, Reservation, Table } from "@mbe/types";
 
 /* ── Mocks ──────────────────────────────────────────── */
@@ -256,7 +257,9 @@ describe("ReservationSheet", () => {
       expect(moreButton()).toHaveAttribute("aria-expanded", "true");
     });
 
-    it("reveals the GuestCard, email, phone and notes only once expanded", () => {
+    // Inverted on purpose (remembered-on-arrival M4.3): this test used to pin the notes behind
+    // More. Special Requests now shows before More; the GuestCard, email and phone half stands.
+    it("shows Special Requests before More, and reveals the GuestCard, email and phone only once expanded", () => {
       renderSheet({
         reservation: makeReservation({
           guestId: "g1",
@@ -265,15 +268,57 @@ describe("ReservationSheet", () => {
           notes: "Window seat",
         }),
       });
+      const label = CONFIRMATION_COPY.specialRequestsLabel;
+      expect(screen.getByRole("group", { name: label })).toBeInTheDocument();
+      expect(screen.getByText("Window seat")).toBeInTheDocument();
       expect(screen.queryByTestId("guest-card")).toBeNull();
       expect(screen.queryByText("priya@example.com")).toBeNull();
-      expect(screen.queryByText("Window seat")).toBeNull();
 
       fireEvent.click(moreButton());
       expect(screen.getByTestId("guest-card")).toHaveTextContent("g1");
       expect(screen.getByText("priya@example.com")).toBeInTheDocument();
       expect(screen.getByText("+1 555 0100")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: label })).toBeInTheDocument();
       expect(screen.getByText("Window seat")).toBeInTheDocument();
+    });
+  });
+
+  describe("Special Requests above the actions (remembered-on-arrival M4.3)", () => {
+    const label = CONFIRMATION_COPY.specialRequestsLabel;
+
+    it("opens at the default height with notes; More changes only aria-expanded and the revealed rows", () => {
+      renderSheet({
+        reservation: makeReservation({
+          guestId: "g1",
+          guestEmail: "priya@example.com",
+          guestPhone: "+1 555 0100",
+          notes: "Birthday celebration",
+        }),
+      });
+      const dialog = screen.getByRole("dialog");
+      expect(drawerSize(dialog)).toBe("default");
+      expect(moreButton()).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(moreButton());
+      expect(moreButton()).toHaveAttribute("aria-expanded", "true");
+      expect(drawerSize(dialog)).toBe("default");
+      expect(screen.getByTestId("guest-card")).toBeInTheDocument();
+      expect(screen.getByText("priya@example.com")).toBeInTheDocument();
+      expect(screen.getByText("+1 555 0100")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: label })).toBeInTheDocument();
+    });
+
+    it("stays compact with no group for whitespace-only notes", () => {
+      renderSheet({ reservation: makeReservation({ notes: "   " }) });
+      expect(drawerSize(screen.getByRole("dialog"))).toBe("compact");
+      expect(screen.queryByRole("group", { name: label })).toBeNull();
+    });
+
+    it("puts the group before Seat Guest", () => {
+      renderSheet({ reservation: makeReservation({ notes: "Birthday celebration" }) });
+      const group = screen.getByRole("group", { name: label });
+      const seat = screen.getByRole("button", { name: "Seat Guest" });
+      expect(group.compareDocumentPosition(seat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 
