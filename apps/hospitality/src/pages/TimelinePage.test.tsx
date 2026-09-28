@@ -6,6 +6,7 @@ import { render, screen, fireEvent, waitFor, within, act } from "@testing-librar
 import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
+import { SHEET_BLOCK_SIZE } from "../components/timeline/sheet-size.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
@@ -71,7 +72,7 @@ vi.mock("../components/timeline", () => ({
     onTableStatusChange?: (id: string, status: string) => void;
     selectedReservationId?: string | null;
     seatedIds?: ReadonlySet<string>;
-    bottomInset?: number;
+    bottomInset?: string;
     emptyNight?: {
       variant: "today" | "otherDate";
       dateLabel: string;
@@ -1588,7 +1589,7 @@ describe("TimelinePage", () => {
         await waitFor(() => {
           expect(screen.getByTestId("reservation-sheet")).toBeDefined();
         });
-        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("240");
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
       } finally {
         vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
           matches: false,
@@ -2285,6 +2286,12 @@ describe("TimelinePage", () => {
           reservations: [
             makeReservation({ id: "r1", guestName: "Alice", date: todayStr }),
             makeReservation({ id: "r2", guestName: "Bob", date: todayStr }),
+            makeReservation({
+              id: "r3",
+              guestName: "Cara",
+              date: todayStr,
+              notes: "Birthday celebration",
+            }),
           ],
         })
       );
@@ -2320,6 +2327,37 @@ describe("TimelinePage", () => {
       expect(screen.queryByTestId("reservation-sheet")).toBeNull();
       await selectReservation("r1");
       expect(sheet()).toHaveAttribute("data-expanded", "false");
+    });
+
+    const inset = () => screen.getByTestId("bottom-inset");
+
+    it("insets the grid by the compact sheet for a party without notes", async () => {
+      renderPage();
+      await selectReservation("r1");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
+    });
+
+    it("insets the grid by the default sheet for a party with notes", async () => {
+      renderPage();
+      await selectReservation("r3");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.default);
+    });
+
+    it("insets the grid by the default sheet once More is pressed", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.default);
+    });
+
+    it("returns to the compact inset after More, close and reselect", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close sheet" }));
+      expect(inset().textContent).toBe("");
+      await selectReservation("r1");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
     });
 
     it("selecting another reservation after More opens it collapsed (keyed by id)", async () => {

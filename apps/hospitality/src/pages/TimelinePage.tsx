@@ -15,6 +15,8 @@ import { MarkNoShowDialog } from "../components/timeline/MarkNoShowDialog.js";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
+// By path, not the barrel: TimelinePage.test.tsx mocks the barrel wholesale.
+import { SHEET_BLOCK_SIZE, reservationSheetSize } from "../components/timeline/sheet-size.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
@@ -49,8 +51,6 @@ const TIMELINE_DEFAULTS = timelineFilterSchema.parse({});
 /* ── Sentences (ux.md § Copy, `role=status` column) ── */
 
 const WALK_IN_DISABLED_CAPTION = "Walk-ins need the tables loaded — Retry above.";
-/** The tablet sheet's height (rialto `Drawer size="compact"`: `min(40vh, 240px)`), kept clear of the grid. */
-const SHEET_INSET_PX = 240;
 
 /** A status change the API refused — the banner's Retry re-sends exactly this transition. */
 interface TableStatusFailure {
@@ -427,7 +427,11 @@ export function TimelinePage() {
         onTableStatusChange={handleTableStatusChange}
         seatedIds={seatedIds}
         pendingTableId={pendingTableId}
-        bottomInset={viewport === "tablet" && selectedReservation ? SHEET_INSET_PX : undefined}
+        bottomInset={
+          viewport === "tablet" && selectedReservation
+            ? SHEET_BLOCK_SIZE[reservationSheetSize(selectedReservation.notes, sheetExpanded)]
+            : undefined
+        }
         emptyNight={
           quietNight
             ? {
