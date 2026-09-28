@@ -71,8 +71,6 @@ rules:
     - "**/llms.txt"
     - "**/llms-full.txt"
     - "**/*.test.{ts,tsx,js,jsx}"
-    - ".claude/acmm/state.json" # automation-only ACMM audit output, same class as metrics/**
-    - "apps/marketing/public/acmm-report.json"
 
 # Modifiers — apply after rules to escalate or de-escalate.
 modifiers:
