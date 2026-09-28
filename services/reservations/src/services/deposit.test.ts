@@ -18,7 +18,16 @@ vi.mock("./database.js", async () => {
   return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
 });
 
-import { DepositService, calculateDepositAmount } from "./deposit.js";
+import {
+  DepositService,
+  calculateDepositAmount,
+  setDepositServiceLogger,
+  DepositCaptureAmbiguousError,
+  DepositAlreadyCapturedError,
+  DepositRefundLegIncompleteError,
+  DepositWrittenOffUncollectableError,
+} from "./deposit.js";
+import { StripeOperationError } from "./stripe.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
 import type { DepositType } from "@mbe/cancellation-policy";
@@ -35,6 +44,8 @@ function createMockStripe() {
     capturePaymentIntent: vi.fn(),
     createPartialRefund: vi.fn(),
     createCustomer: vi.fn(),
+    retrievePaymentIntent: vi.fn(),
+    findDepositRefund: vi.fn(),
   };
 }
 
@@ -47,6 +58,9 @@ function makeVenueDepositConfig(overrides: Partial<VenueDepositConfig> = {}): Ve
     ...overrides,
   };
 }
+
+/** Well past `verifyCaptureCompleted`'s 5-minute rollback safety window (#5744 MEDIUM-A). */
+const BEYOND_ROLLBACK_SAFETY_WINDOW = new Date(Date.now() - 10 * 60 * 1000);
 
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
   return {
@@ -61,8 +75,11 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    forfeitOrigin: null,
+    uncollectableAt: null,
     feeAmountCents: null,
     refundAmountCents: null,
+    postCaptureRefundCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
     updatedAt: new Date("2026-01-25T00:00:00.000Z"),
     ...overrides,
@@ -72,11 +89,13 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
 describe("DepositService", () => {
   let depositService: DepositService;
   let mockStripe: ReturnType<typeof createMockStripe>;
+  const mockLogger = { error: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockStripe = createMockStripe();
     depositService = new DepositService(mockStripe);
+    setDepositServiceLogger(mockLogger);
   });
 
   describe("create", () => {
@@ -320,25 +339,135 @@ describe("DepositService", () => {
       expect(order).toEqual(["db", "stripe"]);
     });
 
-    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+    it("rolls back DB to held when Stripe capture fails with an error proving no capture happened (#5722 M2)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "applied", appliedAt: new Date() })
       );
-      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      // An error that proves no capture happened, verified via retrieve as
+      // still requires_capture: safe to roll back.
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "applied" },
           data: expect.objectContaining({ status: "held", appliedAt: null }),
         })
       );
+    });
+
+    it("does NOT roll back when an ambiguous capture error verifies as already captured (money moved)", async () => {
+      // A connection error/timeout on the capture call is ambiguous — Stripe
+      // may have processed it before the response was lost. Rolling back to
+      // `held` here would strand the row claiming no capture happened while
+      // the card was actually charged (#5719 item 4).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("timeout"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/timeout/);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("verifies a non-retriable Stripe decline via retrieve before rolling back — never trusts isRetriable alone (#5719 H2)", async () => {
+      // A non-retriable classification does not by itself prove the capture
+      // never reached Stripe (e.g. an auth/config error never reaches the
+      // card network at all) — always ask Stripe for the ground truth.
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("card declined"), "StripeCardError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/card declined/);
+
+      expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
+      expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { id: "dep-123", status: "applied" },
+          data: expect.objectContaining({ status: "held", appliedAt: null }),
+        })
+      );
+    });
+
+    it("writes the deposit off as uncollectable when Stripe confirms the authorization was canceled (#5719 H2)", async () => {
+      // A dead (auto-canceled/expired) authorization is never coming back —
+      // rolling back to `held` would make it look retryable when it isn't.
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { id: "dep-123", status: "applied" },
+          data: expect.objectContaining({
+            status: "uncollectable",
+            uncollectableAt: expect.any(Date),
+            appliedAt: null,
+          }),
+        })
+      );
+    });
+
+    it("surfaces the original capture error, untouched, when the verification retrieve itself fails (#5719 M1)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("retrieve also boom"));
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
     });
 
     it("surfaces the original Stripe error when the rollback DB write also fails", async () => {
@@ -348,11 +477,88 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "applied", appliedAt: new Date() })
       );
-      mockDepositDb.update.mockRejectedValueOnce(new Error("db down")); // rollback write fails
-      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockDepositDb.updateMany.mockRejectedValueOnce(new Error("db down")); // rollback write fails
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       // The caller must see the original Stripe failure, not the rollback DB error.
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+    });
+
+    it("does NOT roll back on a StripeConnectionError even when retrieve shows requires_capture — the capture may still be in flight (#5722 M2)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("connection lost"), "StripeConnectionError", true)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(DepositCaptureAmbiguousError);
+
+      // Only the initial CAS write happened — no rollback.
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("never claims confirmed success for a non-terminal PaymentIntent status like `processing` (#5722 M3)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("card declined"), "StripeCardError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "processing",
+      });
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(DepositCaptureAmbiguousError);
+
+      // Never rolled back and never written off — status is genuinely unknown.
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ depositId: "dep-123", intentStatus: "processing" }),
+        expect.stringMatching(/not confirmed/i)
+      );
+    });
+
+    it("logs at error level (never throws) when the rollback CAS write loses a concurrent race (#5722 M1)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // rollback CAS lost the race
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      // The original capture error still surfaces — a lost rollback race
+      // never throws its own error on top of it.
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ depositId: "dep-123", fromStatus: "applied" }),
+        expect.stringMatching(/concurrent-update race/i)
+      );
     });
   });
 
@@ -417,25 +623,376 @@ describe("DepositService", () => {
       expect(mockStripe.cancelPaymentIntent).toHaveBeenCalledWith("pi_test_123", "dep-123:refund");
     });
 
-    it("rolls back DB to held when Stripe cancel fails after the DB update", async () => {
+    // #5753: refund()'s error handling used to treat ANY cancelPaymentIntent
+    // failure as ambiguous and roll back to `held` unconditionally — racing
+    // Stripe's own payment_intent.canceled webhook, which only acts on `held`
+    // rows. If the webhook found the row already `refunded` (a no-op) before
+    // this rollback ran, the row was left at `held` forever with no future
+    // event able to fix it (Stripe fires that webhook only once). The fix
+    // mirrors the capture paths' `_reconcileCaptureFailure`: retrieve the
+    // PaymentIntent and branch on its REAL status instead of guessing.
+    it(
+      "definitely-not-canceled case: rolls back DB to held and rethrows when the retrieved " +
+        "PaymentIntent confirms the cancel did NOT happen (still requires_capture, #5753)",
+      async () => {
+        const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+        mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({ status: "refunded", refundedAt: new Date() })
+        );
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: "requires_capture",
+        });
+
+        await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
+
+        expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
+        expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+        expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            where: { id: "dep-123", status: "refunded" },
+            data: expect.objectContaining({ status: "held", refundedAt: null }),
+          })
+        );
+      }
+    );
+
+    // Ordering 1: the cancel webhook races in and finds the row already
+    // `refunded` (from the DB-first write below) BEFORE this reconciliation
+    // runs — onPaymentIntentCanceled only acts on `held` rows, so it no-ops.
+    // This reconciliation must independently confirm the cancel succeeded and
+    // never roll back, regardless of whether that no-op already happened.
+    it(
+      "ordering: webhook-before-rollback — keeps the deposit refunded (no rollback) when " +
+        "the retrieved PaymentIntent confirms it is already canceled (#5753)",
+      async () => {
+        const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+        mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({ status: "refunded", refundedAt: new Date() })
+        );
+        mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("response lost"));
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: "canceled",
+        });
+
+        const result = await depositService.refund("dep-123");
+
+        expect(result.status).toBe("refunded");
+        expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
+        // Only the initial DB-first write — no rollback attempted.
+        expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      }
+    );
+
+    // Ordering 2: the mirror of ordering 1 — the cancel webhook instead
+    // arrives AFTER this reconciliation has already run and kept the row
+    // `refunded`. Exercised at the webhook-handler level in
+    // stripe-webhook.test.ts ("ordering: webhook-after-rollback"); asserting
+    // both orderings land on the identical terminal state (never `held`) is
+    // the point of #5753 — see that test for the webhook-side half.
+
+    // Stripe-flow review of #5757: leaving the row `refunded` whenever the
+    // cancel isn't PROVEN is unsafe — a live hold (retrieve failed during an
+    // egress outage) or captured money (`succeeded`/`processing`) would be
+    // labeled refunded with nothing ever correcting it. Only a retrieved
+    // `canceled` keeps `refunded`; every other outcome rolls back to `held`,
+    // which is recoverable (a later refund() retrieves `canceled`, or a later
+    // forfeit/apply writes it off as `uncollectable`).
+    it(
+      "retrieve-fails case: rolls back to held and rethrows the original error when the " +
+        "PaymentIntent cannot be retrieved after a cancel failure (#5753)",
+      async () => {
+        const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+        mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({ status: "refunded", refundedAt: new Date() })
+        );
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+        mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("network blip"));
+
+        await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
+
+        expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+        expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            where: { id: "dep-123", status: "refunded" },
+            data: expect.objectContaining({ status: "held", refundedAt: null }),
+          })
+        );
+      }
+    );
+
+    it.each(["succeeded", "processing"])(
+      "already-captured case: rolls back to held and throws DepositAlreadyCapturedError when the " +
+        "retrieved PaymentIntent is %s — never records a refund for captured money (#5753)",
+      async (intentStatus) => {
+        const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+        mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({ status: "refunded", refundedAt: new Date() })
+        );
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+        mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("cannot cancel"));
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: intentStatus,
+        });
+
+        const error = await depositService.refund("dep-123").catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(DepositAlreadyCapturedError);
+        expect(error).toMatchObject({
+          depositId: "dep-123",
+          stripePaymentIntentId: "pi_test_123",
+          intentStatus,
+        });
+        expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            where: { id: "dep-123", status: "refunded" },
+            data: expect.objectContaining({ status: "held" }),
+          })
+        );
+      }
+    );
+
+    it("still rethrows the original error when the rollback itself fails (#5753)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "refunded", refundedAt: new Date() })
       );
-      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockRejectedValueOnce(new Error("db down"));
       mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
+    });
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+    it("skips the Stripe cancel call when skipStripeCancel is set (intent already canceled)", async () => {
+      // The canceled webhook fires because Stripe already canceled the intent
+      // — calling cancelPaymentIntent again would fail on an already-canceled
+      // intent and Stripe would retry the webhook forever (#5719 item 5).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "refunded", refundedAt: new Date() })
+      );
+
+      const result = await depositService.refund("dep-123", { skipStripeCancel: true });
+
+      expect(result.status).toBe("refunded");
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("expireAuthorization (held -> uncollectable, #5725 item 3)", () => {
+    it("transitions a held deposit to uncollectable, never calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "uncollectable", uncollectableAt: new Date() })
+      );
+
+      const result = await depositService.expireAuthorization("dep-123");
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
-          data: expect.objectContaining({ status: "held", refundedAt: null }),
+          where: { id: "dep-123", status: "held" },
+          data: expect.objectContaining({
+            status: "uncollectable",
+            uncollectableAt: expect.any(Date),
+          }),
         })
       );
+      expect(result.status).toBe("uncollectable");
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it("throws if the deposit is not in held state", async () => {
+      const pendingDeposit = makeDeposit({ status: "pending" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
+
+      await expect(depositService.expireAuthorization("dep-123")).rejects.toThrow(
+        /invalid.*transition|cannot transition/i
+      );
+    });
+
+    it("throws a conflict error if the CAS races (updateMany returns count 0)", async () => {
+      const heldDeposit = makeDeposit({ status: "held" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(depositService.expireAuthorization("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+    });
+  });
+
+  describe("recordPostCaptureRefund (#5725 item 2)", () => {
+    it("persists Stripe's cumulative amount_refunded for a forfeited deposit without changing status", async () => {
+      const forfeitedDeposit = makeDeposit({
+        status: "forfeited",
+        forfeitedAt: new Date(),
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...forfeitedDeposit,
+        postCaptureRefundCents: 2500,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 2500);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "dep-123",
+          OR: [{ postCaptureRefundCents: null }, { postCaptureRefundCents: { lt: 2500 } }],
+        },
+        data: { postCaptureRefundCents: 2500 },
+      });
+      expect(result.status).toBe("forfeited");
+      expect(result.postCaptureRefundCents).toBe(2500);
+    });
+
+    // #5725 HIGH-1: refundPartial's OWN Stripe refund of refundAmountCents
+    // fires this exact charge.refunded webhook, so amount_refunded already
+    // includes money WE sent back — only the amount ABOVE our own leg is a
+    // genuine post-capture (dashboard) refund. #5753 LOW-C: "our own leg" is
+    // resolved via findDepositRefund (ground truth), never the row's planned
+    // refundAmountCents — see the dedicated LOW-C tests below for why.
+    it("subtracts our own refundPartial leg for a partial_refunded deposit — equal amounts record nothing", async () => {
+      const partiallyRefunded = makeDeposit({
+        status: "partial_refunded",
+        refundAmountCents: 2000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partiallyRefunded);
+      mockStripe.findDepositRefund.mockResolvedValueOnce({ id: "re_ours", amount: 2000 });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 2000);
+
+      expect(mockStripe.findDepositRefund).toHaveBeenCalledWith("pi_test_123", "dep-123");
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+      expect(result.postCaptureRefundCents).toBe(partiallyRefunded.postCaptureRefundCents);
+    });
+
+    it("records only the amount beyond our own refundPartial leg", async () => {
+      const partiallyRefunded = makeDeposit({
+        status: "partial_refunded",
+        refundAmountCents: 2000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partiallyRefunded);
+      mockStripe.findDepositRefund.mockResolvedValueOnce({ id: "re_ours", amount: 2000 });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...partiallyRefunded,
+        postCaptureRefundCents: 1000,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 3000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { postCaptureRefundCents: 1000 } })
+      );
+      expect(result.postCaptureRefundCents).toBe(1000);
+    });
+
+    // #5753 LOW-C: refundPartial's refund leg failed (DepositRefundLegIncompleteError)
+    // — the planned refundAmountCents was written DB-first, but the Stripe
+    // refund call never actually landed. Staff then refund the same amount
+    // through the dashboard. The OLD code subtracted the planned
+    // refundAmountCents unconditionally: amount_refunded (2000, the manual
+    // refund) - refundAmountCents (2000, planned but never sent) = 0, so the
+    // manual refund was silently never recorded. findDepositRefund correctly
+    // reports our own leg as never-landed (null), so the manual refund is
+    // recorded in full.
+    it("does not erase a manual dashboard refund when refundPartial's own leg never actually reached Stripe (#5753 LOW-C)", async () => {
+      const partiallyRefunded = makeDeposit({
+        status: "partial_refunded",
+        refundAmountCents: 2000, // planned, but the Stripe call itself failed
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partiallyRefunded);
+      mockStripe.findDepositRefund.mockResolvedValueOnce(null); // our leg never landed
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...partiallyRefunded,
+        postCaptureRefundCents: 2000,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 2000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { postCaptureRefundCents: 2000 } })
+      );
+      expect(result.postCaptureRefundCents).toBe(2000);
+    });
+
+    it("never calls findDepositRefund for a deposit that was never partial_refunded", async () => {
+      const forfeitedDeposit = makeDeposit({
+        status: "forfeited",
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...forfeitedDeposit,
+        postCaptureRefundCents: 1500,
+      });
+
+      await depositService.recordPostCaptureRefund("dep-123", 1500);
+
+      expect(mockStripe.findDepositRefund).not.toHaveBeenCalled();
+    });
+
+    // #5725 MEDIUM-2: Stripe webhooks can be redelivered or arrive out of
+    // order — a smaller/earlier cumulative amount must never regress an
+    // already-recorded larger one.
+    it("is monotonic — a smaller, later delivery does not regress an already-recorded larger amount", async () => {
+      const forfeitedDeposit = makeDeposit({ status: "forfeited" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
+      // The DB-level guard (postCaptureRefundCents is null OR lt new value)
+      // is what actually prevents the regression; simulate it losing the
+      // race here by returning count: 0.
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+      mockDepositDb.findUnique.mockResolvedValueOnce({
+        ...forfeitedDeposit,
+        postCaptureRefundCents: 2500,
+      });
+
+      const result = await depositService.recordPostCaptureRefund("dep-123", 1000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "dep-123",
+          OR: [{ postCaptureRefundCents: null }, { postCaptureRefundCents: { lt: 1000 } }],
+        },
+        data: { postCaptureRefundCents: 1000 },
+      });
+      // The stale write never landed — the row still reads the earlier, larger value.
+      expect(result.postCaptureRefundCents).toBe(2500);
     });
   });
 
@@ -451,7 +1008,7 @@ describe("DepositService", () => {
         status: "succeeded",
       });
 
-      const result = await depositService.forfeit("dep-123");
+      const result = await depositService.forfeit("dep-123", "no_show");
 
       expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -465,11 +1022,32 @@ describe("DepositService", () => {
       expect(result.status).toBe("forfeited");
     });
 
+    it("persists the caller-supplied origin so a later retry can gate recapture on it (#5744 LOW-A)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", forfeitOrigin: "cancellation" })
+      );
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await depositService.forfeit("dep-123", "cancellation");
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ forfeitOrigin: "cancellation" }),
+        })
+      );
+    });
+
     it("throws if deposit not in held state", async () => {
       const appliedDeposit = makeDeposit({ status: "applied" });
       mockDepositDb.findUnique.mockResolvedValueOnce(appliedDeposit);
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(
         /invalid.*transition|cannot transition/i
       );
     });
@@ -479,7 +1057,7 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
       expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
@@ -495,7 +1073,7 @@ describe("DepositService", () => {
         status: "succeeded",
       });
 
-      await depositService.forfeit("dep-123");
+      await depositService.forfeit("dep-123", "no_show");
 
       expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
         "pi_test_123",
@@ -503,25 +1081,51 @@ describe("DepositService", () => {
       );
     });
 
-    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+    it("rolls back DB to held when Stripe capture fails with an error proving no capture happened (#5722 M2)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "forfeited", forfeitedAt: new Date() })
       );
-      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(new Error("stripe boom"), "StripeInvalidRequestError", false)
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
-      await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(/stripe boom/);
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "forfeited" },
           data: expect.objectContaining({ status: "held", forfeitedAt: null }),
         })
       );
+    });
+
+    it("does NOT roll back a forfeit when an ambiguous capture error verifies as already captured", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", forfeitedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("timeout"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await expect(depositService.forfeit("dep-123", "no_show")).rejects.toThrow(/timeout/);
+
+      // Only the initial CAS write happened — no rollback.
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -651,41 +1255,95 @@ describe("DepositService", () => {
       expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
         "pi_test_123",
         3000,
+        "dep-123",
         "dep-123:refundPartial:refund"
       );
     });
 
-    it("rolls back DB to held when the CAPTURE fails (no money moved)", async () => {
+    it("rolls back DB to held when the CAPTURE fails with an error proving no capture happened (#5722 M2)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
       );
-      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe capture boom"));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new StripeOperationError(
+          new Error("stripe capture boom"),
+          "StripeInvalidRequestError",
+          false
+        )
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /stripe capture boom/
       );
 
-      // CAS write via updateMany + rollback via update.
-      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      // CAS write + rollback both via updateMany, verified via retrieve
+      // (#5719 M3 — routed through the same reconciliation helper as apply/forfeit).
+      expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledWith("pi_test_123");
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.updateMany).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
-          where: { id: "dep-123" },
-          data: expect.objectContaining({ status: "held", refundedAt: null }),
+          where: { id: "dep-123", status: "partial_refunded" },
+          data: expect.objectContaining({
+            status: "held",
+            refundedAt: null,
+            feeAmountCents: null,
+            refundAmountCents: null,
+          }),
         })
       );
       // The refund must never be attempted when the capture failed.
       expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
-    it("does NOT roll back to held when capture succeeds but the refund throws (card is captured)", async () => {
+    it("still sends the guest's refund when the capture throws but Stripe confirms it succeeded (ambiguous capture) (#5722)", async () => {
+      // The capture leg's error was purely transport-side: retrieve confirms
+      // the charge landed. Skipping the refund leg here would leave the row
+      // `partial_refunded` with the guest's remainder never sent and nothing
+      // to retry it — a silent under-refund (stripe-flow-reviewer, PR #5722).
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
+      );
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("socket hang up"));
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
+
+      const result = await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
+        "pi_test_123",
+        3000,
+        "dep-123",
+        "dep-123:refundPartial:refund"
+      );
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      expect(result.status).toBe("partial_refunded");
+    });
+
+    it("does NOT roll back to held when capture succeeds but the refund throws (card is captured) (#5722 H1)", async () => {
       // Money-safety: once captured, rolling back to `held` would lie about the
       // charge and re-capture on retry. The row must stay partial_refunded and
-      // the error surface so the refund can be retried idempotently.
+      // a distinct error (never the raw Stripe error) must surface so a
+      // caller can never mistake this for a fully-resolved operation just
+      // because the row's status already matches the target.
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -698,13 +1356,43 @@ describe("DepositService", () => {
       });
       mockStripe.createPartialRefund.mockRejectedValueOnce(new Error("stripe refund boom"));
 
-      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
-        /stripe refund boom/
-      );
+      const error: unknown = await depositService
+        .refundPartial("dep-123", 3000)
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(DepositRefundLegIncompleteError);
+      expect(error).toMatchObject({
+        cause: expect.objectContaining({ message: expect.stringContaining("stripe refund boom") }),
+      });
 
       // Only the CAS write happened — no rollback to held.
       expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).not.toHaveBeenCalled();
+    });
+
+    it("does NOT replay the refund when verifying the already-refunded amount fails — fails closed instead (#5722 R4 HIGH-1)", async () => {
+      // Past the idempotency key's ~24h TTL, silently assuming "not yet
+      // refunded" and replaying the refund on a verify failure risks a
+      // double refund. The verify failure must itself surface as an
+      // incomplete-leg error, never as a green light to call
+      // createPartialRefund.
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.findDepositRefund.mockRejectedValueOnce(new Error("network blip"));
+
+      const error: unknown = await depositService
+        .refundPartial("dep-123", 3000)
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(DepositRefundLegIncompleteError);
+      expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
     it("is re-entrant: a retry already in partial_refunded replays Stripe without re-transitioning", async () => {
@@ -714,6 +1402,12 @@ describe("DepositService", () => {
         refundedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      // H2 ground-truth checks on retry: not yet captured, not yet refunded.
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockStripe.findDepositRefund.mockResolvedValueOnce(null);
       mockStripe.capturePaymentIntent.mockResolvedValueOnce({
         id: "pi_test_123",
         status: "succeeded",
@@ -728,11 +1422,16 @@ describe("DepositService", () => {
 
       // No DB write on the retry — the row is already partial_refunded.
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
-      expect(mockDepositDb.update).not.toHaveBeenCalled();
       // Stripe steps replay with their idempotency keys.
       expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
         "pi_test_123",
         "dep-123:refundPartial"
+      );
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
+        "pi_test_123",
+        3000,
+        "dep-123",
+        "dep-123:refundPartial:refund"
       );
       expect(result.status).toBe("partial_refunded");
     });
@@ -741,22 +1440,150 @@ describe("DepositService", () => {
       // The first attempt already captured the card and moved the row to
       // partial_refunded. A transient failure on the re-entrant capture replay
       // must NOT roll back to `held` — that would lie about the charge and let a
-      // later `refund`/`forfeit` act on an already-captured intent.
+      // later `refund`/`forfeit` act on an already-captured intent. It also
+      // must not surface as the raw Stripe error: this invocation is
+      // re-entrant (a PRIOR invocation already wrote the row to
+      // partial_refunded), which structurally rules out "capture never
+      // happened" — a confirmed-never-happened case would already have been
+      // rolled back to `held` by that prior invocation. So a replay failure
+      // here can only mean ambiguous or already-succeeded, never "nothing was
+      // charged" (#5722 R4 LOW-1).
       const partialDeposit = makeDeposit({
         status: "partial_refunded",
         stripePaymentIntentId: "pi_test_123",
         refundedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      // H2 pre-check: not yet confirmed succeeded, so the capture call proceeds.
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
       mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("transient network blip"));
 
-      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
-        /transient network blip/
+      const error: unknown = await depositService
+        .refundPartial("dep-123", 3000)
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(DepositCaptureAmbiguousError);
+      expect(error).toMatchObject({
+        intentStatus: "requires_capture",
+        cause: expect.objectContaining({
+          message: expect.stringContaining("transient network blip"),
+        }),
+      });
+
+      // Re-entrant path: no transition write and — crucially — no rollback:
+      // this invocation never transitioned the row, so it has nothing of its
+      // own to reconcile.
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+      // Only the H2 pre-check retrieve ran — no post-failure reconciliation retrieve.
+      expect(mockStripe.retrievePaymentIntent).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws an ambiguous (not generic) capture error when the re-entrant retry's own verify AND replay both fail (#5722 R4 LOW-1)", async () => {
+      // Past the idempotency key's TTL, a re-entrant capture replay can fail
+      // even after the pre-check retrieve itself failed to verify anything.
+      // The card was almost certainly already charged (this row only reaches
+      // partial_refunded via a prior successful DB-first transition) — the
+      // generic "could not process the deposit" message would misleadingly
+      // suggest nothing happened.
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("network blip"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(
+        new Error("payment_intent_unexpected_state")
       );
 
-      // Re-entrant path: no transition (updateMany) and — crucially — no rollback (update).
-      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
-      expect(mockDepositDb.update).not.toHaveBeenCalled();
+      const error: unknown = await depositService
+        .refundPartial("dep-123", 3000)
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(DepositCaptureAmbiguousError);
+      expect(error).toMatchObject({ intentStatus: "unknown" });
+    });
+
+    it("writes off a re-entrant retry as uncollectable when the pre-check confirms the intent was canceled (#5722 R5 LOW-2)", async () => {
+      // The authorization died (e.g. Stripe auto-canceled it after ~7 days
+      // uncaptured) before this row's capture ever landed — nothing was ever
+      // charged and nothing ever will be. Must not attempt a doomed capture
+      // replay against a canceled intent.
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const error: unknown = await depositService
+        .refundPartial("dep-123", 3000)
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(DepositWrittenOffUncollectableError);
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "partial_refunded" },
+          data: expect.objectContaining({ status: "uncollectable" }),
+        })
+      );
+    });
+
+    it("skips the re-entrant capture replay when retrieve confirms it already succeeded (#5722 H2)", async () => {
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.findDepositRefund.mockResolvedValueOnce(null);
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
+
+      await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
+        "pi_test_123",
+        3000,
+        "dep-123",
+        "dep-123:refundPartial:refund"
+      );
+    });
+
+    it("skips the re-entrant refund replay when the charge is already refunded for the full amount (#5722 H2)", async () => {
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.findDepositRefund.mockResolvedValueOnce({ id: "re_ours", amount: 3000 });
+
+      await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
     it("rejects a refund amount greater than the deposit", async () => {
@@ -828,6 +1655,421 @@ describe("DepositService", () => {
 
       expect(mockStripe.capturePaymentIntent).toHaveBeenCalled();
       expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("verifyCaptureCompleted (#5722 R4 MED-1, R5 MED-1/LOW-2)", () => {
+    // Re-verifies a deposit already sitting at a capture-based terminal
+    // status (forfeited/applied) whose Stripe outcome was never confirmed —
+    // the DepositCaptureAmbiguousError case (#5722 M3) leaves the row there
+    // without proof. A no-show/cancellation retry must call this before
+    // trusting that status, never write a final reservation status on top of
+    // an unconfirmed or dead capture.
+    it("returns succeeded when Stripe confirms the PaymentIntent already succeeded", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("succeeded");
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it("re-captures with the forfeit idempotency key when allowRecapture is true and fromStatus is forfeited — the ONE safe case (#5722 R5 MED-1)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("recaptured");
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
+        "pi_test_123",
+        "dep-123:forfeit"
+      );
+    });
+
+    it("rolls back to held instead of re-capturing when allowRecapture is false — e.g. ANY cancel context (#5722 R5 MED-1)", async () => {
+      // A staff cancel (waive fees, refund in full), a free-window guest
+      // cancel, or a no-show whose policy calls for less than 100% must
+      // NEVER re-capture the full deposit against a policy this retry isn't
+      // itself evaluating.
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("rolled-back-to-held");
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "forfeited" },
+          data: expect.objectContaining({ status: "held", forfeitedAt: null }),
+        })
+      );
+    });
+
+    it("NEVER re-captures an applied deposit even when allowRecapture is true — apply is never the SAME operation as a no-show/cancel retry (#5722 R5 MED-1)", async () => {
+      // `applied` is only ever set by the explicit staff /deposits/:id/capture
+      // route — a no-show or cancel retry landing on it is, by construction,
+      // a DIFFERENT operation than whatever produced this status.
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "applied",
+          stripePaymentIntentId: "pi_test_123",
+          appliedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "applied",
+        "appliedAt",
+        true // even with the flag set — must still roll back, never recapture
+      );
+
+      expect(result).toBe("rolled-back-to-held");
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "applied" },
+          data: expect.objectContaining({ status: "held", appliedAt: null }),
+        })
+      );
+    });
+
+    it("returns in-flight (not failed) within the safety window — a requires_capture read alone doesn't prove the in-flight capture is finished, and this is retryable (#5744 stripe-flow-reviewer follow-up)", async () => {
+      // Pre-fix, this mapped to "failed" -> a 500 "requires manual
+      // reconciliation" result — but nothing here actually needs a human:
+      // once the safety window passes, a plain retry resolves it. "in-flight"
+      // is a distinct, retryable outcome from "failed".
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: new Date(), // just now — well within the 5 min window
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("in-flight");
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rolls back at exactly the 5-minute boundary — the safety window is inclusive (#5744 stripe-flow-reviewer follow-up)", async () => {
+      const now = new Date("2026-01-25T00:10:00.000Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+      try {
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({
+            status: "forfeited",
+            stripePaymentIntentId: "pi_test_123",
+            forfeitedAt: new Date(now.getTime() - 5 * 60 * 1000), // exactly 5 minutes ago
+          })
+        );
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: "requires_capture",
+        });
+        mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+        const result = await depositService.verifyCaptureCompleted(
+          "dep-123",
+          "forfeited",
+          "forfeitedAt",
+          false
+        );
+
+        expect(result).toBe("rolled-back-to-held");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does NOT roll back 1ms before the 5-minute boundary — the window is a lower bound, not an approximation (#5744 stripe-flow-reviewer follow-up)", async () => {
+      const now = new Date("2026-01-25T00:10:00.000Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+      try {
+        mockDepositDb.findUnique.mockResolvedValueOnce(
+          makeDeposit({
+            status: "forfeited",
+            stripePaymentIntentId: "pi_test_123",
+            forfeitedAt: new Date(now.getTime() - 5 * 60 * 1000 + 1), // 1ms short of 5 minutes
+          })
+        );
+        mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+          id: "pi_test_123",
+          status: "requires_capture",
+        });
+
+        const result = await depositService.verifyCaptureCompleted(
+          "dep-123",
+          "forfeited",
+          "forfeitedAt",
+          false
+        );
+
+        expect(result).toBe("in-flight");
+        expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("fails closed instead of rolling back when the capture timestamp is missing — cannot prove the attempt is old enough (#5744 MEDIUM-A)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: null,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("failed");
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("reports concurrent (not failed/rolled-back-to-held) when the rollback CAS write matches zero rows — another retry already moved the row (#5744 stripe-flow-reviewer REGRESSION fix)", async () => {
+      // Pre-fix behaviour returned "rolled-back-to-held" unconditionally,
+      // which callers re-verified via a getById check that caught this same
+      // race and mapped it to the harmless 409. Reporting "failed" here
+      // instead (the #5744 LOW-C fix) skipped that re-check and surfaced the
+      // 500 manual-reconciliation result for an ordinary in-progress
+      // conflict — a regression this fix restores as a DISTINCT "concurrent"
+      // outcome so both callers can map it straight to their 409.
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        false
+      );
+
+      expect(result).toBe("concurrent");
+    });
+
+    it("reports failed (not uncollectable) when the write-off CAS write matches zero rows — a concurrent transition already moved the row (#5744 LOW-C)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("failed");
+    });
+
+    it("clears forfeitOrigin when rolling back to held — the row is no longer forfeited, so a stale origin must not survive (#5744 stripe-flow-reviewer follow-up)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitedAt: BEYOND_ROLLBACK_SAFETY_WINDOW,
+          forfeitOrigin: "no_show",
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await depositService.verifyCaptureCompleted("dep-123", "forfeited", "forfeitedAt", false);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "held", forfeitOrigin: null }),
+        })
+      );
+    });
+
+    it("clears forfeitOrigin when writing off as uncollectable (#5744 stripe-flow-reviewer follow-up)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({
+          status: "forfeited",
+          stripePaymentIntentId: "pi_test_123",
+          forfeitOrigin: "no_show",
+        })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await depositService.verifyCaptureCompleted("dep-123", "forfeited", "forfeitedAt", true);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "uncollectable", forfeitOrigin: null }),
+        })
+      );
+    });
+
+    it("fails closed when the re-capture attempt itself throws", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "requires_capture",
+      });
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("failed");
+    });
+
+    it("writes off as uncollectable and reports uncollectable when Stripe confirms canceled, rather than failing forever (#5722 R5 LOW-2)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("uncollectable");
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123", status: "forfeited" },
+          data: expect.objectContaining({ status: "uncollectable" }),
+        })
+      );
+    });
+
+    it("fails closed when the verification retrieve itself throws", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: "pi_test_123" })
+      );
+      mockStripe.retrievePaymentIntent.mockRejectedValueOnce(new Error("network blip"));
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("failed");
+    });
+
+    it("returns succeeded without calling Stripe when the deposit has no PaymentIntent (manual deposit)", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", stripePaymentIntentId: null })
+      );
+
+      const result = await depositService.verifyCaptureCompleted(
+        "dep-123",
+        "forfeited",
+        "forfeitedAt",
+        true
+      );
+
+      expect(result).toBe("succeeded");
+      expect(mockStripe.retrievePaymentIntent).not.toHaveBeenCalled();
     });
   });
 

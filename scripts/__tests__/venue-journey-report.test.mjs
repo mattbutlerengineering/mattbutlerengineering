@@ -8,7 +8,6 @@ import {
   classifyJourneyStepOutcome,
   collectFriction,
   findDuplicateIssue,
-  FRICTION_ISSUE_TITLE,
   redactSecrets,
 } from "../venue-journey/report.mjs";
 
@@ -396,10 +395,6 @@ describe("buildFrictionEntry", () => {
     expect(entry).toContain("12500");
     expect(entry).toContain("Failed to load resource: 404");
     expect(entry).toContain("https://github.com/o/r/actions/runs/12345");
-  });
-
-  it("exposes a rolling-log title that is stable across runs", () => {
-    expect(FRICTION_ISSUE_TITLE).toBe("[Journey] venue-journey friction log");
   });
 });
 

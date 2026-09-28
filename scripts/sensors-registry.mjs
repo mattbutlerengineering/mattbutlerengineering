@@ -35,6 +35,8 @@ import {
   collectQueueEfficiency,
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
+  QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE,
+  readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
 import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
@@ -144,32 +146,21 @@ function parseGitNumstat(root) {
 }
 
 /**
- * Wraps `gh pr list` for the queue-efficiency collector — includes the
- * `commits` field (needed for first-pass-success classification) and
- * normalises it to a `commitCount`.
+ * Wraps readMergedAiPrsPaged for the queue-efficiency collector — pages the
+ * fetch by merged date so the 7-day current window is actually covered
+ * (#5746; see readMergedAiPrsPaged's own comment for why and the commits
+ * field's per-PR fetch).
  *
  * Lets a thrown error (e.g. auth failure) propagate rather than swallowing it
  * (#3937/#3946) — collectQueueEfficiency's own catch surfaces it via
  * describeGhError, distinct from a legitimately empty result.
  *
  * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {Date} [now]
  * @returns {Array<object>}
  */
-export function readQueueEfficiencyPrs(ghClient) {
-  // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
-  // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-  const prs = ghClient.pr.list([
-    "--state",
-    "all",
-    "--limit",
-    "45",
-    "--json",
-    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-  ]);
-  return prs.map((pr) => ({
-    ...pr,
-    commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
-  }));
+export function readQueueEfficiencyPrs(ghClient, now = new Date()) {
+  return readMergedAiPrsPaged(ghClient, now);
 }
 
 /**
@@ -425,52 +416,14 @@ export const SENSORS = [
     format: (data, name) => `${name}: ${data.entry_count} entries`,
   },
   {
-    id: "domainActivity",
-    category: "quality",
-    collect: ({ root }) => {
-      const rows = safe(() => read("domain-metrics", { root }));
-      if (!Array.isArray(rows) || rows.length === 0) return { available: false };
-
-      const latest = rows[rows.length - 1];
-      const reservations = latest.reservations ?? {};
-      const deposits = latest.deposits ?? {};
-      // "Created" = every reservation that existed for the venue that day,
-      // regardless of where it ended up in the funnel (pending/confirmed
-      // are still "created", just not yet resolved to cancelled/completed/no-show).
-      const created =
-        (reservations.pending ?? 0) +
-        (reservations.confirmed ?? 0) +
-        (reservations.cancelled ?? 0) +
-        (reservations.completed ?? 0) +
-        (reservations.noShow ?? 0);
-
-      return {
-        available: true,
-        date: latest.date ?? null,
-        venueId: latest.venueId ?? null,
-        reservations_created: created,
-        reservations_cancelled: reservations.cancelled ?? 0,
-        reservations_completed: reservations.completed ?? 0,
-        reservations_no_show: reservations.noShow ?? 0,
-        deposits_held: deposits.held ?? 0,
-        deposits_applied: deposits.applied ?? 0,
-        deposits_refunded: deposits.refunded ?? 0,
-        deposits_forfeited: deposits.forfeited ?? 0,
-      };
-    },
-    format: (data, name) =>
-      `${name}: ${data.reservations_created} created, ${data.reservations_cancelled} cancelled, ` +
-      `${data.reservations_completed} completed, ${data.reservations_no_show} no-show, ` +
-      `deposits held/applied/refunded/forfeited ${data.deposits_held}/${data.deposits_applied}/${data.deposits_refunded}/${data.deposits_forfeited} (${data.date ?? "unknown date"})`,
-  },
-  {
-    // The watchdog on the two collectors above and below (#5529). Both were
-    // silently dead for months — domain-metrics.jsonl at 0 bytes, review-burden
-    // at one entry from 2026-06-14 — and nothing noticed, because the only
-    // sensor reading either (`domainActivity`) reports `available: false` for
-    // "empty file" and "sensor not wired up" alike. `available: false` is a
-    // shrug; a regression is an alarm. This entry turns the former into the
-    // latter by reading the same files through the freshness policy.
+    // The watchdog on the collector below (#5529). It was silently dead for
+    // months — review-burden.json held one entry from 2026-06-14 — and
+    // nothing noticed, because nothing else was reading the file at all.
+    // This entry turns silence into an alarm by reading it through the
+    // freshness policy. (A sibling `domainActivity` sensor used to watch
+    // `metrics/domain-metrics.jsonl` the same way; both the collector and
+    // this sensor were retired together in #5561 — the collector needed a
+    // production credential nobody would provision.)
     id: "metricsFreshness",
     category: "quality",
     collect: ({ root, now = new Date() }) => {
@@ -1077,7 +1030,7 @@ export const SENSORS = [
       confidence: "low",
     }),
     collect: ({ ghClient, now }) =>
-      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient), undefined, now),
+      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient, now), undefined, now),
     format: (data, name) => {
       const baselineStr =
         data.baseline != null
@@ -1092,7 +1045,19 @@ export const SENSORS = [
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
       const regressions = [...(current.regressions ?? [])];
-      if (previous?.available) {
+      const sampleSize = current.sub_metrics?.issues_merged ?? 0;
+      // #5746: this comparison is day-over-day on the CURRENT window alone —
+      // a genuinely quiet window (holiday, repo pause) can still swing the
+      // composite hard on a tiny denominator, so QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
+      // is a sanity floor below which the comparison is skipped outright.
+      // This is NOT backstopped by the baseline-vs-current regressions
+      // spread into `regressions` above: `baseline` requires PRs merged 7-28
+      // days ago, and readMergedAiPrsPaged drops every PR merged before
+      // exactly 7 days ago (see its own comment), so baseline is always null
+      // under the live reader — as it was in 100% of historical
+      // `metrics/sensor-report.jsonl` reports. Below the floor, this sensor
+      // currently raises nothing for that report.
+      if (previous?.available && sampleSize >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) {
         const delta = current.composite - previous.composite;
         if (delta < -thresholds.queue_efficiency_composite_drop) {
           regressions.push({

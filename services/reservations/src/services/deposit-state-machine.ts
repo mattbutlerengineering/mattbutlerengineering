@@ -3,17 +3,20 @@ import { createStateMachine, TransitionError } from "./state-machine.js";
 
 /**
  * Valid transitions for the deposit state machine.
- * pending → held → applied | refunded | partial_refunded | forfeited
- * applied, refunded, partial_refunded, forfeited are terminal states
- * (no valid outgoing transitions).
+ * pending → held → applied | refunded | partial_refunded | forfeited | uncollectable
+ * applied, refunded, partial_refunded, forfeited, uncollectable are terminal
+ * states (no valid outgoing transitions). `uncollectable` is reached when a
+ * capture fails permanently (e.g. an expired, auto-canceled authorization) —
+ * no Stripe call moved money, so there's nothing left to reconcile.
  */
 const DEPOSIT_TRANSITIONS: Partial<Record<DepositStatus, DepositStatus[]>> = {
   pending: ["held"],
-  held: ["applied", "refunded", "partial_refunded", "forfeited"],
+  held: ["applied", "refunded", "partial_refunded", "forfeited", "uncollectable"],
   applied: [],
   refunded: [],
   partial_refunded: [],
   forfeited: [],
+  uncollectable: [],
 };
 
 export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");

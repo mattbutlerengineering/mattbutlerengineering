@@ -29,11 +29,21 @@ vi.mock("../services/deposit.js", () => ({
   depositService: {
     getByReservationId: vi.fn(),
   },
+  setDepositServiceLogger: vi.fn(),
 }));
 
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
+}));
+
+// ADR-026 §3.3 item 4 / #5369 PR 8: `requireManageToken` and this route now
+// resolve the reservation's venue via `resolveVenueId` — see
+// public-venues.test.ts's identical comment. Resolves to `mockReservation
+// .venueId`/`mockVenue.id` so both call sites' own service mocks stay in
+// control of the actual test-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
 }));
 
 import { reservationService } from "../services/reservation.js";
@@ -313,6 +323,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 404 when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
 
     const response = await app.inject({
@@ -394,6 +406,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
         method: "PATCH",
         url: `/public/v1/reservations/manage?token=${token}`,
         payload: { partySize: "six" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    });
+
+    it("rejects a partySize over 20 with 400 before reaching the service layer", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+
+      const response = await validationApp.inject({
+        method: "PATCH",
+        url: `/public/v1/reservations/manage?token=${token}`,
+        payload: { partySize: 9999 },
       });
 
       expect(response.statusCode).toBe(400);

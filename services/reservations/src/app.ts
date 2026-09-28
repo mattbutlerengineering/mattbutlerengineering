@@ -24,7 +24,7 @@ import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
 import { publicDepositRoutes } from "./routes/public-deposits.js";
-import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
+import { stripeWebhookRoutes, setStripeWebhookLogger } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { publicUnsubscribeRoutes } from "./routes/public-unsubscribe.js";
 import { briefingRoutes } from "./routes/briefing.js";
@@ -62,6 +62,8 @@ import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
 import { venueContextPreHandler } from "./middleware/venue-context.js";
 import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/venue-access.js";
+import { setRlsTripwireLogger } from "./services/rls-context-mode.js";
+import { setDepositServiceLogger } from "./services/deposit.js";
 
 /**
  * Best-effort venue-id resolution for the global venue-context preHandler
@@ -131,6 +133,19 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     options
   );
+
+  // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
+  // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real
+  // shadow telemetry in production rather than logging into the module's
+  // no-op default (see `services/rls-context-mode.ts`).
+  setRlsTripwireLogger(fastify.log);
+
+  // #5722 M1/M3: wire the app's real logger into DepositService's
+  // reconciliation logging (ambiguous capture statuses, lost CAS races on
+  // rollback/write-off), and into the Stripe webhook's charge.refunded
+  // handler, rather than the modules' no-op defaults.
+  setDepositServiceLogger(fastify.log);
+  setStripeWebhookLogger(fastify.log);
 
   // Wire notification port (injected or default Resend-backed)
   const notificationPort = options.notificationPort ?? createNotificationPort();
@@ -286,6 +301,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
           dispatcher: notificationPort,
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+          logger: fastify.log,
         }),
       });
       fastify.addHook("onReady", async () => jobWorker.start(fastify.log));

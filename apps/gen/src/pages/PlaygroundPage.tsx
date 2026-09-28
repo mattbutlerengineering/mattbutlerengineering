@@ -90,6 +90,7 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     displayRawLines,
     displayError,
     activeSpecId,
+    failedPrompt,
     submit,
     refine,
     exitRefinement,
@@ -252,6 +253,8 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
         disabled={false}
         mode={mode}
         onExitRefinement={exitRefinement}
+        failedPrompt={failedPrompt}
+        failedError={displayError}
       />
       <TemplateGallery open={galleryOpen} onClose={closeGallery} onSelect={handleTemplateSelect} />
       <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} />

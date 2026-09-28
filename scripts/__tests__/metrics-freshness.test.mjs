@@ -1,12 +1,15 @@
 /**
  * Tests for the metrics staleness/emptiness self-check (#5529).
  *
- * The whole point of this check is that it must FIRE. Both collectors it
- * watches were silently dead for months — `metrics/domain-metrics.jsonl` at
- * 0 bytes since it was created, `metrics/review-burden.json` holding one
- * entry from 2026-06-14 — and nothing went red, because nothing was looking.
- * A self-check that passes on an empty dataset would reproduce that exact
- * failure one level up: it would read as a safety net while pinning nothing.
+ * The whole point of this check is that it must FIRE. The collector it
+ * watches was silently dead for months — `metrics/review-burden.json` held
+ * one entry from 2026-06-14 — and nothing went red, because nothing was
+ * looking. A self-check that passes on an empty dataset would reproduce that
+ * exact failure one level up: it would read as a safety net while pinning
+ * nothing. (A sibling `domain-metrics` policy entry used to be watched here
+ * too, until the collector behind it was retired in #5561 — it needed a
+ * production credential nobody would provision. The `unconfigured`/`blocked`
+ * mechanism it exercised below is exercised with synthetic fixtures now.)
  *
  * So the load-bearing assertions here are the negative ones — empty, stale,
  * undated, unreadable inputs must each produce a finding and a non-zero exit
@@ -104,11 +107,8 @@ describe("classifyFreshness", () => {
 });
 
 describe("FRESHNESS_POLICY", () => {
-  it("covers both collectors that went silently dead", () => {
-    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
-      "domain-metrics",
-      "review-burden",
-    ]);
+  it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
+    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual(["review-burden"]);
   });
 
   it("names only metrics the metrics-store registry actually knows", () => {
@@ -121,9 +121,7 @@ describe("FRESHNESS_POLICY", () => {
 
   it("uses each collector's real timestamp field", () => {
     const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
-    // scripts/collect-domain-metrics.mjs writes `collected_at`;
     // scripts/acmm/review-burden-metrics.js writes `timestamp`.
-    expect(byMetric["domain-metrics"].timestampField).toBe("collected_at");
     expect(byMetric["review-burden"].timestampField).toBe("timestamp");
   });
 
@@ -157,53 +155,22 @@ describe("assessFreshness", () => {
   });
 
   it("evaluates each metric independently", () => {
+    // Synthetic two-entry policy — the real FRESHNESS_POLICY has only one
+    // metric since domain-metrics was retired (#5561), so independence
+    // between metrics is exercised with an injected policy instead.
+    const policy = [
+      { metric: "metric-a", timestampField: "timestamp", maxAgeDays: 3, producer: "a" },
+      { metric: "metric-b", timestampField: "timestamp", maxAgeDays: 3, producer: "b" },
+    ];
     const results = assessFreshness({
       readMetric: (metric) =>
-        metric === "review-burden" ? [{ timestamp: daysAgo(0) }] : [{ collected_at: daysAgo(90) }],
+        metric === "metric-a" ? [{ timestamp: daysAgo(0) }] : [{ timestamp: daysAgo(90) }],
       now: NOW,
+      policy,
     });
     const byMetric = Object.fromEntries(results.map((r) => [r.metric, r.state]));
-    expect(byMetric["review-burden"]).toBe("fresh");
-    expect(byMetric["domain-metrics"]).toBe("stale");
-  });
-
-  it("reproduces the real-world state this check was built for", () => {
-    // domain-metrics.jsonl: 0 bytes. review-burden.json: one 2026-06-14 entry.
-    // Both must be findings — if this assertion ever passes with an empty
-    // findings list, the check has become decorative.
-    //
-    // `env` is injected explicitly rather than inherited from process.env:
-    // domain-metrics' state now depends on whether DOMAIN_METRICS_VENUE_ID is
-    // set, so a test that reads the ambient environment would assert one thing
-    // on a laptop and another on a runner that has the secret.
-    const results = assessFreshness({
-      readMetric: (metric) =>
-        metric === "domain-metrics" ? [] : [{ timestamp: "2026-06-14T04:52:03.798Z" }],
-      now: NOW,
-      env: {},
-    });
-    const findings = freshnessFindings(results);
-    // `unconfigured`, not `empty` — the venue id has never been set, which is
-    // the actual real-world cause (#5561), and it is still a finding.
-    expect(findings.map((f) => f.state).sort()).toEqual(["stale", "unconfigured"]);
-    expect(freshnessExitCode(results)).toBe(1);
-  });
-
-  it("calls the same empty domain-metrics `empty` once the venue id IS set", () => {
-    // Same reader, different environment: with the prerequisite satisfied, an
-    // empty file is a broken collector rather than a human-blocked one, and
-    // must route to the actionable issue instead of the blocked one.
-    const results = assessFreshness({
-      readMetric: (metric) => (metric === "domain-metrics" ? [] : [{ timestamp: daysAgo(0) }]),
-      now: NOW,
-      env: { DOMAIN_METRICS_VENUE_ID: "venue_abc" },
-    });
-    const byMetric = Object.fromEntries(results.map((r) => [r.metric, r.state]));
-    expect(byMetric["domain-metrics"]).toBe("empty");
-
-    const { blocked, failures } = partitionFindings(results);
-    expect(blocked).toHaveLength(0);
-    expect(failures.map((f) => f.metric)).toEqual(["domain-metrics"]);
+    expect(byMetric["metric-a"]).toBe("fresh");
+    expect(byMetric["metric-b"]).toBe("stale");
   });
 });
 
@@ -366,11 +333,6 @@ describe("unconfigured vs. genuinely broken (#5561)", () => {
     ]);
     expect(blocked).toHaveLength(1);
     expect(failures).toHaveLength(0);
-  });
-
-  it("declares the env var domain-metrics actually needs", () => {
-    const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
-    expect(byMetric["domain-metrics"].requiresEnv).toBe("DOMAIN_METRICS_VENUE_ID");
   });
 
   it("grades unconfigured below a genuine regression for the learning loop", () => {

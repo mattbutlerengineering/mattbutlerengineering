@@ -3,6 +3,12 @@ import reactConfig from "@mbe/config/eslint/react";
 export default [
   ...reactConfig,
   {
+    // scripts/** is Node-context build tooling (console/process, no browser
+    // globals) invoked directly via `node`, not part of the app bundle — same
+    // exemption packages/rialto/eslint.config.js uses for its own scripts/.
+    ignores: ["scripts/**"],
+  },
+  {
     // This app uses Rialto components exclusively (see CLAUDE.md); native browser
     // dialogs bypass the app's own theming/a11y and must never be used here.
     // See #4987 — window.confirm() in the floor-plan editor bypassed ConfirmDialog.

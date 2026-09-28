@@ -10,6 +10,7 @@ import type { Reservation, Table } from "@mbe/types";
 const mockReservationsList = vi.fn();
 const mockTablesList = vi.fn();
 const mockReservationsUpdate = vi.fn();
+const mockReservationsMarkNoShow = vi.fn();
 const mockReservationsCancelWithReason = vi.fn();
 const mockReservationsWalkIn = vi.fn();
 const mockTablesUpdateStatus = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("./useApiClient.js", () => ({
     reservations: {
       list: mockReservationsList,
       update: mockReservationsUpdate,
+      markNoShow: mockReservationsMarkNoShow,
       cancelWithReason: mockReservationsCancelWithReason,
       walkIn: mockReservationsWalkIn,
     },
@@ -365,6 +367,33 @@ describe("useTimelineData", () => {
     });
   });
 
+  describe("mutation: markNoShow", () => {
+    it("calls reservations.markNoShow and returns the reservation plus an optional warning (#5719 M2)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      const noShow = makeReservation({ status: "NO_SHOW" });
+      mockReservationsMarkNoShow.mockResolvedValue({
+        reservation: noShow,
+        warning: "Deposit authorization is still pending — no charge was made.",
+      });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      let returnValue: { reservation: Reservation; warning?: string } | undefined;
+      await act(async () => {
+        returnValue = await result.current.markNoShow("r1");
+      });
+
+      expect(mockReservationsMarkNoShow).toHaveBeenCalledWith("r1");
+      expect(returnValue?.reservation.status).toBe("NO_SHOW");
+      expect(returnValue?.warning).toMatch(/pending/i);
+    });
+  });
+
   describe("mutation: createWalkIn", () => {
     it("calls reservations.walkIn then invalidates", async () => {
       mockReservationsList.mockResolvedValue({ data: [] });
@@ -542,6 +571,27 @@ describe("useTimelineData", () => {
       expect(result.current.stats.pending).toBe(1);
       expect(result.current.stats.total).toBe(3);
       expect(result.current.stats.totalCovers).toBe(6); // 4 + 2 (CANCELLED excluded)
+    });
+
+    it("keeps a NO_SHOW reservation in the returned list — only excluded from the totalCovers count (#5725 item 1)", async () => {
+      const reservations = [
+        makeReservation({ id: "r1", status: "CONFIRMED", partySize: 4, date: todayStr }),
+        makeReservation({ id: "r2", status: "NO_SHOW", partySize: 2, date: todayStr }),
+      ];
+      mockReservationsList.mockResolvedValue({ data: reservations });
+      mockTablesList.mockResolvedValue({ data: [] });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Still selectable/inspectable — the block does not disappear from the grid.
+      expect(result.current.reservations.map((r) => r.id)).toContain("r2");
+      // Excluded from the "covers expected tonight" count — a no-show party
+      // never sat down, so it shouldn't count toward tonight's covers.
+      expect(result.current.stats.totalCovers).toBe(4);
     });
   });
 });

@@ -280,86 +280,6 @@ describe("sensors-registry", () => {
     });
   });
 
-  describe("domainActivity sensor", () => {
-    let tmpDir;
-
-    afterEach(() => {
-      rmSync(tmpDir, { recursive: true, force: true });
-    });
-
-    // Exact row shape written by collect-domain-metrics.mjs (#3666).
-    const row = (overrides = {}) => ({
-      collected_at: "2026-08-03T12:00:00.000Z",
-      date: "2026-08-03",
-      venueId: "venue-1",
-      reservations: { pending: 2, confirmed: 5, cancelled: 1, completed: 3, noShow: 1 },
-      deposits: { held: 4, applied: 2, refunded: 1, forfeited: 0 },
-      ...overrides,
-    });
-
-    it("reports the latest entry's reservation and deposit counts", () => {
-      tmpDir = mkdtempSync(join(tmpdir(), "domain-activity-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      const rows = [row({ date: "2026-08-02" }), row({ date: "2026-08-03" })];
-      writeFileSync(
-        join(tmpDir, "metrics", "domain-metrics.jsonl"),
-        rows.map((r) => JSON.stringify(r)).join("\n") + "\n"
-      );
-
-      const sensor = SENSORS.find((s) => s.id === "domainActivity");
-      const result = sensor.collect({ root: tmpDir });
-
-      expect(result).toEqual({
-        available: true,
-        date: "2026-08-03",
-        venueId: "venue-1",
-        reservations_created: 12,
-        reservations_cancelled: 1,
-        reservations_completed: 3,
-        reservations_no_show: 1,
-        deposits_held: 4,
-        deposits_applied: 2,
-        deposits_refunded: 1,
-        deposits_forfeited: 0,
-      });
-    });
-
-    it("returns { available: false } when metrics/domain-metrics.jsonl does not exist", () => {
-      tmpDir = mkdtempSync(join(tmpdir(), "domain-activity-sensor-"));
-
-      const sensor = SENSORS.find((s) => s.id === "domainActivity");
-      const result = sensor.collect({ root: tmpDir });
-
-      expect(result).toEqual({ available: false });
-    });
-
-    it("formats a CLI display line from the collected data", () => {
-      const sensor = SENSORS.find((s) => s.id === "domainActivity");
-      const line = sensor.format(
-        {
-          available: true,
-          date: "2026-08-03",
-          venueId: "venue-1",
-          reservations_created: 12,
-          reservations_cancelled: 1,
-          reservations_completed: 3,
-          reservations_no_show: 1,
-          deposits_held: 4,
-          deposits_applied: 2,
-          deposits_refunded: 1,
-          deposits_forfeited: 0,
-        },
-        "domainActivity"
-      );
-
-      expect(line).toContain("12 created");
-      expect(line).toContain("1 cancelled");
-      expect(line).toContain("3 completed");
-      expect(line).toContain("1 no-show");
-      expect(line).toContain("2026-08-03");
-    });
-  });
-
   describe("acmm sensor", () => {
     let tmpDir;
 
@@ -712,28 +632,35 @@ describe("sensors-registry", () => {
     // readQueueEfficiencyPrs is exercised directly (rather than through the
     // full queueEfficiency sensor.collect()) so the test doesn't also invoke
     // collectQueueEfficiency's real (network-calling) default ccusage reader.
-    it("readQueueEfficiencyPrs collects PRs via ghClient.pr.list and derives commitCount", () => {
+    it("readQueueEfficiencyPrs pages the fetch by merged date and derives commitCount from a per-PR pr.view call (#5746)", () => {
+      const now = new Date("2026-09-25T12:00:00Z");
       const prs = [
         {
           number: 1,
           state: "MERGED",
           headRefName: "worktree-agent-1",
-          commits: [{}, {}],
+          mergedAt: "2026-09-24T12:00:00Z",
         },
       ];
-      const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+      const ghClient = {
+        pr: {
+          list: vi.fn().mockReturnValue(prs),
+          view: vi.fn().mockReturnValue({ commits: [{}, {}] }),
+        },
+      };
 
-      const result = readQueueEfficiencyPrs(ghClient);
+      const result = readQueueEfficiencyPrs(ghClient, now);
 
       expect(ghClient.pr.list).toHaveBeenCalledWith([
-        "--state",
-        "all",
+        "--search",
+        "merged:>=2026-09-17",
         "--limit",
-        "45",
+        "500",
         "--json",
-        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
       ]);
-      expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
+      expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+      expect(result).toEqual([{ ...prs[0], commits: [{}, {}], commitCount: 2 }]);
     });
 
     // #3946: readQueueEfficiencyPrs used to swallow via safe() → null, which
@@ -1064,7 +991,15 @@ describe("sensors-registry", () => {
         looseOverride: { code_churn_rate_max: 0.9 },
       },
       queueEfficiency: {
-        current: { available: true, composite: 0.5, regressions: [] },
+        // sub_metrics.issues_merged must clear QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE
+        // (#5746) or the sample-size gate below suppresses the regression
+        // before this fixture's threshold delta is ever evaluated.
+        current: {
+          available: true,
+          composite: 0.5,
+          sub_metrics: { issues_merged: 30 },
+          regressions: [],
+        },
         previous: { available: true, composite: 0.6 }, // delta -0.1
         looseOverride: { queue_efficiency_composite_drop: 0.5 },
       },
@@ -1111,6 +1046,68 @@ describe("sensors-registry", () => {
       expect(shimSource).not.toMatch(/CODE_CHURN_THRESHOLD/);
       expect(shimSource).not.toMatch(/QUEUE_EFFICIENCY_(COMPOSITE|FPS)_DROP/);
       expect(shimSource).toMatch(/buildThresholds/);
+    });
+  });
+
+  describe("queueEfficiency detectRegression — minimum sample size gate (#5746)", () => {
+    const sensor = () => SENSORS.find((s) => s.id === "queueEfficiency");
+
+    it("does not flag composite_vs_previous_report when the current window sample is below the minimum size", () => {
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 10 }, // below QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE (15)
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.9 }; // delta -0.4, well past threshold
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeUndefined();
+    });
+
+    it("still flags composite_vs_previous_report once the sample reaches the minimum size (boundary)", () => {
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 15 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.9 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      expect(regressions.find((r) => r.metric === "composite_vs_previous_report")).toBeDefined();
+    });
+
+    // Reviewer follow-up on the original #5746 PR: prove a realistically-sized
+    // window (readMergedAiPrsPaged reliably yields ~90-110 AI PRs — see its
+    // own comment) with a genuine composite collapse still raises the alarm,
+    // not just the boundary/degenerate cases above.
+    it("flags a real-shaped current window (issues_merged ~20, composite drop 0.4)", () => {
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 20 },
+        regressions: [],
+      };
+      const previous = { available: true, composite: 0.9 };
+      const regressions = sensor().detectRegression(current, previous, sensor().thresholds);
+      const hit = regressions.find((r) => r.metric === "composite_vs_previous_report");
+      expect(hit).toBeDefined();
+      expect(hit.delta).toBeCloseTo(-0.4, 5);
+      expect(hit.severity).toBe("high");
+    });
+
+    it("still surfaces collectQueueEfficiency's own baseline-vs-current regressions regardless of sample size", () => {
+      // The internal regressions array (baseline-median comparison) is a
+      // separate mechanism from the day-over-day report comparison and must
+      // not be swallowed by the sample-size gate.
+      const current = {
+        available: true,
+        composite: 0.5,
+        sub_metrics: { issues_merged: 5 },
+        regressions: [{ sensor: "queueEfficiency", metric: "composite", delta: -0.2 }],
+      };
+      const regressions = sensor().detectRegression(current, undefined, sensor().thresholds);
+      expect(regressions).toHaveLength(1);
+      expect(regressions[0].metric).toBe("composite");
     });
   });
 
@@ -1338,7 +1335,7 @@ describe("metricsFreshness sensor (#5529)", () => {
     expect(typeof sensor().detectRegression).toBe("function");
   });
 
-  it("reports a regression for BOTH metrics when neither file exists", () => {
+  it("reports a regression when the watched file does not exist", () => {
     // The state the repo was actually in. If this ever returns [], the
     // self-check has become decorative and this batch's whole point is lost.
     const root = seed({});
@@ -1348,17 +1345,16 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(2);
+    expect(data.stale_count).toBe(1);
 
     const regressions = sensor().detectRegression(data, undefined, {});
-    expect(regressions.map((r) => r.metric).sort()).toEqual(["domain-metrics", "review-burden"]);
+    expect(regressions.map((r) => r.metric).sort()).toEqual(["review-burden"]);
     expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
   });
 
   it("reports a regression for a stale-but-present metric", () => {
     const root = seed({
       "review-burden.json": JSON.stringify([{ timestamp: "2026-06-14T04:52:03.798Z" }]),
-      "domain-metrics.jsonl": JSON.stringify({ collected_at: "2026-09-20T00:00:00.000Z" }) + "\n",
     });
     const data = sensor().collect({
       root,
@@ -1373,10 +1369,9 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
   });
 
-  it("reports no regression once both metrics are fresh", () => {
+  it("reports no regression once the metric is fresh", () => {
     const root = seed({
       "review-burden.json": JSON.stringify([{ timestamp: "2026-09-20T00:00:00.000Z" }]),
-      "domain-metrics.jsonl": JSON.stringify({ collected_at: "2026-09-20T00:00:00.000Z" }) + "\n",
     });
     const data = sensor().collect({
       root,
@@ -1403,10 +1398,7 @@ describe("metricsFreshness sensor (#5529)", () => {
       {
         available: true,
         stale_count: 1,
-        metrics: [
-          { metric: "domain-metrics", state: "fresh", age_days: 0.5 },
-          { metric: "review-burden", state: "stale", age_days: 98.6 },
-        ],
+        metrics: [{ metric: "review-burden", state: "stale", age_days: 98.6 }],
       },
       "metricsFreshness"
     );

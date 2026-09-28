@@ -1,8 +1,15 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
+import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
-import { depositService } from "./deposit.js";
+import {
+  depositService,
+  DepositCaptureAmbiguousError,
+  DepositWrittenOffUncollectableError,
+  DepositConcurrentUpdateError,
+  DepositTransitionError,
+} from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import type { BookingNotifier, CancelInitiator } from "./booking-notifications.js";
@@ -42,7 +49,7 @@ const DEPOSIT_FAILURE_RESULT: CancelReservationResult = {
 };
 
 /** Which Stripe money-move ran against the deposit during resolution. */
-type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+type DepositStripeOp = "refund" | "forfeit" | "refund_partial" | "apply";
 
 /**
  * What {@link resolveDeposit} did to the deposit, so a later status-write
@@ -71,9 +78,176 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: CancelReservationResult = {
 };
 
 /**
+ * A deposit capture whose Stripe outcome could not be confirmed (#5722 M3),
+ * covering two distinct retry shapes, both mirroring `reservation-no-show.ts`:
+ *
+ *  - A prior attempt left the deposit at a capture-based terminal status
+ *    (`forfeited`/`applied`) that was never confirmed, and this retry's own
+ *    {@link depositService.verifyCaptureCompleted} check couldn't verify it
+ *    either (#5722 R4 MED-1).
+ *  - A re-entrant `partial_refunded` capture-leg replay couldn't confirm
+ *    itself — the card was almost certainly already charged (this row only
+ *    reaches `partial_refunded` via a prior successful DB-first transition),
+ *    so {@link DEPOSIT_FAILURE_RESULT}'s "could not process the deposit
+ *    refund" wording would misleadingly suggest nothing happened (#5722 R4
+ *    LOW-1).
+ *
+ * Cancelling anyway in either case would risk a ghost charge.
+ */
+const DEPOSIT_CAPTURE_UNVERIFIED_RESULT: CancelReservationResult = {
+  success: false,
+  status: 500,
+  title: "Cancellation Incomplete",
+  detail:
+    "A previous deposit capture could not be verified with Stripe. This requires manual reconciliation before cancelling.",
+};
+
+/**
+ * This invocation lost the deposit-transition race to a concurrent request
+ * that is still in flight — the rollback-to-held retry (#5722 R5 MED-1)
+ * found the row already moved on by someone else. This is an in-progress
+ * conflict, not a failure: the winning request is still working, and
+ * retrying should succeed once it finishes. Mirrors
+ * `reservation-no-show.ts`'s identical `DEPOSIT_CONCURRENT_RETRY_RESULT`.
+ */
+const DEPOSIT_CONCURRENT_RETRY_RESULT: CancelReservationResult = {
+  success: false,
+  status: 409,
+  title: "Conflict",
+  detail: "Another request is already processing this cancellation. Please retry.",
+};
+
+/**
+ * A `requires_capture` read on a previously-ambiguous deposit is too recent
+ * to prove the underlying capture attempt has finished
+ * (`verifyCaptureCompleted`'s `"in-flight"` outcome — see its doc comment on
+ * the `ROLLBACK_SAFETY_WINDOW_MS` safety window in `deposit.ts`). Unlike
+ * {@link DEPOSIT_CAPTURE_UNVERIFIED_RESULT}, this is retryable, not a
+ * permanent failure: once the window passes, a plain retry resolves it, so
+ * it must never be reported as needing manual reconciliation (#5744
+ * stripe-flow-reviewer follow-up).
+ */
+const DEPOSIT_CAPTURE_IN_FLIGHT_RESULT: CancelReservationResult = {
+  success: false,
+  status: 409,
+  title: "Conflict",
+  detail:
+    "A previous deposit capture attempt may still be settling with Stripe. Please retry in a few minutes.",
+};
+
+/**
+ * Maps a `resolveHeldDeposit` Stripe-call failure to the result it should
+ * surface. A lost deposit-level CAS/state-machine race
+ * (`DepositConcurrentUpdateError`/`DepositTransitionError`) means this
+ * invocation never touched Stripe — the winning concurrent request is still
+ * working and owns reconciliation — so it is an ordinary in-progress
+ * conflict, not a permanent failure; logging it at `error` alongside a real
+ * Stripe/DB failure previously mapped it to a 500 (#5744 LOW-B).
+ */
+function classifyDepositFailure(
+  err: unknown,
+  reservation: Reservation,
+  depositId: string,
+  logger: FastifyBaseLogger,
+  message: string
+): CancelReservationResult {
+  if (err instanceof DepositConcurrentUpdateError || err instanceof DepositTransitionError) {
+    logger.warn(
+      { err, reservationId: reservation.id, depositId },
+      "Lost the deposit-transition race on cancellation; the winning request owns reconciliation"
+    );
+    return DEPOSIT_CONCURRENT_RETRY_RESULT;
+  }
+  logger.error({ err, reservationId: reservation.id, depositId }, message);
+  return DEPOSIT_FAILURE_RESULT;
+}
+
+/**
+ * Resolves a `held` deposit against the cancellation policy — staff cancels
+ * waive fees and refund in full, guest cancels evaluate the venue's
+ * cancellation-fee policy against the current clock. Factored out of
+ * `resolveDeposit` so the `rolled-back-to-held` retry sub-path (#5722 R5
+ * MED-1) can re-run this SAME logic fresh, exactly as if the deposit started
+ * `held`, rather than duplicating it.
+ */
+async function resolveHeldDeposit(
+  deposit: Deposit,
+  reservation: Reservation,
+  logger: FastifyBaseLogger,
+  initiator: CancelInitiator
+): Promise<ResolveDepositOutcome> {
+  if (initiator === "staff") {
+    // Staff cancels on the venue's behalf — waive any cancellation fee and
+    // refund the deposit in full instead of evaluating guest-facing policy.
+    try {
+      await depositService.refund(deposit.id);
+    } catch (err) {
+      return {
+        ok: false,
+        failure: classifyDepositFailure(
+          err,
+          reservation,
+          deposit.id,
+          logger,
+          "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
+        ),
+      };
+    }
+    return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund" } };
+  }
+
+  const venuePolicy = reservation.venueId
+    ? await venueService.getPolicyById(reservation.venueId)
+    : null;
+
+  const policy =
+    venuePolicy?.freeCancellationHours != null
+      ? {
+          depositAmountCents: deposit.amountCents,
+          freeCancellationHours: venuePolicy.freeCancellationHours,
+          lateCancellationFeePercent: venuePolicy.lateCancellationFeePercent ?? null,
+          noShowFeePercent: venuePolicy.noShowFeePercent ?? null,
+        }
+      : null;
+
+  const feeResult = evaluateCancellationFee(policy, new Date(reservation.startTime), new Date());
+
+  let stripeOp: DepositStripeOp;
+  try {
+    if (feeResult.depositAction === "refund_full") {
+      await depositService.refund(deposit.id);
+      stripeOp = "refund";
+    } else if (feeResult.depositAction === "forfeit") {
+      await depositService.forfeit(deposit.id, "cancellation");
+      stripeOp = "forfeit";
+    } else {
+      // refund_partial: capture then partially refund (also covers a partial
+      // no-show where noShowFeePercent < 100).
+      await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+      stripeOp = "refund_partial";
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      failure: classifyDepositFailure(
+        err,
+        reservation,
+        deposit.id,
+        logger,
+        "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
+      ),
+    };
+  }
+
+  return { ok: true, resolved: { depositId: deposit.id, stripeOp } };
+}
+
+/**
  * Resolves the deposit associated with `reservation` — replaying a
- * `partial_refunded` retry from its persisted amounts, or evaluating the
- * cancellation policy against the current clock for a fresh `held` deposit.
+ * `partial_refunded` retry from its persisted amounts, re-verifying a stuck
+ * `forfeited`/`applied` capture against Stripe (#5722 R4/R5 MED-1), or
+ * evaluating the cancellation policy against the current clock for a fresh
+ * `held` deposit.
  *
  * A deposit and its reservation must never diverge: this always runs BEFORE
  * the reservation is flipped to CANCELLED, and any money-path failure aborts
@@ -104,71 +278,115 @@ async function resolveDeposit(
     try {
       await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
     } catch (err) {
+      if (err instanceof DepositWrittenOffUncollectableError) {
+        // The authorization was canceled before this row's capture ever
+        // landed — nothing was ever charged. The cancellation can still
+        // proceed; there is simply no Stripe op left to name (#5722 R5
+        // LOW-2).
+        logger.warn(
+          { err, reservationId: reservation.id, depositId: deposit.id },
+          "Deposit authorization was canceled before capture; marked uncollectable and proceeding with cancellation"
+        );
+        return { ok: true, resolved: null };
+      }
       logger.error(
         { err, reservationId: reservation.id, depositId: deposit.id },
         "Failed to replay partial refund on cancellation retry; aborting cancel"
       );
-      return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
+      // A re-entrant replay that couldn't confirm itself (#5722 R4 LOW-1) —
+      // never the generic "could not process" wording, since the card was
+      // almost certainly already charged.
+      return {
+        ok: false,
+        failure:
+          err instanceof DepositCaptureAmbiguousError
+            ? DEPOSIT_CAPTURE_UNVERIFIED_RESULT
+            : DEPOSIT_FAILURE_RESULT,
+      };
     }
     return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund_partial" } };
   }
 
+  if (deposit.status === "forfeited" || deposit.status === "applied") {
+    // Retry guard: a previous attempt's capture reconciliation couldn't
+    // confirm the charge with Stripe (DepositCaptureAmbiguousError, #5722
+    // M3) and left the row at this optimistic terminal status without ever
+    // proving it. Falling through to `resolved: null` below (the pre-fix
+    // behaviour) would cancel straight off the row's own unverified status —
+    // trusting a status this invocation never itself verified is exactly the
+    // ghost-charge risk (#5722 R4 MED-1). Re-verify against Stripe first.
+    //
+    // A CANCEL is never the SAME operation that produced a forfeited/applied
+    // row — that is always a no-show forfeit or the staff manual-capture
+    // route — so recapture is never safe here; `allowRecapture` is always
+    // `false` (#5722 R5 MED-1).
+    const isForfeited = deposit.status === "forfeited";
+    const timestampField = isForfeited ? "forfeitedAt" : "appliedAt";
+    const verification = await depositService.verifyCaptureCompleted(
+      deposit.id,
+      deposit.status,
+      timestampField,
+      false
+    );
+    if (verification === "failed") {
+      logger.error(
+        { reservationId: reservation.id, depositId: deposit.id, depositStatus: deposit.status },
+        "Could not verify a previously-ambiguous deposit capture before cancelling; aborting to avoid a ghost charge"
+      );
+      return { ok: false, failure: DEPOSIT_CAPTURE_UNVERIFIED_RESULT };
+    }
+    if (verification === "concurrent") {
+      // A concurrent transition already moved the row off `deposit.status`
+      // before this rollback's own CAS write landed — an ordinary
+      // in-progress conflict, not a failure (#5744 stripe-flow-reviewer
+      // REGRESSION fix).
+      return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
+    }
+    if (verification === "in-flight") {
+      // The prior capture attempt may still be settling with Stripe — this
+      // is retryable, never a permanent failure (#5744 stripe-flow-reviewer
+      // follow-up).
+      return { ok: false, failure: DEPOSIT_CAPTURE_IN_FLIGHT_RESULT };
+    }
+    if (verification === "uncollectable") {
+      // No money moved — the deposit was written off, not captured. Nothing
+      // for this cancel to resolve against Stripe (#5722 R5 LOW-2).
+      logger.warn(
+        { reservationId: reservation.id, depositId: deposit.id },
+        "Deposit authorization was canceled before capture; marked uncollectable, proceeding with cancellation"
+      );
+      return { ok: true, resolved: null };
+    }
+    if (verification === "rolled-back-to-held") {
+      // Nothing was ever charged, and this wasn't the operation that set the
+      // status — re-fetch the now-held row and re-run normal cancellation
+      // policy evaluation fresh, exactly as if it started `held` (#5722 R5
+      // MED-1).
+      const rolledBack = await depositService.getById(deposit.id);
+      if (rolledBack?.status !== "held") {
+        // A concurrent transition beat this rollback to the row — an
+        // ordinary retryable conflict, not a failure.
+        return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
+      }
+      return resolveHeldDeposit(rolledBack, reservation, logger, initiator);
+    }
+    if (verification === "recaptured") {
+      // Unreachable in practice — `allowRecapture` is always `false` above
+      // in a cancel context — but if it ever occurred, money DID move THIS
+      // call and must be tracked for reconciliation, unlike "succeeded"
+      // below.
+      return { ok: true, resolved: { depositId: deposit.id, stripeOp: "forfeit" } };
+    }
+    // "succeeded": nothing moved THIS call (#5722 R5 LOW-3) — a lost
+    // status-write race after a prior attempt's own capture must surface as
+    // an ordinary conflict on the later status write, not a false
+    // manual-reconciliation alarm.
+    return { ok: true, resolved: null };
+  }
+
   if (deposit.status !== "held") return { ok: true, resolved: null };
 
-  if (initiator === "staff") {
-    // Staff cancels on the venue's behalf — waive any cancellation fee and
-    // refund the deposit in full instead of evaluating guest-facing policy.
-    try {
-      await depositService.refund(deposit.id);
-    } catch (err) {
-      logger.error(
-        { err, reservationId: reservation.id, depositId: deposit.id },
-        "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
-      );
-      return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
-    }
-    return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund" } };
-  }
-
-  const venuePolicy = reservation.venueId
-    ? await venueService.getPolicyById(reservation.venueId)
-    : null;
-
-  const policy =
-    venuePolicy?.freeCancellationHours != null
-      ? {
-          depositAmountCents: deposit.amountCents,
-          freeCancellationHours: venuePolicy.freeCancellationHours,
-          lateCancellationFeePercent: venuePolicy.lateCancellationFeePercent ?? null,
-          noShowFeePercent: venuePolicy.noShowFeePercent ?? null,
-        }
-      : null;
-
-  const feeResult = evaluateCancellationFee(policy, new Date(reservation.startTime), new Date());
-
-  let stripeOp: DepositStripeOp;
-  try {
-    if (feeResult.depositAction === "refund_full") {
-      await depositService.refund(deposit.id);
-      stripeOp = "refund";
-    } else if (feeResult.depositAction === "forfeit") {
-      await depositService.forfeit(deposit.id);
-      stripeOp = "forfeit";
-    } else {
-      // refund_partial: capture then partially refund (also covers a partial
-      // no-show where noShowFeePercent < 100).
-      await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
-      stripeOp = "refund_partial";
-    }
-  } catch (err) {
-    logger.error(
-      { err, reservationId: reservation.id, depositId: deposit.id },
-      "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
-    );
-    return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
-  }
-
-  return { ok: true, resolved: { depositId: deposit.id, stripeOp } };
+  return resolveHeldDeposit(deposit, reservation, logger, initiator);
 }
 
 /**

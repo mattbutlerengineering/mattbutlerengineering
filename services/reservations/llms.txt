@@ -123,10 +123,16 @@
         $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
       }
     </item>
+    <item priority="low">
+      interface SetVenueContextOptions {
+        skipUnscopedQueryCheck?: boolean;
+      }
+    </item>
     <item priority="high">
       export async function setVenueContext(
         client: VenueContextClient,
-        venueId: string | null | undefined
+        venueId: string | null | undefined,
+        options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
@@ -184,6 +190,9 @@
   <file path="src/routes/deposit-transition-handler.ts">
     <item priority="high">
       type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
+    </item>
+    <item priority="high">
+      type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
     </item>
     <item priority="high">
       export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
@@ -324,7 +333,7 @@
   </file>
   <file path="src/routes/public-holds.ts">
     <item priority="low">
-      async function resolveVenueBySlug(slug: string, reply: FastifyReply) { /* ... */ }
+      async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> { /* ... */ }
     </item>
     <item priority="medium">
       function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
@@ -406,12 +415,205 @@
       export const reservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/rls-route-sweep.fixtures-public.ts">
+    <item priority="low">
+      async function loadTokenHelpers(): Promise<{
+        generateManageToken: (reservationId: string, guestEmail: string) => string;
+        generateUnsubscribeToken: (guestId: string) => string;
+      }> { /* ... */ }
+    </item>
+    <item priority="high">
+      type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record;
+    </item>
+    <item priority="medium">
+      function brokenPublic(
+        blocker: string,
+        method: "GET" | "POST" | "PATCH" | "DELETE",
+        urlFor: (ctx: SweepContext) => string,
+        payloadFor?: PayloadOrFactory,
+        options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposablePublicHold(
+        ctx: SweepContext,
+        slug: string,
+        date: string
+      ): Promise<{ id: string; sessionId: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableManagedReservation(
+        ctx: SweepContext,
+        guestEmail: string,
+        date: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PUBLIC_FIXTURES: Record<string, RouteFixture>;
+    </item>
+  </file>
+  <file path="src/routes/rls-route-sweep.fixtures.ts">
+    <item priority="high">
+      export function parsePrintedRoutes(tree: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeRouteKey(key: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const INFRA_ROUTES: ReadonlySet<string>;
+    </item>
+    <item priority="low">
+      type FixtureKind = "not-rls" | "ok" | "broken";
+    </item>
+    <item priority="low">
+      interface RouteFixture {
+        kind: FixtureKind;
+        blocker?: string;
+        run: (ctx: SweepContext) => Promise<void>;
+      }
+    </item>
+    <item priority="low">
+      interface SweepContext {
+        app: FastifyInstance;
+        memberSub: string;
+        venueA: { id: string; slug: string };
+        venueB: { id: string; slug: string };
+        venueC: { id: string };
+      }
+    </item>
+    <item priority="low">
+      type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
+    </item>
+    <item priority="high">
+      export const ADMIN_HEADERS: Record<string, string>;
+    </item>
+    <item priority="high">
+      export const MEMBER_HEADERS: Record<string, string>;
+    </item>
+    <item priority="high">
+      export const DINER_A_HEADERS: Record<string, string>;
+    </item>
+    <item priority="medium">
+      function inject(
+        ctx: SweepContext,
+        headers: Record<string, string>,
+        opts: InjectOptions
+      ): Promise<LightMyRequestResponse> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const asAdmin: unknown;
+    </item>
+    <item priority="high">
+      export const asMember: unknown;
+    </item>
+    <item priority="high">
+      export const asDiner: unknown;
+    </item>
+    <item priority="high">
+      export function expectOk(res: LightMyRequestResponse, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function expectDenied(res: LightMyRequestResponse, label: string): void { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ExpectBrokenOptions {
+        deniedStatus?: number;
+        expectedErrorName?: string;
+      }
+    </item>
+    <item priority="high">
+      export function expectBroken(
+        res: LightMyRequestResponse,
+        label: string,
+        ctx: SweepContext,
+        options: ExpectBrokenOptions = {}
+      ): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ok(run: RouteFixture["run"]): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function notRls(run: RouteFixture["run"]): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okScopedByQuery(path: string, extraQuery = ""): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okCreateByBody(path: string, bodyFor: (venueId: string) => object): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okEntityRead(
+        urlFor: (id: string) => string,
+        idA: (ctx: SweepContext) => string,
+        idB: (ctx: SweepContext) => string
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okEntityMutation(
+        createEntity: (ctx: SweepContext, venueId: string) => Promise<string>,
+        buildRequest: (id: string) => Pick<InjectOptions, "method" | "url" | "payload">,
+        otherVenueId: (ctx: SweepContext) => string
+      ): RouteFixture { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractId(res: LightMyRequestResponse): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableTable(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableReservation(
+        ctx: SweepContext,
+        venueId: string,
+        guestEmail = `rls-sweep-disposable-${randomUUID()}@example.com`
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const FIXTURES: Record<string, RouteFixture>;
+    </item>
+  </file>
   <file path="src/routes/stripe-webhook.ts">
+    <item priority="low">
+      interface StripeWebhookLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setStripeWebhookLogger(next: StripeWebhookLogger): void { /* ... */ }
+    </item>
+    <item priority="low">
+      async function withDepositVenueContext(
+        paymentIntentId: string,
+        eventType: string,
+        work: () => Promise<void>
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> { /* ... */ }
+    </item>
     <item priority="low">
       async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
+      async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean { /* ... */ }
     </item>
     <item priority="low">
       async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
@@ -436,10 +638,18 @@
       export const venueIdFromParams: VenueIdResolver;
     </item>
     <item priority="high">
-      export function venueIdFromEntity<T extends { venueId: string | null }>(
-        getKey: (request: FastifyRequest) => unknown,
-        load: (key: string) => Promise<T | null | undefined>
+      export function venueIdFromEntity(
+        kind: EntityKind,
+        getKey: (request: FastifyRequest) => unknown
       ): VenueIdResolver { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadInVenueContext<T>(
+        kind: EntityKind,
+        key: string,
+        load: () => Promise<T>,
+        fallback: T
+      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/venues.ts">
@@ -776,7 +986,22 @@
     <item priority="low">
       type StripePort = Pick<
         StripeService,
-        "cancelPaymentIntent" | "capture...;
+        | "cancelPaymentIntent"
+        | "cap...;
+    </item>
+    <item priority="low">
+      type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
+    </item>
+    <item priority="low">
+      interface DepositServiceLogger {
+        
+      }
+    </item>
+    <item priority="medium">
+      function isOldEnoughToRollBack(capturedAt: Date): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setDepositServiceLogger(next: DepositServiceLogger): void { /* ... */ }
     </item>
     <item priority="high">
       class DepositNotFoundError {
@@ -786,6 +1011,32 @@
     <item priority="high">
       class DepositConcurrentUpdateError {
         
+      }
+    </item>
+    <item priority="high">
+      class DepositRefundLegIncompleteError {
+        depositId: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
+      class DepositCaptureAmbiguousError {
+        depositId: string;
+        intentStatus: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
+      class DepositAlreadyCapturedError {
+        depositId: string;
+        stripePaymentIntentId: string;
+        intentStatus: string;
+        cause: unknown;
+      }
+    </item>
+    <item priority="high">
+      class DepositWrittenOffUncollectableError {
+        depositId: string;
       }
     </item>
     <item priority="low">
@@ -1061,8 +1312,14 @@
       }
     </item>
     <item priority="low">
+      interface JobWorkerLogger {
+        
+      }
+    </item>
+    <item priority="low">
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
+        logger: JobWorkerLogger;
       }
     </item>
     <item priority="high">
@@ -1168,6 +1425,14 @@
       ): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/member-venues.ts">
+    <item priority="high">
+      export async function getMemberVenueIds(
+        userSub: string,
+        client: PrismaClient = prisma
+      ): Promise<string[]> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
@@ -1239,13 +1504,30 @@
       type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
-      type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+      type DepositStripeOp = "refund" | "forfeit" | "refund_partial" | "apply";
     </item>
     <item priority="high">
       type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
     </item>
     <item priority="high">
       type ResolveDepositOutcome = { ok: false; failure: CancelRe | { ok: true; resolved: Resolved;
+    </item>
+    <item priority="medium">
+      function classifyDepositFailure(
+        err: unknown,
+        reservation: Reservation,
+        depositId: string,
+        logger: FastifyBaseLogger,
+        message: string
+      ): CancelReservationResult { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolveHeldDeposit(
+        deposit: Deposit,
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        initiator: CancelInitiator
+      ): Promise<ResolveDepositOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function resolveDeposit(
@@ -1323,6 +1605,43 @@
       type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
     <item priority="high">
+      type ForfeitOutcome = { outcome: "resolved"; warning | { outcome: "uncollectable"; wa | { outcome: "already-no-show";  | { outcome: "refund-leg-incompl | { outcome: "concurrent-retry"  | { outcome: "failed" };
+    </item>
+    <item priority="high">
+      type NoShowDepositAction = { op: "forfeit" } | { op: "refund_full" } | { op: "refund_partial"; refund;
+    </item>
+    <item priority="low">
+      async function resolveNoShowDepositAction(
+        deposit: Deposit,
+        reservation: Reservation
+      ): Promise<NoShowDepositAction> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function reconcileCaptureLegFailure(
+        depositId: string,
+        targetStatus: "forfeited" | "partial_refunded",
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        err: unknown
+      ): Promise<ForfeitOutcome> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function forfeitHeldDeposit(
+        deposit: Deposit,
+        reservation: Reservation,
+        logger: FastifyBaseLogger
+      ): Promise<ForfeitOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      type ForfeitOutcomeApplication = { done: true; result: RecordNo | { done: false; depositWarning?;
+    </item>
+    <item priority="medium">
+      function applyForfeitOutcome(
+        outcome: ForfeitOutcome,
+        depositId: string
+      ): ForfeitOutcomeApplication { /* ... */ }
+    </item>
+    <item priority="high">
       export async function recordNoShow(
         reservation: Reservation,
         logger: FastifyBaseLogger
@@ -1365,10 +1684,65 @@
         reservation?: Reservation;
         error?: string;
         conflict?: ConflictCheckResult;
+        capacityExceeded?: boolean;
       }
+    </item>
+    <item priority="medium">
+      function compareReservationDateDesc(
+        a: { date: Date; startTime: Date },
+        b: { date: Date; startTime: Date }
+      ): number { /* ... */ }
     </item>
     <item priority="high">
       export const reservationService: unknown;
+    </item>
+  </file>
+  <file path="src/services/resolve-venue.ts">
+    <item priority="low">
+      type EntityKind = "reservation" | "table" | "guest" | "floor_plan" | "waitlist_entry" | "deposit" | "payment_intent" | "venue" | "venue_slug";
+    </item>
+    <item priority="high">
+      interface ResolvedVenueIdRow {
+        app_resolve_venue_id: string | null;
+      }
+    </item>
+    <item priority="high">
+      export async function resolveVenueId(
+        kind: EntityKind,
+        key: string,
+        group?: string | null
+      ): Promise<string | null> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/rls-context-mode.ts">
+    <item priority="low">
+      type RlsContextMode = "warn" | "throw" | "off";
+    </item>
+    <item priority="high">
+      export function resolveRlsContextMode(): RlsContextMode { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UnscopedRlsQueryDetails {
+        model: string | null;
+        method: string;
+        route: string | null;
+      }
+    </item>
+    <item priority="high">
+      class RlsUnscopedQueryError {
+        details: UnscopedRlsQueryDetails;
+      }
+    </item>
+    <item priority="low">
+      interface RlsTripwireLogger {
+        
+      }
+    </item>
+    <item priority="high">
+      export function setRlsTripwireLogger(next: RlsTripwireLogger): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recordUnscopedRlsQuery(details: Omit<UnscopedRlsQueryDetails, "route">): void { /* ... */ }
     </item>
   </file>
   <file path="src/services/rls-force-coverage.ts">
@@ -1752,6 +2126,9 @@
   </file>
   <file path="src/services/venue-scoped-prisma.ts">
     <item priority="high">
+      export const RLS_MODELS: ReadonlySet<string>;
+    </item>
+    <item priority="high">
       type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     </item>
     <item priority="high">
@@ -1887,6 +2264,7 @@
         id: string;
         guestPhone: string;
         guestName: string | null;
+        venueId: string;
       }
     </item>
     <item priority="low">

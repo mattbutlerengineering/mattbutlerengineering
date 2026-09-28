@@ -25,7 +25,12 @@ import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
-import { venueIdFromQuery, venueIdFromBody, venueIdFromEntity } from "./venue-access.js";
+import {
+  venueIdFromQuery,
+  venueIdFromBody,
+  venueIdFromEntity,
+  loadInVenueContext,
+} from "./venue-access.js";
 
 /**
  * Resolves the owning venue of a guest addressed by `:id`, so requireVenueAccess
@@ -33,8 +38,8 @@ import { venueIdFromQuery, venueIdFromBody, venueIdFromEntity } from "./venue-ac
  * does not exist (→ 403, never leaking existence to non-members).
  */
 const resolveGuestVenueId: VenueIdResolver = venueIdFromEntity(
-  (request) => (request.params as { id?: unknown }).id,
-  guestService.getById
+  "guest",
+  (request) => (request.params as { id?: unknown }).id
 );
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
@@ -196,7 +201,12 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const guest = await guestService.getById(request.params.id);
+      const guest = await loadInVenueContext(
+        "guest",
+        request.params.id,
+        () => guestService.getById(request.params.id),
+        null
+      );
       if (!guest) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
@@ -336,7 +346,12 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const guest = await guestService.update(request.params.id, request.body);
+      const guest = await loadInVenueContext(
+        "guest",
+        request.params.id,
+        () => guestService.update(request.params.id, request.body),
+        null
+      );
       if (!guest) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
@@ -403,7 +418,12 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
       }
       const createdBy = request.user?.id ?? "unknown";
-      const guest = await guestService.addNote(request.params.id, text, createdBy);
+      const guest = await loadInVenueContext(
+        "guest",
+        request.params.id,
+        () => guestService.addNote(request.params.id, text, createdBy),
+        null
+      );
       if (!guest) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
@@ -514,13 +534,21 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const guest = await guestService.getById(request.params.id);
-      if (!guest) {
+      const found = await loadInVenueContext(
+        "guest",
+        request.params.id,
+        async () => {
+          const guest = await guestService.getById(request.params.id);
+          if (!guest) return null;
+          const venue = await venueService.getById(guest.venueId);
+          return { guest, venueName: venue?.name ?? guest.venueId };
+        },
+        null
+      );
+      if (!found) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
-      const venue = await venueService.getById(guest.venueId);
-      const venueName = venue?.name ?? guest.venueId;
-      const sent = await sendWinBack(guest, fastify.notificationPort, venueName);
+      const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
       return { data: { sent } };
     }
   );
@@ -554,7 +582,12 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const deleted = await guestService.delete(request.params.id);
+      const deleted = await loadInVenueContext(
+        "guest",
+        request.params.id,
+        () => guestService.delete(request.params.id),
+        false
+      );
       if (!deleted) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }

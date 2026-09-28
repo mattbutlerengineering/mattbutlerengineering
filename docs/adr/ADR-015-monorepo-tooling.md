@@ -28,6 +28,7 @@ The repo uses **pnpm workspaces** for package management and **Turborepo** for t
 - `turbo.json` defines the task graph (`build`, `test`, `typecheck`, `lint`) and their inter-task dependencies (`^build` = build dependencies first).
 - Turbo caches task outputs keyed on inputs, so unchanged packages are not re-run.
 - `--filter <pkg>...` (with the trailing `...`) selects a package **and its transitive dependencies**. CI's Architecture-Audit job builds only `@mbe/cli...` for exactly this reason — it needs the CLI and its deps, not the whole repo.
+- **Remote caching is active in CI** (`turbo.json`'s `remoteCache.enabled: true`), backed by GitHub Actions' own cache via `rharkor/caching-for-turbo` (pinned by commit SHA in `ci.yml`) rather than a Vercel account/`TURBO_TOKEN`. The action starts a local proxy on the runner and exports `TURBO_API`/`TURBO_TOKEN`/`TURBO_TEAM` for the job; those three variables carry fixed, non-secret values and are excluded from turbo's cache-key hashing by design (`TURBO_*` is a built-in pass-through prefix), so they cannot invalidate a cache hit or leak anything sensitive. Wired into the four jobs that run turbo tasks directly (`lint`, `typecheck`, `test`, `build`) rather than the shared `setup-workspace` composite, so jobs with no turbo task don't pay for a cache server they'd never use.
 
 ### Run tasks from the package directory
 

@@ -6,7 +6,7 @@ export type { Table, TableStatus } from "./table.js";
 export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
 
 export type DepositStatus =
-  "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+  "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
 
 export interface Deposit {
   id: string;
@@ -20,6 +20,11 @@ export interface Deposit {
   appliedAt: string | null;
   refundedAt: string | null;
   forfeitedAt: string | null;
+  uncollectableAt?: string | null;
+  /** Cumulative cents refunded (Stripe's `amount_refunded`) after this
+   * deposit already reached a capture-based terminal status — e.g. a
+   * dashboard-issued refund after our own capture (#5725). */
+  postCaptureRefundCents?: number | null;
   createdAt: string;
   updatedAt: string;
 }

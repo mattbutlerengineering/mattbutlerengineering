@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import { JobWorker, JOB_TYPES } from "@mbe/jobs";
-import type { JobHandlerMap, ReminderPayload } from "@mbe/jobs";
+import type { JobHandlerMap, ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
 import type { BookingNotificationInput } from "@mbe/notifications";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
@@ -17,6 +17,15 @@ export interface ReminderDispatcher {
   ): Promise<void>;
 }
 
+/**
+ * Narrow logger shape the WAITLIST_EXPIRY legacy-payload fallback needs —
+ * satisfied by `FastifyBaseLogger`, mirroring `RlsTripwireLogger`
+ * (`./rls-context-mode.ts`).
+ */
+export interface JobWorkerLogger {
+  warn(details: object, msg: string): void;
+}
+
 export interface ReservationJobHandlerDeps {
   /** Finder: load the reservation the reminder targets. */
   getReservation(id: string): Promise<Reservation | null>;
@@ -28,6 +37,8 @@ export interface ReservationJobHandlerDeps {
   generateManageToken(reservationId: string, guestEmail: string): string;
   /** Waitlist re-notify path — expires the entry and notifies the next guest. */
   handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
+  /** Logs the WAITLIST_EXPIRY legacy-payload fallback (see handleWaitlistExpiryJob below). */
+  logger: JobWorkerLogger;
 }
 
 /**
@@ -47,9 +58,10 @@ export interface ReservationJobHandlerDeps {
  * `ReminderPayload` (`@mbe/jobs`) already declares `venueId` required, so the
  * venue is in hand at dispatch; this is simply the same
  * `runWithVenueContext(venueId, …)` convention `../routes/deposits.ts` already
- * uses, applied to the job-worker call site. `WAITLIST_EXPIRY` is the other
- * shape (its payload's `venueId` is optional and unenqueued) and is
- * deliberately left untouched — see ADR-026 §3.3 item 7.
+ * uses, applied to the job-worker call site. `handleWaitlistExpiryJob` closes
+ * the other half of item 7 the same way, wrapping `deps.handleWaitlistExpiry`
+ * whenever `payload.venueId` is present; see its own doc comment for the
+ * legacy-payload fallback.
  */
 export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
   async function deliverReminder(payload: ReminderPayload): Promise<void> {
@@ -86,11 +98,38 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     });
   }
 
+  /**
+   * WAITLIST_EXPIRY runs inside `runWithVenueContext(payload.venueId, …)`
+   * exactly like `deliverReminder` above, closing the other half of ADR-026
+   * §3.3 item 7. `payload.venueId` is populated at the job's one enqueue
+   * site (`waitlist-notifier.ts`'s `notifyTableReady`) — see
+   * `WaitlistExpiryPayload` (`@mbe/jobs`) for why it stays optional rather
+   * than required: a job enqueued before this fix shipped is already
+   * sitting in Redis without it, and BullMQ never re-serializes a payload
+   * once queued. For that legacy case, fall back to the pre-fix behavior
+   * (no venue context) and log a warning naming the job and entry id,
+   * rather than inventing a cross-venue lookup — safe to delete once one
+   * WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS, waitlist-notifier.ts) has elapsed
+   * post-deploy.
+   */
+  async function handleWaitlistExpiryJob(payload: WaitlistExpiryPayload): Promise<void> {
+    if (payload.venueId) {
+      return runWithVenueContext(payload.venueId, () =>
+        deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId })
+      );
+    }
+
+    deps.logger.warn(
+      { jobType: JOB_TYPES.WAITLIST_EXPIRY, waitlistEntryId: payload.waitlistEntryId },
+      "WAITLIST_EXPIRY job has no venueId (legacy payload enqueued before the venue-context fix) — running without RLS venue context"
+    );
+    return deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId });
+  }
+
   return {
     [JOB_TYPES.BOOKING_REMINDER]: deliverReminder,
     [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
-    [JOB_TYPES.WAITLIST_EXPIRY]: (payload) =>
-      deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId }),
+    [JOB_TYPES.WAITLIST_EXPIRY]: handleWaitlistExpiryJob,
   };
 }
 

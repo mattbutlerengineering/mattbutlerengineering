@@ -69,6 +69,7 @@ export const DepositStatusSchema = z.enum([
   "refunded",
   "partial_refunded",
   "forfeited",
+  "uncollectable",
 ]);
 
 export const DepositSchema = z.object({
@@ -83,6 +84,15 @@ export const DepositSchema = z.object({
   appliedAt: z.string().nullable(),
   refundedAt: z.string().nullable(),
   forfeitedAt: z.string().nullable(),
+  // Optional (not just nullable) so a client validating against this schema
+  // tolerates a response from an older, not-yet-redeployed server instance
+  // that predates this field entirely (rolling-deploy skew).
+  uncollectableAt: z.string().nullable().optional(),
+  // Cumulative cents refunded (Stripe's own `amount_refunded`) AFTER this
+  // deposit already reached a capture-based terminal status — e.g. a
+  // dashboard-issued refund after our own capture (#5725). Same
+  // rolling-deploy-skew tolerance as uncollectableAt above.
+  postCaptureRefundCents: z.number().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

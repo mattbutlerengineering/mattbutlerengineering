@@ -2,7 +2,6 @@ import {
   useState,
   useRef,
   useCallback,
-  useEffect,
   useId,
   forwardRef,
   cloneElement,
@@ -13,6 +12,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
 import { cn } from "../../utils/class-composer";
@@ -79,22 +79,9 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
   useReturnFocus(open);
   useEscapeKey(close, open);
+  useFocusTrap(panelRef, open);
 
   useDismiss(wrapperRef, close, { enabled: open });
-
-  // Focus first focusable element on open
-  useEffect(() => {
-    if (!open) return;
-
-    requestAnimationFrame(() => {
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusable = panel.querySelector<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      focusable?.focus();
-    });
-  }, [open]);
 
   const origin = motionOrigin[placement];
 
@@ -126,6 +113,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             id={panelId}
             className={cn(styles.panel, styles[placement])}
             role="dialog"
+            aria-modal="true"
             aria-label={title ?? "Popover"}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
             animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}

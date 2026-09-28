@@ -23,11 +23,10 @@ export interface WaitlistNotifierDeps {
   scheduler: Pick<NotifierScheduler, "schedule">;
   expireEntry(id: string): Promise<{ id: string; venueId: string; status: string } | null>;
   listWaiting(venueId: string): Promise<WaitlistEntryRef[]>;
-  notifyTableReady(entry: {
-    id: string;
-    guestPhone: string;
-    guestName: string | null;
-  }): Promise<void>;
+  // Same shape as the public notifyTableReady method below — the default
+  // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
+  // the notifier's own public method, so both must accept venueId.
+  notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
   logger: WaitlistNotifierLogger;
 }
 
@@ -52,6 +51,13 @@ export interface NotifyTableReadyInput {
   id: string;
   guestPhone: string;
   guestName: string | null;
+  /**
+   * Passed straight through to the WAITLIST_EXPIRY job payload at enqueue
+   * time (ADR-026 §3.3 item 7), so the job worker can run the expiry handler
+   * inside `runWithVenueContext(venueId, ...)` instead of deriving it from an
+   * RLS-protected read.
+   */
+  venueId: string;
 }
 
 export interface HandleExpiryInput {
@@ -137,7 +143,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     // Always schedule expiry regardless of SMS outcome
     await scheduler.schedule(
       JOB_TYPES.WAITLIST_EXPIRY,
-      { waitlistEntryId: input.id },
+      { waitlistEntryId: input.id, venueId: input.venueId },
       FIVE_MINUTES_MS,
       `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
     );
@@ -151,10 +157,15 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     const next = waiting[0];
     if (!next) return;
 
+    // expired.venueId (not next.venueId — WaitlistEntryRef declares it
+    // optional for looser test doubles) is the venue this whole call is
+    // already scoped to; listWaiting(expired.venueId) guarantees `next`
+    // belongs to it.
     await notifyNextTableReady({
       id: next.id,
       guestPhone: next.guestPhone,
       guestName: next.guestName,
+      venueId: expired.venueId,
     });
   }
 

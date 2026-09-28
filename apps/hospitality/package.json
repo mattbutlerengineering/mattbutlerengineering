@@ -47,7 +47,7 @@
     {
       "name": "React Vendor (react/react-dom)",
       "path": "dist/assets/react-vendor-*.js",
-      "limit": "90 kB"
+      "limit": "64 kB"
     },
     {
       "name": "Rialto Vendor (design system)",
@@ -68,6 +68,11 @@
       "name": "Auth Vendor (@mbe/auth)",
       "path": "dist/assets/auth-vendor-*.js",
       "limit": "23 kB"
+    },
+    {
+      "name": "Sentry Vendor (@sentry/*)",
+      "path": "dist/assets/sentry-vendor-*.js",
+      "limit": "30 kB"
     }
   ],
   "dependencies": {

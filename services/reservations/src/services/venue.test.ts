@@ -24,6 +24,7 @@ vi.mock("./database.js", async () => {
       venueMembership: {
         create: vi.fn(),
         count: vi.fn(),
+        findMany: vi.fn(),
       },
       $queryRaw: vi.fn(),
       $transaction: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("./database.js", async () => {
 
 import { venueService, venueGroupService, VenueBootstrapForbiddenError } from "./venue.js";
 import { prisma } from "./database.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
 
@@ -131,6 +133,12 @@ function crossVenueValueCalls(): unknown[][] {
 interface TxLike {
   venue: { create: Mock };
   venueMembership: { create: Mock; count?: Mock };
+  $executeRaw: Mock;
+}
+
+/** A `$executeRaw` stub satisfying `setVenueContext`'s call in every create() test below. */
+function makeTxExecuteRaw(): Mock {
+  return vi.fn().mockResolvedValue(0);
 }
 
 describe("venueGroupService", () => {
@@ -346,44 +354,129 @@ describe("venueService", () => {
   });
 
   describe("listForMember", () => {
-    it("filters venues to those the given user is a member of", async () => {
-      const dbVenue = makePrismaVenue();
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([dbVenue] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(1 as never);
+    it("resolves the member's venue ids from venue_memberships (no RLS read), never a cross-venue venue.findMany (#5369)", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
 
       const result = await venueService.listForMember("auth0|user-1", 1, 10);
 
+      expect(prisma.venueMembership.findMany).toHaveBeenCalledWith({
+        where: { userSub: "auth0|user-1" },
+        select: { venueId: true },
+        distinct: ["venueId"],
+      });
       expect(result.data).toHaveLength(1);
       const [venue] = result.data;
       if (!venue) throw new Error("expected a venue");
       expect(venue.id).toBe("venue-1");
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { memberships: { some: { userSub: "auth0|user-1" } } },
-        })
-      );
-      // count must apply the same membership filter so pagination totals match
-      expect(prisma.venue.count).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { memberships: { some: { userSub: "auth0|user-1" } } },
-        })
-      );
+      expect(prisma.venue.findMany).not.toHaveBeenCalled();
     });
 
-    it("combines the membership filter with venueGroupId", async () => {
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(0 as never);
+    it("reads each member venue inside its own runWithVenueContext (one venue at a time)", async () => {
+      // `venueIds.map(...)` invokes `runWithVenueContext` synchronously in
+      // array order (`AsyncLocalStorage.run` calls its callback synchronously
+      // before any `await` inside it), so the two mocked calls below fire in
+      // the same order `getMemberVenueIds` returned.
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      const observedVenueIds: Array<string | null> = [];
+      vi.mocked(prisma.venue.findUnique)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return makePrismaVenue({ id: "venue-1", name: "Alpha" });
+        }) as never)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return makePrismaVenue({ id: "venue-2", name: "Bravo" });
+        }) as never);
 
-      await venueService.listForMember("auth0|user-1", 1, 10, "group-1");
+      await venueService.listForMember("auth0|user-1", 1, 10);
 
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            memberships: { some: { userSub: "auth0|user-1" } },
-            venueGroupId: "group-1",
-          },
-        })
-      );
+      expect(observedVenueIds).toEqual(["venue-1", "venue-2"]);
+      // The context must not leak past listForMember's own execution.
+      expect(getCurrentVenueId()).toBeNull();
+    });
+
+    it("returns both of a member's venues, sorted by name, when they belong to more than one", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1", name: "Zeta" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-2", name: "Alpha" }) as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data.map((v) => v.id)).toEqual(["venue-2", "venue-1"]);
+      expect(result.pagination.total).toBe(2);
+    });
+
+    it("sorts mixed-case and accented names the way the database collation did, not by code unit", async () => {
+      // The removed `orderBy: { name: "asc" }` sorted with Postgres's en_US
+      // collation; a raw `<` comparison would put "Bravo" before "alpha" and
+      // "Éclair" after "zeta", changing which venues land on page 1.
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "v-zeta" },
+        { venueId: "v-eclair" },
+        { venueId: "v-bravo" },
+        { venueId: "v-alpha" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-zeta", name: "zeta" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-eclair", name: "Éclair" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-bravo", name: "Bravo" }) as never)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "v-alpha", name: "alpha" }) as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data.map((v) => v.name)).toEqual(["alpha", "Bravo", "Éclair", "zeta"]);
+    });
+
+    it("filters out a venue id whose row no longer exists", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-deleted" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1" }) as never)
+        .mockResolvedValueOnce(null as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("filters the fanned-out venues by venueGroupId in-process", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([
+        { venueId: "venue-1" },
+        { venueId: "venue-2" },
+      ] as never);
+      vi.mocked(prisma.venue.findUnique)
+        .mockResolvedValueOnce(makePrismaVenue({ id: "venue-1", venueGroupId: "group-1" }) as never)
+        .mockResolvedValueOnce(
+          makePrismaVenue({ id: "venue-2", venueGroupId: "group-2" }) as never
+        );
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10, "group-1");
+
+      expect(result.data.map((v) => v.id)).toEqual(["venue-1"]);
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("returns an empty page when the user holds no membership at all", async () => {
+      vi.mocked(prisma.venueMembership.findMany).mockResolvedValueOnce([] as never);
+
+      const result = await venueService.listForMember("auth0|no-memberships", 1, 10);
+
+      expect(result.data).toEqual([]);
+      expect(result.pagination.total).toBe(0);
+      expect(prisma.venue.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -623,8 +716,25 @@ describe("venueService", () => {
   });
 
   describe("create", () => {
+    // ADR-026 §3.3 item 8 / #5369 PR 7: the ownerSub-less branch now runs the
+    // insert inside an explicit `prisma.$transaction` too (previously the
+    // top-level `prisma.venue.create` directly), so `setVenueContext` can set
+    // `app.venue_id` to the generated id on the SAME transaction — there is
+    // no prior venue context for a row that doesn't exist yet.
+    function mockTransactionOnce(venueCreate: Mock): void {
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: makeTxExecuteRaw(),
+        })) as never);
+    }
+
     it("creates venue with all fields", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      mockTransactionOnce(venueCreate);
 
       const result = await venueService.create({
         name: "Test Venue",
@@ -634,9 +744,10 @@ describe("venueService", () => {
       });
 
       expect(result.name).toBe("Test Venue");
-      expect(prisma.venue.create).toHaveBeenCalledWith(
+      expect(venueCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            id: expect.any(String),
             name: "Test Venue",
             currencyCode: "USD",
           }),
@@ -644,8 +755,35 @@ describe("venueService", () => {
       );
     });
 
+    it("sets app.venue_id to the generated id on the same transaction before the insert", async () => {
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      const executeRaw = makeTxExecuteRaw();
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: executeRaw,
+        })) as never);
+
+      await venueService.create({ name: "Venue", slug: "venue", ianaTimezone: "UTC" });
+
+      const insertedId = (venueCreate.mock.calls[0]?.[0] as { data: { id: string } }).data.id;
+      expect(executeRaw).toHaveBeenCalledTimes(1);
+      // `setVenueContext`'s tagged-template call binds the venue id as its
+      // one parameter — matching resolve-venue.test.ts's own convention for
+      // asserting a tagged-template call's bound values.
+      expect(executeRaw.mock.calls[0]?.slice(1)).toEqual([insertedId]);
+      // Called BEFORE the insert, not after.
+      expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        venueCreate.mock.invocationCallOrder[0]!
+      );
+    });
+
     it("defaults currencyCode to USD", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      mockTransactionOnce(venueCreate);
 
       await venueService.create({
         name: "Venue",
@@ -653,7 +791,7 @@ describe("venueService", () => {
         ianaTimezone: "UTC",
       });
 
-      expect(prisma.venue.create).toHaveBeenCalledWith(
+      expect(venueCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ currencyCode: "USD" }),
         })
@@ -682,6 +820,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       const result = await venueService.create(
@@ -715,6 +854,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await expect(
@@ -748,6 +888,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       const result = await venueService.create(
@@ -780,6 +921,7 @@ describe("venueService", () => {
             }),
             count: membershipCount,
           },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await venueService.create(
@@ -812,6 +954,7 @@ describe("venueService", () => {
             }),
             count: vi.fn().mockResolvedValue(0),
           },
+          $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
       await venueService.create(
@@ -826,12 +969,23 @@ describe("venueService", () => {
       );
     });
 
-    it("does not open a transaction or seed membership when ownerSub is omitted", async () => {
-      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+    it("does not seed membership when ownerSub is omitted", async () => {
+      // ADR-026 §3.3 item 8 / #5369 PR 7: this branch now opens its own
+      // `prisma.$transaction` too (to set `app.venue_id` before the insert),
+      // so the distinguishing behavior is no membership seeding, not "no
+      // transaction" — see `mockTransactionOnce` above.
+      const venueCreate = vi.fn().mockResolvedValue(makePrismaVenue());
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRaw: makeTxExecuteRaw(),
+        })) as never);
 
       await venueService.create({ name: "Venue", slug: "venue", ianaTimezone: "UTC" });
 
-      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.venueMembership.create).not.toHaveBeenCalled();
     });
   });

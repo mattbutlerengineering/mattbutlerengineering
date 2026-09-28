@@ -124,16 +124,20 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-dockerfile-deps",
       "check-schema-compat",
       "check-ci-dispatch",
+      "check-pipe-to-shell-pipefail",
+      "check-pulumi-version-assertion",
       "check-issue-filing-seam",
       "check-workflow-deps",
       "check-workflow-paths-coverage",
       "check-hook-wiring",
+      "check-hooks-active",
       "check-deploy-secret-provisioning",
       "check-orphaned-tests",
       "check-orphaned-collectors",
       "check-audit-persistence-caller",
       "check-story-coverage",
       "check-rialto-changeset",
+      "check-changeset-tree",
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
       "check-queue-telemetry-dupes",
@@ -141,6 +145,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-memory-refs",
       "check-skill-references",
       "boundaries",
+      "check-boundaries-coverage",
     ]);
   });
 

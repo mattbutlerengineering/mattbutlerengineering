@@ -1,0 +1,12 @@
+-- Additive, nullable column recording which flow set a deposit to
+-- `forfeited` ("no_show" | "cancellation" | "staff"). `forfeited` is produced
+-- by three different callers of DepositService#forfeit — a no-show forfeit
+-- (reservation-no-show.ts), a guest late-cancel forfeit
+-- (reservation-cancellation.ts), and the staff manual
+-- /deposits/:id/forfeit route — and only a no-show retry replaying its OWN
+-- forfeit key is safe to recapture at its full amount; the other two origins
+-- may owe a different (or zero) amount under whatever policy produced them
+-- (#5744 LOW-A). Nullable and never backfilled: rows written before this
+-- column existed have no known origin, which the recapture check in
+-- reservation-no-show.ts treats as "not a no-show" (fails closed).
+ALTER TABLE "deposits" ADD COLUMN "forfeit_origin" TEXT;

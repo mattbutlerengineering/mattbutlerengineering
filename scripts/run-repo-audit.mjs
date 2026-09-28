@@ -54,6 +54,16 @@ export const REPO_AUDIT_CHECKS = [
   { name: "check-schema-compat", command: "node", args: ["scripts/check-schema-compat.js"] },
   { name: "check-ci-dispatch", command: "node", args: ["scripts/check-ci-dispatch.mjs"] },
   {
+    name: "check-pipe-to-shell-pipefail",
+    command: "node",
+    args: ["scripts/check-pipe-to-shell-pipefail.mjs"],
+  },
+  {
+    name: "check-pulumi-version-assertion",
+    command: "node",
+    args: ["scripts/check-pulumi-version-assertion.mjs"],
+  },
+  {
     name: "check-issue-filing-seam",
     command: "node",
     args: ["scripts/check-issue-filing-seam.mjs"],
@@ -65,6 +75,7 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-workflow-paths-coverage.mjs"],
   },
   { name: "check-hook-wiring", command: "node", args: ["scripts/check-hook-wiring.mjs"] },
+  { name: "check-hooks-active", command: "node", args: ["scripts/check-hooks-active.mjs"] },
   {
     name: "check-deploy-secret-provisioning",
     command: "node",
@@ -83,6 +94,7 @@ export const REPO_AUDIT_CHECKS = [
   },
   { name: "check-story-coverage", command: "node", args: ["scripts/check-story-coverage.mjs"] },
   { name: "check-rialto-changeset", command: "node", args: ["scripts/check-rialto-changeset.mjs"] },
+  { name: "check-changeset-tree", command: "node", args: ["scripts/check-changeset-tree.mjs"] },
   {
     name: "check-claude-md-table-drift",
     command: "node",
@@ -106,6 +118,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-skill-references.mjs"],
   },
   { name: "boundaries", command: "pnpm", args: ["check:boundaries"] },
+  {
+    name: "check-boundaries-coverage",
+    command: "node",
+    args: ["scripts/check-boundaries-coverage.mjs"],
+  },
 ];
 
 /**

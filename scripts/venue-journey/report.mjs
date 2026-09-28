@@ -32,9 +32,6 @@
 /** A step slower than this is friction, not failure. */
 export const SLOW_STEP_MS = 10_000;
 
-/** Title of the single rolling friction-log issue. */
-export const FRICTION_ISSUE_TITLE = "[Journey] venue-journey friction log";
-
 /** Artifact uploaded by the workflow that holds failure screenshots. */
 export const SCREENSHOT_ARTIFACT_NAME = "venue-journey-artifacts";
 

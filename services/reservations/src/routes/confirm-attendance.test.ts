@@ -53,6 +53,13 @@ vi.mock("resend", () => ({
   })),
 }));
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: `requireManageToken` and this route now
+// resolve the reservation's venue via `resolveVenueId` — see
+// public-venues.test.ts's identical comment.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
+}));
+
 import { reservationService } from "../services/reservation.js";
 
 const makePendingReservation = () => ({

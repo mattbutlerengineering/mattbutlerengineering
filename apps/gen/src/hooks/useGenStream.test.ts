@@ -56,9 +56,13 @@ describe("useGenStream", () => {
   });
 
   it("parses NDJSON elements and builds spec incrementally", async () => {
+    // Real elements are @json-render/core FlatElements — keyed by `key` (+
+    // optional `parentKey`), not `id`. flatToTree is mocked in this file, so
+    // these field names aren't exercised by the mock, but the fixtures should
+    // still model what the server actually sends (see gen-ui.test.ts).
     const elements = [
-      { type: "heading", props: { children: "Title" }, id: "1" },
-      { type: "paragraph", props: { children: "Body" }, id: "2" },
+      { type: "heading", props: { children: "Title" }, key: "root-1" },
+      { type: "paragraph", props: { children: "Body" }, key: "child-1", parentKey: "root-1" },
     ];
     mockStreamNDJSON.mockReturnValue(asyncGen(elements));
 
@@ -74,7 +78,7 @@ describe("useGenStream", () => {
   });
 
   it("calls onComplete with final spec and raw lines", async () => {
-    const elements = [{ type: "text", props: { children: "Hello" }, id: "1" }];
+    const elements = [{ type: "text", props: { children: "Hello" }, key: "root-1" }];
     mockStreamNDJSON.mockReturnValue(asyncGen(elements));
 
     const onComplete = vi.fn();

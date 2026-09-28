@@ -30,6 +30,15 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
+// ADR-026 §3.3 item 4 / #5369 PR 8: this preHandler and the route it guards
+// now resolve the reservation's venue via `resolveVenueId` — see
+// public-venues.test.ts's identical comment. Resolves to `mockReservation
+// .venueId`/`mockVenue.id` so both call sites' own service mocks stay in
+// control of the actual test-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue_1"),
+}));
+
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 

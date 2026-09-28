@@ -384,4 +384,41 @@ describe("POST /api/gen/agent", () => {
       { type: "text", content: " world" },
     ]);
   });
+
+  it("recovers from a step-1 tool-error and still delivers step-2 text (#5720 re-review)", async () => {
+    // gen-agent runs with maxSteps 5, so it must NOT set
+    // GenRunnerConfig.failOnToolError: ai@7's own multi-step loop resends a
+    // tool-error to the model and can recover on a later step, all on the
+    // SAME fullStream. Throwing unconditionally on tool-error (the pre-fix
+    // behavior) killed the turn before this recovery text ever arrived.
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: mockAsyncIterable([
+        {
+          type: "tool-error",
+          toolCallId: "call-1",
+          toolName: "check_availability",
+          input: { bad: "shape" },
+          error: new Error("invalid tool input"),
+        },
+        { type: "text-delta", text: "Let me try that again — no slots tonight." },
+      ]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gen/agent",
+      payload: { messages: [{ role: "user", content: "what is available tonight?" }] },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const lines = response.body
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    expect(lines).toEqual([{ type: "text", content: "Let me try that again — no slots tonight." }]);
+  });
 });

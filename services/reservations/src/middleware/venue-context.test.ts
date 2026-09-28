@@ -11,6 +11,7 @@ import {
   type VenueContextClient,
 } from "./venue-context.js";
 import { enterVenueContext } from "../services/venue-context-store.js";
+import { setRlsTripwireLogger } from "../services/rls-context-mode.js";
 
 function fakeRequest(): FastifyRequest {
   return {} as unknown as FastifyRequest;
@@ -54,6 +55,43 @@ describe("setVenueContext", () => {
     await setVenueContext(client, undefined);
 
     expect(client.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  describe("unscoped-query tripwire (ADR-026 §3.3 / #5369 PR 1)", () => {
+    const logger = { warn: vi.fn() };
+
+    beforeEach(() => {
+      logger.warn.mockClear();
+      setRlsTripwireLogger(logger);
+    });
+
+    it("logs rls_unscoped_query (model: null — this function can't attribute one) when called with no options at all", async () => {
+      const client = fakeClient();
+
+      await setVenueContext(client, null);
+
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { model: null, method: "setVenueContext", route: null },
+        "rls_unscoped_query"
+      );
+    });
+
+    it("skips the check when skipUnscopedQueryCheck is set (the venue-scoped-prisma auto-wrap's own call site)", async () => {
+      const client = fakeClient();
+
+      await setVenueContext(client, null, { skipUnscopedQueryCheck: true });
+
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("does not log when a real venue id is given", async () => {
+      const client = fakeClient();
+
+      await setVenueContext(client, "venue-1");
+
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 });
 

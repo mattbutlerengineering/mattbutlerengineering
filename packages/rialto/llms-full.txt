@@ -2669,7 +2669,7 @@
     export function useReturnFocus(open: boolean): void {
       const triggerRef = useRef<Element | null>(null);
     
-      useEffect(() => {
+      useLayoutEffect(() => {
         if (!open) return;
         triggerRef.current = document.activeElement;
     

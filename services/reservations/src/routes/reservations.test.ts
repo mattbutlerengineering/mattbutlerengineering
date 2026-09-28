@@ -29,10 +29,12 @@ vi.mock("../services/reservation.js", () => ({
 vi.mock("../services/deposit.js", () => ({
   depositService: {
     getByReservationId: vi.fn(),
+    getById: vi.fn(),
     refund: vi.fn(),
     refundPartial: vi.fn(),
     forfeit: vi.fn(),
   },
+  setDepositServiceLogger: vi.fn(),
 }));
 
 // Mock the table service (needed for app registration)
@@ -106,6 +108,18 @@ vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
 });
+
+// ADR-026 §3.3 item 2 / #5369 PR 5: `loadInVenueContext`/`resolveVenueId`
+// (used by the reservation `/:id` handlers and the ownership resolver) now
+// resolve venue ids via `resolveVenueId`, a raw `$queryRaw` call this
+// suite's plain `createMockDatabaseService()` stub can't answer. Route
+// tests exercise application logic, not real RLS resolution (that's
+// `rls-route-sweep.integration.test.ts`), so resolve to a constant non-null
+// venue id here — each test's own service-layer mock still drives the
+// specific-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
 
 // Mock jose library for JWT verification
 vi.mock("jose", () => ({
@@ -923,7 +937,19 @@ describe("Reservation Routes", () => {
     });
 
     describe("PATCH /v1/reservations/:id — no-show (#3232)", () => {
-      const confirmedReservation = createMockReservation({ id: "res-123", status: "CONFIRMED" });
+      const confirmedReservation = createMockReservation({
+        id: "res-123",
+        status: "CONFIRMED",
+        venueId: "venue-1",
+      });
+      // A 100% no-show fee reproduces the pre-#5719-item-6 full-forfeit
+      // behaviour for tests not specifically about the fee split (that
+      // split has dedicated unit coverage in reservation-no-show.test.ts).
+      const fullNoShowFeePolicy = makeVenuePolicy({
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      });
 
       it("marks the reservation NO_SHOW and forfeits a held deposit (end-to-end)", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
@@ -931,6 +957,7 @@ describe("Reservation Routes", () => {
           id: "dep-1",
           status: "held",
         } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeePolicy);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
           id: "dep-1",
           status: "forfeited",
@@ -949,9 +976,34 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
         expect(body.data.status).toBe("NO_SHOW");
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "no_show");
         // Deposit forfeiture resolves BEFORE the status flip.
         expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+      });
+
+      it("surfaces a depositWarning as `warning` in the HTTP response body (#5719 M2)", async () => {
+        // The response.200 JSON schema previously had no `warning` property,
+        // so fast-json-stringify silently stripped it from the serialized
+        // body even though the handler returned it.
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "pending",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "NO_SHOW" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.warning).toMatch(/pending/i);
       });
 
       it("marks the reservation NO_SHOW with no deposit — no forfeiture attempted", async () => {
@@ -979,6 +1031,7 @@ describe("Reservation Routes", () => {
           id: "dep-1",
           status: "held",
         } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeePolicy);
         vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
         const response = await app.inject({
@@ -1766,7 +1819,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "cancellation");
         expect(depositService.refund).not.toHaveBeenCalled();
       });
 
@@ -1821,7 +1874,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1", "cancellation");
         expect(depositService.refund).not.toHaveBeenCalled();
       });
 

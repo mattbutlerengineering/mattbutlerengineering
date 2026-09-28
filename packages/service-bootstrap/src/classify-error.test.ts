@@ -34,15 +34,23 @@ describe("classifyError", () => {
     });
   });
 
-  it("classifies a generic 500 error", () => {
+  it("classifies a generic 500 error without leaking the raw exception message", () => {
     const err = new Error("Something blew up");
     const result = classifyError(err);
     expect(result).toEqual({
       status: 500,
       title: "Internal Server Error",
-      detail: "Something blew up",
+      detail: "An unexpected error occurred",
       extensions: {},
     });
+  });
+
+  it("does not echo an unclassified error's raw message into the response detail (CWE-209)", () => {
+    const err = new Error("some internal detail");
+    const result = classifyError(err);
+    expect(result.detail).not.toBe("some internal detail");
+    expect(result.detail).not.toContain("some internal detail");
+    expect(result.detail).toBe("An unexpected error occurred");
   });
 
   it("classifies a custom statusCode HTTP error", () => {

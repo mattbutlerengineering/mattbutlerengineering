@@ -162,7 +162,7 @@ degrade quietly — it would fail the `db-migrate` deploy outright.
 | Cron's venue-list read (`getAllVenueIds`)                              | **Resolved** (#5369) via `app_cross_venue_venues()` — see §3.1. Correct today and under FORCE, proven as a non-owner role in `routes/rls-isolation.integration.test.ts`.                                                                                                 |
 | Admin `venueService.list()`                                            | **Resolved** (#5369) via the same function, with the venue-group filter passed as its one argument.                                                                                                                                                                      |
 | Admin `venueGroupService.list()`                                       | **Not an RLS problem at all** — corrected here. `venue_groups` carries no RLS policy: §1's table list never included it and no migration enables it (measured against a migrated database, 2026-09-20: `relrowsecurity` is false for `venue_groups`). It needs no hatch. |
-| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **NEWLY OPEN** — two cross-venue reads this audit missed. See §3.2.                                                                                                                                                                                                      |
+| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **Resolved** (#5369 PR 6) via a per-venue fan-out — see §3.2 and §3.3 item 1. Correct today and under FORCE, proven in `routes/rls-route-sweep.integration.test.ts`.                                                                                                     |
 
 ### 3.1 The cross-venue mechanism: a `SECURITY DEFINER` function plus one admitting policy
 
@@ -265,7 +265,7 @@ no cross-venue `INSERT`/`UPDATE`/`DELETE` is reachable through the marker
 the ADR exists to close, and it is why the hatch returns rows rather than
 granting a mode.
 
-### 3.2 Two more cross-venue reads this audit missed (open)
+### 3.2 Two more cross-venue reads this audit missed (resolved, #5369 PR 6)
 
 The sweep accompanying §3.1 found two reads with the same irreducible shape as
 the admin venue list, both of which this section previously waved past:
@@ -281,9 +281,10 @@ the admin venue list, both of which this section previously waved past:
    `reservationService.listByUserId`). A diner's own reservations span whatever
    venues they booked at; same shape, same zero-rows outcome.
 
-Neither is fixed here — they are reported rather than patched, so each gets its
-own reviewed change. They sit in the table above so nothing claims this audit is
-closed on the strength of §3.1 alone.
+Neither was fixed here — they were reported rather than patched, each getting
+its own reviewed change (both closed by #5369 PR 6 — see §3.3 item 1 for how).
+They sit in the table above so nothing claims this audit was closed on the
+strength of §3.1 alone.
 
 **The general lesson is #5382's, in the other direction:** "does this query read
 across venues" was asked of the query but answered from the route's intent.
@@ -373,33 +374,128 @@ same class is already recorded for the venue-self-addressed
 migration in this repo sets FORCE. The flip is gated on these, all identified by
 the #5369 sweep and none of them fixed by it:
 
-1. **The two newly-open cross-venue reads in §3.2** (`listForMember`,
-   `GET /api/v1/reservations/me`) — zero rows under FORCE.
-2. **Every entity-addressed route.** `venueIdFromEntity`
-   (`routes/venue-access.ts`) resolves a route's venue by loading the addressed
-   entity, and that load is itself an unscoped read of an RLS table — so under
-   FORCE it resolves `null` and `requireVenueAccess` answers **403**, on every
-   `/:id` route of `tables`, `guests`, `floor-plans`, `waitlist` and
-   `reservations`. This is the residual already recorded below the #5382
-   addendum, now enumerated: it fails loudly rather than silently, but it fails.
-3. **The whole public booking funnel.** Every `/public/v1/venues/:slug/*` route
-   opens with `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug`
-   — a `venues` read addressed by slug, which the global resolver cannot turn
-   into an `app.venue_id` — so under FORCE each answers 404 before reaching the
-   feature behind it.
-4. **The token-addressed guest surfaces** (`/public/v1/reservations/manage`,
-   `/confirm`, `/public/v1/guests/unsubscribe`) and the **Stripe webhook**'s
-   `depositService.getByPaymentIntentId` lookup, all of which address a row by
-   an opaque id or token with no venue in the request.
-5. **The venue-self-addressed family** (`GET/PATCH/DELETE /api/v1/venues/:id`,
-   `/:id/table-statuses`), already recorded in
-   `services/reservations/CLAUDE.md`.
-6. **The deposits admin family** (`GET /api/v1/deposits/:id` and its
-   `/capture`, `/refund`, `/forfeit` siblings). Listed here explicitly, not
-   folded into item 2, because §3.2 records these five routes as **resolved** by
-   #5382 and a reader could reasonably move them off this list on that basis —
-   they are not off it. Measured 404 under FORCE (§3.3's table below); see the
-   blockquote in §3.2 for why.
+1. **Closed (#5369 PR 6).** The two newly-open cross-venue reads in §3.2
+   (`listForMember`, `GET /api/v1/reservations/me`) used to return zero rows
+   under FORCE — a single delegate call filtered by an application predicate
+   (`memberships: { some: { userSub } } }` / `{ userId }`) has no single venue
+   to name. Fixed by fanning out one venue at a time instead of one
+   cross-venue query: `listForMember` resolves the member's venue ids from
+   `venue_memberships` (`services/venue-membership.ts`'s sibling helper,
+   `getMemberVenueIds` in `services/member-venues.ts` — no RLS policy on that
+   table at all, so this first step needs no escape hatch), then reads each
+   venue inside `runWithVenueContext`, admitted by `venues`' own
+   `venue_isolation` policy (the row's own `id` equals `app.venue_id`) — a
+   correctly-scoped single-venue read, not a cross-venue one.
+   `GET /api/v1/reservations/me` resolves the set of venues a diner's
+   reservations span via `app_reservation_venue_ids_for_user()` (the
+   `SECURITY DEFINER` function added in PR 3,
+   `prisma/migrations/20260925010000_add_rls_venue_resolution_functions`),
+   then reads each venue's reservations for that user inside its own
+   `runWithVenueContext` and merges, preserving the pre-existing
+   `date desc, startTime desc` ordering. Pagination moves from the database
+   into application code in both cases, since the fan-out can no longer
+   express it as one query. Proved against a real, migrated, FORCE'd database
+   as a non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
+   (the item-1 fixtures for both routes).
+2. **Closed (#5369 PR 5).** Every entity-addressed route used to fail under
+   FORCE: `venueIdFromEntity` (`routes/venue-access.ts`) resolved a route's
+   venue by loading the addressed entity, itself an unscoped read of an RLS
+   table, so it resolved `null` and `requireVenueAccess` answered **403** on
+   every `/:id` route of `tables`, `guests`, `floor-plans`, `waitlist` and
+   `reservations`. `venueIdFromEntity` now takes an entity kind and resolves
+   the venue through the `SECURITY DEFINER` `app_resolve_venue_id` (PR 3) via
+   the shared `resolveVenueId` helper (`services/resolve-venue.ts`, a
+   parameterized `$queryRaw` on the raw client; `null` always means deny).
+   Handlers then load or mutate the entity inside that venue's context
+   (`loadInVenueContext`), so their own reads are scoped too.
+   `POST /api/v1/holds/:id/confirm` resolves its venue the same way. Proved
+   against a real, migrated, FORCE'd database as a non-superuser owner role
+   in `routes/rls-route-sweep.integration.test.ts` (the item-2 fixtures now
+   assert admin and member-own-venue success and member-other-venue denial).
+3. **Closed (#5369 PR 8).** Every `/public/v1/venues/:slug/*` route (plus the
+   authenticated `GET /api/v1/venues/by-slug/:slug`, which shared the same
+   unscoped read) used to open with
+   `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug` — a
+   `venues` read addressed by slug, which the global resolver cannot turn into
+   an `app.venue_id`. Each route now resolves the slug first, through the same
+   `SECURITY DEFINER` `app_resolve_venue_id` (PR 3) via
+   `resolveVenueId("venue_slug", slug, group?)`, then runs the rest of the
+   request — the venue re-fetch, availability generation, hold create/read/
+   confirm, reservation creation, guest recognition/risk lookups, the waitlist
+   join, and the deposit PaymentIntent flow — inside `runWithVenueContext`. A
+   NULL resolution answers the route's pre-existing 404, never a fall-through.
+   Proved against a real, migrated, FORCE'd database as a non-superuser owner
+   role in `routes/rls-route-sweep.integration.test.ts` (the item-3 fixtures
+   now assert the correct venue is served by slug and an unknown or
+   wrong-venue slug is denied or 404'd, split across `rls-route-sweep.fixtures.ts`'s
+   `by-slug` entry and `rls-route-sweep.fixtures-public.ts`'s public-funnel
+   entries).
+4. **Closed (#5369 PR 8).** The token-addressed guest surfaces
+   (`/public/v1/reservations/manage`, `/confirm`,
+   `/public/v1/guests/unsubscribe`) each resolved their target row by an
+   opaque id or token with no venue in the request —
+   `reservationService.getById`/`guestService.markUnsubscribed` read an RLS
+   table unscoped. Each now resolves its venue first, via
+   `resolveVenueId("reservation", id)` / `resolveVenueId("guest", id)`, then
+   runs the read or mutation inside `runWithVenueContext`; a NULL resolution
+   answers the route's existing 404 (`public-unsubscribe.ts` gained a
+   `GUEST_NOT_FOUND` extension for its case, since it previously fell through
+   to a manually-caught 500). `requireManageToken`'s own venue-scoped
+   ownership check uses `runWithVenueContext`, not `enterVenueContext` — the
+   latter's AsyncLocalStorage `.enterWith()` resolves one full request late
+   when called after an `await` inside a preHandler (`venue-context-store.ts`'s
+   own doc comment), a landmine that would have silently corrupted every other
+   route sharing the same global preHandler chain. The **Stripe webhook**'s
+   `depositService.getByPaymentIntentId` lookup (`onPaymentIntentSucceeded`,
+   `onPaymentIntentAmountCapturableUpdated`, `onPaymentIntentCanceled`,
+   `onChargeRefunded`, all funneled through the shared `holdIfPending`/
+   `withDepositVenueContext` helper) resolves via
+   `resolveVenueId("payment_intent", paymentIntentId)` the same way; a NULL
+   resolution is the handler's pre-existing no-deposit no-op, so Stripe never
+   sees a 500 and never retries an event no deposit exists for — the helper
+   also logs a warning naming the PaymentIntent id and event type on this
+   branch, so a payload that never resolves is observable without becoming a 500. No deposit state-machine logic changed — only the scope the lookups
+   run inside. Proved against a real, migrated, FORCE'd database as a
+   non-superuser owner role in `routes/rls-route-sweep.integration.test.ts`
+   (the item-4 fixtures assert the correct reservation/guest is reached, the
+   deposit transitions `pending` → `held` for its own PaymentIntent id, and a
+   gone token or an unknown PaymentIntent id is denied, 404'd, or silently
+   no-op'd — the fixture does not exercise a PaymentIntent id belonging to
+   another venue's deposit).
+5. **Closed (#5369 PR 7).** The venue-self-addressed family
+   (`GET/PATCH/DELETE /api/v1/venues/:id`, `/:id/table-statuses`) — the
+   global preHandler (`resolveGlobalVenueId` in `app.ts`) only reads a
+   `venueId` KEY off the query/body/params, and these routes address the
+   venue by its own `:id` instead, so `app.venue_id` was never set for them.
+   Fixed the same way item 2 was: `resolveVenueId("venue", id)` /
+   `loadInVenueContext` (`routes/venue-access.ts`) — `venues`' own
+   `venue_isolation` policy is keyed on the row's own `id`, so `"venue"` is
+   the correct kind. `PATCH /:id`'s venueGroupId-reassignment pre-check (its
+   own unscoped `venueService.getById`, #5515-adjacent) now runs inside the
+   same resolved context too. Proved against a real, migrated,
+   FORCE'd database as a non-superuser owner role in
+   `routes/rls-route-sweep.integration.test.ts`.
+6. **Closed (#5369 PR 7).** The deposits admin family
+   (`GET /api/v1/deposits?reservationId=`, `GET /api/v1/deposits/:id` and its
+   `/capture`, `/refund`, `/forfeit` siblings, and `POST /api/v1/deposits`).
+   Listed here explicitly, not folded into item 2, because §3.2 records these
+   five routes as **resolved** by #5382 and a reader could reasonably move
+   them off this list on that basis — they were not off it: measured 404
+   under FORCE (§3.3's table below), because `resolveReservationVenueId`
+   (`services/deposit-venue.ts`) and the `/:id` family's own
+   scope-determining read were themselves unscoped reads of RLS-scoped
+   tables (`reservations` / `deposits`) — exactly item 2's trap, just not yet
+   closed here when §3.2 landed. Both now resolve through the same
+   `SECURITY DEFINER` `app_resolve_venue_id` function
+   (`resolveVenueId`/`loadInVenueContext`) — the `"deposit"` kind joins to
+   the owning reservation inside the resolver's own definer body, so the
+   venue resolves without a separate unscoped Prisma read. Proved against a
+   real, migrated, FORCE'd database in
+   `routes/rls-route-sweep.integration.test.ts`; capture/refund/forfeit are
+   proven only up to the point Stripe is required (this environment
+   provisions no Stripe key) — the assertion is that the venue resolves (no
+   403/404/tripwire), not a full 2xx, the same shape the waitlist `/notify`
+   fixture uses for its own unprovisioned dependency.
 7. **The in-process job worker** (`services/reservations/src/services/job-worker.ts`,
    wired in `app.ts`). Its `BOOKING_REMINDER` / `DAY_OF_REMINDER` handlers call
    `reservationService.getById` and `venueService.getById`, and `WAITLIST_EXPIRY`
@@ -415,11 +511,30 @@ the #5369 sweep and none of them fixed by it:
    than visible to a user**, which makes it the one most likely to survive a
    post-flip smoke test. The cron in the same service is _not_ affected (it sets
    per-venue context, §3's table); nothing generalises from that to the worker.
-   **The `BOOKING_REMINDER` / `DAY_OF_REMINDER` half is now closed:**
-   `deliverReminder` (`job-worker.ts`) runs its whole body inside
-   `runWithVenueContext(payload.venueId, …)`, exactly the decided fix below.
-   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` remains open — see the
-   split immediately below, which this closure does not touch.
+   **Both halves are now closed:** `deliverReminder` (`job-worker.ts`) runs its
+   whole body inside `runWithVenueContext(payload.venueId, …)`, exactly the
+   decided fix below, and `handleWaitlistExpiryJob` does the same for
+   `WAITLIST_EXPIRY` / `waitlistNotifier.handleExpiry` — see the split
+   immediately below for how its payload-compatibility wrinkle was handled.
+8. **Closed (#5369 PR 7).** `POST /api/v1/venues` — added here rather than
+   left as a fixtures-only `"item-8"` label (its name in
+   `routes/rls-route-sweep.fixtures.ts` and the #5369 PR 3 migration-review
+   carry-forward that first found it): the INSERT has no PRIOR venue context
+   to satisfy its own `WITH CHECK`, because the row's own `id` — what
+   `venue_isolation` checks — does not exist until this statement creates
+   it. `venueService.create()`'s writes went through an unwrapped
+   `prisma.$transaction(...)` ($-prefixed methods pass through
+   `withVenueScopedQueries`'s proxy unscoped by design, §3.3 item 2's own
+   note), so the app-level unscoped-query tripwire never saw this write — it
+   reached real Postgres with no `app.venue_id` set and failed the FORCE'd
+   `WITH CHECK` at the DB layer as a plain `PrismaClientKnownRequestError`,
+   not the app's own tripwire error. Fixed by generating the id up front
+   (`randomUUID()`, overriding the schema's client-side `@default(cuid())`)
+   and calling `setVenueContext(tx, id)` as the first statement of the SAME
+   transaction that inserts the row — never `app.cross_venue` (that marker
+   is for reads that cannot name a single venue; this INSERT names exactly
+   one, the venue it is creating). Proved against a real, migrated, FORCE'd
+   database in `routes/rls-route-sweep.integration.test.ts`.
 
 Items 2–6 share one shape, and it is the shape the deposits fix (#5382) solved
 for five routes: the lookup that _determines_ the venue cannot run inside the
@@ -441,17 +556,35 @@ a unit test that asserts `getCurrentVenueId()` — read from inside the handler,
 via the finder mocks — equals `payload.venueId` for both `BOOKING_REMINDER` and
 `DAY_OF_REMINDER` (`services/reservations/src/services/job-worker.test.ts`); a
 test that only asserted the finders were called would not have distinguished
-this from the pre-fix behavior. `WAITLIST_EXPIRY` is unchanged and remains open,
-per the next paragraph.
+this from the pre-fix behavior.
 
-`WAITLIST_EXPIRY` is the other shape and is genuinely harder: `WaitlistExpiryPayload`
-carries only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
-nothing** (its own comment says so), and `expireEntry(waitlistEntryId)` derives the
-venue by reading the RLS-protected `waitlist_entries` row. That is items 2–6's
-trapped-lookup shape wearing a job payload. Its cheapest fix is not a database
-mechanism at all — make `venueId` required on the payload and populate it at
-enqueue time, where the venue is known — but that is a payload-compatibility change
-across in-flight BullMQ jobs, so it is named here rather than assumed easy.
+`WAITLIST_EXPIRY` was the other shape and was genuinely harder: `WaitlistExpiryPayload`
+carried only `waitlistEntryId`, with `venueId` declared **optional and enqueued by
+nothing**, and `expireEntry(waitlistEntryId)` derived the venue by reading the
+RLS-protected `waitlist_entries` row. That was items 2–6's trapped-lookup shape
+wearing a job payload.
+
+**Closed.** The cheapest fix — populate `venueId` at enqueue time, where the
+venue is known — is what shipped, at the job's one enqueue site
+(`waitlist-notifier.ts`'s `notifyTableReady`, called from `routes/waitlist.ts`'s
+`PUT /:id/notify` and from `handleExpiry`'s own next-guest re-notify).
+`WaitlistExpiryPayload.venueId` stays **optional on the type**, not required,
+because that enqueue-time change is a payload-compatibility change across
+in-flight BullMQ jobs: a job already sitting in Redis when this deployed was
+serialized under the old shape and BullMQ never re-serializes a queued
+payload. `job-worker.ts`'s `handleWaitlistExpiryJob` branches on
+`payload.venueId` — present, it wraps `deps.handleWaitlistExpiry` in
+`runWithVenueContext(payload.venueId, …)`, exactly `deliverReminder`'s
+mechanism above; absent (the legacy in-flight case), it falls back to the
+pre-fix behavior and logs a warning naming the job and entry id, rather than
+inventing a cross-venue lookup. That legacy branch is safe to delete once one
+WAITLIST_EXPIRY TTL (`FIVE_MINUTES_MS`, `waitlist-notifier.ts`) has elapsed
+post-deploy — every job enqueued before the fix will have drained by then.
+Proved by `services/reservations/src/services/job-worker.test.ts` (the
+venue-context-carrying case, the enqueue-site case in
+`waitlist-notifier.test.ts`, and the legacy no-`venueId` case) and by
+`services/reservations/src/routes/rls-route-sweep.integration.test.ts`'s
+non-HTTP `WAITLIST_EXPIRY` case against a real, migrated database.
 
 **Measured, not predicted (2026-09-21, #5369).** The list above was derived by
 reading code. It has since been run: the real `buildApp()` was booted against a

@@ -60,7 +60,7 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
 });
 
 import { JobScheduler, JobWorker, JOB_TYPES, dispatchJob, UnknownJobTypeError } from "@mbe/jobs";
-import type { ReminderPayload } from "@mbe/jobs";
+import type { ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
 import { createReservationJobHandlers, createReservationJobWorker } from "./job-worker.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 
@@ -106,6 +106,7 @@ function makeDeps() {
     dispatcher: { sendBookingReminder: vi.fn().mockResolvedValue(undefined) },
     generateManageToken: vi.fn().mockReturnValue("tok_1"),
     handleWaitlistExpiry: vi.fn().mockResolvedValue(undefined),
+    logger: { warn: vi.fn() },
   };
 }
 
@@ -188,7 +189,7 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledOnce();
   });
 
-  it("WAITLIST_EXPIRY: enqueued job is dequeued and reaches the handleExpiry re-notify path", async () => {
+  it("WAITLIST_EXPIRY: legacy payload with no venueId still reaches handleExpiry, and logs a warning (ADR-026 §3.3 item 7)", async () => {
     const deps = makeDeps();
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
     new JobWorker({
@@ -196,8 +197,12 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
       handlers: createReservationJobHandlers(deps),
     });
 
-    // Production enqueues only { waitlistEntryId }; the handler must reach
-    // handleExpiry with just that so the re-notify-next-guest path fires.
+    // A job enqueued before this fix shipped carries only { waitlistEntryId }
+    // — BullMQ never re-serializes an already-queued payload, so this shape
+    // stays reachable in production even after every caller enqueues
+    // venueId. The handler must fall back to its pre-fix behavior (no
+    // runWithVenueContext wrap) for it, rather than inventing a cross-venue
+    // lookup, and must say so via a warning naming the job and entry id.
     await scheduler.schedule(
       JOB_TYPES.WAITLIST_EXPIRY,
       { waitlistEntryId: "entry_1" },
@@ -212,6 +217,36 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
 
     expect(deps.handleWaitlistExpiry).toHaveBeenCalledWith({ waitlistEntryId: "entry_1" });
     expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
+    expect(deps.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobType: JOB_TYPES.WAITLIST_EXPIRY,
+        waitlistEntryId: "entry_1",
+      }),
+      expect.stringContaining("no venueId")
+    );
+  });
+
+  it("WAITLIST_EXPIRY runs the handler body inside runWithVenueContext carrying payload.venueId when present (ADR-026 §3.3 item 7)", async () => {
+    const observedVenueIds: Array<string | null> = [];
+    const deps = makeDeps();
+    deps.handleWaitlistExpiry.mockImplementation(async () => {
+      observedVenueIds.push(getCurrentVenueId());
+    });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
+
+    const payload: WaitlistExpiryPayload = { waitlistEntryId: "entry_1", venueId: "venue_9" };
+    await bus.processor!({ name: JOB_TYPES.WAITLIST_EXPIRY, data: payload });
+
+    // The handler body — the call into handleWaitlistExpiry — must observe
+    // the payload's venueId as the current RLS-scoping venue context.
+    expect(observedVenueIds).toEqual(["venue_9"]);
+    expect(deps.handleWaitlistExpiry).toHaveBeenCalledWith({ waitlistEntryId: "entry_1" });
+    expect(deps.logger.warn).not.toHaveBeenCalled();
+    // The context must not leak past the handler's own execution.
+    expect(getCurrentVenueId()).toBeNull();
   });
 
   it("BOOKING_REMINDER runs the handler body inside runWithVenueContext carrying payload.venueId (ADR-026 §3.3 item 7)", async () => {

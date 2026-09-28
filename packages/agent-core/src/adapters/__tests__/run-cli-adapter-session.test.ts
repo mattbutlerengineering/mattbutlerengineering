@@ -400,6 +400,28 @@ describe("runCliAdapterSession", () => {
     );
   });
 
+  it("records the adapter's real numTurns in the spend entry, matching the SDK path (#5627)", async () => {
+    const adapter = makeCliAdapter("claude-cli", { success: true, costUsd: 0.17, numTurns: 3 });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(recordSpend).toHaveBeenCalledWith(
+      "/repo",
+      expect.objectContaining({ adapter: "claude-cli", numTurns: 3 })
+    );
+  });
+
+  it("omits numTurns from the spend entry (never a fabricated 0) when the adapter reports none", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    const [, entry] = vi.mocked(recordSpend).mock.calls[0]!;
+    expect(entry.numTurns).toBeUndefined();
+  });
+
   it("records a visible spend entry even for a cost-less adapter run", async () => {
     const adapter = makeCliAdapter("opencode", { success: true });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);

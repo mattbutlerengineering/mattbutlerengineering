@@ -289,12 +289,12 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
   });
 });
 
-// #5605 / #5612: mbe-daily-issue and mbe-monthly-meta-audit had no declared
-// liveness signature at all — the same gap #5344/#5373 closed for
-// mbe-weekly-improve. Their docs/routines/*.md prompts now specify a distinct,
-// greppable PR title, but their manifest entries deliberately stay
-// `unverifiable` until the live RemoteTrigger prompt at claude.ai is confirmed
-// to emit it — identical fail-closed reasoning to mbe-night/mbe-midday
+// #5612: mbe-monthly-meta-audit had no declared liveness signature at all —
+// the same gap #5344/#5373 closed for mbe-weekly-improve (mbe-daily-issue,
+// #5605, graduated on 2026-09-25; see the block at the end of this file). Its
+// docs/routines/*.md prompt now specifies a distinct, greppable PR title, but
+// its manifest entry deliberately stays `unverifiable` until the live
+// RemoteTrigger prompt at claude.ai is confirmed to emit it — identical fail-closed reasoning to mbe-night/mbe-midday
 // (#5604/#5608): a signature that searches for a title nothing emits yet
 // misclassifies a live routine as `dark`, strictly worse than an honest
 // `unverifiable`.
@@ -305,16 +305,6 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
 // searches for a title nothing emits and a healthy routine reads `dark`.
 describe("prompt-documented PR-title signatures pending live-trigger confirmation", () => {
   const PENDING_TRIGGER_CONFIRMATION = [
-    {
-      routine: "mbe-daily-issue",
-      // This routine CLOSES an existing issue rather than filing one, so an
-      // `issue-label` signature would key liveness off that issue's createdAt —
-      // the date it was filed, not the date the routine ran. The PR is its only
-      // artifact of its own, and that PR's title has to keep describing the fix,
-      // so the marker is a suffix rather than a prefix.
-      promptTitleConvention: "(mbe-daily-issue #<ISSUE>)",
-      plannedSearchTerm: "mbe-daily-issue",
-    },
     {
       routine: "mbe-monthly-meta-audit",
       // It files `ready` issues too, but only "for the rest" — conditionally,
@@ -344,13 +334,47 @@ describe("prompt-documented PR-title signatures pending live-trigger confirmatio
   );
 });
 
+// #5603: the daily checker flagged mbe-evening `dark`. Investigation found the
+// signature itself was never the problem — it has been a real, matching
+// `pr-title` signature since the manifest's inception (#5557), and process
+// retros repeatedly observed it producing real PRs (e.g. #5718's "chore
+// (metrics): optimize-implement-queue 2026-09-24"). The actual cause was a
+// genuine one-day operational skip: `.claude/improvement-loop/log.md` has no
+// 2026-09-26 entry, so the most recent matching artifact aged past the
+// `periodDays: 1` routine's 2-day dark threshold. These assertions pin that
+// finding so a future reader doesn't re-diagnose the "no signature declared"
+// gap #5344/#5373 closed for other routines — that gap does not apply here.
+describe("mbe-evening liveness signature (#5603 investigation)", () => {
+  const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-evening");
+  const manifestSource = readFileSync(resolve(ROOT, "scripts", "routine-manifest.mjs"), "utf-8");
+
+  it("keeps a real pr-title signature, never falling back to unverifiable", () => {
+    expect(entry.signature).toEqual({
+      type: "pr-title",
+      pattern: String.raw`chore\(metrics\): optimize-implement-queue \d{4}-\d{2}-\d{2}`,
+      searchTerm: "optimize-implement-queue",
+    });
+    expect(entry.unverifiable).toBeFalsy();
+    expect(entry.outOfScope).toBeFalsy();
+  });
+
+  it("documents the #5603 investigation finding next to the entry", () => {
+    expect(manifestSource).toContain("#5603");
+  });
+
+  it("docs/routines/mbe-evening.md documents the exact PR title the signature searches for", () => {
+    const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-evening.md"), "utf-8");
+    expect(prompt).toContain("chore(metrics): optimize-implement-queue <date>");
+  });
+});
+
 // The known-good fixture (#5552 acceptance criterion 3): running the checker
 // against the 2026-09-13 -> 2026-09-20 window, as documented in the
 // docs/process-retro.md 2026-09-20 entry's liveness table, must report
 // mbe-weekly-improve dark and every other routine with a declared signature
 // alive. Routines marked `unverifiable` in the manifest (mbe-night,
-// mbe-midday, mbe-daily-issue, mbe-monthly-meta-audit — each has a
-// prompt-documented title now, none confirmed live at the trigger yet) are
+// mbe-midday, mbe-monthly-meta-audit — each has a prompt-documented title
+// now, none confirmed live at the trigger yet) are
 // asserted separately as `unverifiable`, not folded into the "every other
 // routine" alive claim — they are real, distinct findings the manifest
 // surfaces honestly rather than papering over with a fabricated signature.
@@ -438,8 +462,8 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     ],
   };
 
-  // mbe-daily-issue and mbe-monthly-meta-audit are `unverifiable` in the
-  // manifest (see below) — runRoutineLivenessCheck files a finding for those
+  // mbe-monthly-meta-audit (and mbe-night/mbe-midday) are `unverifiable` in
+  // the manifest (see below) — runRoutineLivenessCheck files a finding for those
   // too, so createIssue must be a working stub here, not a throw.
   let nextIssueNumber = 1000;
   const results = runRoutineLivenessCheck({
@@ -455,10 +479,10 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
-  // These four have artifacts in this fixture, dated with the distinct titles
+  // These three have artifacts in this fixture, dated with the distinct titles
   // their docs/routines/*.md prompts now specify (#5604/#5608 for
-  // mbe-night/mbe-midday, #5605/#5612 for mbe-daily-issue/mbe-monthly-meta-audit)
-  // and are still NOT alive: the manifest keeps them `unverifiable` on purpose
+  // mbe-night/mbe-midday, #5612 for mbe-monthly-meta-audit) and are still NOT
+  // alive (mbe-daily-issue graduated on 2026-09-25, #5748): the manifest keeps them `unverifiable` on purpose
   // until the live RemoteTrigger prompts are confirmed updated to actually emit
   // those titles (see routine-manifest.mjs unverifiableReason) — flipping the
   // manifest signature ahead of the live trigger would search for a title
@@ -467,7 +491,6 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
   const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = [
     "mbe-night",
     "mbe-midday",
-    "mbe-daily-issue",
     "mbe-monthly-meta-audit",
   ];
 
@@ -496,9 +519,12 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
   // Named separately from the loop above: these two are the routines #5605 and
   // #5612 were filed against, and the finding must keep surfacing for them by
   // name rather than being silently omitted from the results.
-  it("reports mbe-daily-issue and mbe-monthly-meta-audit as unverifiable, not silently omitted", () => {
-    expect(byRoutine["mbe-daily-issue"]).toBe("unverifiable");
+  it("reports mbe-monthly-meta-audit as unverifiable, not silently omitted", () => {
     expect(byRoutine["mbe-monthly-meta-audit"]).toBe("unverifiable");
+  });
+
+  it("reports mbe-daily-issue as alive now that its live signature is confirmed (#5748)", () => {
+    expect(byRoutine["mbe-daily-issue"]).toBe("alive");
   });
 
   it("excludes outOfScope entries (mbe-deep-audit, drift-fix) from the results entirely", () => {
@@ -760,5 +786,31 @@ describe("runRoutineLivenessCheck — observation blackout (#5606)", () => {
 
     expect(lines.some((l) => /observed 0 candidate artifact\(s\) for alpha/.test(l))).toBe(true);
     expect(lines.some((l) => /observed 0 candidate artifact\(s\) for beta/.test(l))).toBe(true);
+  });
+});
+
+// #5748: the live mbe-daily-issue trigger was confirmed on 2026-09-25 by PR
+// #5763, titled "docs(routines): fix nonexistent /schedule skill references
+// (mbe-daily-issue #5759)". Its manifest entry now carries the real signature.
+// This routine CLOSES an existing issue rather than filing one, so an
+// `issue-label` signature would key off the issue's createdAt, not the run;
+// the PR is its only artifact of its own, and the marker is a title suffix.
+describe("PR-title signatures confirmed against a live routine run", () => {
+  it("mbe-daily-issue matches the suffix its live trigger emits", () => {
+    const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-daily-issue");
+    expect(entry.unverifiable).toBeUndefined();
+    expect(entry.signature).toMatchObject({ type: "pr-title", searchTerm: "mbe-daily-issue" });
+    const pattern = new RegExp(entry.signature.pattern);
+    expect(
+      pattern.test(
+        "docs(routines): fix nonexistent /schedule skill references (mbe-daily-issue #5759)"
+      )
+    ).toBe(true);
+    expect(pattern.test("fix(reservations): an ordinary implement-queue PR (#5759)")).toBe(false);
+  });
+
+  it("mbe-daily-issue's prompt still documents that suffix", () => {
+    const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-daily-issue.md"), "utf-8");
+    expect(prompt).toContain("(mbe-daily-issue #<ISSUE>)");
   });
 });

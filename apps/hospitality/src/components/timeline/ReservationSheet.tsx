@@ -5,6 +5,7 @@ import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-signals.js";
 import { useGuest } from "../../hooks/useGuests.js";
+import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
 import {
   canSeat,
@@ -13,6 +14,7 @@ import {
   statusWord,
   useSeatGuest,
 } from "./seat-guest.js";
+import { StaffDepositSection } from "./StaffDepositSection.js";
 import styles from "./ReservationSheet.module.css";
 
 export interface ReservationSheetProps {
@@ -29,6 +31,8 @@ export interface ReservationSheetProps {
   onSeat: () => Promise<void>;
   onEdit: () => void;
   onCancel: () => void;
+  /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
+  onMarkNoShow: () => void;
 }
 
 /**
@@ -47,6 +51,7 @@ export function ReservationSheet({
   onSeat,
   onEdit,
   onCancel,
+  onMarkNoShow,
 }: ReservationSheetProps) {
   // Keyed by reservation so a fresh selection opens compact again without an effect.
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -57,6 +62,11 @@ export function ReservationSheet({
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
   const { data: guest } = useGuest(reservation.guestId);
+  const {
+    data: deposit,
+    isLoading: depositLoading,
+    error: depositError,
+  } = useDepositByReservation(reservation.id);
 
   const segmentLabel = guest ? getSegmentLabel(guest.visitCount, guest.tags) : null;
   const allergies = (guest?.dietaryRestrictions ?? []).filter(isAllergyTag);
@@ -152,6 +162,11 @@ export function ReservationSheet({
               Cancel reservation
             </Button>
           )}
+          {reservation.status === "CONFIRMED" && (
+            <Button variant="ghost" onClick={onMarkNoShow} disabled={seating}>
+              Mark No-Show
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={() => setExpandedFor(expanded ? null : reservation.id)}
@@ -199,6 +214,12 @@ export function ReservationSheet({
                 </Text>
               </div>
             )}
+            <StaffDepositSection
+              reservationId={reservation.id}
+              existingDeposit={deposit ?? null}
+              isLoading={depositLoading}
+              fetchError={depositError}
+            />
           </Stack>
         )}
       </Stack>

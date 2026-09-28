@@ -77,40 +77,15 @@ test.describe("AI Health page", () => {
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
-  test("shows the not-available state when the domainActivity sensor is absent", async ({
+  test("no longer renders a Domain Activity panel — the collector was retired (#5561)", async ({
     page,
   }) => {
-    // sensor-report-fresh has no `domainActivity` entry, so the panel must
-    // fall back to its unavailable state rather than throwing or rendering
-    // stale/placeholder counts.
     await mockSensorReport(page, "sensor-report-fresh", new Date().toISOString());
     await page.goto("/ai-health");
 
-    await expect(page.getByRole("heading", { name: "Domain Activity" })).toBeVisible();
-
-    const domainActivityPanel = page.getByTestId("domain-activity-panel");
-    await expect(domainActivityPanel.getByText("domainActivity")).toBeVisible();
-    await expect(domainActivityPanel.getByText("Unavailable")).toBeVisible();
-    await expect(domainActivityPanel.getByTestId("reservations-created")).toHaveCount(0);
-  });
-
-  test("renders Domain Activity reservation and deposit counts from a populated fixture", async ({
-    page,
-  }) => {
-    await mockSensorReport(page, "sensor-report-domain-activity", new Date().toISOString());
-    await page.goto("/ai-health");
-
-    await expect(page.getByRole("heading", { name: "Domain Activity" })).toBeVisible();
-
-    const domainActivityPanel = page.getByTestId("domain-activity-panel");
-    await expect(domainActivityPanel.getByTestId("reservations-created")).toHaveText("41");
-    await expect(domainActivityPanel.getByTestId("reservations-cancelled")).toHaveText("6");
-    await expect(domainActivityPanel.getByTestId("reservations-completed")).toHaveText("33");
-    await expect(domainActivityPanel.getByTestId("reservations-no-show")).toHaveText("4");
-    await expect(domainActivityPanel.getByTestId("deposits-held")).toHaveText("17");
-    await expect(domainActivityPanel.getByTestId("deposits-applied")).toHaveText("13");
-    await expect(domainActivityPanel.getByTestId("deposits-refunded")).toHaveText("5");
-    await expect(domainActivityPanel.getByTestId("deposits-forfeited")).toHaveText("2");
+    await expect(page.getByRole("heading", { name: "Review Burden" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Domain Activity" })).toHaveCount(0);
+    await expect(page.getByTestId("domain-activity-panel")).toHaveCount(0);
   });
 
   test("shows the stale-data banner when generated_at is more than 48h old", async ({ page }) => {

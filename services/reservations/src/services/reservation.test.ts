@@ -22,6 +22,7 @@ vi.mock("./database.js", async () => {
         count: vi.fn(),
       },
       $transaction: vi.fn(),
+      $queryRaw: vi.fn(),
     },
   });
 });
@@ -48,6 +49,14 @@ import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
+
+/** Mocks the `app_reservation_venue_ids_for_user` SECURITY DEFINER call. */
+function mockUserVenueIds(venueIds: string[]): void {
+  vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(
+    venueIds.map((venueId) => ({ app_reservation_venue_ids_for_user: venueId })) as never
+  );
+}
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 
@@ -248,21 +257,98 @@ describe("reservationService", () => {
   });
 
   describe("listByUserId", () => {
-    it("returns user reservations sorted by date descending", async () => {
+    it("resolves the user's venue ids via app_reservation_venue_ids_for_user, never an unscoped reservation.findMany (#5369)", async () => {
+      mockUserVenueIds(["venue-1"]);
       vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
         makePrismaReservation(),
       ] as never);
-      vi.mocked(prisma.reservation.count).mockResolvedValueOnce(1 as never);
 
       const result = await reservationService.listByUserId("user-1", 1, 10);
 
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
       expect(result.data).toHaveLength(1);
       expect(prisma.reservation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: "user-1" },
+          where: { userId: "user-1", venueId: "venue-1" },
           orderBy: [{ date: "desc" }, { startTime: "desc" }],
         })
       );
+    });
+
+    it("reads each venue inside its own runWithVenueContext (one venue at a time)", async () => {
+      // `venueRows.map(...)` invokes `runWithVenueContext` synchronously in
+      // array order (`AsyncLocalStorage.run` calls its callback synchronously
+      // before any `await` inside it), so the two mocked calls below fire in
+      // the same order as `mockUserVenueIds`'s list.
+      mockUserVenueIds(["venue-1", "venue-2"]);
+      const observedVenueIds: Array<string | null> = [];
+      vi.mocked(prisma.reservation.findMany)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return [makePrismaReservation({ venueId: "venue-1" })];
+        }) as never)
+        .mockImplementationOnce((async () => {
+          observedVenueIds.push(getCurrentVenueId());
+          return [makePrismaReservation({ venueId: "venue-2" })];
+        }) as never);
+
+      await reservationService.listByUserId("user-1", 1, 10);
+
+      expect(observedVenueIds).toEqual(["venue-1", "venue-2"]);
+      // The context must not leak past listByUserId's own execution.
+      expect(getCurrentVenueId()).toBeNull();
+    });
+
+    it("merges reservations from every venue the user booked at, sorted by date/startTime descending", async () => {
+      mockUserVenueIds(["venue-1", "venue-2"]);
+      vi.mocked(prisma.reservation.findMany)
+        .mockResolvedValueOnce([
+          makePrismaReservation({
+            id: "res-early",
+            date: new Date("2026-05-01"),
+            venueId: "venue-1",
+          }),
+        ] as never)
+        .mockResolvedValueOnce([
+          makePrismaReservation({
+            id: "res-late",
+            date: new Date("2026-05-10"),
+            venueId: "venue-2",
+          }),
+        ] as never);
+
+      const result = await reservationService.listByUserId("user-1", 1, 10);
+
+      expect(result.data.map((r) => r.id)).toEqual(["res-late", "res-early"]);
+      expect(result.pagination.total).toBe(2);
+    });
+
+    it("paginates the merged, cross-venue result set", async () => {
+      mockUserVenueIds(["venue-1", "venue-2"]);
+      vi.mocked(prisma.reservation.findMany)
+        .mockResolvedValueOnce([
+          makePrismaReservation({ id: "res-a", date: new Date("2026-05-02"), venueId: "venue-1" }),
+        ] as never)
+        .mockResolvedValueOnce([
+          makePrismaReservation({ id: "res-b", date: new Date("2026-05-01"), venueId: "venue-2" }),
+        ] as never);
+
+      const result = await reservationService.listByUserId("user-1", 1, 1);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.id).toBe("res-a");
+      expect(result.pagination.total).toBe(2);
+      expect(result.pagination.totalPages).toBe(2);
+    });
+
+    it("returns an empty page when the user has no reservations at any venue", async () => {
+      mockUserVenueIds([]);
+
+      const result = await reservationService.listByUserId("user-1", 1, 10);
+
+      expect(result.data).toEqual([]);
+      expect(result.pagination.total).toBe(0);
+      expect(prisma.reservation.findMany).not.toHaveBeenCalled();
     });
   });
 
@@ -849,6 +935,56 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Reservation not found");
+    });
+
+    it("rejects a partySize-only update that exceeds the assigned table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 10,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+      expect(result.error).toContain("capacity");
+      expect(prisma.reservation.update).not.toHaveBeenCalled();
+      expect(assertBookable).not.toHaveBeenCalled();
+    });
+
+    it("allows a partySize-only update within the assigned table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 3 }) as never
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 3,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.reservation?.partySize).toBe(3);
+    });
+
+    it("rejects a slot move whose new partySize exceeds the target table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+        partySize: 8,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+      expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
     });
 
     it("excludes the current reservation from the slices passed to assertBookable", async () => {

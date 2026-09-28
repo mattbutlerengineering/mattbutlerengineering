@@ -2,6 +2,7 @@ import { Button, Divider, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
+import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
 import {
   canSeat,
@@ -10,6 +11,7 @@ import {
   statusWord,
   useSeatGuest,
 } from "./seat-guest.js";
+import { StaffDepositSection } from "./StaffDepositSection.js";
 import styles from "./ReservationDetails.module.css";
 
 export interface ReservationDetailsProps {
@@ -24,6 +26,8 @@ export interface ReservationDetailsProps {
   /** Rejects on failure — the panel owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
   onCancel: () => void;
+  /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
+  onMarkNoShow: () => void;
 }
 
 function getStatusBadgeClass(reservation: Reservation, seated: boolean): string {
@@ -55,10 +59,16 @@ export function ReservationDetails({
   onEdit,
   onSeat,
   onCancel,
+  onMarkNoShow,
 }: ReservationDetailsProps) {
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
+  const {
+    data: deposit,
+    isLoading: depositLoading,
+    error: depositError,
+  } = useDepositByReservation(reservation.id);
 
   return (
     <Stack gap="lg" className={styles.detailsStack}>
@@ -165,6 +175,13 @@ export function ReservationDetails({
         </div>
       )}
 
+      <StaffDepositSection
+        reservationId={reservation.id}
+        existingDeposit={deposit ?? null}
+        isLoading={depositLoading}
+        fetchError={depositError}
+      />
+
       {failure && (
         <ErrorRetryBanner title="Guest not seated." error={failure.detail} details={failure.raw} />
       )}
@@ -193,6 +210,16 @@ export function ReservationDetails({
             disabled={seating}
           >
             Cancel Reservation
+          </Button>
+        )}
+        {reservation.status === "CONFIRMED" && (
+          <Button
+            variant="ghost"
+            onClick={onMarkNoShow}
+            className={styles.fullWidth}
+            disabled={seating}
+          >
+            Mark No-Show
           </Button>
         )}
       </Stack>

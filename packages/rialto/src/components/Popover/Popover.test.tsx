@@ -149,6 +149,42 @@ describe("Popover", () => {
     expect(screen.getByRole("dialog")).toHaveAttribute("id", controlsId as string);
   });
 
+  it("sets aria-modal on the panel", async () => {
+    render(
+      <Popover trigger={<Button>Open</Button>} title="My Popover">
+        <p>Content</p>
+      </Popover>
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("traps focus inside the panel (Tab wraps from last to first focusable element)", async () => {
+    render(
+      <Popover trigger={<Button>Open</Button>} title="Options">
+        <button type="button">Action</button>
+      </Popover>
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+
+    const closeBtn = screen.getByRole("button", { name: /close/i });
+    const actionBtn = screen.getByRole("button", { name: /action/i });
+
+    actionBtn.focus();
+    expect(document.activeElement).toBe(actionBtn);
+
+    const tabEvent = new KeyboardEvent("keydown", {
+      key: "Tab",
+      shiftKey: false,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(tabEvent);
+
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(closeBtn);
+  });
+
   it("supports different placement values", async () => {
     const { rerender } = render(
       <Popover trigger={<Button>Open</Button>} placement="top">

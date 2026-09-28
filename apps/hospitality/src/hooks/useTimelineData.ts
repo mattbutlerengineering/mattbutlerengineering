@@ -51,6 +51,7 @@ export interface UseTimelineDataResult {
   seatGuest: (reservation: Reservation) => Promise<Reservation>;
   cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
   updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
+  markNoShow: (id: string) => Promise<{ reservation: Reservation; warning?: string }>;
   createWalkIn: (data: {
     partySize: number;
     tableId: string;
@@ -163,6 +164,14 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     return updated;
   };
 
+  const markNoShow = async (
+    id: string
+  ): Promise<{ reservation: Reservation; warning?: string }> => {
+    const result = await api.reservations.markNoShow(id);
+    invalidateAll();
+    return result;
+  };
+
   const createWalkIn = async (data: {
     partySize: number;
     tableId: string;
@@ -192,6 +201,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     seatGuest,
     cancelReservation,
     updateReservation,
+    markNoShow,
     createWalkIn,
     updateTableStatus,
   };

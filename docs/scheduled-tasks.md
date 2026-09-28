@@ -7,7 +7,10 @@ running after you close your terminal, and they push to **PRs for review** rathe
 than auto-merging.
 
 - **Manage / disable / inspect:** https://claude.ai/code/routines
-- **Create or edit from the CLI:** the `/schedule` skill (uses the `RemoteTrigger` tool).
+- **Create or edit from the CLI:** call the discrete Claude Code Remote MCP
+  trigger tools (`list_triggers`, `create_trigger`, `update_trigger`,
+  `fire_trigger`, `delete_trigger`) directly from a Claude Code session — see
+  [Editing a routine](#editing-a-routine) below.
 - Routines can be deleted via the API (`delete_trigger`) — see
   [Editing a routine](#editing-a-routine) below — or disabled in the web UI.
 
@@ -38,22 +41,22 @@ live prompt (`job_config.ccr.events[0]`) — see [Prompt files](#prompt-files)
 below. It is the authoritative definition of the routine; the prose sections
 further down describe _why_, not _what_.
 
-| Routine                      | Trigger ID                       | Prompt file                                                                  | Cadence (PT)        | Cron (UTC)    | Model    | Output                                          | Purpose                                                                                                                                             |
-| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ------------------- | ------------- | -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mbe-deep-audit`             | — (disabled; runs in GH Actions) | —                                                                            | Mon 9:23am          | `23 16 * * 1` | —        | issues                                          | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note)                                      |
-| `drift-fix` _(new)_          | — (runs in GH Actions)           | —                                                                            | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted                                 | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                                                        |
-| `metrics-collectors` _(new)_ | — (runs in GH Actions)           | —                                                                            | Daily 4:29am        | `29 11 * * *` | — (none) | PR with metrics; `ci-fix` issue when stale      | Runs the domain-metrics + review-burden collectors where egress and `gh` exist — **GitHub Actions** (`metrics-collectors.yml`), no agent (see note) |
-| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics                                   | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                                                         |
-| `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                                                              |
-| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                                                              |
-| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                                                     |
-| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                                                     |
-| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                                              |
-| `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                                                          |
-| `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues | Codebase improvement survey → implement the best change (see note)                                                                                  |
-| `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                                            | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                                                   |
-| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues                                | Process retro — what blocked flow last week and what to change (see note)                                                                           |
-| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues                           | Claude Code config + docs/automation health                                                                                                         |
+| Routine                      | Trigger ID                       | Prompt file                                                                  | Cadence (PT)        | Cron (UTC)    | Model    | Output                                          | Purpose                                                                                                                 |
+| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ------------------- | ------------- | -------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`             | — (disabled; runs in GH Actions) | —                                                                            | Mon 9:23am          | `23 16 * * 1` | —        | issues                                          | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note)          |
+| `drift-fix` _(new)_          | — (runs in GH Actions)           | —                                                                            | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted                                 | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                            |
+| `metrics-collectors` _(new)_ | — (runs in GH Actions)           | —                                                                            | Daily 4:29am        | `29 11 * * *` | — (none) | PR with metrics; `ci-fix` issue when stale      | Runs the review-burden collector where `gh` exists — **GitHub Actions** (`metrics-collectors.yml`), no agent (see note) |
+| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics                                   | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                             |
+| `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                                  |
+| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                                  |
+| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                         |
+| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                         |
+| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                  |
+| `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                              |
+| `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues | Codebase improvement survey → implement the best change (see note)                                                      |
+| `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                                            | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                       |
+| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues                                | Process retro — what blocked flow last week and what to change (see note)                                               |
+| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues                           | Claude Code config + docs/automation health                                                                             |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -149,16 +152,20 @@ trigger via `RemoteTrigger get` on 2026-08-03 (#3582).
    and went unnoticed 19 days; recreating it meant rewriting every prompt from
    memory, because nothing was version-controlled.
 
-**The rule when editing a live trigger — always resend the complete
-`job_config`, then verify with a `get`:**
+**The rule when editing a live trigger — get, edit, verify:**
+
+The raw job_config-clobbering API that caused incident 1 above has since been
+replaced by the `update_trigger` MCP tool, which changes only the field(s) you
+pass it (per the tool's own description: "Only provided fields are changed;
+omit a field to leave it as-is") — there is no full-`job_config` payload to
+reconstruct by hand anymore. A successful call is still not confirmation on
+its own:
 
 ```text
-1. get the trigger — copy its full current job_config as your starting point.
-2. Edit only the field you actually want to change, in that copied object.
-3. update with the FULL job_config (never a partial/single-field payload) —
-   partial updates replace job_config wholesale, they do not deep-merge.
-4. get the trigger again and diff the result against what you intended.
-   A 200 response is not confirmation; only a get is.
+1. list_triggers (or get_trigger) — read the trigger's current state.
+2. update_trigger with only the field(s) you actually want to change.
+3. get_trigger (or list_triggers) again and diff the result against what you
+   intended.
 ```
 
 `docs/routines/<name>.md` is the file that wins if it and the live trigger
@@ -219,31 +226,27 @@ to a single worker without worktree isolation in cloud and keep the local
 
 - **When:** daily 4:29am PT (`29 11 * * *` UTC), plus `workflow_dispatch`.
   Off-hour and off-minute, away from the on-the-hour scheduled fleet.
-- **Why it is not a routine:** the two collectors it runs need exactly what a
-  cloud routine does not have. `scripts/collect-domain-metrics.mjs` calls a
-  production endpoint, and CCR sessions have no egress to production;
-  `scripts/acmm/review-burden-metrics.js` shells out to `gh`, which does not
-  exist in a CCR session at all (`.claude/rules/gotchas.md` § Claude Code
-  Remote). `/learning-loop` had been "running" the first collector daily since
-  it was written — every run skipped, and `metrics/domain-metrics.jsonl` sat at
-  0 bytes. Nothing ran the second at all after one manual run on 2026-06-14.
-- **What it does:** runs both collectors (each degrades to a skip and never
-  fails the job), runs the `scripts/metrics-freshness.mjs` self-check against
-  what this run produced, opens a PR with the changed metrics files, then
+- **Why it is not a routine:** the collector it runs needs exactly what a
+  cloud routine does not have. `scripts/acmm/review-burden-metrics.js` shells
+  out to `gh`, which does not exist in a CCR session at all
+  (`.claude/rules/gotchas.md` § Claude Code Remote). Nothing ran it at all
+  after one manual run on 2026-06-14. (A booking-funnel `domain-metrics`
+  collector used to run here too; it was retired in #5561 — it needed a
+  production venue id and auth token nobody would provision, so it could
+  never produce a row.)
+- **What it does:** runs the collector (degrades to a skip and never fails
+  the job), runs the `scripts/metrics-freshness.mjs` self-check against what
+  this run produced, opens a PR with the changed metrics file, then
   dispatches `ci.yml` and `tier-classifier.yml` on its own branch and enables
   auto-merge through `scripts/merge-queue-eligibility.mjs check-merge`.
 - **Failure is reported, not thrown:** a stale or empty verdict files a deduped
-  `ci-fix` issue (never `ready` — the likely fix is a human-supplied secret)
-  rather than reddening the job. A red scheduled workflow would be read as "the
-  workflow is broken" when the workflow is the part that works, and three
-  consecutive failures would trip `scripts/scheduled-workflow-health.mjs` into
-  filing a second, misleading issue.
-- **Human step outstanding:** domain-metrics stays empty until someone sets the
-  `DOMAIN_METRICS_VENUE_ID` repo secret — see
-  [`docs/fixes/silent-metrics-collectors/design.md`](./fixes/silent-metrics-collectors/design.md).
-  Review-burden needs no secret and should start producing on the first run.
+  `ci-fix` issue rather than reddening the job. A red scheduled workflow would
+  be read as "the workflow is broken" when the workflow is the part that
+  works, and three consecutive failures would trip
+  `scripts/scheduled-workflow-health.mjs` into filing a second, misleading
+  issue.
 - **Guarded by:** `scripts/__tests__/metrics-collectors-workflow.test.mjs`
-  (asserts both collectors still run, the self-check runs after them, every
+  (asserts the collector still runs, the self-check runs after it, every
   piping `run:` block sets `pipefail`, and no step swallows an exit code).
 
 ## `drift-fix` (GitHub Actions)
@@ -525,16 +528,17 @@ See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
 
 ## Editing a routine
 
+Call the discrete Claude Code Remote MCP trigger tools directly, e.g.
+`list_triggers` to find a routine's `trigger_id`, then `update_trigger` with
+that id and the field(s) to change:
+
 ```text
-/schedule          # then: "list routines", "update mbe-weekly-improve to ...", etc.
+list_triggers                                    # find trigger_id for mbe-weekly-improve
+update_trigger trigger_id=trig_... prompt="..."   # apply the change
 ```
 
-Or call the discrete Claude Code Remote MCP trigger tools directly —
-`list_triggers`, `create_trigger`, `update_trigger`, `fire_trigger`,
-`delete_trigger` — rather than a single `RemoteTrigger` tool with an `action`
-parameter. Each routine's prompt is self-contained — the cloud agent starts
-with **zero context**, so any behavior change must be made in the prompt
-itself.
+Each routine's prompt is self-contained — the cloud agent starts with **zero
+context**, so any behavior change must be made in the prompt itself.
 
 1. Edit `docs/routines/<name>.md` first, in a reviewable PR — it is the
    authoritative copy.
@@ -542,7 +546,7 @@ itself.
    **`update_trigger` now changes only the fields you pass it** ("Only
    provided fields are changed; omit a field to leave it as-is," per the
    tool's own description) — this replaced the old raw `job_config`-clobbering
-   API that caused the incident below. Still `list_triggers` (or re-check
+   API that caused the incident above. Still `list_triggers` (or re-check
    after updating) to confirm the change landed as intended — a successful
    call is not itself confirmation. See [Prompt files](#prompt-files) above
    for the incident that made this doc paranoid about verifying updates.

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { GhAuthError, GhRateLimitError, MissingGithubTokenError } from "@mbe/gh-client";
-import { collectQueueEfficiency, defaultReadPrs } from "../collect-queue-efficiency.mjs";
+import {
+  collectQueueEfficiency,
+  defaultReadPrs,
+  readMergedAiPrsPaged,
+} from "../collect-queue-efficiency.mjs";
 
 const TEST_NOW = new Date("2026-06-27T12:00:00Z");
 
@@ -31,6 +35,24 @@ function makePr(opts = {}) {
 
 function makeCcusage(daysAgo, totalCost) {
   return { period: dayStrAgo(daysAgo), totalCost };
+}
+
+/** A raw commit as returned by `gh pr list --json commits` (messageHeadline only needed here). */
+function makeCommit(messageHeadline) {
+  return { messageHeadline };
+}
+
+/**
+ * A PR fixture carrying a raw `commits` array, matching what defaultReadPrs
+ * actually produces: commitCount mirrors commits.length (the pre-#5746 raw
+ * count), so a test against this fixture only passes once the effective,
+ * filtered count — not the raw one — drives first-pass scoring (#5746).
+ */
+function makePrWithCommits(opts, commitMessages) {
+  return {
+    ...makePr({ commitCount: commitMessages.length, ...opts }),
+    commits: commitMessages.map(makeCommit),
+  };
 }
 
 // ── Fixture sets ────────────────────────────────────────
@@ -133,6 +155,44 @@ describe("collectQueueEfficiency", () => {
     const result = collectQueueEfficiency(() => CLEAN_PRS, NO_CCUSAGE, TEST_NOW);
     // All 3 have commitCount <= 2 (1, 1, 2)
     expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  // ── #5746: housekeeping/merge commits must not count as rework ──────────
+
+  it("scores a PR whose extra commits are all housekeeping (llms regen + antipattern baseline) as first-pass", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "fix(reservations): the real code change",
+      "chore: accept AI antipattern baseline increases from the sweep",
+      "chore: regenerate root llms.txt after review fixes",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  it("scores a PR whose extra commit is a merge-from-main as first-pass (merge commits excluded)", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "fix(reservations): the real code change",
+      "chore(metrics): progress-tracker 2026-09-23",
+      "Merge remote-tracking branch 'origin/main' into worktree-agent-abc123",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    expect(result.sub_metrics.first_pass_success_rate).toBe(1.0);
+  });
+
+  it("still scores real multi-round review rework as NOT first-pass after excluding housekeeping/merge commits", () => {
+    const pr = makePrWithCommits({ number: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }, [
+      "test(reservations): add the route-sweep suite",
+      "fix(ci): build workspace deps before the suite runs",
+      "fix(reservations): verify the tripwire actually fired",
+      "chore: accept AI antipattern baseline increases",
+      "chore: regenerate root llms.txt after review fixes",
+    ]);
+
+    const result = collectQueueEfficiency(() => [pr], NO_CCUSAGE, TEST_NOW);
+    // 5 raw commits − 2 housekeeping = 3 real commits, still > 2 → not first-pass.
+    expect(result.sub_metrics.first_pass_success_rate).toBe(0);
   });
 
   it("computes median_time_to_merge_hours from createdAt → mergedAt", () => {
@@ -615,22 +675,190 @@ describe("collectQueueEfficiency — review_coverage", () => {
   });
 });
 
-describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
-  it("calls ghClient.pr.list with the expected query and derives commitCount", () => {
-    const prs = [{ number: 1, state: "MERGED", commits: [{}, {}] }];
-    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+// ── readMergedAiPrsPaged / defaultReadPrs — paged fetch (#5746) ────────────
+//
+// Replaces the old single `pr list --limit 45 --json ...,commits,...` call
+// (which capped total PRs to stay under GitHub's GraphQL node budget, and in
+// practice covered only ~2.5 days rather than the intended 7 — root cause of
+// #5738's false regression) with two passes: a cheap list call over the
+// lookback window without `commits`, then a per-PR `pr view` call for
+// `commits` — but only for AI PRs, since non-AI PRs are filtered out by
+// collectQueueEfficiency immediately anyway.
 
-    const result = defaultReadPrs(ghClient);
+describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
+  const NOW = new Date("2026-09-25T12:00:00Z");
+
+  it("fetches merged PRs over the lookback window without requesting commits", () => {
+    const ghClient = { pr: { list: vi.fn().mockReturnValue([]), view: vi.fn() } };
+
+    readMergedAiPrsPaged(ghClient, NOW);
 
     expect(ghClient.pr.list).toHaveBeenCalledWith([
-      "--state",
-      "all",
+      "--search",
+      "merged:>=2026-09-17",
       "--limit",
-      "45",
+      "500",
       "--json",
-      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
     ]);
-    expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
+  });
+
+  it("fetches commits per AI PR via pr.view, but skips non-AI PRs", () => {
+    const mergedAt = "2026-09-24T12:00:00Z";
+    const prs = [
+      { number: 1, headRefName: "worktree-agent-abc", labels: [], mergedAt },
+      { number: 2, headRefName: "feature/human-work", labels: [{ name: "feature" }], mergedAt },
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({
+          commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
+        }),
+      },
+    };
+
+    const result = readMergedAiPrsPaged(ghClient, NOW);
+
+    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
+    expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+    expect(result[0]).toMatchObject({
+      commitCount: 2,
+      commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
+    });
+    expect(result[1]).toMatchObject({ commitCount: 1 });
+    expect(result[1].commits).toBeUndefined();
+  });
+
+  it("propagates a thrown error from the list call", () => {
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockImplementation(() => {
+          throw new Error("gh not authenticated");
+        }),
+        view: vi.fn(),
+      },
+    };
+
+    expect(() => readMergedAiPrsPaged(ghClient, NOW)).toThrow("gh not authenticated");
+  });
+
+  // GitHub's search API has no `state:merged` qualifier: under gh-client's
+  // REST fallback (no `gh` binary), `--state merged` becomes `state:merged`
+  // and the search returns total_count 0 (measured). `merged:>=` already
+  // implies merged, so the flag must not be sent at all.
+  it("does not pass --state merged (unrecognised by the REST search fallback)", () => {
+    const ghClient = { pr: { list: vi.fn().mockReturnValue([]), view: vi.fn() } };
+
+    readMergedAiPrsPaged(ghClient, NOW);
+
+    const args = ghClient.pr.list.mock.calls[0][0];
+    expect(args).not.toContain("--state");
+    expect(args).not.toContain("merged");
+  });
+
+  // The `merged:>=` qualifier is date-granular and searches one extra day
+  // of slack, so the list returns PRs merged up to ~8.5 days ago. Those
+  // must not reach collectQueueEfficiency: they land in baseline week 1
+  // (days 7-14) as a 1-1.5-day slice posing as a full 3-week baseline.
+  it("drops PRs merged before exactly 7 days ago, without fetching their commits", () => {
+    const prs = [
+      {
+        number: 1,
+        headRefName: "worktree-agent-old",
+        labels: [],
+        mergedAt: "2026-09-18T00:00:00Z",
+      },
+      {
+        number: 2,
+        headRefName: "worktree-agent-new",
+        labels: [],
+        mergedAt: "2026-09-18T12:00:00Z",
+      },
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "a" }] }),
+      },
+    };
+
+    const result = readMergedAiPrsPaged(ghClient, NOW);
+
+    expect(result.map((pr) => pr.number)).toEqual([2]);
+    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
+    expect(ghClient.pr.view).toHaveBeenCalledWith(2, ["--json", "commits"]);
+  });
+
+  it("a PR merged 7.5 days ago yields no baseline and no regression", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const at = (days) => new Date(+NOW - days * DAY).toISOString();
+    const prs = [
+      // Inside the 8-day search slack, outside the 7-day window: all 1-commit
+      // (perfect first pass), so if it leaked into baseline week 1 it would
+      // make the current window's multi-commit PRs look like a regression.
+      ...Array.from({ length: 10 }, (_, i) => ({
+        number: i,
+        headRefName: "worktree-agent-stale",
+        labels: [],
+        createdAt: at(7.6),
+        mergedAt: at(7.5),
+      })),
+      ...Array.from({ length: 20 }, (_, i) => ({
+        number: 100 + i,
+        headRefName: "worktree-agent-current",
+        labels: [],
+        createdAt: at(2.1),
+        mergedAt: at(2),
+      })),
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn((n) => ({
+          commits:
+            n >= 100 && n < 106
+              ? [{ messageHeadline: "a" }, { messageHeadline: "b" }, { messageHeadline: "c" }]
+              : [{ messageHeadline: "a" }],
+        })),
+      },
+    };
+
+    const result = collectQueueEfficiency(
+      () => readMergedAiPrsPaged(ghClient, NOW),
+      () => null,
+      NOW,
+      () => []
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.baseline).toBeNull();
+    expect(result.regressions).toEqual([]);
+  });
+});
+
+describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
+  const NOW = new Date("2026-09-25T12:00:00Z");
+
+  it("delegates to readMergedAiPrsPaged and derives commitCount for an AI PR", () => {
+    const prs = [
+      {
+        number: 1,
+        headRefName: "worktree-agent-abc",
+        labels: [],
+        mergedAt: "2026-09-24T12:00:00Z",
+      },
+    ];
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "x" }] }),
+      },
+    };
+
+    const result = defaultReadPrs(ghClient, NOW);
+
+    expect(result).toEqual([{ ...prs[0], commits: [{ messageHeadline: "x" }], commitCount: 1 }]);
   });
 
   it("returns null when ghClient.pr.list throws", () => {
@@ -639,9 +867,10 @@ describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
         list: vi.fn().mockImplementation(() => {
           throw new Error("gh not authenticated");
         }),
+        view: vi.fn(),
       },
     };
 
-    expect(defaultReadPrs(ghClient)).toBeNull();
+    expect(defaultReadPrs(ghClient, NOW)).toBeNull();
   });
 });

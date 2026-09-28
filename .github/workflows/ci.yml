@@ -68,9 +68,6 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -92,14 +89,6 @@ jobs:
             PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
             pnpm --filter "$PKG" db:generate
           done
-
-      - name: Login to Turborepo Remote Cache
-        if: env.TURBO_TOKEN != ''
-        run: pnpm turbo login --token "$TURBO_TOKEN"
-
-      - name: Link to Turborepo Remote Cache
-        if: env.TURBO_TOKEN != ''
-        run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
 
   dependency-audit:
     name: Dependency Sync
@@ -234,6 +223,10 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - run: pnpm lint
 
   typecheck:
@@ -246,6 +239,22 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: backs Turborepo remote caching with GitHub Actions' own
+        # cache (actions/cache under the hood) instead of a Vercel
+        # TURBO_TOKEN — no Vercel account or secret needed. Starts a local
+        # proxy server and exports TURBO_API/TURBO_TOKEN/TURBO_TEAM (fixed,
+        # non-secret values — the action always sets `turbogha`/`turbogha`
+        # and a `localhost` API URL, see rharkor/caching-for-turbo's own
+        # src/lib/server/utils.ts) for every later step in this job that
+        # runs `turbo` (via `pnpm typecheck`/`lint`/`build`/`turbo
+        # test:coverage`). Wired into the four jobs that actually invoke
+        # turbo tasks (lint, typecheck, test, build) rather than the shared
+        # setup-workspace action, so jobs with no turbo task (integrity,
+        # docs-format, migrations, etc.) don't pay for a cache server they'd
+        # never use. Pinned by commit SHA per repo convention.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -253,9 +262,12 @@ jobs:
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Restore turbo local cache
-        # #4504: CI had zero turbo cache reuse of any kind — remote caching is
-        # inert (TURBO_TOKEN unset) and nothing ever cached the local
-        # `.turbo/cache` dir turbo.json pins (#3786). Keyed on the
+        # #4504: added when CI had zero turbo cache reuse of any kind (remote
+        # caching was inert — TURBO_TOKEN unset — and nothing ever cached the
+        # local `.turbo/cache` dir turbo.json pins, #3786). #3388 landed real
+        # remote caching via the "Cache for Turbo" step above; this step
+        # stays as a cheap, whole-directory same-lockfile restore that can
+        # beat a per-task remote-cache round-trip. Keyed on the
         # pnpm-lock.yaml hash so a lockfile-touching PR (a turbo
         # globalDependencies entry) rotates the key instead of restoring a
         # stale cache across the change that invalidates every task.
@@ -267,9 +279,6 @@ jobs:
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Typecheck
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
   architecture-audit:
@@ -330,6 +339,10 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -349,9 +362,6 @@ jobs:
         run: pnpm --filter @mattbutlerengineering/rialto exports:check
 
       - name: Build all packages
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
 
       - name: Run Full Repository Audit
@@ -489,6 +499,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Cache for Turbo
+        # #3388: see the Typecheck job's identical step for rationale.
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Restore Prisma clients
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -505,9 +519,6 @@ jobs:
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Run tests with coverage
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         # #4519 added `--concurrency=2` after that PR's Test job timed out
         # 3/3 while main stayed green. The comment here used to assert a
         # specific cause — that restoring .turbo/cache removed an incidental
@@ -749,15 +760,37 @@ jobs:
           DATABASE_URL: postgresql://rls_owner:rls_owner_ci_pw@localhost:5432/rls_scratch
         run: pnpm --filter @mbe/reservations-service db:migrate:deploy
 
-      # All THREE `DATABASE_URL`-gated suites, listed explicitly rather than
+      # rls-route-sweep.integration.test.ts (#5369 PR 2) is the first suite in
+      # this job to call buildApp() — the other three test RLS directly
+      # against raw pg/Prisma clients and never touch @mbe/auth. `pnpm
+      # install` only LINKS workspace packages; it does not compile them, and
+      # @mbe/types' exports resolve to ./dist/*, so without this the sweep
+      # dies before its first test even runs:
+      #   Error: Failed to resolve entry for package "@mbe/types".
+      # (identical failure mode, same fix pattern, as mutation-testing.yml's
+      # own "Build workspace dependencies" step). `...` builds the service
+      # itself plus its transitive deps, not the whole workspace.
+      - name: Build workspace dependencies
+        run: pnpm build --filter @mbe/reservations-service...
+
+      # All FIVE `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
       # lapsed-guest-cron.rls.integration.test.ts was the third suite nobody
       # ran - it is named in both other suites' doc comments as the sibling
       # they coordinate the pg_advisory_lock(5369) key with, so leaving it
       # out would have reproduced, in this very job, the gap the job exists
-      # to close. Measured locally against this same postgres:15 + rls_owner
-      # setup: 3 files / 32 tests pass in 709ms, well inside the 15s
+      # to close. rls-route-sweep.integration.test.ts (#5369 PR 2) is the
+      # fourth: a real buildApp() against this same owner role, injecting
+      # every registered route (a drift guard fails if a new route ships
+      # with no fixture) under RLS_CONTEXT_MODE=throw, plus three direct,
+      # non-HTTP-invocation tests for the job-worker handlers and the
+      # lapsed-guest cron. rls-venue-resolution.integration.test.ts (#5369
+      # PR 3) is the fifth: proves app_resolve_venue_id and
+      # app_reservation_venue_ids_for_user against the same owner role, under
+      # its own FORCE window (so a pass means the admitting policy actually
+      # ran, not owner-bypass). Measured locally against this same postgres:15
+      # + rls_owner setup: 5 files pass in a few seconds, well inside the 15s
       # hookTimeout that bounds the advisory-lock wait.
       - name: Run RLS integration suites against the owner role
         env:
@@ -768,6 +801,8 @@ jobs:
             src/routes/rls-owner-enforcement.integration.test.ts \
             src/routes/rls-isolation.integration.test.ts \
             src/services/lapsed-guest-cron.rls.integration.test.ts \
+            src/routes/rls-route-sweep.integration.test.ts \
+            src/routes/rls-venue-resolution.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 
       # `describe.skipIf` reports as a file-level PASS when its guard is

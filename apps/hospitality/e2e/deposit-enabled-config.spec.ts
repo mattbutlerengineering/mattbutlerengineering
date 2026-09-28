@@ -123,7 +123,7 @@ test.describe("CancelReservationDialog fee banner — deposit-enabled venue", ()
 });
 
 test.describe("Booking widget deposit step — deposit-enabled venue", () => {
-  test("omits Payment from the step indicator when no Stripe key is configured (#4975)", async ({
+  test("reaches the Payment step and renders Stripe Elements once a Stripe key is configured (#4111)", async ({
     mockedPage,
   }) => {
     await mockedPage.route("**/public/v1/venues/*", (route) =>
@@ -134,25 +134,93 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
       })
     );
 
+    // The guest-recognition lookup fires on email blur — a multi-segment
+    // path the single-segment glob above doesn't match. Stub it so it
+    // resolves instead of hitting the real network (see
+    // booking-widget-calendar.spec.ts, which needs the same stub).
+    await mockedPage.route("**/public/v1/venues/*/guests/recognize*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: { recognized: false, firstName: null, visitCount: 0, hasPreferences: false },
+        }),
+      })
+    );
+
+    // The shared holds-create mock in api-mocks.ts returns a fixed
+    // `expiresAt` in the past relative to "now" — the hold-expiry timer
+    // (useBookingFlow.ts) fires ~1s after confirmation and would reset the
+    // flow back to time-slot before the Elements assertions below run (same
+    // fix as booking-widget-calendar.spec.ts). Override with a future expiry
+    // scoped to this test only.
+    await mockedPage.route("**/public/v1/venues/*/holds", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: "hold_e2e_deposit_payment_001",
+            venueId: "ven_e2e_001",
+            tableId: "tbl_e2e_001",
+            date: "2026-05-17",
+            startTime: "2026-05-17T18:00:00.000Z",
+            endTime: "2026-05-17T19:30:00.000Z",
+            partySize: 2,
+            sessionId: "sess_e2e_deposit_payment_001",
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      })
+    );
+
     await mockedPage.goto(`book/${VENUE_SLUG}`);
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
 
+    // Step 1: Date & Party
+    const bookingDate = new Date();
+    bookingDate.setDate(bookingDate.getDate() + 3);
+    await mockedPage.getByLabel("Date").fill(bookingDate.toISOString().slice(0, 10));
+    await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
+
+    // Step 2: Time — pick the first available slot.
+    await mockedPage.getByRole("option").first().click();
+
+    // Step 3: Guest details
+    await mockedPage.getByLabel("Name").fill("Deposit Payment E2E Guest");
+    await mockedPage.getByLabel("Email").fill("deposit-payment-e2e@example.com");
+    await mockedPage.getByRole("button", { name: "Complete Reservation" }).click();
+
     // BookingWidget derives its step list purely from useBookingFlow's
-    // `depositRequired`, computed by `provisionalDepositRequired` (#4975),
-    // which now delegates to `effectiveDepositPolicy` — requiring
-    // `stripePublishableKey`, not just the venue's `deposit.enabled` flag
-    // (useBookingFlow.ts, effectiveDepositPolicy.ts). Prior to #4975 this
-    // test asserted the opposite (Payment shown from `.enabled` alone),
-    // which was exactly the provisional/confirm-time verdict drift that
-    // issue fixed: the step indicator promised a Payment step the confirm
-    // path would then retract once it noticed no Stripe key.
-    //
-    // .github/workflows/e2e.yml does not set VITE_STRIPE_PUBLISHABLE_KEY for
-    // the Hospitality E2E job (tracked separately by #4111) — there is no
-    // Stripe test key configured for this environment, so the corrected,
-    // key-aware verdict is "no deposit" here. That's a CI environment gap,
-    // not something to work around with an invented test affordance.
+    // `depositRequired`, resolved at confirm time by `effectiveDepositPolicy`
+    // (#4975) — which requires BOTH the venue's deposit policy AND a
+    // `stripePublishableKey`. Before #4111, `.github/workflows/e2e.yml`
+    // never set VITE_STRIPE_PUBLISHABLE_KEY, so the verdict here was always
+    // "no deposit" and the flow landed on Confirmation. With the key now
+    // wired into this job's env, the verdict flips and the flow lands on
+    // Payment instead — this assertion would fail loudly (not silently pass)
+    // if the key stopped reaching the client bundle.
     const stepsList = mockedPage.getByRole("list", { name: "Progress steps" });
-    await expect(stepsList.getByText("Payment")).not.toBeVisible();
+    await expect(stepsList.getByText("Payment")).toBeVisible();
+
+    // Stripe Elements (PaymentStep.tsx) mounts a real iframe once
+    // loadStripe() resolves against the real Stripe.js CDN — confirming the
+    // publishable key actually reached the client and Stripe initialized.
+    // Scoped to the labelled card-input container so it can't collide with
+    // any other iframe on the page. Given a longer timeout than the default
+    // 5s: this is a real network round trip to js.stripe.com, not a mock.
+    const cardElementContainer = mockedPage.locator('[aria-labelledby="card-details-label"]');
+    await expect(cardElementContainer).toBeVisible();
+    await expect(cardElementContainer.locator("iframe")).toBeVisible({ timeout: 15_000 });
+
+    // Deliberately stops here. Submitting the card form calls
+    // POST /public/v1/venues/:slug/deposit-intent to create a real Stripe
+    // PaymentIntent, which requires the reservations-api backend to hold its
+    // OWN Stripe secret key (STRIPE_SECRET_KEY — a different credential from
+    // VITE_STRIPE_PUBLISHABLE_KEY, see services/reservations/src/config/stripe.ts).
+    // This E2E job's env does not provision that secret, so driving an actual
+    // card submission would fail on the backend, not the frontend this test
+    // is exercising — "Elements rendered" is the honest stopping point.
   });
 });

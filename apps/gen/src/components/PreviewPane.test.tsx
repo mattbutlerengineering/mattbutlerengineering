@@ -1,4 +1,3 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Spec } from "@json-render/react";
@@ -132,11 +131,11 @@ describe("PreviewPane", () => {
     expect(screen.getByText("Something went wrong")).toBeDefined();
   });
 
-  it("calls onRetry when Try again button is clicked", () => {
+  it("calls onRetry when the retry-with-error-context button is clicked", () => {
     const onRetry = vi.fn();
     const error = new Error("Failed");
     render(<PreviewPane {...defaultProps} error={error} onRetry={onRetry} />);
-    fireEvent.click(screen.getByText("Try again"));
+    fireEvent.click(screen.getByText("Retry with error context"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 

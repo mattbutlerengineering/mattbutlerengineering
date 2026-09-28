@@ -40,6 +40,19 @@ export class DepositsClient {
   }
 
   /**
+   * Operator visibility: look up a reservation's deposit, or `null` if the
+   * reservation has none yet (a reservation with no deposit is a normal
+   * state, not an error).
+   */
+  async getByReservation(reservationId: string): Promise<Deposit | null> {
+    return this.client.getOne<Deposit | null>(
+      DEPOSIT_BASE_PATH,
+      { reservationId },
+      DepositSchema.nullable()
+    );
+  }
+
+  /**
    * Capture (apply) a held deposit — charges the card.
    */
   async capture(id: string): Promise<Deposit> {

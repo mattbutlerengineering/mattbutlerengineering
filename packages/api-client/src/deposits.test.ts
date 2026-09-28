@@ -30,6 +30,7 @@ const fakeDeposit = {
   appliedAt: null,
   refundedAt: null,
   forfeitedAt: null,
+  uncollectableAt: null,
   createdAt: "2026-05-26T00:00:00Z",
   updatedAt: "2026-05-26T00:00:00Z",
 };
@@ -77,6 +78,36 @@ describe("DepositsClient", () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "dep_1" } }));
 
       await expect(makeClient().get("dep_1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("tolerates a response from an older deploy that omits uncollectableAt entirely", async () => {
+      const { uncollectableAt: _uncollectableAt, ...legacyDeposit } = fakeDeposit;
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: legacyDeposit }));
+
+      const result = await makeClient().get("dep_1");
+
+      expect(result).toEqual(legacyDeposit);
+    });
+  });
+
+  describe("getByReservation", () => {
+    it("GETs /api/v1/deposits?reservationId= and unwraps the validated deposit", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeDeposit }));
+
+      const result = await makeClient().getByReservation("res_1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/deposits?reservationId=res_1");
+      expect(options?.method ?? "GET").toBe("GET");
+      expect(result).toEqual(fakeDeposit);
+    });
+
+    it("returns null when the reservation has no deposit yet", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: null }));
+
+      const result = await makeClient().getByReservation("res_no_deposit");
+
+      expect(result).toBeNull();
     });
   });
 

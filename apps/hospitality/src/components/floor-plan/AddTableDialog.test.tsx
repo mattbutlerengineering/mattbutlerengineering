@@ -98,6 +98,17 @@ describe("AddTableDialog", () => {
     expect(defaultProps.onSubmit).not.toHaveBeenCalled();
   });
 
+  it("announces the validation error to screen readers via role=alert", async () => {
+    const { container } = render(<AddTableDialog {...defaultProps} />);
+    const input = screen.getByLabelText(/Table Name/);
+    await userEvent.type(input, "  ");
+    const form = container.querySelector("form")!;
+    fireEvent.submit(form);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Table name is required.");
+    });
+  });
+
   it("submits with correct data for rectangle shape", async () => {
     render(<AddTableDialog {...defaultProps} />);
     await userEvent.type(screen.getByLabelText(/Table Name/), "Table 1");

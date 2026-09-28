@@ -890,7 +890,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited" | "uncollectable";
     </item>
     <item priority="low">
       interface Deposit {

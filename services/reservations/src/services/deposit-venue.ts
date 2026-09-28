@@ -1,7 +1,7 @@
-import { prisma } from "./database.js";
+import { resolveVenueId } from "./resolve-venue.js";
 
 /**
- * Venue resolution for deposit actions (ADR-026, issue #5382).
+ * Venue resolution for deposit actions (ADR-026, issue #5382 / #5369 PR 7).
  *
  * `deposits` is the one venue-scoped table in this schema with no `venue_id`
  * column of its own (ADR-026 §1) — it is scoped transitively through its
@@ -25,11 +25,15 @@ import { prisma } from "./database.js";
  * failure #5382 exists to prevent. `null` is also already a 403 by ADR-020's
  * `requireVenueAccess` decision matrix, so refusing here is consistent with
  * the application layer, not a new restriction.
+ *
+ * Resolves through the `SECURITY DEFINER` `app_resolve_venue_id` function
+ * (`resolveVenueId`, ADR-026 §3.3 item 6 / #5369 PR 7) rather than a plain
+ * `prisma.reservation.findUnique` — that was itself an unscoped read of an
+ * RLS-scoped table and resolved `null` under `FORCE ROW LEVEL SECURITY`
+ * (measured 2026-09-21, ADR-026 §3.2's blockquote), which is exactly the
+ * "lookup can't run inside the scope it's computing" trap `resolveVenueId`
+ * exists to close for every other entity-addressed route in this service.
  */
 export async function resolveReservationVenueId(reservationId: string): Promise<string | null> {
-  const reservation = await prisma.reservation.findUnique({
-    where: { id: reservationId },
-    select: { venueId: true },
-  });
-  return reservation?.venueId ?? null;
+  return resolveVenueId("reservation", reservationId);
 }

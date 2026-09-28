@@ -24,6 +24,7 @@ vi.mock("./HistoryPanel.module.css", () => ({
     itemTime: "itemTime",
     metaDot: "metaDot",
     refinedTag: "refinedTag",
+    failedTag: "failedTag",
     metaStar: "metaStar",
     deleteConfirm: "deleteConfirm",
     deleteConfirmLabel: "deleteConfirmLabel",
@@ -204,5 +205,11 @@ describe("HistoryPanel", () => {
     const entries = [createMockEntry({ prompt: "Refined: Generate a spec" })];
     render(<HistoryPanel {...defaultProps} entries={entries} />);
     expect(screen.getByText("Refined")).toBeDefined();
+  });
+
+  it("should show 'Failed' tag for recorded failed attempts", () => {
+    const entries = [createMockEntry({ prompt: "Failed: Generate a spec" })];
+    render(<HistoryPanel {...defaultProps} entries={entries} />);
+    expect(screen.getByText("Failed")).toBeDefined();
   });
 });

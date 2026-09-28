@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type {
   Venue,
   VenueGroup,
@@ -19,6 +20,9 @@ import {
 } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { runWithVenueContext } from "./venue-context-store.js";
+import { getMemberVenueIds } from "./member-venues.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 
 /**
  * Outcome of {@link venueService.delete} — distinguishes "gone" from "blocked
@@ -268,6 +272,11 @@ export const venueGroupService = {
   },
 };
 
+// Approximates the en_US database collation the removed
+// `orderBy: { name: "asc" }` used (case- and accent-aware), so moving the
+// sort into application code doesn't reorder venues or change page 1.
+const VENUE_NAME_COLLATOR = new Intl.Collator("en-US");
+
 export const venueService = {
   /**
    * Lists venues across every venue — the platform-`admin` surface
@@ -326,8 +335,21 @@ export const venueService = {
   /**
    * Lists only the venues the given operator is a member of (owns or was
    * invited to), scoped via VenueMembership (ADR-020). Platform admins bypass
-   * this and use `list` instead. The `count` shares the same filter so
-   * pagination totals reflect the scoped set.
+   * this and use `list` instead.
+   *
+   * This is the other of ADR-026 §3.2's two newly-open cross-venue reads (#5369):
+   * a single `venue.findMany` filtered by `memberships: { some: { userSub } }`
+   * is an application predicate, not a value of `app.venue_id`, so it returns
+   * ZERO rows under `FORCE ROW LEVEL SECURITY` for any member of more than one
+   * venue. Fixed by fanning out one venue at a time instead of a single
+   * cross-venue delegate call: {@link getMemberVenueIds} reads the member's
+   * venue ids straight off `venue_memberships` (no RLS policy at all, so this
+   * first step needs no escape hatch), then each venue is read inside
+   * `runWithVenueContext` — `venues`' own `venue_isolation` policy admits a
+   * session whose `app.venue_id` equals that row's own `id`, so this is a
+   * correctly-scoped single-venue read, not a cross-venue one. Ordering,
+   * `venueGroupId` filtering and pagination move from the database into this
+   * function because the fan-out can no longer express them as one query.
    */
   async listForMember(
     userSub: string,
@@ -335,24 +357,26 @@ export const venueService = {
     limit: number,
     venueGroupId?: string
   ): Promise<PaginatedResponse<Venue>> {
-    const where: Prisma.VenueWhereInput = {
-      memberships: { some: { userSub } },
-      ...(venueGroupId ? { venueGroupId } : {}),
-    };
+    const venueIds = await getMemberVenueIds(userSub);
 
-    const [venues, total] = await Promise.all([
-      prisma.venue.findMany({
-        where,
-        ...paginate({ page, limit }),
-        orderBy: { name: "asc" },
-        include: { venueGroup: true },
-      }),
-      prisma.venue.count({ where }),
-    ]);
+    const rows = await Promise.all(
+      venueIds.map((venueId) =>
+        runWithVenueContext(venueId, () =>
+          prisma.venue.findUnique({ where: { id: venueId }, include: { venueGroup: true } })
+        )
+      )
+    );
+
+    const venues = rows
+      .filter((venue): venue is NonNullable<typeof venue> => venue !== null)
+      .filter((venue) => !venueGroupId || venue.venueGroupId === venueGroupId)
+      .sort((a, b) => VENUE_NAME_COLLATOR.compare(a.name, b.name));
+
+    const { skip, take } = paginate({ page, limit });
 
     return {
-      data: venues.map(mapPrismaVenue),
-      pagination: toPaginationMeta(page, limit, total),
+      data: venues.slice(skip, skip + take).map(mapPrismaVenue),
+      pagination: toPaginationMeta(page, limit, venues.length),
     };
   },
 
@@ -486,19 +510,33 @@ export const venueService = {
   },
 
   /**
-   * Creates a venue. When `ownerSub` is supplied, the creator is atomically
-   * seeded as the venue `owner` via a VenueMembership row (ADR-020) so their
-   * scoped venue list (`listForMember`) surfaces the new venue immediately —
-   * both writes share one transaction so a venue never persists without its
-   * owner grant.
-   */
-  /**
-   * Creates a venue, optionally seeding `ownerSub` as its owner.
+   * Creates a venue, optionally seeding `ownerSub` as its owner. Both
+   * writes (the venue row and, when `ownerSub` is supplied, its owner
+   * VenueMembership) share one transaction so a venue never persists without
+   * its owner grant.
    *
    * When an `ownerSub` is supplied, `opts.isAdmin` decides whether the
    * first-venue bootstrap invariant applies (ADR-020, third case). It defaults
    * to `false` — the fail-CLOSED direction — so a caller that forgets to pass
    * it gets the invariant enforced rather than silently skipped.
+   *
+   * ADR-026 §3.3 item 8 / #5369 PR 7: `venues`' `venue_isolation` policy keys
+   * on the row's own `id`, but that id does not exist until this call creates
+   * it — there is no PRIOR venue context a preHandler could have resolved for
+   * an INSERT. The id is generated up front (`randomUUID()`, overriding the
+   * schema's client-side `@default(cuid())`, which is inert if a caller
+   * already supplies `data.id`) so it can be set as `app.venue_id` on the
+   * SAME transaction that inserts the row — `setVenueContext(tx, id)` as the
+   * transaction's first statement, matching the explicit-transaction pattern
+   * `reservation.ts`/`floor-plan.ts` already use, never
+   * `app.cross_venue` (that marker is for reads that cannot name a single
+   * venue; this INSERT names exactly one, the venue it is creating).
+   * Previously this used the top-level `prisma` export for the ownerSub-less
+   * branch (its own per-call auto-wrap transaction, but with
+   * `getCurrentVenueId()` reading whatever the REQUEST resolved — never this
+   * new row's id) and an unwrapped `prisma.$transaction(...)` with no venue
+   * context at all for the ownerSub branch — both left `app.venue_id` unset,
+   * so the FORCE'd policy's `WITH CHECK` rejected every create.
    */
   async create(
     data: CreateVenueRequest,
@@ -506,6 +544,7 @@ export const venueService = {
     opts: { isAdmin?: boolean } = {}
   ): Promise<Venue> {
     const venueData = {
+      id: randomUUID(),
       venueGroupId: data.venueGroupId,
       name: data.name,
       slug: data.slug,
@@ -516,15 +555,17 @@ export const venueService = {
     };
 
     if (!ownerSub) {
-      const venue = await prisma.venue.create({
-        data: venueData,
-        include: { venueGroup: true },
+      const venue = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueData.id);
+        return tx.venue.create({ data: venueData, include: { venueGroup: true } });
       });
       return mapPrismaVenue(venue);
     }
 
     const venue = await prisma.$transaction(
       async (tx) => {
+        await setVenueContext(tx, venueData.id);
+
         // The preHandler guard reads membership OUTSIDE this transaction, so
         // two concurrent bootstraps can both pass it. This re-check is the
         // authority; Serializable isolation below closes the remaining window

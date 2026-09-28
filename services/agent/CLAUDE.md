@@ -77,6 +77,7 @@ src/
 │   ├── orchestrate.ts  # Multi-session orchestration  → /v1/orchestrate
 │   ├── webhooks.ts     # GitHub webhook handlers      → /v1/webhooks/github
 │   ├── remediation.ts  # Alert-based auto-remediation → /v1/webhooks/remediation
+│   ├── gen-ui.ts       # Gen playground UI streaming  → /api/gen/ui
 │   ├── gen-chat.ts     # Gen chat streaming           → /api/gen/chat
 │   ├── gen-specs.ts    # Gen specs CRUD + streaming   → /api/gen/specs
 │   ├── gen-agent.ts    # Gen agent streaming (tools)  → /api/gen/agent
@@ -118,6 +119,7 @@ src/
 
 | Method | Path                          | Description                  |
 | ------ | ----------------------------- | ---------------------------- |
+| POST   | `/api/gen/ui`                 | Stream UI generation (JSONL) |
 | POST   | `/api/gen/chat`               | Stream chat responses (SSE)  |
 | POST   | `/api/gen/agent`              | Stream agent responses (SSE) |
 | POST   | `/api/gen/specs`              | Create and persist a spec    |

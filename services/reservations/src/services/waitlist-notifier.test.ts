@@ -200,13 +200,14 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
 describe("WaitlistNotifier.notifyTableReady", () => {
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
-  it("sends table-ready SMS and schedules 5-minute expiry job", async () => {
+  it("sends table-ready SMS and schedules 5-minute expiry job carrying venueId", async () => {
     const notifier = createWaitlistNotifier(buildDeps());
 
     await notifier.notifyTableReady({
       id: "entry-1",
       guestPhone: "+15551234567",
       guestName: "Alice",
+      venueId: "venue-1",
     });
 
     expect(mockSendWaitlistTableReady).toHaveBeenCalledOnce();
@@ -215,10 +216,12 @@ describe("WaitlistNotifier.notifyTableReady", () => {
       guestName: "Alice",
     });
 
+    // ADR-026 §3.3 item 7: venueId travels with the job payload so the
+    // WAITLIST_EXPIRY handler can run inside runWithVenueContext(venueId, …).
     expect(mockSchedule).toHaveBeenCalledOnce();
     expect(mockSchedule).toHaveBeenCalledWith(
       "waitlist-expiry",
-      { waitlistEntryId: "entry-1" },
+      { waitlistEntryId: "entry-1", venueId: "venue-1" },
       FIVE_MINUTES_MS,
       "waitlist-expiry:entry-1"
     );
@@ -234,6 +237,7 @@ describe("WaitlistNotifier.notifyTableReady", () => {
         id: "entry-1",
         guestPhone: "+15551234567",
         guestName: "Alice",
+        venueId: "venue-1",
       })
     ).resolves.toBeUndefined();
 
@@ -252,6 +256,7 @@ describe("WaitlistNotifier.notifyTableReady", () => {
       id: "entry-1",
       guestPhone: "+15551234567",
       guestName: "Alice",
+      venueId: "venue-1",
     });
 
     expect(mockSendWaitlistTableReady).not.toHaveBeenCalled();
@@ -287,10 +292,14 @@ describe("WaitlistNotifier.handleExpiry", () => {
     expect(mockExpire).toHaveBeenCalledWith("entry-1");
     // venue for the next-guest lookup is derived from the expired entry
     expect(mockListWaiting).toHaveBeenCalledWith("venue-1");
+    // venueId passed to notifyTableReady is the expired entry's venue (not
+    // the next entry's — see the doc comment on the call site), which is
+    // what ends up on the re-notified guest's own WAITLIST_EXPIRY job.
     expect(mockNotifyTableReady).toHaveBeenCalledWith({
       id: "entry-2",
       guestPhone: "+15559998888",
       guestName: "Bob",
+      venueId: "venue-1",
     });
   });
 

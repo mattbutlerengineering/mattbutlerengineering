@@ -225,6 +225,7 @@ export function HistoryPanel({
               ? `${entry.prompt.slice(0, PROMPT_TRUNCATE_LENGTH)}\u2026`
               : entry.prompt;
             const isRefined = entry.prompt.startsWith("Refined:");
+            const isFailed = entry.prompt.startsWith("Failed:");
             const isFocused = index === focusedIndex;
             const isConfirmingDelete = confirmingDeleteId === entry.id;
 
@@ -260,6 +261,12 @@ export function HistoryPanel({
                       <>
                         <span className={styles.metaDot}>{"\u00B7"}</span>
                         <span className={styles.refinedTag}>Refined</span>
+                      </>
+                    )}
+                    {isFailed && (
+                      <>
+                        <span className={styles.metaDot}>{"\u00B7"}</span>
+                        <span className={styles.failedTag}>Failed</span>
                       </>
                     )}
                     {entry.isFavorite && (

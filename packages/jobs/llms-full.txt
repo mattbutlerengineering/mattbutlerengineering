@@ -64,12 +64,22 @@
     }
     export interface WaitlistExpiryPayload {
       waitlistEntryId: string;
-      // The WAITLIST_EXPIRY handler derives the venue and next-in-line guest from
-      // expireEntry(waitlistEntryId), so only the entry id is required. These stay
-      // declared (optional) for forward-compatible payload enrichment; nothing
-      // enqueues or reads them today.
+      // guestPhone/guestEmail stay declared (optional) for forward-compatible
+      // payload enrichment; nothing enqueues or reads them today.
       guestPhone?: string | null;
       guestEmail?: string | null;
+      // Populated at enqueue time (services/reservations' waitlist-notifier.ts —
+      // notifyTableReady, this job's one enqueue site) so the handler can run
+      // inside runWithVenueContext(venueId, ...) instead of deriving the venue
+      // from an RLS-protected read with no context (ADR-026 §3.3 item 7). Stays
+      // optional rather than required: a job enqueued before this fix shipped is
+      // already sitting in Redis without it, and BullMQ never re-serializes a
+      // payload once queued. The handler (services/reservations'
+      // job-worker.ts) falls back to its pre-fix behavior, with a warning log,
+      // for any payload missing it. Safe to make required (and delete that
+      // fallback) once one WAITLIST_EXPIRY TTL (FIVE_MINUTES_MS,
+      // waitlist-notifier.ts) has elapsed post-deploy — every legacy job will
+      // have drained by then.
       venueId?: string;
     }
     export type JobPayloadMap = {

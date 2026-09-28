@@ -193,8 +193,8 @@
       class DepositsClient {
         async create(): Promise<unknown>;
         async get(): Promise<unknown>;
+        async getByReservation(): Promise<unknown>;
         async capture(): Promise<unknown>;
-        async refund(): Promise<unknown>;
       }
     </item>
   </file>

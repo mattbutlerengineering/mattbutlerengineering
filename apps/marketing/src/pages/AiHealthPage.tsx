@@ -13,7 +13,6 @@ import {
   normalizeSensorReport,
   type SensorReport,
   type QueueEfficiencyMetrics,
-  type DomainActivityMetrics,
   type ReviewBurdenMetrics,
   type AcmmMetrics,
 } from "../data/ai-health.js";
@@ -100,80 +99,6 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
         </div>
       )}
     </>
-  );
-}
-
-function DomainActivityPanel({ domainActivity }: { domainActivity: DomainActivityMetrics }) {
-  if (!domainActivity.available) {
-    return (
-      <div className={styles.sensorGrid} data-testid="domain-activity-panel">
-        <div className={styles.sensorRow}>
-          <Text className={styles.sensorName}>domainActivity</Text>
-          <div className={styles.sensorBadge}>
-            <Badge color="red" size="sm">
-              Unavailable
-            </Badge>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="domain-activity-panel">
-      <div className={styles.statGrid}>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Reservations Created</Text>
-          <Text className={styles.statValue} data-testid="reservations-created">
-            {formatCount(domainActivity.reservationsCreated)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Reservations Cancelled</Text>
-          <Text className={styles.statValue} data-testid="reservations-cancelled">
-            {formatCount(domainActivity.reservationsCancelled)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Reservations Completed</Text>
-          <Text className={styles.statValue} data-testid="reservations-completed">
-            {formatCount(domainActivity.reservationsCompleted)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Reservations No-Show</Text>
-          <Text className={styles.statValue} data-testid="reservations-no-show">
-            {formatCount(domainActivity.reservationsNoShow)}
-          </Text>
-        </Card>
-      </div>
-      <div className={styles.statGrid}>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Deposits Held</Text>
-          <Text className={styles.statValue} data-testid="deposits-held">
-            {formatCount(domainActivity.depositsHeld)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Deposits Applied</Text>
-          <Text className={styles.statValue} data-testid="deposits-applied">
-            {formatCount(domainActivity.depositsApplied)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Deposits Refunded</Text>
-          <Text className={styles.statValue} data-testid="deposits-refunded">
-            {formatCount(domainActivity.depositsRefunded)}
-          </Text>
-        </Card>
-        <Card className={styles.statCard}>
-          <Text className={styles.statLabel}>Deposits Forfeited</Text>
-          <Text className={styles.statValue} data-testid="deposits-forfeited">
-            {formatCount(domainActivity.depositsForfeited)}
-          </Text>
-        </Card>
-      </div>
-    </div>
   );
 }
 
@@ -435,11 +360,6 @@ export function AiHealthPage() {
             testId="queue-efficiency-trend"
           />
         </TrendSlot>
-      </section>
-
-      <section className={styles.section}>
-        <Heading level={2}>Domain Activity</Heading>
-        <DomainActivityPanel domainActivity={metrics.domainActivity} />
       </section>
 
       <section className={styles.section}>

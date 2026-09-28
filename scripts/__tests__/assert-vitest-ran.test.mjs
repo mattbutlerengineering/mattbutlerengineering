@@ -73,19 +73,23 @@ describe("assertSuitesRan (#5369)", () => {
 });
 
 describe("ci.yml — RLS integration job wiring (#5369)", () => {
-  it("runs both RLS integration suites against a non-superuser owner role", () => {
+  it("runs the RLS integration suites against a non-superuser owner role", () => {
     expect(CI_WORKFLOW).toContain("src/routes/rls-owner-enforcement.integration.test.ts");
     expect(CI_WORKFLOW).toContain("src/routes/rls-isolation.integration.test.ts");
+    // PR 2's route-sweep suite: a real buildApp() against the same owner
+    // role, injecting every registered route under RLS_CONTEXT_MODE=throw.
+    expect(CI_WORKFLOW).toContain("src/routes/rls-route-sweep.integration.test.ts");
     expect(CI_WORKFLOW).toContain("CREATEROLE");
   });
 
-  it("runs EVERY DATABASE_URL-gated suite in the service, not just the two that were noticed", () => {
+  it("runs EVERY DATABASE_URL-gated suite in the service, not just the ones that were noticed", () => {
     // The whole point of this job is that a `describe.skipIf(!DATABASE_URL)`
     // suite reads as passing while running nothing. A suite gated that way
     // and absent from this job's file list is in exactly the state the job
     // exists to end — `lapsed-guest-cron.rls.integration.test.ts` was that
-    // case. Discovered by reading the service, so a fourth such suite added
-    // later fails here instead of silently never running.
+    // case, and `rls-route-sweep.integration.test.ts` (PR 2) is the fourth.
+    // Discovered by reading the service, so a fifth such suite added later
+    // fails here instead of silently never running.
     const serviceRoot = resolve(ROOT, "services/reservations/src");
     const gated = [];
 

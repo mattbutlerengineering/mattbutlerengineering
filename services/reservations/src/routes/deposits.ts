@@ -4,6 +4,7 @@ import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { depositService, DepositNotFoundError } from "../services/deposit.js";
 import { resolveReservationVenueId } from "../services/deposit-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
+import { loadInVenueContext } from "./venue-access.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -18,7 +19,15 @@ const depositProperties = {
   currency: { type: "string" },
   status: {
     type: "string",
-    enum: ["pending", "held", "applied", "refunded", "partial_refunded", "forfeited"],
+    enum: [
+      "pending",
+      "held",
+      "applied",
+      "refunded",
+      "partial_refunded",
+      "forfeited",
+      "uncollectable",
+    ],
   },
   stripePaymentIntentId: { type: ["string", "null"] },
   stripeCustomerId: { type: ["string", "null"] },
@@ -26,6 +35,8 @@ const depositProperties = {
   appliedAt: { type: ["string", "null"] },
   refundedAt: { type: ["string", "null"] },
   forfeitedAt: { type: ["string", "null"] },
+  uncollectableAt: { type: ["string", "null"] },
+  postCaptureRefundCents: { type: ["integer", "null"] },
   createdAt: { type: "string" },
   updatedAt: { type: "string" },
 };
@@ -51,12 +62,18 @@ const depositProperties = {
  * would conclude (ADR-026 §2/§5), and ADR-020 already treats an unresolvable
  * venue as a refusal.
  *
- * Residual, deliberately not solved here: the ONE lookup that determines the
- * scope (reading the addressed deposit, and its reservation's `venue_id`)
- * cannot itself run inside the scope it is computing. That is a property of
- * every entity-addressed route in this service — `venueIdFromEntity`
- * (`./venue-access.ts`) has the same shape — not something deposits can fix
- * alone; see ADR-026 §3.
+ * Closed (ADR-026 §3.3 item 6 / #5369 PR 7): the lookup that determines the
+ * scope used to be an unscoped read of the addressed deposit (or the
+ * reservation `resolveReservationVenueId` loaded), which is itself one of the
+ * seven RLS-scoped tables — the same "lookup can't run inside the scope it's
+ * computing" shape as `venueIdFromEntity` (`./venue-access.ts`), and measured
+ * broken under FORCE (ADR-026 §3.2's blockquote). Both
+ * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and this
+ * file's own GET/:id route now resolve through the `SECURITY DEFINER`
+ * `app_resolve_venue_id` function instead (`resolveVenueId`/
+ * `loadInVenueContext`, `../services/resolve-venue.ts` /
+ * `./venue-access.ts`), which performs the reservation join inside its own
+ * definer body rather than as a separate unscoped Prisma read.
  */
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/v1/deposits — create a deposit
@@ -105,6 +122,66 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // GET /api/v1/deposits?reservationId= — operator visibility: look up a
+  // reservation's deposit (or null if none exists yet), venue-scoped. Same
+  // venue-resolution shape as POST / above: the query carries an opaque
+  // reservation id, not a venueId, so the app-wide preHandler resolves
+  // nothing and this route resolves it itself (module comment, ADR-026).
+  fastify.get<{
+    Querystring: { reservationId?: string };
+    Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+  }>(
+    "/",
+    {
+      preHandler: [requireAuth, requireAdmin],
+      schema: {
+        summary: "Get a reservation's deposit",
+        operationId: "getDepositByReservation",
+        description:
+          "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+        tags: ["Deposits"],
+        querystring: {
+          type: "object",
+          required: ["reservationId"],
+          properties: { reservationId: { type: "string" } },
+        },
+        response: {
+          200: {
+            description: "Deposit found, or null if the reservation has none yet",
+            type: "object",
+            properties: {
+              data: {
+                anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+              },
+            },
+          },
+          400: { description: "Missing reservationId", type: "object" },
+          404: { description: "Reservation not found, or not in any venue", type: "object" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { reservationId } = request.query;
+      if (!reservationId) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+      }
+
+      const venueId = await resolveReservationVenueId(reservationId);
+      if (!venueId) {
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+
+      const deposit = await runWithVenueContext(venueId, () =>
+        depositService.getByReservationId(reservationId)
+      );
+      return { data: deposit };
+    }
+  );
+
   // GET /api/v1/deposits/:id — get deposit by ID
   fastify.get<{
     Params: { id: string };
@@ -136,22 +213,17 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      // Scope-determining read (see the module comment): it cannot run inside
-      // the scope it computes, and is used ONLY to reach the owning venue.
-      const addressed = await depositService.getById(request.params.id);
-      if (!addressed) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      const venueId = await resolveReservationVenueId(addressed.reservationId);
-      if (!venueId) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      // The row actually returned is the one read under the resolved venue
-      // context, so it is the row the `deposit_isolation` policy admits.
-      const deposit = await runWithVenueContext(venueId, () =>
-        depositService.getById(request.params.id)
+      // ADR-026 §3.3 item 6 / #5369 PR 7: resolves straight through the
+      // `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
+      // the deposit's own reservation done INSIDE the resolver, not via a
+      // prior unscoped `depositService.getById` — so the read below already
+      // runs inside the resolved venue context instead of repeating the
+      // "lookup can't run inside the scope it's computing" trap.
+      const deposit = await loadInVenueContext(
+        "deposit",
+        request.params.id,
+        () => depositService.getById(request.params.id),
+        null
       );
       if (!deposit) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
@@ -262,7 +334,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    depositTransitionHandler((id) => depositService.forfeit(id))
+    depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
   );
 };
 

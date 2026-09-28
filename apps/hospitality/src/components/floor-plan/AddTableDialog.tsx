@@ -118,7 +118,11 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
           </Button>
         </div>
 
-        {validationError && <div className={styles.errorBanner}>{validationError}</div>}
+        {validationError && (
+          <div role="alert" aria-live="assertive" className={styles.errorBanner}>
+            {validationError}
+          </div>
+        )}
 
         <form noValidate onSubmit={handleSubmit(onFormSubmit)} className={styles.form}>
           <div className={styles.fieldGroup}>

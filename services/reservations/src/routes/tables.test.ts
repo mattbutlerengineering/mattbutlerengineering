@@ -6,6 +6,7 @@ import { ReservationEventEmitter } from "../services/events.js";
 import { TableTransitionError } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 // Domain services are injected via buildApp({ services }) (issue #3357), so the
 // tables route no longer needs a vi.mock ring of sibling service modules to
@@ -43,6 +44,18 @@ vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
 });
+
+// ADR-026 §3.3 item 2 / #5369 PR 5: `venueIdFromEntity`/`loadInVenueContext`
+// (used by entity-addressed preHandlers and handler bodies) now resolve venue
+// ids via `resolveVenueId`, a raw `$queryRaw` call this suite's plain
+// `createMockDatabaseService()` stub can't answer. Route tests exercise
+// application logic, not real RLS resolution (that's
+// `rls-route-sweep.integration.test.ts`), so resolve to a constant non-null
+// venue id here — each test's own service-layer mock still drives the
+// specific-case behavior.
+vi.mock("../services/resolve-venue.js", () => ({
+  resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
+}));
 
 // Mock jose library for JWT verification
 vi.mock("jose", () => ({
@@ -620,6 +633,12 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
     // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
     // never consumes, so clear the queue to guarantee our payload is returned.
     vi.mocked(jwtVerify).mockReset();
+    // This describe block authenticates as a real (non-admin) staff member of
+    // "venue-own" specifically — the module-level `resolveVenueId` mock's
+    // constant "venue-1" would fail `buildAppAsVenueOwnStaff`'s membership
+    // lookup (which only grants "venue-own"), so scope the resolved venue to
+    // what these tests actually authorize against.
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-own");
   });
 
   afterEach(async () => {
