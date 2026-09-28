@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 import { Badge, Button, Card, Heading, Spinner, Text } from "@mattbutlerengineering/rialto";
 import styles from "./AcmmPage.module.css";
 
+interface BehavioralGate {
+  readonly level: number;
+  readonly name: string;
+  readonly passed: boolean;
+  readonly value: number | null;
+  readonly threshold: number;
+  readonly unverifiable: boolean;
+}
+
 interface RepoEntry {
   readonly currentLevel: number;
   readonly levelName: string;
@@ -21,6 +30,7 @@ interface RepoEntry {
     readonly evalsLastRun: string | null;
   };
   readonly checks: Record<string, { passed: boolean }>;
+  readonly behavioralGates: readonly BehavioralGate[];
 }
 
 interface AcmmReport {
@@ -52,6 +62,11 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Trims a gate's raw number to 2 decimal places without trailing zeros. */
+function formatGateNumber(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
 function EvalsSummary({ behavioral }: { behavioral: RepoEntry["behavioral"] }) {
@@ -121,7 +136,7 @@ export function AcmmPage() {
         <Heading level={1}>ACMM Dashboard</Heading>
         <Text className={styles.subtitle}>AI Codebase Maturity Model — repo-level audit</Text>
         <Text className={styles.meta}>
-          Last updated: {formatDate(report.generatedAt)}
+          Audited {repo.lastRun ? formatDate(repo.lastRun) : "date unknown"}
           {" · "}
           <a href="/acmm-report.json" className={styles.jsonLink}>
             View raw JSON
@@ -167,6 +182,28 @@ export function AcmmPage() {
 
         {expanded && (
           <div className={styles.wsDetails}>
+            {repo.behavioralGates.length > 0 && (
+              <div className={styles.detailSection}>
+                <Text className={styles.detailLabel}>Behavioral Gates</Text>
+                <div className={styles.gateList}>
+                  {repo.behavioralGates.map((gate) => (
+                    <div key={gate.name} className={styles.gateRow}>
+                      <Badge
+                        color={gate.unverifiable ? "gray" : gate.passed ? "green" : "red"}
+                        size="sm"
+                      >
+                        {gate.unverifiable ? "Unverifiable" : gate.passed ? "Pass" : "Fail"}
+                      </Badge>
+                      <Text className={styles.gateRowName}>{gate.name.replace(/-/g, " ")}</Text>
+                      <Text className={styles.gateRowValue}>
+                        {gate.value === null ? "—" : formatGateNumber(gate.value)} /{" "}
+                        {formatGateNumber(gate.threshold)}
+                      </Text>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className={styles.detailSection}>
               <Text className={styles.detailLabel}>
                 Criteria — {passCount} pass / {failCount} fail

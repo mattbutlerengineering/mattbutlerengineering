@@ -1,6 +1,6 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-09-28T19:23:59.522Z",
+  "generatedAt": "2026-09-28T20:05:08.820Z",
   "repo": {
     "currentLevel": 6,
     "levelName": "Fully Autonomous",
@@ -362,6 +362,48 @@
       "meta:audit-freshness": {
         "passed": false
       }
-    }
+    },
+    "behavioralGates": [
+      {
+        "level": 3,
+        "name": "ci-flake-rate",
+        "passed": true,
+        "value": 0,
+        "threshold": 0.2,
+        "unverifiable": false
+      },
+      {
+        "level": 4,
+        "name": "agent-pr-acceptance",
+        "passed": true,
+        "value": 0.9841269841269841,
+        "threshold": 0.5,
+        "unverifiable": false
+      },
+      {
+        "level": 5,
+        "name": "auto-qa-tuning-history",
+        "passed": true,
+        "value": 19,
+        "threshold": 1,
+        "unverifiable": false
+      },
+      {
+        "level": 6,
+        "name": "agent-pr-revert-rate",
+        "passed": true,
+        "value": 0,
+        "threshold": 0.1,
+        "unverifiable": false
+      },
+      {
+        "level": 6,
+        "name": "human-touch-ratio",
+        "passed": true,
+        "value": 0,
+        "threshold": 0.5,
+        "unverifiable": false
+      }
+    ]
   }
 }

@@ -24,6 +24,28 @@ const BASE_STATE = {
     // 2026-05-10, well outside the 30-day window measured from NOW.
     evals: { n: 37, passRate: 0.8649, lastRun: "2026-05-10T21:42:57.095Z", windowDays: 30 },
   },
+  computation: {
+    behavioralGates: [
+      {
+        level: 3,
+        name: "ci-flake-rate",
+        passed: true,
+        value: 0.02,
+        threshold: 0.2,
+        unverifiable: false,
+      },
+      // #5852 introduces gates with `unverifiable: true` and a null value
+      // when the underlying signal can't be checked (e.g. no `gh` access).
+      {
+        level: 6,
+        name: "human-touch-ratio",
+        passed: false,
+        value: null,
+        threshold: 0.5,
+        unverifiable: true,
+      },
+    ],
+  },
 };
 
 describe("transformRepoState", () => {
@@ -81,6 +103,45 @@ describe("transformRepoState", () => {
     expect(repo.behavioral.evalsLastRun).toBeNull();
   });
 
+  it("maps behavioral gates, tolerating an unverifiable gate with a null value", () => {
+    const repo = transformRepoState(BASE_STATE, { now: NOW });
+    expect(repo.behavioralGates).toHaveLength(2);
+    expect(repo.behavioralGates[0]).toEqual({
+      level: 3,
+      name: "ci-flake-rate",
+      passed: true,
+      value: 0.02,
+      threshold: 0.2,
+      unverifiable: false,
+    });
+    expect(repo.behavioralGates[1]).toEqual({
+      level: 6,
+      name: "human-touch-ratio",
+      passed: false,
+      value: null,
+      threshold: 0.5,
+      unverifiable: true,
+    });
+  });
+
+  it("defaults unverifiable to false and value to null when a gate omits them", () => {
+    const withBareGate = {
+      ...BASE_STATE,
+      computation: {
+        behavioralGates: [{ level: 4, name: "agent-pr-acceptance", passed: true, threshold: 0.5 }],
+      },
+    };
+    const repo = transformRepoState(withBareGate, { now: NOW });
+    expect(repo.behavioralGates[0]).toEqual({
+      level: 4,
+      name: "agent-pr-acceptance",
+      passed: true,
+      value: null,
+      threshold: 0.5,
+      unverifiable: false,
+    });
+  });
+
   it("strips evidence from checks, keeps only the passed boolean", () => {
     const repo = transformRepoState(BASE_STATE, { now: NOW });
     expect(repo.checks["acmm:prereq-test-suite"]).toEqual({ passed: true });
@@ -100,6 +161,7 @@ describe("transformRepoState", () => {
     expect(repo.behavioral.evalPassRate).toBeNull();
     expect(repo.behavioral.evalsStale).toBe(true);
     expect(repo.checks).toEqual({});
+    expect(repo.behavioralGates).toEqual([]);
   });
 
   it("coverage is 0 when no checks exist (avoids divide-by-zero)", () => {

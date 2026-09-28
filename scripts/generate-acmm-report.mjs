@@ -68,6 +68,14 @@ export function transformRepoState(state, opts = {}) {
     checks: Object.fromEntries(
       Object.entries(state.checks ?? {}).map(([id, check]) => [id, { passed: check.passed }])
     ),
+    behavioralGates: (state.computation?.behavioralGates ?? []).map((g) => ({
+      level: g.level,
+      name: g.name,
+      passed: g.passed,
+      value: g.value ?? null,
+      threshold: g.threshold,
+      unverifiable: g.unverifiable ?? false,
+    })),
   };
 }
 

@@ -36,6 +36,10 @@ vi.mock("./AcmmPage.module.css", () => ({
     wsDetails: "wsDetails",
     detailSection: "detailSection",
     detailLabel: "detailLabel",
+    gateList: "gateList",
+    gateRow: "gateRow",
+    gateRowName: "gateRowName",
+    gateRowValue: "gateRowValue",
     criteriaList: "criteriaList",
     criteriaRow: "criteriaRow",
     passIcon: "passIcon",
@@ -52,14 +56,19 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+// Midday UTC on purpose: formatDate() renders in the local timezone via
+// toLocaleDateString, so a late-UTC timestamp (e.g. 19:23Z or 21:42Z) rolls
+// over to the next calendar day under TZ=Asia/Tokyo (UTC+9). Noon UTC stays
+// on the same calendar day for every real timezone from UTC-11 to UTC+11.
 const STALE_EVALS_REPORT = {
   schema: "acmm-report/v2",
-  generatedAt: "2026-09-28T19:23:59.522Z",
+  generatedAt: "2026-09-28T12:00:00.000Z",
   repo: {
     currentLevel: 6,
     levelName: "Fully Autonomous",
     role: "Strategist",
-    lastRun: "2026-09-28T16:07:00.403Z",
+    // Audited the same day the report was generated, in this fixture.
+    lastRun: "2026-09-28T12:00:00.000Z",
     summary: { detected: 97, total: 114, coverage: 0.8508771929824561 },
     behavioral: {
       ciFlakeRate: 0,
@@ -67,13 +76,41 @@ const STALE_EVALS_REPORT = {
       agentPrRevertRate: 0,
       evalPassRate: null,
       evalsStale: true,
-      evalsLastRun: "2026-05-10T21:42:57.095Z",
+      evalsLastRun: "2026-05-10T12:00:00.000Z",
     },
     checks: {
       "acmm:prereq-test-suite": { passed: true },
       "acmm:claude-md": { passed: true },
       "acmm:editor-config": { passed: false },
     },
+    behavioralGates: [
+      {
+        level: 3,
+        name: "ci-flake-rate",
+        passed: true,
+        value: 0,
+        threshold: 0.2,
+        unverifiable: false,
+      },
+      {
+        level: 6,
+        name: "agent-pr-revert-rate",
+        passed: false,
+        value: 0.15,
+        threshold: 0.1,
+        unverifiable: false,
+      },
+      // #5852 gates that couldn't be checked carry `unverifiable: true` and a
+      // null value — must render without crashing or printing "null".
+      {
+        level: 6,
+        name: "human-touch-ratio",
+        passed: false,
+        value: null,
+        threshold: 0.5,
+        unverifiable: true,
+      },
+    ],
   },
 };
 
@@ -85,8 +122,19 @@ const FRESH_EVALS_REPORT = {
       ...STALE_EVALS_REPORT.repo.behavioral,
       evalPassRate: 0.865,
       evalsStale: false,
-      evalsLastRun: "2026-09-25T00:00:00.000Z",
+      evalsLastRun: "2026-09-25T12:00:00.000Z",
     },
+  },
+};
+
+// Audit ran months before the report was (re)generated — the header must
+// show the OLDER lastRun date, never the newer generatedAt.
+const OLD_AUDIT_REPORT = {
+  ...STALE_EVALS_REPORT,
+  generatedAt: "2026-09-28T12:00:00.000Z",
+  repo: {
+    ...STALE_EVALS_REPORT.repo,
+    lastRun: "2026-05-10T12:00:00.000Z",
   },
 };
 
@@ -139,11 +187,32 @@ describe("AcmmPage", () => {
     });
   });
 
-  it("shows the last-updated date from generatedAt", async () => {
+  it("shows the audited date from repo.lastRun", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Last updated: Sep 28, 2026/)).toBeInTheDocument();
+      expect(screen.getByText(/Audited Sep 28, 2026/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows the lastRun date, not generatedAt, when the audit predates the report by months", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => OLD_AUDIT_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/Audited May 10, 2026/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Sep 28, 2026/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to a placeholder when lastRun is missing, without crashing", async () => {
+    const noLastRun = {
+      ...STALE_EVALS_REPORT,
+      repo: { ...STALE_EVALS_REPORT.repo, lastRun: null },
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => noLastRun });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/Audited date unknown/)).toBeInTheDocument();
     });
   });
 
@@ -187,6 +256,41 @@ describe("AcmmPage", () => {
       expect(screen.getByText(/prereq-test-suite/)).toBeInTheDocument();
       expect(screen.getByText(/editor-config/)).toBeInTheDocument();
     });
+  });
+
+  it("renders behavioral gates in the expanded view with name, value/threshold, and pass/fail badges", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+
+    const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("ci flake rate")).toBeInTheDocument();
+      expect(screen.getByText("Pass")).toBeInTheDocument();
+      expect(screen.getByText("agent pr revert rate")).toBeInTheDocument();
+      expect(screen.getByText("Fail")).toBeInTheDocument();
+      expect(screen.getByText("0 / 0.2")).toBeInTheDocument();
+    });
+  });
+
+  it("renders an unverifiable gate with a null value without crashing or printing 'null'", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+
+    const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("human touch ratio")).toBeInTheDocument();
+      expect(screen.getByText("Unverifiable")).toBeInTheDocument();
+      expect(screen.getByText("— / 0.5")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/null/)).not.toBeInTheDocument();
   });
 
   it("collapses on second toggle click", async () => {
