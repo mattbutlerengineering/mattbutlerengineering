@@ -290,10 +290,12 @@ describe("writeReport: unverifiable section", () => {
     fx.cleanup();
   });
 
-  test("header shows criteria count excluding unverifiable from denominator", () => {
+  test("header keeps unverifiable criteria IN the denominator, matching the level walk (#5852 AC10)", () => {
     const fx = fixture();
 
-    // 3 total criteria, 1 unverifiable → denominator should be 2, not 3
+    // 3 total criteria, 1 unverifiable → denominator stays 3 (not-passed, not
+    // dropped) — the level walk's requiredByLevel never subtracts it either,
+    // so the two disagreeing was the bug (#5852 AC10).
     const state = {
       detectedIds: ["acmm:claude-md"],
       history: [],
@@ -365,10 +367,14 @@ describe("writeReport: unverifiable section", () => {
     });
 
     const content = readFileSync(reportPath, "utf-8");
-    // denominator should be 2 (3 total - 1 unverifiable), not 3
+    // denominator should be 3 (all criteria), not 2
     assert.ok(
-      content.includes("1/2 criteria"),
-      `report header should show 1/2 (excluding unverifiable from denominator), got: ${content.slice(0, 300)}`
+      content.includes("1/3 criteria"),
+      `report header should show 1/3 (unverifiable stays in the denominator), got: ${content.slice(0, 300)}`
+    );
+    assert.ok(
+      content.includes("1 unverifiable"),
+      `report header should separately show the unverifiable count, got: ${content.slice(0, 300)}`
     );
 
     fx.cleanup();

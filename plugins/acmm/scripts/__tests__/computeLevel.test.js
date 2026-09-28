@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { computeLevel, BEHAVIORAL_GATES } from "../computeLevel.js";
 import { ALL_CRITERIA, SOURCES } from "../sources/index.js";
+import { SCANNABLE_IDS_BY_LEVEL } from "../scannableIdsByLevel.js";
 
 test("computeLevel: empty detection set → L1 (Assisted)", () => {
   const result = computeLevel(new Set());
@@ -375,5 +376,168 @@ describe("computeLevel with behavioral gates", () => {
     for (const g of failedGates) {
       assert.equal(g.strict, false, "failed gates should be marked as soft");
     }
+  });
+
+  // ── AC1: multiple gates at the same level must ALL apply ─────────────────
+
+  test("L6 blocked by high revert rate even when the OTHER L6 gate (human-touch) passes — the gate-indexing bug", () => {
+    // Before the fix, `gateByLevel[g.level] = g` kept only the LAST L6 gate
+    // registered (human-touch-ratio), silently discarding the revert-rate
+    // gate's verdict — so a 90% revert rate never blocked anything as long
+    // as human-touch was low. Literal repro from the issue's AC1.
+    const ids = idsThrough(6);
+    const behavioral = {
+      flake: { rate_30d: 0.05 },
+      agent_pr: { acceptance_rate_30d: 0.8, revert_rate_30d: 0.9, human_touch_ratio: 0 },
+      auto_qa_history_count: 5,
+    };
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.ok(result.level < 6, "revert-rate gate must block L6 regardless of gate order");
+    assert.equal(result.level, 5);
+
+    const revertGate = result.behavioralGates.find((g) => g.name === "agent-pr-revert-rate");
+    const touchGate = result.behavioralGates.find((g) => g.name === "human-touch-ratio");
+    assert.equal(revertGate.passed, false, "revert gate should fail (90% > 10%)");
+    assert.equal(touchGate.passed, true, "human-touch gate should pass (0% < 50%)");
+  });
+
+  // ── AC2: missing value OR insufficient_data is unverifiable, per gate ────
+
+  describe("AC2: insufficient_data is treated the same as missing data", () => {
+    test("ci-flake-rate: insufficient_data blocks in strict mode even with a value present", () => {
+      const ids = idsThrough(3);
+      const behavioral = { flake: { rate_30d: 0.05, insufficient_data: true } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+      assert.equal(gate.unverifiable, true);
+      assert.equal(gate.passed, false);
+      assert.equal(result.level, 2, "L3 blocked when flake sample is insufficient");
+    });
+
+    test("gate result carries the parent's sample_size as sampleSize (review item 6)", () => {
+      const ids = idsThrough(3);
+      const behavioral = { flake: { rate_30d: 0.05, insufficient_data: true, sample_size: 3 } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+      assert.equal(gate.sampleSize, 3);
+    });
+
+    test("sampleSize is null for a gate with no parentKey (auto-qa-tuning-history)", () => {
+      const ids = idsThrough(5);
+      const behavioral = { flake: { rate_30d: 0.05 } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "auto-qa-tuning-history");
+      assert.equal(gate.sampleSize, null);
+    });
+
+    test("ci-flake-rate: insufficient_data passes (with warning) in soft mode", () => {
+      const ids = idsThrough(3);
+      const behavioral = { flake: { rate_30d: 0.05, insufficient_data: true } };
+      const result = computeLevel(ids, behavioral, { strict: false });
+      assert.equal(result.level, 3);
+    });
+
+    test("agent-pr-acceptance: insufficient_data blocks in strict mode", () => {
+      const ids = idsThrough(4);
+      const behavioral = {
+        flake: { rate_30d: 0.05 },
+        agent_pr: { acceptance_rate_30d: 0.9, insufficient_data: true },
+      };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "agent-pr-acceptance");
+      assert.equal(gate.unverifiable, true);
+      assert.equal(result.level, 3);
+    });
+
+    test("agent-pr-revert-rate: insufficient_data blocks in strict mode", () => {
+      // insufficient_data lives on the shared `agent_pr` object, so it blocks
+      // every gate reading from it — L4 acceptance AND both L6 gates — which
+      // is correct: the sample-size threshold describes the whole
+      // measurement, not one metric derived from it.
+      const ids = idsThrough(6);
+      const behavioral = {
+        flake: { rate_30d: 0.05 },
+        agent_pr: {
+          acceptance_rate_30d: 0.8,
+          revert_rate_30d: 0.01,
+          human_touch_ratio: 0.1,
+          insufficient_data: true,
+        },
+        auto_qa_history_count: 5,
+      };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "agent-pr-revert-rate");
+      assert.equal(gate.unverifiable, true);
+      assert.equal(result.level, 3, "insufficient_data on agent_pr blocks every gate reading it");
+    });
+
+    test("human-touch-ratio: insufficient_data blocks in strict mode (distinct from missing-field case)", () => {
+      const ids = idsThrough(6);
+      const behavioral = {
+        flake: { rate_30d: 0.05 },
+        agent_pr: {
+          acceptance_rate_30d: 0.8,
+          revert_rate_30d: 0.01,
+          human_touch_ratio: 0.1,
+          insufficient_data: true,
+        },
+        auto_qa_history_count: 5,
+      };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "human-touch-ratio");
+      assert.equal(gate.unverifiable, true);
+    });
+
+    test("auto-qa-tuning-history: a missing count is unverifiable (no insufficient_data concept, just absence)", () => {
+      const ids = idsThrough(5);
+      const behavioral = { flake: { rate_30d: 0.05 }, agent_pr: { acceptance_rate_30d: 0.8 } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "auto-qa-tuning-history");
+      assert.equal(gate.unverifiable, true);
+      assert.equal(result.level, 4);
+    });
+  });
+});
+
+// ── AC11: margin report ──────────────────────────────────────────────────────
+
+describe("computeLevel: margin report", () => {
+  test("marginByLevel = detected - ceil(0.7 * required) for every level with a requirement", () => {
+    const result = computeLevel(idsThrough(3));
+    // L3 has 6 scannable items; idsThrough(3) detects 5 of them (via L3_IDS,
+    // + the L2 OR-group). ceil(0.7*6) = 5, so margin = 5 - 5 = 0.
+    assert.equal(result.marginByLevel[3], 0);
+  });
+
+  test("margin is negative when a level hasn't been reached", () => {
+    const result = computeLevel(new Set(["acmm:claude-md"])); // L2 only
+    const req = result.requiredByLevel[3];
+    assert.equal(result.marginByLevel[3], 0 - Math.ceil(0.7 * req));
+    assert.ok(result.marginByLevel[3] < 0);
+  });
+
+  test("all-detected level has a large positive margin", () => {
+    // idsThrough(6) only detects the 6 of 8 real L6 criteria that clear the
+    // 70% threshold; add the two it omits for a genuine "all detected" case.
+    const ids = new Set([...idsThrough(6), ...SCANNABLE_IDS_BY_LEVEL[6]]);
+    const result = computeLevel(ids);
+    assert.equal(result.detectedByLevel[6], result.requiredByLevel[6]);
+    assert.ok(result.marginByLevel[6] > 0);
+  });
+
+  // ── review item 3: L2's gate threshold is 1/required (any single
+  // criterion), not the 70% ratio every other level uses — its margin must
+  // be measured against that same 1, or L2 reads as far from its own cutoff
+  // when it has already cleared it. ────────────────────────────────────────
+  test("L2 margin is detected - 1, not detected - ceil(0.7 * required)", () => {
+    const result = computeLevel(new Set(["acmm:claude-md"])); // satisfies the OR-group only
+    const required = result.requiredByLevel[2];
+    const detected = result.detectedByLevel[2];
+    assert.equal(detected, 1, "only the OR-group criterion is detected");
+    // The old (wrong) formula would report detected - ceil(0.7 * required),
+    // which is negative even though L2 has actually been reached.
+    assert.notEqual(result.marginByLevel[2], detected - Math.ceil(0.7 * required));
+    assert.equal(result.marginByLevel[2], 0, "exactly at L2's own 1-of-required cutoff");
+    assert.equal(result.level, 2, "L2 is in fact reached here");
   });
 });
