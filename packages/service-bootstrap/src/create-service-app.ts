@@ -1,4 +1,5 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
+import addFormats from "ajv-formats";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
@@ -19,6 +20,18 @@ import { validateStartupConfig } from "./validate-startup-config.js";
 import { applyVersioning } from "./apply-versioning.js";
 import type { ApiVersioningConfig } from "./apply-versioning.js";
 export type { ApiVersioningConfig } from "./apply-versioning.js";
+
+/**
+ * ajv-formats' CJS/ESM interop declares its default export as an ES-module
+ * `export default`, which under this repo's `moduleResolution: "NodeNext"`
+ * resolves the import binding to the whole CJS module namespace type rather
+ * than the callable plugin — a known ajv-formats packaging quirk, not a
+ * runtime bug (Node's own CJS/ESM interop binds the default import to the
+ * actual `module.exports` function correctly). Cast through Fastify's own
+ * exposed ajv-plugin element type instead of adding `ajv` as a direct
+ * dependency solely for this one type.
+ */
+type AjvCompilerPlugin = NonNullable<NonNullable<FastifyServerOptions["ajv"]>["plugins"]>[number];
 
 /**
  * Swagger/OpenAPI configuration for the service.
@@ -110,7 +123,16 @@ export async function createServiceApp(
   const fastify = Fastify({
     logger: options.logger ?? true,
     disableRequestLogging: true,
-    ajv: { customOptions: { strict: false } },
+    // ajv-formats is registered explicitly (rather than relied on as an
+    // implicit default of @fastify/ajv-compiler) so `format: "email"` /
+    // `format: "uri"` keywords are enforced regardless of that dependency's
+    // internal defaults. See packages/types/src/schemas/json-schema.ts's
+    // stripRequestOverConstraints, which strips `pattern` when `format` is
+    // also present on the assumption that format enforcement is active here.
+    ajv: {
+      customOptions: { strict: false },
+      plugins: [addFormats as unknown as AjvCompilerPlugin],
+    },
   });
 
   // Register service-specific schemas (if provided)

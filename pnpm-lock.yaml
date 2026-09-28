@@ -1243,6 +1243,9 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: ^1.69.0
         version: 1.69.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
       fastify:
         specifier: 'catalog:'
         version: 5.12.5

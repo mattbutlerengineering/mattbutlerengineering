@@ -225,6 +225,20 @@ describe("User Routes", () => {
         email: "minimal@example.com",
       });
     });
+
+    it("rejects an invalid email with 400", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/users",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          email: "not-an-email",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(userService.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("PATCH /api/v1/users/:id", () => {
