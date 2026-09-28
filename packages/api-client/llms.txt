@@ -402,8 +402,8 @@
       class VenueGroupsClient {
         async list(): Promise<unknown>;
         async get(): Promise<unknown>;
-        async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
       }
     </item>
   </file>

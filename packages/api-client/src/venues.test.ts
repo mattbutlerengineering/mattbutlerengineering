@@ -320,17 +320,6 @@ describe("VenueGroupsClient", () => {
     });
   });
 
-  describe("getBySlug", () => {
-    it("requests /api/v1/venues/groups/by-slug/:slug", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenueGroup }));
-
-      await makeGroupsClient().getBySlug("grand-group");
-
-      const [url] = mockFetch.mock.calls[0]!;
-      expect(url).toBe("https://api.test.com/api/v1/venues/groups/by-slug/grand-group");
-    });
-  });
-
   describe("create", () => {
     it("sends POST /api/v1/venues/groups with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenueGroup }));
