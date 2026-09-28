@@ -12,6 +12,11 @@ const PREREQUISITE_LEVEL = 0;
  * Behavioral gates — each ties a runtime signal to a level advancement check.
  * When `strict` is true, a failing gate blocks level advancement (hard gate).
  * When `strict` is false (default), a failing gate emits a warning but allows advancement (soft gate).
+ *
+ * `parentKey` names the top-level behavioral object each gate's value lives
+ * under (`flake` / `agent_pr`); it's how `evaluateGate` finds that object's
+ * own `insufficient_data` flag (#5852 AC2) — gates with no natural "sample"
+ * concept (auto-qa-tuning-history is a raw count) omit it.
  */
 const BEHAVIORAL_GATES = [
   {
@@ -21,6 +26,7 @@ const BEHAVIORAL_GATES = [
     threshold: 0.2,
     direction: "below", // value must be below threshold to pass
     extract: (b) => b?.flake?.rate_30d,
+    parentKey: "flake",
   },
   {
     level: 4,
@@ -29,6 +35,7 @@ const BEHAVIORAL_GATES = [
     threshold: 0.5,
     direction: "above", // value must be above threshold to pass
     extract: (b) => b?.agent_pr?.acceptance_rate_30d,
+    parentKey: "agent_pr",
   },
   {
     level: 5,
@@ -45,6 +52,7 @@ const BEHAVIORAL_GATES = [
     threshold: 0.1,
     direction: "below", // value must be below threshold to pass
     extract: (b) => b?.agent_pr?.revert_rate_30d,
+    parentKey: "agent_pr",
   },
   {
     level: 6,
@@ -54,8 +62,7 @@ const BEHAVIORAL_GATES = [
     threshold: 0.5,
     direction: "below", // value must be below threshold to pass
     extract: (b) => b?.agent_pr?.human_touch_ratio,
-    /** When true, missing data blocks advancement (unverifiable) rather than silently passing. */
-    unverifiableOnNoData: true,
+    parentKey: "agent_pr",
   },
 ];
 
@@ -63,19 +70,24 @@ const BEHAVIORAL_GATES = [
  * Evaluate a single behavioral gate against the provided behavioral data.
  * Returns a gate result object with pass/fail status and metadata.
  *
- * For gates with `unverifiableOnNoData: true`, missing data reports
- * `unverifiable: true` and blocks advancement in strict mode.
- * For all other gates, missing data is treated as passed (no block).
+ * Every gate treats a missing value OR the parent object's own
+ * `insufficient_data: true` as unverifiable (#5852 AC2) — blocking
+ * advancement in strict mode, passing with a warning in soft mode. Before
+ * this fix only the human-touch-ratio gate did; every other gate silently
+ * passed on missing data, which is how a `gh`-unavailable run advanced a
+ * level on numbers it never actually measured.
  */
 function evaluateGate(gate, behavioral, strict) {
+  const parent = gate.parentKey ? behavioral?.[gate.parentKey] : null;
+  const insufficientData = parent?.insufficient_data === true;
   const value = gate.extract(behavioral);
   const hasValue = value !== undefined && value !== null;
-  const unverifiable = !hasValue && gate.unverifiableOnNoData === true;
+  const unverifiable = !hasValue || insufficientData;
 
   let passed;
-  if (!hasValue) {
-    // unverifiableOnNoData=true → fails in strict mode; passes in soft mode
-    passed = unverifiable ? !strict : true;
+  if (unverifiable) {
+    // blocks in strict mode; passes (with a warning) in soft mode
+    passed = !strict;
   } else {
     passed = gate.direction === "below" ? value < gate.threshold : value > gate.threshold;
   }
@@ -172,10 +184,15 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
 
   // Evaluate all behavioral gates up front
   const behavioralGates = BEHAVIORAL_GATES.map((gate) => evaluateGate(gate, behavioral, strict));
-  // Index gate results by level for quick lookup
-  const gateByLevel = {};
+  // Index gate results by level — MULTIPLE gates can share a level (L6 has
+  // two: agent-pr-revert-rate and human-touch-ratio). A plain `gateByLevel[n]
+  // = g` here kept only the LAST gate seen for a level, silently discarding
+  // the first's verdict — the L6 revert-rate gate was computed and displayed
+  // but never actually blocked advancement (#5852 AC1). Group into arrays so
+  // every gate at a level is checked, not just the last one registered.
+  const gatesByLevel = {};
   for (const g of behavioralGates) {
-    gateByLevel[g.level] = g;
+    (gatesByLevel[g.level] ??= []).push(g);
   }
 
   let currentLevel = MIN_LEVEL;
@@ -187,13 +204,13 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
     const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD;
     const ratio = detected / required;
     if (ratio >= threshold) {
-      // Check behavioral gate for this level (if one exists)
-      const gate = gateByLevel[n];
-      if (gate && !gate.passed && strict) {
+      // Check ALL behavioral gates for this level (if any exist)
+      const gates = gatesByLevel[n] ?? [];
+      if (strict && gates.some((g) => !g.passed)) {
         // Hard gate: block advancement
         break;
       }
-      // Soft gate failure or no gate: advance
+      // Soft gate failure(s) or no gates: advance
       currentLevel = n;
     } else {
       break;
@@ -204,6 +221,19 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
   const missingForNextLevel = nextLevel
     ? scannableCriteriaForLevel(nextLevel).filter((c) => !detectedIds.has(c.id))
     : [];
+
+  // Margin: how many currently-detected criteria could be lost at a level
+  // before its 70% threshold is no longer met — i.e. detected minus the
+  // minimum required count (#5852 AC11). A margin <= 1 means the level is one
+  // regression away from dropping. Computed for every level with a
+  // requirement, independent of whether that level has been reached yet, so
+  // the report can show "how close" a not-yet-achieved level is too.
+  const marginByLevel = {};
+  for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
+    const required = requiredByLevel[n];
+    if (!required) continue;
+    marginByLevel[n] = detectedByLevel[n] - Math.ceil(LEVEL_COMPLETION_THRESHOLD * required);
+  }
 
   const current = levelDef(currentLevel);
   const next = nextLevel ? levelDef(nextLevel) : null;
@@ -228,6 +258,7 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
     characteristic: current?.characteristic ?? "",
     detectedByLevel,
     requiredByLevel,
+    marginByLevel,
     missingForNextLevel,
     nextTransitionTrigger: next?.transitionTrigger ?? null,
     antiPattern: current?.antiPattern ?? "",

@@ -6,9 +6,13 @@
  * PRs land? Were they reverted? How long did they take? Did humans rewrite
  * them before merge?
  *
- * Detection of "agent PR":
- *   - branch starts with one of `AGENT_BRANCH_PREFIXES`, OR
- *   - PR has the `has-pr` label (used by /issue-worker)
+ * Detection of "agent PR" (#5852 audit finding 6):
+ *   - PR has the `agent-authored` label, OR branch starts with one of
+ *     `AGENT_BRANCH_PREFIXES`
+ *   - EXCLUDING bookkeeping/automation PRs (`isBookkeepingPr`) even when they
+ *     carry the label — `chore/acmm-*` daily-audit PRs are `agent-authored`
+ *     in practice (measured via `gh pr list --label agent-authored`) but are
+ *     the scorer auditing itself, not agent feature/fix work.
  *
  * Window: PRs created in the last 30 days. We compute:
  *   - `agent_pr_acceptance_rate_30d` = merged / (merged + closed_unmerged)
@@ -27,11 +31,44 @@
 import { execFileSync } from "node:child_process";
 
 const AGENT_BRANCH_PREFIXES = ["worktree-agent-", "agent-", "fix/agent-", "feat/agent-"];
-const AGENT_LABEL = "has-pr";
+const AGENT_LABEL = "agent-authored";
+/**
+ * Branch prefixes that are the scorer/telemetry machinery auditing itself,
+ * not agent feature/fix work — measured live (2026-09-28) via
+ * `gh pr list --state merged --label agent-authored --limit 100 --json
+ * headRefName,author`: `chore/acmm-daily-audit-*` / `chore/acmm-audit-*`
+ * carry the `agent-authored` label despite being the daily audit committing
+ * its own state, so the label alone over-counts (#5852 audit finding 6).
+ */
+const BOOKKEEPING_BRANCH_PREFIXES = [
+  "metrics/",
+  "chore/acmm-",
+  "chore/queue-telemetry-",
+  "automation/",
+  "dependabot/",
+];
+/**
+ * Known automation-bot PR-author logins, in both formats observed live:
+ * `gh pr list --json author` returns Bot/App actors as `app/<slug>` on this
+ * repo (e.g. `app/dependabot`, `app/github-actions`), not the `<slug>[bot]`
+ * suffix form the GitHub REST API and `gh pr view --json commits` use. Both
+ * are listed explicitly rather than matched by a `[bot]`/`app/` heuristic,
+ * because `app/claude` is the coding agent itself and must NOT be excluded
+ * here — heuristic prefix matching would catch it too.
+ */
+const BOOKKEEPING_AUTHOR_LOGINS = new Set([
+  "github-actions",
+  "github-actions[bot]",
+  "app/github-actions",
+  "dependabot",
+  "dependabot[bot]",
+  "app/dependabot",
+]);
 const WINDOW_DAYS = 30;
 const REVERT_WINDOW_DAYS = 7;
 const MIN_SAMPLE = 5;
 const RECENT_CHANGES_LIMIT = 20;
+const FETCH_LIMIT = 1000;
 
 /**
  * @typedef {Object} PrRecord
@@ -44,15 +81,30 @@ const RECENT_CHANGES_LIMIT = 20;
  * @property {string | null} mergedAt   ISO timestamp or null
  * @property {string[]} labels          label names
  * @property {boolean} reverted_within_7d  enriched by IO layer
- * @property {boolean} human_touched    enriched by IO layer (non-author commits to branch)
+ * @property {boolean} human_touched    enriched by IO layer (a human-authored, non-merge commit)
  */
 
 /**
- * Is this PR from an agent? Branch-prefix OR has-pr label.
+ * Is this PR bookkeeping/automation machinery rather than agent work —
+ * a daily-audit commit, a metrics snapshot, or a dependency bump?
  *
- * @param {Pick<PrRecord, "headRefName" | "labels">} pr
+ * @param {Pick<PrRecord, "headRefName" | "author">} pr
+ */
+export function isBookkeepingPr(pr) {
+  const branch = pr.headRefName ?? "";
+  if (BOOKKEEPING_BRANCH_PREFIXES.some((p) => branch.startsWith(p))) return true;
+  const author = (pr.author ?? "").toLowerCase();
+  return BOOKKEEPING_AUTHOR_LOGINS.has(author);
+}
+
+/**
+ * Is this PR from an agent? `agent-authored` label OR a known agent branch
+ * prefix, excluding bookkeeping/automation PRs even when mislabeled (#5852).
+ *
+ * @param {Pick<PrRecord, "headRefName" | "labels" | "author">} pr
  */
 export function isAgentPr(pr) {
+  if (isBookkeepingPr(pr)) return false;
   if (pr.labels?.includes(AGENT_LABEL)) return true;
   if (!pr.headRefName) return false;
   return AGENT_BRANCH_PREFIXES.some((p) => pr.headRefName.startsWith(p));
@@ -104,7 +156,22 @@ export function computePrOutcomes(prs, opts = {}) {
     median_time_to_merge_hours: medianHours,
     human_touch_ratio: humanTouchRatio,
     insufficient_data: inWindow.length < minSample,
+    // Oldest createdAt actually returned by the fetch, over the FULL `prs`
+    // list (not just `inWindow`) — makes truncation visible when `--limit`
+    // caps the fetch before it reaches the requested window (#5852 AC7).
+    oldest_record_at: oldestTimestamp(prs),
   };
+}
+
+/** @param {Array<{createdAt: string}>} records */
+function oldestTimestamp(records) {
+  let oldest = null;
+  for (const r of records) {
+    const t = Date.parse(r.createdAt);
+    if (!Number.isFinite(t)) continue;
+    if (oldest === null || t < oldest) oldest = t;
+  }
+  return oldest === null ? null : new Date(oldest).toISOString();
 }
 
 /**
@@ -150,12 +217,64 @@ function median(sorted) {
 }
 
 /**
- * Extract PR numbers referenced by a "Revert" commit message.
- * @param {string} message
+ * Resolve the PR reverted by an `auto-rollback agent commit <sha>` message —
+ * that shape carries no PR number of its own, only the short SHA of the
+ * commit it undid. `git log -1 --format=%s <sha>` re-reads that commit's own
+ * subject and takes ITS trailing `(#N)` (added by squash-merge) as the
+ * reverted PR number. Returns `[]` on any git failure (unknown SHA, shallow
+ * clone, etc.) rather than throwing — a resolution miss should read as "no
+ * revert detected", never abort the caller.
+ *
+ * @param {string} sha
+ * @param {{ execFn?: typeof execFileSync }} [opts]
  * @returns {number[]}
  */
-export function extractRevertedPrNumbers(message) {
-  if (!message?.startsWith("Revert ")) return [];
+function resolveAutoRollbackTarget(sha, opts = {}) {
+  const execFn = opts.execFn ?? execFileSync;
+  try {
+    const subject = execFn("git", ["log", "-1", "--format=%s", sha], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+    const m = subject.match(/\(#(\d+)\)\s*$/);
+    return m ? [Number(m[1])] : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Extract the PR number(s) actually reverted by a commit message.
+ *
+ * Three shapes (#5852 audit finding 2 — the original only handled the
+ * first):
+ *   1. Legacy `git revert`: `Revert "<title> (#N)"` — every `#N` in the full
+ *      message (title + body) is reported, matching pre-existing behavior.
+ *   2. This repo's `revert: #<N> <description> (#<revertPR>)` — only the
+ *      number immediately after `revert:` is the reverted PR; the trailing
+ *      `(#<revertPR>)` is the revert commit's OWN PR (added by squash-merge)
+ *      and must be excluded, e.g. `revert: #4924 … (#5165)` -> `[4924]`, not
+ *      `[4924, 5165]`.
+ *   3. `revert: auto-rollback agent commit <sha> (#<revertPR>)` — no PR
+ *      number in the message; resolved via {@link resolveAutoRollbackTarget}.
+ *
+ * @param {string} message
+ * @param {{ execFn?: typeof execFileSync }} [opts]
+ * @returns {number[]}
+ */
+export function extractRevertedPrNumbers(message, opts = {}) {
+  if (!message) return [];
+  const firstLine = message.split("\n")[0] ?? "";
+
+  const autoRollback = firstLine.match(
+    /^revert:\s*auto-rollback agent commit\s+([0-9a-f]{6,40})\b/i
+  );
+  if (autoRollback) return resolveAutoRollbackTarget(autoRollback[1], opts);
+
+  const colonRevert = firstLine.match(/^revert:\s*#(\d+)\b/i);
+  if (colonRevert) return [Number(colonRevert[1])];
+
+  if (!message.startsWith("Revert ")) return [];
   const numbers = [];
   const re = /#(\d+)/g;
   let m;
@@ -166,31 +285,48 @@ export function extractRevertedPrNumbers(message) {
 }
 
 /**
+ * Build the `gh pr list` args for a date-bounded fetch. Extracted so tests
+ * can assert the date bound without shelling out (#5852 AC7).
+ *
+ * @param {{ limit?: number, windowDays?: number, now?: Date }} [opts]
+ */
+export function buildPrListArgs(opts = {}) {
+  const limit = opts.limit ?? FETCH_LIMIT;
+  const windowDays = opts.windowDays ?? WINDOW_DAYS;
+  const revertLookbackDays = windowDays + REVERT_WINDOW_DAYS;
+  const now = opts.now ?? new Date();
+  const since = new Date(now.getTime() - revertLookbackDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return [
+    "pr",
+    "list",
+    "--state",
+    "all",
+    "--search",
+    `created:>=${since}`,
+    "--limit",
+    String(limit),
+    "--json",
+    "number,title,url,headRefName,state,createdAt,mergedAt,labels,author",
+  ];
+}
+
+/**
  * Fetch agent PRs and enrich with revert/human-touch flags.
  * Returns null on any tool failure so callers can detect "no signal".
  */
 export function fetchAgentPrs(opts = {}) {
   const ghBin = opts.ghBin ?? "gh";
-  const limit = opts.limit ?? 200;
   const windowDays = opts.windowDays ?? WINDOW_DAYS;
   const revertLookbackDays = windowDays + REVERT_WINDOW_DAYS;
 
   let allPrs;
   try {
-    const stdout = execFileSync(
-      ghBin,
-      [
-        "pr",
-        "list",
-        "--state",
-        "all",
-        "--limit",
-        String(limit),
-        "--json",
-        "number,title,url,headRefName,state,createdAt,mergedAt,labels,author",
-      ],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
-    );
+    const stdout = execFileSync(ghBin, buildPrListArgs(opts), {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     allPrs = JSON.parse(stdout);
   } catch {
     return null;
@@ -218,20 +354,34 @@ export function fetchAgentPrs(opts = {}) {
     if (revertedSet?.has(pr.number) && pr.mergedAt) {
       pr.reverted_within_7d = true;
     }
-    if (pr.state === "MERGED") {
-      pr.human_touched = prHasNonAuthorCommit(ghBin, pr.number, pr.author);
+    // Enrich only agent PRs, not every merged PR (#5852 finding 6) — this is
+    // one `gh pr view` call per PR, so widening it to every merged PR is a
+    // real runtime cost (AC12) for data the caller filters out anyway.
+    if (pr.state === "MERGED" && isAgentPr(pr)) {
+      pr.human_touched = prHasHumanTouchedCommit(ghBin, pr.number);
     }
   }
 
   return normalized;
 }
 
+/**
+ * `git log --grep` must match both this repo's revert spellings: the classic
+ * capitalized `Revert "…"` and this repo's own lowercase `revert:` (#5852
+ * AC4) — a single case-insensitive `^revert` anchor catches both.
+ */
 function fetchRevertedPrNumbers({ sinceDays }) {
   try {
     const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const stdout = execFileSync(
       "git",
-      ["log", "--since=" + since, "--grep=^Revert ", "--pretty=format:%s%n%b%n---END---"],
+      [
+        "log",
+        "--since=" + since,
+        "--regexp-ignore-case",
+        "--grep=^revert",
+        "--pretty=format:%s%n%b%n---END---",
+      ],
       { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     );
     const reverted = new Set();
@@ -275,30 +425,57 @@ export function isNonHumanAuthor(login) {
   return NON_HUMAN_AUTHOR_LOGINS.has(normalized.replace(/\[bot\]$/, ""));
 }
 
+/** A merge commit records the merge machinery ran, not that a human wrote code. */
+const MERGE_COMMIT_RE = /^Merge (branch|remote-tracking branch|pull request)/;
+
 /**
- * Did a human *other than the PR author* push a commit to this PR?
- *
- * @param {Array<{authors?: Array<{login?: string}>}>} commits
- * @param {string} author - the PR author's login
+ * @param {string} [messageHeadline]
  * @returns {boolean}
  */
-export function commitsShowHumanTouch(commits, author) {
-  if (!Array.isArray(commits)) return false;
-  return commits.some((c) =>
-    (Array.isArray(c?.authors) ? c.authors : []).some(
-      (a) => a?.login && a.login !== author && !isNonHumanAuthor(a.login)
-    )
-  );
+export function isMergeCommit(messageHeadline) {
+  return typeof messageHeadline === "string" && MERGE_COMMIT_RE.test(messageHeadline);
 }
 
-function prHasNonAuthorCommit(ghBin, prNumber, author) {
+/**
+ * Did a real human write at least one non-merge commit on this PR?
+ *
+ * A commit counts as human-touched iff its `authors` contains >=1 human
+ * login AND zero agent/bot identities (#5852 AC6). This checks the commit's
+ * OWN author set, never who opened the PR: the repo's attribution trailer
+ * (`Co-Authored-By: Claude <noreply@anthropic.com>`) resolves to the GitHub
+ * login `claude` on every agent commit, so a commit's author set is what
+ * actually distinguishes agent work from hand-written work. The prior
+ * `a.login !== prAuthor` rule made Matt invisible whenever he was also the
+ * PR's opener — the normal case for every worktree-agent PR he runs under
+ * his own account, since he is the author of essentially every agent PR here
+ * (measured: `{mattbutlerengineering, app/dependabot, app/claude}` are the
+ * only three PR-author logins in the `agent-authored`-labelled population).
+ *
+ * @param {Array<{authors?: Array<{login?: string}>, messageHeadline?: string}>} commits
+ * @returns {boolean}
+ */
+export function commitsShowHumanTouch(commits) {
+  if (!Array.isArray(commits)) return false;
+  return commits.some((c) => {
+    if (isMergeCommit(c?.messageHeadline)) return false;
+    const logins = (Array.isArray(c?.authors) ? c.authors : [])
+      .map((a) => a?.login)
+      .filter(Boolean);
+    if (logins.length === 0) return false;
+    const hasHuman = logins.some((login) => !isNonHumanAuthor(login));
+    const hasNonHuman = logins.some((login) => isNonHumanAuthor(login));
+    return hasHuman && !hasNonHuman;
+  });
+}
+
+function prHasHumanTouchedCommit(ghBin, prNumber) {
   try {
     const stdout = execFileSync(ghBin, ["pr", "view", String(prNumber), "--json", "commits"], {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
     });
     const data = JSON.parse(stdout);
-    return commitsShowHumanTouch(data?.commits, author);
+    return commitsShowHumanTouch(data?.commits);
   } catch {
     return false;
   }

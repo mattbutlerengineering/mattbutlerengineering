@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
 import { loadReasonBreakdown } from "../human-touch-reasons.js";
 import { classifyEvalsReading } from "../evals-freshness.js";
+import { describeBehavioralAge } from "../behavioral-freshness.js";
 
 /**
  * @param {string} cwd
@@ -47,8 +48,12 @@ export function writeReport(
   const date = new Date().toISOString().slice(0, 10);
   const coldStart = loadLatestColdStart(cwd);
 
-  // Exclude unverifiable criteria from the denominator
-  const verifiableCriteriaCount = criteria.length - unverifiableCriteria.length;
+  // Unverifiable criteria stay IN the denominator, counted as not-passed —
+  // matching the level walk (`requiredByLevel` never subtracts them either).
+  // Excluding them here made the headline read as almost-everything-passing
+  // while the level math counted every one of them as a failure the whole
+  // time (#5852 AC10). The count is still shown separately, below.
+  const totalCriteriaCount = criteria.length;
 
   const lines = [];
 
@@ -56,7 +61,7 @@ export function writeReport(
   lines.push(`# ACMM Scorecard — Level ${computation.level} · ${computation.levelName}`);
   lines.push("");
   lines.push(
-    `_Generated ${date} · ${detectedSet.size}/${verifiableCriteriaCount} criteria detected · role: **${computation.role}**_`
+    `_Generated ${date} · ${detectedSet.size}/${totalCriteriaCount} criteria detected (${unverifiableCriteria.length} unverifiable) · role: **${computation.role}**_`
   );
   lines.push("");
   lines.push(
@@ -166,16 +171,23 @@ export function writeReport(
   // ── Per-level threshold table ─────────────────────────────
   lines.push("## Per-level threshold");
   lines.push("");
-  lines.push("Each level needs ≥70% of its scannable criteria detected (L2 needs only 1).");
+  lines.push(
+    "Each level needs ≥70% of its scannable criteria detected (L2 needs only 1). " +
+      "Margin = detected − ceil(0.7 × required): how many currently-detected criteria " +
+      "could be lost before this level drops. Margin ≤ 1 is flagged — it's one " +
+      "regression away."
+  );
   lines.push("");
-  lines.push("| Level | Detected | Required | % | Passed |");
-  lines.push("|---|---|---|---|---|");
+  lines.push("| Level | Detected | Required | % | Margin | Passed |");
+  lines.push("|---|---|---|---|---|---|");
   for (const n of [2, 3, 4, 5, 6]) {
     const det = computation.detectedByLevel[n] ?? 0;
     const req = computation.requiredByLevel[n] ?? 0;
     const pct = req > 0 ? Math.round((det / req) * 100) : 0;
     const passed = computation.level >= n ? "✅" : "❌";
-    lines.push(`| L${n} | ${det} | ${req} | ${pct}% | ${passed} |`);
+    const margin = computation.marginByLevel?.[n];
+    const marginCell = margin === undefined ? "—" : margin <= 1 ? `⚠️ ${margin}` : `${margin}`;
+    lines.push(`| L${n} | ${det} | ${req} | ${pct}% | ${marginCell} | ${passed} |`);
   }
   lines.push("");
   lines.push(
@@ -205,10 +217,15 @@ export function writeReport(
     lines.push("## Signal quality");
     lines.push("");
     lines.push(`- **${icon} CI flake rate (30d):** ${pct}% (n=${n})${note}`);
+    if (flake.oldest_record_at) {
+      lines.push(`- Oldest record covered: ${flake.oldest_record_at.slice(0, 10)}`);
+    }
     lines.push("");
     lines.push(
-      "_A flake = same commit produced both ✅ and ❌ on different runs. Healthy: <1%, watch: 1–5%, broken: >5%._"
+      "_A flake = same commit produced both ✅ and ❌ on different runs (or a rerun that " +
+        "went from ❌ to ✅). Healthy: <1%, watch: 1–5%, broken: >5%._"
     );
+    lines.push(`_${describeBehavioralAge("flake", flake)}._`);
     lines.push("");
   }
 
@@ -261,11 +278,15 @@ export function writeReport(
       lines.push(
         `- **Sample:** ${apr.sample_size} agent PR${apr.sample_size === 1 ? "" : "s"} (${apr.open_count} still open)`
       );
+      if (apr.oldest_record_at) {
+        lines.push(`- Oldest record covered: ${apr.oldest_record_at.slice(0, 10)}`);
+      }
     }
     lines.push("");
     lines.push(
-      "_Agent PR detection: branch starts with `agent-`/`worktree-agent-`/`fix/agent-`/`feat/agent-`, or has `has-pr` label._"
+      "_Agent PR detection: has the `agent-authored` label, or branch starts with `agent-`/`worktree-agent-`/`fix/agent-`/`feat/agent-` — excluding bookkeeping/automation PRs (daily-audit, metrics, queue-telemetry, dependabot, automation)._"
     );
+    lines.push(`_${describeBehavioralAge("agent_pr", apr)}._`);
     lines.push("");
   }
 
