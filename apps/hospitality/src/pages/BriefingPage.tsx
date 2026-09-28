@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useId } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   Badge,
@@ -21,6 +21,8 @@ import { describeApiError } from "../lib/describe-api-error.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { formatServiceDate, formatTime } from "../utils/format.js";
 import { localDateString, localHour } from "../utils/local-clock.js";
+import { specialRequestsText } from "../utils/reservation-display.js";
+import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
 import {
   getSegmentLabel,
   getSegmentVariant,
@@ -105,7 +107,9 @@ function BriefingLoadingSkeleton() {
 /* ── Reservation card ────────────────────────────── */
 
 function BriefingCard({ entry }: { entry: BriefingEntry }) {
+  const requestsLabelId = useId();
   const { guest } = entry;
+  const requests = specialRequestsText(entry.notes);
   const segmentLabel = guest ? getSegmentLabel(guest.visitCount, guest.tags) : null;
 
   return (
@@ -171,10 +175,15 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
           </div>
         )}
 
-        {entry.notes && (
-          <Text variant="caption" color="secondary" className={styles.notes}>
-            {entry.notes}
-          </Text>
+        {requests !== null && (
+          <Stack gap="2xs" role="group" aria-labelledby={requestsLabelId}>
+            <Text id={requestsLabelId} variant="label" color="secondary">
+              {CONFIRMATION_COPY.specialRequestsLabel}
+            </Text>
+            <Text variant="caption" color="primary" dir="auto" className={styles.requests}>
+              {requests}
+            </Text>
+          </Stack>
         )}
 
         {guest?.staffNotes && guest.staffNotes.length > 0 && (

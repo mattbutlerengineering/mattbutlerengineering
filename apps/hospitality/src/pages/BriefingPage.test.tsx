@@ -10,6 +10,14 @@ import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useBriefing } from "../hooks/useBriefing.js";
 import { ERROR_COPY } from "../lib/describe-api-error.js";
 import React from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import {
+  EMPTY_NOTES,
+  TWO_LINE_DISPLAYED,
+  TWO_LINE_NOTE,
+} from "../test/special-requests-fixtures.js";
 
 // Pin the wall clock west of Greenwich: every evening booking here has already rolled to
 // tomorrow in UTC (17:00 Pacific = 00:00Z), the exact case audit A2 measured.
@@ -427,6 +435,65 @@ describe("BriefingPage", () => {
 
       expect(screen.getByText("5:30 PM")).toBeInTheDocument();
       expect(screen.queryByText("05:30 PM")).toBeNull();
+    });
+  });
+
+  describe("Special Requests (remembered-on-arrival SC3)", () => {
+    const label = CONFIRMATION_COPY.specialRequestsLabel;
+    const STAFF_NOTE = "Comped dessert last visit";
+
+    function entryWith(notes: string | null) {
+      return makeEntry({
+        notes,
+        guest: {
+          ...makeEntry().guest,
+          staffNotes: [{ text: STAFF_NOTE, createdBy: "staff-1", createdAt: atLocal("12:00") }],
+        },
+      });
+    }
+
+    it("labels the guest's words as one text node inside a Special Requests group", () => {
+      mockBriefing({ data: [entryWith(TWO_LINE_NOTE)] });
+      renderPage();
+      const group = screen.getByRole("group", { name: label });
+      const words = group.querySelector<HTMLElement>('[dir="auto"]');
+      expect(words).not.toBeNull();
+      expect(words!.childNodes).toHaveLength(1);
+      expect(words!.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+      expect(words!.firstChild?.nodeValue).toBe(TWO_LINE_DISPLAYED);
+    });
+
+    it("keeps the staff note outside the group, with no label of its own", () => {
+      mockBriefing({ data: [entryWith(TWO_LINE_NOTE)] });
+      renderPage();
+      const group = screen.getByRole("group", { name: label });
+      const staffNote = screen.getByText(STAFF_NOTE);
+      expect(group.contains(staffNote)).toBe(false);
+      expect(staffNote.closest('[role="group"]')).toBeNull();
+      expect(screen.getAllByText(label)).toHaveLength(1);
+    });
+
+    it.each(EMPTY_NOTES)("shows no group and no label for %j", (notes) => {
+      mockBriefing({ data: [entryWith(notes)] });
+      renderPage();
+      expect(screen.queryByRole("group", { name: label })).toBeNull();
+      expect(screen.queryByText(label)).toBeNull();
+      expect(screen.getByText(STAFF_NOTE)).toBeDefined();
+    });
+
+    it("sets the guest's words upright with the wrapping rule; the staff note stays italic (CSS text)", () => {
+      const css = readFileSync(
+        resolve(process.cwd(), "src/pages/BriefingPage.module.css"),
+        "utf-8"
+      );
+      const rule = (name: string) =>
+        css.match(new RegExp(`\\.${name}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+      expect(rule("requests")).toMatch(/white-space:\s*pre-wrap;/);
+      expect(rule("requests")).toMatch(/overflow-wrap:\s*anywhere;/);
+      expect(rule("requests")).not.toMatch(/italic/);
+      expect(rule("notes").trim()).toBe(
+        "color: var(--rialto-text-secondary);\n  font-style: italic;"
+      );
     });
   });
 
