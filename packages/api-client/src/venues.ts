@@ -118,17 +118,6 @@ export class VenueGroupsClient {
   }
 
   /**
-   * Get a venue group by slug
-   */
-  async getBySlug(slug: string): Promise<VenueGroup> {
-    return this.client.getOne<VenueGroup>(
-      `/api/v1/venues/groups/by-slug/${slug}`,
-      undefined,
-      VenueGroupSchema
-    );
-  }
-
-  /**
    * Create a new venue group
    */
   async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {

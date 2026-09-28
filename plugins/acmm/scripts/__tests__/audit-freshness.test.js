@@ -110,6 +110,6 @@ test("AUDIT_FRESHNESS_CRITERION: check function is checkAuditFreshness", () => {
   assert.equal(AUDIT_FRESHNESS_CRITERION.check, checkAuditFreshness);
 });
 
-test("AUDIT_FRESHNESS_CRITERION: detection type is active", () => {
-  assert.equal(AUDIT_FRESHNESS_CRITERION.detection.type, "active");
+test("AUDIT_FRESHNESS_CRITERION: detection type is check (#5851/#5853 AC5 — STATE_PATH is a file, not a workflow)", () => {
+  assert.equal(AUDIT_FRESHNESS_CRITERION.detection.type, "check");
 });

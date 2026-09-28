@@ -70,6 +70,9 @@ export const AUDIT_FRESHNESS_CRITERION = {
   rationale:
     "A stale audit gives a false sense of maturity. Freshness gates ensure the score reflects the current state of the repo.",
   scannable: false,
-  detection: { type: "active", pattern: STATE_PATH },
+  // Was `type: "active"` (#5851): STATE_PATH is a file, not a workflow, so
+  // isWorkflowActive's `gh run list --workflow=<file>` always answered "could
+  // not find any workflows" — permanently unverifiable, and check() never ran.
+  detection: { type: "check", pattern: STATE_PATH },
   check: checkAuditFreshness,
 };
