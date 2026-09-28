@@ -325,3 +325,61 @@ pass `"19:00"` while the real caller passes ISO. Not reproduced. Since B
 edits this function, the PRD should verify it; if real, it may be included
 as an in-scope fix (then Ship claims the backlog seed), else leave it
 seeded.
+
+## Decision 2026-09-28 (second) — email dropped, false line reworded (supersedes the shape-B section where they conflict)
+
+**Why this section exists.** The PRD retry (shape B) stopped and surfaced
+with no `prd.md` written. Shape B rested on a second false premise: the
+booking widget's confirm path sends **no** confirmation email. The
+orchestrator verified this on `6d27b5b47`:
+
+- The widget confirms through `api.holds.confirmForVenue`, which calls
+  `POST /public/v1/venues/:slug/holds/:holdId/confirm`. Neither
+  `services/reservations/src/routes/public-holds.ts` nor
+  `services/reservations/src/services/confirm-hold.ts` calls the notifier.
+- `scheduleBookingNotifications` has one real booking caller,
+  `public-reservations.ts:180`, the `POST /public/v1/venues/:slug/reservations`
+  route. The other call, `booking-notifications.ts:124`, is the time-change
+  re-send.
+- `ConfirmationView.tsx:185` tells every widget guest "A confirmation has
+  been sent to {email}." That is false on this path.
+
+The PRD agent also reported that production carries no `RESEND_API_KEY`.
+This was measured 2026-09-09 in `docs/fixes/public-ingress-never-applied/defect.md`
+and not re-measured.
+
+The user was asked, and answered:
+
+12. **Email surface:** "Drop the email." The confirmation email is out of
+    scope for this run. The gap is seeded in `docs/backlog.md` as a capture
+    run: widget bookings send no confirmation email, and Resend is not
+    provisioned. Done by the orchestrator, `from: session:2026-09-28`.
+13. **The false "A confirmation has been sent" line:** "Reword it honestly."
+    This is in scope. The PRD picks truthful copy that claims no email was
+    sent. The new acknowledgement sits next to this line.
+
+These are live-user answers. Do not log them as assumptions.
+
+**Scope now.**
+
+- In: the acknowledgement on `ConfirmationView`, `ManageReservationPage`
+  and the host ticket, as the PRD specifies. The shared copy source. The
+  honest rewording of `ConfirmationView`'s confirmation-sent line. The
+  a11y rules from shape B.
+- Out: everything shape B excluded, **plus** `buildBookingEmail` and every
+  other email or notifier change. The raw-ISO time stays seeded. The PRD
+  retry reproduced it: the real caller's value printed
+  `2026-10-02 at 2026-10-03T02:00:00.000Z`. It is no longer in reach of
+  this run.
+
+**Success criteria now.** Shape B's criteria stand, with these changes.
+Criterion 2, the email, is removed. Criterion 7 drops the email-rendering
+evidence. A new criterion is added: `ConfirmationView` no longer claims a
+confirmation was sent, and a test pins the new wording. Criterion 5, "no
+element on any surface" for empty notes, now covers the three remaining
+surfaces.
+
+**PRD stage history.** This is the third PRD dispatch in this invocation.
+The first two stopped on false premises in this brief, and each was
+correctly surfaced. Neither was a broken stage. The user directed the run
+to advance after answering.
