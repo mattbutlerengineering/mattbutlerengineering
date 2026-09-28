@@ -1,4 +1,4 @@
-import type { Request } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { localDay } from "./local-day.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
@@ -244,5 +244,45 @@ test.describe("Table status from the row header", () => {
         h.bottom <= sheetBox!.y
     );
     expect(inView.length).toBeGreaterThanOrEqual(4);
+  });
+
+  /** The grid's resolved scroll padding against the open sheet's rendered height. */
+  async function expectGridClearsSheet(page: Page, sheet: Locator): Promise<void> {
+    const grid = page.getByTestId("timeline-grid");
+    const padding = await grid.evaluate((el) =>
+      parseFloat(getComputedStyle(el).scrollPaddingBlockEnd)
+    );
+    const sheetBox = await sheet.boundingBox();
+    expect(sheetBox).not.toBeNull();
+    expect(Math.abs(padding - sheetBox!.height)).toBeLessThanOrEqual(1);
+  }
+
+  test("at 1024×768 a party with Special Requests opens the taller sheet and the grid clears all of it", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.setViewportSize(TABLET);
+    await mockedPage.goto("timeline");
+
+    // Bob Smith (res_e2e_002) carries notes, so his sheet opens at the default height.
+    await mockedPage.getByTestId("reservation-block-res_e2e_002").click();
+    const sheet = mockedPage.getByRole("dialog", { name: "Bob Smith" });
+    await expect(sheet).toBeVisible();
+    await expectGridClearsSheet(mockedPage, sheet);
+  });
+
+  test("at 1024×768 pressing More grows the sheet and the grid still clears all of it", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.setViewportSize(TABLET);
+    await mockedPage.goto("timeline");
+
+    // Carol Davis (res_e2e_003) has no notes: compact until More is pressed.
+    await mockedPage.getByTestId("reservation-block-res_e2e_003").click();
+    const sheet = mockedPage.getByRole("dialog", { name: "Carol Davis" });
+    await expect(sheet).toBeVisible();
+    const more = sheet.getByRole("button", { name: /^More/ });
+    await more.click();
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    await expectGridClearsSheet(mockedPage, sheet);
   });
 });
