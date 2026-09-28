@@ -53,6 +53,9 @@
     </item>
   </file>
   <file path="src/create-service-app.ts">
+    <item priority="high">
+      type AjvCompilerPlugin = NonNullable<NonNullable<FastifyServerOptions["ajv"]>["plu...;
+    </item>
     <item priority="low">
       interface SwaggerConfig {
         title: string;

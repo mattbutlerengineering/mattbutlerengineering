@@ -119,9 +119,11 @@ function stripAdditionalProperties(obj: Record<string, unknown>): Record<string,
  *
  * - `pattern` on a node that also carries `format` — Zod's `z.email()` /
  *   `z.iso.datetime()` emit BOTH a `format` and a stricter `pattern`. Fastify
- *   already enforces `format` via ajv-formats, and the old inline schemas were
- *   `format`-only; the extra `pattern` would reject previously-valid inputs
- *   (e.g. `a#b@example.com`, basic-offset/leap-second date-times).
+ *   enforces `format` via ajv-formats, registered explicitly in
+ *   packages/service-bootstrap/src/create-service-app.ts (see #5805), and the
+ *   old inline schemas were `format`-only; the extra `pattern` would reject
+ *   previously-valid inputs (e.g. `a#b@example.com`, basic-offset/leap-second
+ *   date-times).
  * - `minimum`/`maximum` equal to ±`Number.MAX_SAFE_INTEGER` — the sentinel
  *   bounds Zod injects for `z.number().int()`; the old integer schemas were
  *   unbounded. Explicit bounds (e.g. `max(20)`) are untouched.
