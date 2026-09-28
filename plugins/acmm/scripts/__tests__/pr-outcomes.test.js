@@ -14,6 +14,7 @@ import {
   buildPrListArgs,
   fetchAgentPrs,
 } from "../pr-outcomes.js";
+import { computeLevel } from "../computeLevel.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
 const WITHIN_WINDOW = "2026-04-25T12:00:00Z";
@@ -531,6 +532,67 @@ describe("fetchAgentPrs: end-to-end shallow-clone propagation (review item 2)", 
     const prs = fetchAgentPrs({ now: NOW, execFn });
     assert.ok(prs, "fetchAgentPrs should succeed");
     assert.equal(prs.revertDetectionAvailable, true);
+  });
+
+  test("a non-shallow clone whose `git log` itself fails (null set) still marks revertDetectionAvailable=false, end-to-end through computeLevel's L6 gate (re-review fix)", () => {
+    // Confirms the path the reviewer previously only verified by probe: git
+    // reports NOT shallow, but the revert-history `git log` call throws
+    // anyway (a real failure mode distinct from shallow-ness — e.g. a
+    // corrupt object, a transient I/O error). `fetchRevertedPrNumbers`
+    // catches it and returns null, which must propagate all the way to an
+    // unverifiable L6 gate, not a false "0% reverted".
+    const mergedPr = {
+      number: 42,
+      title: "fix: something",
+      url: "https://github.com/o/r/pull/42",
+      headRefName: "worktree-agent-xyz",
+      state: "MERGED",
+      createdAt: WITHIN_WINDOW,
+      mergedAt: "2026-04-26T00:00:00Z",
+      labels: [],
+      author: { login: "mattbutlerengineering" },
+    };
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") {
+        return JSON.stringify([mergedPr]);
+      }
+      if (bin === "gh" && args[0] === "pr" && args[1] === "view") {
+        return JSON.stringify({ commits: [] });
+      }
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "false\n";
+      if (bin === "git" && args[0] === "log") throw new Error("fatal: bad object HEAD");
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed despite the git log failure");
+    assert.equal(
+      prs.revertDetectionAvailable,
+      false,
+      "a failed git log (null reverted-PR set) must disable revert detection even when not shallow"
+    );
+
+    const outcomes = computePrOutcomes(prs, {
+      now: NOW,
+      revertDetectionAvailable: prs.revertDetectionAvailable,
+    });
+    assert.equal(outcomes.revert_rate_30d, null, "must be null, never a false 0%");
+    assert.equal(outcomes.revert_detection_unavailable_reason != null, true);
+
+    // computeLevel evaluates ALL behavioral gates unconditionally, regardless
+    // of which criteria are "detected" — an empty set is enough to exercise
+    // the gate itself without needing to enumerate real L4-L6 criterion IDs.
+    const result = computeLevel(
+      new Set(),
+      { agent_pr: { ...outcomes, insufficient_data: false } },
+      { strict: true }
+    );
+    const revertGate = result.behavioralGates.find((g) => g.name === "agent-pr-revert-rate");
+    assert.equal(
+      revertGate.unverifiable,
+      true,
+      "L6 revert-rate gate must be unverifiable, not passing"
+    );
   });
 });
 

@@ -89,31 +89,66 @@ export function buildFlakeSnapshot(flake, opts = {}) {
 }
 
 /**
+ * Format a gate's measured value against its threshold, e.g. `0.2% < 20%` or
+ * `19 > 1` — restored (review re-review) after the consolidation into
+ * {@link formatBehavioralGateLine} dropped it entirely. Only meaningful when
+ * a value was actually measured; callers must not call this for an
+ * unverifiable gate.
+ *
+ * @param {{ value: number|null, threshold: number, direction: "below"|"above" }} gate
+ * @returns {string|null}
+ */
+function formatGateValue(gate) {
+  if (gate.value === null || gate.value === undefined) return null;
+  if (gate.direction === "below") {
+    return `${(gate.value * 100).toFixed(1)}% < ${(gate.threshold * 100).toFixed(0)}%`;
+  }
+  if (typeof gate.value === "number" && gate.threshold < 1) {
+    return `${(gate.value * 100).toFixed(1)}% > ${(gate.threshold * 100).toFixed(0)}%`;
+  }
+  return `${gate.value} > ${gate.threshold}`;
+}
+
+/**
  * Render one behavioral gate's console line. Single source of truth for gate
  * rendering (review item 6) — this used to be duplicated across two loops
  * that had drifted apart, and neither distinguished "no value was ever
  * measured" from "a value exists but `insufficient_data` disqualifies it".
- * The latter must say so explicitly — a bare percentage next to a ✗ FAIL
- * icon reads as "the data says this fails" when the true state is "the
- * sample is too small to trust".
+ * The latter must say so explicitly rather than as a bare percentage next to
+ * a FAIL icon, which reads as "the data says this fails" when the true
+ * state is "the sample is too small to trust".
+ *
+ * In strict mode an unverifiable gate still CAPS the level (`evaluateGate`
+ * sets `passed: false`), so it must render with the same `✗` a genuine
+ * threshold failure gets — `nightly-compliance.yml`'s drift detector keys on
+ * a literal `✗` in this output, and a `?` here made drift go silent for the
+ * exact case (unverifiable + capping) it exists to catch (re-review fix).
+ * `--no-strict` never caps, so it keeps the softer `?`.
  *
  * @param {ReturnType<typeof import("./computeLevel.js").computeLevel>["behavioralGates"][number]} gate
  * @param {boolean} strict
  * @returns {string}
  */
 export function formatBehavioralGateLine(gate, strict) {
-  let icon, note;
+  let icon, note, value;
   if (gate.unverifiable) {
-    icon = "?";
-    note = gate.dataAvailable ? `insufficient sample (n=${gate.sampleSize ?? "?"})` : "no data";
-  } else if (gate.passed) {
-    icon = "✓";
-    note = "pass";
+    const reason = gate.dataAvailable
+      ? `insufficient sample (n=${gate.sampleSize ?? "?"})`
+      : "no data";
+    icon = strict ? "✗" : "?";
+    note = strict ? `${reason} — level capped` : reason;
   } else {
-    icon = strict ? "✗" : "!";
-    note = strict ? "FAIL (level capped)" : "WARN";
+    value = formatGateValue(gate);
+    if (gate.passed) {
+      icon = "✓";
+      note = "pass";
+    } else {
+      icon = strict ? "✗" : "!";
+      note = strict ? "FAIL (level capped)" : "WARN";
+    }
   }
-  return `  ${icon} L${gate.level} ${gate.name}: ${gate.description}  [${note}]`;
+  const valueSuffix = value ? `  ${value}` : "";
+  return `  ${icon} L${gate.level} ${gate.name}: ${gate.description}${valueSuffix}  [${note}]`;
 }
 
 /**

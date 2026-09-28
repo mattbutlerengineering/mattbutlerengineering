@@ -197,19 +197,22 @@ describe("buildFlakeSnapshot (review item 1)", () => {
   });
 });
 
-// ── review item 6: unverifiable-due-to-insufficient-data must render as
-// "insufficient sample (n=…)", never a passing-looking value with a FAIL icon
-describe("formatBehavioralGateLine (review item 6)", () => {
+// ── review item 6 (+ re-review fix): unverifiable-due-to-insufficient-data
+// must say so explicitly, AND in strict mode must still carry a literal '✗'
+// because nightly-compliance.yml's drift detector greps the audit output for
+// it — an unverifiable gate caps the level in strict mode exactly like a
+// genuine threshold failure, so it must render with the same icon.
+describe("formatBehavioralGateLine (review item 6 + re-review fix)", () => {
   const BASE_GATE = {
     level: 3,
     name: "ci-flake-rate",
     description: "CI flake rate must be below 20%",
-    value: 0,
+    value: 0.05,
     threshold: 0.2,
     direction: "below",
   };
 
-  test("insufficient sample (value present, but insufficient_data) → '?' with sample size", () => {
+  test("strict + insufficient sample -> '✗', not '?', with sample size and 'level capped' (nightly-compliance regression)", () => {
     const gate = {
       ...BASE_GATE,
       passed: false,
@@ -218,11 +221,16 @@ describe("formatBehavioralGateLine (review item 6)", () => {
       sampleSize: 3,
     };
     const line = formatBehavioralGateLine(gate, true);
-    assert.match(line, /^\s*\? L3 ci-flake-rate:.*insufficient sample \(n=3\)/);
-    assert.doesNotMatch(line, /✗/, "must never pair an insufficient sample with a FAIL icon");
+    assert.match(
+      line,
+      /✗/,
+      "a strict-mode capping gate must carry the literal ✗ drift detectors grep for"
+    );
+    assert.match(line, /insufficient sample \(n=3\)/);
+    assert.match(line, /level capped/);
   });
 
-  test("no data at all (missing value) → '?' with 'no data'", () => {
+  test("strict + no data at all -> '✗' with 'no data' and 'level capped'", () => {
     const gate = {
       ...BASE_GATE,
       passed: false,
@@ -231,23 +239,71 @@ describe("formatBehavioralGateLine (review item 6)", () => {
       sampleSize: null,
     };
     const line = formatBehavioralGateLine(gate, true);
+    assert.match(line, /✗/);
     assert.match(line, /no data/);
+    assert.match(line, /level capped/);
     assert.doesNotMatch(line, /insufficient sample/);
   });
 
-  test("a genuinely passing gate renders ✓ pass", () => {
+  test("soft (--no-strict) + insufficient sample -> keeps '?', no 'level capped' (nothing is capped in soft mode)", () => {
     const gate = {
       ...BASE_GATE,
       passed: true,
       dataAvailable: true,
+      unverifiable: true,
+      sampleSize: 3,
+    };
+    const line = formatBehavioralGateLine(gate, false);
+    assert.match(line, /^\s*\? L3 ci-flake-rate:.*insufficient sample \(n=3\)/);
+    assert.doesNotMatch(line, /level capped/);
+    assert.doesNotMatch(line, /✗/);
+  });
+
+  test("soft (--no-strict) + no data -> keeps '?', 'no data', no 'level capped'", () => {
+    const gate = {
+      ...BASE_GATE,
+      passed: true,
+      dataAvailable: false,
+      unverifiable: true,
+      sampleSize: null,
+    };
+    const line = formatBehavioralGateLine(gate, false);
+    assert.match(line, /\? L3 ci-flake-rate:.*no data/);
+    assert.doesNotMatch(line, /level capped/);
+    assert.doesNotMatch(line, /✗/);
+  });
+
+  test("a genuinely passing gate renders ✓ pass AND restores the measured value (e.g. L5 auto-qa 19 > 1)", () => {
+    const gate = {
+      level: 5,
+      name: "auto-qa-tuning-history",
+      description: "Auto-QA tuning history must have more than 1 entry",
+      value: 19,
+      threshold: 1,
+      direction: "above",
+      passed: true,
+      dataAvailable: true,
       unverifiable: false,
-      sampleSize: 30,
+      sampleSize: null,
     };
     const line = formatBehavioralGateLine(gate, true);
     assert.match(line, /✓.*\[pass\]/);
+    assert.match(line, /19 > 1/, "the measured value/threshold must appear on the line");
   });
 
-  test("a genuine strict failure (data available, not unverifiable) renders ✗ FAIL", () => {
+  test("a below-direction passing gate restores its percentage value (e.g. flake 0.2% < 20%)", () => {
+    const gate = {
+      ...BASE_GATE,
+      value: 0.002,
+      passed: true,
+      dataAvailable: true,
+      unverifiable: false,
+    };
+    const line = formatBehavioralGateLine(gate, true);
+    assert.match(line, /0\.2% < 20%/);
+  });
+
+  test("a genuine strict failure (data available, not unverifiable) renders ✗ FAIL with its value", () => {
     const gate = {
       ...BASE_GATE,
       passed: false,
@@ -257,9 +313,10 @@ describe("formatBehavioralGateLine (review item 6)", () => {
     };
     const line = formatBehavioralGateLine(gate, true);
     assert.match(line, /✗.*FAIL/);
+    assert.match(line, /5\.0% < 20%/);
   });
 
-  test("a genuine soft-mode failure renders ! WARN", () => {
+  test("a genuine soft-mode failure renders ! WARN with its value", () => {
     const gate = {
       ...BASE_GATE,
       passed: false,
@@ -269,6 +326,7 @@ describe("formatBehavioralGateLine (review item 6)", () => {
     };
     const line = formatBehavioralGateLine(gate, false);
     assert.match(line, /!.*WARN/);
+    assert.match(line, /5\.0% < 20%/);
   });
 });
 
