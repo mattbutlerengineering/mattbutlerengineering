@@ -53901,51 +53901,159 @@
     export type FastifyOwner = (typeof FASTIFY_OWNERS)[number];
     type App = Awaited<ReturnType<typeof buildUsersApp>>;
     export interface FastifyOwnerTables {
-      /** Does `owner`'s router match `METHOD url`? */
+      /**
+       * Does `owner`'s router match `METHOD url` under BOTH boots? A route only
+       * one of them registers is not an owner — see {@link bootFastifyOwners}.
+       */
       answers(owner: FastifyOwner, method: HttpMethod, url: string): boolean;
       /** Every Fastify owner whose router matches, in {@link FASTIFY_OWNERS} order. */
       ownersOf(method: HttpMethod, url: string): FastifyOwner[];
       /**
-       * Registered method+path entries for `owner`. Used only as the anti-vacuity
-       * signal (a table that is empty can never fail the guard, so the guard has
-       * to notice) — never for matching, which is always `findRoute`'s job.
+       * Registered method+path entries in `owner`'s EFFECTIVE table — the entries
+       * both boots register, i.e. the ones `answers` can say yes to. Used only as
+       * the anti-vacuity signal (a table that is empty can never fail the guard,
+       * so the guard has to notice) — never for matching, which is always
+       * `findRoute`'s job.
        */
       routeCount(owner: FastifyOwner): number;
+      /**
+       * Registered entries in `owner`'s `NODE_ENV="test"` boot alone. Exposed only
+       * so the difference between the two boots is assertable; the guard itself
+       * never consults it.
+       */
+      testBootRouteCount(owner: FastifyOwner): number;
+      /**
+       * Every route the two boots disagree about, across all three owners, sorted
+       * by owner then entry. Empty would mean no service gates a route on
+       * `NODE_ENV` at all.
+       */
+      envConditionalRoutes(): EnvConditionalRoute[];
       close(): Promise<void>;
     }
-    export function countRegisteredRoutes(printedRoutes: string): number {
-      let total = 0;
+    export interface EnvConditionalRoute {
+      readonly owner: FastifyOwner;
+      /** `METHOD /full/path`, exactly as `printRoutes` spells the registration. */
+      readonly entry: string;
+      /** The boot that registered it. The other one did not. */
+      readonly registeredUnder: "test" | "production";
+    }
+    export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[] = [
+      // `services/reservations/src/routes/events.ts:181` — a manual
+      // event-emitting endpoint registered only when `NODE_ENV !== "production"`,
+      // under the unconditional `/api/v1/events` prefix (`app.ts:231`).
+      { owner: "reservations", entry: "POST /api/v1/events/test", registeredUnder: "test" },
+    ];
+    export function printedRouteEntries(printedRoutes: string): string[] {
+      const entries: string[] = [];
+      const fragments: string[] = [];
+    
       for (const line of printedRoutes.split("\n")) {
-        const methods = /\(([A-Z]+(?:, [A-Z]+)*)\)\s*$/.exec(line);
-        if (methods?.[1]) total += methods[1].split(", ").length;
+        const node = TREE_NODE.exec(line);
+        const indent = node?.[1];
+        const rest = node?.[2];
+        if (indent === undefined || rest === undefined) continue;
+    
+        const methods = NODE_METHODS.exec(rest);
+        const methodNames = methods?.[1]?.split(", ");
+    
+        const depth = indent.length / 4;
+        fragments.length = depth;
+        fragments[depth] = methods === null ? rest : rest.slice(0, -methods[0].length);
+        if (methodNames === undefined) continue;
+    
+        const path = fragments.join("");
+        for (const method of methodNames) entries.push(`${method} ${path}`);
       }
-      return total;
+    
+      return entries;
+    }
+    export function countRegisteredRoutes(printedRoutes: string): number {
+      return printedRouteEntries(printedRoutes).length;
+    }
+    export function overrideEnv(
+      env: NodeJS.ProcessEnv,
+      overrides: Readonly<Record<string, string>>
+    ): () => void {
+      const previous = Object.keys(overrides).map((key) => [key, env[key]] as const);
+      Object.assign(env, overrides);
+    
+      return () => {
+        for (const [key, value] of previous) {
+          if (value === undefined) delete env[key];
+          else env[key] = value;
+        }
+      };
+    }
+    export async function importFresh<T>(load: () => Promise<T>): Promise<T> {
+      vi.resetModules();
+      return load();
     }
     export async function bootFastifyOwners(): Promise<FastifyOwnerTables> {
+      const production = {} as Record<FastifyOwner, App>;
+      const productionEntries = {} as Record<FastifyOwner, readonly string[]>;
+    
+      const restoreEnv = overrideEnv(process.env, PRODUCTION_BOOT_ENV);
+      try {
+        for (const owner of FASTIFY_OWNERS) {
+          const app = await BUILDERS[owner]();
+          production[owner] = app;
+          productionEntries[owner] = printedRouteEntries(app.printRoutes({ commonPrefix: false }));
+        }
+      } finally {
+        restoreEnv();
+      }
+    
       process.env.NODE_ENV = "test";
     
       const apps = {} as Record<FastifyOwner, App>;
+      const testEntries = {} as Record<FastifyOwner, readonly string[]>;
       const counts = {} as Record<FastifyOwner, number>;
     
       for (const owner of FASTIFY_OWNERS) {
         const app = await BUILDERS[owner]();
         await app.ready();
         apps[owner] = app;
-        counts[owner] = countRegisteredRoutes(app.printRoutes({ commonPrefix: false }));
+        testEntries[owner] = printedRouteEntries(app.printRoutes({ commonPrefix: false }));
+        const registeredInProduction = new Set(productionEntries[owner]);
+        counts[owner] = testEntries[owner].filter((entry) => registeredInProduction.has(entry)).length;
       }
     
       const answers = (owner: FastifyOwner, method: HttpMethod, url: string): boolean =>
-        apps[owner].findRoute({ method, url }) !== null;
+        apps[owner].findRoute({ method, url }) !== null &&
+        production[owner].findRoute({ method, url }) !== null;
+    
+      const envConditionalRoutes = (): EnvConditionalRoute[] =>
+        FASTIFY_OWNERS.flatMap((owner) => {
+          const inTest = new Set(testEntries[owner]);
+          const inProduction = new Set(productionEntries[owner]);
+    
+          return [
+            ...[...inTest]
+              .filter((entry) => !inProduction.has(entry))
+              .map((entry) => ({ owner, entry, registeredUnder: "test" as const })),
+            ...[...inProduction]
+              .filter((entry) => !inTest.has(entry))
+              .map((entry) => ({ owner, entry, registeredUnder: "production" as const })),
+          ].sort((a, b) => a.entry.localeCompare(b.entry));
+        });
     
       return {
         answers,
         ownersOf: (method, url) => FASTIFY_OWNERS.filter((owner) => answers(owner, method, url)),
         routeCount: (owner) => counts[owner],
+        testBootRouteCount: (owner) => testEntries[owner].length,
+        envConditionalRoutes,
         close: async () => {
-          for (const owner of FASTIFY_OWNERS) await apps[owner].close();
+          for (const owner of FASTIFY_OWNERS) {
+            await apps[owner].close();
+            await production[owner].close();
+          }
         },
       };
     }
+  </file>
+  <file path="tools/route-contract/src/module-scope-env.fixture.ts">
+    export const NODE_ENV_AT_EVALUATION = process.env.NODE_ENV;
   </file>
   <file path="tools/route-contract/src/route-contract.ts">
     export interface Verdict {

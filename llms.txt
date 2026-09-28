@@ -15069,11 +15069,38 @@
         
       }
     </item>
+    <item priority="low">
+      interface EnvConditionalRoute {
+        owner: FastifyOwner;
+        entry: string;
+        registeredUnder: "test" | "production";
+      }
+    </item>
+    <item priority="high">
+      export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[];
+    </item>
+    <item priority="high">
+      export function printedRouteEntries(printedRoutes: string): string[] { /* ... */ }
+    </item>
     <item priority="high">
       export function countRegisteredRoutes(printedRoutes: string): number { /* ... */ }
     </item>
     <item priority="high">
+      export function overrideEnv(
+        env: NodeJS.ProcessEnv,
+        overrides: Readonly<Record<string, string>>
+      ): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function importFresh<T>(load: () => Promise<T>): Promise<T> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function bootFastifyOwners(): Promise<FastifyOwnerTables> { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/module-scope-env.fixture.ts">
+    <item priority="high">
+      export const NODE_ENV_AT_EVALUATION: unknown;
     </item>
   </file>
   <file path="tools/route-contract/src/route-contract.ts">
