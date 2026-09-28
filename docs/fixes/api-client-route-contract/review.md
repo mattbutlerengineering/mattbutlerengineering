@@ -6,6 +6,13 @@ assumptions:
   - "One **major** finding (R1) is recorded and deferred rather than fixed. The review skill says majors are `fixed or explicitly deferred by the user`; this run has no live user, and the orchestrator's standing rule blocks a release only on an unfixed CRITICAL. R1 is a wrong invariant in a doc comment with no measured impact on any of the 86 current pairs, so it is routed to the release record and to `docs/backlog.md` instead of re-opening Implement. The deferral was decided without live user input."
   - "F1 (`verification.md`) is resolved as **do not apply** the recorded `testTimeout: 15000` fix in this run. The brief asked Review to weigh `fix it here` against its own out-of-scope line and did not dictate the answer. Evidence for the decision is in § F1; the decision itself was made without live user input."
   - "This review ran the full three-pass (correctness / design / security) rather than the lighter pass the protocol's Run-scale section allows a maintenance run, because the brief authorizes Ship to EXECUTE the release and this artifact is the last gate before production. The depth choice was made without live user input."
+  - "Re-review addendum (2026-09-28): the pass is scoped to what changed since the 2026-09-22 review: the R1 and F2 commits (`6fbdbc281`, `ea17000db`), the baseline raise (`1ff0b79dd`), and the merge (`2fec42b91`). It is not a second full pass over the branch. The review skill scales a maintenance-run review to its blast radius and says not to re-verify what Verify covered, so the earlier sections stand for everything else. Decided without live user input."
+  - "Re-review addendum (2026-09-28): every severity and disposition in the addendum was graded without live user input. None is critical or major, so the review skill lets each be deferred freely, and no deferral here needed the user."
+  - "Re-review addendum (2026-09-28): the ratchet-baseline raise Implement took (`breakdown.md` assumption 3) is accepted, not reversed, and the narrowing Implement offered as its cheap reversal is **not** recommended. The brief is silent on ratchet handling, and the repo's own pre-push hook names `--update` as the sanctioned way to accept a counted increase (`.husky/pre-push:35`). Decided without live user input."
+re-reviewed: 2026-09-28
+re-reviewed-head: 85c0884e8
+unfixed-critical: 0
+unfixed-major: 0
 ---
 
 # Review: pinning `@mbe/api-client` URL literals to a route that answers them
@@ -535,3 +542,309 @@ Ship should carry four things into `release.md`:
 
 Operate should seed R2, R3, R4, F2's absolute-floor pin, and R7 to
 `docs/backlog.md`.
+
+## Re-review addendum — 2026-09-28 (head `85c0884e8`)
+
+Appended, not rewritten. Everything above this line is the 2026-09-22 review
+of the pre-merge branch. It stands as written except where this addendum says
+it is superseded. `autorun-brief.md` Round 3 overrode that review's deferral of
+R1 and F2 with a live-user instruction to fix both, and Round 4 added the merge
+of `origin/main`. This addendum re-adjudicates R1 and F2, grades Verify's N1–N6,
+and reviews what the merge introduced.
+
+### Scope
+
+Read as code, not as reports:
+
+- `6fbdbc281` (R1): `tools/route-contract/src/fastify-owners.ts`, its test, and
+  `module-scope-env.fixture.ts`.
+- `ea17000db` (F2): `vacuity.ts` and `vacuity.test.ts`.
+- `1ff0b79dd`: the baseline raise in `metrics/ai-antipattern-baselines.json`.
+- `2fec42b91`: the merge. I recomputed a clean merge of its two parents and
+  diffed the result against the committed tree.
+
+`ee6f2a834` (llms regen), `ab73e5f7e` and `85c0884e8` (docs) were checked for
+scope only. Per the review skill's maintenance-run rule, I did not re-run the
+gates Verify already ran uncached on `1ff0b79dd`. `85c0884e8` adds only
+`verification.md` on top of that commit.
+
+### Measured for this addendum
+
+| Check                                                                       | Result                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --dir tools/route-contract test` on `85c0884e8`                       | `Test Files 7 passed (7)` / `Tests 68 passed (68)`, `Duration 3.07s`, exit 0, 4 s wall. The client `dist` was checked first: `deposits.js` has `getByReservation`, `health.js:17` is `/health/system`, and no `packages/api-client/src/*.ts` is newer than `dist/index.js` |
+| `node scripts/check-ai-antipatterns.mjs` on `85c0884e8`                     | all 8 `OK`; `emptyCatch: 78 (baseline: 78)`, `hardcodedRoutes: 847 (baseline: 847)`; exit 0                                                                                                                                                                                |
+| Same, on HEAD merged with today's `origin/main` `7ac892126`                 | `git merge-tree --write-tree HEAD 7ac892126` → `d34513808`, exit 0. That tree was exported with `git archive` and scanned: identical counts, `All patterns within baseline.`, exit 0                                                                                       |
+| Ratchet attribution, via the script's own exported `scanAll()`              | `tools/route-contract` at HEAD: `hardcodedRoutes 24`, `emptyCatch 1`. `packages/api-client`: `hardcodedRoutes` 84 at merge base `0a80ea85b` → 82 at HEAD; `emptyCatch` 3 → 3                                                                                               |
+| Clean merge of `2fec42b91`'s parents (`ee6f2a834`, `49c7d773d`), recomputed | `git merge-tree --write-tree` → exit 1, exactly one conflict (`docs/backlog.md`). `git diff <recomputed> 2fec42b91 --stat` → `docs/backlog.md \| 5 -----` and nothing else                                                                                                 |
+| Conflict markers left at HEAD                                               | `git grep '^<<<<<<< \|^>>>>>>> ' HEAD` → none                                                                                                                                                                                                                              |
+
+### R1 — fixed. The review's one major is closed.
+
+All three Round-3 conditions hold in the code.
+
+1. **The owner table is production's table.**
+   - `answers()` is true only when both routers match: the `test` boot and the
+     never-`ready()`-ed production reference boot (`fastify-owners.ts:321-323`).
+   - `routeCount` counts the same intersection (`:317-318`), so the
+     anti-vacuity signal describes the table the verdict actually consults.
+   - `fastify-owners.test.ts:175` pins `POST /api/v1/events/test` to no owner.
+     `:179` pins its sibling `/api/v1/events/stream` to `reservations`, so a
+     fix that dropped the whole prefix would fail.
+   - Verify § 2c shows the exclusion holding through the whole join.
+2. **The false invariant is corrected, not softened.**
+   - The doc comment (`fastify-owners.ts:238-290`) now says the old invariant
+     "was false" and names the route.
+   - It states three limits: a third `NODE_ENV` value, a different variable,
+     and a gate inside `node_modules`.
+   - `breakdown.md` § Notes keeps the original sentence only as a quotation
+     inside a labelled correction. Its 2026-09-28 note also corrects that
+     note's own incomplete scope statement.
+3. **It fails closed on a new env-gated route, with no client pair needed.**
+   - The measured difference is asserted _equal_ to `ENV_CONDITIONAL_ROUTES`
+     (`fastify-owners.test.ts:187-198`). So adding a gated route goes red, and
+     so does removing the recorded one.
+   - The measurement covers both directions (`fastify-owners.ts:325-338`).
+   - A function-scope gate is caught by the two-boot diff.
+   - A module-scope gate is caught because `importFresh()` calls
+     `vi.resetModules()` first, so each boot evaluates service modules under
+     its own `NODE_ENV` (`:233-236`). That mechanism has its own pin against a
+     fixture (`fastify-owners.test.ts:113`).
+   - Verify re-proved all three shapes RED→GREEN in services Implement had not
+     used. It also ran a control showing that deleting `vi.resetModules()`
+     turns only the `importFresh` pin red.
+
+**Is anything in the stated blind spot today? No.** I grepped `process.env.`
+across `services/{reservations,users,agent}/src/{routes,app.ts}`. Every read of
+anything other than `NODE_ENV` happens at config or handler time: `STRIPE_*`,
+`MANAGE_TOKEN_SECRET`, `API_BASE_URL`, `GITHUB_TOKEN`, `PORT`, `AGENT_API_URL`.
+All 28 function-level `await fastify.register(…)` calls in reservations'
+`buildApp` are unconditional. Main's merged changes to these trees add no
+registration gate either. `RLS_CONTEXT_MODE` is read at query time. The only
+new `NODE_ENV` text is a comment in `rls-route-sweep.fixtures.ts:87` naming the
+same `events/test` route.
+
+**New risks the fix could have introduced, each checked:**
+
+- **Does `vi.resetModules()` leak into other tests? No.**
+  - _Across files:_ this package runs vitest 5.0.1. Its defaults set
+    `isolate: true` (`dist/chunks/defaults.D2ip7f-X.js:52`), which its own
+    source describes as "spawns a fresh worker per test file"
+    (`dist/chunks/index.DzobfTyw.js:19034`). This package's config sets no
+    `pool` and no `isolate` (`tools/route-contract/vitest.config.ts`).
+  - _Within a file:_ only two files boot the services.
+    `route-contract.ts:48-49` drives the client _before_ calling
+    `bootFastifyOwners()`, and nothing imports dynamically afterwards. In
+    `fastify-owners.test.ts`, the later tests use static bindings, and the one
+    test that resets again (`:113`) does so on purpose.
+  - _Module-scope side effects of evaluating the three service graphs twice:_
+    none is reachable. Sentry is initialised in `start-service-server.ts:44-48`
+    and the agent liveness monitor starts in `services/agent/src/index.ts:13`.
+    `buildApp` reaches neither. The lapsed-guest monitor and the job worker sit
+    behind `onReady`, which the reference boot never fires.
+  - _Mocks:_ the package mocks nothing (`vi.mock` / `vi.doMock` → no hits), so
+    the fact that `resetModules` keeps the mock registry has nothing to act on.
+- **Are the production placeholder secrets restored on throw? Yes.**
+  - `overrideEnv` is applied before a `try` whose `finally` restores the
+    environment (`fastify-owners.ts:295-304`).
+  - It restores keys that were set and deletes keys that were not (`:201-214`).
+    Both branches have their own test (`fastify-owners.test.ts:95`).
+  - Apps built before a throw are not `close()`d. That has no failure
+    scenario: nothing listens, the suite has already failed, and the worker
+    exits with the file. Not a finding.
+- **R6, the global `NODE_ENV` mutation: not worsened, and no longer
+  load-bearing.**
+  - The permanent pin is the same statement, moved from `:87` to `:306`.
+  - The new transient `production` window is `try`/`finally`-scoped and sits
+    inside `beforeAll`. Neither booting file runs a concurrent test, and the
+    window never leaves that file's worker.
+  - What changed is that correctness no longer depends on the pinned value,
+    because `answers()` intersects the two boots. R6 was "what R1 hangs off";
+    it no longer is.
+  - One side effect is new. Externalised packages are first loaded during the
+    production boot, so they stay cached with `production` for the rest of that
+    file. The framework packages the apps boot through do not read `NODE_ENV`
+    at all: `fastify`, `@fastify/rate-limit` and `@fastify/cors` contain 0
+    files mentioning it. And because the reference boot runs first, any such
+    gate would give both boots production's answer, which is the safe
+    direction.
+  - **R6 regraded: nit, accept.**
+
+### F2 — fixed
+
+- `vacuity.test.ts:37-39` asserts `MINIMUM_CLIENT_PAIRS >= 80`, exactly the
+  assertion Round 3 named.
+- The constant stays 86 (`vacuity.ts:43`), and its doc comment now records why
+  the absolute pin exists.
+- Verify § 3 measured 20 → RED (`expected 20 to be greater than or equal to 80`)
+  and 80 → green. That residual 80–86 window is N4 below.
+
+### The ratchet-baseline raise — accepted, and the proposed narrowing is not recommended
+
+**The raise is this branch's own; I reproduced the attribution per
+directory.** `tools/route-contract` contributes `hardcodedRoutes 24` and
+`emptyCatch 1`, and `packages/api-client` drops from 84 to 82. That is +22 and
++1, matching `1ff0b79dd`'s `825 → 847` and `77 → 78` on top of main. The 24 are
+the literal paths the guard compares against the routers. Routing them through
+either side's constants would make the guard compare a thing to itself. The
+repo's own pre-push hook names `--update` as the way to accept a counted
+increase (`.husky/pre-push:35`).
+
+**The catch at `client-inventory.ts:246-249` is genuinely safe today.** It
+swallows two cases:
+
+- A throw _after_ the request (count ≥ 1) is the expected case, because the 204
+  recorder returns no body.
+- A throw _before_ any request (count 0) records `requestCount: 0`. That fails
+  `client-driver-completeness.test.ts:58-64` and the `silentClientMethods`
+  clause (`vacuity.ts:79-81`), which names every such method at once.
+
+The catch leans on one assumption: each method issues one request, so a throw
+after the first request cannot hide a second path. That holds today. An awk
+pass over `packages/api-client/src/*.ts`, split at two-space-indented method
+heads, found 89 segments with exactly one `this.client.*` call and none with
+two or more. The five delegations (`floor-plans.ts:40`, `:66`;
+`deposits.ts:59`, `:66`, `:73`) each target a single-call method.
+
+**Implement's narrowing (`if (current.count === 0) throw error;`) is not
+strictly better.**
+
+- It closes nothing new: the count-0 case is already red.
+- It trades an aggregated diagnosis that names every silent method for an abort
+  on the first raw exception, in the `beforeAll` of three suites.
+- As written, it ignores `exempt`, so an exempt method that threw would red the
+  suite. `holds.sessionHeaders` is exempt _and_ documented to throw when there
+  is no session id (`packages/api-client/src/availability.ts:206-209`). It stays
+  quiet only because the roster's `prepare` sets an id before every invocation
+  (`client-inventory.ts:174`, `:242`).
+
+Its only gain would be the exception text for a silent method. **No finding.**
+If that diagnostic is ever wanted, record the error on the `Invocation` and
+print it in the vacuity message rather than rethrowing.
+
+### N1–N6, from `verification.md` § Findings for Review to adjudicate
+
+| ID                                                                                         | Severity                                | Disposition                                                                                                                        | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1 — root `pnpm test` is red on `origin/main` alone; `rialto-catalog` has no `testTimeout` | minor (pre-existing, not this branch's) | **accept** for this run (Round 3: no `testTimeout` here); **defer** the `rialto-catalog` timeout to `docs/backlog.md`, via Operate | The victims are packages the branch does not touch, and the same `users` `ready.test.ts` fails on both trees. It is the uncapped command, not the one CI runs                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| N2 — the branch adds tasks to the uncapped root `pnpm test`                                | nit                                     | **accept**                                                                                                                         | CI runs one Node 22 leg of `pnpm turbo test:coverage --concurrency=2` (`ci.yml:552`), so the guard is one extra task in a two-lane queue. It ran 3.07 s under vitest here (4 s wall), beside a reservations suite of ~190 s (`verification.md` § 6). B2's reservations timeouts appeared only under turbo's default fan-out. The CI-shaped command has been green cold three separate times (§ Scope table above; `breakdown.md` item-12 note; `verification.md` § 5). Not a plausible material contributor to CI flakiness. If CI's `Test` job times out in an untouched package anyway, read the failure before acting on it (R5) |
+| N3 — the production-only direction of the env diff is unpinned                             | minor                                   | **defer**, via Operate                                                                                                             | The behaviour is correct today (Verify § 2d). A refactor that dropped the `registeredUnder: "production"` branch (`fastify-owners.ts:334-336`) would leave everything green. The intersection in `answers()` would still prevent a false green, so what is lost is the diagnosis, not the protection. Cheap close: extract the diff as a pure function over two entry lists and unit-test both directions                                                                                                                                                                                                                           |
+| N4 — the F2 floor can still go from 86 to 80 with everything green                         | no-finding                              | **accept**                                                                                                                         | By design: `vacuity.test.ts:21-36` says the floor "must not track the live count". Lowering it still takes a reviewed edit carrying the reason the constant's doc comment demands                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| N5 — zero slack on `hardcodedRoutes` and `emptyCatch`                                      | minor (process risk, not a code defect) | **accept, with a Ship action** (below)                                                                                             | Measured green on the merge with today's `origin/main` (`d34513808`). CI's `ai-antipattern-ratchet` job is in `ci-gate`'s `needs` (`ci.yml:817`, `:1030`), so the PR's merge ref gets checked. The gap is `main` moving between the PR's last CI run and the squash merge, since `main` is not `strict`                                                                                                                                                                                                                                                                                                                             |
+| N6 — `origin/main` moved to `7ac892126`                                                    | no-finding                              | **accept**                                                                                                                         | The two new commits touch metrics and marketing JSON and `log.md` only (`git diff --stat 49c7d773d 7ac892126`): neither the baseline file nor any source. The merge is clean, and the ratchet is green on it                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+### New findings from this pass
+
+#### Minor: R8 — a new production-required env var reds the guard with the service's own error, and nothing in that error points at the fix
+
+The reference boot has to supply every variable a `production` boot throws
+without, and it lists them by hand (`PRODUCTION_BOOT_ENV`,
+`fastify-owners.ts:185-192`).
+
+- **Scenario:** a PR adds
+  `if (NODE_ENV === "production" && !process.env.NEW_SECRET) throw …` to any of
+  the three services. `@mbe/route-contract`'s `beforeAll` then fails with that
+  service's message, and `CI Gate` goes red on a PR that never touched the
+  guard. The error text names no file in `tools/route-contract`. The fix is one
+  placeholder in `PRODUCTION_BOOT_ENV`, and it is found only by reading the
+  stack down to `bootFastifyOwners`.
+- **Already happened once:** this run itself discovered
+  `UNSUBSCRIBE_TOKEN_SECRET` (`post-visit-notifier.ts:6`) exactly this way
+  (`breakdown.md`, 2026-09-28 note).
+- **Why minor, not major:** it fails in the safe direction, and the stack does
+  lead to the fix.
+- **Decision: deferred**, via Operate. Cheap close: catch around each
+  reference-boot build and rethrow with the owner's name plus "if this is a new
+  production-required variable, add a placeholder to `PRODUCTION_BOOT_ENV` in
+  `tools/route-contract/src/fastify-owners.ts`".
+
+#### Nit: R9 — the merge left five line citations in the guard's own comments pointing at the wrong lines
+
+Main's edits shifted `services/reservations/src/app.ts` and
+`packages/service-bootstrap/src/create-service-app.ts`:
+
+- `app.ts:231` (the `eventRoutes` prefix) is now `:246`. It is cited at
+  `fastify-owners.ts:103`, `:247` and `fastify-owners.test.ts:172`.
+- `app.ts:266` (the `NODE_ENV !== "test"` gate) is now `:281`. It is cited at
+  `fastify-owners.ts:254`.
+- `create-service-app.ts:247` (the fail-closed auth throw) is now `:270`. It is
+  cited at `fastify-owners.ts:171`.
+
+Every _claim_ is still true; only the pointers moved.
+
+- **Scenario:** a reader checking the reference boot's safety argument follows
+  `app.ts:266` and lands on the `publicWaitlistRoutes` registration, not on the
+  gate.
+- **Decision: deferred**, via Operate. Prefer citing symbols (`eventRoutes`,
+  the `onReady` gate) over line numbers, because every later merge from main
+  will shift them again.
+
+### The merge commit `2fec42b91`
+
+It differs from a clean merge **only** in the conflict hunk it declares.
+
+- The resolution drops the "every local git hook is silently inert" seed,
+  which main deleted after fixing it.
+- It keeps this run's seed line byte-identical to main's copy, plus the
+  `(claimed: maintenance:api-client-route-contract)` marker. The protocol says
+  a claim is appended in place and the origin marker is never rewritten, and
+  both hold.
+
+Everything else the merge brought that touches the guard's behaviour was
+measured:
+
+- **Two new client methods:** `deposits.getByReservation` and
+  `reservations.markNoShow`. Both are owned (`verification.md` § 1, 87/87).
+- **Service edits:** none adds an env-gated registration (see R1 above).
+- **A dependency bump:** `eslint` and `prettier` only
+  (`packages/config/package.json` in `49c7d773d`), so the semantics of
+  `vi.resetModules()` are unchanged.
+
+### Earlier findings, status on `85c0884e8`
+
+- **R1** — fixed (above).
+- **F2** — fixed (above).
+- **R2, R3, R4, R7** — unchanged. Neither `6fbdbc281` nor `ea17000db` touches
+  `edge-owner.ts`, `route-contract.ts` or `client-inventory.ts`, and neither
+  does the merge. They stay deferred minors and nits, for Operate to seed.
+- **R5** — stands, and Round 3 reinforces it: do not apply `testTimeout` in
+  this run.
+- **R6** — regraded to accept (above).
+
+### Updated verdict
+
+**Ready to ship. Unfixed critical: 0. Unfixed major: 0.**
+
+- The review's one major, R1, is fixed and re-proved on the merged head.
+- F2 is fixed.
+- The merge changed nothing about the guard's behaviour beyond the two client
+  pairs it now correctly owns.
+- No new finding is above minor, so nothing needs a live user to defer it and
+  nothing routes back to Implement.
+
+This supersedes the list for Ship in the 2026-09-22 § Verdict. `release.md`
+should carry:
+
+1. **Findings A and B by name**, with Finding A's rate-limit-bucket consequence
+   recorded as an accepted decision. Unchanged from before.
+2. **R1 and F2 as fixed in this run** (`6fbdbc281`, `ea17000db`), not as known
+   gaps. Also record R1's one stated limit: its diff cannot see a gate on a
+   third `NODE_ENV` value, on a different variable, or inside `node_modules`.
+   Nothing sits in that gap today.
+3. **R5**: do not act on F1's `testTimeout` remedy.
+4. **The ratchet-baseline raise** (`1ff0b79dd`), and why it was accepted.
+
+**What Ship must do before merging:**
+
+- **Re-run `node scripts/check-ai-antipatterns.mjs` on the final merge result**
+  if `origin/main` has moved past `7ac892126` (N5). Exporting
+  `git merge-tree --write-tree HEAD origin/main` works, as done above.
+  - If `metrics/ai-antipattern-baselines.json` conflicts, **do not pick a
+    side**. Regenerate it with `--update` on the merged tree, and confirm each
+    delta is attributable before committing.
+- **Treat `CI Gate` green on the PR head as not yet observed**, since that is
+  criterion 5's open half. The branch's new lockfile importer makes the first
+  run cold across every task.
+
+Operate should seed N1 (the `rialto-catalog` `testTimeout`), N3, R8 and R9 to
+`docs/backlog.md`, alongside the earlier R2, R3, R4 and R7 seeds.
