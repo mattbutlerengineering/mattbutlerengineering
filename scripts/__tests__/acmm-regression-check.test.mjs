@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { SCANNABLE_IDS_BY_LEVEL } from "../../plugins/acmm/scripts/scannableIdsByLevel.js";
 import {
   isUnmeasurable,
   classifyLevelChange,
@@ -38,46 +39,132 @@ const MEASURED_STATE = {
 // HEAD *before* the audit runs and passes it in via `--previous-level`, so
 // `classifyLevelChange` only ever compares two genuinely independent values.
 
+// A criterion id that actually gates L5 and one that gates L6, pulled from
+// the real catalog rather than hardcoded — the fixture below has to stay
+// meaningful if #5853 renames or reshuffles ids.
+const L5_GATING_ID = SCANNABLE_IDS_BY_LEVEL[5][0];
+const L6_GATING_ID = SCANNABLE_IDS_BY_LEVEL[6][0];
+
+// Real-shaped: five `meta:*` criteria that are unverifiable on every run,
+// with or without `gh` (`gh run list --workflow=metrics/x.jsonl` errors) —
+// the exact shape that made every drop misclassify as `unmeasurable` before
+// this fix, since none of the five ever gates any level (source: "meta",
+// not "acmm", so SCANNABLE_IDS_BY_LEVEL never contains them).
+function realShapedState(overrides = {}) {
+  return {
+    currentLevel: 4,
+    levelName: "Integrated",
+    checks: {
+      [L5_GATING_ID]: { passed: true, evidence: "measured", verdict: "pass" },
+      [L6_GATING_ID]: { passed: true, evidence: "measured", verdict: "pass" },
+      "meta:threshold-tuning": {
+        passed: false,
+        evidence: "gh CLI unavailable or error querying improvement issues",
+        verdict: "unverifiable",
+      },
+      "meta:instruction-evolution": {
+        passed: false,
+        evidence: "gh CLI unavailable or error querying improvement issues",
+        verdict: "unverifiable",
+      },
+      "meta:process-metrics": {
+        passed: false,
+        evidence: "gh CLI unavailable or error querying improvement issues",
+        verdict: "unverifiable",
+      },
+      "meta:fp-rate-healthy": {
+        passed: false,
+        evidence: "gh CLI unavailable or error querying improvement issues",
+        verdict: "unverifiable",
+      },
+      "meta:audit-freshness": {
+        passed: false,
+        evidence: "gh CLI unavailable or error querying improvement issues",
+        verdict: "unverifiable",
+      },
+    },
+    computation: {
+      behavioralGates: [
+        { level: 3, name: "ci-flake-rate", passed: true, unverifiable: false },
+        { level: 6, name: "agent-pr-revert-rate", passed: true, unverifiable: false },
+      ],
+    },
+    ...overrides,
+  };
+}
+
 describe("isUnmeasurable", () => {
-  it("is false when every check has a real verdict and every gate is verified", () => {
-    expect(isUnmeasurable(MEASURED_STATE)).toBe(false);
+  it("is false when the level did not drop, no matter what is unverifiable", () => {
+    const state = realShapedState();
+    expect(isUnmeasurable(state, { previousLevel: 4, currentLevel: 4 })).toBe(false);
+    expect(isUnmeasurable(state, { previousLevel: 3, currentLevel: 5 })).toBe(false);
   });
 
-  it("is true when any check's verdict is unverifiable (gh unavailable / read-only run)", () => {
-    const state = {
-      ...MEASURED_STATE,
+  it("is true when either level is missing (no baseline / audit failed to compute one)", () => {
+    const state = realShapedState();
+    expect(isUnmeasurable(state, { previousLevel: null, currentLevel: 4 })).toBe(true);
+    expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: null })).toBe(true);
+  });
+
+  it("does not flag a drop as unmeasurable when only non-gating meta:* criteria are unverifiable (5 meta:* unverifiable, drop 6->4 -> dropped)", () => {
+    const state = realShapedState({ currentLevel: 4 });
+    const unmeasurable = isUnmeasurable(state, { previousLevel: 6, currentLevel: 4 });
+    expect(unmeasurable).toBe(false);
+    expect(classifyLevelChange({ previousLevel: 6, currentLevel: 4, unmeasurable }).status).toBe(
+      "dropped"
+    );
+  });
+
+  it("flags unmeasurable when a gating acmm:* criterion inside the dropped range (L5) is unverifiable (drop 6->4 -> unmeasurable)", () => {
+    const state = realShapedState({
+      currentLevel: 4,
       checks: {
-        ...MEASURED_STATE.checks,
-        "acmm:nightly-compliance": {
+        ...realShapedState().checks,
+        [L5_GATING_ID]: {
           passed: false,
           evidence: "gh CLI unavailable or error",
           verdict: "unverifiable",
         },
       },
-    };
-    expect(isUnmeasurable(state)).toBe(true);
+    });
+    expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 4 })).toBe(true);
   });
 
-  it("is true when any behavioral gate verdict is unverifiable", () => {
-    const state = {
-      ...MEASURED_STATE,
+  it("flags unmeasurable when a behavioral gate inside the dropped range (L6) is unverifiable (drop 6->5 -> unmeasurable)", () => {
+    const state = realShapedState({
+      currentLevel: 5,
       computation: {
         behavioralGates: [
-          {
-            level: 6,
-            name: "agent-pr-revert-rate",
-            passed: false,
-            unverifiable: true,
-            dataAvailable: false,
-          },
+          { level: 6, name: "agent-pr-revert-rate", passed: false, unverifiable: true },
         ],
       },
-    };
-    expect(isUnmeasurable(state)).toBe(true);
+    });
+    expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 5 })).toBe(true);
   });
 
-  it("handles a state with no checks or computation at all", () => {
-    expect(isUnmeasurable({})).toBe(false);
+  it("ignores an unverifiable gate outside the dropped range (L3 gate, drop 6->4 only spans L5-L6)", () => {
+    const state = realShapedState({
+      currentLevel: 4,
+      computation: {
+        behavioralGates: [{ level: 3, name: "ci-flake-rate", passed: false, unverifiable: true }],
+      },
+    });
+    expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 4 })).toBe(false);
+  });
+
+  it("expands the virtual acmm:agent-instructions id back to its real constituent checks when L2 is in the dropped range", () => {
+    const state = {
+      currentLevel: 1,
+      checks: {
+        "acmm:claude-md": {
+          passed: false,
+          evidence: "gh CLI unavailable or error",
+          verdict: "unverifiable",
+        },
+      },
+      computation: { behavioralGates: [] },
+    };
+    expect(isUnmeasurable(state, { previousLevel: 3, currentLevel: 1 })).toBe(true);
   });
 });
 

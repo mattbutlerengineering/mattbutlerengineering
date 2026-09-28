@@ -1,9 +1,11 @@
 # ACMM State Recovery
 
-`.claude/acmm/state.json` is a git-tracked file, committed automatically by
-every `acmm-regression.yml` run that finds a change (see
-`.github/workflows/acmm-regression.yml`). Its own `git log` history is the
-backup — there is no separate backup workflow or artifact to manage.
+`.claude/acmm/state.json` is a git-tracked file. Every `acmm-regression.yml`
+run that finds a change opens an automation PR containing the new state (see
+`.github/workflows/acmm-regression.yml`) — the file lands on `main` when that
+PR merges, not automatically on every run. Once merged, its own `git log`
+history on `main` is the backup — there is no separate backup workflow or
+artifact to manage.
 
 ## Recovery Steps
 
@@ -42,6 +44,6 @@ backup — there is no separate backup workflow or artifact to manage.
 Before #5854, a separate `acmm-state-backup.yml` workflow uploaded weekly
 `state.json`/`report.md` snapshots as GitHub Actions artifacts (90-day
 retention) for recovery. It was retired: `state.json` is already git-tracked
-and committed on every audit run, so a second, artifact-based backup of a
-file git already versions added no recovery capability that
+and lands on `main` on every merged audit run, so a second, artifact-based
+backup of a file git already versions added no recovery capability that
 `git log`/`git show`/`git checkout` didn't already provide.

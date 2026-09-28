@@ -55,7 +55,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
-          fetch-depth: 1
+          # Full history, not the default shallow clone. audit.js's
+          # pr-outcomes.js runs `git log --since=... --grep='^Revert '`
+          # locally to measure the revert rate -- a fetch-depth: 1 checkout
+          # has exactly one commit in its local history, so that git log
+          # can only ever return zero matches regardless of what actually
+          # happened. It also affects short-SHA -> PR resolution for
+          # auto-rollback reverts elsewhere in the same measurement.
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
@@ -94,6 +101,23 @@ jobs:
           set -o pipefail
           LEVEL=$(git show HEAD:.claude/acmm/state.json | jq -r '.currentLevel // empty')
           echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+
+      - name: Merge issuesCreated from a stale daily-audit branch
+        # A prior day's automation/acmm-regression PR may still be open (its
+        # ledger only reaches `main` when that PR merges). Without this,
+        # audit.js --apply below reads a ledger missing that PR's entries and
+        # can refile an issue it already filed. `git ls-remote` is a plain
+        # remote query (no local fetch needed to check existence).
+        run: |
+          set -o pipefail
+          if git ls-remote --exit-code --heads origin automation/acmm-regression > /dev/null 2>&1; then
+            git fetch origin automation/acmm-regression
+            git show FETCH_HEAD:.claude/acmm/state.json > /tmp/branch-acmm-state.json
+            node scripts/acmm-merge-issues-created.mjs --branch-state-file /tmp/branch-acmm-state.json
+            echo "Merged issuesCreated from the still-open automation/acmm-regression branch."
+          else
+            echo "No open automation/acmm-regression branch -- nothing to merge."
+          fi
 
       - name: Run ACMM audit
         # Moves the issue-filing pass over from the retired auto-issue.yml.

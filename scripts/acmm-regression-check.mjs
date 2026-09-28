@@ -38,6 +38,10 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fileRegressionIssueIfNew } from "./lib/ratchet.mjs";
+import {
+  SCANNABLE_IDS_BY_LEVEL,
+  AGENT_INSTRUCTION_FILE_IDS,
+} from "../plugins/acmm/scripts/scannableIdsByLevel.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -50,31 +54,80 @@ const STATE_PATH = resolve(ROOT, ".claude", "acmm", "state.json");
 export const REGRESSION_MARKER = "<!-- acmm-regression -->";
 
 /**
+ * The real check ids that gate any level strictly above `currentLevel` and
+ * up to and including `previousLevel` — the levels a drop from
+ * `previousLevel` to `currentLevel` actually passed through. `acmm:*`
+ * criteria not in this range (e.g. everything at or below `currentLevel`,
+ * and every `meta:*`/`fullsend:*`/etc. criterion, which never gates any
+ * level at all) are irrelevant to whether *this* drop is real.
+ *
+ * Expands the virtual `acmm:agent-instructions` OR-group (L2 only) back
+ * into its four real constituent ids, since `state.checks` never has an
+ * entry literally named `acmm:agent-instructions`.
+ *
+ * @param {number} previousLevel
+ * @param {number} currentLevel
+ * @returns {Set<string>}
+ */
+function gatingIdsForDrop(previousLevel, currentLevel) {
+  const ids = new Set();
+  for (const [levelStr, levelIds] of Object.entries(SCANNABLE_IDS_BY_LEVEL)) {
+    const level = Number(levelStr);
+    if (!(level > currentLevel && level <= previousLevel)) continue;
+    for (const id of levelIds) {
+      if (id === "acmm:agent-instructions") {
+        for (const realId of AGENT_INSTRUCTION_FILE_IDS) ids.add(realId);
+      } else {
+        ids.add(id);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
  * Whether the freshly computed audit state should be trusted enough to
- * compare against a previous level at all.
+ * report the drop from `previousLevel` to `currentLevel` as a real
+ * regression.
  *
- * Two independent signals, either of which means "the audit could not
- * measure this run" rather than "the level changed":
- *   - any criterion's verdict is `"unverifiable"` (evaluate.js's verdict seam
- *     returns this when, e.g., `gh` is unavailable — see detection.js/
- *     evaluate.js's "gh CLI unavailable or error").
- *   - any behavioral gate carries `unverifiable: true` (computeLevel.js
- *     marks a gate this way when it has no data to evaluate the threshold).
+ * Narrowly scoped on purpose (#5854 review): five `meta:*` criteria are
+ * unverifiable on every single run, with or without `gh`
+ * (`gh run list --workflow=metrics/x.jsonl` errors regardless) — treating
+ * *any* unverifiable check anywhere in `state.checks` as disqualifying, the
+ * original version of this function, meant a real 6->3 drop always
+ * misclassified as `unmeasurable`, because it can never separate "this
+ * specific drop is suspect" from "something, somewhere, is always
+ * unverifiable". Only two things matter:
+ *   - either level is missing (no baseline yet, or the audit failed to
+ *     compute one) — nothing to compare.
+ *   - the level did not drop (`currentLevel >= previousLevel`) — nothing to
+ *     invalidate.
+ *   - otherwise, an unverifiable *gating* criterion or behavioral gate at a
+ *     level strictly above `currentLevel` and up to `previousLevel` — i.e.
+ *     one of the levels this drop actually passed through — means the drop
+ *     itself can't be trusted (upstream kubestellar/console #23233's
+ *     "unreachable != regression" fix, applied to our own regression check).
  *
- * A read-only run (no `gh`) always produces at least one unverifiable
- * `active`-type criterion today, so it is covered without needing a separate
- * explicit "read-only" flag on state — if the audit ever grows one, add it
- * here too.
- *
- * @param {{ checks?: Record<string, { verdict?: string }>, computation?: { behavioralGates?: Array<{ unverifiable?: boolean }> } }} state
+ * @param {{ checks?: Record<string, { verdict?: string }>, computation?: { behavioralGates?: Array<{ level?: number, unverifiable?: boolean }> } }} state
+ * @param {{ previousLevel: number|null, currentLevel: number|null }} levels
  * @returns {boolean}
  */
-export function isUnmeasurable(state) {
+export function isUnmeasurable(state, { previousLevel, currentLevel }) {
+  if (typeof previousLevel !== "number" || typeof currentLevel !== "number") return true;
+  if (currentLevel >= previousLevel) return false;
+
+  const gatingIds = gatingIdsForDrop(previousLevel, currentLevel);
   const checks = state?.checks ?? {};
-  const anyUnverifiableCheck = Object.values(checks).some((c) => c?.verdict === "unverifiable");
+  const anyUnverifiableGatingCheck = [...gatingIds].some(
+    (id) => checks[id]?.verdict === "unverifiable"
+  );
+
   const gates = state?.computation?.behavioralGates ?? [];
-  const anyUnverifiableGate = gates.some((g) => g?.unverifiable === true);
-  return anyUnverifiableCheck || anyUnverifiableGate;
+  const anyUnverifiableGatingGate = gates.some(
+    (g) => g?.level > currentLevel && g?.level <= previousLevel && g?.unverifiable === true
+  );
+
+  return anyUnverifiableGatingCheck || anyUnverifiableGatingGate;
 }
 
 /**
@@ -167,13 +220,13 @@ async function main() {
   const previousLevel = parsePreviousLevel(process.argv.slice(2));
   const state = readState();
   const currentLevel = typeof state.currentLevel === "number" ? state.currentLevel : null;
-  const unmeasurable = isUnmeasurable(state);
+  const unmeasurable = isUnmeasurable(state, { previousLevel, currentLevel });
   const { status } = classifyLevelChange({ previousLevel, currentLevel, unmeasurable });
 
   if (status !== "dropped") {
     const detail =
       status === "unmeasurable"
-        ? "gh unavailable, an unverifiable gate, or no previous level to compare"
+        ? "a gating criterion/gate within the dropped range is unverifiable, or no previous level to compare"
         : `level ${previousLevel} -> ${currentLevel}`;
     console.log(`ACMM regression check: ${status} (${detail}). Skipping.`);
     return;
