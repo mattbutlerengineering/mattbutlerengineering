@@ -1,53 +1,129 @@
 import { describe, it, expect } from "vitest";
 import {
-  detectRegression,
+  isUnmeasurable,
+  classifyLevelChange,
   regressedCriteria,
   buildIssuePayload,
-  withUpdatedTimestamp,
   REGRESSION_MARKER,
 } from "../acmm-regression-check.mjs";
 
-const STATE = {
+const MEASURED_STATE = {
   currentLevel: 4,
   levelName: "Integrated",
-  lastRun: "2026-06-01T00:00:00.000Z",
   checks: {
-    "acmm:prereq-test-suite": { passed: true, evidence: "vitest.config.ts" },
-    "acmm:claude-md": { passed: true, evidence: "CLAUDE.md" },
-    "acmm:editor-config": { passed: false, evidence: "none" },
-    "acmm:repo-bench": { passed: false, evidence: "missing" },
+    "acmm:prereq-test-suite": { passed: true, evidence: "vitest.config.ts", verdict: "pass" },
+    "acmm:claude-md": { passed: true, evidence: "CLAUDE.md", verdict: "pass" },
+    "acmm:editor-config": { passed: false, evidence: "none", verdict: "not-found" },
+    "acmm:repo-bench": { passed: false, evidence: "missing", verdict: "not-found" },
+  },
+  computation: {
+    behavioralGates: [
+      { level: 3, name: "ci-flake-rate", passed: true, unverifiable: false, dataAvailable: true },
+      {
+        level: 4,
+        name: "agent-pr-acceptance",
+        passed: true,
+        unverifiable: false,
+        dataAvailable: true,
+      },
+    ],
   },
 };
 
-// detectRegression is a thin adapter over the shared `lib/ratchet.mjs`
-// compare() core — comprehensive comparator edge cases (thresholds,
-// direction, missing-baseline handling) live in ratchet.test.mjs. These
-// assertions just confirm ACMM's (previousLevel, currentLevel) wiring.
-describe("detectRegression", () => {
-  it("flags a regression when current level is below previous", () => {
-    const result = detectRegression(6, 4);
-    expect(result.regressed).toBe(true);
-    expect(result.previousLevel).toBe(6);
-    expect(result.currentLevel).toBe(4);
+// detectRegression/withUpdatedTimestamp are gone: the pre-#5854 script compared
+// `currentLevel` against `history[-1]`, both produced by the same computation,
+// so a real drop could never be told apart from noise, and it rewrote
+// `lastRun` on every non-regression run whether or not the audit could
+// actually measure anything. The workflow now reads the level committed at
+// HEAD *before* the audit runs and passes it in via `--previous-level`, so
+// `classifyLevelChange` only ever compares two genuinely independent values.
+
+describe("isUnmeasurable", () => {
+  it("is false when every check has a real verdict and every gate is verified", () => {
+    expect(isUnmeasurable(MEASURED_STATE)).toBe(false);
   });
 
-  it("does not flag when level is stable", () => {
-    expect(detectRegression(4, 4).regressed).toBe(false);
+  it("is true when any check's verdict is unverifiable (gh unavailable / read-only run)", () => {
+    const state = {
+      ...MEASURED_STATE,
+      checks: {
+        ...MEASURED_STATE.checks,
+        "acmm:nightly-compliance": {
+          passed: false,
+          evidence: "gh CLI unavailable or error",
+          verdict: "unverifiable",
+        },
+      },
+    };
+    expect(isUnmeasurable(state)).toBe(true);
   });
 
-  it("does not flag when level improved", () => {
-    expect(detectRegression(3, 5).regressed).toBe(false);
+  it("is true when any behavioral gate verdict is unverifiable", () => {
+    const state = {
+      ...MEASURED_STATE,
+      computation: {
+        behavioralGates: [
+          {
+            level: 6,
+            name: "agent-pr-revert-rate",
+            passed: false,
+            unverifiable: true,
+            dataAvailable: false,
+          },
+        ],
+      },
+    };
+    expect(isUnmeasurable(state)).toBe(true);
   });
 
-  it("treats a missing previous level as no regression (first run)", () => {
-    expect(detectRegression(null, 4).regressed).toBe(false);
-    expect(detectRegression(undefined, 4).regressed).toBe(false);
+  it("handles a state with no checks or computation at all", () => {
+    expect(isUnmeasurable({})).toBe(false);
+  });
+});
+
+describe("classifyLevelChange", () => {
+  it("reports dropped when the current level is below the previous one", () => {
+    const result = classifyLevelChange({ previousLevel: 6, currentLevel: 4, unmeasurable: false });
+    expect(result).toEqual({ status: "dropped", previousLevel: 6, currentLevel: 4 });
+  });
+
+  it("reports same when the level is unchanged", () => {
+    const result = classifyLevelChange({ previousLevel: 4, currentLevel: 4, unmeasurable: false });
+    expect(result).toEqual({ status: "same", previousLevel: 4, currentLevel: 4 });
+  });
+
+  it("reports improved when the current level is above the previous one", () => {
+    const result = classifyLevelChange({ previousLevel: 3, currentLevel: 5, unmeasurable: false });
+    expect(result).toEqual({ status: "improved", previousLevel: 3, currentLevel: 5 });
+  });
+
+  it("reports unmeasurable when the audit could not measure, even if the level also dropped", () => {
+    const result = classifyLevelChange({ previousLevel: 6, currentLevel: 4, unmeasurable: true });
+    expect(result.status).toBe("unmeasurable");
+  });
+
+  it("reports unmeasurable when there is no previous level to compare (first run / HEAD had none)", () => {
+    const result = classifyLevelChange({
+      previousLevel: null,
+      currentLevel: 4,
+      unmeasurable: false,
+    });
+    expect(result.status).toBe("unmeasurable");
+  });
+
+  it("reports unmeasurable when the current level could not be computed", () => {
+    const result = classifyLevelChange({
+      previousLevel: 4,
+      currentLevel: null,
+      unmeasurable: false,
+    });
+    expect(result.status).toBe("unmeasurable");
   });
 });
 
 describe("regressedCriteria", () => {
   it("returns the ids of failing checks", () => {
-    const ids = regressedCriteria(STATE.checks);
+    const ids = regressedCriteria(MEASURED_STATE.checks);
     expect(ids).toEqual(["acmm:editor-config", "acmm:repo-bench"]);
   });
 
@@ -86,15 +162,5 @@ describe("buildIssuePayload", () => {
       failingIds: [],
     });
     expect(payload.body).toContain("Senior Engineer");
-  });
-});
-
-describe("withUpdatedTimestamp", () => {
-  it("returns a new state object with an updated lastRun, without mutating", () => {
-    const next = withUpdatedTimestamp(STATE, "2026-06-14T12:00:00.000Z");
-    expect(next.lastRun).toBe("2026-06-14T12:00:00.000Z");
-    expect(STATE.lastRun).toBe("2026-06-01T00:00:00.000Z");
-    expect(next).not.toBe(STATE);
-    expect(next.currentLevel).toBe(STATE.currentLevel);
   });
 });

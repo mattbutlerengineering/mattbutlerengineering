@@ -70,7 +70,7 @@ Criteria carry one of: `feedback-loop`, `readiness`, `autonomy`, `observability`
 ## Cadence
 
 - **On-demand** — anytime via this skill.
-- **Scheduled** — `mbe-acmm-audit` RemoteTrigger on claude.ai, daily 10:00am PT (cron `0 17 * * *` UTC), invocation: `node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply --badge`. Staggered from the other audits (Mon 8:23 deep-audit, Tue–Sun 9:41 light-audit, daily 5:11pm progress-tracker) so they don't contend for the agent queue.
+- **Scheduled** — `.github/workflows/acmm-regression.yml`, a GitHub Actions workflow, daily 04:00 UTC (`workflow_dispatch` also available), invocation: `node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply --badge --label ready`. This is the canonical run: it has `gh`, so `active` (liveness) criteria are actually measured rather than reporting `unverifiable` by construction. `mbe-acmm-audit` is not a real RemoteTrigger — no such trigger has ever existed on claude.ai (checked against `docs/scheduled-tasks.md`'s routine catalog); the `mbe-morning` routine's own prompt also runs `audit.js` as its first step, but as a read-only cloud environment with no `gh`, that run cannot verify anything `active`-typed.
 
 ## Integration
 

@@ -121,6 +121,7 @@ reports/mutation/
 !/.claude/improvement-loop/revert-log.md
 /metrics/*
 !/metrics/a11y-history.jsonl
+!/metrics/acmm-cold-start.json
 !/metrics/acmm-evals.jsonl
 !/metrics/agent-perf.jsonl
 !/metrics/ai-antipattern-baselines.json
