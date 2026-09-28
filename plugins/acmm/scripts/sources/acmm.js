@@ -1,3 +1,187 @@
+/**
+ * Check functions for `acmm` criteria whose detection can't be expressed as a
+ * plain path/any-of/grep/active pattern — a composite condition (grep AND a
+ * recent workflow run), a count threshold, or a live `gh` query.
+ *
+ * Routed via `detection.type: "check"` (see detection.js / evaluate.js):
+ * `criterion.check(cwd, opts)` runs unconditionally and its `{ passed, evidence }`
+ * result IS the verdict — `passed: null` means unverifiable (e.g. `gh` unavailable),
+ * never a silent pass.
+ */
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync as _execFileSync } from "node:child_process";
+import { isWorkflowActive } from "../detection.js";
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Shared check for a ci.yml step that both (a) exists as literal step text and
+ * (b) has produced a recent successful run on main. Fixes the "any ci.yml
+ * success counts" false-positive shared by instruction-sync-gate and
+ * instruction-rot-detection before #5851 — `active` alone can't tell whether
+ * the specific step exists at all, only whether *some* job in the workflow
+ * file succeeded recently.
+ */
+function checkCiStepActive(cwd, opts, { stepText, maxAgeDays }) {
+  const ciRelPath = ".github/workflows/ci.yml";
+  const ciPath = join(cwd, ciRelPath);
+  if (!existsSync(ciPath)) {
+    return { passed: false, evidence: `${ciRelPath} not found` };
+  }
+  let content;
+  try {
+    content = readFileSync(ciPath, "utf-8");
+  } catch {
+    return { passed: false, evidence: `${ciRelPath} unreadable` };
+  }
+  if (!content.includes(stepText)) {
+    return { passed: false, evidence: `${ciRelPath} does not contain "${stepText}"` };
+  }
+  const result = isWorkflowActive(cwd, ciRelPath, maxAgeDays, opts);
+  if (result.degraded) {
+    return { passed: null, evidence: result.reason };
+  }
+  if (!result.active) {
+    return { passed: false, evidence: `${ciRelPath} contains "${stepText}" but ${result.reason}` };
+  }
+  return { passed: true, evidence: `${ciRelPath} contains "${stepText}" and ${result.reason}` };
+}
+
+/** acmm:instruction-sync-gate — real step is `pnpm regen --check` (ci.yml). */
+export function checkInstructionSyncGate(cwd, opts = {}) {
+  return checkCiStepActive(cwd, opts, { stepText: "pnpm regen --check", maxAgeDays: 7 });
+}
+
+/** acmm:instruction-rot-detection — real step runs detect-instruction-rot.mjs. */
+export function checkInstructionRotDetection(cwd, opts = {}) {
+  return checkCiStepActive(cwd, opts, { stepText: "detect-instruction-rot.mjs", maxAgeDays: 7 });
+}
+
+/**
+ * acmm:multi-perspective-review — real evidence is dedicated reviewer
+ * subagents (`.claude/agents/*reviewer*.md`), not `.claude/skills/` existence
+ * (which four other now-merged criteria already covered under different names).
+ */
+export function checkMultiPerspectiveReview(cwd, _opts = {}) {
+  const dir = join(cwd, ".claude", "agents");
+  if (!existsSync(dir)) {
+    return { passed: false, evidence: ".claude/agents/ not found" };
+  }
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return { passed: false, evidence: ".claude/agents/ unreadable" };
+  }
+  const reviewers = entries.filter(
+    (f) => f.toLowerCase().includes("reviewer") && f.endsWith(".md")
+  );
+  if (reviewers.length < 2) {
+    return {
+      passed: false,
+      evidence: `only ${reviewers.length} .claude/agents/*reviewer*.md file(s) — need ≥2`,
+    };
+  }
+  return { passed: true, evidence: `${reviewers.length} dedicated reviewer subagents found` };
+}
+
+/**
+ * acmm:evidence-antipatterns — real evidence is that gotchas.md's antipattern
+ * list actually cites real issue/PR numbers as evidence, not just that
+ * CLAUDE.md exists (which every criterion routed through `path: "CLAUDE.md"`
+ * passed identically, telling apart nothing).
+ */
+const EVIDENCE_CITATION_THRESHOLD = 15;
+
+export function checkEvidenceAntipatterns(cwd, _opts = {}) {
+  const gotchasPath = join(cwd, ".claude", "rules", "gotchas.md");
+  if (!existsSync(gotchasPath)) {
+    return { passed: false, evidence: ".claude/rules/gotchas.md not found" };
+  }
+  let content;
+  try {
+    content = readFileSync(gotchasPath, "utf-8");
+  } catch {
+    return { passed: false, evidence: ".claude/rules/gotchas.md unreadable" };
+  }
+  const citations = new Set((content.match(/#\d{3,6}\b/g) ?? []).map((m) => m));
+  if (citations.size < EVIDENCE_CITATION_THRESHOLD) {
+    return {
+      passed: false,
+      evidence: `only ${citations.size} distinct issue/PR citations in gotchas.md — need ≥${EVIDENCE_CITATION_THRESHOLD}`,
+    };
+  }
+  return {
+    passed: true,
+    evidence: `${citations.size} distinct issue/PR citations found in gotchas.md`,
+  };
+}
+
+/**
+ * acmm:auto-issue-gen — retargeted by the #5853 amendment away from
+ * auto-issue.yml (this scanner's own workflow, satisfying its own criterion
+ * regardless of whether it ever filed anything). Real evidence: automation
+ * actually filed issues — ≥1 in the last 30 days carrying one of the
+ * automation labels sentry/audit/ci-fix.
+ */
+const AUTOMATION_ISSUE_LABELS = ["sentry", "audit", "ci-fix"];
+
+export function checkAutoIssueGen(cwd, opts = {}) {
+  const fn = opts.execFileSyncFn ?? _execFileSync;
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+  const recentNumbers = new Set();
+  const failedLabels = [];
+
+  for (const label of AUTOMATION_ISSUE_LABELS) {
+    try {
+      const raw = fn(
+        "gh",
+        [
+          "issue",
+          "list",
+          "--label",
+          label,
+          "--state",
+          "all",
+          "--json",
+          "number,createdAt",
+          "--limit",
+          "100",
+        ],
+        { cwd, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
+      );
+      const items = JSON.parse(raw);
+      for (const item of items) {
+        if (item.createdAt && new Date(item.createdAt).getTime() >= cutoff) {
+          recentNumbers.add(item.number);
+        }
+      }
+    } catch {
+      // this label's query failed (or `gh` errored entirely) — record it and
+      // keep trying the remaining labels rather than aborting the whole check.
+      failedLabels.push(label);
+    }
+  }
+
+  if (failedLabels.length === AUTOMATION_ISSUE_LABELS.length) {
+    return {
+      passed: null,
+      evidence: "gh CLI unavailable or error querying sentry/audit/ci-fix issues",
+    };
+  }
+  if (recentNumbers.size === 0) {
+    return {
+      passed: false,
+      evidence: "no sentry/audit/ci-fix-labeled issue created in the last 30 days",
+    };
+  }
+  return {
+    passed: true,
+    evidence: `${recentNumbers.size} automation-labeled issue(s) created in the last 30 days`,
+  };
+}
+
 const LEVELS = [
   {
     n: 0,
@@ -227,10 +411,14 @@ const CRITERIA = [
       "A coverage gate is a CI workflow that blocks merging when test coverage drops below a threshold (e.g., 80%). It turns test coverage from a number you glance at into a hard constraint that both humans and AI must satisfy. An AI mission will add a GitHub Actions workflow that runs your test suite with coverage reporting and fails the PR check if coverage regresses.",
     detection: {
       type: "any-of",
+      // codecov.yml / .codecov.yml absorbed from the deleted fullsend:test-coverage
+      // twin (#5851/#5853 AC6) — its patterns must survive the merge, not just its id.
       pattern: [
         ".github/workflows/coverage-gate.yml",
         ".github/workflows/coverage.yml",
         ".coverage-thresholds.json",
+        "codecov.yml",
+        ".codecov.yml",
       ],
     },
     referencePath: ".github/workflows/coverage-gate.yml",
@@ -445,37 +633,6 @@ const CRITERIA = [
     },
   },
   {
-    id: "acmm:layered-safety",
-    source: "acmm",
-    level: 3,
-    category: "governance",
-    name: "Layered safety model",
-    description: "Multiple independent enforcement layers — each catches what the others miss.",
-    rationale: "No single layer (hooks, CI, permissions, credentials) is sufficient alone.",
-    details:
-      "A layered safety model combines pre-commit hooks (lint, format, secret scanning), settings.json deny lists, Claude Code hooks, CI pipelines, and scoped credentials. Each layer catches what the others miss.",
-    scannable: false,
-    detection: {
-      type: "any-of",
-      pattern: [".claude/settings.json", ".claude/settings.local.json"],
-    },
-  },
-  {
-    id: "acmm:mechanical-enforcement",
-    source: "acmm",
-    level: 3,
-    category: "governance",
-    name: "Mechanical enforcement",
-    description:
-      "Rules enforced by settings.json permissions and Claude Code hooks, not just markdown instructions.",
-    rationale:
-      "Instructions the AI may not follow in long sessions; hooks run every time without exception.",
-    details:
-      ".claude/settings.json controls command permissions (allow/deny lists). Claude Code hooks (PreToolUse, PostToolUse, Stop) run automated scripts on events. Both replace markdown-based instructions that the AI may drift from.",
-    scannable: false,
-    detection: { type: "any-of", pattern: [".claude/settings.json"] },
-  },
-  {
     id: "acmm:context-budget",
     source: "acmm",
     level: 3,
@@ -486,8 +643,14 @@ const CRITERIA = [
     rationale: "Uncontrolled output floods the context window, degrading reasoning quality.",
     scannable: false,
     details:
-      "Instead of running verbose commands directly, redirect output to files and dispatch subagents to analyze. The main session sees only exit codes and concise summaries, keeping the context window clean for reasoning.",
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      "Tightened from = CLAUDE.md existence (#5851) to the actual rule text: gotchas.md documents that oversized tool results are written to disk, not held in context, and must be read back with jq rather than re-run.",
+    detection: {
+      type: "grep",
+      pattern: {
+        file: ".claude/rules/gotchas.md",
+        contains: "Large MCP results land on disk, not in context",
+      },
+    },
   },
   {
     id: "acmm:model-tiering",
@@ -500,8 +663,11 @@ const CRITERIA = [
     rationale: "Not every task needs the most capable model — tiering saves cost and context.",
     scannable: false,
     details:
-      "Review agents dispatched with haiku for pattern matching, sonnet for analysis, session model (opus) reserved for architectural decisions.",
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      "Tightened from = CLAUDE.md existence (#5851) to the actual rule text: AGENTS.md's Model Governance section states a 3-tier (Haiku/Sonnet/Opus) cost strategy.",
+    detection: {
+      type: "grep",
+      pattern: { file: "AGENTS.md", contains: "model tiering strategy" },
+    },
   },
   {
     id: "acmm:verify-before-reporting",
@@ -514,8 +680,11 @@ const CRITERIA = [
       "Treat AI completion claims the way you'd treat a junior developer saying \"it's done.\"",
     scannable: false,
     details:
-      'A skill that requires "after making changes, run git diff and go test and include the output" rather than accepting "all tests pass" without seeing the output.',
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      "Tightened from = CLAUDE.md existence (#5851) to the actual rule text: AGENTS.md's Zero-Touch Audit checklist requires showing command output, not just claiming tests passed.",
+    detection: {
+      type: "grep",
+      pattern: { file: "AGENTS.md", contains: "Verified verification" },
+    },
   },
   {
     id: "acmm:evidence-antipatterns",
@@ -528,8 +697,9 @@ const CRITERIA = [
     rationale: "Rules without evidence are opinions; rules with evidence are lessons.",
     scannable: false,
     details:
-      'Each rule includes: the pattern to avoid, the PR/issue where it caused a bug, a concrete grep check, and a severity tier. Example: "R1: No silent continue. Evidence: Bug #183."',
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      "Tightened from = CLAUDE.md existence (#5851): checks that .claude/rules/gotchas.md — this repo's evidence-based antipattern list — actually cites multiple real issue/PR numbers as evidence, rather than just existing.",
+    detection: { type: "check", pattern: ".claude/rules/gotchas.md" },
+    check: checkEvidenceAntipatterns,
   },
   // Cross-cutting items assigned to L3
   {
@@ -557,9 +727,12 @@ const CRITERIA = [
       "Config-enforced gates that block agents from touching protected areas without review.",
     rationale: "Regardless of what the AI thinks it should do, some paths require human approval.",
     details:
-      "A settings.json deny list blocking writes to deploy/production/, migrations/, and .github/workflows/. Changes to these paths require human approval even in autonomous mode.",
+      "A settings.json deny list blocking writes to deploy/production/, migrations/, and .github/workflows/. Changes to these paths require human approval even in autonomous mode. Tightened (#5851, absorbs the former acmm:layered-safety and acmm:mechanical-enforcement — both were the identical `.claude/settings.json`-exists check under a different name): requires an actual PreToolUse hook entry, not just file presence.",
     scannable: false,
-    detection: { type: "any-of", pattern: [".claude/settings.json"] },
+    detection: {
+      type: "grep",
+      pattern: { file: ".claude/settings.json", contains: "PreToolUse" },
+    },
     crossCutting: "traceability",
   },
 
@@ -688,62 +861,6 @@ const CRITERIA = [
     referencePath: "docs/security/threat-model.md",
   },
   {
-    id: "acmm:structured-workflows",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Structured workflow skills",
-    description:
-      "Skills that encode complex decision logic as repeatable workflows with phases, branching, and sub-skill delegation.",
-    rationale:
-      "Go beyond simple checklists by using decision trees, convergence loops, and environment-aware routing.",
-    scannable: false,
-    details:
-      "A TDD skill that routes based on input type and environment. An RCA skill with 6 explicit phases. A convergence review skill that dispatches parallel review agents and loops until zero critical findings.",
-    detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/"] },
-  },
-  {
-    id: "acmm:router-skills",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Router skills with decision trees",
-    description: "Parent skills contain mermaid flowcharts as executable workflow logic.",
-    rationale:
-      "The model traverses the graph based on context rather than improvising differently each session.",
-    scannable: false,
-    details:
-      'A TDD skill with a mermaid diagram routing based on input type (GitHub issue, PR, local task) and cluster availability. The directive "Follow this diagram as the workflow" makes the diagram authoritative.',
-    detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/"] },
-  },
-  {
-    id: "acmm:tdd-workflows",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "TDD workflows with environment routing",
-    description:
-      "Structured test-first cycle that dispatches to the correct test environment and loops until tests pass.",
-    rationale: "Mechanical commit gates ensure tests improve between commits.",
-    scannable: false,
-    details:
-      "Reads the issue, creates a worktree, enters the TDD loop (write test, implement, validate, review, commit), and routes to the appropriate cluster or CI environment.",
-    detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/"] },
-  },
-  {
-    id: "acmm:structured-rca",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Structured RCA workflows",
-    description: "Phased investigation that gathers evidence before diagnosing.",
-    rationale: "Prevents the AI from jumping to conclusions from the first error it sees.",
-    scannable: false,
-    details:
-      "A 6-phase skill: download artifacts, extract errors, reconstruct timeline, compare against last 10 runs, classify as regression/flake/systemic, produce structured report.",
-    detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/"] },
-  },
-  {
     id: "acmm:multi-perspective-review",
     source: "acmm",
     level: 4,
@@ -755,8 +872,9 @@ const CRITERIA = [
       "Findings tallied independently and a convergence loop until zero critical issues remain.",
     scannable: false,
     details:
-      "Dispatches 8 perspectives (architecture, API, performance, security, testability, operational, UX, data integrity) using haiku-tier agents. Independently counts findings, loops through fix-and-re-review until convergence.",
-    detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/"] },
+      "Tightened (#5851, absorbs the former acmm:{structured-workflows, router-skills, tdd-workflows, structured-rca} — all four were the identical `.claude/skills/`-exists check under a different name): requires ≥2 dedicated reviewer subagents, this repo's actual multi-perspective mechanism.",
+    detection: { type: "check", pattern: ".claude/agents/" },
+    check: checkMultiPerspectiveReview,
   },
   {
     id: "acmm:idempotent-workflows",
@@ -768,8 +886,14 @@ const CRITERIA = [
     rationale: "A new session picks up where the last one left off without explanation.",
     scannable: false,
     details:
-      "A TDD skill that checks gh pr checks and git log at startup to determine current state, rather than requiring the developer to explain what happened in the previous session.",
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      'Tightened (#5851): was = CLAUDE.md existence passed regardless of content, and grepped the wrong file (AGENTS.md) for a rule that lives in CLAUDE.md. CLAUDE.md:189 states it: "Key principle: Trust live output ... re-run source-of-truth checks ... instead of recalling earlier summaries from conversation history" — durable infrastructure (git/gh) over session memory is exactly this criterion\'s claim.',
+    detection: {
+      type: "grep",
+      pattern: {
+        file: "CLAUDE.md",
+        contains: "re-run source-of-truth checks",
+      },
+    },
   },
   {
     id: "acmm:session-continuity",
@@ -790,50 +914,6 @@ const CRITERIA = [
     crossCutting: "learning",
   },
   {
-    id: "acmm:cross-session-knowledge",
-    source: "acmm",
-    level: 4,
-    category: "learning",
-    name: "Cross-session knowledge sharing",
-    description:
-      "A git-committed knowledge store that shares learnings across sessions, users, and crashes.",
-    rationale:
-      "Accumulates institutional knowledge that any developer's session can read at startup.",
-    details:
-      "A knowledge.jsonl committed to the repo where each entry records a learning. Because it's in git, it survives crashes, persists across machines, and goes through PR review. Over time, recurring entries get promoted to antipattern rules.",
-    scannable: false,
-    detection: { type: "any-of", pattern: ["knowledge.jsonl", ".knowledge/", "docs/reflections/"] },
-    crossCutting: "learning",
-  },
-  {
-    id: "acmm:cross-repo-skills",
-    source: "acmm",
-    level: 4,
-    category: "readiness",
-    name: "Cross-repository skill sharing",
-    description:
-      "A mechanism for distributing skills, safety configuration, and conventions across multiple repos.",
-    rationale: "Skills stay consistent across repos without manual duplication.",
-    scannable: false,
-    details:
-      "A private GitHub repo acting as a plugin marketplace. Consuming repos install shared skills via a marketplace command. Updates propagate to all consumers.",
-    detection: { type: "path", pattern: ".claude/settings.json" },
-  },
-  {
-    id: "acmm:github-coordination",
-    source: "acmm",
-    level: 4,
-    category: "readiness",
-    name: "GitHub as coordination layer",
-    description: "Using GitHub issues, PRs, and @mentions as the sole coordination system.",
-    rationale:
-      "No parallel tracking system — the repo's native tools are the single source of truth.",
-    scannable: false,
-    details:
-      "CI failures create GitHub issues automatically. Developers and AI coordinate through issue comments and PR reviews. No separate task tracker or coordination system.",
-    detection: { type: "path", pattern: ".github/workflows/" },
-  },
-  {
     id: "acmm:instruction-sync-gate",
     source: "acmm",
     level: 3,
@@ -844,21 +924,9 @@ const CRITERIA = [
     rationale:
       "Prevents instruction rot by ensuring the AI's view of the codebase is always accurate.",
     details:
-      'A CI step runs `mbe pack --check` to verify that the committed `llms.txt` files match what would be generated from the current source. This turns "keep docs updated" from a manual chore into a mechanical requirement.',
-    detection: { type: "active", pattern: [".github/workflows/ci.yml"], maxAgeDays: 7 },
-  },
-  {
-    id: "acmm:component-registry-integrity",
-    source: "acmm",
-    level: 4,
-    category: "governance",
-    name: "Component registry integrity",
-    description:
-      "Mechanized check ensuring the component registry (registry.json) is in sync with source exports.",
-    rationale: "AI tools rely on accurate metadata to discover and use components correctly.",
-    details:
-      "A CI check verifies that `registry.json` is up to date by regenerating it and checking for diffs. This ensures that the component catalog used by AI researchers and executors never drifts from reality.",
-    detection: { type: "active", pattern: [".github/workflows/ci.yml"], maxAgeDays: 7 },
+      'A CI step runs `pnpm regen --check` to verify that the committed `llms.txt`/registry files match what would be generated from the current source. Tightened (#5851, absorbs the former acmm:component-registry-integrity — the same step covers the registry): `active` used to mean "any ci.yml success", which is true for nearly every PR whether or not the real step exists. Requires the step text present AND a recent successful run on main.',
+    detection: { type: "check", pattern: ".github/workflows/ci.yml" },
+    check: checkInstructionSyncGate,
   },
   {
     id: "acmm:instruction-rot-detection",
@@ -871,8 +939,9 @@ const CRITERIA = [
     rationale:
       "Instructions with dead links or deleted package references confuse AI agents and waste context.",
     details:
-      "A script scans `CLAUDE.md`, `AGENTS.md`, and `llms.txt` for internal links to non-existent files or references to deleted packages, failing the build on detection.",
-    detection: { type: "active", pattern: [".github/workflows/ci.yml"], maxAgeDays: 7 },
+      'A script scans `CLAUDE.md`, `AGENTS.md`, and `llms.txt` for internal links to non-existent files or references to deleted packages, failing the build on detection. Tightened (#5851): `active` used to mean "any ci.yml success", true regardless of whether this step exists. Requires the step text present AND a recent successful run on main.',
+    detection: { type: "check", pattern: ".github/workflows/ci.yml" },
+    check: checkInstructionRotDetection,
   },
   // Cross-cutting items assigned to L4
   {
@@ -916,124 +985,6 @@ const CRITERIA = [
     },
     crossCutting: "learning",
   },
-  {
-    id: "acmm:preference-index",
-    source: "acmm",
-    level: 4,
-    category: "learning",
-    name: "Preference index",
-    description: "A structured index of captured preferences keyed by topic or file area.",
-    rationale:
-      "Allows the AI to look up relevant preferences without loading everything into context.",
-    scannable: false,
-    details:
-      'A preferences.json indexed by file path pattern: {"auth/*": ["use token exchange"], "tests/*": ["use table-driven tests"]}.',
-    detection: {
-      type: "grep",
-      pattern: {
-        file: ".claude/preferences.json",
-        contains: '"priority":\\s*"(critical|high|medium|low)"',
-      },
-    },
-    crossCutting: "learning",
-  },
-  {
-    id: "acmm:task-ledger",
-    source: "acmm",
-    level: 4,
-    category: "traceability",
-    name: "Task traceability ledger",
-    description: "Every agent task is logged with intent, inputs, and outputs.",
-    rationale: "Creates an audit trail of what the AI was asked to do and what it did.",
-    scannable: false,
-    details:
-      "A JSONL log where each entry records: timestamp, task description, files read, files modified, commands run, test results, commit SHA.",
-    detection: {
-      type: "grep",
-      pattern: { file: ".claude/task-log.jsonl", contains: '^\\{"timestamp"' },
-    },
-    crossCutting: "traceability",
-  },
-  {
-    id: "acmm:mcp-server-config",
-    source: "acmm",
-    level: 4,
-    category: "readiness",
-    name: "MCP server configuration",
-    description: "Model Context Protocol servers configured for AI tool access.",
-    rationale:
-      "L4 signal: the AI has access to project-relevant tools (databases, APIs, deployment consoles) beyond the file system.",
-    details:
-      "MCP servers give the AI programmatic access to external systems. Without them, the AI is limited to file system operations and cannot query databases, check deployments, or interact with project management tools.",
-    detection: {
-      type: "any-of",
-      pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"],
-    },
-  },
-  {
-    id: "acmm:code-graph",
-    source: "acmm",
-    level: 4,
-    category: "readiness",
-    name: "Code intelligence tooling",
-    description: "LSP, AST, or code graph tooling that helps AI navigate the codebase.",
-    rationale:
-      "L4 signal: the AI can navigate complex type hierarchies and dependency graphs efficiently, not just read file text.",
-    details:
-      "Code intelligence tools (LSP configs, tags files, tree-sitter grammars, or code graph generators) help the AI understand codebase structure beyond raw text. This enables faster navigation, better refactoring, and more accurate changes.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".vscode/settings.json",
-        "tags",
-        "TAGS",
-        ".ctags",
-        ".tree-sitter/",
-        "llms.txt",
-        "llms-full.txt",
-        "tsconfig.json",
-        ".clangd",
-        "pyrightconfig.json",
-        ".claude/plugins/",
-      ],
-    },
-  },
-
-  {
-    id: "acmm:onboarding-benchmark",
-    source: "acmm",
-    level: 3,
-    category: "feedback-loop",
-    name: "Onboarding benchmark",
-    description:
-      "A benchmark script measuring how effectively the codebase teaches new AI sessions.",
-    rationale:
-      'Quantifies the "codebase as model" concept -- whether instruction files and patterns effectively onboard new agents.',
-    details:
-      "An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.",
-    detection: {
-      type: "grep",
-      pattern: { file: ".claude/acmm/onboarding-benchmark.json", contains: '"results"' },
-    },
-  },
-
-  {
-    id: "acmm:repo-bench",
-    source: "acmm",
-    level: 4,
-    category: "readiness",
-    name: "Repo benchmark",
-    description: "Seeded-bug benchmark that measures AI capability on this specific codebase.",
-    rationale:
-      "L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.",
-    details:
-      "A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.",
-    detection: {
-      type: "grep",
-      pattern: { file: ".claude/acmm/repo-bench-results.json", contains: '"results"' },
-    },
-  },
-
   // ── L5 — Semi-Automated ────────────────────────────
   {
     id: "acmm:github-actions-ai",
@@ -1077,11 +1028,8 @@ const CRITERIA = [
       "A published metrics endpoint or analytics page that external reviewers can audit.",
     rationale: "The self-running codebase must be inspectable from outside.",
     details:
-      "A public metrics endpoint is an API or web page that exposes your project's health and maturity metrics to external stakeholders — CNCF reviewers, adopters, or the community. It makes the project's quality claims verifiable rather than self-reported. An AI mission will create an endpoint that serves your ACMM level, coverage stats, and CI pass rates as JSON or a web page.",
-    detection: {
-      type: "grep",
-      pattern: { file: ".github/workflows/pr-metrics.yml", contains: "pages" },
-    },
+      "A public metrics endpoint is an API or web page that exposes your project's health and maturity metrics to external stakeholders — CNCF reviewers, adopters, or the community. It makes the project's quality claims verifiable rather than self-reported. Retargeted (#5851): the old grep matched only the `pages: write` permission line pr-metrics.yml carried for this scanner's own benefit, not a real Pages deploy. The real published surface is apps/marketing's /metrics page, backed by the committed metrics.json data file.",
+    detection: { type: "path", pattern: "apps/marketing/public/metrics.json" },
   },
   {
     id: "acmm:policy-as-code",
@@ -1151,170 +1099,6 @@ const CRITERIA = [
     },
     crossCutting: "traceability",
   },
-  {
-    id: "acmm:explanation-standards",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Explanation quality standards",
-    description: "Rubric defining quality expectations for AI-authored PRs and commits.",
-    rationale:
-      "L4 signal: acceptance rate measures outcome but not understanding; explanation rubrics help audit AI intent.",
-    details:
-      "An explanation quality rubric defines what makes a good agent PR description (reasoning, test plan, risk) and commit message. Without it, AI output quality is measured only by CI pass/fail, masking poor explanations that make future maintenance harder.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        "docs/acmm/explanation-standards.md",
-        "docs/review-criteria.md",
-        ".github/prompts/review.md",
-      ],
-    },
-  },
-  {
-    id: "acmm:self-correction-metric",
-    source: "acmm",
-    level: 5,
-    category: "observability",
-    name: "Self-correction tracking",
-    description: "Metrics tracking AI fix-up cycles, first-attempt success, and revert rates.",
-    rationale:
-      "L5 signal: the system monitors its own output quality beyond binary acceptance, enabling self-improvement.",
-    details:
-      "Self-correction metrics track how often AI PRs need fix-up commits after initial push, what percentage pass CI on the first attempt, and how often they get reverted. These signals differentiate a clean one-shot PR from a messy multi-attempt one.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/acmm/explanation-standards.md", "plugins/acmm/scripts/pr-outcomes.js"],
-    },
-  },
-  {
-    id: "acmm:state-backup",
-    source: "acmm",
-    level: 5,
-    category: "governance",
-    name: "AI state backup",
-    description: "Automated backup of AI state files to prevent data loss.",
-    rationale:
-      "L5 signal: the system protects its own learning history and progression data from corruption or accidental deletion.",
-    details:
-      "AI state files (ACMM scores, memory, task ledgers) accumulate value over time. A backup workflow ensures that accidental deletion, bad merges, or state corruption do not destroy the system's learning history.",
-    detection: {
-      type: "any-of",
-      pattern: [".github/workflows/acmm-state-backup.yml", ".claude/acmm/backups/"],
-    },
-  },
-  {
-    id: "acmm:ai-health-dashboard",
-    source: "acmm",
-    level: 5,
-    category: "observability",
-    name: "AI system health monitoring",
-    description:
-      "Dashboard or script monitoring AI agent system health (latency, errors, stuck rate).",
-    rationale:
-      "L5 signal: the system monitors its own operational health, not just the code it produces.",
-    details:
-      "AI health monitoring tracks the agent system itself — session success rate, API errors, stuck loops, cost per session. Without this, degraded AI service goes undetected until humans notice bad output.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/acmm/ai-health-monitoring.md", "scripts/acmm/ai-health-check.sh"],
-    },
-  },
-  {
-    id: "acmm:prompt-injection-sandbox",
-    source: "acmm",
-    level: 5,
-    category: "governance",
-    name: "Prompt injection defense",
-    description: "Documented threat model and defense layers for AI prompt injection.",
-    rationale:
-      "L5 signal: autonomous systems that ingest untrusted text need documented defenses against injection attacks.",
-    details:
-      "L5/L6 systems process untrusted text from GitHub issues, PR comments, and external APIs. A prompt injection threat model documents the attack surface, existing defenses (sandboxing, scanning, budget limits), and gaps. Without this, the team cannot assess the security posture of their AI pipeline.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/security/ai-prompt-injection.md", "docs/security/ai-threat-model.md"],
-    },
-  },
-  {
-    id: "acmm:agent-attestation",
-    source: "acmm",
-    level: 5,
-    category: "governance",
-    name: "Agent identity attestation",
-    description:
-      "Documented strategy for AI agent identity and non-repudiation of agent-authored changes.",
-    rationale:
-      "L5 signal: autonomous systems need verifiable identity so changes can be attributed and audited.",
-    details:
-      "Agent attestation covers how AI-authored commits are identified (branch naming, bot accounts, GPG signing) and how the audit trail connects git history to session traces. Without this, agent changes are indistinguishable from human changes.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/acmm/agent-attestation.md", "docs/security/agent-identity.md"],
-    },
-  },
-  {
-    id: "acmm:ai-service-fallback",
-    source: "acmm",
-    level: 5,
-    category: "governance",
-    name: "AI service fallback policy",
-    description: "Defined behavior for when AI APIs are unavailable or degraded.",
-    rationale:
-      "L5 signal: autonomous systems must degrade gracefully when their AI service is down, not break silently.",
-    details:
-      "A fallback policy defines retry strategies, circuit breakers, and escalation paths for AI API failures. Without this, L6 autonomous loops stop silently when the API is unavailable, and scheduled tasks skip without notification.",
-    detection: {
-      type: "grep",
-      pattern: {
-        file: "infrastructure/worker/circuit-breaker.js",
-        contains: "CIRCUIT_BREAKER_KEY",
-      },
-    },
-  },
-  {
-    id: "acmm:override-analytics",
-    source: "acmm",
-    level: 5,
-    category: "feedback-loop",
-    name: "Override analytics",
-    description: "Taxonomy and trending for human corrections of AI suggestions.",
-    rationale:
-      "L5 signal: understanding WHY humans correct AI enables systematic improvement, not just counting corrections.",
-    details:
-      'Override analytics categorizes human corrections (safety, correctness, style, scope) and trends them over time. This distinguishes "AI was wrong" from "AI was right but user preferred different style" and identifies systemic weaknesses.',
-    detection: { type: "any-of", pattern: ["docs/acmm/override-analytics.md"] },
-  },
-  {
-    id: "acmm:ai-compliance-doc",
-    source: "acmm",
-    level: 5,
-    category: "governance",
-    name: "AI compliance documentation",
-    description: "Documentation mapping AI workflows to regulatory and compliance requirements.",
-    rationale:
-      "L5 signal: regulated environments need to audit not just code but AI process compliance.",
-    details:
-      "AI compliance documentation maps what data agents can access, how decisions are traced, and how the system relates to regulatory frameworks (GDPR, SOC2). Without this, compliance teams cannot assess the AI pipeline.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/acmm/ai-compliance-doc.md", "docs/compliance/ai-workflows.md"],
-    },
-  },
-  {
-    id: "acmm:review-burden",
-    source: "acmm",
-    level: 5,
-    category: "observability",
-    name: "Review burden tracking",
-    description: "Metrics tracking human review fatigue and sustainable review load.",
-    rationale:
-      "L5 signal: autonomous systems can overwhelm reviewers; measuring review burden prevents quality degradation.",
-    details:
-      "Review burden tracking monitors PRs per reviewer, review time, and auto-merge ratio. Without it, high-volume agent output may cause rubber-stamping or review abandonment, undermining the human oversight that L5 depends on.",
-    detection: { type: "any-of", pattern: ["docs/acmm/review-burden.md"] },
-  },
-
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
     id: "acmm:auto-issue-gen",
@@ -1326,16 +1110,9 @@ const CRITERIA = [
       "Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.",
     rationale: "L6 self-direction: the codebase proposes its own next task.",
     details:
-      "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.",
-    detection: {
-      type: "active",
-      pattern: [
-        ".github/workflows/auto-issue.yml",
-        ".github/workflows/issue-gen.yml",
-        ".github/workflows/auto-generate-issues.yml",
-      ],
-      maxAgeDays: 7,
-    },
+      "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. Retargeted (#5851 amendment): auto-issue.yml is this ACMM scanner's own workflow, so the scanner satisfied its own L6 criterion regardless of whether the automation actually filed anything (it created 0 issues at L6). New evidence: at least one issue filed in the last 30 days by other automation (sentry-triage, site-audit, learning-loop), carrying an automation label.",
+    detection: { type: "check", pattern: "github:automation-issues" },
+    check: checkAutoIssueGen,
   },
   {
     id: "acmm:multi-agent-orchestration",
@@ -1457,56 +1234,6 @@ const CRITERIA = [
     },
   },
   {
-    id: "acmm:feedback-loop-inventory",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Feedback loop inventory",
-    description:
-      "A document cataloging all feedback loops with their ACMM level, frequency, and operating status.",
-    rationale:
-      'Making feedback loop topology explicit enables auditing and prevents the "dashboard graveyard" anti-pattern.',
-    details:
-      "The ACMM paper defines maturity as feedback loop topology. This inventory makes that topology explicit: every loop has a name, ACMM level, frequency, trigger mechanism, status (active/planned/broken), and last-verified date. Without it, loops accumulate silently and broken ones go unnoticed.",
-    detection: { type: "path", pattern: "docs/acmm/feedback-loop-inventory.md" },
-  },
-  {
-    id: "acmm:budget-policy",
-    source: "acmm",
-    level: 4,
-    category: "governance",
-    name: "Budget policy",
-    description: "Defined cost limits and budget controls for AI agent operations.",
-    rationale:
-      "L4 signal: autonomous systems have explicit cost boundaries to prevent unbounded spending.",
-    details:
-      "A budget policy defines per-task, daily, and weekly cost limits for AI operations. Without explicit limits, L5/L6 autonomous loops can consume tokens unbounded. The policy also specifies model tiering strategy and alerting thresholds.",
-    detection: {
-      type: "any-of",
-      pattern: [".claude/budget-policy.json", "docs/acmm/cost-governance.md"],
-    },
-  },
-  {
-    id: "acmm:token-tracking",
-    source: "acmm",
-    level: 4,
-    category: "observability",
-    name: "Token usage tracking",
-    description: "Token consumption and cost tracking per session or task.",
-    rationale:
-      "L4 signal: cost visibility enables informed decisions about model tiering and automation frequency.",
-    details:
-      "Token tracking records consumption per session, task, or time period. This data feeds into budget alerting and helps optimize model selection. Without tracking, cost governance is blind.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".claude/budget-policy.json",
-        ".claude/acmm/cost-metrics.json",
-        "docs/acmm/cost-governance.md",
-      ],
-    },
-  },
-  {
     id: "acmm:accessibility-ai-check",
     source: "acmm",
     level: 5,
@@ -1516,12 +1243,13 @@ const CRITERIA = [
     rationale:
       "L5 signal: AI can inadvertently introduce a11y regressions that axe-core catches, but without agent-specific tracking the pattern goes unnoticed.",
     details:
-      "AI-generated Rialto components could miss ARIA attributes or keyboard navigation. Agent-specific a11y tracking ensures these patterns are caught and trended, adding a safety net beyond the existing per-component axe tests.",
+      "AI-generated Rialto components could miss ARIA attributes or keyboard navigation. Agent-specific a11y tracking ensures these patterns are caught and trended, adding a safety net beyond the existing per-component axe tests. Fixed a false negative (#5851): the real job is `a11y-attribution` in ci.yml, which only runs on agent PR branches — an `active` (workflow-run) check would misread that as inactive, so this stays a `grep` on the step text.",
     detection: {
       type: "grep",
       pattern: {
         file: ".github/workflows/ci.yml",
-        contains: "pnpm --dir packages/rialto vitest .* accessibility",
+        contains:
+          "pnpm --filter @mattbutlerengineering/rialto exec vitest run .* src/test/accessibility",
       },
     },
   },
@@ -1540,26 +1268,7 @@ const CRITERIA = [
     detection: {
       type: "active",
       pattern: [".github/workflows/auto-rollback.yml", "docs/acmm/auto-rollback.md"],
-      maxAgeDays: 365,
-    },
-  },
-  {
-    id: "acmm:multi-repo-orchestration",
-    source: "acmm",
-    level: 6,
-    category: "autonomy",
-    name: "Multi-repo orchestration",
-    description: "Strategy for coordinating AI changes across multiple dependent repositories.",
-    rationale:
-      "L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.",
-    details:
-      "Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.",
-    detection: {
-      type: "grep",
-      pattern: {
-        file: "docs/acmm/multi-repo-orchestration.md",
-        contains: "Executed: \\d{4}-\\d{2}-\\d{2}",
-      },
+      maxAgeDays: 90,
     },
   },
 ];

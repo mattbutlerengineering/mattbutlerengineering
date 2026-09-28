@@ -272,4 +272,35 @@ describe("META_CRITERIA", () => {
     assert.ok(criterion, "meta:product-improvements criterion should exist");
     assert.equal(typeof criterion.check, "function", "check should be a function");
   });
+
+  test("every criterion routes through detection.type: 'check', never a workflow lookup (#5851/#5853 AC5)", () => {
+    // Regression: these were `type: "active"` with a non-workflow file pattern
+    // (e.g. "metrics/threshold-changes.jsonl"), so isWorkflowActive shelled out
+    // to `gh run list --workflow=metrics/threshold-changes.jsonl`, which always
+    // answers "could not find any workflows" — permanently unverifiable, and
+    // check() never ran in production.
+    for (const c of META_CRITERIA) {
+      assert.equal(c.detection.type, "check", `${c.id} should use detection.type: "check"`);
+      assert.equal(typeof c.check, "function", `${c.id} should have a check() function`);
+    }
+  });
+
+  test("evaluate() runs check() directly for every meta criterion, with no gh call", async () => {
+    const { evaluate } = await import("../evaluate.js");
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const root = mkdtempSync(join(tmpdir(), "acmm-meta-"));
+    const throwingExec = () => {
+      throw new Error("gh should never be invoked for a check-type criterion");
+    };
+    for (const c of META_CRITERIA) {
+      const result = evaluate(c, root, { execFileSyncFn: throwingExec });
+      assert.ok(
+        ["pass", "not-found", "unverifiable"].includes(result.verdict),
+        `${c.id} should resolve to a real verdict, got ${result.verdict}`
+      );
+    }
+    rmSync(root, { recursive: true });
+  });
 });

@@ -21,30 +21,29 @@ test("computeLevel: any single agent-instructions file satisfies L2", () => {
 });
 
 test("computeLevel: 70% threshold gates L3+", () => {
-  // L3 has 6 scannable items. 70% = 5 of 6 needed (ceil(6*0.7) = 5 — actually ≥70% ratio).
-  // Four hits (besides the L2 OR-group) should NOT be enough (4/6 = 67%).
+  // L3 has 5 scannable items (post-#5851/#5853: acmm:onboarding-benchmark
+  // moved to the non-gating `local:` source, shrinking L3 from 6 to 5).
+  // 70% = 4 of 5 needed. Three hits should NOT be enough (3/5 = 60%).
+  const threeHits = computeLevel(
+    new Set([
+      "acmm:claude-md",
+      "acmm:ci-matrix",
+      "acmm:pr-acceptance-metric",
+      "acmm:pr-review-rubric",
+    ])
+  );
+  assert.equal(threeHits.level, 2, "3 of 5 = 60%, below 70% threshold, stays at L2");
+
   const fourHits = computeLevel(
     new Set([
       "acmm:claude-md",
       "acmm:ci-matrix",
       "acmm:pr-acceptance-metric",
       "acmm:pr-review-rubric",
-      "acmm:onboarding-benchmark",
-    ])
-  );
-  assert.equal(fourHits.level, 2, "4 of 6 = 67%, below 70% threshold, stays at L2");
-
-  const fiveHits = computeLevel(
-    new Set([
-      "acmm:claude-md",
-      "acmm:ci-matrix",
-      "acmm:pr-acceptance-metric",
-      "acmm:pr-review-rubric",
-      "acmm:onboarding-benchmark",
       "acmm:quality-dashboard",
     ])
   );
-  assert.equal(fiveHits.level, 3, "5 of 6 = 83%, crosses 70% threshold, advances to L3");
+  assert.equal(fourHits.level, 3, "4 of 5 = 80%, crosses 70% threshold, advances to L3");
 });
 
 test("computeLevel: stops at first failed level", () => {
@@ -81,7 +80,7 @@ test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
   for (const c of ALL_CRITERIA) {
     assert.ok(c.detection, `criterion ${c.id} missing detection`);
     assert.ok(
-      ["path", "any-of", "glob", "active", "grep"].includes(c.detection.type),
+      ["path", "any-of", "glob", "active", "grep", "check"].includes(c.detection.type),
       `${c.id} has invalid detection type`
     );
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
@@ -91,17 +90,23 @@ test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
 /* ── Behavioral gates ───────────────────────────────────── */
 
 // Helper: IDs that satisfy L2 + L3+ levels
+//
+// Counts below reflect the post-#5851/#5853 catalog (upstream-parity gating
+// set): 16 local inventions moved to the non-gating `local:` source, several
+// acmm-source duplicates collapsed, `acmm:state-backup` removed outright. The
+// ids referenced here were updated to still exist; the qualitative test
+// intent (each level reachable, at margin, via a real subset) is unchanged.
+//
 // L2 has 3 scannable items; the OR-group virtual criterion only needs 1 file
 const L2_IDS = ["acmm:claude-md"];
-// L3 has 6 items; 70% = 5 needed
+// L3 has 5 items; 70% = 4 needed
 const L3_IDS = [
   "acmm:ci-matrix",
   "acmm:pr-acceptance-metric",
   "acmm:pr-review-rubric",
-  "acmm:onboarding-benchmark",
   "acmm:quality-dashboard",
 ];
-// L4 has 16 items; 70% = 12 needed
+// L4 has 8 items; 70% = 6 needed
 const L4_IDS = [
   "acmm:auto-qa-tuning",
   "acmm:nightly-compliance",
@@ -110,13 +115,9 @@ const L4_IDS = [
   "acmm:ai-fix-workflow",
   "acmm:tier-classifier",
   "acmm:security-ai-md",
-  "acmm:mcp-server-config",
-  "acmm:code-graph",
-  "acmm:repo-bench",
-  "acmm:component-registry-integrity",
   "acmm:instruction-rot-detection",
 ];
-// L5 has 16 items; 70% = 12 needed
+// L5 has 7 items; 70% = 5 needed
 const L5_IDS = [
   "acmm:github-actions-ai",
   "acmm:auto-qa-self-tuning",
@@ -124,21 +125,14 @@ const L5_IDS = [
   "acmm:policy-as-code",
   "acmm:reflection-log",
   "acmm:audit-trail",
-  "acmm:self-correction-metric",
-  "acmm:state-backup",
-  "acmm:ai-health-dashboard",
-  "acmm:prompt-injection-sandbox",
-  "acmm:agent-attestation",
-  "acmm:ai-service-fallback",
 ];
-// L6 has 8 items; 70% = 6 needed
+// L6 has 7 items; 70% = 5 needed
 const L6_IDS = [
   "acmm:auto-issue-gen",
   "acmm:multi-agent-orchestration",
   "acmm:merge-queue",
   "acmm:strategic-dashboard",
   "acmm:risk-assessment-config",
-  "acmm:observability-runbook",
 ];
 
 /** Builds a Set of all IDs up to and including the given level */

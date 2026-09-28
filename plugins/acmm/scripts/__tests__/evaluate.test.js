@@ -246,6 +246,73 @@ test("evaluate: substance — detected criterion with failing substance → holl
 
 // ── evidence is always populated ────────────────────────────────────────────
 
+// ── `check` detection type (#5851/#5853 AC5) ────────────────────────────────
+
+test("evaluate: check type — passed:true → pass verdict", () => {
+  const fx = fixture();
+  const criterion = {
+    id: "x",
+    detection: { type: "check", pattern: "irrelevant" },
+    check: () => ({ passed: true, evidence: "3 things found" }),
+  };
+  const result = evaluate(criterion, fx.root);
+  assert.equal(result.verdict, "pass");
+  assert.equal(result.evidence, "3 things found");
+  fx.cleanup();
+});
+
+test("evaluate: check type — passed:false → not-found verdict", () => {
+  const fx = fixture();
+  const criterion = {
+    id: "x",
+    detection: { type: "check", pattern: "irrelevant" },
+    check: () => ({ passed: false, evidence: "nothing found" }),
+  };
+  const result = evaluate(criterion, fx.root);
+  assert.equal(result.verdict, "not-found");
+  assert.equal(result.evidence, "nothing found");
+  fx.cleanup();
+});
+
+test("evaluate: check type — passed:null → unverifiable verdict, never a silent pass", () => {
+  const fx = fixture();
+  const criterion = {
+    id: "x",
+    detection: { type: "check", pattern: "irrelevant" },
+    check: () => ({ passed: null, evidence: "gh CLI unavailable" }),
+  };
+  const result = evaluate(criterion, fx.root);
+  assert.equal(result.verdict, "unverifiable");
+  assert.equal(result.evidence, "gh CLI unavailable");
+  fx.cleanup();
+});
+
+test("evaluate: check type — never falls through to a workflow lookup", () => {
+  // Regression: meta:threshold-tuning etc. used to be `type: 'active'` with a
+  // non-github: pattern, so `isWorkflowActive` tried `gh run list
+  // --workflow=metrics/x.jsonl` and always got "could not find any
+  // workflows" → unverifiable forever, and check() never ran. With `type:
+  // 'check'`, check() must run unconditionally, with no gh call at all.
+  const fx = fixture();
+  let checkCalled = false;
+  const criterion = {
+    id: "meta:example",
+    detection: { type: "check", pattern: "metrics/example.jsonl" },
+    check: () => {
+      checkCalled = true;
+      return { passed: true, evidence: "ran directly" };
+    },
+  };
+  const result = evaluate(criterion, fx.root, {
+    execFileSyncFn: () => {
+      throw new Error("gh should never be invoked for a check-type criterion");
+    },
+  });
+  assert.ok(checkCalled, "check() should have run");
+  assert.equal(result.verdict, "pass");
+  fx.cleanup();
+});
+
 test("evaluate: evidence is always a non-empty string", () => {
   const types = [
     { detection: { type: "path", pattern: "missing.md" } },

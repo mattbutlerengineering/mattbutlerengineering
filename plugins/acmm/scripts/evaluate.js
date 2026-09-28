@@ -24,7 +24,7 @@
 
 import { existsSync, statSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { isWorkflowActive } from "./detection.js";
+import { isWorkflowActive, DEFAULT_MAX_AGE_DAYS } from "./detection.js";
 import { substanceCheckers } from "./substance.js";
 
 function existsAt(cwd, pattern) {
@@ -119,23 +119,23 @@ function runSubstance(criterion, cwd) {
  * `substanceEvidence` is the substance failure reason.
  */
 export function evaluate(criterion, cwd, opts = {}) {
-  const { type, pattern, maxAgeDays = 30 } = criterion.detection;
+  const { type, pattern, maxAgeDays = DEFAULT_MAX_AGE_DAYS, anyBranch } = criterion.detection;
   const patterns = Array.isArray(pattern) ? pattern : [pattern];
 
-  // ── Handle `github:` prefixed active patterns via criterion.check() ─────
-  const isGithubPattern =
-    type === "active" &&
-    patterns.length === 1 &&
-    typeof patterns[0] === "string" &&
-    patterns[0].startsWith("github:") &&
-    typeof criterion.check === "function";
-
-  if (isGithubPattern) {
-    const checkResult = criterion.check(cwd, opts);
-    if (checkResult.passed) {
-      return { verdict: "pass", evidence: checkResult.evidence ?? "github check passed" };
+  // ── check — delegates entirely to criterion.check(), never a file/workflow
+  // lookup. `passed: null` (e.g. gh unavailable) is unverifiable, not a pass. ─
+  if (type === "check") {
+    if (typeof criterion.check !== "function") {
+      return { verdict: "not-found", evidence: `no check() function on ${criterion.id}` };
     }
-    return { verdict: "not-found", evidence: checkResult.evidence ?? "github check failed" };
+    const checkResult = criterion.check(cwd, opts);
+    if (checkResult.passed === true) {
+      return { verdict: "pass", evidence: checkResult.evidence ?? "check passed" };
+    }
+    if (checkResult.passed === null) {
+      return { verdict: "unverifiable", evidence: checkResult.evidence ?? "check unverifiable" };
+    }
+    return { verdict: "not-found", evidence: checkResult.evidence ?? "check failed" };
   }
 
   // ── path / any-of ────────────────────────────────────────────────────────
@@ -189,7 +189,7 @@ export function evaluate(criterion, cwd, opts = {}) {
       };
     }
     const workflowFile = patterns.find((p) => existsAt(cwd, p));
-    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
+    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, { ...opts, anyBranch });
     if (result.degraded) {
       return {
         verdict: "unverifiable",

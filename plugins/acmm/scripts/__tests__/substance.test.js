@@ -288,7 +288,9 @@ describe("feedback loop substance checker", () => {
 });
 
 describe("test coverage substance checker", () => {
-  const checker = substanceCheckers["fullsend:test-coverage"];
+  // Moved from fullsend:test-coverage (#5851/#5853 AC6: merged into
+  // acmm:prereq-coverage-gate, "move substance").
+  const checker = substanceCheckers["acmm:prereq-coverage-gate"];
 
   test("passes when coverage config has recognizable threshold", () => {
     const dir = makeTmpDir();
@@ -310,10 +312,29 @@ describe("test coverage substance checker", () => {
     assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
   });
+
+  // Regression (#5876 review): a JSON threshold file quotes its key before the
+  // colon (`"lines": 60`), so the keyword is never directly adjacent to `[:=]`.
+  // The pre-fix regex required keyword -> optional whitespace -> `[:=]` and
+  // missed every JSON-shaped fixture, silently downgrading a real
+  // .coverage-thresholds.json from pass to hollow.
+  test("passes when a JSON threshold file quotes its key before the colon", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, ".coverage-thresholds.json");
+    writeFileSync(
+      filePath,
+      JSON.stringify({ global: { lines: 60, branches: 50, functions: 60, statements: 60 } })
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, true, result.evidence);
+    rmSync(dir, { recursive: true });
+  });
 });
 
 describe("runbook substance checker", () => {
-  const checker = substanceCheckers["fullsend:observability-runbook"];
+  // Moved from fullsend:observability-runbook (#5851/#5853 AC6: merged into
+  // acmm:observability-runbook, "move substance").
+  const checker = substanceCheckers["acmm:observability-runbook"];
 
   test("passes when runbook references real service names", () => {
     const dir = makeTmpDir();
