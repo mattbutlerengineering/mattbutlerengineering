@@ -115,7 +115,7 @@ describe("isUnmeasurable", () => {
     );
   });
 
-  it("flags unmeasurable when a gating acmm:* criterion inside the dropped range (L5) is unverifiable (drop 6->4 -> unmeasurable)", () => {
+  it("flags unmeasurable when the single explaining level's (L5) gating acmm:* criterion is unverifiable (drop 6->4 -> unmeasurable)", () => {
     const state = realShapedState({
       currentLevel: 4,
       checks: {
@@ -130,7 +130,7 @@ describe("isUnmeasurable", () => {
     expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 4 })).toBe(true);
   });
 
-  it("flags unmeasurable when a behavioral gate inside the dropped range (L6) is unverifiable (drop 6->5 -> unmeasurable)", () => {
+  it("flags unmeasurable when the single explaining level's (L6) behavioral gate is unverifiable (drop 6->5 -> unmeasurable)", () => {
     const state = realShapedState({
       currentLevel: 5,
       computation: {
@@ -142,7 +142,7 @@ describe("isUnmeasurable", () => {
     expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 5 })).toBe(true);
   });
 
-  it("ignores an unverifiable gate outside the dropped range (L3 gate, drop 6->4 only spans L5-L6)", () => {
+  it("ignores an unverifiable gate at a level other than the one explaining the drop (L3 gate is irrelevant; drop 6->4's explaining level is L5)", () => {
     const state = realShapedState({
       currentLevel: 4,
       computation: {
@@ -152,7 +152,32 @@ describe("isUnmeasurable", () => {
     expect(isUnmeasurable(state, { previousLevel: 6, currentLevel: 4 })).toBe(false);
   });
 
-  it("expands the virtual acmm:agent-instructions id back to its real constituent checks when L2 is in the dropped range", () => {
+  it("does not flag unmeasurable from an unverifiable item at a level the walk never would have reached (drop 6->3, only L6 unverifiable -> dropped, not unmeasurable)", () => {
+    // computeLevel.js's walk breaks at the FIRST failing level above
+    // currentLevel — for a 6->3 drop that's L4, not L6. An unverifiable L6
+    // item can't explain why the walk stopped at 3, so it must not suppress
+    // the regression (the wider previousLevel..currentLevel range this
+    // function used before #5854 review round 2 would have wrongly
+    // considered L6 in-range for this drop and flagged it unmeasurable).
+    const state = realShapedState({
+      currentLevel: 3,
+      checks: {
+        ...realShapedState().checks,
+        [L6_GATING_ID]: {
+          passed: false,
+          evidence: "gh CLI unavailable or error",
+          verdict: "unverifiable",
+        },
+      },
+    });
+    const unmeasurable = isUnmeasurable(state, { previousLevel: 6, currentLevel: 3 });
+    expect(unmeasurable).toBe(false);
+    expect(classifyLevelChange({ previousLevel: 6, currentLevel: 3, unmeasurable }).status).toBe(
+      "dropped"
+    );
+  });
+
+  it("expands the virtual acmm:agent-instructions id back to its real constituent checks when L2 is the level explaining the drop", () => {
     const state = {
       currentLevel: 1,
       checks: {

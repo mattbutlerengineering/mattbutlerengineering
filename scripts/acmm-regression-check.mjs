@@ -42,6 +42,7 @@ import {
   SCANNABLE_IDS_BY_LEVEL,
   AGENT_INSTRUCTION_FILE_IDS,
 } from "../plugins/acmm/scripts/scannableIdsByLevel.js";
+import { MAX_LEVEL } from "../plugins/acmm/scripts/computeLevel.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -54,32 +55,45 @@ const STATE_PATH = resolve(ROOT, ".claude", "acmm", "state.json");
 export const REGRESSION_MARKER = "<!-- acmm-regression -->";
 
 /**
- * The real check ids that gate any level strictly above `currentLevel` and
- * up to and including `previousLevel` — the levels a drop from
- * `previousLevel` to `currentLevel` actually passed through. `acmm:*`
- * criteria not in this range (e.g. everything at or below `currentLevel`,
- * and every `meta:*`/`fullsend:*`/etc. criterion, which never gates any
- * level at all) are irrelevant to whether *this* drop is real.
+ * The single level whose gating criteria/gate can actually explain why the
+ * level walk in `plugins/acmm/scripts/computeLevel.js` stopped at
+ * `currentLevel`. That walk iterates every level from `currentLevel + 1` to
+ * `MAX_LEVEL`, `continue`s (skips, without advancing or failing) past any
+ * level with zero required criteria, and `break`s — the *only* place a real
+ * drop can originate — at the first level whose ratio or gate fails. So of
+ * all the levels a drop from `previousLevel` to `currentLevel` nominally
+ * "passed through", only the first one above `currentLevel` with at least
+ * one required criterion was ever actually evaluated; every level above
+ * that one (including up to `previousLevel`) is unreached and therefore
+ * irrelevant to explaining this specific drop.
  *
- * Expands the virtual `acmm:agent-instructions` OR-group (L2 only) back
- * into its four real constituent ids, since `state.checks` never has an
- * entry literally named `acmm:agent-instructions`.
- *
- * @param {number} previousLevel
  * @param {number} currentLevel
+ * @returns {number|null} the explaining level, or null if none exists at or
+ *   below MAX_LEVEL (e.g. currentLevel is already MAX_LEVEL).
+ */
+function firstGatingLevelAbove(currentLevel) {
+  for (let level = currentLevel + 1; level <= MAX_LEVEL; level++) {
+    if ((SCANNABLE_IDS_BY_LEVEL[level]?.length ?? 0) > 0) return level;
+  }
+  return null;
+}
+
+/**
+ * The real check ids that gate a single level. Expands the virtual
+ * `acmm:agent-instructions` OR-group (L2 only) back into its four real
+ * constituent ids, since `state.checks` never has an entry literally named
+ * `acmm:agent-instructions`.
+ *
+ * @param {number} level
  * @returns {Set<string>}
  */
-function gatingIdsForDrop(previousLevel, currentLevel) {
+function gatingIdsForLevel(level) {
   const ids = new Set();
-  for (const [levelStr, levelIds] of Object.entries(SCANNABLE_IDS_BY_LEVEL)) {
-    const level = Number(levelStr);
-    if (!(level > currentLevel && level <= previousLevel)) continue;
-    for (const id of levelIds) {
-      if (id === "acmm:agent-instructions") {
-        for (const realId of AGENT_INSTRUCTION_FILE_IDS) ids.add(realId);
-      } else {
-        ids.add(id);
-      }
+  for (const id of SCANNABLE_IDS_BY_LEVEL[level] ?? []) {
+    if (id === "acmm:agent-instructions") {
+      for (const realId of AGENT_INSTRUCTION_FILE_IDS) ids.add(realId);
+    } else {
+      ids.add(id);
     }
   }
   return ids;
@@ -90,23 +104,33 @@ function gatingIdsForDrop(previousLevel, currentLevel) {
  * report the drop from `previousLevel` to `currentLevel` as a real
  * regression.
  *
- * Narrowly scoped on purpose (#5854 review): five `meta:*` criteria are
- * unverifiable on every single run, with or without `gh`
- * (`gh run list --workflow=metrics/x.jsonl` errors regardless) — treating
- * *any* unverifiable check anywhere in `state.checks` as disqualifying, the
- * original version of this function, meant a real 6->3 drop always
- * misclassified as `unmeasurable`, because it can never separate "this
- * specific drop is suspect" from "something, somewhere, is always
- * unverifiable". Only two things matter:
+ * Narrowly scoped on purpose (#5854 review, round 2): five `meta:*` criteria
+ * are unverifiable on every single run, with or without `gh` (their catalog
+ * `type: "active"` pairs a data-file detection pattern that sends
+ * `gh run list --workflow=metrics/x.jsonl` to error regardless — see
+ * `plugins/acmm/skills/acmm-audit/SKILL.md`; #5853 fixes it by changing
+ * `type` to `"check"`) — treating *any* unverifiable check anywhere in
+ * `state.checks` as disqualifying, the original version of this function,
+ * meant a real 6->3 drop always misclassified as `unmeasurable`, because it
+ * can never separate "this specific drop is suspect" from "something,
+ * somewhere, is always unverifiable".
+ *
+ * The first review round narrowed this to every level in
+ * `(currentLevel, previousLevel]`, but that is still too wide:
+ * `computeLevel.js`'s walk only ever evaluates the *first* level above
+ * `currentLevel` with required criteria before it `break`s — see
+ * `firstGatingLevelAbove()`. An unverifiable item at any level above that
+ * one was never reached by the walk and can't explain why it stopped, so
+ * only that single level's gating criteria/gate are checked here. Only two
+ * things matter otherwise:
  *   - either level is missing (no baseline yet, or the audit failed to
  *     compute one) — nothing to compare.
  *   - the level did not drop (`currentLevel >= previousLevel`) — nothing to
  *     invalidate.
- *   - otherwise, an unverifiable *gating* criterion or behavioral gate at a
- *     level strictly above `currentLevel` and up to `previousLevel` — i.e.
- *     one of the levels this drop actually passed through — means the drop
- *     itself can't be trusted (upstream kubestellar/console #23233's
- *     "unreachable != regression" fix, applied to our own regression check).
+ *   - otherwise, an unverifiable *gating* criterion or behavioral gate at
+ *     the single level explaining the drop means the drop itself can't be
+ *     trusted (upstream kubestellar/console #23233's "unreachable !=
+ *     regression" fix, applied to our own regression check).
  *
  * @param {{ checks?: Record<string, { verdict?: string }>, computation?: { behavioralGates?: Array<{ level?: number, unverifiable?: boolean }> } }} state
  * @param {{ previousLevel: number|null, currentLevel: number|null }} levels
@@ -116,7 +140,10 @@ export function isUnmeasurable(state, { previousLevel, currentLevel }) {
   if (typeof previousLevel !== "number" || typeof currentLevel !== "number") return true;
   if (currentLevel >= previousLevel) return false;
 
-  const gatingIds = gatingIdsForDrop(previousLevel, currentLevel);
+  const level = firstGatingLevelAbove(currentLevel);
+  if (level === null) return false;
+
+  const gatingIds = gatingIdsForLevel(level);
   const checks = state?.checks ?? {};
   const anyUnverifiableGatingCheck = [...gatingIds].some(
     (id) => checks[id]?.verdict === "unverifiable"
@@ -124,7 +151,7 @@ export function isUnmeasurable(state, { previousLevel, currentLevel }) {
 
   const gates = state?.computation?.behavioralGates ?? [];
   const anyUnverifiableGatingGate = gates.some(
-    (g) => g?.level > currentLevel && g?.level <= previousLevel && g?.unverifiable === true
+    (g) => g?.level === level && g?.unverifiable === true
   );
 
   return anyUnverifiableGatingCheck || anyUnverifiableGatingGate;
