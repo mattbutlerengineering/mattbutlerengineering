@@ -4,6 +4,15 @@ import { ManageReservationPage } from "./ManageReservationPage.js";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { formatLongDateWithYear, formatTimeIn } from "../utils/format.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
+import {
+  EMPTY_NOTES,
+  TWO_LINE_DISPLAYED,
+  TWO_LINE_NOTE,
+  UNTRUSTED_NOTE,
+} from "../test/special-requests-fixtures.js";
 
 const mockSearchParams = new URLSearchParams();
 vi.mock("react-router", () => ({
@@ -289,5 +298,114 @@ describe("ManageReservationPage", () => {
       expect(mains).toHaveLength(1);
       expect(h1s).toHaveLength(1);
     });
+  });
+});
+
+describe("ManageReservationPage Special Requests card", () => {
+  const label = CONFIRMATION_COPY.specialRequestsLabel;
+
+  async function renderWithNotes(notes: string | null, status = "PENDING") {
+    mockSearchParams.set("token", "valid-token-abc");
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(makeManagedPayload({ reservation: { notes, status } as never }))
+    );
+    const view = renderPage();
+    await waitFor(() => expect(screen.getByText("Jane Doe")).toBeDefined());
+    return view;
+  }
+
+  /** Every Card here is `<Card><Stack><Text as="h2">`, so a card is its heading's grandparent. */
+  function cardOf(heading: HTMLElement): HTMLElement {
+    const card = heading.parentElement?.parentElement;
+    if (!card) throw new Error("heading is not inside a Card");
+    return card;
+  }
+
+  function cardCount(container: HTMLElement): number {
+    const cardClass = cardOf(screen.getByRole("heading", { name: "Reservation Details" }))
+      .classList[0];
+    return container.getElementsByClassName(cardClass).length;
+  }
+
+  function wordsOf(group: HTMLElement): HTMLElement {
+    const words = group.querySelector<HTMLElement>('[dir="auto"]');
+    if (!words) throw new Error("no words element in the Special Requests group");
+    return words;
+  }
+
+  it("names the group by its h2 and says the acknowledgement", async () => {
+    await renderWithNotes(TWO_LINE_NOTE);
+    const group = screen.getByRole("group", { name: label });
+    expect(within(group).getByRole("heading", { level: 2, name: label })).toBeDefined();
+    expect(within(group).getByText(CONFIRMATION_COPY.acknowledgement)).toBeDefined();
+  });
+
+  it("renders the guest's words as one text node, line break kept, dir=auto", async () => {
+    await renderWithNotes(TWO_LINE_NOTE);
+    const words = wordsOf(screen.getByRole("group", { name: label }));
+    expect(words.childNodes).toHaveLength(1);
+    expect(words.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+    expect(words.firstChild?.nodeValue).toBe(TWO_LINE_DISPLAYED);
+    expect(words.classList.contains("requestsText")).toBe(true);
+  });
+
+  it("moves the request out of the details card, so the group appears once", async () => {
+    await renderWithNotes(TWO_LINE_NOTE);
+    const details = cardOf(screen.getByRole("heading", { name: "Reservation Details" }));
+    expect(within(details).queryByText(label)).toBeNull();
+    expect(screen.getAllByRole("group", { name: label })).toHaveLength(1);
+  });
+
+  it("sits after the details card and before Add to Calendar", async () => {
+    await renderWithNotes(TWO_LINE_NOTE);
+    const group = screen.getByRole("group", { name: label });
+    const details = cardOf(screen.getByRole("heading", { name: "Reservation Details" }));
+    const calendar = screen.getByRole("heading", { name: "Add to Calendar" });
+    expect(details.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(group.compareDocumentPosition(calendar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("still shows the group on a CANCELLED reservation", async () => {
+    await renderWithNotes(TWO_LINE_NOTE, "CANCELLED");
+    expect(screen.getByText("This reservation has been cancelled.")).toBeDefined();
+    expect(screen.getByRole("group", { name: label })).toBeDefined();
+  });
+
+  it.each(EMPTY_NOTES)("renders no block, label, line or card for %j", async (notes) => {
+    const withNotes = await renderWithNotes(TWO_LINE_NOTE);
+    const present = cardCount(withNotes.container);
+    withNotes.unmount();
+    const { container } = await renderWithNotes(notes);
+    expect(screen.queryByRole("group", { name: label })).toBeNull();
+    expect(screen.queryByText(label)).toBeNull();
+    expect(screen.queryByText(CONFIRMATION_COPY.acknowledgement)).toBeNull();
+    expect(cardCount(container)).toBe(present - 1);
+  });
+
+  it("keeps untrusted text as literal characters", async () => {
+    await renderWithNotes(UNTRUSTED_NOTE);
+    const group = screen.getByRole("group", { name: label });
+    const words = wordsOf(group);
+    expect(words.childNodes).toHaveLength(1);
+    expect(words.firstChild?.nodeValue).toBe(UNTRUSTED_NOTE);
+    expect(group.querySelector("script, a")).toBeNull();
+  });
+
+  it("is never inside or around a live region", async () => {
+    await renderWithNotes(TWO_LINE_NOTE);
+    const group = screen.getByRole("group", { name: label });
+    expect(group.closest("[aria-live]")).toBeNull();
+    expect(group.querySelector("[aria-live]")).toBeNull();
+  });
+
+  it("wraps the words and insets the card with tokens (CSS text)", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/pages/ManageReservationPage.module.css"),
+      "utf-8"
+    );
+    const rule = (name: string) => css.match(new RegExp(`\\.${name}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+    expect(rule("requestsText")).toMatch(/white-space:\s*pre-wrap;/);
+    expect(rule("requestsText")).toMatch(/overflow-wrap:\s*anywhere;/);
+    expect(rule("cardInset")).toMatch(/padding:\s*var\(--rialto-space-lg\);/);
   });
 });
