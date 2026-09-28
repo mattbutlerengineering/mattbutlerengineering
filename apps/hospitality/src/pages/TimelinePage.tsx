@@ -139,6 +139,8 @@ export function TimelinePage() {
   const selectedDate = params.date;
 
   const [selectedIdState, setSelectedIdState] = useState<string | null>(null);
+  // The tablet sheet's More ▾, keyed by reservation so a new selection opens collapsed.
+  const [sheetExpandedFor, setSheetExpandedFor] = useState<string | null>(null);
   const selectedId = intent.selectedId ?? selectedIdState;
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
@@ -177,6 +179,9 @@ export function TimelinePage() {
     () => (selectedId ? (reservations.find((r) => r.id === selectedId) ?? null) : null),
     [reservations, selectedId]
   );
+  const sheetExpanded = selectedReservation !== null && sheetExpandedFor === selectedReservation.id;
+  const toggleSheetExpanded = () =>
+    setSheetExpandedFor(sheetExpanded ? null : (selectedReservation?.id ?? null));
   const seatedIds = useMemo(
     () => seatedReservationIds(reservations, tables, now),
     [reservations, tables, now]
@@ -210,6 +215,7 @@ export function TimelinePage() {
 
   const clearSelection = () => {
     setSelectedIdState(null);
+    setSheetExpandedFor(null);
     stripIntent();
   };
 
@@ -586,6 +592,8 @@ export function TimelinePage() {
           onEdit={openEditDrawer}
           onCancel={() => setShowCancelDialog(true)}
           onMarkNoShow={() => setShowNoShowDialog(true)}
+          expanded={sheetExpanded}
+          onToggleExpanded={toggleSheetExpanded}
         />
       )}
 

@@ -141,8 +141,27 @@ vi.mock("../components/timeline", () => ({
   ReservationDetails: ({ reservation }: { reservation: Reservation }) => (
     <div data-testid="reservation-details">{reservation.guestName}</div>
   ),
-  ReservationSheet: ({ reservation, open }: { reservation: Reservation; open: boolean }) =>
-    open ? <div data-testid="reservation-sheet">{reservation.guestName}</div> : null,
+  ReservationSheet: ({
+    reservation,
+    open,
+    expanded,
+    onToggleExpanded,
+    onClose,
+  }: {
+    reservation: Reservation;
+    open: boolean;
+    expanded?: boolean;
+    onToggleExpanded?: () => void;
+    onClose?: () => void;
+  }) =>
+    open ? (
+      <div data-testid="reservation-sheet" data-expanded={String(expanded)}>
+        {reservation.guestName}
+        {/* More's state lives in the page; the stub exposes it and wires the toggle. */}
+        <button onClick={onToggleExpanded}>Sheet More</button>
+        <button onClick={onClose}>Close sheet</button>
+      </div>
+    ) : null,
   TimelineSkeleton: () => <div data-testid="timeline-skeleton" />,
 }));
 
@@ -2244,6 +2263,73 @@ describe("TimelinePage", () => {
       });
       expect(screen.queryByTestId("reservation-sheet")).toBeNull();
       expect(screen.queryByTestId("drawer")).toBeNull();
+    });
+  });
+
+  describe("tablet sheet More state (remembered-on-arrival M4.1)", () => {
+    const tabletMatchMedia = (query: string) => ({
+      matches: query === "(max-width: 1024px)",
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+
+    beforeEach(() => {
+      vi.mocked(window.matchMedia).mockImplementation(tabletMatchMedia);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [
+            makeReservation({ id: "r1", guestName: "Alice", date: todayStr }),
+            makeReservation({ id: "r2", guestName: "Bob", date: todayStr }),
+          ],
+        })
+      );
+    });
+
+    afterEach(() => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        ...tabletMatchMedia(query),
+        matches: false,
+      }));
+    });
+
+    const sheet = () => screen.getByTestId("reservation-sheet");
+
+    async function selectReservation(id: string) {
+      fireEvent.click(await waitFor(() => screen.getByTestId(`res-${id}`)));
+      await waitFor(() => expect(sheet()).toBeDefined());
+    }
+
+    it("pressing More makes the sheet expanded", async () => {
+      renderPage();
+      await selectReservation("r1");
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(sheet()).toHaveAttribute("data-expanded", "true");
+    });
+
+    it("closing and reselecting the same reservation opens it collapsed", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close sheet" }));
+      expect(screen.queryByTestId("reservation-sheet")).toBeNull();
+      await selectReservation("r1");
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
+    });
+
+    it("selecting another reservation after More opens it collapsed (keyed by id)", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(sheet()).toHaveAttribute("data-expanded", "true");
+      fireEvent.click(screen.getByTestId("res-r2"));
+      await waitFor(() => expect(sheet()).toHaveTextContent("Bob"));
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
     });
   });
 

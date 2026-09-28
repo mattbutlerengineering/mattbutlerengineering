@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Badge, Button, Drawer, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -33,6 +33,10 @@ export interface ReservationSheetProps {
   onCancel: () => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
   onMarkNoShow: () => void;
+  /** Whether More ▾ is open. The page owns it, so the grid's inset can follow the sheet's height. */
+  expanded: boolean;
+  /** More ▾ was pressed; the owner flips `expanded`. */
+  onToggleExpanded: () => void;
 }
 
 /**
@@ -52,10 +56,9 @@ export function ReservationSheet({
   onEdit,
   onCancel,
   onMarkNoShow,
+  expanded,
+  onToggleExpanded,
 }: ReservationSheetProps) {
-  // Keyed by reservation so a fresh selection opens compact again without an effect.
-  const [expandedFor, setExpandedFor] = useState<string | null>(null);
-  const expanded = expandedFor === reservation.id;
   const detailId = useId();
 
   const table = findReservationTable(reservation, tables);
@@ -169,7 +172,7 @@ export function ReservationSheet({
           )}
           <Button
             variant="ghost"
-            onClick={() => setExpandedFor(expanded ? null : reservation.id)}
+            onClick={onToggleExpanded}
             aria-expanded={expanded}
             aria-controls={expanded ? detailId : undefined}
             disabled={seating}

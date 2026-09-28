@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
 import { ReservationSheet, type ReservationSheetProps } from "./ReservationSheet.js";
@@ -131,8 +132,22 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
   } as Guest;
 }
 
-function renderSheet(overrides: Partial<ReservationSheetProps> = {}) {
-  const props: ReservationSheetProps = {
+type HarnessProps = Omit<ReservationSheetProps, "expanded" | "onToggleExpanded">;
+
+/** The page owns More's state; this harness plays that role so More still drives the sheet. */
+function SheetHarness(props: HarnessProps) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <ReservationSheet
+      {...props}
+      expanded={expanded}
+      onToggleExpanded={() => setExpanded((open) => !open)}
+    />
+  );
+}
+
+function baseProps(overrides: Partial<HarnessProps> = {}): HarnessProps {
+  return {
     reservation: makeReservation(),
     tables: [makeTable()],
     seated: false,
@@ -145,7 +160,11 @@ function renderSheet(overrides: Partial<ReservationSheetProps> = {}) {
     onMarkNoShow: vi.fn(),
     ...overrides,
   };
-  return { ...render(<ReservationSheet {...props} />), props };
+}
+
+function renderSheet(overrides: Partial<HarnessProps> = {}) {
+  const props = baseProps(overrides);
+  return { ...render(<SheetHarness {...props} />), props };
 }
 
 /**
@@ -222,6 +241,19 @@ describe("ReservationSheet", () => {
       fireEvent.click(moreButton());
       expect(drawerSize(dialog)).toBe("compact");
       expect(moreButton()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("is controlled: renders the expanded prop and reports More to its owner", () => {
+      const onToggleExpanded = vi.fn();
+      render(<ReservationSheet {...baseProps()} expanded onToggleExpanded={onToggleExpanded} />);
+      const dialog = screen.getByRole("dialog");
+      expect(drawerSize(dialog)).toBe("default");
+      expect(moreButton()).toHaveAttribute("aria-expanded", "true");
+      expect(moreButton()).toHaveAttribute("aria-controls");
+
+      fireEvent.click(moreButton());
+      expect(onToggleExpanded).toHaveBeenCalledTimes(1);
+      expect(moreButton()).toHaveAttribute("aria-expanded", "true");
     });
 
     it("reveals the GuestCard, email, phone and notes only once expanded", () => {
