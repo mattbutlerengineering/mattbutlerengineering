@@ -68,7 +68,7 @@ the form label now reads the constant; its text is unchanged.
   - Accept (gates): `pnpm typecheck` is green.
   - Serves: SC4, SC8 (US1–US4 wording)
   - Blocked by: —
-- [ ] **M1.2 SC4 single-literal guard test** — a committed test that fails if the acknowledgement sentence appears in any non-test source file other than `constants/confirmation-copy.ts` (tracker: #5861)
+- [x] **M1.2 SC4 single-literal guard test** — a committed test that fails if the acknowledgement sentence appears in any non-test source file other than `constants/confirmation-copy.ts` (tracker: #5861)
   - Build: a describe in `confirmation-copy.test.ts` (or a sibling `confirmation-copy.source.test.ts`). It walks `resolve(process.cwd(), "src")`, the cwd convention of `components/floor-plan/TableShape.test.tsx:19-22`, skips files whose name contains `.test.`, and reads every `.ts`/`.tsx` file.
   - Accept:
     - The files containing `Noted. It's on your reservation for the team.` are exactly `["constants/confirmation-copy.ts"]`, with exactly one occurrence there. This proves that `hostCaption` composes the sentence rather than retyping it.
@@ -356,3 +356,7 @@ and no item needed a decision the architecture had not made.
 - 2026-09-28 (Decompose): Implement order is the milestone order. M4.1 has no
   blockers and may run earlier. Everything in M2 and M3 depends only on M1.
 - 2026-09-28 (Implement, M1.1): RED was `Failed to resolve import "./confirmation-copy.js"`; GREEN 17/17. The form clause needed one test-infra change the item did not name: `GuestDetailsForm.test.tsx`'s rialto `TextArea` stub rendered `<label>{label}</label>` beside the `<textarea>` with no association, so `getByLabelText("Special Requests")` failed with `Found a label with the text of: Special Requests, however no form control was found associated to that label`. The stub now sets `htmlFor`/`id` (the same slug it already used for `data-testid`), mirroring the real `TextArea`, which ties its label through `field.labelProps` (`packages/rialto/src/components/TextArea/TextArea.tsx:101`). All 24 existing tests in the file pass unchanged.
+- 2026-09-28 (Implement, M1.2): the guard is `constants/confirmation-copy.source.test.ts` (4 tests). Live-guard proof, both scratch files removed and never staged:
+  - A scratch `src/components/scratch-sc4-probe.ts` holding the literal failed two tests: `AssertionError: Read CONFIRMATION_COPY instead of retyping the sentence in:\n  components/scratch-sc4-probe.ts` (exact-sentence and fragment checks), `Tests 2 failed | 2 passed (4)`.
+  - A scratch `src/components/scratch-sc4-apos.tsx` holding the JSX retype `It&apos;s on your reservation for the team.` passed the exact-sentence check and failed only the fragment check (`Tests 1 failed | 3 passed (4)`), which is the case the fragment exists for.
+  - After removal: `Tests 4 passed (4)`. Cross-check `git grep -l "Noted. It's on your reservation for the team." -- apps/hospitality/src ':!*.test.*'` printed exactly `apps/hospitality/src/constants/confirmation-copy.ts`.
