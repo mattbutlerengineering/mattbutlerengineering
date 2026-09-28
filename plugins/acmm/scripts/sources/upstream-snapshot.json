@@ -1,0 +1,432 @@
+[
+  {
+    "id": "acmm:prereq-test-suite",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-e2e",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-cicd",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-pr-template",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-issue-template",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-contrib-guide",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-code-style",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prereq-coverage-gate",
+    "level": 0,
+    "scannable": true
+  },
+  {
+    "id": "acmm:claude-md",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:copilot-instructions",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:agents-md",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:cursor-rules",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:prompts-catalog",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:editor-config",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "acmm:simple-skills",
+    "level": 2,
+    "scannable": false
+  },
+  {
+    "id": "acmm:correction-capture",
+    "level": 2,
+    "scannable": false
+  },
+  {
+    "id": "acmm:positive-reinforcement",
+    "level": 2,
+    "scannable": false
+  },
+  {
+    "id": "acmm:pr-acceptance-metric",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "acmm:pr-review-rubric",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "acmm:quality-dashboard",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "acmm:ci-matrix",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "acmm:layered-safety",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:mechanical-enforcement",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:context-budget",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:model-tiering",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:verify-before-reporting",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:evidence-antipatterns",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:session-summary",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:structural-gates",
+    "level": 3,
+    "scannable": false
+  },
+  {
+    "id": "acmm:auto-qa-tuning",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:nightly-compliance",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:copilot-review-apply",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:auto-label",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:ai-fix-workflow",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:tier-classifier",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:security-ai-md",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "acmm:structured-workflows",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:router-skills",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:tdd-workflows",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:structured-rca",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:multi-perspective-review",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:idempotent-workflows",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:session-continuity",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:cross-session-knowledge",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:cross-repo-skills",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:github-coordination",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:feedback-loops",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:claude-md-auto-sync",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:preference-index",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:task-ledger",
+    "level": 4,
+    "scannable": false
+  },
+  {
+    "id": "acmm:github-actions-ai",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:auto-qa-self-tuning",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:public-metrics",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:policy-as-code",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:reflection-log",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:periodic-reflection",
+    "level": 5,
+    "scannable": false
+  },
+  {
+    "id": "acmm:audit-trail",
+    "level": 5,
+    "scannable": true
+  },
+  {
+    "id": "acmm:auto-issue-gen",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:multi-agent-orchestration",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:merge-queue",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:strategic-dashboard",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:risk-assessment-config",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:production-feedback",
+    "level": 6,
+    "scannable": false
+  },
+  {
+    "id": "acmm:observability-runbook",
+    "level": 6,
+    "scannable": true
+  },
+  {
+    "id": "acmm:rollback-drill",
+    "level": 6,
+    "scannable": false
+  },
+  {
+    "id": "fullsend:test-coverage",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:ci-cd-maturity",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:auto-merge-policy",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:branch-protection-doc",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:production-feedback",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:observability-runbook",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:risk-assessment",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "fullsend:rollback-drill",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "aef:task-traceability",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "aef:structural-gates",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "aef:session-continuity",
+    "level": 2,
+    "scannable": true
+  },
+  {
+    "id": "aef:audit-trail",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "aef:cross-tool-config",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "aef:change-classification",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "aef:component-fabric",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:correction-capture",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:positive-reinforcement",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:claude-md-sync",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:preference-index",
+    "level": 3,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:reflection-review",
+    "level": 4,
+    "scannable": true
+  },
+  {
+    "id": "claude-reflect:session-summary",
+    "level": 3,
+    "scannable": true
+  }
+]

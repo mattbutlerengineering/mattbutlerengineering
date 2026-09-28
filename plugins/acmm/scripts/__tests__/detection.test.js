@@ -431,3 +431,125 @@ test("detect: active type — gh returns empty runs array → false", () => {
   assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), false);
   fx.cleanup();
 });
+
+// ── `check` detection type (#5851/#5853 AC5) ────────────────
+
+test("detect: check type — routes to criterion.check() and returns its passed value", () => {
+  const fx = fixture();
+  const criterion = {
+    id: "x",
+    detection: { type: "check", pattern: "irrelevant" },
+    check: () => ({ passed: true, evidence: "stubbed" }),
+  };
+  assert.equal(detect(fx.root, criterion), true);
+  fx.cleanup();
+});
+
+test("detect: check type — passed:null (unverifiable) is returned as null, not coerced", () => {
+  const fx = fixture();
+  const criterion = {
+    id: "x",
+    detection: { type: "check", pattern: "irrelevant" },
+    check: () => ({ passed: null, evidence: "gh unavailable" }),
+  };
+  assert.equal(detect(fx.root, criterion), null);
+  fx.cleanup();
+});
+
+test("detect: check type — throws when no check() function is present", () => {
+  const fx = fixture();
+  const criterion = { id: "x", detection: { type: "check", pattern: "irrelevant" } };
+  assert.throws(() => detect(fx.root, criterion), /check\(\)/);
+  fx.cleanup();
+});
+
+test("detectAll: check type — pass/fail/unverifiable route to the right status, and only pass is detected", () => {
+  const fx = fixture();
+  const criteria = [
+    {
+      id: "pass-id",
+      detection: { type: "check", pattern: "p" },
+      check: () => ({ passed: true, evidence: "yes" }),
+    },
+    {
+      id: "fail-id",
+      detection: { type: "check", pattern: "p" },
+      check: () => ({ passed: false, evidence: "no" }),
+    },
+    {
+      id: "unverifiable-id",
+      detection: { type: "check", pattern: "p" },
+      check: () => ({ passed: null, evidence: "gh unavailable" }),
+    },
+  ];
+  const result = detectAll(fx.root, criteria);
+  assert.deepEqual([...result.detected], ["pass-id"]);
+  assert.equal(result.meta.get("pass-id").status, "active");
+  assert.equal(result.meta.get("fail-id").status, "inactive");
+  assert.equal(result.meta.get("unverifiable-id").status, "unverifiable");
+  fx.cleanup();
+});
+
+// ── branch scoping for `active` (#5853 AC4) ─────────────────
+
+test("isWorkflowActive: defaults to --branch=main", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, "ci.yml", 7, { execFileSyncFn: mockExecFileSync });
+  assert.ok(
+    capturedArgs.includes("--branch=main"),
+    `expected --branch=main in args, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
+test("isWorkflowActive: anyBranch:true omits the --branch filter", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, "ci.yml", 7, {
+    execFileSyncFn: mockExecFileSync,
+    anyBranch: true,
+  });
+  assert.ok(
+    !capturedArgs.some((a) => a.startsWith("--branch=")),
+    `expected no --branch filter, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
+test("DEFAULT_MAX_AGE_DAYS: detect/evaluate/detectAll share one constant", async () => {
+  const { DEFAULT_MAX_AGE_DAYS } = await import("../detection.js");
+  assert.equal(typeof DEFAULT_MAX_AGE_DAYS, "number");
+
+  const fx = fixture();
+  fx.dir(".github/workflows");
+  fx.file(".github/workflows/no-max-age.yml", "on: push");
+  // isWorkflowActive doesn't receive maxAgeDays as a CLI arg — assert
+  // indirectly via the cutoff math: a run DEFAULT_MAX_AGE_DAYS-1 days old
+  // must still be active under detectAll's default (regression: detectAll
+  // used to default to 7 while detect/evaluate defaulted to 30).
+  const mockExecFileSync = () =>
+    JSON.stringify([
+      {
+        conclusion: "success",
+        updatedAt: new Date(
+          Date.now() - (DEFAULT_MAX_AGE_DAYS - 1) * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      },
+    ]);
+  const criterion = {
+    id: "no-max-age",
+    detection: { type: "active", pattern: ".github/workflows/no-max-age.yml" },
+  };
+  const result = detectAll(fx.root, [criterion], { execFileSyncFn: mockExecFileSync });
+  assert.equal(result.meta.get("no-max-age").status, "active");
+  fx.cleanup();
+});

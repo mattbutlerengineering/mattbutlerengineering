@@ -162,7 +162,10 @@ export const META_CRITERIA = [
     name: "Threshold self-tuning",
     description: "System adjusted its own QA thresholds based on observed outcomes in last 30 days",
     scannable: false,
-    detection: { type: "active", pattern: "metrics/threshold-changes.jsonl" },
+    // Was `type: "active"` (#5851): isWorkflowActive shelled out to `gh run
+    // list --workflow=metrics/threshold-changes.jsonl`, a file, not a
+    // workflow — permanently "could not find any workflows" → unverifiable.
+    detection: { type: "check", pattern: "metrics/threshold-changes.jsonl" },
     check: checkThresholdTuning,
   },
   {
@@ -173,7 +176,7 @@ export const META_CRITERIA = [
     name: "Instruction evolution",
     description: "System updated its own instructions from learned patterns in last 30 days",
     scannable: false,
-    detection: { type: "active", pattern: "metrics/instruction-changes.jsonl" },
+    detection: { type: "check", pattern: "metrics/instruction-changes.jsonl" },
     check: checkInstructionEvolution,
   },
   {
@@ -184,7 +187,7 @@ export const META_CRITERIA = [
     name: "Process metrics tracked",
     description: "Operational metrics (FP rate, cost, time-to-fix) collected within last 7 days",
     scannable: false,
-    detection: { type: "active", pattern: "metrics/process-metrics.jsonl" },
+    detection: { type: "check", pattern: "metrics/process-metrics.jsonl" },
     check: checkProcessMetrics,
   },
   {
@@ -195,7 +198,7 @@ export const META_CRITERIA = [
     name: "False positive rate healthy",
     description: "Latest false positive rate below 30%",
     scannable: false,
-    detection: { type: "active", pattern: "metrics/process-metrics.jsonl" },
+    detection: { type: "check", pattern: "metrics/process-metrics.jsonl" },
     check: checkFpRate,
   },
   {
@@ -206,7 +209,9 @@ export const META_CRITERIA = [
     name: "Proactive product improvements shipped",
     description: "At least one improvement-labeled issue merged in last 30 days",
     scannable: false,
-    detection: { type: "active", pattern: "github:improvement-label" },
+    // Already routed through check() pre-#5853 via a `github:` prefix hack in
+    // detection.js/evaluate.js; now uses the general `check` type instead.
+    detection: { type: "check", pattern: "github:improvement-label" },
     check: checkProductImprovements,
   },
   AUDIT_FRESHNESS_CRITERION,

@@ -10,12 +10,23 @@
  *   - `any-of` — array of paths; ANY one existing satisfies the criterion
  *   - `active` — file exists AND a recent successful workflow run is found (via `gh run list`)
  *   - `grep`   — file exists AND contains a specific regex pattern
+ *   - `check`  — delegates entirely to `criterion.check(cwd, opts)`; used when
+ *                the real condition is a composite (grep AND active), a count
+ *                threshold, or a live `gh` query that doesn't fit path/any-of/
+ *                grep/active. `check().passed` may be `null` for unverifiable.
  *   - `glob`   — reserved; not used in current canonical data
  */
 
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+/**
+ * Shared fallback for `maxAgeDays` when a criterion's `active` detection
+ * doesn't specify one. `detect`/`evaluate` used to default to 30 and
+ * `detectAll` to 7 — one silent inconsistency depending which code path ran.
+ */
+export const DEFAULT_MAX_AGE_DAYS = 30;
 
 function existsAt(cwd, pattern) {
   const isDir = pattern.endsWith("/");
@@ -39,11 +50,16 @@ function existsAt(cwd, pattern) {
  * @param {string} cwd        — repo root
  * @param {string} workflowFile — workflow filename (e.g. 'auto-issue.yml')
  * @param {number} maxAgeDays  — max age in days for the most recent run
- * @param {{ execFileSyncFn?: Function }} [opts] — injectable for testing
+ * @param {{ execFileSyncFn?: Function, branch?: string, anyBranch?: boolean }} [opts] — injectable for testing
  * @returns {{ active: boolean | null, degraded?: boolean, conclusion?: string, reason: string }}
  */
 export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
   const fn = opts.execFileSyncFn ?? execFileSync;
+  // `active` means the workflow succeeded on the default branch — a green run
+  // on a PR branch proves nothing about main. `anyBranch: true` is the
+  // documented opt-out for a workflow with no push/schedule trigger (where
+  // "the default branch" isn't a meaningful concept to filter on).
+  const branchArgs = opts.anyBranch === true ? [] : [`--branch=${opts.branch ?? "main"}`];
   try {
     const result = fn(
       "gh",
@@ -51,6 +67,7 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
         "run",
         "list",
         `--workflow=${workflowFile}`,
+        ...branchArgs,
         // Query successful runs directly. A high volume of `skipped`/`failure`
         // runs — e.g. auto-rollback.yml skips on every passing deploy — must not
         // crowd the real success out of the result window and falsely report the
@@ -100,22 +117,20 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
  * not-a-pass, which is the intended "excluded from level math" semantic.
  *
  * @param {string} cwd
- * @param {{ detection: { type: 'path' | 'glob' | 'any-of' | 'active', pattern: string | string[], maxAgeDays?: number }}} criterion
+ * @param {{ detection: { type: 'path' | 'glob' | 'any-of' | 'active' | 'check', pattern: string | string[], maxAgeDays?: number, anyBranch?: boolean }, check?: Function }} criterion
  * @param {{ execFileSyncFn?: Function }} [opts]
- * @returns {boolean | null} `null` = unverifiable (active type, gh degraded)
+ * @returns {boolean | null} `null` = unverifiable (active/check type, gh degraded)
  */
 export function detect(cwd, criterion, opts = {}) {
-  const { type, pattern, maxAgeDays = 30 } = criterion.detection;
+  const { type, pattern, maxAgeDays = DEFAULT_MAX_AGE_DAYS, anyBranch } = criterion.detection;
 
-  // Delegate `github:` prefixed patterns to the criterion's check function
-  if (
-    type === "active" &&
-    typeof pattern === "string" &&
-    pattern.startsWith("github:") &&
-    typeof criterion.check === "function"
-  ) {
-    const result = criterion.check(cwd, opts);
-    return result.passed;
+  if (type === "check") {
+    if (typeof criterion.check !== "function") {
+      throw new Error(
+        `detection.type='check' requires a check() function on criterion ${criterion.id}`
+      );
+    }
+    return criterion.check(cwd, opts).passed;
   }
 
   if (type === "path") {
@@ -132,7 +147,7 @@ export function detect(cwd, criterion, opts = {}) {
     if (!filePresent) return false;
     // Check first matching file for workflow activity
     const workflowFile = patterns.find((p) => existsAt(cwd, p));
-    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
+    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, { ...opts, anyBranch });
     // gh unavailable → activity cannot be confirmed → `unverifiable` (null), NOT a pass.
     // Mirrors the #2023 verdict seam in evaluate.js, which excludes degraded active
     // criteria from level math and the denominator instead of counting them as detected.
@@ -177,28 +192,28 @@ export function detectAll(cwd, criteria, opts = {}) {
   const detected = new Set();
   const meta = new Map();
   for (const c of criteria) {
-    if (c.detection.type === "active") {
-      const { maxAgeDays = 7 } = c.detection;
+    if (c.detection.type === "check") {
+      if (typeof c.check !== "function") {
+        meta.set(c.id, { status: "missing", reason: "no check() function" });
+        continue;
+      }
+      const checkResult = c.check(cwd, opts);
+      if (checkResult.passed === true) {
+        detected.add(c.id);
+        meta.set(c.id, { status: "active", reason: checkResult.evidence });
+      } else if (checkResult.passed === null) {
+        // gh (or another external dependency) unavailable — excluded from
+        // `detected` (not a pass), surfaced in meta. Aligns with the #2023
+        // verdict seam in evaluate.js.
+        meta.set(c.id, { status: "unverifiable", reason: checkResult.evidence });
+      } else {
+        meta.set(c.id, { status: "inactive", reason: checkResult.evidence });
+      }
+    } else if (c.detection.type === "active") {
+      const { maxAgeDays = DEFAULT_MAX_AGE_DAYS, anyBranch } = c.detection;
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
-
-      // Handle `github:` prefixed patterns via the criterion's check function
-      const isGithubPattern =
-        patterns.length === 1 &&
-        typeof patterns[0] === "string" &&
-        patterns[0].startsWith("github:") &&
-        typeof c.check === "function";
-      if (isGithubPattern) {
-        const checkResult = c.check(cwd, opts);
-        if (checkResult.passed) {
-          detected.add(c.id);
-          meta.set(c.id, { status: "active", reason: checkResult.evidence });
-        } else {
-          meta.set(c.id, { status: "inactive", reason: checkResult.evidence });
-        }
-        continue;
-      }
 
       const filePresent = patterns.some((p) => existsAt(cwd, p));
       if (!filePresent) {
@@ -206,7 +221,7 @@ export function detectAll(cwd, criteria, opts = {}) {
         continue;
       }
       const workflowFile = patterns.find((p) => existsAt(cwd, p));
-      const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
+      const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, { ...opts, anyBranch });
       if (result.degraded) {
         // gh unavailable → unverifiable: excluded from `detected` (not a pass),
         // surfaced in meta. Aligns with the #2023 verdict seam in evaluate.js.

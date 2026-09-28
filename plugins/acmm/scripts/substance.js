@@ -327,8 +327,11 @@ export const substanceCheckers = {
   "acmm:session-continuity": checkSessionContinuity,
   "acmm:simple-skills": checkSkill,
   "acmm:feedback-loops": checkFeedbackLoop,
-  "fullsend:test-coverage": checkTestCoverage,
-  "fullsend:observability-runbook": checkRunbook,
+  // Moved from fullsend:test-coverage / fullsend:observability-runbook
+  // (#5851/#5853 AC6: those ids were deleted — "Twins" merged into their
+  // acmm: counterparts, substance moved with them).
+  "acmm:prereq-coverage-gate": checkTestCoverage,
+  "acmm:observability-runbook": checkRunbook,
 };
 
 export function runSubstanceChecks(detectedIds, criteria, cwd) {

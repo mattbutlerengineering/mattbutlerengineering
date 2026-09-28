@@ -9,17 +9,65 @@ AI agents** rather than just edited by them. It evaluates the **meta-properties*
 of the repo — instructions, metrics, loops, gates, autonomy — not the
 quality of the application code itself.
 
-The catalog (100+ criteria across 4 cited frameworks) is ported verbatim from
+The catalog is ported from
 [kubestellar/console](https://github.com/kubestellar/console/tree/main/web/src/lib/acmm/sources),
-the reference implementation validated in [arXiv:2604.09388](https://arxiv.org/abs/2604.09388).
-Source IDs and detection paths are 1:1 with upstream — verified by diff.
+the reference implementation validated in [arXiv:2604.09388](https://arxiv.org/abs/2604.09388),
+plus repo-invented extensions kept in a separate, **non-gating** `local:`
+source. Only criteria that are (a) in the upstream catalog, (b) an explicit
+evidence-backed local extension, or (c) this repo's own self-improvement
+metrics may gate the published level — see
+[Upstream parity](#upstream-parity-and-local-extensions) below.
 
-| Source                                                                                          | Criteria |
-| ----------------------------------------------------------------------------------------------- | -------- |
-| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388)                                  | 66       |
-| [Fullsend](https://github.com/fullsend-ai/fullsend)                                             | 9        |
-| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 7        |
-| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)                               | 7        |
+| Source                                                                                          | Criteria | Gates the level?                                       |
+| ----------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------ |
+| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388)                                  | 58       | Yes                                                    |
+| [Fullsend](https://github.com/fullsend-ai/fullsend)                                             | 2        | No                                                     |
+| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 2        | No                                                     |
+| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)                               | 0        | No (every criterion was a duplicate of an `acmm:` one) |
+| Local extensions (`docs/acmm/gaps.md`)                                                          | 16       | No — moved out of `acmm` by #5853                      |
+| Meta self-improvement                                                                           | 6        | No (display-only; routed through `check()`)            |
+
+Counts as of #5853 (2026-09-28) — run `node -e '...'` against
+`plugins/acmm/scripts/sources/index.js`'s `SOURCES` export for the live
+numbers; they drift as criteria are added, merged, or moved.
+
+### Upstream parity and local extensions
+
+`plugins/acmm/scripts/sources/upstream-parity.js` is the enforcement point:
+its `findUpstreamParityIssues()` (exercised by
+`plugins/acmm/scripts/__tests__/upstream-parity.test.js`) asserts two things
+about `plugins/acmm/scripts/sources/upstream-snapshot.json` (a point-in-time
+capture of every upstream id, level, and scannable flag):
+
+1. Every upstream id still exists locally with the same level/scannable, **or**
+   is listed in `DROPPED_UPSTREAM_IDS` with a reason (duplicates collapsed,
+   dead targets removed).
+2. Every gating `acmm`-source criterion **absent** from the upstream snapshot
+   is one of the four ids in `LOCAL_GATING_EXTENSIONS` — evidence-backed local
+   additions (`instruction-sync-gate`, `instruction-rot-detection`,
+   `accessibility-ai-check`, `auto-rollback`) that earned gating status because
+   they check a real, running mechanism in this repo, not just a file's
+   existence.
+
+Everything else repo-invented lives in the non-gating `local:` source
+(`plugins/acmm/scripts/sources/local.js`) — visible in the headline count and
+`--project` reports, but never part of the level threshold walk.
+
+**Refreshing the snapshot** when upstream changes (replace `<sha>` with the
+commit to snapshot against):
+
+```bash
+gh api "repos/kubestellar/console/contents/web/src/lib/acmm/sources/acmm.criteria.ts?ref=<sha>" --jq .content | base64 -d
+gh api "repos/kubestellar/console/contents/web/src/lib/acmm/sources/fullsend.ts?ref=<sha>" --jq .content | base64 -d
+gh api "repos/kubestellar/console/contents/web/src/lib/acmm/sources/agentic-engineering-framework.ts?ref=<sha>" --jq .content | base64 -d
+gh api "repos/kubestellar/console/contents/web/src/lib/acmm/sources/claude-reflect.ts?ref=<sha>" --jq .content | base64 -d
+```
+
+then re-extract `{ id, level, scannable }` per criterion (`scannable` defaults
+to `true` when the upstream object omits the field) into
+`upstream-snapshot.json`, and re-run
+`pnpm --dir plugins/acmm test -- upstream-parity` — a failure names exactly
+which id needs a decision (port it, or add it to `DROPPED_UPSTREAM_IDS`).
 
 ## The 6 levels
 
@@ -107,11 +155,14 @@ By default, the following paths are considered global and can be inherited:
 
 ## Internally:
 
-1. Loads 100+ criteria from `plugins/acmm/scripts/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
-2. Runs file-presence detection on each (no network, native `fs` only):
+1. Loads all criteria from `plugins/acmm/scripts/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect,local}.js` plus `meta-criteria.js`.
+2. Runs detection on each:
    - `path` — single file or directory; trailing `/` requires a directory
    - `any-of` — array of paths; ANY match satisfies
-3. Computes the level via threshold walk.
+   - `grep` — file exists AND contains a regex
+   - `active` — file exists AND a recent successful workflow run is found on the default branch (`gh run list`); `detection.anyBranch: true` opts out, only valid for a workflow with no push/schedule trigger
+   - `check` — delegates to `criterion.check(cwd, opts)` for composite conditions (grep AND active, a count threshold, a live `gh` query) that don't fit the other four types; `check().passed === null` means unverifiable, not a pass
+3. Computes the level via threshold walk — **only `acmm`-source criteria at L2–L6 gate it**; `local`, `fullsend`, `agentic-engineering-framework`, `claude-reflect`, and `meta` never do (see [Upstream parity](#upstream-parity-and-local-extensions)).
 4. Writes `.claude/acmm/state.json` (full computation) and `.claude/acmm/report.md` (scorecard).
 5. With `--apply`, files GitHub issues only for **next-level gaps** — dedupes via `state.issuesCreated[criterionId]` so re-runs don't spam.
 6. With `--badge`, rewrites the README shields.io badge in place.
@@ -226,28 +277,37 @@ SKILL.md, etc.) so future sessions start smarter than the last one.
 
 ## Related artifacts
 
-| Artifact                                                | Purpose                                             |
-| ------------------------------------------------------- | --------------------------------------------------- |
-| `.claude/skills/acmm-audit/SKILL.md`                    | Slash-command interface (`/acmm-audit`)             |
-| `plugins/acmm/scripts/audit.js`                         | The audit runner                                    |
-| `plugins/acmm/scripts/sources/*.js`                     | The 100+ criterion catalog (1:1 port of upstream)   |
-| `plugins/acmm/scripts/computeLevel.js`                  | Threshold walk + missing-for-next-level computation |
-| `plugins/acmm/scripts/outputs/{report,badge,issues}.js` | Output renderers                                    |
-| `.claude/acmm/state.json`                               | Last run state (gitignored, locally derived)        |
-| `.claude/acmm/report.md`                                | Scorecard (gitignored, locally derived)             |
-| `metrics/pr-acceptance.json`                            | PR-history backfill for trend analysis              |
-| `docs/reflections/`                                     | Lessons-learned committed log                       |
-| `docs/ai-ops-runbook.md`                                | How to debug/override the autonomous systems        |
+| Artifact                                                                                       | Purpose                                                                                |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `.claude/skills/acmm-audit/SKILL.md`                                                           | Slash-command interface (`/acmm-audit`)                                                |
+| `plugins/acmm/scripts/audit.js`                                                                | The audit runner                                                                       |
+| `plugins/acmm/scripts/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js` | The gating-eligible catalog (upstream-ported, plus 4 evidence-backed local extensions) |
+| `plugins/acmm/scripts/sources/local.js`                                                        | Non-gating repo-invented criteria (`docs/acmm/gaps.md`)                                |
+| `plugins/acmm/scripts/sources/upstream-snapshot.json`                                          | Point-in-time upstream `{id, level, scannable}` capture for the parity check           |
+| `plugins/acmm/scripts/sources/upstream-parity.js`                                              | `DROPPED_UPSTREAM_IDS`, `LOCAL_GATING_EXTENSIONS`, `findUpstreamParityIssues()`        |
+| `plugins/acmm/scripts/computeLevel.js`                                                         | Threshold walk + missing-for-next-level computation                                    |
+| `plugins/acmm/scripts/outputs/{report,badge,issues}.js`                                        | Output renderers                                                                       |
+| `.claude/acmm/state.json`                                                                      | Last run state (gitignored, locally derived)                                           |
+| `.claude/acmm/report.md`                                                                       | Scorecard (gitignored, locally derived)                                                |
+| `metrics/pr-acceptance.json`                                                                   | PR-history backfill for trend analysis                                                 |
+| `docs/reflections/`                                                                            | Lessons-learned committed log                                                          |
+| `docs/ai-ops-runbook.md`                                                                       | How to debug/override the autonomous systems                                           |
 
 ## Adding a new criterion
 
-We don't extend the canonical 100+ criterion catalog locally — that would
-break upstream parity. Instead:
+**A criterion that gates the published level** must be either a port of a real
+upstream criterion, or an evidence-backed local exception added to
+`LOCAL_GATING_EXTENSIONS` (see [Upstream parity](#upstream-parity-and-local-extensions)) —
+the bar for the latter is a criterion that checks a real, running mechanism in
+this repo, not a file's existence:
 
-1. Open an issue or PR upstream at [kubestellar/console](https://github.com/kubestellar/console).
-2. Once it lands, port the new criterion into the matching `plugins/acmm/scripts/sources/<source>.js` file.
-3. Re-run `node plugins/acmm/scripts/audit.js` to confirm parity (89 → 90).
+1. Upstream: open an issue or PR at [kubestellar/console](https://github.com/kubestellar/console); once it lands, port it into the matching `plugins/acmm/scripts/sources/<source>.js` file and refresh `upstream-snapshot.json`.
+2. Local exception: add the criterion to `plugins/acmm/scripts/sources/acmm.js`, add its id to `LOCAL_GATING_EXTENSIONS` in `upstream-parity.js`, and document why in the criterion's `details` field — `pnpm --dir plugins/acmm test` fails loudly (via `upstream-parity.test.js`) if you skip this step.
 
-For repo-specific quality gates that aren't part of ACMM, use the
+**A criterion that's just a useful local signal, not worth gating the level
+over**, goes in `plugins/acmm/scripts/sources/local.js` instead — visible in
+the headline count and `--project` reports, never part of the threshold walk.
+
+For repo-specific quality gates that aren't part of ACMM at all, use the
 existing systems: `/site-audit` for UX/perf, `/ci-monitor` for CI
 health, ADRs in `docs/adr/` for architectural decisions.

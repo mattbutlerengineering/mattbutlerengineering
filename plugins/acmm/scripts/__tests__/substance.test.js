@@ -288,7 +288,9 @@ describe("feedback loop substance checker", () => {
 });
 
 describe("test coverage substance checker", () => {
-  const checker = substanceCheckers["fullsend:test-coverage"];
+  // Moved from fullsend:test-coverage (#5851/#5853 AC6: merged into
+  // acmm:prereq-coverage-gate, "move substance").
+  const checker = substanceCheckers["acmm:prereq-coverage-gate"];
 
   test("passes when coverage config has recognizable threshold", () => {
     const dir = makeTmpDir();
@@ -313,7 +315,9 @@ describe("test coverage substance checker", () => {
 });
 
 describe("runbook substance checker", () => {
-  const checker = substanceCheckers["fullsend:observability-runbook"];
+  // Moved from fullsend:observability-runbook (#5851/#5853 AC6: merged into
+  // acmm:observability-runbook, "move substance").
+  const checker = substanceCheckers["acmm:observability-runbook"];
 
   test("passes when runbook references real service names", () => {
     const dir = makeTmpDir();
