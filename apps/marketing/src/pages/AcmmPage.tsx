@@ -39,17 +39,19 @@ interface AcmmReport {
   readonly repo: RepoEntry;
 }
 
-const LEVEL_COLORS: Record<number, string> = {
-  6: "green",
-  5: "green",
-  4: "blue",
-  3: "blue",
-  2: "orange",
-  1: "gray",
+type BadgeVariant = "neutral" | "accent" | "success" | "warning" | "error";
+
+const LEVEL_VARIANTS: Record<number, BadgeVariant> = {
+  6: "success",
+  5: "success",
+  4: "accent",
+  3: "accent",
+  2: "warning",
+  1: "neutral",
 };
 
-function levelColor(level: number): string {
-  return LEVEL_COLORS[level] ?? "gray";
+function levelVariant(level: number): BadgeVariant {
+  return LEVEL_VARIANTS[level] ?? "neutral";
 }
 
 function formatPercent(value: number): string {
@@ -147,7 +149,7 @@ export function AcmmPage() {
       <Card className={styles.wsCard}>
         <div className={styles.wsHeader}>
           <div className={styles.wsTitle}>
-            <Badge color={levelColor(repo.currentLevel)} size="sm">
+            <Badge variant={levelVariant(repo.currentLevel)} size="sm">
               L{repo.currentLevel}
             </Badge>
             <Text className={styles.wsName}>{repo.levelName}</Text>
@@ -189,7 +191,7 @@ export function AcmmPage() {
                   {repo.behavioralGates.map((gate) => (
                     <div key={gate.name} className={styles.gateRow}>
                       <Badge
-                        color={gate.unverifiable ? "gray" : gate.passed ? "green" : "red"}
+                        variant={gate.unverifiable ? "neutral" : gate.passed ? "success" : "error"}
                         size="sm"
                       >
                         {gate.unverifiable ? "Unverifiable" : gate.passed ? "Pass" : "Fail"}

@@ -4,7 +4,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AcmmPage } from "./AcmmPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Badge: ({ children, color }: any) => <span data-color={color}>{children}</span>,
+  Badge: ({ children, variant }: any) => <span data-variant={variant}>{children}</span>,
   Button: ({ children, onClick, "aria-expanded": expanded }: any) => (
     <button onClick={onClick} aria-expanded={expanded}>
       {children}
@@ -178,6 +178,14 @@ describe("AcmmPage", () => {
     });
   });
 
+  it("maps a high level (L6) to the Badge success variant", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText("L6")).toHaveAttribute("data-variant", "success");
+    });
+  });
+
   it("shows criteria met/total and coverage percent", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
@@ -270,8 +278,10 @@ describe("AcmmPage", () => {
     await waitFor(() => {
       expect(screen.getByText("ci flake rate")).toBeInTheDocument();
       expect(screen.getByText("Pass")).toBeInTheDocument();
+      expect(screen.getByText("Pass")).toHaveAttribute("data-variant", "success");
       expect(screen.getByText("agent pr revert rate")).toBeInTheDocument();
       expect(screen.getByText("Fail")).toBeInTheDocument();
+      expect(screen.getByText("Fail")).toHaveAttribute("data-variant", "error");
       expect(screen.getByText("0 / 0.2")).toBeInTheDocument();
     });
   });
@@ -288,6 +298,7 @@ describe("AcmmPage", () => {
     await waitFor(() => {
       expect(screen.getByText("human touch ratio")).toBeInTheDocument();
       expect(screen.getByText("Unverifiable")).toBeInTheDocument();
+      expect(screen.getByText("Unverifiable")).toHaveAttribute("data-variant", "neutral");
       expect(screen.getByText("— / 0.5")).toBeInTheDocument();
     });
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
