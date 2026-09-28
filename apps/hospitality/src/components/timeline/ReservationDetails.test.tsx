@@ -4,6 +4,8 @@ import { ApiClientError } from "@mbe/api-client";
 import { ReservationDetails, type ReservationDetailsProps } from "./ReservationDetails.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Reservation, Table } from "@mbe/types";
+import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import { EMPTY_NOTES, TWO_LINE_NOTE } from "../../test/special-requests-fixtures.js";
 
 vi.mock("../crm/GuestCard.js", () => ({
   GuestCard: ({ guestId }: { guestId: string }) => <div data-testid="guest-card">{guestId}</div>,
@@ -277,5 +279,21 @@ describe("ReservationDetails", () => {
         expect(screen.queryByRole("button", { name: "Mark No-Show" })).toBeNull();
       }
     );
+  });
+
+  describe("Special Requests (remembered-on-arrival SC3)", () => {
+    const label = CONFIRMATION_COPY.specialRequestsLabel;
+
+    it("shows the guest's request under Special Requests, not Notes", () => {
+      renderDetails({ reservation: makeReservation({ notes: TWO_LINE_NOTE }) });
+      expect(screen.getByRole("group", { name: label })).toBeDefined();
+      expect(screen.queryByText("Notes")).toBeNull();
+    });
+
+    it.each(EMPTY_NOTES)("shows no group and no label for %j", (notes) => {
+      renderDetails({ reservation: makeReservation({ notes }) });
+      expect(screen.queryByRole("group", { name: label })).toBeNull();
+      expect(screen.queryByText(label)).toBeNull();
+    });
   });
 });
