@@ -2,25 +2,44 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ConfirmationView } from "./ConfirmationView.js";
+import { Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, PublicVenueConfig } from "@mbe/types";
 import React from "react";
 
-vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({
-    children,
-    onClick,
-    variant,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    variant?: string;
-  }) => (
-    <button onClick={onClick} data-variant={variant}>
-      {children}
-    </button>
-  ),
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-}));
+vi.mock("@mattbutlerengineering/rialto", () => {
+  // Keep the attributes group/heading assertions read; drop presentational props.
+  const forwarded = (props: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(props).filter(
+        ([key]) => ["id", "dir", "className", "role"].includes(key) || key.startsWith("aria-")
+      )
+    );
+  return {
+    Button: ({
+      children,
+      onClick,
+      variant,
+    }: {
+      children: React.ReactNode;
+      onClick?: () => void;
+      variant?: string;
+    }) => (
+      <button onClick={onClick} data-variant={variant}>
+        {children}
+      </button>
+    ),
+    Text: ({
+      children,
+      as: Tag = "span",
+      ...props
+    }: { children?: React.ReactNode; as?: React.ElementType } & Record<string, unknown>) => (
+      <Tag {...forwarded(props)}>{children}</Tag>
+    ),
+    Stack: ({ children, ...props }: { children?: React.ReactNode } & Record<string, unknown>) => (
+      <div {...forwarded(props)}>{children}</div>
+    ),
+  };
+});
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -315,5 +334,19 @@ describe("ConfirmationView", () => {
 
       clickSpy.mockRestore();
     });
+  });
+});
+
+describe("rialto stub (test infrastructure)", () => {
+  it("forwards role, aria-* and id, and honours as, so group names resolve", () => {
+    render(
+      <Stack role="group" aria-labelledby="t">
+        <Text id="t" as="h3">
+          Probe
+        </Text>
+      </Stack>
+    );
+    expect(screen.getByRole("group", { name: "Probe" })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 3, name: "Probe" })).toBeDefined();
   });
 });

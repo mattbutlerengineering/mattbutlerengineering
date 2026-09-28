@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import type * as ReactRouter from "react-router";
 import { ApiClientError } from "@mbe/api-client";
 import { BriefingPage, segmentForHour } from "./BriefingPage.js";
+import { Stack, Text } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useBriefing } from "../hooks/useBriefing.js";
@@ -131,7 +132,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="skeleton-group">{children}</div>
   ),
-  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Stack: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => (
+    <div
+      {...Object.fromEntries(
+        Object.entries(props).filter(([key]) => key === "role" || key.startsWith("aria-"))
+      )}
+    >
+      {children}
+    </div>
+  ),
   Tag: ({ children, variant }: { children: React.ReactNode; variant?: string }) => (
     <span data-testid="tag" data-variant={variant ?? "default"}>
       {children}
@@ -139,13 +148,19 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Text: ({
     children,
-    className,
-    as: _as,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-    as?: string;
-  }) => <span className={className}>{children}</span>,
+    as: Tag = "span",
+    ...props
+  }: { children: React.ReactNode; as?: React.ElementType } & Record<string, unknown>) => (
+    <Tag
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => ["id", "dir", "className", "role"].includes(key) || key.startsWith("aria-")
+        )
+      )}
+    >
+      {children}
+    </Tag>
+  ),
 }));
 
 const mockVenue: VenueContextValue = {
@@ -544,5 +559,19 @@ describe("BriefingPage", () => {
       const spoken = screen.getAllByRole("status").find((el) => el.getAttribute("aria-live"));
       expect(spoken?.textContent).toBe("");
     });
+  });
+});
+
+describe("rialto stub (test infrastructure)", () => {
+  it("forwards role, aria-* and id, and honours as, so group names resolve", () => {
+    render(
+      <Stack role="group" aria-labelledby="t">
+        <Text id="t" as="h3">
+          Probe
+        </Text>
+      </Stack>
+    );
+    expect(screen.getByRole("group", { name: "Probe" })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 3, name: "Probe" })).toBeDefined();
   });
 });

@@ -87,7 +87,7 @@ the form label now reads the constant; its text is unchanged.
   - Accept: the module's existing exports and tests are unchanged and green.
   - Serves: SC5 (the displayed-text rule behind SC1–SC3)
   - Blocked by: —
-- [ ] **M1.4 Widen the two rialto test mocks** — `ConfirmationView.test.tsx` (`:8-23`) and `BriefingPage.test.tsx` (`:55-148`) stubs forward their remaining props and honour `as`, so group names resolve (tracker: #5863)
+- [x] **M1.4 Widen the two rialto test mocks** — `ConfirmationView.test.tsx` (`:8-23`) and `BriefingPage.test.tsx` (`:55-148`) stubs forward their remaining props and honour `as`, so group names resolve (tracker: #5863)
   - Build:
     - In `ConfirmationView.test.tsx`, the `Text` stub renders the element named by `as` (default `span`) and forwards `id`, `dir`, `className`, `role` and `aria-*`. A `Stack` stub is added: a `div` that forwards the same props. `Button` is unchanged.
     - In `BriefingPage.test.tsx`, `Stack` (`:134`) forwards `role` and `aria-*`, and `Text` (`:140-148`) honours `as` and forwards `id`, `dir`, `role` and `aria-*` alongside `className`.
@@ -361,3 +361,4 @@ and no item needed a decision the architecture had not made.
   - A scratch `src/components/scratch-sc4-apos.tsx` holding the JSX retype `It&apos;s on your reservation for the team.` passed the exact-sentence check and failed only the fragment check (`Tests 1 failed | 3 passed (4)`), which is the case the fragment exists for.
   - After removal: `Tests 4 passed (4)`. Cross-check `git grep -l "Noted. It's on your reservation for the team." -- apps/hospitality/src ':!*.test.*'` printed exactly `apps/hospitality/src/constants/confirmation-copy.ts`.
 - 2026-09-28 (Implement, M1.3): RED was `TypeError: specialRequestsText is not a function` on all 8 new cases; GREEN `Tests 20 passed (20)`, the module's 12 existing tests included.
+- 2026-09-28 (Implement, M1.4): RED, one per file, each for the expected reason: `ConfirmationView.test.tsx` threw `[vitest] No "Stack" export is defined on the "@mattbutlerengineering/rialto" mock`, and `BriefingPage.test.tsx` threw `Unable to find an accessible element with the role "group" and name "Probe"`. GREEN: `Tests 52 passed (52)` across both files, every pre-existing test included. The stubs keep only `id`, `dir`, `className`, `role` and `aria-*` (Briefing's `Stack`: `role` and `aria-*`), so presentational props such as `variant`, `color` and `align` still never reach the DOM.
