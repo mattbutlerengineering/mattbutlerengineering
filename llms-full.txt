@@ -27753,7 +27753,7 @@
         date: z.iso.date().describe("New reservation date (YYYY-MM-DD)").optional(),
         startTime: z.iso.datetime({ offset: true }).describe("New start time (ISO 8601)").optional(),
         endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
-        partySize: z.number().int().min(1).describe("New party size").optional(),
+        partySize: z.number().int().min(1).max(20).describe("New party size").optional(),
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
       })
       .describe("Fields to modify via guest self-service");
@@ -35455,6 +35455,15 @@
             code: "SLOT_UNAVAILABLE",
           };
         }
+        if (updateResult.capacityExceeded) {
+          return {
+            success: false,
+            status: 422,
+            title: "Party Size Exceeds Table Capacity",
+            detail: updateResult.error!,
+            code: "PARTY_SIZE_EXCEEDS_TABLE",
+          };
+        }
         return {
           success: false,
           status: 500,
@@ -35910,6 +35919,7 @@
       reservation?: Reservation;
       error?: string;
       conflict?: ConflictCheckResult;
+      capacityExceeded?: boolean;
     }
     function compareReservationDateDesc(
       a: { date: Date; startTime: Date },
@@ -36251,6 +36261,25 @@
     
         if (!existing) {
           return { success: false, error: "Reservation not found" };
+        }
+    
+        // Capacity check runs whenever partySize changes, independent of
+        // timeOrTableChanged below — a partySize-only edit is not a slot move,
+        // but it still must not exceed the (possibly unchanged) assigned table's
+        // capacity (#5807).
+        if (data.partySize !== undefined) {
+          const targetTableId = data.tableId ?? existing.tableId;
+          const table = await prisma.table.findUnique({
+            where: { id: targetTableId },
+            select: { capacity: true },
+          });
+          if (table && data.partySize > table.capacity) {
+            return {
+              success: false,
+              error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+              capacityExceeded: true,
+            };
+          }
         }
     
         // Determine if we need to check for conflicts

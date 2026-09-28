@@ -8626,6 +8626,7 @@
         reservation?: Reservation;
         error?: string;
         conflict?: ConflictCheckResult;
+        capacityExceeded?: boolean;
       }
     </item>
     <item priority="medium">
