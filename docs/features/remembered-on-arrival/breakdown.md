@@ -2,7 +2,7 @@
 stage: decompose
 run: feature:remembered-on-arrival
 date: 2026-09-28
-design-gaps: 0
+design-gaps: 1
 assumptions:
   - "Tracker labels: every mirrored child issue carries `blocked` (plus `feature` and `area:hospitality`), not `ready`. `ready` is the claim signal for `/implement-queue` and `/issue-worker` (`gh issue list --label ready`), and `.github/workflows/scheduled-issue-completion.yml`'s `promote` pass applies `ready` to any open issue lacking `ready`/`in-progress`/`has-pr`/`needs-review`/`blocked` (its jq filter, lines 139-144 on `origin/main` `7ac892126`). A `ready` label would invite a scheduled worker to build these items concurrently with this run's own Implement stage and open duplicate PRs. This follows the precedent run `maintenance:api-client-route-contract` (#5684–#5695, all `blocked`). The brief's § Tracker says `ready`; that wording is orchestrator elaboration, and the user's answer was `export issues (precedent)`. Reversible with `gh issue edit <N> --remove-label blocked`."
   - "The tracking issue carries `blocked` in addition to the required `tracking` + `feature`. Reason: the same `promote` filter does not exclude `tracking`, so without `blocked` the parent would be the one promotable issue in this set. `tracking` keeps it visible to `tracking-checkbox.yml` (`scripts/tick-tracking-checkbox.mjs`), which ticks `- [ ] #N` lines as children close."
@@ -124,7 +124,7 @@ was sent.
   - Accept: the file's existing tests pass.
   - Serves: SC1, SC5, SC6, SC9 (US1)
   - Blocked by: M1.1, M1.3, M1.4
-- [ ] **M2.2 The honest contact line** — `ConfirmationView.tsx:183-187` renders `contactLine(...)`, and the pinned tests at `ConfirmationView.test.tsx:169` and `:190` are replaced, not deleted (tracker: #5865)
+- [x] **M2.2 The honest contact line** — `ConfirmationView.tsx:183-187` renders `contactLine(...)`, and the pinned tests at `ConfirmationView.test.tsx:169` and `:190` are replaced, not deleted (tracker: #5865)
   - Build: the line keeps its slot, its condition (`guestEmail || guestPhone`) and its `Text variant="caption" color="secondary" align="center"`. Its text becomes `{contactLine(reservation.guestEmail || reservation.guestPhone)}`, and it gains `className={styles.contactLine}` (`.contactLine { overflow-wrap: anywhere; }`).
   - Accept: tests are rewritten in place; each new assertion fails first against today's line:
     - `:169` (email case) becomes `getByText(contactLine("john@example.com"))`;
@@ -329,8 +329,10 @@ green, and the diff contains nothing SC10 excludes.
 
 ## Design gaps found
 
-None. Every component, interface and test in `architecture.md` maps to an item,
+None at Decompose. Every component, interface and test in `architecture.md` maps to an item,
 and no item needed a decision the architecture had not made.
+
+- 2026-09-28 (Implement, M2.2): M2.2's two clauses conflict. Its tests must assert `queryByText(/A confirmation has been sent/)` is `null`, and its closing check says `git grep -n "A confirmation has been sent" -- apps/hospitality/src` prints nothing. The first puts the phrase in `ConfirmationView.test.tsx` four times, so the second cannot hold as written. Resolved by scoping the grep to non-test source, `git grep -n "A confirmation has been sent" -- apps/hospitality/src ':!*.test.*'`, the same exclusion SC4's grep uses; that prints nothing (exit 1). The intent, that no shipped source renders the claim, is unchanged, and M5.2's built-bundle grep (SC11 local half) checks it again on real output. Verify should run the scoped form.
 
 ## Notes
 
@@ -363,3 +365,4 @@ and no item needed a decision the architecture had not made.
 - 2026-09-28 (Implement, M1.3): RED was `TypeError: specialRequestsText is not a function` on all 8 new cases; GREEN `Tests 20 passed (20)`, the module's 12 existing tests included.
 - 2026-09-28 (Implement, M1.4): RED, one per file, each for the expected reason: `ConfirmationView.test.tsx` threw `[vitest] No "Stack" export is defined on the "@mattbutlerengineering/rialto" mock`, and `BriefingPage.test.tsx` threw `Unable to find an accessible element with the role "group" and name "Probe"`. GREEN: `Tests 52 passed (52)` across both files, every pre-existing test included. The stubs keep only `id`, `dir`, `className`, `role` and `aria-*` (Briefing's `Stack`: `role` and `aria-*`), so presentational props such as `variant`, `color` and `align` still never reach the DOM.
 - 2026-09-28 (Implement, M2.1): RED was 10 new failures (`Unable to find an accessible element with the role "group" and name "Special Requests"`; the empties' `.detailsCard` count `expected … to have a length of +0 but got 1`; the CSS-text test `expected '' to match /white-space:\s*pre-wrap;/`). GREEN `Tests 32 passed (32)`, the 21 pre-existing tests included. The architecture's fixtures live once in `src/test/special-requests-fixtures.ts` (no `.test.` in the name, so the M1.2 guard reads it; it carries no copy string), and every later surface test imports them.
+- 2026-09-28 (Implement, M2.2): RED was 4 failures: the email, phone-only and both-present cases (`Unable to find an element with the text: No confirmation email or text is sent for this booking, … The venue has john@example.com on your reservation.`) and the `.contactLine` CSS-text pin (`expected '' to match /overflow-wrap:\s*anywhere;/`). The rewritten `:190` case ("no contact line when there is neither an email nor a phone") passed against today's line too, because today's view renders nothing in that case; it is a regression pin, and nothing is claimed for it failing first. GREEN `Tests 34 passed (34)`. `tsc` then rejected `contactLine(reservation.guestEmail || reservation.guestPhone)` (`TS2345: 'string | null'`), since the render condition does not narrow the second expression; the view now computes `const contact = reservation.guestEmail || reservation.guestPhone` once and renders on `contact &&`, the same condition.

@@ -10,7 +10,7 @@ import {
 import { buildReservationIcs, downloadIcsFile } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import { specialRequestsText } from "../../utils/reservation-display.js";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import { CONFIRMATION_COPY, contactLine } from "../../constants/confirmation-copy.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
@@ -55,6 +55,7 @@ export function ConfirmationView({
 }: ConfirmationViewProps) {
   const specialRequestsId = useId();
   const requests = specialRequestsText(reservation.notes);
+  const contact = reservation.guestEmail || reservation.guestPhone;
   const effectiveTimezone = venueTimezone ?? venueConfig?.ianaTimezone;
   const formattedDate = formatLongDateWithYear(reservation.date);
   const formattedTime = effectiveTimezone
@@ -208,9 +209,9 @@ export function ConfirmationView({
       )}
 
       {/* Contact info note */}
-      {(reservation.guestEmail || reservation.guestPhone) && (
-        <Text variant="caption" color="secondary" align="center">
-          A confirmation has been sent to {reservation.guestEmail || reservation.guestPhone}.
+      {contact && (
+        <Text variant="caption" color="secondary" align="center" className={styles.contactLine}>
+          {contactLine(contact)}
         </Text>
       )}
 

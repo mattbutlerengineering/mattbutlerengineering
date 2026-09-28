@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ConfirmationView } from "./ConfirmationView.js";
 import { Stack, Text } from "@mattbutlerengineering/rialto";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import { CONFIRMATION_COPY, contactLine } from "../../constants/confirmation-copy.js";
 import {
   EMPTY_NOTES,
   TWO_LINE_DISPLAYED,
@@ -189,35 +189,57 @@ describe("ConfirmationView", () => {
     expect(screen.queryByText("Name")).toBeNull();
   });
 
-  it("displays email confirmation notice when guestEmail exists", () => {
+  it("tells the truth about sends, naming the email, when guestEmail exists", () => {
     render(
       <ConfirmationView
         reservation={makeReservation({ guestEmail: "john@example.com" })}
         onNewBooking={mockOnNewBooking}
       />
     );
-    expect(screen.getByText(/A confirmation has been sent to/)).toBeDefined();
-    expect(screen.getByText(/john@example.com/)).toBeDefined();
+    expect(screen.getByText(contactLine("john@example.com"))).toBeDefined();
+    expect(screen.queryByText(/A confirmation has been sent/)).toBeNull();
   });
 
-  it("displays phone confirmation notice when only guestPhone exists", () => {
+  it("tells the truth about sends, naming the phone, when only guestPhone exists", () => {
     render(
       <ConfirmationView
         reservation={makeReservation({ guestEmail: null, guestPhone: "+15551234" })}
         onNewBooking={mockOnNewBooking}
       />
     );
-    expect(screen.getByText(/\+15551234/)).toBeDefined();
+    expect(screen.getByText(contactLine("+15551234"))).toBeDefined();
+    expect(screen.queryByText(/A confirmation has been sent/)).toBeNull();
   });
 
-  it("does not display confirmation notice when no email or phone", () => {
+  it("names the email when both an email and a phone exist", () => {
+    render(
+      <ConfirmationView
+        reservation={makeReservation({ guestEmail: "john@example.com", guestPhone: "+15551234" })}
+        onNewBooking={mockOnNewBooking}
+      />
+    );
+    expect(screen.getByText(contactLine("john@example.com"))).toBeDefined();
+    expect(screen.queryByText(/A confirmation has been sent/)).toBeNull();
+  });
+
+  it("no contact line when there is neither an email nor a phone", () => {
     render(
       <ConfirmationView
         reservation={makeReservation({ guestEmail: null, guestPhone: null })}
         onNewBooking={mockOnNewBooking}
       />
     );
+    expect(screen.queryByText(/^No confirmation email or text is sent/)).toBeNull();
     expect(screen.queryByText(/A confirmation has been sent/)).toBeNull();
+  });
+
+  it("breaks an overlong contact anywhere (CSS text)", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/components/booking-widget/ConfirmationView.module.css"),
+      "utf-8"
+    );
+    const rule = css.match(/\.contactLine\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/overflow-wrap:\s*anywhere;/);
   });
 
   it("calls onNewBooking when 'Make Another Reservation' is clicked", () => {
