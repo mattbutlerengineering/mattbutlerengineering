@@ -131,7 +131,7 @@ export function checkAutoIssueGen(cwd, opts = {}) {
   const fn = opts.execFileSyncFn ?? _execFileSync;
   const cutoff = Date.now() - THIRTY_DAYS_MS;
   const recentNumbers = new Set();
-  let anyQuerySucceeded = false;
+  const failedLabels = [];
 
   for (const label of AUTOMATION_ISSUE_LABELS) {
     try {
@@ -152,18 +152,19 @@ export function checkAutoIssueGen(cwd, opts = {}) {
         { cwd, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
       );
       const items = JSON.parse(raw);
-      anyQuerySucceeded = true;
       for (const item of items) {
         if (item.createdAt && new Date(item.createdAt).getTime() >= cutoff) {
           recentNumbers.add(item.number);
         }
       }
     } catch {
-      // this label's query failed (or `gh` errored) — try the remaining labels
+      // this label's query failed (or `gh` errored entirely) — record it and
+      // keep trying the remaining labels rather than aborting the whole check.
+      failedLabels.push(label);
     }
   }
 
-  if (!anyQuerySucceeded) {
+  if (failedLabels.length === AUTOMATION_ISSUE_LABELS.length) {
     return {
       passed: null,
       evidence: "gh CLI unavailable or error querying sentry/audit/ci-fix issues",
