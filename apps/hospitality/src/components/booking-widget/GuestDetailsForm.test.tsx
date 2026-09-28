@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { GuestDetailsForm } from "./GuestDetailsForm.js";
+import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 
 const mockSlot: TimeSlot = {
@@ -75,8 +76,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     placeholder?: string;
   }) => (
     <div data-testid="textarea-wrapper">
-      <label>{label}</label>
+      {/* Mirrors rialto's TextArea, whose visible label is tied to the control. */}
+      <label htmlFor={label?.toLowerCase().replace(/\s/g, "-")}>{label}</label>
       <textarea
+        id={label?.toLowerCase().replace(/\s/g, "-")}
         data-testid={label?.toLowerCase().replace(/\s/g, "-")}
         value={value}
         onChange={onChange}
@@ -225,6 +228,13 @@ describe("GuestDetailsForm", () => {
     const phoneInput = screen.getByTestId("phone");
     fireEvent.change(phoneInput, { target: { value: "555-123-4567" } });
     expect((phoneInput as HTMLInputElement).value).toBe("555-123-4567");
+  });
+
+  it("labels the notes field with the shared Special Requests label", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    const notesInput = screen.getByLabelText(CONFIRMATION_COPY.specialRequestsLabel);
+    expect(notesInput.tagName).toBe("TEXTAREA");
+    expect(notesInput).toBe(screen.getByTestId("special-requests"));
   });
 
   it("should update notes field on change", () => {

@@ -53,7 +53,7 @@ there a request, and what shows" for every input. Both mocked test files can
 resolve `getByRole("group", { name })`. There is no UI change yet, except that
 the form label now reads the constant; its text is unchanged.
 
-- [ ] **M1.1 `confirmation-copy.ts` pins the four strings, and the form label reads it** — new `constants/confirmation-copy.ts` (+ test), and `GuestDetailsForm.tsx:213` switches to the constant (tracker: #5860)
+- [x] **M1.1 `confirmation-copy.ts` pins the four strings, and the form label reads it** — new `constants/confirmation-copy.ts` (+ test), and `GuestDetailsForm.tsx:213` switches to the constant (tracker: #5860)
   - Build: `CONFIRMATION_COPY = Object.freeze({ specialRequestsLabel, acknowledgement, hostCaption })` and `contactLine(contact: string): string`, shaped like `constants/session-lapse-copy.ts`. The module imports nothing. `hostCaption` is composed as `` `Guests see this with: “${acknowledgement}”` ``, so the acknowledgement literal is written once. `GuestDetailsForm.tsx:213` becomes `label={CONFIRMATION_COPY.specialRequestsLabel}`. The hint at `:210` is untouched.
   - Accept: new `constants/confirmation-copy.test.ts` fails first (`Failed to resolve import "./confirmation-copy.js"`), then passes:
     - `specialRequestsLabel === "Special Requests"`;
@@ -355,3 +355,4 @@ and no item needed a decision the architecture had not made.
   merged as `3823faa80`) stands.
 - 2026-09-28 (Decompose): Implement order is the milestone order. M4.1 has no
   blockers and may run earlier. Everything in M2 and M3 depends only on M1.
+- 2026-09-28 (Implement, M1.1): RED was `Failed to resolve import "./confirmation-copy.js"`; GREEN 17/17. The form clause needed one test-infra change the item did not name: `GuestDetailsForm.test.tsx`'s rialto `TextArea` stub rendered `<label>{label}</label>` beside the `<textarea>` with no association, so `getByLabelText("Special Requests")` failed with `Found a label with the text of: Special Requests, however no form control was found associated to that label`. The stub now sets `htmlFor`/`id` (the same slug it already used for `data-testid`), mirroring the real `TextArea`, which ties its label through `field.labelProps` (`packages/rialto/src/components/TextArea/TextArea.tsx:101`). All 24 existing tests in the file pass unchanged.
