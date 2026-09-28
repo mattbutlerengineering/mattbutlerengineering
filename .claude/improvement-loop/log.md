@@ -2371,3 +2371,39 @@ Recording these so next week doesn't re-derive them:
 **Verifications:** 3 checked, 0 verified, 0 failed (reopened) — all skipped: #5790 (lighthouse inventory unavailable), #5787 and #5786 (no matching verifier for labels)
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Auto-tuner reports no adjustments needed. `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 (`credential_rejected`) already logged today by the optimize-implement-queue run — `issues`, `issueFeedback`, and `queueEfficiency` sensors were unavailable for the same reason. This is the known CCR auth limitation (gotchas.md § Claude Code Remote), not a new regression; AI-issue-feedback budgets carried over unchanged from the last successful collection.
+
+## 2026-09-28 (mbe-evening)
+
+No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all queries below run via GitHub MCP tools instead of the skill's literal `gh` command list. Time-to-close uses `updated_at` as a proxy for `closed_at` (the MCP `list_issues` field enum has no `closed_at`), which slightly understates true close latency for issues with post-close bot activity.
+
+| Metric                                   | Value                                                                                                                                                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)               | 33 (14 audit + 19 ci-fix)                                                                                                                                                                                                         |
+| Closed (7d, audit+ci-fix)                | 28 (13 audit + 15 ci-fix)                                                                                                                                                                                                         |
+| Closure Rate                             | 85% (green, >80%)                                                                                                                                                                                                                 |
+| Time-to-Close (mean, `updated_at` proxy) | ~15h — pulled up by two ~4-day stragglers (#5605/#5609, routine-manifest signature issues blocked on a human editing live RemoteTrigger prompts, per #5748); excluding those two, same-day for the rest                           |
+| Agent Success (has-pr/(has-pr+failed))   | snapshot only: 3 open `has-pr` (#5608/#5604/#5603, all blocked on the same #5748 human step, not agent failures), 0 `agent-failed` → 100% by the literal formula, but not representative of tonight's real throughput (see below) |
+| CI Pass (main, last 20 push runs)        | 16/16 = 100% once `cancelled` (concurrency-superseded) runs are excluded from the denominator, per the sensor-denominator gotcha; 4 of 20 were cancelled, 0 were real failures                                                    |
+| Queue (ready)                            | 6 (#5817, #5816, #5807, #5748, #5612, #5369) — yellow (5-10)                                                                                                                                                                      |
+| Stale (ready>7d)                         | 2 — #5369 (created 09-14, needs an ADR-owner decision per its own body, correctly not auto-claimed) and #5612 (created 09-21, exactly 7d, borderline — same #5748 human-step dependency)                                          |
+| Blocked (agent-failed)                   | 0                                                                                                                                                                                                                                 |
+| Skipped (agent-skip)                     | 0                                                                                                                                                                                                                                 |
+| Daily/7d Spend                           | `.claude/agent-spend/sessions.jsonl` — 0 rows (empty file). Same long-recurring, already-understood gap as prior entries (Agent-tool-dispatched workers never call the `recordSpend` seam)                                        |
+| Reverts (7d)                             | 0                                                                                                                                                                                                                                 |
+
+### Patterns
+
+- Tonight's `/implement-queue` iteration (Phase 0) found 2 stray CI-green open PRs (#5818 weekly retro, #5811 daily ACMM audit) from other routines sitting unmerged with nothing blocking them. Merged both before claiming new work — same "green PR nobody enqueued" shape noted in a recent prior entry; still not filed as its own meta-improvement issue since it's cheap for `/implement-queue`'s own Phase 0 to absorb and only 2 PRs this time (below the 3+-day-consistent bar).
+- Claimed a zone-spread batch of 3 (#5805, #5806, #5815) via the real `selectZoneSpreadBatch` selector (not hand-picked) — 2 security findings from the daily `mbe-auditor` routine plus 1 ci-fix from this week's `mbe-weekly-retro`. All 3 workers finished clean, all 3 PRs passed CI on the first push, all 3 review gates (general Reviewer + `dependency-update-reviewer` + `generated-artifact-determinism-reviewer` where diff-matched) passed with no flags, all 3 merged with zero rework cycles.
+- Worker on #5805 investigated before implementing and found the issue's premise was empirically wrong: `ajv-formats` was already enforced via an undocumented `@fastify/ajv-compiler` internal default, not "never registered." Implemented the requested fix anyway as legitimate hardening (explicit registration replacing the implicit default), disclosed the discrepancy plainly in the PR body rather than silently presenting a fake RED→GREEN cycle. Second occurrence of this pattern in recent entries (worker investigates rather than mechanically executing the issue's literal claim) — reinforces that issue-body trust diligence is holding up well.
+- The 3 open `has-pr` issues (#5603/#5604/#5608) and the `ready` #5612/#5748 pair are all one underlying blocker: three RemoteTrigger prompts (`mbe-night`, `mbe-midday`, `mbe-monthly-meta-audit`) still need a human to sync their live prompts to the routine-manifest's expected PR-title signatures. This is a human-only step (editing a live scheduled trigger), already surfaced in prior retro entries — not re-filing, just noting the queue metrics above are shaped by it (inflates both the stale-ready count and the has-pr snapshot).
+- `mbe agent eval` was not triggered this run — no queue-efficiency regression was flagged by `/optimize-implement-queue` (see its own entry below).
+
+### Recommendations
+
+- No new `meta-improvement` issues filed this run — the recurring blockers above (agent-spend gap, RemoteTrigger human-sync step) are already tracked and don't meet the 3+-day-_new_-pattern bar.
+- Worth watching whether #5612/#5748's human-sync step keeps aging past next week's retro; if so, that's the retro routine's job to escalate, not this one's to re-litigate nightly.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to review.
