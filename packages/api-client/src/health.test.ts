@@ -116,13 +116,13 @@ describe("HealthClient.system", () => {
     mockFetch.mockReset();
   });
 
-  it("GETs /api/health/system (bare, unenveloped) and returns the validated snapshot", async () => {
+  it("GETs /health/system (bare, unenveloped) and returns the validated snapshot", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse(detailedSnapshot));
 
     const result = await makeHealthClient().system();
 
     const [url, options] = mockFetch.mock.calls[0]!;
-    expect(url).toBe("https://api.test.com/api/health/system");
+    expect(url).toBe("https://api.test.com/health/system");
     expect(options?.method ?? "GET").toBe("GET");
     expect(result).toEqual(detailedSnapshot);
   });

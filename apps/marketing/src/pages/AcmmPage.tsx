@@ -6,14 +6,12 @@ interface BehavioralGate {
   readonly level: number;
   readonly name: string;
   readonly passed: boolean;
-  readonly value: number;
+  readonly value: number | null;
   readonly threshold: number;
+  readonly unverifiable: boolean;
 }
 
-interface WorkspaceEntry {
-  readonly name: string;
-  readonly path: string;
-  readonly type: "app" | "service" | "package";
+interface RepoEntry {
   readonly currentLevel: number;
   readonly levelName: string;
   readonly role: string;
@@ -27,7 +25,9 @@ interface WorkspaceEntry {
     readonly ciFlakeRate: number;
     readonly agentPrAcceptanceRate: number;
     readonly agentPrRevertRate: number;
-    readonly evalPassRate: number;
+    readonly evalPassRate: number | null;
+    readonly evalsStale: boolean;
+    readonly evalsLastRun: string | null;
   };
   readonly checks: Record<string, { passed: boolean }>;
   readonly behavioralGates: readonly BehavioralGate[];
@@ -36,27 +36,22 @@ interface WorkspaceEntry {
 interface AcmmReport {
   readonly schema: string;
   readonly generatedAt: string;
-  readonly workspaces: readonly WorkspaceEntry[];
+  readonly repo: RepoEntry;
 }
 
-const LEVEL_COLORS: Record<number, string> = {
-  6: "green",
-  5: "green",
-  4: "blue",
-  3: "blue",
-  2: "orange",
-  1: "gray",
+type BadgeVariant = "neutral" | "accent" | "success" | "warning" | "error";
+
+const LEVEL_VARIANTS: Record<number, BadgeVariant> = {
+  6: "success",
+  5: "success",
+  4: "accent",
+  3: "accent",
+  2: "warning",
+  1: "neutral",
 };
 
-const GROUP_ORDER: Array<WorkspaceEntry["type"]> = ["service", "app", "package"];
-const GROUP_LABELS: Record<string, string> = {
-  service: "Services",
-  app: "Apps",
-  package: "Packages",
-};
-
-function levelColor(level: number): string {
-  return LEVEL_COLORS[level] ?? "gray";
+function levelVariant(level: number): BadgeVariant {
+  return LEVEL_VARIANTS[level] ?? "neutral";
 }
 
 function formatPercent(value: number): string {
@@ -71,86 +66,27 @@ function formatDate(iso: string): string {
   });
 }
 
-interface WorkspaceCardProps {
-  workspace: WorkspaceEntry;
-  isExpanded: boolean;
-  onToggle: () => void;
+/** Trims a gate's raw number to 2 decimal places without trailing zeros. */
+function formatGateNumber(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
-function WorkspaceCard({ workspace: ws, isExpanded, onToggle }: WorkspaceCardProps) {
-  const passCount = Object.values(ws.checks).filter((c) => c.passed).length;
-  const failCount = Object.values(ws.checks).filter((c) => !c.passed).length;
-
-  return (
-    <Card className={styles.wsCard}>
-      <div className={styles.wsHeader}>
-        <div className={styles.wsTitle}>
-          <Badge color={levelColor(ws.currentLevel)} size="sm">
-            L{ws.currentLevel}
-          </Badge>
-          <Text className={styles.wsName}>{ws.name}</Text>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onToggle} aria-expanded={isExpanded}>
-          {isExpanded ? "▲" : "▼"}
-        </Button>
-      </div>
-      <Text className={styles.wsLevel}>{ws.levelName}</Text>
-      <div className={styles.wsCoverage}>
-        <div className={styles.coverageLabel}>
-          <Text>
-            {ws.summary.detected}/{ws.summary.total} criteria
-          </Text>
-          <Text>{formatPercent(ws.summary.coverage)}</Text>
-        </div>
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} style={{ width: `${ws.summary.coverage * 100}%` }} />
-        </div>
-      </div>
-
-      {isExpanded && (
-        <div className={styles.wsDetails}>
-          {ws.behavioralGates.length > 0 && (
-            <div className={styles.detailSection}>
-              <Text className={styles.detailLabel}>Behavioral Gates</Text>
-              <div className={styles.gateList}>
-                {ws.behavioralGates.map((gate) => (
-                  <div key={gate.name} className={styles.gateRow}>
-                    <Badge color={gate.passed ? "green" : "red"} size="sm">
-                      {gate.passed ? "Pass" : "Fail"}
-                    </Badge>
-                    <Text className={styles.gateRowName}>{gate.name.replace(/-/g, " ")}</Text>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className={styles.detailSection}>
-            <Text className={styles.detailLabel}>
-              Criteria — {passCount} pass / {failCount} fail
-            </Text>
-            <div className={styles.criteriaList}>
-              {Object.entries(ws.checks).map(([id, check]) => (
-                <div key={id} className={styles.criteriaRow}>
-                  <Text className={check.passed ? styles.passIcon : styles.failIcon}>
-                    {check.passed ? "✓" : "✗"}
-                  </Text>
-                  <Text className={styles.criteriaId}>
-                    {id.replace(/^(?:acmm|fullsend|aef|claude-reflect):/, "")}
-                  </Text>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
+function EvalsSummary({ behavioral }: { behavioral: RepoEntry["behavioral"] }) {
+  if (behavioral.evalsStale) {
+    return (
+      <Text>
+        Agent evals: not measured{" "}
+        {behavioral.evalsLastRun ? `since ${formatDate(behavioral.evalsLastRun)}` : "yet"}
+      </Text>
+    );
+  }
+  return <Text>Agent evals: {formatPercent(behavioral.evalPassRate ?? 0)} pass</Text>;
 }
 
 export function AcmmPage() {
   const [report, setReport] = useState<AcmmReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,15 +108,6 @@ export function AcmmPage() {
     };
   }, []);
 
-  function toggleExpanded(path: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }
-
   if (error) {
     return (
       <div className={styles.container}>
@@ -201,22 +128,17 @@ export function AcmmPage() {
     );
   }
 
-  const byType = Object.fromEntries(
-    GROUP_ORDER.map((type) => [
-      type,
-      [...report.workspaces]
-        .filter((w) => w.type === type)
-        .sort((a, b) => b.currentLevel - a.currentLevel),
-    ])
-  );
+  const { repo } = report;
+  const passCount = Object.values(repo.checks).filter((c) => c.passed).length;
+  const failCount = Object.values(repo.checks).filter((c) => !c.passed).length;
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <Heading level={1}>ACMM Dashboard</Heading>
-        <Text className={styles.subtitle}>AI Codebase Maturity Model — all workspaces</Text>
+        <Text className={styles.subtitle}>AI Codebase Maturity Model — repo-level audit</Text>
         <Text className={styles.meta}>
-          Last updated: {formatDate(report.generatedAt)}
+          Audited {repo.lastRun ? formatDate(repo.lastRun) : "date unknown"}
           {" · "}
           <a href="/acmm-report.json" className={styles.jsonLink}>
             View raw JSON
@@ -224,25 +146,86 @@ export function AcmmPage() {
         </Text>
       </header>
 
-      {GROUP_ORDER.map((type) => {
-        const workspaces = byType[type];
-        if (!workspaces?.length) return null;
-        return (
-          <section key={type} className={styles.section}>
-            <Heading level={2}>{GROUP_LABELS[type]}</Heading>
-            <div className={styles.workspaceGrid}>
-              {workspaces.map((ws) => (
-                <WorkspaceCard
-                  key={ws.path}
-                  workspace={ws}
-                  isExpanded={expanded.has(ws.path)}
-                  onToggle={() => toggleExpanded(ws.path)}
-                />
-              ))}
+      <Card className={styles.wsCard}>
+        <div className={styles.wsHeader}>
+          <div className={styles.wsTitle}>
+            <Badge variant={levelVariant(repo.currentLevel)} size="sm">
+              L{repo.currentLevel}
+            </Badge>
+            <Text className={styles.wsName}>{repo.levelName}</Text>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-expanded={expanded}
+          >
+            {expanded ? "▲" : "▼"}
+          </Button>
+        </div>
+        {repo.role && <Text className={styles.wsLevel}>{repo.role}</Text>}
+        <div className={styles.wsCoverage}>
+          <div className={styles.coverageLabel}>
+            <Text>
+              {repo.summary.detected}/{repo.summary.total} criteria
+            </Text>
+            <Text>{formatPercent(repo.summary.coverage)}</Text>
+          </div>
+          <div className={styles.progressTrack}>
+            <div
+              className={styles.progressFill}
+              style={{ width: `${repo.summary.coverage * 100}%` }}
+            />
+          </div>
+        </div>
+        <div className={styles.detailSection}>
+          <EvalsSummary behavioral={repo.behavioral} />
+        </div>
+
+        {expanded && (
+          <div className={styles.wsDetails}>
+            {repo.behavioralGates.length > 0 && (
+              <div className={styles.detailSection}>
+                <Text className={styles.detailLabel}>Behavioral Gates</Text>
+                <div className={styles.gateList}>
+                  {repo.behavioralGates.map((gate) => (
+                    <div key={gate.name} className={styles.gateRow}>
+                      <Badge
+                        variant={gate.unverifiable ? "neutral" : gate.passed ? "success" : "error"}
+                        size="sm"
+                      >
+                        {gate.unverifiable ? "Unverifiable" : gate.passed ? "Pass" : "Fail"}
+                      </Badge>
+                      <Text className={styles.gateRowName}>{gate.name.replace(/-/g, " ")}</Text>
+                      <Text className={styles.gateRowValue}>
+                        {gate.value === null ? "—" : formatGateNumber(gate.value)} /{" "}
+                        {formatGateNumber(gate.threshold)}
+                      </Text>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className={styles.detailSection}>
+              <Text className={styles.detailLabel}>
+                Criteria — {passCount} pass / {failCount} fail
+              </Text>
+              <div className={styles.criteriaList}>
+                {Object.entries(repo.checks).map(([id, check]) => (
+                  <div key={id} className={styles.criteriaRow}>
+                    <Text className={check.passed ? styles.passIcon : styles.failIcon}>
+                      {check.passed ? "✓" : "✗"}
+                    </Text>
+                    <Text className={styles.criteriaId}>
+                      {id.replace(/^(?:acmm|fullsend|aef|claude-reflect|meta):/, "")}
+                    </Text>
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
-        );
-      })}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

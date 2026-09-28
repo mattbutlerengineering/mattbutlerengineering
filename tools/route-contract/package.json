@@ -1,0 +1,27 @@
+{
+  "name": "@mbe/route-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CI guard: every method+path @mbe/api-client can emit must be answered by a real route owner (the three Fastify services or the edge worker). Nothing imports this package — it only runs in CI.",
+  "scripts": {
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@mbe/agent-service": "workspace:*",
+    "@mbe/api-client": "workspace:*",
+    "@mbe/config": "workspace:*",
+    "@mbe/edge-worker": "workspace:*",
+    "@mbe/reservations-service": "workspace:*",
+    "@mbe/users-service": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "license": "MIT"
+}

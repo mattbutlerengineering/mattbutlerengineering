@@ -1,14 +1,20 @@
-import { test } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   computePrOutcomes,
   isAgentPr,
+  isBookkeepingPr,
+  isShallowClone,
   extractRevertedPrNumbers,
   selectRecentChanges,
   isNonHumanAuthor,
+  isMergeCommit,
   commitsShowHumanTouch,
+  buildPrListArgs,
+  fetchAgentPrs,
 } from "../pr-outcomes.js";
+import { computeLevel } from "../computeLevel.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
 const WITHIN_WINDOW = "2026-04-25T12:00:00Z";
@@ -37,12 +43,61 @@ test("isAgentPr: branch prefix matches", () => {
   assert.equal(isAgentPr({ headRefName: "feat/agent-search", labels: [] }), true);
 });
 
-test("isAgentPr: has-pr label matches even without prefix", () => {
-  assert.equal(isAgentPr({ headRefName: "random-branch", labels: ["has-pr"] }), true);
+test("isAgentPr: agent-authored label matches even without prefix", () => {
+  assert.equal(isAgentPr({ headRefName: "random-branch", labels: ["agent-authored"] }), true);
+});
+
+test("isAgentPr: has-pr label alone no longer counts (#5852 — undercounted fix/issue-* PRs)", () => {
+  assert.equal(isAgentPr({ headRefName: "fix/issue-5807-guest-cap", labels: ["has-pr"] }), false);
 });
 
 test("isAgentPr: human branch with no label is excluded", () => {
   assert.equal(isAgentPr({ headRefName: "feat/manual-thing", labels: ["feature"] }), false);
+});
+
+// ── bookkeeping/automation exclusion (#5852 AC5) ─────────────────────────────
+
+describe("isBookkeepingPr / isAgentPr: bookkeeping exclusions", () => {
+  test("chore/acmm-* daily-audit PRs are excluded even though agent-authored in practice", () => {
+    const pr = { headRefName: "chore/acmm-daily-audit-2026-09-28", labels: ["agent-authored"] };
+    assert.equal(isBookkeepingPr(pr), true);
+    assert.equal(isAgentPr(pr), false);
+  });
+
+  test("metrics/* snapshot PRs are excluded", () => {
+    assert.equal(isBookkeepingPr({ headRefName: "metrics/progress-tracker-2026-09-28" }), true);
+  });
+
+  test("chore/queue-telemetry-* PRs are excluded", () => {
+    assert.equal(isBookkeepingPr({ headRefName: "chore/queue-telemetry-2026-09-28" }), true);
+  });
+
+  test("automation/* producer PRs are excluded", () => {
+    assert.equal(isBookkeepingPr({ headRefName: "automation/production-feedback" }), true);
+  });
+
+  test("dependabot/* branch is excluded even with agent-authored label", () => {
+    const pr = { headRefName: "dependabot/npm_and_yarn/dev-deps-abc", labels: ["agent-authored"] };
+    assert.equal(isAgentPr(pr), false);
+  });
+
+  test("known automation-bot author logins are excluded (both [bot] and app/ formats)", () => {
+    assert.equal(isBookkeepingPr({ headRefName: "some-branch", author: "app/dependabot" }), true);
+    assert.equal(isBookkeepingPr({ headRefName: "some-branch", author: "dependabot[bot]" }), true);
+    assert.equal(
+      isBookkeepingPr({ headRefName: "some-branch", author: "app/github-actions" }),
+      true
+    );
+  });
+
+  test("app/claude author is NOT bookkeeping — it's the agent itself", () => {
+    assert.equal(isBookkeepingPr({ headRefName: "some-branch", author: "app/claude" }), false);
+  });
+
+  test("a genuine fix/issue-* agent PR with the agent-authored label counts", () => {
+    const pr = { headRefName: "fix/issue-5807-guest-cap", labels: ["agent-authored"] };
+    assert.equal(isAgentPr(pr), true);
+  });
 });
 
 test("computePrOutcomes: zero PRs → insufficient_data, all zeros", () => {
@@ -180,6 +235,39 @@ test("extractRevertedPrNumbers: multiple PR mentions all captured", () => {
   assert.deepEqual(extractRevertedPrNumbers(msg), [1, 2, 3]);
 });
 
+// ── this repo's real revert shapes (#5852 AC4) ───────────────────────────────
+// Literal subjects from `6c0a54c51` and `2ccf9959e` on origin/main.
+
+describe("extractRevertedPrNumbers: this repo's revert: convention", () => {
+  test("revert: #<N> ... (#<revertPR>) — extracts only the reverted PR, not the revert's own PR", () => {
+    const msg =
+      "revert: #4924 brand Auth0 universal login (tenant name, logo, dark palette) (#5165)";
+    assert.deepEqual(extractRevertedPrNumbers(msg), [4924]);
+  });
+
+  test("revert: auto-rollback agent commit <sha> (#<revertPR>) — resolves via the sha's own subject", () => {
+    const msg = "revert: auto-rollback agent commit 1437560 (#5196)";
+    const execFn = (bin, args) => {
+      assert.equal(bin, "git");
+      assert.deepEqual(args, ["log", "-1", "--format=%s", "1437560"]);
+      return "fix(rialto): re-query focusable elements at Tab-keydown time in useFocusTrap (#5188)";
+    };
+    assert.deepEqual(extractRevertedPrNumbers(msg, { execFn }), [5188]);
+  });
+
+  test("auto-rollback resolution returns [] when git lookup fails", () => {
+    const msg = "revert: auto-rollback agent commit deadbee (#9999)";
+    const execFn = () => {
+      throw new Error("unknown revision");
+    };
+    assert.deepEqual(extractRevertedPrNumbers(msg, { execFn }), []);
+  });
+
+  test("colon-revert is matched case-insensitively", () => {
+    assert.deepEqual(extractRevertedPrNumbers("Revert: #100 fix thing (#101)"), [100]);
+  });
+});
+
 test("selectRecentChanges: merged agent PRs, newest first, public fields only", () => {
   const prs = [
     pr({
@@ -274,34 +362,242 @@ test("isNonHumanAuthor: a missing login is not counted as a human touch", () => 
   assert.equal(isNonHumanAuthor(undefined), true);
 });
 
-test("commitsShowHumanTouch: PR #5615's real shape is not human-touched", () => {
-  // One commit, sole author `claude`, PR author mattbutlerengineering. No human
-  // involvement of any kind — and counted as human-touched before this fix.
+// ── #5852 AC6: check the commit's own author set, not "vs the PR author" ────
+//
+// The `a.login !== prAuthor` rule made Matt invisible whenever he was also the
+// PR's opener — the normal case for every worktree-agent PR he runs under his
+// own account. The fix drops the PR-author comparison entirely: a commit is
+// human-touched iff its own authors are ≥1 human and 0 bot/agent identities.
+
+test("commitsShowHumanTouch: [claude] -> no", () => {
+  // PR #5615's real shape: one commit, sole author `claude`. No human
+  // involvement of any kind — and counted as human-touched before the fix.
   const commits = [{ authors: [{ login: "claude", email: "noreply@anthropic.com" }] }];
-  assert.equal(commitsShowHumanTouch(commits, HUMAN), false);
+  assert.equal(commitsShowHumanTouch(commits), false);
 });
 
-test("commitsShowHumanTouch: a dependabot PR is not human-touched", () => {
-  assert.equal(commitsShowHumanTouch([{ authors: [{ login: "dependabot[bot]" }] }], HUMAN), false);
+test("commitsShowHumanTouch: [mattbutlerengineering, claude] -> no (co-authored trailer is agent evidence)", () => {
+  const commits = [{ authors: [{ login: HUMAN }, { login: "claude" }] }];
+  assert.equal(commitsShowHumanTouch(commits), false);
 });
 
-test("commitsShowHumanTouch: the PR author's own commits are not a human touch", () => {
-  assert.equal(commitsShowHumanTouch([{ authors: [{ login: HUMAN }] }], HUMAN), false);
+test("commitsShowHumanTouch: [mattbutlerengineering] -> yes (no agent trailer — genuinely hand-written)", () => {
+  assert.equal(commitsShowHumanTouch([{ authors: [{ login: HUMAN }] }]), true);
 });
 
-test("commitsShowHumanTouch: a different human IS a touch — the signal must survive", () => {
-  const commits = [{ authors: [{ login: HUMAN }] }, { authors: [{ login: "a-reviewer" }] }];
-  assert.equal(commitsShowHumanTouch(commits, HUMAN), true);
+test("commitsShowHumanTouch: merge commit by mattbutlerengineering -> no", () => {
+  const commits = [
+    { authors: [{ login: HUMAN }], messageHeadline: "Merge branch 'main' into feature" },
+  ];
+  assert.equal(commitsShowHumanTouch(commits), false);
 });
 
-test("commitsShowHumanTouch: a human co-author alongside claude still counts", () => {
-  const commits = [{ authors: [{ login: "claude" }, { login: "a-reviewer" }] }];
-  assert.equal(commitsShowHumanTouch(commits, HUMAN), true);
+test("commitsShowHumanTouch: a dependabot commit is not human-touched", () => {
+  assert.equal(commitsShowHumanTouch([{ authors: [{ login: "dependabot[bot]" }] }]), false);
+});
+
+test("commitsShowHumanTouch: a genuinely different human's commit still counts", () => {
+  const commits = [{ authors: [{ login: "a-reviewer" }] }];
+  assert.equal(commitsShowHumanTouch(commits), true);
 });
 
 test("commitsShowHumanTouch: tolerates missing or malformed commit data", () => {
-  assert.equal(commitsShowHumanTouch(undefined, HUMAN), false);
-  assert.equal(commitsShowHumanTouch([], HUMAN), false);
-  assert.equal(commitsShowHumanTouch([{}], HUMAN), false);
-  assert.equal(commitsShowHumanTouch([{ authors: null }], HUMAN), false);
+  assert.equal(commitsShowHumanTouch(undefined), false);
+  assert.equal(commitsShowHumanTouch([]), false);
+  assert.equal(commitsShowHumanTouch([{}]), false);
+  assert.equal(commitsShowHumanTouch([{ authors: null }]), false);
+});
+
+describe("isMergeCommit", () => {
+  test("matches the three merge-commit shapes", () => {
+    assert.equal(isMergeCommit("Merge branch 'main' into feature"), true);
+    assert.equal(isMergeCommit("Merge remote-tracking branch 'origin/main'"), true);
+    assert.equal(isMergeCommit("Merge pull request #42 from foo/bar"), true);
+  });
+
+  test("does not match a normal commit or missing headline", () => {
+    assert.equal(isMergeCommit("fix: merge conflicting state (#42)"), false);
+    assert.equal(isMergeCommit(undefined), false);
+  });
+});
+
+// ── date-bounded fetch args (#5852 AC7) ──────────────────────────────────────
+
+describe("buildPrListArgs: real 30-day (+revert lookback) window, not a --limit page", () => {
+  test("includes a --search created:>=<cutoff> bound derived from windowDays + REVERT_WINDOW_DAYS", () => {
+    const args = buildPrListArgs({ now: NOW, windowDays: 30 });
+    // 30 + 7 (REVERT_WINDOW_DAYS) = 37 days back from NOW (2026-04-26)
+    const idx = args.indexOf("--search");
+    assert.ok(idx >= 0, "expected a --search flag");
+    assert.equal(args[idx + 1], "created:>=2026-03-20");
+  });
+
+  test("honors a custom limit", () => {
+    const args = buildPrListArgs({ now: NOW, limit: 42 });
+    const idx = args.indexOf("--limit");
+    assert.equal(args[idx + 1], "42");
+  });
+});
+
+// ── oldest_record_at: truncation visibility (#5852 AC7) ──────────────────────
+
+test("computePrOutcomes: oldest_record_at reflects the full fetched list, not just inWindow", () => {
+  const prs = [pr({ number: 1, createdAt: OUTSIDE_WINDOW }), pr({ number: 2 })];
+  const r = computePrOutcomes(prs, { now: NOW });
+  assert.equal(r.oldest_record_at, new Date(OUTSIDE_WINDOW).toISOString());
+});
+
+test("computePrOutcomes: oldest_record_at is null for an empty list", () => {
+  const r = computePrOutcomes([], { now: NOW });
+  assert.equal(r.oldest_record_at, null);
+});
+
+// ── shallow-clone / git-failure revert detection (review item 2) ───────────
+
+describe("isShallowClone", () => {
+  test("true when git reports the repo is shallow", () => {
+    const execFn = () => "true\n";
+    assert.equal(isShallowClone({ execFn }), true);
+  });
+
+  test("false when git reports the repo is NOT shallow", () => {
+    const execFn = () => "false\n";
+    assert.equal(isShallowClone({ execFn }), false);
+  });
+
+  test("fails closed to true (shallow/unverifiable) when git itself fails", () => {
+    const execFn = () => {
+      throw new Error("not a git repository");
+    };
+    assert.equal(isShallowClone({ execFn }), true);
+  });
+});
+
+describe("computePrOutcomes: revertDetectionAvailable (review item 2)", () => {
+  test("revert_rate_30d is null, with a reason, when revert detection is unavailable", () => {
+    const prs = [pr({ number: 1 }), pr({ number: 2 }), pr({ number: 3 })];
+    const r = computePrOutcomes(prs, { now: NOW, revertDetectionAvailable: false });
+    assert.equal(r.revert_rate_30d, null, "must be null, not the misleading 0%");
+    assert.match(r.revert_detection_unavailable_reason, /shallow clone or git log failure/);
+  });
+
+  test("revert_rate_30d computes normally when revert detection IS available (default)", () => {
+    const prs = [pr({ number: 1 }), pr({ number: 2 })];
+    const r = computePrOutcomes(prs, { now: NOW });
+    assert.equal(r.revert_rate_30d, 0);
+    assert.equal(r.revert_detection_unavailable_reason, null);
+  });
+});
+
+describe("fetchAgentPrs: end-to-end shallow-clone propagation (review item 2)", () => {
+  test("a shallow clone marks revertDetectionAvailable=false on the returned list", () => {
+    const ghPrListOutput = JSON.stringify([
+      {
+        number: 1,
+        title: "fix: something",
+        url: "https://github.com/o/r/pull/1",
+        headRefName: "worktree-agent-abc",
+        state: "MERGED",
+        createdAt: WITHIN_WINDOW,
+        mergedAt: "2026-04-26T00:00:00Z",
+        labels: [],
+        author: { login: "mattbutlerengineering" },
+      },
+    ]);
+
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") return ghPrListOutput;
+      if (bin === "gh" && args[0] === "pr" && args[1] === "view") {
+        return JSON.stringify({ commits: [] });
+      }
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "true\n";
+      if (bin === "git" && args[0] === "log") return "";
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed");
+    assert.equal(prs.revertDetectionAvailable, false);
+  });
+
+  test("a non-shallow clone with working git log marks revertDetectionAvailable=true", () => {
+    const ghPrListOutput = JSON.stringify([]);
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") return ghPrListOutput;
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "false\n";
+      if (bin === "git" && args[0] === "log") return "";
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed");
+    assert.equal(prs.revertDetectionAvailable, true);
+  });
+
+  test("a non-shallow clone whose `git log` itself fails (null set) still marks revertDetectionAvailable=false, end-to-end through computeLevel's L6 gate (re-review fix)", () => {
+    // Confirms the path the reviewer previously only verified by probe: git
+    // reports NOT shallow, but the revert-history `git log` call throws
+    // anyway (a real failure mode distinct from shallow-ness — e.g. a
+    // corrupt object, a transient I/O error). `fetchRevertedPrNumbers`
+    // catches it and returns null, which must propagate all the way to an
+    // unverifiable L6 gate, not a false "0% reverted".
+    const mergedPr = {
+      number: 42,
+      title: "fix: something",
+      url: "https://github.com/o/r/pull/42",
+      headRefName: "worktree-agent-xyz",
+      state: "MERGED",
+      createdAt: WITHIN_WINDOW,
+      mergedAt: "2026-04-26T00:00:00Z",
+      labels: [],
+      author: { login: "mattbutlerengineering" },
+    };
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") {
+        return JSON.stringify([mergedPr]);
+      }
+      if (bin === "gh" && args[0] === "pr" && args[1] === "view") {
+        return JSON.stringify({ commits: [] });
+      }
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "false\n";
+      if (bin === "git" && args[0] === "log") throw new Error("fatal: bad object HEAD");
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed despite the git log failure");
+    assert.equal(
+      prs.revertDetectionAvailable,
+      false,
+      "a failed git log (null reverted-PR set) must disable revert detection even when not shallow"
+    );
+
+    const outcomes = computePrOutcomes(prs, {
+      now: NOW,
+      revertDetectionAvailable: prs.revertDetectionAvailable,
+    });
+    assert.equal(outcomes.revert_rate_30d, null, "must be null, never a false 0%");
+    assert.equal(outcomes.revert_detection_unavailable_reason != null, true);
+
+    // computeLevel evaluates ALL behavioral gates unconditionally, regardless
+    // of which criteria are "detected" — an empty set is enough to exercise
+    // the gate itself without needing to enumerate real L4-L6 criterion IDs.
+    const result = computeLevel(
+      new Set(),
+      { agent_pr: { ...outcomes, insufficient_data: false } },
+      { strict: true }
+    );
+    const revertGate = result.behavioralGates.find((g) => g.name === "agent-pr-revert-rate");
+    assert.equal(
+      revertGate.unverifiable,
+      true,
+      "L6 revert-rate gate must be unverifiable, not passing"
+    );
+  });
+});
+
+// ── actions-user is a non-human identity (review item 7c) ───────────────────
+
+test("isNonHumanAuthor: actions-user is not a human", () => {
+  assert.equal(isNonHumanAuthor("actions-user"), true);
 });

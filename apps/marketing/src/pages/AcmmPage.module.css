@@ -49,17 +49,6 @@
   padding: var(--rialto-space-2xl) 0;
 }
 
-.section {
-  margin-bottom: var(--rialto-space-2xl);
-}
-
-.workspaceGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--rialto-space-md);
-  margin-top: var(--rialto-space-md);
-}
-
 .wsCard {
   display: flex;
   flex-direction: column;
@@ -156,6 +145,13 @@
 .gateRowName {
   font-size: var(--rialto-text-sm);
   text-transform: capitalize;
+}
+
+.gateRowValue {
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-secondary);
+  margin-left: auto;
 }
 
 .criteriaList {
