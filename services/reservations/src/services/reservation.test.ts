@@ -937,6 +937,56 @@ describe("reservationService", () => {
       expect(result.error).toBe("Reservation not found");
     });
 
+    it("rejects a partySize-only update that exceeds the assigned table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 10,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+      expect(result.error).toContain("capacity");
+      expect(prisma.reservation.update).not.toHaveBeenCalled();
+      expect(assertBookable).not.toHaveBeenCalled();
+    });
+
+    it("allows a partySize-only update within the assigned table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation({ partySize: 3 }) as never
+      );
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 3,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.reservation?.partySize).toBe(3);
+    });
+
+    it("rejects a slot move whose new partySize exceeds the target table's capacity", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ capacity: 4 } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+        partySize: 8,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+      expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+    });
+
     it("excludes the current reservation from the slices passed to assertBookable", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never

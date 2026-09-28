@@ -198,6 +198,15 @@ export async function modifyReservationWithNotifications(
         code: "SLOT_UNAVAILABLE",
       };
     }
+    if (updateResult.capacityExceeded) {
+      return {
+        success: false,
+        status: 422,
+        title: "Party Size Exceeds Table Capacity",
+        detail: updateResult.error!,
+        code: "PARTY_SIZE_EXCEEDS_TABLE",
+      };
+    }
     return {
       success: false,
       status: 500,
