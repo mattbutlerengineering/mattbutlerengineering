@@ -4,14 +4,25 @@ import { execFileSync as _execFileSync } from "node:child_process";
 
 const GOVERNANCE_DOC = "docs/governance.md";
 
+const REQUIRED_CHECKS_HEADING = "### Required Status Checks";
+
 /**
  * The bolded check names in the doc's "Required Status Checks" table, e.g.
- * `| **Lint** | ci.yml | ... |` -> "Lint". Table rows are the only lines this
- * criterion trusts — prose elsewhere in the doc isn't a "required check".
+ * `| **Lint** | ci.yml | ... |` -> "Lint". Scoped to the lines between that
+ * heading and the next `#`-heading — docs/governance.md has a second
+ * bolded-row table further down ("Human Review Required": **Security**,
+ * **Infrastructure**, ...) that is not a status-check list at all. An
+ * unscoped scan over the whole document folded those rows in too, so the
+ * criterion could never pass even once the real table said just CI Gate.
  */
 function parseDocumentedChecks(content) {
-  return content
-    .split("\n")
+  const lines = content.split("\n");
+  const start = lines.findIndex((line) => line.trim() === REQUIRED_CHECKS_HEADING);
+  if (start === -1) return [];
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => /^#{1,6}\s/.test(line));
+  const section = end === -1 ? rest : rest.slice(0, end);
+  return section
     .map((line) => line.match(/^\|\s*\*\*(.+?)\*\*\s*\|/))
     .filter(Boolean)
     .map((m) => m[1].trim());

@@ -312,6 +312,23 @@ describe("test coverage substance checker", () => {
     assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
   });
+
+  // Regression (#5876 review): a JSON threshold file quotes its key before the
+  // colon (`"lines": 60`), so the keyword is never directly adjacent to `[:=]`.
+  // The pre-fix regex required keyword -> optional whitespace -> `[:=]` and
+  // missed every JSON-shaped fixture, silently downgrading a real
+  // .coverage-thresholds.json from pass to hollow.
+  test("passes when a JSON threshold file quotes its key before the colon", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, ".coverage-thresholds.json");
+    writeFileSync(
+      filePath,
+      JSON.stringify({ global: { lines: 60, branches: 50, functions: 60, statements: 60 } })
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, true, result.evidence);
+    rmSync(dir, { recursive: true });
+  });
 });
 
 describe("runbook substance checker", () => {

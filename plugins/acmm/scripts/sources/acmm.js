@@ -411,10 +411,14 @@ const CRITERIA = [
       "A coverage gate is a CI workflow that blocks merging when test coverage drops below a threshold (e.g., 80%). It turns test coverage from a number you glance at into a hard constraint that both humans and AI must satisfy. An AI mission will add a GitHub Actions workflow that runs your test suite with coverage reporting and fails the PR check if coverage regresses.",
     detection: {
       type: "any-of",
+      // codecov.yml / .codecov.yml absorbed from the deleted fullsend:test-coverage
+      // twin (#5851/#5853 AC6) — its patterns must survive the merge, not just its id.
       pattern: [
         ".github/workflows/coverage-gate.yml",
         ".github/workflows/coverage.yml",
         ".coverage-thresholds.json",
+        "codecov.yml",
+        ".codecov.yml",
       ],
     },
     referencePath: ".github/workflows/coverage-gate.yml",
@@ -882,12 +886,12 @@ const CRITERIA = [
     rationale: "A new session picks up where the last one left off without explanation.",
     scannable: false,
     details:
-      "Tightened (#5851): = CLAUDE.md existence passed regardless of content. No committed rule in CLAUDE.md, AGENTS.md, or .claude/rules/** actually states this practice yet — fails honestly until one does.",
+      'Tightened (#5851): was = CLAUDE.md existence passed regardless of content, and grepped the wrong file (AGENTS.md) for a rule that lives in CLAUDE.md. CLAUDE.md:189 states it: "Key principle: Trust live output ... re-run source-of-truth checks ... instead of recalling earlier summaries from conversation history" — durable infrastructure (git/gh) over session memory is exactly this criterion\'s claim.',
     detection: {
       type: "grep",
       pattern: {
-        file: "AGENTS.md",
-        contains: "derives? its state from (git|gh|durable infrastructure)",
+        file: "CLAUDE.md",
+        contains: "re-run source-of-truth checks",
       },
     },
   },

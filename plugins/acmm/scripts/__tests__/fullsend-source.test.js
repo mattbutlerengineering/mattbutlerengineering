@@ -39,6 +39,29 @@ const DOC_MATCHING_LIVE = `# Governance
 | **CI Gate**      | \`ci.yml\` | Gate    |
 `;
 
+// Regression (#5876 review): docs/governance.md's real shape has a SECOND
+// bolded-row table ("Human Review Required" — categories like **Security**,
+// **Infrastructure**, not status checks at all) after the Required Status
+// Checks section. The pre-fix parser collected every `| **X** |` row in the
+// whole document, so this table's categories got treated as "documented
+// required checks" too, and the criterion could never pass even once the
+// Required Status Checks table itself was corrected to say CI Gate.
+const DOC_WITH_TRAILING_UNRELATED_TABLE = `# Governance
+
+### Required Status Checks
+
+| Check           | Source     | Purpose |
+| ---------------- | ---------- | ------- |
+| **CI Gate**      | \`ci.yml\` | Gate    |
+
+### Human Review Required
+
+| Category            | Examples                     | Minimum Review  |
+| -------------------- | ----------------------------- | ---------------- |
+| **Security**         | Auth middleware, CODEOWNERS   | Owner + scan     |
+| **Infrastructure**   | Pulumi stacks, Dockerfiles    | Owner approval   |
+`;
+
 test("checkBranchProtectionDoc: doc not found -> fails", () => {
   const fx = fixture(undefined);
   const result = checkBranchProtectionDoc(fx.root);
@@ -73,6 +96,15 @@ test("checkBranchProtectionDoc: doc matches live required checks -> passes", () 
     execFileSyncFn: () => JSON.stringify(["CI Gate"]),
   });
   assert.equal(result.passed, true);
+  fx.cleanup();
+});
+
+test("checkBranchProtectionDoc: only reads rows under Required Status Checks, not a later unrelated table", () => {
+  const fx = fixture(DOC_WITH_TRAILING_UNRELATED_TABLE);
+  const result = checkBranchProtectionDoc(fx.root, {
+    execFileSyncFn: () => JSON.stringify(["CI Gate"]),
+  });
+  assert.equal(result.passed, true, result.evidence);
   fx.cleanup();
 });
 

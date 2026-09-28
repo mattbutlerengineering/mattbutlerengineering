@@ -270,10 +270,15 @@ function checkFeedbackLoop(filePaths, _cwd) {
 }
 
 function checkTestCoverage(filePaths, _cwd) {
+  // ["']? tolerates a JSON key's closing quote landing between the keyword and
+  // the colon (`"lines": 60`) — without it, every JSON-shaped threshold file
+  // (e.g. .coverage-thresholds.json) missed and downgraded pass to hollow.
+  const thresholdPattern =
+    /(?:threshold|coverage|lines|branches|functions|statements)["']?\s*[:=]\s*\d+/i;
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content) continue;
-    if (/(?:threshold|coverage|lines|branches|functions|statements)\s*[:=]\s*\d+/i.test(content)) {
+    if (thresholdPattern.test(content)) {
       return { passed: true, evidence: "coverage threshold configured" };
     }
   }
