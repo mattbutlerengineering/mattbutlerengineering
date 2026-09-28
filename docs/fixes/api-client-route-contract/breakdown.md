@@ -5,6 +5,7 @@ date: 2026-09-22
 assumptions:
   - 'Every mirrored tracker issue carries the `blocked` label. The orchestrator''s hard constraint was "no label the repo''s `/implement-queue` treats as a claim signal", and `ready` alone satisfies that literally — but `.github/workflows/scheduled-issue-completion.yml` runs every 12 hours and, in `promote` mode, *applies* `ready` to the best-specified open issues, whose filter drops only `ready`/`in-progress`/`has-pr`/`needs-review`/`blocked` (lines 93-101). A well-specified work item is the strongest promotion candidate in a 17-issue backlog, so omitting all labels would have handed these to the autonomous queue within 12 hours. `blocked` is the narrowest label that closes that path and is not itself a pickup signal (`/implement-queue` queries `--label ready`). It is semantically loose — these items are owned, not blocked — and it was chosen without live user input, so it is logged here rather than buried. Cheap to reverse: `gh issue edit <N> --remove-label blocked` once the run holds its PR.'
   - 'The scratch-edit proof required by the brief''s success criterion 2 is sequenced as an Implement work item (item 11) that *runs* the proof and captures the transcripts, rather than left for Verify to perform. The brief says only that the transcript is "quoted in `verification.md`" and never says who produces it. Sequencing it into Implement keeps it from becoming a checkbox nobody owns; Verify still owns quoting and judging it.'
+  - "The AI-antipattern ratchet baseline (`metrics/ai-antipattern-baselines.json`) was raised on the merged tree — `hardcodedRoutes` 825 → 847 and `emptyCatch` 77 → 78 — rather than the code being rewritten to dodge the regexes. The brief is silent on ratchet handling, so this was decided without live user input. Measured: the whole increase is this branch's own (`origin/main` alone is 825/77 at baseline, the merge base 0a80ea85b is 697/76, this branch pre-merge 719/77); `hardcodedRoutes` +22 is entirely `tools/route-contract` (the guard's tests and doc comments quote the literal paths it compares against the routers — replacing them with route constants would defeat the guard), net of −2 from the Finding A/B client edits; `emptyCatch` +1 is the deliberate, commented catch at `tools/route-contract/src/client-inventory.ts:246`, whose one dangerous case (a method throwing before it issues a request) is already caught by the zero-requests anti-vacuity assertion. Repo precedent: route-testing PRs raise `hardcodedRoutes` routinely (#5723 +74, #5780 +13, #5781 +4, #5821 +1) and #5722 raised `emptyCatch` 76 → 77. Cheap to reverse: narrow that catch to `catch (error) { if (current.count === 0) throw error; }` and re-run `--update`."
 ---
 
 # Breakdown: pinning `@mbe/api-client` URL literals to a route that answers them
@@ -360,3 +361,31 @@ F2 needed no change. Re-verified here: `MINIMUM_CLIENT_PAIRS` lowered to 20
 fails `MINIMUM_CLIENT_PAIRS › is pinned to an absolute floor`
 (`expected 20 to be greater than or equal to 80`), and restoring it to 86
 returns the suite to green.
+
+**2026-09-28, implement (merge) — `origin/main` merged at `49c7d773d`; the
+guard re-derived on the merged tree, and no constant needed to change.**
+After rebuilding every workspace dependency of the guard
+(`pnpm turbo build --filter='@mbe/route-contract^...'`, because vitest
+resolves `@mbe/api-client` through its `dist` export and a pre-merge dist
+would have measured the old client), `pnpm --dir tools/route-contract test`
+is **68/68 green** and the join re-derives **87 pairs / 87 owned / 0
+unowned** (reservations 75, users 7, agent 4, edge 1; effective owner tables
+reservations 179, users 44, agent 57, edge 5). The +1 pair is main's
+`deposits.getByReservation` (#5722, `ae57ccb38`) → `GET /api/v1/deposits`,
+owned by `reservations`. Main's other new client method,
+`reservations.markNoShow`, re-emits `update()`'s
+`PATCH /api/v1/reservations/:id` and dedupes into that existing pair (owned
+by `reservations`); both new methods issue a request in their own
+invocation, so the completeness check needed no roster or exempt-list edit.
+`ENV_CONDITIONAL_ROUTES` still measures exactly `POST /api/v1/events/test`:
+main added no environment-conditional route. `MINIMUM_CLIENT_PAIRS` stays 86
+— it is a lower bound by design ("adding a client method must not break the
+suite"), so growth to 87 needs no edit, and the absolute pin (≥ 80) still
+holds.
+
+The merge's only source conflict was `docs/backlog.md` (resolution in the
+merge commit body). Generated files were regenerated, not hand-merged, and
+none changed: the lockfile, the dependency graph and every llms family. The
+antipattern ratchet was red on the merge result for reasons this branch owns,
+not main — see this artifact's `assumptions:` for the measurement and the
+baseline raise.
