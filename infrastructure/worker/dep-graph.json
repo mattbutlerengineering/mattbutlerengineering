@@ -149,6 +149,11 @@
       "path": "tools/mutation-testing"
     },
     {
+      "name": "@mbe/route-contract",
+      "type": "tool",
+      "path": "tools/route-contract"
+    },
+    {
       "name": "@mbe/infrastructure",
       "type": "tool",
       "path": "infrastructure/pulumi"
@@ -668,6 +673,36 @@
     {
       "from": "@mbe/cli",
       "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/agent-service",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/api-client",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/edge-worker",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/reservations-service",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
+      "to": "@mbe/users-service",
       "type": "devDependency"
     },
     {
