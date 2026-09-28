@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   DEFAULT_THRESHOLD,
+  DEFAULT_OVERDUE_TOLERANCE_HOURS,
   DEPLOY_WORKFLOW_FILES,
   classifyScheduledWorkflowHealth,
   hasScheduleTrigger,
@@ -19,6 +20,15 @@ import {
   buildScheduledFailureCreateArgs,
   runScheduledWorkflowHealthCheck,
   resolveWorkflowModifiedAt,
+  classifyRunRecency,
+  extractScheduleCrons,
+  estimateCronPeriodDays,
+  resolveWorkflowPeriodDays,
+  buildMissedRunTitle,
+  extractWorkflowNameFromMissedRunTitle,
+  findPriorMissedRunIssue,
+  buildMissedRunBody,
+  runScheduledWorkflowRecencyCheck,
 } from "../scheduled-workflow-health.mjs";
 
 describe("classifyScheduledWorkflowHealth", () => {
@@ -794,5 +804,464 @@ describe("runScheduledWorkflowHealthCheck — deploy workflows (no schedule trig
     expect(results[0].status).toBe("failing-streak");
     expect(created).toHaveLength(1);
     expect(created[0].title).toBe("ci-fix: pulumi-up.yml has failed 3 consecutive runs");
+  });
+});
+
+// #5815: a failure-streak detector cannot see a workflow that never
+// executed at all — routine-liveness.yml and scheduled-workflow-health.yml
+// itself both silently skipped 09-22/09-23 with zero automated notice,
+// because nothing asked "did a run happen", only "did recent runs fail".
+describe("classifyRunRecency", () => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const NOW = Date.parse("2026-09-27T08:00:00Z");
+
+  it("reports fresh when the last run is well within the period", () => {
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - 2 * HOUR_MS).toISOString(),
+      periodDays: 1,
+      nowMs: NOW,
+    });
+    expect(result.status).toBe("fresh");
+  });
+
+  it("reports overdue when the last run is older than the period plus tolerance", () => {
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - 40 * HOUR_MS).toISOString(),
+      periodDays: 1,
+      nowMs: NOW,
+    });
+    expect(result.status).toBe("overdue");
+  });
+
+  it("tolerates the measured 5-7h GitHub scheduling delay: 6h late on a daily workflow is fine", () => {
+    // #5815 evidence: every observed run of routine-liveness.yml and
+    // scheduled-workflow-health.yml started 4h51m-6h54m after its scheduled
+    // minute. A daily workflow (periodDays=1) whose last run was 30h ago
+    // (24h period + 6h delay) must not read as overdue.
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - (24 + 6) * HOUR_MS).toISOString(),
+      periodDays: 1,
+      nowMs: NOW,
+    });
+    expect(result.status).toBe("fresh");
+  });
+
+  it("never-ran when there is no last-run timestamp at all", () => {
+    expect(classifyRunRecency({ lastRunAt: null, periodDays: 1, nowMs: NOW }).status).toBe(
+      "never-ran"
+    );
+    expect(classifyRunRecency({ lastRunAt: undefined, periodDays: 1, nowMs: NOW }).status).toBe(
+      "never-ran"
+    );
+    expect(classifyRunRecency({ lastRunAt: "", periodDays: 1, nowMs: NOW }).status).toBe(
+      "never-ran"
+    );
+  });
+
+  it("fails closed to undeterminable on an unparseable lastRunAt — never reports fresh", () => {
+    const result = classifyRunRecency({ lastRunAt: "not-a-date", periodDays: 1, nowMs: NOW });
+    expect(result.status).toBe("undeterminable");
+    expect(result.status).not.toBe("fresh");
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -1],
+    ["NaN", Number.NaN],
+    ["missing", undefined],
+  ])("fails closed to undeterminable on an invalid periodDays: %s", (_label, periodDays) => {
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - HOUR_MS).toISOString(),
+      periodDays,
+      nowMs: NOW,
+    });
+    expect(result.status).toBe("undeterminable");
+  });
+
+  it("never conflates undeterminable with fresh even when the run was recent", () => {
+    // A recent-looking run with a broken period must not read as "fine".
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - HOUR_MS).toISOString(),
+      periodDays: Number.NaN,
+      nowMs: NOW,
+    });
+    expect(result.status).not.toBe("fresh");
+  });
+
+  it("regression: routine-liveness.yml's real 09-21 -> 09-23 gap reads as overdue", () => {
+    // #5815 evidence: run_number 1 = 35616408240 (2026-09-21T15:04Z), the
+    // next observed run (run_number 2) was 2026-09-24T13:31Z — 09-22 and
+    // 09-23 were both missed. A check run at 09-23T09:00Z (the day it should
+    // have run, and didn't) must read as overdue against the prior run.
+    const result = classifyRunRecency({
+      lastRunAt: "2026-09-21T15:04:00Z",
+      periodDays: 1,
+      nowMs: Date.parse("2026-09-23T09:00:00Z"),
+    });
+    expect(result.status).toBe("overdue");
+  });
+
+  it("respects an injected toleranceHours instead of the default", () => {
+    // 20h ago is well inside the DEFAULT_OVERDUE_TOLERANCE_HOURS budget (36h)
+    // but outside a 1h-tolerance budget (25h) — proves the parameter is
+    // actually used, not just accepted and ignored.
+    const result = classifyRunRecency({
+      lastRunAt: new Date(NOW - 20 * HOUR_MS).toISOString(),
+      periodDays: 1,
+      nowMs: NOW,
+      toleranceHours: 1,
+    });
+    expect(result.status).toBe("fresh");
+
+    const strict = classifyRunRecency({
+      lastRunAt: new Date(NOW - 30 * HOUR_MS).toISOString(),
+      periodDays: 1,
+      nowMs: NOW,
+      toleranceHours: 1,
+    });
+    expect(strict.status).toBe("overdue");
+  });
+
+  it("DEFAULT_OVERDUE_TOLERANCE_HOURS comfortably exceeds the measured delay ceiling (6h54m)", () => {
+    expect(DEFAULT_OVERDUE_TOLERANCE_HOURS).toBeGreaterThan(7);
+  });
+});
+
+describe("extractScheduleCrons", () => {
+  it("extracts a single cron expression from the on: schedule: block", () => {
+    const source = `name: Foo\n\non:\n  schedule:\n    - cron: "10 8 * * *"\n  workflow_dispatch:\n\njobs:\n  x:\n    runs-on: ubuntu-latest\n`;
+    expect(extractScheduleCrons(source)).toEqual(["10 8 * * *"]);
+  });
+
+  it("extracts multiple cron expressions", () => {
+    const source = `name: Foo\n\non:\n  schedule:\n    - cron: "0 8 * * *"\n    - cron: "0 20 * * *"\n\njobs:\n  x:\n    runs-on: ubuntu-latest\n`;
+    expect(extractScheduleCrons(source)).toEqual(["0 8 * * *", "0 20 * * *"]);
+  });
+
+  it("returns an empty array when there is no schedule trigger", () => {
+    const source = `name: Foo\n\non:\n  push:\n    branches: [main]\n\njobs:\n  x:\n    runs-on: ubuntu-latest\n`;
+    expect(extractScheduleCrons(source)).toEqual([]);
+  });
+
+  it("returns an empty array when there is no on: block at all", () => {
+    expect(extractScheduleCrons("name: Foo\njobs:\n  x:\n    runs-on: ubuntu-latest\n")).toEqual(
+      []
+    );
+  });
+});
+
+describe("estimateCronPeriodDays", () => {
+  it("estimates 1 day for a fixed daily cron (min hour * * *)", () => {
+    expect(estimateCronPeriodDays(["10 8 * * *"])).toBe(1);
+  });
+
+  it("estimates 7 days for a fixed day-of-week cron", () => {
+    expect(estimateCronPeriodDays(["0 9 * * 1"])).toBe(7);
+  });
+
+  it("returns null for multiple cron entries (ambiguous combined period)", () => {
+    expect(estimateCronPeriodDays(["0 8 * * *", "0 20 * * *"])).toBeNull();
+  });
+
+  it("returns null for no cron entries at all", () => {
+    expect(estimateCronPeriodDays([])).toBeNull();
+  });
+
+  it("returns null for a step/wildcard hour (sub-daily cadence, not supported)", () => {
+    expect(estimateCronPeriodDays(["0 */6 * * *"])).toBeNull();
+  });
+
+  it("returns null for a wildcard minute", () => {
+    expect(estimateCronPeriodDays(["* 8 * * *"])).toBeNull();
+  });
+
+  it("returns null when dom or month is constrained", () => {
+    expect(estimateCronPeriodDays(["0 8 1 * *"])).toBeNull();
+    expect(estimateCronPeriodDays(["0 8 * 1 *"])).toBeNull();
+  });
+
+  it("returns null for a malformed cron expression", () => {
+    expect(estimateCronPeriodDays(["not a cron"])).toBeNull();
+  });
+});
+
+describe("resolveWorkflowPeriodDays", () => {
+  it("reads the workflow file and estimates its period", () => {
+    const readFile = () => `name: Foo\non:\n  schedule:\n    - cron: "10 8 * * *"\n`;
+    expect(resolveWorkflowPeriodDays("foo.yml", { readFile })).toBe(1);
+  });
+
+  it("returns null when the file cannot be read", () => {
+    const readFile = () => {
+      throw new Error("ENOENT");
+    };
+    expect(resolveWorkflowPeriodDays("missing.yml", { readFile })).toBeNull();
+  });
+});
+
+describe("buildMissedRunTitle / extractWorkflowNameFromMissedRunTitle", () => {
+  it("round-trips the workflow name through the deterministic title", () => {
+    const title = buildMissedRunTitle("routine-liveness.yml");
+    expect(title).toBe("ci-fix: routine-liveness.yml missed its scheduled run");
+    expect(extractWorkflowNameFromMissedRunTitle({ title })).toBe("routine-liveness.yml");
+  });
+
+  it("returns null for a title that doesn't match the pattern", () => {
+    expect(extractWorkflowNameFromMissedRunTitle({ title: "unrelated issue" })).toBeNull();
+  });
+
+  it("is never matched by the failing-streak title extractor, and vice versa", () => {
+    const missedRunTitle = buildMissedRunTitle("routine-liveness.yml");
+    const streakTitle = buildScheduledFailureTitle("routine-liveness.yml", 3);
+    expect(extractWorkflowNameFromIssueTitle({ title: missedRunTitle })).toBeNull();
+    expect(extractWorkflowNameFromMissedRunTitle({ title: streakTitle })).toBeNull();
+  });
+});
+
+describe("findPriorMissedRunIssue", () => {
+  it("finds the issue tracking the same workflow's missed run", () => {
+    const candidates = [
+      { number: 5, title: "ci-fix: routine-liveness.yml missed its scheduled run" },
+      { number: 6, title: "ci-fix: other.yml missed its scheduled run" },
+    ];
+    expect(findPriorMissedRunIssue(candidates, "routine-liveness.yml")).toBe(5);
+    expect(findPriorMissedRunIssue(candidates, "unrelated.yml")).toBeNull();
+  });
+
+  it("does not match a failing-streak issue for the same workflow", () => {
+    const candidates = [
+      { number: 1, title: buildScheduledFailureTitle("routine-liveness.yml", 3) },
+    ];
+    expect(findPriorMissedRunIssue(candidates, "routine-liveness.yml")).toBeNull();
+  });
+});
+
+describe("buildMissedRunBody", () => {
+  it("includes the workflow path, last-run time, and period", () => {
+    const body = buildMissedRunBody({
+      workflowPath: ".github/workflows/routine-liveness.yml",
+      lastRunAt: "2026-09-21T15:04:00Z",
+      ageHours: 41.9,
+      periodDays: 1,
+    });
+    expect(body).toContain(".github/workflows/routine-liveness.yml");
+    expect(body).toContain("2026-09-21T15:04:00Z");
+    expect(body).toContain("1-day");
+  });
+
+  it("reports 'none found' when there is no last observed run", () => {
+    const body = buildMissedRunBody({
+      workflowPath: ".github/workflows/new.yml",
+      lastRunAt: null,
+      ageHours: null,
+      periodDays: 1,
+    });
+    expect(body).toContain("none found");
+  });
+});
+
+describe("runScheduledWorkflowRecencyCheck", () => {
+  const NOW = Date.parse("2026-09-27T08:00:00Z");
+  const HOUR_MS = 60 * 60 * 1000;
+
+  it("files one ci-fix issue for an overdue workflow and skips a fresh one", () => {
+    const workflows = [
+      {
+        name: "routine-liveness.yml",
+        path: ".github/workflows/routine-liveness.yml",
+        file: "routine-liveness.yml",
+      },
+      { name: "fresh.yml", path: ".github/workflows/fresh.yml", file: "fresh.yml" },
+    ];
+    const runsByWorkflow = {
+      "routine-liveness.yml": [{ createdAt: new Date(NOW - 40 * HOUR_MS).toISOString() }],
+      "fresh.yml": [{ createdAt: new Date(NOW - 2 * HOUR_MS).toISOString() }],
+    };
+    const created = [];
+
+    const results = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: (name) => runsByWorkflow[name],
+      getPeriodDays: () => 1,
+      nowMs: NOW,
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 55;
+      },
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: routine-liveness.yml missed its scheduled run");
+    expect(results).toEqual([
+      { workflow: "routine-liveness.yml", status: "overdue", action: "create", issueNumber: 55 },
+      { workflow: "fresh.yml", status: "fresh" },
+    ]);
+  });
+
+  it("does not file for never-ran or undeterminable — same restraint as insufficient-history", () => {
+    const workflows = [
+      { name: "brand-new.yml", path: ".github/workflows/brand-new.yml", file: "brand-new.yml" },
+      { name: "weird-cron.yml", path: ".github/workflows/weird-cron.yml", file: "weird-cron.yml" },
+    ];
+    let createCalled = false;
+
+    const results = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: (name) => (name === "brand-new.yml" ? [] : [{ createdAt: "2026-09-26T00:00:00Z" }]),
+      getPeriodDays: (file) => (file === "weird-cron.yml" ? null : 1),
+      nowMs: NOW,
+      createIssue: () => {
+        createCalled = true;
+        return 1;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([
+      { workflow: "brand-new.yml", status: "never-ran" },
+      { workflow: "weird-cron.yml", status: "undeterminable" },
+    ]);
+  });
+
+  it("skips filing a duplicate when an open issue already tracks the missed run", () => {
+    const workflows = [
+      {
+        name: "routine-liveness.yml",
+        path: ".github/workflows/routine-liveness.yml",
+        file: "routine-liveness.yml",
+      },
+    ];
+    let createCalled = false;
+
+    const results = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: () => [{ createdAt: new Date(NOW - 40 * HOUR_MS).toISOString() }],
+      getPeriodDays: () => 1,
+      nowMs: NOW,
+      searchCiFixIssues: () => [
+        { number: 9, title: "ci-fix: routine-liveness.yml missed its scheduled run" },
+      ],
+      getIssueState: () => "open",
+      createIssue: () => {
+        createCalled = true;
+        return 999;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([
+      { workflow: "routine-liveness.yml", status: "overdue", action: "skip", issueNumber: 9 },
+    ]);
+  });
+
+  it("reopens a previously-closed missed-run issue instead of creating a duplicate", () => {
+    const workflows = [
+      {
+        name: "routine-liveness.yml",
+        path: ".github/workflows/routine-liveness.yml",
+        file: "routine-liveness.yml",
+      },
+    ];
+    const reopened = [];
+
+    const results = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: () => [{ createdAt: new Date(NOW - 40 * HOUR_MS).toISOString() }],
+      getPeriodDays: () => 1,
+      nowMs: NOW,
+      searchCiFixIssues: () => [
+        { number: 12, title: "ci-fix: routine-liveness.yml missed its scheduled run" },
+      ],
+      getIssueState: () => "closed",
+      createIssue: () => 1,
+      reopenIssue: (n) => reopened.push(n),
+    });
+
+    expect(reopened).toEqual([12]);
+    expect(results[0]).toEqual({
+      workflow: "routine-liveness.yml",
+      status: "overdue",
+      action: "reopen",
+      issueNumber: 12,
+    });
+  });
+
+  it("does not conflate a missed-run finding with a failing-streak finding for the same workflow name", () => {
+    // A workflow could plausibly be both a failing-streak AND overdue at
+    // once. The recency check must produce its own independent status/action
+    // and title, never merged with runScheduledWorkflowHealthCheck's output.
+    const workflows = [
+      { name: "release.yml", path: ".github/workflows/release.yml", file: "release.yml" },
+    ];
+    const created = [];
+
+    const recencyResults = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: () => [{ createdAt: new Date(NOW - 40 * HOUR_MS).toISOString() }],
+      getPeriodDays: () => 1,
+      nowMs: NOW,
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 1;
+      },
+    });
+
+    const streakResults = runScheduledWorkflowHealthCheck({
+      workflows,
+      threshold: 3,
+      getRuns: () => [
+        { conclusion: "failure", url: "u1" },
+        { conclusion: "failure", url: "u2" },
+        { conclusion: "failure", url: "u3" },
+      ],
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: () => 2,
+    });
+
+    expect(recencyResults[0].status).toBe("overdue");
+    expect(streakResults[0].status).toBe("failing-streak");
+    expect(created[0].title).not.toBe(
+      streakResults[0] && buildScheduledFailureTitle("release.yml", 3)
+    );
+  });
+
+  // #5815 regression: scheduled-workflow-health.yml's own real 09-22 -> 09-24
+  // gap (run_number 38 = 35730550063 at 09-22T12:59Z, run_number 39 =
+  // 36005415463 at 09-24T13:24Z, daily cron) must read as overdue at a check
+  // point on the missed day, and file exactly one deterministic-title issue.
+  it("regression: flags scheduled-workflow-health.yml's own real 09-22 -> 09-24 gap", () => {
+    const workflows = [
+      {
+        name: "scheduled-workflow-health.yml",
+        path: ".github/workflows/scheduled-workflow-health.yml",
+        file: "scheduled-workflow-health.yml",
+      },
+    ];
+    const created = [];
+
+    const results = runScheduledWorkflowRecencyCheck({
+      workflows,
+      getRuns: () => [{ createdAt: "2026-09-22T12:59:00Z" }],
+      getPeriodDays: () => 1,
+      // Real run_number 39 landed at 2026-09-24T13:24Z, ~48h25m after
+      // run_number 38 — this check point (48h1m later) sits comfortably past
+      // the 36h (24h period + 12h tolerance) overdue budget.
+      nowMs: Date.parse("2026-09-24T13:00:00Z"),
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 77;
+      },
+    });
+
+    expect(results[0].status).toBe("overdue");
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: scheduled-workflow-health.yml missed its scheduled run");
   });
 });
