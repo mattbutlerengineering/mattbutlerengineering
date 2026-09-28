@@ -77,7 +77,7 @@ the form label now reads the constant; its text is unchanged.
   - Accept (cross-check): `git grep -l "Noted. It's on your reservation for the team." -- apps/hospitality/src ':!*.test.*'` prints exactly `apps/hospitality/src/constants/confirmation-copy.ts`.
   - Serves: SC4
   - Blocked by: M1.1
-- [ ] **M1.3 `specialRequestsText` — the one presence rule** — `utils/reservation-display.ts` gains `specialRequestsText(notes: string | null | undefined): string | null` (tracker: #5862)
+- [x] **M1.3 `specialRequestsText` — the one presence rule** — `utils/reservation-display.ts` gains `specialRequestsText(notes: string | null | undefined): string | null` (tracker: #5862)
   - Build: returns `null` for `null`, `undefined`, and any string empty after `String.prototype.trim()`; otherwise returns `notes.trim()`, with interior spaces and `\n` kept. There is no separate `hasSpecialRequests`. It sits beside `STATUS_LABEL` and `formatReservationTime`.
   - Accept: `utils/reservation-display.test.ts` gains tests that fail first (the export is absent), then pass:
     - `it.each([null, undefined, "", "   ", "\n\t "])` returns `null`;
@@ -360,3 +360,4 @@ and no item needed a decision the architecture had not made.
   - A scratch `src/components/scratch-sc4-probe.ts` holding the literal failed two tests: `AssertionError: Read CONFIRMATION_COPY instead of retyping the sentence in:\n  components/scratch-sc4-probe.ts` (exact-sentence and fragment checks), `Tests 2 failed | 2 passed (4)`.
   - A scratch `src/components/scratch-sc4-apos.tsx` holding the JSX retype `It&apos;s on your reservation for the team.` passed the exact-sentence check and failed only the fragment check (`Tests 1 failed | 3 passed (4)`), which is the case the fragment exists for.
   - After removal: `Tests 4 passed (4)`. Cross-check `git grep -l "Noted. It's on your reservation for the team." -- apps/hospitality/src ':!*.test.*'` printed exactly `apps/hospitality/src/constants/confirmation-copy.ts`.
+- 2026-09-28 (Implement, M1.3): RED was `TypeError: specialRequestsText is not a function` on all 8 new cases; GREEN `Tests 20 passed (20)`, the module's 12 existing tests included.

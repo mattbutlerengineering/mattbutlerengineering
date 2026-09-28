@@ -3,6 +3,7 @@ import {
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
   formatReservationTime,
+  specialRequestsText,
 } from "./reservation-display.js";
 
 describe("reservation-display", () => {
@@ -60,6 +61,29 @@ describe("reservation-display", () => {
     it("returns a non-empty string for a valid ISO string", () => {
       const result = formatReservationTime("2026-06-22T09:00:00Z");
       expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("specialRequestsText", () => {
+    it.each([null, undefined, "", "   ", "\n\t "])("returns null for %j", (notes) => {
+      expect(specialRequestsText(notes)).toBeNull();
+    });
+
+    it("trims the ends and keeps the interior line break", () => {
+      expect(
+        specialRequestsText(
+          "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n"
+        )
+      ).toBe("Our anniversary.\nWindow seat if you can, and she can't have tree nuts.");
+    });
+
+    it("keeps interior spaces as typed", () => {
+      expect(specialRequestsText("a  b")).toBe("a  b");
+    });
+
+    it("returns untrusted text character for character", () => {
+      const untrusted = `<script>alert(1)</script>\n<a href="https://x">x</a> &amp; "double" 'single'`;
+      expect(specialRequestsText(untrusted)).toBe(untrusted);
     });
   });
 });
