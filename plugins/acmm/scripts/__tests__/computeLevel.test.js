@@ -414,6 +414,22 @@ describe("computeLevel with behavioral gates", () => {
       assert.equal(result.level, 2, "L3 blocked when flake sample is insufficient");
     });
 
+    test("gate result carries the parent's sample_size as sampleSize (review item 6)", () => {
+      const ids = idsThrough(3);
+      const behavioral = { flake: { rate_30d: 0.05, insufficient_data: true, sample_size: 3 } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+      assert.equal(gate.sampleSize, 3);
+    });
+
+    test("sampleSize is null for a gate with no parentKey (auto-qa-tuning-history)", () => {
+      const ids = idsThrough(5);
+      const behavioral = { flake: { rate_30d: 0.05 } };
+      const result = computeLevel(ids, behavioral, { strict: true });
+      const gate = result.behavioralGates.find((g) => g.name === "auto-qa-tuning-history");
+      assert.equal(gate.sampleSize, null);
+    });
+
     test("ci-flake-rate: insufficient_data passes (with warning) in soft mode", () => {
       const ids = idsThrough(3);
       const behavioral = { flake: { rate_30d: 0.05, insufficient_data: true } };
@@ -507,5 +523,21 @@ describe("computeLevel: margin report", () => {
     const result = computeLevel(ids);
     assert.equal(result.detectedByLevel[6], result.requiredByLevel[6]);
     assert.ok(result.marginByLevel[6] > 0);
+  });
+
+  // ── review item 3: L2's gate threshold is 1/required (any single
+  // criterion), not the 70% ratio every other level uses — its margin must
+  // be measured against that same 1, or L2 reads as far from its own cutoff
+  // when it has already cleared it. ────────────────────────────────────────
+  test("L2 margin is detected - 1, not detected - ceil(0.7 * required)", () => {
+    const result = computeLevel(new Set(["acmm:claude-md"])); // satisfies the OR-group only
+    const required = result.requiredByLevel[2];
+    const detected = result.detectedByLevel[2];
+    assert.equal(detected, 1, "only the OR-group criterion is detected");
+    // The old (wrong) formula would report detected - ceil(0.7 * required),
+    // which is negative even though L2 has actually been reached.
+    assert.notEqual(result.marginByLevel[2], detected - Math.ceil(0.7 * required));
+    assert.equal(result.marginByLevel[2], 0, "exactly at L2's own 1-of-required cutoff");
+    assert.equal(result.level, 2, "L2 is in fact reached here");
   });
 });

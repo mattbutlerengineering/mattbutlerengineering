@@ -240,7 +240,8 @@ export function writeReport(
       );
     } else {
       const acc = (apr.acceptance_rate_30d * 100).toFixed(0);
-      const rev = (apr.revert_rate_30d * 100).toFixed(0);
+      const revPct =
+        apr.revert_rate_30d != null ? `${(apr.revert_rate_30d * 100).toFixed(0)}%` : "—";
       const ttm = apr.median_time_to_merge_hours.toFixed(1);
       const htrPct =
         apr.human_touch_ratio != null ? `${(apr.human_touch_ratio * 100).toFixed(0)}%` : "—";
@@ -254,12 +255,23 @@ export function writeReport(
               : "❌";
       const accIcon =
         apr.acceptance_rate_30d >= 0.8 ? "✅" : apr.acceptance_rate_30d >= 0.5 ? "⚠️" : "❌";
+      // A null revert_rate_30d means detection was unavailable (shallow clone
+      // or `git log` failure), not a measured 0% — never fold it into the
+      // <= comparisons below, which would coerce null to 0 and render "✅".
       const revIcon =
-        apr.revert_rate_30d <= 0.05 ? "✅" : apr.revert_rate_30d <= 0.15 ? "⚠️" : "❌";
+        apr.revert_rate_30d == null
+          ? "?"
+          : apr.revert_rate_30d <= 0.05
+            ? "✅"
+            : apr.revert_rate_30d <= 0.15
+              ? "⚠️"
+              : "❌";
       lines.push(
         `- **${accIcon} Acceptance rate:** ${acc}% (${apr.merged_count} merged of ${apr.merged_count + apr.closed_unmerged_count} decided)`
       );
-      lines.push(`- **${revIcon} Revert rate:** ${rev}% within 7 days of merge`);
+      lines.push(
+        `- **${revIcon} Revert rate:** ${revPct} within 7 days of merge${apr.revert_detection_unavailable_reason ? ` (unverifiable — ${apr.revert_detection_unavailable_reason})` : ""}`
+      );
       lines.push(`- **Median time-to-merge:** ${ttm}h`);
       lines.push(
         `- **${htrIcon} Human-touch ratio (L6 gate):** ${htrPct} of merged PRs had non-author commits${apr.human_touch_ratio == null ? " (unverifiable — no data)" : ` · window: 30d · n=${apr.merged_count}`}`

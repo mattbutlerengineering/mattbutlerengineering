@@ -7,6 +7,7 @@ import {
   freshBehavioralReading,
   describeBehavioralAge,
 } from "../behavioral-freshness.js";
+import { computeLevel } from "../computeLevel.js";
 
 const NOW = new Date("2026-09-28T12:00:00Z");
 
@@ -41,6 +42,29 @@ describe("classifyBehavioralFreshness", () => {
     const r = classifyBehavioralFreshness(reading, { now: NOW });
     assert.equal(r.ageDays, 8);
     assert.equal(r.stale, true);
+  });
+
+  test("AC3 end-to-end: a stale flake reading actually blocks the L3 gate through computeLevel (review item 5)", () => {
+    // A LOW flake rate (0.02, well under the 20% threshold) that would pass
+    // the gate outright if read as live — the point is that staleness alone
+    // must block it, independent of what the number says.
+    const reading = { rate_30d: 0.02, sample_size: 40, measured_at: "2026-09-20T12:00:00Z" }; // 8 days ago
+    const fresh = freshBehavioralReading(reading, { now: NOW });
+    assert.equal(fresh, null, "a stale reading is carried into computeLevel as MISSING");
+
+    const detectedIds = new Set([
+      "acmm:claude-md",
+      "acmm:pr-acceptance-metric",
+      "acmm:pr-review-rubric",
+      "acmm:quality-dashboard",
+      "acmm:ci-matrix",
+      "acmm:instruction-sync-gate",
+    ]);
+    const result = computeLevel(detectedIds, { flake: fresh }, { strict: true });
+    const flakeGate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+    assert.equal(flakeGate.dataAvailable, false, "a stale reading must not read as live data");
+    assert.equal(flakeGate.unverifiable, true);
+    assert.equal(result.level, 2, "strict mode blocks L3 on a gate fed only a stale reading");
   });
 
   test("a custom maxAgeDays is honored", () => {

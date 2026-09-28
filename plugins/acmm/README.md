@@ -54,6 +54,22 @@ map changed since the prior run — or the prior run is more than 6 days old
 **The headline `X/Y` and the per-level margin.** Unverifiable criteria stay
 in the denominator, counted as not-passed, matching the level-threshold walk
 — the unverifiable count is shown separately rather than dropped from the
-total. Each level also reports a margin (`detected − ceil(0.7 × required)`):
-how many currently-detected criteria could be lost before the level drops.
-A margin of 1 or less is flagged.
+total. Each level also reports a margin (`detected − ceil(0.7 × required)`);
+L2 is the one exception, since its own gate is "any single criterion"
+(1-of-required) rather than the 70% ratio every other level uses, so its
+margin is `detected − 1`. The margin is how many currently-detected criteria
+could be lost before the level drops — a margin of 1 or less is flagged.
+
+**The human-touch gate trusts that agents always write the
+`Co-Authored-By` trailer.** `human-touch-ratio` (L6) classifies a merged
+agent PR as human-touched when its commits carry an author other than the
+agent's own `Co-Authored-By` identity — it has no way to see whether a
+commit that reads as human-authored was actually produced by an agent that
+simply forgot to add the trailer. Measured on 2026-09-28: 48 of 51
+"human-touched" PRs in the current 30-day window (21.3% of the sample) are
+2026-08-31–09-02 agent commits pushed directly under `mattbutlerengineering`
+on `worktree-agent-*` branches with no `Co-Authored-By` trailer at all (e.g.
+#4909) — they read as human intervention and will keep doing so until they
+age out of the 30-day window around 2026-10-02. This isn't a heuristic gap
+to patch; it's a hard dependency on every future agent commit actually
+carrying the trailer.

@@ -32,7 +32,7 @@ import { measureEvals } from "./evals.js";
 import { formatEvalsLine } from "./evals-freshness.js";
 import { freshBehavioralReading, describeBehavioralAge } from "./behavioral-freshness.js";
 import path from "node:path";
-import fs from "node:fs";
+import fs, { realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -55,8 +55,84 @@ export function checkGhAvailable(opts = {}) {
   const execFn = opts.execFn ?? execFileSync;
   const ghBin = opts.ghBin ?? "gh";
   try {
-    execFn(ghBin, ["auth", "status"], { stdio: ["ignore", "pipe", "pipe"] });
+    execFn(ghBin, ["auth", "status", "--hostname", "github.com"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reshape `measureFlakeRate()`'s output into the `behavioral.flake` snapshot
+ * `computeLevel`'s L3 gate reads — carrying `insufficient_data` and
+ * `oldest_record_at` through unchanged (review item 1). A prior version of
+ * this reshape dropped both fields, so a 3-SHA/0-flake sample read as a
+ * passing gate instead of unverifiable, and the report's "oldest record
+ * covered" line never had data to render.
+ *
+ * @param {ReturnType<typeof import("./flake-rate.js").computeFlakeRate>} flake
+ * @param {{ now?: Date }} [opts]
+ * @returns {{ rate_30d: number, sample_size: number, flaky_shas: string[], insufficient_data: boolean, oldest_record_at: string|null, measured_at: string }}
+ */
+export function buildFlakeSnapshot(flake, opts = {}) {
+  const now = opts.now ?? new Date();
+  return {
+    rate_30d: flake.flake_rate_30d,
+    sample_size: flake.flake_sample_size,
+    flaky_shas: flake.flaky_shas,
+    insufficient_data: flake.insufficient_data,
+    oldest_record_at: flake.oldest_record_at,
+    measured_at: now.toISOString(),
+  };
+}
+
+/**
+ * Render one behavioral gate's console line. Single source of truth for gate
+ * rendering (review item 6) — this used to be duplicated across two loops
+ * that had drifted apart, and neither distinguished "no value was ever
+ * measured" from "a value exists but `insufficient_data` disqualifies it".
+ * The latter must say so explicitly — a bare percentage next to a ✗ FAIL
+ * icon reads as "the data says this fails" when the true state is "the
+ * sample is too small to trust".
+ *
+ * @param {ReturnType<typeof import("./computeLevel.js").computeLevel>["behavioralGates"][number]} gate
+ * @param {boolean} strict
+ * @returns {string}
+ */
+export function formatBehavioralGateLine(gate, strict) {
+  let icon, note;
+  if (gate.unverifiable) {
+    icon = "?";
+    note = gate.dataAvailable ? `insufficient sample (n=${gate.sampleSize ?? "?"})` : "no data";
+  } else if (gate.passed) {
+    icon = "✓";
+    note = "pass";
+  } else {
+    icon = strict ? "✗" : "!";
+    note = strict ? "FAIL (level capped)" : "WARN";
+  }
+  return `  ${icon} L${gate.level} ${gate.name}: ${gate.description}  [${note}]`;
+}
+
+/**
+ * Is this module the CLI entry point (invoked directly), rather than
+ * imported by a test? `process.argv[1] === __filename` no-ops silently
+ * through a symlink or a `/tmp`-resolved path — a symlinked invocation of
+ * this script would import all its top-level code but never call `main()`,
+ * with no error (review item 7). Resolving both sides through the real
+ * filesystem path closes that gap; any resolution failure (a path that
+ * doesn't exist) fails closed to "not the entry point" rather than throwing.
+ *
+ * @param {string|undefined} argv1
+ * @param {string} moduleUrl
+ * @returns {boolean}
+ */
+export function isEntryPoint(argv1, moduleUrl) {
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(moduleUrl));
   } catch {
     return false;
   }
@@ -247,14 +323,7 @@ async function main() {
   const autoQaTuning = measureAutoQaTuning(repoRoot);
   const behavioral = {
     ...(prior.behavioral ?? {}),
-    flake: flake
-      ? {
-          rate_30d: flake.flake_rate_30d,
-          sample_size: flake.flake_sample_size,
-          flaky_shas: flake.flaky_shas,
-          measured_at: new Date().toISOString(),
-        }
-      : (prior.behavioral?.flake ?? null),
+    flake: flake ? buildFlakeSnapshot(flake) : (prior.behavioral?.flake ?? null),
     agent_pr: prOutcomes
       ? { ...prOutcomes, measured_at: new Date().toISOString() }
       : (prior.behavioral?.agent_pr ?? null),
@@ -433,7 +502,9 @@ async function main() {
   /* ── Console summary ─────────────────────────────────────── */
   console.log("");
   const levelDisplay = `${computation.level} (${computation.levelName})`;
-  console.log(`ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected`);
+  console.log(
+    `ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected (${unverifiableIds.size} unverifiable)`
+  );
   if (computation.capped) {
     console.log(
       `  ⚠ Capped from computed L${computation.computedLevel} → L${computation.level} (levelCap in state.json)`
@@ -518,24 +589,6 @@ async function main() {
     console.log("");
   }
 
-  if (computation.behavioralGates.length > 0) {
-    console.log("");
-    console.log(`Behavioral gates (${STRICT ? "strict" : "soft"}):`);
-    for (const g of computation.behavioralGates) {
-      const icon = g.passed ? "✓" : STRICT ? "✗" : "⚠";
-      const val = g.dataAvailable
-        ? g.direction === "below"
-          ? `${(g.value * 100).toFixed(1)}% < ${(g.threshold * 100).toFixed(0)}%`
-          : typeof g.value === "number" && g.threshold < 1
-            ? `${(g.value * 100).toFixed(1)}% > ${(g.threshold * 100).toFixed(0)}%`
-            : `${g.value} > ${g.threshold}`
-        : "no data";
-      console.log(
-        `  ${icon} L${g.level} ${g.name}: ${val}${!g.passed && !STRICT ? " (warning)" : ""}`
-      );
-    }
-  }
-
   if (behavioral.flake) {
     const pct = (behavioral.flake.rate_30d * 100).toFixed(1);
     const n = behavioral.flake.sample_size;
@@ -550,14 +603,17 @@ async function main() {
       console.log(`Agent PR outcomes: insufficient data (n=${o.sample_size})`);
     } else {
       const acc = (o.acceptance_rate_30d * 100).toFixed(0);
-      const rev = (o.revert_rate_30d * 100).toFixed(0);
+      const rev =
+        o.revert_rate_30d == null
+          ? "revert rate unverifiable"
+          : `${(o.revert_rate_30d * 100).toFixed(0)}% reverted`;
       const ttm = o.median_time_to_merge_hours.toFixed(1);
       const htr =
         o.human_touch_ratio != null
           ? `${(o.human_touch_ratio * 100).toFixed(0)}% human-touched`
           : "human-touch unverifiable";
       console.log(
-        `Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge · ${htr} (n=${o.sample_size})`
+        `Agent PR outcomes: ${acc}% accepted · ${rev} · ${ttm}h median time-to-merge · ${htr} (n=${o.sample_size})`
       );
     }
   } else {
@@ -568,36 +624,32 @@ async function main() {
 
   // Age of every behavioral input, printed regardless of gate outcome, so a
   // stale carried-forward reading (#5852 AC3) is visible even though
-  // computeBehavioral above already treats it as missing.
-  console.log("");
-  console.log("Behavioral input freshness:");
-  console.log(`  ${describeBehavioralAge("flake", behavioral.flake)}`);
-  console.log(`  ${describeBehavioralAge("agent_pr", behavioral.agent_pr)}`);
-  console.log(`  ${describeBehavioralAge("auto_qa_tuning", behavioral.auto_qa_tuning)}`);
+  // computeBehavioral above already treats it as missing. One call site
+  // (review item 8) instead of up to six — the antipattern ratchet counts
+  // `console.log(` occurrences in source, not runtime invocations.
+  const freshnessLines = [
+    "",
+    "Behavioral input freshness:",
+    `  ${describeBehavioralAge("flake", behavioral.flake)}`,
+    `  ${describeBehavioralAge("agent_pr", behavioral.agent_pr)}`,
+    `  ${describeBehavioralAge("auto_qa_tuning", behavioral.auto_qa_tuning)}`,
+  ];
   if (flake?.oldest_record_at) {
-    console.log(`  flake: oldest record covered ${flake.oldest_record_at.slice(0, 10)}`);
+    freshnessLines.push(`  flake: oldest record covered ${flake.oldest_record_at.slice(0, 10)}`);
   }
   if (prOutcomes?.oldest_record_at) {
-    console.log(`  agent_pr: oldest record covered ${prOutcomes.oldest_record_at.slice(0, 10)}`);
+    freshnessLines.push(
+      `  agent_pr: oldest record covered ${prOutcomes.oldest_record_at.slice(0, 10)}`
+    );
   }
+  console.log(freshnessLines.join("\n"));
 
   console.log("");
   console.log(
     `Behavioral gates${STRICT ? " (strict — failures cap level)" : " (soft — failures are warnings)"}:`
   );
   for (const gate of computation.behavioralGates) {
-    let icon, note;
-    if (!gate.dataAvailable) {
-      icon = "?";
-      note = "data unavailable";
-    } else if (gate.passed) {
-      icon = "✓";
-      note = "pass";
-    } else {
-      icon = STRICT ? "✗" : "!";
-      note = STRICT ? "FAIL (level capped)" : "WARN";
-    }
-    console.log(`  ${icon} L${gate.level}: ${gate.description}  [${note}]`);
+    console.log(formatBehavioralGateLine(gate, STRICT));
   }
 
   if (computation.nextTransitionTrigger) {
@@ -613,8 +665,7 @@ async function main() {
   }
 
   console.log("");
-  console.log(`report: ${reportPath}`);
-  console.log(`state:  ${stateWriteOutcome}`);
+  console.log(`report: ${reportPath}\nstate:  ${stateWriteOutcome}`);
   if (BADGE) console.log(`badge:  ${badgeOutcome}`);
   if (APPLY && applyResult) {
     console.log(
@@ -634,8 +685,9 @@ async function main() {
 
 // Only run main() when executed directly, not when imported by tests —
 // importing must never shell out to `gh`/`git`, read repo state, or write
-// files (#5852; same pattern as auto-qa-tune.js).
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
+// files (#5852; same pattern as auto-qa-tune.js). Resolved through
+// realpath (review item 7) so a symlinked or `/tmp`-relative invocation
+// still runs main() instead of silently no-oping.
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   await main();
 }

@@ -113,14 +113,22 @@ export function isAgentPr(pr) {
 /**
  * Pure compute over a normalized PR list.
  *
+ * `revertDetectionAvailable: false` (set by {@link fetchAgentPrs} when the
+ * clone is shallow or `git log` itself failed) forces `revert_rate_30d` to
+ * `null` rather than the trivially-wrong `0` a shallow/failed clone would
+ * otherwise silently produce — a shallow clone doesn't throw on `git log`, it
+ * just can't see history past its fetch depth, so `reverted_within_7d` stays
+ * `false` on every PR and the rate reads as a clean 0% (#5852 review, item 2).
+ *
  * @param {PrRecord[]} prs
- * @param {{ now?: Date, windowDays?: number, minSample?: number }} [opts]
+ * @param {{ now?: Date, windowDays?: number, minSample?: number, revertDetectionAvailable?: boolean }} [opts]
  */
 export function computePrOutcomes(prs, opts = {}) {
   const now = opts.now ?? new Date();
   const windowMs = (opts.windowDays ?? WINDOW_DAYS) * 24 * 60 * 60 * 1000;
   const cutoff = now.getTime() - windowMs;
   const minSample = opts.minSample ?? MIN_SAMPLE;
+  const revertDetectionAvailable = opts.revertDetectionAvailable ?? true;
 
   const inWindow = prs.filter((pr) => {
     const t = Date.parse(pr.createdAt);
@@ -135,7 +143,11 @@ export function computePrOutcomes(prs, opts = {}) {
   const acceptanceRate = decided === 0 ? 0 : merged.length / decided;
 
   const reverted = merged.filter((pr) => pr.reverted_within_7d).length;
-  const revertRate = merged.length === 0 ? 0 : reverted / merged.length;
+  const revertRate = !revertDetectionAvailable
+    ? null
+    : merged.length === 0
+      ? 0
+      : reverted / merged.length;
 
   const mergeHours = merged
     .map((pr) => (Date.parse(pr.mergedAt) - Date.parse(pr.createdAt)) / 3_600_000)
@@ -153,6 +165,9 @@ export function computePrOutcomes(prs, opts = {}) {
     open_count: open.length,
     acceptance_rate_30d: acceptanceRate,
     revert_rate_30d: revertRate,
+    revert_detection_unavailable_reason: revertDetectionAvailable
+      ? null
+      : "shallow clone or git log failure — revert history unreliable",
     median_time_to_merge_hours: medianHours,
     human_touch_ratio: humanTouchRatio,
     insufficient_data: inWindow.length < minSample,
@@ -313,17 +328,45 @@ export function buildPrListArgs(opts = {}) {
 }
 
 /**
+ * Is this clone shallow (`git clone --depth=N`)? A shallow clone's `git log
+ * --since=...` silently returns only what its fetch depth reaches — it does
+ * NOT throw — so revert detection would read as "0 reverts found" rather than
+ * "can't see far enough back" (#5852 review, item 2). Fails closed: any
+ * failure to determine shallow-ness (not a git repo, `git` missing, etc.) is
+ * treated as shallow/unverifiable, never as "definitely not shallow".
+ *
+ * @param {{ execFn?: typeof execFileSync }} [opts]
+ * @returns {boolean}
+ */
+export function isShallowClone(opts = {}) {
+  const execFn = opts.execFn ?? execFileSync;
+  try {
+    const out = execFn("git", ["rev-parse", "--is-shallow-repository"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+    return out === "true";
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Fetch agent PRs and enrich with revert/human-touch flags.
  * Returns null on any tool failure so callers can detect "no signal".
+ *
+ * @param {{ ghBin?: string, execFn?: typeof execFileSync, windowDays?: number, limit?: number, now?: Date }} [opts]
+ * @returns {(PrRecord[] & { revertDetectionAvailable: boolean }) | null}
  */
 export function fetchAgentPrs(opts = {}) {
   const ghBin = opts.ghBin ?? "gh";
+  const execFn = opts.execFn ?? execFileSync;
   const windowDays = opts.windowDays ?? WINDOW_DAYS;
   const revertLookbackDays = windowDays + REVERT_WINDOW_DAYS;
 
   let allPrs;
   try {
-    const stdout = execFileSync(ghBin, buildPrListArgs(opts), {
+    const stdout = execFn(ghBin, buildPrListArgs(opts), {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -348,7 +391,11 @@ export function fetchAgentPrs(opts = {}) {
     human_touched: false,
   }));
 
-  const revertedSet = fetchRevertedPrNumbers({ sinceDays: revertLookbackDays });
+  const revertedSet = fetchRevertedPrNumbers({ sinceDays: revertLookbackDays, execFn });
+  // Either signal alone is enough to distrust the revert set entirely (#5852
+  // review item 2): a `null` set means `git log` itself failed, and a
+  // shallow clone can return a *populated but incomplete* set with no error.
+  const revertDetectionAvailable = revertedSet !== null && !isShallowClone({ execFn });
 
   for (const pr of normalized) {
     if (revertedSet?.has(pr.number) && pr.mergedAt) {
@@ -358,10 +405,11 @@ export function fetchAgentPrs(opts = {}) {
     // one `gh pr view` call per PR, so widening it to every merged PR is a
     // real runtime cost (AC12) for data the caller filters out anyway.
     if (pr.state === "MERGED" && isAgentPr(pr)) {
-      pr.human_touched = prHasHumanTouchedCommit(ghBin, pr.number);
+      pr.human_touched = prHasHumanTouchedCommit(ghBin, pr.number, execFn);
     }
   }
 
+  normalized.revertDetectionAvailable = revertDetectionAvailable;
   return normalized;
 }
 
@@ -370,10 +418,10 @@ export function fetchAgentPrs(opts = {}) {
  * capitalized `Revert "…"` and this repo's own lowercase `revert:` (#5852
  * AC4) — a single case-insensitive `^revert` anchor catches both.
  */
-function fetchRevertedPrNumbers({ sinceDays }) {
+function fetchRevertedPrNumbers({ sinceDays, execFn = execFileSync }) {
   try {
     const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const stdout = execFileSync(
+    const stdout = execFn(
       "git",
       [
         "log",
@@ -386,7 +434,7 @@ function fetchRevertedPrNumbers({ sinceDays }) {
     );
     const reverted = new Set();
     for (const block of stdout.split("---END---")) {
-      for (const num of extractRevertedPrNumbers(block.trim())) {
+      for (const num of extractRevertedPrNumbers(block.trim(), { execFn })) {
         reverted.add(num);
       }
     }
@@ -410,7 +458,13 @@ function fetchRevertedPrNumbers({ sinceDays }) {
  * below 50%. PR #5615 is the clean case: one commit, sole author `claude`,
  * no human involvement of any kind, counted as human-touched.
  */
-const NON_HUMAN_AUTHOR_LOGINS = new Set(["claude", "dependabot", "github-actions", "copilot"]);
+const NON_HUMAN_AUTHOR_LOGINS = new Set([
+  "claude",
+  "dependabot",
+  "github-actions",
+  "copilot",
+  "actions-user",
+]);
 
 /**
  * @param {string} login
@@ -468,9 +522,9 @@ export function commitsShowHumanTouch(commits) {
   });
 }
 
-function prHasHumanTouchedCommit(ghBin, prNumber) {
+function prHasHumanTouchedCommit(ghBin, prNumber, execFn = execFileSync) {
   try {
-    const stdout = execFileSync(ghBin, ["pr", "view", String(prNumber), "--json", "commits"], {
+    const stdout = execFn(ghBin, ["pr", "view", String(prNumber), "--json", "commits"], {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -484,5 +538,8 @@ function prHasHumanTouchedCommit(ghBin, prNumber) {
 export function measurePrOutcomes(opts = {}) {
   const prs = fetchAgentPrs(opts);
   if (prs === null) return null;
-  return { ...computePrOutcomes(prs, opts), recent_changes: selectRecentChanges(prs, opts) };
+  return {
+    ...computePrOutcomes(prs, { ...opts, revertDetectionAvailable: prs.revertDetectionAvailable }),
+    recent_changes: selectRecentChanges(prs, opts),
+  };
 }

@@ -5,12 +5,14 @@ import {
   computePrOutcomes,
   isAgentPr,
   isBookkeepingPr,
+  isShallowClone,
   extractRevertedPrNumbers,
   selectRecentChanges,
   isNonHumanAuthor,
   isMergeCommit,
   commitsShowHumanTouch,
   buildPrListArgs,
+  fetchAgentPrs,
 } from "../pr-outcomes.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
@@ -447,4 +449,93 @@ test("computePrOutcomes: oldest_record_at reflects the full fetched list, not ju
 test("computePrOutcomes: oldest_record_at is null for an empty list", () => {
   const r = computePrOutcomes([], { now: NOW });
   assert.equal(r.oldest_record_at, null);
+});
+
+// ── shallow-clone / git-failure revert detection (review item 2) ───────────
+
+describe("isShallowClone", () => {
+  test("true when git reports the repo is shallow", () => {
+    const execFn = () => "true\n";
+    assert.equal(isShallowClone({ execFn }), true);
+  });
+
+  test("false when git reports the repo is NOT shallow", () => {
+    const execFn = () => "false\n";
+    assert.equal(isShallowClone({ execFn }), false);
+  });
+
+  test("fails closed to true (shallow/unverifiable) when git itself fails", () => {
+    const execFn = () => {
+      throw new Error("not a git repository");
+    };
+    assert.equal(isShallowClone({ execFn }), true);
+  });
+});
+
+describe("computePrOutcomes: revertDetectionAvailable (review item 2)", () => {
+  test("revert_rate_30d is null, with a reason, when revert detection is unavailable", () => {
+    const prs = [pr({ number: 1 }), pr({ number: 2 }), pr({ number: 3 })];
+    const r = computePrOutcomes(prs, { now: NOW, revertDetectionAvailable: false });
+    assert.equal(r.revert_rate_30d, null, "must be null, not the misleading 0%");
+    assert.match(r.revert_detection_unavailable_reason, /shallow clone or git log failure/);
+  });
+
+  test("revert_rate_30d computes normally when revert detection IS available (default)", () => {
+    const prs = [pr({ number: 1 }), pr({ number: 2 })];
+    const r = computePrOutcomes(prs, { now: NOW });
+    assert.equal(r.revert_rate_30d, 0);
+    assert.equal(r.revert_detection_unavailable_reason, null);
+  });
+});
+
+describe("fetchAgentPrs: end-to-end shallow-clone propagation (review item 2)", () => {
+  test("a shallow clone marks revertDetectionAvailable=false on the returned list", () => {
+    const ghPrListOutput = JSON.stringify([
+      {
+        number: 1,
+        title: "fix: something",
+        url: "https://github.com/o/r/pull/1",
+        headRefName: "worktree-agent-abc",
+        state: "MERGED",
+        createdAt: WITHIN_WINDOW,
+        mergedAt: "2026-04-26T00:00:00Z",
+        labels: [],
+        author: { login: "mattbutlerengineering" },
+      },
+    ]);
+
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") return ghPrListOutput;
+      if (bin === "gh" && args[0] === "pr" && args[1] === "view") {
+        return JSON.stringify({ commits: [] });
+      }
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "true\n";
+      if (bin === "git" && args[0] === "log") return "";
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed");
+    assert.equal(prs.revertDetectionAvailable, false);
+  });
+
+  test("a non-shallow clone with working git log marks revertDetectionAvailable=true", () => {
+    const ghPrListOutput = JSON.stringify([]);
+    const execFn = (bin, args) => {
+      if (bin === "gh" && args[0] === "pr" && args[1] === "list") return ghPrListOutput;
+      if (bin === "git" && args.includes("--is-shallow-repository")) return "false\n";
+      if (bin === "git" && args[0] === "log") return "";
+      throw new Error(`unexpected exec: ${bin} ${args.join(" ")}`);
+    };
+
+    const prs = fetchAgentPrs({ now: NOW, execFn });
+    assert.ok(prs, "fetchAgentPrs should succeed");
+    assert.equal(prs.revertDetectionAvailable, true);
+  });
+});
+
+// ── actions-user is a non-human identity (review item 7c) ───────────────────
+
+test("isNonHumanAuthor: actions-user is not a human", () => {
+  assert.equal(isNonHumanAuthor("actions-user"), true);
 });

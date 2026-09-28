@@ -103,6 +103,12 @@ function evaluateGate(gate, behavioral, strict) {
     strict,
     dataAvailable: hasValue,
     unverifiable,
+    // The parent object's own sample size, so a console/report renderer can
+    // say "insufficient sample (n=X)" instead of a bare "no data" when a
+    // value WAS measured but `insufficient_data` disqualified it (review
+    // item 6) — null for gates with no natural sample concept (parentKey
+    // omitted, e.g. auto-qa-tuning-history).
+    sampleSize: parent?.sample_size ?? null,
   };
 }
 
@@ -232,7 +238,14 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
     const required = requiredByLevel[n];
     if (!required) continue;
-    marginByLevel[n] = detectedByLevel[n] - Math.ceil(LEVEL_COMPLETION_THRESHOLD * required);
+    // L2's own gate threshold is 1/required (any single criterion), not the
+    // 70% ratio every other level uses — its margin must match that (review
+    // item 3), or a project at L2 with only 1 of 4 instruction files reads
+    // as "3 short of the cutoff" when it has already cleared the real gate.
+    marginByLevel[n] =
+      n === 2
+        ? detectedByLevel[n] - 1
+        : detectedByLevel[n] - Math.ceil(LEVEL_COMPLETION_THRESHOLD * required);
   }
 
   const current = levelDef(currentLevel);
