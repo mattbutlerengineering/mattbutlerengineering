@@ -18,6 +18,27 @@ const HEALTHY: VacuityInput = {
   ownerTableSizes: { reservations: 176, users: 44, agent: 56, edge: 5 },
 };
 
+describe("MINIMUM_CLIENT_PAIRS", () => {
+  // Every other assertion on this constant is RELATIVE — `vacuityFailures` is
+  // fed `MINIMUM_CLIENT_PAIRS` and `MINIMUM_CLIENT_PAIRS - 1` below, and
+  // `client-inventory.test.ts:37` compares the real inventory against it. So
+  // the whole suite stayed green with the floor lowered to 20 (measured
+  // 2026-09-22: 66/66 passed), and the floor's only defence was that a human
+  // noticed the diff. A change that makes this suite GREENER is the direction
+  // nobody investigates — this file's own header says so.
+  //
+  // 80 is an absolute lower bound, deliberately a little under the 86 the
+  // driver measures today: the design's rule is that adding a client method
+  // must never break the suite, so this must not track the live count. Paired
+  // with `client-inventory.test.ts`'s `pairs.length >= MINIMUM_CLIENT_PAIRS`,
+  // the two say: the floor is at least 80, and the surface is at least the
+  // floor. Lowering past 80 now takes an edit to this number too, with the
+  // reason the floor's doc comment already demands.
+  it("is pinned to an absolute floor, not only to itself", () => {
+    expect(MINIMUM_CLIENT_PAIRS).toBeGreaterThanOrEqual(80);
+  });
+});
+
 describe("vacuityFailures", () => {
   it("passes a healthy input", () => {
     expect(vacuityFailures(HEALTHY)).toEqual([]);

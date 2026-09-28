@@ -34,6 +34,11 @@
  * it is the only correct response to a surface that legitimately shrank, and
  * it must stay a conscious edit with a reason attached, never a number
  * recomputed from whatever the driver last produced.
+ *
+ * That rule used to be prose only: every assertion on this constant was
+ * relative to the constant itself, so lowering it to 20 left all 66 tests
+ * green (measured 2026-09-22). `vacuity.test.ts` now also pins it against an
+ * absolute floor, so a lowering past that floor is a second, deliberate edit.
  */
 export const MINIMUM_CLIENT_PAIRS = 86;
 
