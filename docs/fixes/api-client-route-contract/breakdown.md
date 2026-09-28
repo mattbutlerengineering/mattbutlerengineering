@@ -105,6 +105,28 @@ needs exist.
   - Why this is an item and not a footnote: `pnpm-lock.yaml` is a turbo `globalDependencies` entry, so adding a workspace package invalidates the cache for **every** task on this PR's run. That cold ~40-task-concurrent load has twice tipped marginal default-5 s-timeout suites over and broken `main` (`ec35b2cf` / #3588, and the `buildApp()` cold-start class before it). The failure arrives on a package this run never touched, so it reads as unrelated flake and invites the blind rerun that does not fix it.
   - Blocked by: Prove the guard goes red on the 2026-08-30 literal and green once reverted
 
+## Milestone 5: The review round — two findings re-opened by live-user direction
+
+**Demonstrable at the boundary:** the guard's owner table is the table
+production registers, not the table `NODE_ENV="test"` registers; a _new_
+environment-conditional route in any of the three services turns the suite red
+on its own, with no client pair having to target it; and the anti-vacuity floor
+can no longer be lowered to nothing while every test stays green.
+
+Added 2026-09-22 **after** Decompose, by live-user direction recorded in
+`autorun-brief.md` § "Addendum — interview round 3". Per the protocol's
+tracker-mirror section these two items carry **no** `(tracker: #N)` reference
+and file no issue — the mirror is one-way out and syncs at Decompose, which had
+already closed. The run's twelve mirrored issues stay closed.
+
+- [x] **R1 — the owner table must be production's table, and a new environment-conditional route must go red**
+  - Accept: `bootFastifyOwners()` no longer rests on the false invariant "nothing in the three services' route registration reads `NODE_ENV`"; `answers()` reports an owner only for a route that is registered under **both** `NODE_ENV="test"` and `NODE_ENV="production"`, so `POST /api/v1/events/test` (`services/reservations/src/routes/events.ts:181`, under the unconditional `/api/v1/events` prefix at `app.ts:231`) is not in the table a client pair can match; the environment-conditional set is **measured** by a differential boot, not hand-listed, and asserted equal to a recorded constant so a new one fails the suite on its own; the doc comment at `fastify-owners.ts:78-84` and the matching claim in this file's § Notes state what is actually true; the whole join still re-derives **86 pairs / 86 owned / 0 unowned**; a captured transcript under `proof/` shows the new assertion RED when an environment-conditional route is introduced and green when it is not.
+  - `NODE_ENV="production"` must **not** become the guard's normal boot mode — `services/reservations/src/app.ts:266` gates the lapsed-guest monitor and the Redis-backed job worker on `!== "test"`. The production boot is a second, deliberately never-`ready()`-ed reference app; `onReady` is what starts those, and it never fires.
+  - Blocked by: —
+- [x] **F2 — pin the anti-vacuity floor's absolute value**
+  - Accept: `MINIMUM_CLIENT_PAIRS` is asserted against an absolute lower bound, not only relatively, so lowering it to ~20 fails a test instead of leaving all tests green; the legitimate 87→86 lowering already in the branch stays.
+  - Blocked by: —
+
 ## Design gaps found
 
 None. The architecture answered every question decomposition asked of it, and
@@ -169,12 +191,19 @@ budget for. It is also unnecessary: the worker is constructed inside
 `if (process.env.NODE_ENV !== "test")` (`services/reservations/src/app.ts:266`),
 which also gates the lapsed-guest monitor — so pinning `NODE_ENV = "test"` in
 `bootFastifyOwners()` means the ioredis connection is never opened at all,
-rather than opened and stubbed. Checked that this cannot change the answer the
-guard gives: `NODE_ENV`'s only other uses in the three services' bootstrap are
-CORS origins, the fail-closed production auth check, and those two hooks —
-**no route registration reads it**, so the table booted here is the table
-production registers. Reservations, users and agent all reach `ready()` with no
+rather than opened and stubbed. Reservations, users and agent all reach `ready()` with no
 database, no mocks and no ioredis output.
+
+**This note originally ended with a false claim, corrected below on 2026-09-22
+(R1).** It read: "Checked that this cannot change the answer the guard gives:
+`NODE_ENV`'s only other uses in the three services' bootstrap are CORS origins,
+the fail-closed production auth check, and those two hooks — **no route
+registration reads it**, so the table booted here is the table production
+registers." The grep behind that sentence missed
+`services/reservations/src/routes/events.ts:181`, which registers `POST /test`
+only when `NODE_ENV !== "production"`, under the unconditional `/api/v1/events`
+prefix (`app.ts:231`). Pinning `NODE_ENV="test"` therefore DID change the answer
+the guard gives, for that one route.
 
 **2026-09-22, implement (item 3) — the "no `DATABASE_URL`" half of that
 criterion is recorded, not asserted on `process.env`.** The apps do boot with
@@ -230,3 +259,104 @@ that never happened. If that first run does surface a timeout in an untouched
 package, the recorded fix is `testTimeout: 15000` in **that** package's
 `vitest.config.ts` — never a blind `gh run rerun`, which re-uses the same merge
 SHA and fails identically.
+
+**2026-09-22, implement (item R1) — what is actually true about `NODE_ENV` and
+the owner table.** The corrected statement, measured rather than grepped:
+
+- Route registration in these three services **can** read `NODE_ENV`, and one
+  place does — `services/reservations/src/routes/events.ts:181`. So a single
+  boot under any one value produces a table that is that value's table, not
+  production's.
+- `bootFastifyOwners()` therefore boots each service **twice** and intersects:
+  once under `NODE_ENV="test"` (`ready()`-ed, exactly as before — this is what
+  keeps `app.ts:266`'s lapsed-guest monitor and Redis job worker unwired) and
+  once under `NODE_ENV="production"` with placeholder secrets and deliberately
+  **no** `ready()`. `answers()` says yes only when both routers match.
+- The production boot opens nothing. Measured with `net.Socket.prototype.connect`,
+  `dns.lookup` and `globalThis.fetch` instrumented: `buildApp()` **and**
+  `close()` together produced zero attempts on all three services, with
+  `REDIS_URL` set to a bogus value and with it unset. `close()` on a
+  never-`ready()`-ed Fastify instance does not fire `onReady`, which is what
+  would have started the monitor and the worker. `printRoutes`/`findRoute`
+  answer identically before and after `ready()` (byte-identical trees), because
+  `buildApp` awaits every `register` call itself.
+- Four env vars are required to reach registration under `production`, each
+  because a boot throws without it: `SENTRY_DSN`
+  (`validate-startup-config.ts:61`), `AUTH_AUTHORITY` + `AUTH_AUDIENCE`
+  (`create-service-app.ts:247`), and `MANAGE_TOKEN_SECRET` (reservations,
+  `app.ts:119`). They are applied around the production boot only and restored
+  immediately, overriding any ambient values so a developer's real `SENTRY_DSN`
+  is never initialised.
+- The difference the two boots find is **recorded and asserted**
+  (`ENV_CONDITIONAL_ROUTES`), so a new environment-conditional route in any of
+  the three services fails `fastify-owners.test.ts` on its own — no client pair
+  has to target it. Proof transcript:
+  `proof/env-conditional-route-fails-closed.md`.
+- Scope of the claim, stated so it is not over-read: this compares `test`
+  against `production`. A registration gated on some third `NODE_ENV` value, or
+  on a different variable, is outside what the diff can see.
+
+The effective `reservations` table is 175 entries where the `test` boot alone
+registers 176; `users` (44) and `agent` (56) are unchanged. The join still
+re-derives **86 pairs / 86 owned / 0 unowned**.
+
+**2026-09-22, implement (item F2) — the anti-vacuity floor now has an absolute
+pin.** `MINIMUM_CLIENT_PAIRS` was only ever asserted relatively
+(`vacuity.test.ts:15`/`:37`, `client-inventory.test.ts:37` all reference the
+constant itself), so lowering it to ~20 left all tests green and its only
+defence was diff review — which is exactly the "a change that makes the suite
+GREENER is the direction nobody investigates" failure `vacuity.ts`'s own header
+warns about. It is now pinned against an absolute lower bound in
+`vacuity.test.ts`. The 87→86 lowering already in this branch was legitimate
+(Finding B deleted one real client pair) and stays.
+
+**2026-09-28, implement (completion pass) — R1 was checked one condition
+early: its fail-closed half did not hold for a gate decided at module scope.**
+Re-audited against the brief's three R1 conditions rather than inherited. The
+two-boot diff above booted each service twice, but the services were imported
+**statically**, so their module scope was evaluated once, under vitest's
+ambient `NODE_ENV="test"`, and both boots shared that evaluation. Measured with
+a scratch edit to `services/users/src/routes/users.ts`
+(`const SCRATCH_DEV_ROUTES = process.env.NODE_ENV !== "production"` at module
+scope, the route registered inside the plugin when it is true): all 16
+`fastify-owners.test.ts` tests stayed **green** and the route sat in the owner
+table. So conditions 1 and 3 did not hold for that shape, and the § Notes scope
+statement above ("a third `NODE_ENV` value, or a different variable") was
+incomplete in exactly the way the brief warned against.
+
+Fixed test-first. `fastify-owners.ts` now imports each service through a new
+`importFresh(load)`, which calls `vi.resetModules()` before the dynamic import,
+so each boot evaluates module scope under its own `NODE_ENV`. The mechanism is
+pinned by a committed test against `src/module-scope-env.fixture.ts`; with
+`importFresh` stubbed to a plain `load()` it failed with
+`expected 'production' to be 'test'` (the module cache returning the first
+evaluation), and passed once the reset was added. The same scratch edit then
+turned the suite **red** on the recorded-set assertion, naming
+`GET`/`HEAD /api/v1/users/scratch-dev-only`, and green again once reverted.
+Transcript: the 2026-09-28 addendum to
+`proof/env-conditional-route-fails-closed.md`.
+
+Two consequences, both measured:
+
+- Evaluating under `production` reached one module-scope requirement the old
+  boot never did: `services/reservations/src/services/post-visit-notifier.ts:6`
+  throws at import without `UNSUBSCRIBE_TOKEN_SECRET`. It joins
+  `PRODUCTION_BOOT_ENV` as a fifth placeholder, for the same reason as the
+  other four.
+- "The production boot opens nothing" was re-measured under the new mechanism
+  rather than inherited: zero socket, DNS or `fetch` attempts across
+  `bootFastifyOwners()` and `close()`, with `REDIS_URL` unset and with it set
+  to `redis://route-contract.invalid:6379`.
+
+The recorded set is unchanged (`POST /api/v1/events/test` only), so no existing
+module-scope gate was hiding in the three services. The join still re-derives
+**86 pairs / 86 owned / 0 unowned** (reservations 74, users 7, agent 4, edge 1;
+effective tables reservations 175, users 44, agent 56, edge 5). Still outside
+what the diff can see, now stated in `bootFastifyOwners`'s doc comment: a gate
+on a third `NODE_ENV` value, a gate on a different variable, and a gate inside
+a package under `node_modules`, which `vi.resetModules()` leaves shared.
+
+F2 needed no change. Re-verified here: `MINIMUM_CLIENT_PAIRS` lowered to 20
+fails `MINIMUM_CLIENT_PAIRS › is pinned to an absolute floor`
+(`expected 20 to be greater than or equal to 80`), and restoring it to 86
+returns the suite to green.

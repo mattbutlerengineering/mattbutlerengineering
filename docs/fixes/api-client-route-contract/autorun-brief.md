@@ -370,3 +370,52 @@ After the fix: Verify appends a re-verification addendum to `verification.md`
 (re-deriving the inventory and re-running the real gates, not inheriting them),
 then Review re-adjudicates R1 and F2 in `review.md`. Ship runs last, and remains
 authorized to EXECUTE.
+
+---
+
+## Addendum — interview round 4 (2026-09-28, resume)
+
+The user invoked `/idea-to-prod:autorun` with no arguments. Run discovery on
+`origin/main` at `6d27b5b47` found no un-driven run, so the orchestrator asked
+which work to drive. The user chose the backlog seed this run already carries.
+Discovery then found this run: unpushed, alive only in this worktree, stopped
+after Round 3's R1/F2 work was written but before it was committed. No process
+owned the worktree, and no file in it was modified after 2026-09-23. This is a
+resume, not a second run. The in-flight guard ran: the open PRs are #5845,
+#5846 (Dependabot) and #5824 (metrics). None overlaps. No remote branch exists
+for `fix/api-client-route-contract`.
+
+These are live-user answers, given 2026-09-28. Do not log them as assumptions.
+
+- **Release authorization: merge when green.** This confirms the EXECUTE
+  authorization above. Ship may squash-merge its own PR once `CI Gate` is green
+  on the PR head and `review.md` records zero unfixed critical findings. CI
+  performs any deploy. Nothing is deployed by hand.
+- **Tracker: none for the remaining work.** This matches Round 3. The twelve
+  issues mirrored at Decompose stay closed. No new issue is filed.
+
+### State measured at resume (2026-09-28)
+
+- Branch head `3fe7a05db`, merge-base with `origin/main` `0a80ea85b`.
+  `origin/main` is 98 commits ahead.
+- `breakdown.md`: 14 of 14 items checked, including R1 and F2.
+- Uncommitted: `breakdown.md`, `tools/route-contract/src/{fastify-owners,vacuity}{,.test}.ts`,
+  root `llms.txt` / `llms-full.txt`, and two new proof transcripts
+  (`proof/env-conditional-route-fails-closed.md`,
+  `proof/minimum-client-pairs-absolute-floor.md`).
+- Untracked `.claude/sessions/*.md` are Stop-hook session archives, not run
+  work. Never stage them.
+
+### Sequence for this resume
+
+Round 3's process stands, with one step inserted for the 98-commit gap:
+
+1. **Implement (completion):** gate and commit the R1/F2 work. Then merge
+   `origin/main` into the branch, so every later stage measures what will
+   actually merge. Re-run the guard on the merged tree. A client pair that the
+   merge makes unowned is a live mismatch found in flight, handled per Round 2.
+2. **Verify:** append a re-verification addendum to `verification.md`,
+   measured on the merged head.
+3. **Review:** re-adjudicate R1 and F2 in `review.md`, plus anything the merge
+   introduced.
+4. **Ship:** push, open the PR, wait for `CI Gate`, merge, write `release.md`.
