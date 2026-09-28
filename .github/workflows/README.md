@@ -40,11 +40,10 @@ Run on cron schedules for ongoing health and compliance.
 | Workflow                       | Schedule  | Purpose                                  |
 | ------------------------------ | --------- | ---------------------------------------- |
 | `acmm-cold-start.yml`          | scheduled | Initialize ACMM state for new workspaces |
-| `acmm-state-backup.yml`        | scheduled | Back up ACMM state files                 |
+| `acmm-regression.yml`          | daily     | Canonical ACMM audit + regression check  |
 | `ai-audit.yml`                 | scheduled | AI audit trail generation                |
 | `audit-scout.yml`              | monthly   | Improvement opportunity scan             |
 | `audit-sweep.yml`              | weekly    | Rotating zone site audit                 |
-| `auto-issue.yml`               | scheduled | Auto-generate issues from audit findings |
 | `auto-qa-tune.yml`             | scheduled | Tune QA thresholds                       |
 | `automation-pr-rescue.yml`     | scheduled | Update-branch stale automation/\* PRs    |
 | `backup-verify.yml`            | scheduled | Verify database backups                  |
@@ -81,7 +80,6 @@ Run on cron schedules for ongoing health and compliance.
 | `auto-rollback.yml`         | manual           | Rollback agent regressions                 |
 | `circuit-breaker.yml`       | manual           | Circuit breaker for runaway automation     |
 | `claude.yml`                | PR review        | Trigger Claude Code on review comments     |
-| `copilot-review-apply.yml`  | PR               | Apply Copilot review suggestions           |
 | `dependabot-auto-merge.yml` | PR               | Auto-merge Dependabot dev dependency bumps |
 | `e2e-screenshots.yml`       | push, PR, manual | Capture E2E screenshots                    |
 | `post-deploy-check.yml`     | manual           | Verify deployment health                   |

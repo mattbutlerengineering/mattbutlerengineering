@@ -235,16 +235,13 @@ describe("check-workflow-deps", () => {
   });
 
   describe("the real repository — #4225 target workflows", () => {
-    // Scoped to the four workflows #4225 fixes. The repo-wide assertion
-    // that supersedes this one lives in "the real repository — every
-    // workflow" below; this stays as the narrow regression guard for the
-    // original four.
-    const TARGET_WORKFLOWS = [
-      "resource-audit.yml",
-      "auto-issue.yml",
-      "chaos-agent.yml",
-      "cors-audit.yml",
-    ];
+    // Scoped to the four workflows #4225 fixes. `auto-issue.yml` was
+    // retired in #5854 (its audit --apply step folded into
+    // acmm-regression.yml, which is covered by "the real repository — every
+    // workflow" below like every other real workflow). The repo-wide
+    // assertion that supersedes this one lives in that describe block; this
+    // stays as the narrow regression guard for the remaining original three.
+    const TARGET_WORKFLOWS = ["resource-audit.yml", "chaos-agent.yml", "cors-audit.yml"];
 
     test("each installs dependencies before running its node script", async () => {
       const repoRoot = path.resolve(import.meta.dirname, "..", "..");

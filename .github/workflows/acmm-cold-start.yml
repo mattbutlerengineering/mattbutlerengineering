@@ -85,6 +85,16 @@ jobs:
           echo "test_seconds=$test_seconds" >> "$GITHUB_OUTPUT"
           echo "test_status=$test_status" >> "$GITHUB_OUTPUT"
 
+      - name: Report cold-start test failure
+        # A record with test_passed: false used to be visible only by opening
+        # the JSON file -- surface it where a maintainer actually looks.
+        if: steps.test.outputs.test_status != '0'
+        env:
+          TEST_STATUS: ${{ steps.test.outputs.test_status || '-1' }}
+        run: |
+          echo "::warning::ACMM cold-start test run failed (exit ${TEST_STATUS}) -- test_passed: false will be recorded in metrics/acmm-cold-start.json"
+          echo "### ACMM cold-start: test run FAILED (exit ${TEST_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Compose record
         env:
           INSTALL_S: ${{ steps.install.outputs.install_seconds }}
@@ -128,7 +138,12 @@ jobs:
           TEST_S: ${{ steps.test.outputs.test_seconds || 'skipped' }}
           TEST_STATUS: ${{ steps.test.outputs.test_status || 'n/a' }}
         run: |
-          if git diff --quiet metrics/acmm-cold-start.json 2>/dev/null; then
+          # `git diff --quiet` cannot see an untracked file -- the metric was
+          # gitignored for its whole life, so this always reported "no
+          # change" even on the file's very first write. `git status
+          # --porcelain` sees both untracked (first run) and modified
+          # (append) states.
+          if [ -z "$(git status --porcelain -- metrics/acmm-cold-start.json)" ]; then
             echo "No metric change to commit"
             exit 0
           fi

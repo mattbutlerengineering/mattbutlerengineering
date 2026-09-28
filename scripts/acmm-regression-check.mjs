@@ -1,29 +1,48 @@
 #!/usr/bin/env node
 
 /**
- * Continuous ACMM regression detection.
+ * ACMM regression detection.
  *
- * Reads the repo-level ACMM state (`.claude/acmm/state.json`, refreshed by
- * `generate-acmm-report.mjs` / the audit) and compares the current maturity
- * level against the last recorded level via the shared `lib/ratchet.mjs`
- * `compare()` core. If the level dropped, it emits an issue payload (labels
- * `acmm` + `ready`) naming the regressed criteria — filed through ratchet's
- * deduped `fileRegressionIssueIfNew()` so no open regression issue is
- * duplicated; otherwise it bumps the state timestamp.
+ * Compares the ACMM level committed at `HEAD` **before** the audit ran
+ * (read by the caller — `.github/workflows/acmm-regression.yml` — via
+ * `git show HEAD:.claude/acmm/state.json` and passed in as `--previous-level`)
+ * against the freshly computed level in `.claude/acmm/state.json` after
+ * `plugins/acmm/scripts/audit.js` has just overwritten it. A drop opens one
+ * deduped regression issue (reuse `buildIssuePayload`).
  *
- * The pure decision functions (this file's own state/payload logic, plus the
- * shared ratchet core) are exported and unit-tested. The CLI section at the
- * bottom wires them to the filesystem + GitHub. The workflow at
- * `.github/workflows/acmm-regression.yml` invokes the CLI.
+ * Before #5854 this compared `state.currentLevel` against
+ * `state.history[history.length - 1].level` — both produced by the *same*
+ * computation, since history is appended in the same run that sets
+ * `currentLevel`. That comparison could never observe a real regression; it
+ * only ever measured `currentLevel === currentLevel`. This script also used
+ * to rewrite `state.json`'s `lastRun` on every non-regression run — a
+ * regression *check* should not itself be a write path, so it no longer
+ * touches the file at all.
  *
- * Usage: node scripts/acmm-regression-check.mjs
+ * `isUnmeasurable()` reports the run as unmeasurable — never a regression —
+ * when the fresh audit's own checks/gates could not be verified (gh
+ * unavailable, a read-only environment, or an unverifiable behavioral gate).
+ * This keeps "the audit could not tell" distinct from "the level actually
+ * dropped" (upstream kubestellar/console #23233's "unreachable != regression"
+ * fix, applied here to our own regression check).
+ *
+ * The pure decision functions below are exported and unit-tested. The CLI
+ * section at the bottom wires them to the filesystem + GitHub. The workflow
+ * at `.github/workflows/acmm-regression.yml` invokes the CLI.
+ *
+ * Usage: node scripts/acmm-regression-check.mjs --previous-level <n>
  *   Env: GH_TOKEN (for `gh`), GITHUB_REPOSITORY (owner/repo).
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compare, fileRegressionIssueIfNew } from "./lib/ratchet.mjs";
+import { fileRegressionIssueIfNew } from "./lib/ratchet.mjs";
+import {
+  SCANNABLE_IDS_BY_LEVEL,
+  AGENT_INSTRUCTION_FILE_IDS,
+} from "../plugins/acmm/scripts/scannableIdsByLevel.js";
+import { MAX_LEVEL } from "../plugins/acmm/scripts/computeLevel.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -36,23 +55,131 @@ const STATE_PATH = resolve(ROOT, ".claude", "acmm", "state.json");
 export const REGRESSION_MARKER = "<!-- acmm-regression -->";
 
 /**
- * Decide whether the level regressed, via the shared ratchet `compare()`
- * (ADR-018 "Detect" stage). A missing previous level (first run) is never
- * a regression.
- * @returns {{ regressed: boolean, previousLevel: number|null, currentLevel: number }}
+ * The single level whose gating criteria/gate can actually explain why the
+ * level walk in `plugins/acmm/scripts/computeLevel.js` stopped at
+ * `currentLevel`. That walk iterates every level from `currentLevel + 1` to
+ * `MAX_LEVEL`, `continue`s (skips, without advancing or failing) past any
+ * level with zero required criteria, and `break`s — the *only* place a real
+ * drop can originate — at the first level whose ratio or gate fails. So of
+ * all the levels a drop from `previousLevel` to `currentLevel` nominally
+ * "passed through", only the first one above `currentLevel` with at least
+ * one required criterion was ever actually evaluated; every level above
+ * that one (including up to `previousLevel`) is unreached and therefore
+ * irrelevant to explaining this specific drop.
+ *
+ * @param {number} currentLevel
+ * @returns {number|null} the explaining level, or null if none exists at or
+ *   below MAX_LEVEL (e.g. currentLevel is already MAX_LEVEL).
  */
-export function detectRegression(previousLevel, currentLevel) {
-  const hasPrevious = typeof previousLevel === "number";
-  const { regressions } = compare(
-    { level: currentLevel },
-    hasPrevious ? { level: previousLevel } : null,
-    { direction: "decrease" }
+function firstGatingLevelAbove(currentLevel) {
+  for (let level = currentLevel + 1; level <= MAX_LEVEL; level++) {
+    if ((SCANNABLE_IDS_BY_LEVEL[level]?.length ?? 0) > 0) return level;
+  }
+  return null;
+}
+
+/**
+ * The real check ids that gate a single level. Expands the virtual
+ * `acmm:agent-instructions` OR-group (L2 only) back into its four real
+ * constituent ids, since `state.checks` never has an entry literally named
+ * `acmm:agent-instructions`.
+ *
+ * @param {number} level
+ * @returns {Set<string>}
+ */
+function gatingIdsForLevel(level) {
+  const ids = new Set();
+  for (const id of SCANNABLE_IDS_BY_LEVEL[level] ?? []) {
+    if (id === "acmm:agent-instructions") {
+      for (const realId of AGENT_INSTRUCTION_FILE_IDS) ids.add(realId);
+    } else {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Whether the freshly computed audit state should be trusted enough to
+ * report the drop from `previousLevel` to `currentLevel` as a real
+ * regression.
+ *
+ * Narrowly scoped on purpose (#5854 review, round 2): five `meta:*` criteria
+ * are unverifiable on every single run, with or without `gh` (their catalog
+ * `type: "active"` pairs a data-file detection pattern that sends
+ * `gh run list --workflow=metrics/x.jsonl` to error regardless — see
+ * `plugins/acmm/skills/acmm-audit/SKILL.md`; #5853 fixes it by changing
+ * `type` to `"check"`) — treating *any* unverifiable check anywhere in
+ * `state.checks` as disqualifying, the original version of this function,
+ * meant a real 6->3 drop always misclassified as `unmeasurable`, because it
+ * can never separate "this specific drop is suspect" from "something,
+ * somewhere, is always unverifiable".
+ *
+ * The first review round narrowed this to every level in
+ * `(currentLevel, previousLevel]`, but that is still too wide:
+ * `computeLevel.js`'s walk only ever evaluates the *first* level above
+ * `currentLevel` with required criteria before it `break`s — see
+ * `firstGatingLevelAbove()`. An unverifiable item at any level above that
+ * one was never reached by the walk and can't explain why it stopped, so
+ * only that single level's gating criteria/gate are checked here. Only two
+ * things matter otherwise:
+ *   - either level is missing (no baseline yet, or the audit failed to
+ *     compute one) — nothing to compare.
+ *   - the level did not drop (`currentLevel >= previousLevel`) — nothing to
+ *     invalidate.
+ *   - otherwise, an unverifiable *gating* criterion or behavioral gate at
+ *     the single level explaining the drop means the drop itself can't be
+ *     trusted (upstream kubestellar/console #23233's "unreachable !=
+ *     regression" fix, applied to our own regression check).
+ *
+ * @param {{ checks?: Record<string, { verdict?: string }>, computation?: { behavioralGates?: Array<{ level?: number, unverifiable?: boolean }> } }} state
+ * @param {{ previousLevel: number|null, currentLevel: number|null }} levels
+ * @returns {boolean}
+ */
+export function isUnmeasurable(state, { previousLevel, currentLevel }) {
+  if (typeof previousLevel !== "number" || typeof currentLevel !== "number") return true;
+  if (currentLevel >= previousLevel) return false;
+
+  const level = firstGatingLevelAbove(currentLevel);
+  if (level === null) return false;
+
+  const gatingIds = gatingIdsForLevel(level);
+  const checks = state?.checks ?? {};
+  const anyUnverifiableGatingCheck = [...gatingIds].some(
+    (id) => checks[id]?.verdict === "unverifiable"
   );
-  return {
-    regressed: regressions.length > 0,
-    previousLevel: hasPrevious ? previousLevel : null,
-    currentLevel,
-  };
+
+  const gates = state?.computation?.behavioralGates ?? [];
+  const anyUnverifiableGatingGate = gates.some(
+    (g) => g?.level === level && g?.unverifiable === true
+  );
+
+  return anyUnverifiableGatingCheck || anyUnverifiableGatingGate;
+}
+
+/**
+ * Classify how the level changed between two independently-sourced readings.
+ * Pure — no history, no file I/O.
+ *
+ * `unmeasurable` always wins: an audit that could not measure this run
+ * never reports a regression, no matter what the raw numbers say. A missing
+ * previous or current level (no baseline yet, or the audit failed to
+ * compute one) is also `unmeasurable` — there is nothing to compare.
+ *
+ * @param {{ previousLevel: number|null, currentLevel: number|null, unmeasurable: boolean }} input
+ * @returns {{ status: "dropped"|"same"|"improved"|"unmeasurable", previousLevel: number|null, currentLevel: number|null }}
+ */
+export function classifyLevelChange({ previousLevel, currentLevel, unmeasurable }) {
+  if (unmeasurable || typeof previousLevel !== "number" || typeof currentLevel !== "number") {
+    return {
+      status: "unmeasurable",
+      previousLevel: previousLevel ?? null,
+      currentLevel: currentLevel ?? null,
+    };
+  }
+  if (currentLevel < previousLevel) return { status: "dropped", previousLevel, currentLevel };
+  if (currentLevel > previousLevel) return { status: "improved", previousLevel, currentLevel };
+  return { status: "same", previousLevel, currentLevel };
 }
 
 /** Ids of checks that are currently failing — the regressed criteria. */
@@ -93,11 +220,6 @@ opened automatically by \`.github/workflows/acmm-regression.yml\`.`;
   return { title, body, labels: ["acmm", "ready"] };
 }
 
-/** Return a new state object with an updated lastRun timestamp. Immutable. */
-export function withUpdatedTimestamp(state, timestamp) {
-  return { ...state, lastRun: timestamp };
-}
-
 // ---------------------------------------------------------------------------
 // CLI: filesystem + GitHub wiring (not unit-tested; the logic above is).
 // ---------------------------------------------------------------------------
@@ -109,23 +231,31 @@ function readState() {
   return JSON.parse(readFileSync(STATE_PATH, "utf8"));
 }
 
-/** Last recorded level from the history array (the level before this run). */
-function previousLevelFromHistory(state) {
-  const history = Array.isArray(state.history) ? state.history : [];
-  const last = history[history.length - 1];
-  return typeof last?.level === "number" ? last.level : null;
+function readFlag(args, name, fallback) {
+  const idx = args.indexOf(name);
+  return idx !== -1 ? args[idx + 1] : fallback;
+}
+
+/** Parses `--previous-level`, tolerating absent/blank/non-numeric input as "no baseline". */
+function parsePreviousLevel(args) {
+  const raw = readFlag(args, "--previous-level");
+  if (raw === undefined || raw === "" || Number.isNaN(Number(raw))) return null;
+  return Number(raw);
 }
 
 async function main() {
+  const previousLevel = parsePreviousLevel(process.argv.slice(2));
   const state = readState();
-  const currentLevel = typeof state.currentLevel === "number" ? state.currentLevel : 1;
-  const previousLevel = previousLevelFromHistory(state);
-  const { regressed } = detectRegression(previousLevel, currentLevel);
+  const currentLevel = typeof state.currentLevel === "number" ? state.currentLevel : null;
+  const unmeasurable = isUnmeasurable(state, { previousLevel, currentLevel });
+  const { status } = classifyLevelChange({ previousLevel, currentLevel, unmeasurable });
 
-  if (!regressed) {
-    const next = withUpdatedTimestamp(state, new Date().toISOString());
-    writeFileSync(STATE_PATH, JSON.stringify(next, null, 2) + "\n");
-    console.log(`No ACMM regression (level ${currentLevel}). Updated lastRun timestamp.`);
+  if (status !== "dropped") {
+    const detail =
+      status === "unmeasurable"
+        ? "a gating criterion/gate within the dropped range is unverifiable, or no previous level to compare"
+        : `level ${previousLevel} -> ${currentLevel}`;
+    console.log(`ACMM regression check: ${status} (${detail}). Skipping.`);
     return;
   }
 
