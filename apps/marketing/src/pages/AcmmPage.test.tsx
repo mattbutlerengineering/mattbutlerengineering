@@ -24,8 +24,6 @@ vi.mock("./AcmmPage.module.css", () => ({
     meta: "meta",
     error: "error",
     loading: "loading",
-    section: "section",
-    workspaceGrid: "workspaceGrid",
     wsCard: "wsCard",
     wsHeader: "wsHeader",
     wsTitle: "wsTitle",
@@ -38,9 +36,6 @@ vi.mock("./AcmmPage.module.css", () => ({
     wsDetails: "wsDetails",
     detailSection: "detailSection",
     detailLabel: "detailLabel",
-    gateList: "gateList",
-    gateRow: "gateRow",
-    gateRowName: "gateRowName",
     criteriaList: "criteriaList",
     criteriaRow: "criteriaRow",
     passIcon: "passIcon",
@@ -57,51 +52,42 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const MOCK_WORKSPACE = {
-  name: "rialto",
-  path: "packages/rialto",
-  type: "package" as const,
-  currentLevel: 6,
-  levelName: "Fully Autonomous",
-  role: "Strategist",
-  lastRun: "2026-05-01T00:00:00.000Z",
-  summary: { detected: 45, total: 85, coverage: 0.529 },
-  behavioral: {
-    ciFlakeRate: 0,
-    agentPrAcceptanceRate: 0.96,
-    agentPrRevertRate: 0,
-    evalPassRate: 0,
+const STALE_EVALS_REPORT = {
+  schema: "acmm-report/v2",
+  generatedAt: "2026-09-28T19:23:59.522Z",
+  repo: {
+    currentLevel: 6,
+    levelName: "Fully Autonomous",
+    role: "Strategist",
+    lastRun: "2026-09-28T16:07:00.403Z",
+    summary: { detected: 97, total: 114, coverage: 0.8508771929824561 },
+    behavioral: {
+      ciFlakeRate: 0,
+      agentPrAcceptanceRate: 0.9841269841269841,
+      agentPrRevertRate: 0,
+      evalPassRate: null,
+      evalsStale: true,
+      evalsLastRun: "2026-05-10T21:42:57.095Z",
+    },
+    checks: {
+      "acmm:prereq-test-suite": { passed: true },
+      "acmm:claude-md": { passed: true },
+      "acmm:editor-config": { passed: false },
+    },
   },
-  checks: {
-    "acmm:prereq-test-suite": { passed: true },
-    "acmm:claude-md": { passed: true },
-    "acmm:editor-config": { passed: false },
-  },
-  behavioralGates: [{ level: 3, name: "ci-flake-rate", passed: true, value: 0, threshold: 0.2 }],
 };
 
-const MOCK_REPORT = {
-  schema: "acmm-report/v1",
-  generatedAt: "2026-05-01T10:00:00.000Z",
-  workspaces: [
-    MOCK_WORKSPACE,
-    {
-      ...MOCK_WORKSPACE,
-      name: "users",
-      path: "services/users",
-      type: "service" as const,
-      currentLevel: 5,
-      levelName: "Optimizing",
+const FRESH_EVALS_REPORT = {
+  ...STALE_EVALS_REPORT,
+  repo: {
+    ...STALE_EVALS_REPORT.repo,
+    behavioral: {
+      ...STALE_EVALS_REPORT.repo.behavioral,
+      evalPassRate: 0.865,
+      evalsStale: false,
+      evalsLastRun: "2026-09-25T00:00:00.000Z",
     },
-    {
-      ...MOCK_WORKSPACE,
-      name: "marketing",
-      path: "apps/marketing",
-      type: "app" as const,
-      currentLevel: 3,
-      levelName: "Integrated",
-    },
-  ],
+  },
 };
 
 describe("AcmmPage", () => {
@@ -129,43 +115,69 @@ describe("AcmmPage", () => {
   });
 
   it("fetches /acmm-report.json", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => expect(mockFetch).toHaveBeenCalledWith("/acmm-report.json"));
   });
 
-  it("groups workspaces by type with section headings", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AcmmPage />);
-    await waitFor(() => {
-      expect(screen.getByText("Services")).toBeInTheDocument();
-      expect(screen.getByText("Apps")).toBeInTheDocument();
-      expect(screen.getByText("Packages")).toBeInTheDocument();
-    });
-  });
-
-  it("renders workspace cards with level badge and name", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+  it("renders the repo level badge, level name, and role", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => {
       expect(screen.getByText("L6")).toBeInTheDocument();
-      expect(screen.getByText("rialto")).toBeInTheDocument();
       expect(screen.getByText("Fully Autonomous")).toBeInTheDocument();
+      expect(screen.getByText("Strategist")).toBeInTheDocument();
     });
   });
 
-  it("shows criteria count and coverage", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+  it("shows criteria met/total and coverage percent", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => {
-      expect(screen.getAllByText("45/85 criteria").length).toBeGreaterThan(0);
+      expect(screen.getByText("97/114 criteria")).toBeInTheDocument();
+      expect(screen.getByText("85.1%")).toBeInTheDocument();
     });
+  });
+
+  it("shows the last-updated date from generatedAt", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/Last updated: Sep 28, 2026/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders stale evals as 'not measured since <date>', never a percentage", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/Agent evals: not measured since May 10, 2026/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/86.*pass/)).not.toBeInTheDocument();
+  });
+
+  it("renders a live pass rate when evals are fresh", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => FRESH_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/Agent evals: 86.5% pass/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/not measured/)).not.toBeInTheDocument();
+  });
+
+  it("does not render the old per-workspace grouping headings", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+    expect(screen.queryByText("Services")).not.toBeInTheDocument();
+    expect(screen.queryByText("Apps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Packages")).not.toBeInTheDocument();
   });
 
   it("expands criteria on toggle button click", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
-    await waitFor(() => screen.getByText("rialto"));
+    await waitFor(() => screen.getByText("Fully Autonomous"));
 
     const toggleBtn = screen.getAllByRole("button")[0];
     if (!toggleBtn) throw new Error("expected a toggle button");
@@ -177,24 +189,10 @@ describe("AcmmPage", () => {
     });
   });
 
-  it("shows behavioral gates in expanded view", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AcmmPage />);
-    await waitFor(() => screen.getByText("rialto"));
-
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
-    fireEvent.click(toggleBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText("ci flake rate")).toBeInTheDocument();
-    });
-  });
-
   it("collapses on second toggle click", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
-    await waitFor(() => screen.getByText("rialto"));
+    await waitFor(() => screen.getByText("Fully Autonomous"));
 
     const toggleBtn = screen.getAllByRole("button")[0];
     if (!toggleBtn) throw new Error("expected a toggle button");
@@ -208,7 +206,7 @@ describe("AcmmPage", () => {
   });
 
   it("renders raw JSON link", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => {
       const link = screen.getByText("View raw JSON");
