@@ -2407,3 +2407,8 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-09-28
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
