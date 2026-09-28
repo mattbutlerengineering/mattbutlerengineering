@@ -428,7 +428,7 @@ export const ModifyReservationBodySchema = z
     date: z.iso.date().describe("New reservation date (YYYY-MM-DD)").optional(),
     startTime: z.iso.datetime({ offset: true }).describe("New start time (ISO 8601)").optional(),
     endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
-    partySize: z.number().int().min(1).describe("New party size").optional(),
+    partySize: z.number().int().min(1).max(20).describe("New party size").optional(),
     specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
   })
   .describe("Fields to modify via guest self-service");

@@ -166,6 +166,28 @@ describe("modifyReservationWithNotifications", () => {
     }
   });
 
+  it("returns PARTY_SIZE_EXCEEDS_TABLE (422) when the new partySize exceeds table capacity", async () => {
+    const reservation = makeReservation();
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: false,
+      error: "Party size 10 exceeds table capacity of 4",
+      capacityExceeded: true,
+    } as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 10 },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(422);
+      expect(result.code).toBe("PARTY_SIZE_EXCEEDS_TABLE");
+    }
+  });
+
   it("reschedules reminder jobs via bookingNotifier when the time changes", async () => {
     const reservation = makeReservation();
     const updated = { ...reservation, startTime: "20:00" };

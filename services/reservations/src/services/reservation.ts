@@ -57,6 +57,7 @@ export interface UpdateReservationResult {
   reservation?: Reservation;
   error?: string;
   conflict?: ConflictCheckResult;
+  capacityExceeded?: boolean;
 }
 
 /**
@@ -405,6 +406,25 @@ export const reservationService = {
 
     if (!existing) {
       return { success: false, error: "Reservation not found" };
+    }
+
+    // Capacity check runs whenever partySize changes, independent of
+    // timeOrTableChanged below — a partySize-only edit is not a slot move,
+    // but it still must not exceed the (possibly unchanged) assigned table's
+    // capacity (#5807).
+    if (data.partySize !== undefined) {
+      const targetTableId = data.tableId ?? existing.tableId;
+      const table = await prisma.table.findUnique({
+        where: { id: targetTableId },
+        select: { capacity: true },
+      });
+      if (table && data.partySize > table.capacity) {
+        return {
+          success: false,
+          error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+          capacityExceeded: true,
+        };
+      }
     }
 
     // Determine if we need to check for conflicts
