@@ -139,7 +139,7 @@ describe("errorHandlerPlugin", () => {
     });
   });
 
-  it("handles other uncaught errors as 500", async () => {
+  it("handles other uncaught errors as 500 without leaking the raw exception message", async () => {
     const app = await buildApp();
     app.get("/uncaught", async () => {
       throw new Error("Something blew up");
@@ -152,7 +152,7 @@ describe("errorHandlerPlugin", () => {
     expect(body).toMatchObject({
       status: 500,
       title: "Internal Server Error",
-      detail: "Something blew up",
+      detail: "An unexpected error occurred",
     });
   });
 });

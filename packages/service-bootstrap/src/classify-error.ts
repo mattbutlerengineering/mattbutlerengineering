@@ -57,11 +57,17 @@ export function classifyError(err: unknown): ErrorClassification {
     return classifyHttpError(e);
   }
 
+  // Unclassified error: never echo the raw exception message to the client
+  // (CWE-209 information disclosure) — it may carry internal implementation
+  // details, file paths, or hostnames. The full error is already logged
+  // server-side by the Fastify error handler (error-handler.ts). An error
+  // that legitimately wants to surface its message should be thrown as an
+  // AppError instead, which has its own branch above.
   const status = e.statusCode || e.status || 500;
   return {
     status,
     title: titleForStatus(status),
-    detail: e.message || "An unexpected error occurred",
+    detail: "An unexpected error occurred",
     extensions: {},
   };
 }
