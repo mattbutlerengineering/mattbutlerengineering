@@ -83,6 +83,22 @@ describe("checkInstructionSyncGate / checkInstructionRotDetection (checkCiStepAc
     cleanup();
   });
 
+  // Mutation-kill (#5876 re-review): a successful run outside the 7-day
+  // window must NOT count as active — the only other "recent success" test
+  // above used `new Date().toISOString()` (0 days old), so a mutant widening
+  // or dropping the maxAgeDays cutoff comparison in isWorkflowActive would
+  // have passed every existing test undetected.
+  test("a successful run 8 days old exceeds the 7-day window and fails", () => {
+    const { root, cleanup } = fixture();
+    writeCiYml(root, "steps:\n  - run: pnpm regen --check\n");
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const result = checkInstructionSyncGate(root, {
+      execFileSyncFn: () => JSON.stringify([{ conclusion: "success", updatedAt: eightDaysAgo }]),
+    });
+    assert.equal(result.passed, false);
+    cleanup();
+  });
+
   test("scopes the gh run query to --branch=main by default", () => {
     const { root, cleanup } = fixture();
     writeCiYml(root, "steps:\n  - run: pnpm regen --check\n");
@@ -103,6 +119,12 @@ describe("checkInstructionSyncGate / checkInstructionRotDetection (checkCiStepAc
 
 describe("checkAutoIssueGen", () => {
   const labelArgIndex = (args) => args.indexOf("--label") + 1;
+
+  test("acmm:auto-issue-gen is wired to this function", () => {
+    const criterion = ALL_CRITERIA.find((c) => c.id === "acmm:auto-issue-gen");
+    assert.equal(criterion.detection.type, "check");
+    assert.equal(criterion.check, checkAutoIssueGen);
+  });
 
   test("all three label queries throwing returns unverifiable", () => {
     const result = checkAutoIssueGen("/repo", {
@@ -130,6 +152,17 @@ describe("checkAutoIssueGen", () => {
   test("zero recent issues across all labels fails (not unverifiable)", () => {
     const result = checkAutoIssueGen("/repo", {
       execFileSyncFn: () => JSON.stringify([]),
+    });
+    assert.equal(result.passed, false);
+  });
+
+  // Mutation-kill (#5876 re-review): an issue that exists but is well outside
+  // the 30-day window must NOT count as "recent" — a mutant that replaces
+  // `getTime() >= cutoff` with `true` passed every test above (they only ever
+  // supplied either a fresh createdAt or an empty list, never an old one).
+  test("an issue that exists but is 2+ years old does not count as recent", () => {
+    const result = checkAutoIssueGen("/repo", {
+      execFileSyncFn: () => JSON.stringify([{ number: 99, createdAt: "2024-01-01T00:00:00Z" }]),
     });
     assert.equal(result.passed, false);
   });

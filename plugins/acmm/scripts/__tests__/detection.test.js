@@ -353,11 +353,15 @@ function staleRunOutput(daysAgo) {
 test("detect: active type — file present AND recent gh run → true", () => {
   const fx = fixture();
   fx.dir(".github/workflows");
-  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+  fx.file(".github/workflows/some-scheduled-workflow.yml", "on: schedule");
 
   const criterion = {
-    id: "acmm:auto-issue-gen",
-    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+    id: "test:active-workflow",
+    detection: {
+      type: "active",
+      pattern: ".github/workflows/some-scheduled-workflow.yml",
+      maxAgeDays: 7,
+    },
   };
 
   const mockExecFileSync = () => recentRunOutput(1);
@@ -369,8 +373,12 @@ test("detect: active type — file missing → false (no gh call needed)", () =>
   const fx = fixture();
 
   const criterion = {
-    id: "acmm:auto-issue-gen",
-    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+    id: "test:active-workflow",
+    detection: {
+      type: "active",
+      pattern: ".github/workflows/some-scheduled-workflow.yml",
+      maxAgeDays: 7,
+    },
   };
 
   let ghCalled = false;
@@ -386,11 +394,15 @@ test("detect: active type — file missing → false (no gh call needed)", () =>
 test("detect: active type — file present but no recent run → false", () => {
   const fx = fixture();
   fx.dir(".github/workflows");
-  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+  fx.file(".github/workflows/some-scheduled-workflow.yml", "on: schedule");
 
   const criterion = {
-    id: "acmm:auto-issue-gen",
-    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+    id: "test:active-workflow",
+    detection: {
+      type: "active",
+      pattern: ".github/workflows/some-scheduled-workflow.yml",
+      maxAgeDays: 7,
+    },
   };
 
   // Run was 10 days ago, maxAgeDays is 7
@@ -402,11 +414,15 @@ test("detect: active type — file present but no recent run → false", () => {
 test("detect: active type — gh CLI unavailable → unverifiable (null)", () => {
   const fx = fixture();
   fx.dir(".github/workflows");
-  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+  fx.file(".github/workflows/some-scheduled-workflow.yml", "on: schedule");
 
   const criterion = {
-    id: "acmm:auto-issue-gen",
-    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+    id: "test:active-workflow",
+    detection: {
+      type: "active",
+      pattern: ".github/workflows/some-scheduled-workflow.yml",
+      maxAgeDays: 7,
+    },
   };
 
   const mockExecFileSync = () => {
