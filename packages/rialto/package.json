@@ -415,7 +415,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.3.1",
-    "@json-render/react": "^0.20.0",
+    "@json-render/react": "^0.21.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.63.0",
@@ -444,10 +444,10 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "storybook": "^10.6.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vite": "catalog:",
-    "vite-plugin-dts": "^5.1.0",
+    "vite-plugin-dts": "^5.1.1",
     "vitest": "^5.0.1",
     "vitest-axe": "^0.1.0"
   },
