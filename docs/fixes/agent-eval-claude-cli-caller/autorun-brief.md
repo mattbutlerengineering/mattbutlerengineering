@@ -286,3 +286,20 @@ mattbutlerengineering/.claude/worktrees/agent-eval-claude-cli-caller`,
   `pnpm install --frozen-lockfile` already done. The main checkout is 555
   commits behind and dirty — never read or write it.
 - Immutability, small files, explicit error handling per user rules.
+
+## Decisions added after Implement (Matt, 2026-09-28)
+
+5. **Eval-worktree litter cleanup is authorized for this run.** Every
+   `agent eval` invocation — including the non-spending exit-2 repros and
+   Verify's single authorized claude-cli task — leaves a gitignored
+   `.agent-worktrees/agent-*` worktree on a local-only `agent/*` branch inside
+   this worktree (`runAgentSession` creates it before the adapter runs;
+   `createPr: false` keeps it), which trips
+   `scripts/__tests__/dockerfile-pnpm-patches.test.mjs`'s repo-wide Dockerfile
+   glob locally (never in CI). Matt authorized `git worktree remove --force
+   <dir> && git branch -D <branch>` for the two Implement left behind AND for
+   the one Verify will leave — scoped to `.agent-worktrees/agent-*` created
+   inside THIS worktree during this run, nothing else. The orchestrator runs
+   the removal (the stage subagent was denied it by the harness). The test's
+   glob excluding `.agent-worktrees/**` is a logged adjacent smell, out of
+   scope.
