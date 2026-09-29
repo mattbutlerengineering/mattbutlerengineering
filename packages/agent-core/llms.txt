@@ -156,6 +156,21 @@
       export function calibrate(report: EvalReport): CalibrationSummary { /* ... */ }
     </item>
   </file>
+  <file path="src/eval/cost-basis.ts">
+    <item priority="low">
+      type CostBasis = "billed" | "api-equivalent" | "none";
+    </item>
+    <item priority="high">
+      export function costBasisForAdapter(adapterType: AdapterType): CostBasis { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWithinBudget(
+        usage: { readonly costUsd: number; readonly numTurns: number },
+        budget: TaskBudget,
+        costBasis: CostBasis
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/eval/cost-regression.ts">
     <item priority="high">
       export function checkCostRegression(

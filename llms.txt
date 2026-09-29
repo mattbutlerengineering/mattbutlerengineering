@@ -1471,7 +1471,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
+      function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void { /* ... */ }
     </item>
     <item priority="medium">
       function noRunMessage(adapterType: AdapterType): string { /* ... */ }
@@ -1483,13 +1483,14 @@
       function loadCostBaseline(logFile: string, adapterType: AdapterType): number | null { /* ... */ }
     </item>
     <item priority="medium">
-      function persistReport(report: EvalReport, adapterType: AdapterType): void { /* ... */ }
+      function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void { /* ... */ }
     </item>
     <item priority="medium">
       function makeAgentTaskRunner(
         repoPath: string,
         model: string,
-        adapterType: AdapterType
+        adapterType: AdapterType,
+        costBasis: CostBasis
       ): TaskRunner { /* ... */ }
     </item>
     <item priority="low">
@@ -1504,7 +1505,7 @@
       function printCalibration(summary: CalibrationSummary): void { /* ... */ }
     </item>
     <item priority="medium">
-      function printReport(report: EvalReport): void { /* ... */ }
+      function printReport(report: EvalReport, costBasis: CostBasis): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2612,6 +2613,21 @@
     </item>
     <item priority="high">
       export function calibrate(report: EvalReport): CalibrationSummary { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/cost-basis.ts">
+    <item priority="low">
+      type CostBasis = "billed" | "api-equivalent" | "none";
+    </item>
+    <item priority="high">
+      export function costBasisForAdapter(adapterType: AdapterType): CostBasis { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWithinBudget(
+        usage: { readonly costUsd: number; readonly numTurns: number },
+        budget: TaskBudget,
+        costBasis: CostBasis
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/cost-regression.ts">

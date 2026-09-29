@@ -932,6 +932,31 @@
       };
     }
   </file>
+  <file path="src/eval/cost-basis.ts">
+    export type CostBasis = "billed" | "api-equivalent" | "none";
+    export function costBasisForAdapter(adapterType: AdapterType): CostBasis {
+      switch (adapterType) {
+        case "claude":
+        case "opencode":
+        case "auto":
+          return "billed";
+        case "claude-cli":
+          return "api-equivalent";
+        case "gemini":
+          return "none";
+      }
+    }
+    export function isWithinBudget(
+      usage: { readonly costUsd: number; readonly numTurns: number },
+      budget: TaskBudget,
+      costBasis: CostBasis
+    ): boolean {
+      return (
+        usage.numTurns <= budget.maxTurns &&
+        (costBasis !== "billed" || usage.costUsd <= budget.maxCostUsd)
+      );
+    }
+  </file>
   <file path="src/eval/cost-regression.ts">
     export function checkCostRegression(
       current: number,
