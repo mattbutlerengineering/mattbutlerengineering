@@ -20689,58 +20689,90 @@
       // venue-resolution shape as POST / above: the query carries an opaque
       // reservation id, not a venueId, so the app-wide preHandler resolves
       // nothing and this route resolves it itself (module comment, ADR-026).
+      //
+      // GET /api/v1/deposits?venueId=&date= — deposit-exposure dashboard batch
+      // read (#5832): every deposit for a venue's reservations on a given date.
+      // Unlike the reservationId= query above, `venueId` IS present in the
+      // querystring, so the app-wide preHandler already resolves it — the
+      // explicit `runWithVenueContext` below is kept anyway, matching every
+      // other route in this file, so the scope is never implicit.
       fastify.get<{
-        Querystring: { reservationId?: string };
-        Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+        Querystring: { reservationId?: string; venueId?: string; date?: string };
+        Reply: ApiResponse<Deposit | Deposit[] | null> | ReturnType<typeof createProblemDetails>;
       }>(
         "/",
         {
           preHandler: [requireAuth, requireAdmin],
           schema: {
-            summary: "Get a reservation's deposit",
-            operationId: "getDepositByReservation",
+            summary: "Get a reservation's deposit, or list a venue's deposits for a date",
+            operationId: "getDeposits",
             description:
-              "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+              "Look up a reservation's deposit by reservationId (or null if none exists yet), " +
+              "or list every deposit for a venue's reservations on a given date (venueId + date).",
             tags: ["Deposits"],
             querystring: {
               type: "object",
-              required: ["reservationId"],
-              properties: { reservationId: { type: "string" } },
+              properties: {
+                reservationId: { type: "string" },
+                venueId: { type: "string" },
+                date: { type: "string" },
+              },
             },
             response: {
               200: {
-                description: "Deposit found, or null if the reservation has none yet",
+                description: "Deposit found (or null), or the venue's deposits for the date",
                 type: "object",
                 properties: {
                   data: {
-                    anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+                    anyOf: [
+                      { type: "object", properties: depositProperties },
+                      { type: "array", items: { type: "object", properties: depositProperties } },
+                      { type: "null" },
+                    ],
                   },
                 },
               },
-              400: { description: "Missing reservationId", type: "object" },
+              400: {
+                description: "Missing reservationId, or missing venueId/date",
+                type: "object",
+              },
               404: { description: "Reservation not found, or not in any venue", type: "object" },
             },
           },
         },
         async (request, reply) => {
-          const { reservationId } = request.query;
-          if (!reservationId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+          const { reservationId, venueId, date } = request.query;
+    
+          if (reservationId) {
+            const resolvedVenueId = await resolveReservationVenueId(reservationId);
+            if (!resolvedVenueId) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+    
+            const deposit = await runWithVenueContext(resolvedVenueId, () =>
+              depositService.getByReservationId(reservationId)
+            );
+            return { data: deposit };
           }
     
-          const venueId = await resolveReservationVenueId(reservationId);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          if (venueId && date) {
+            const deposits = await runWithVenueContext(venueId, () =>
+              depositService.listByVenueAndDate(venueId, new Date(date))
+            );
+            return { data: deposits };
           }
     
-          const deposit = await runWithVenueContext(venueId, () =>
-            depositService.getByReservationId(reservationId)
-          );
-          return { data: deposit };
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                "reservationId, or venueId and date, is required"
+              )
+            );
         }
       );
     
@@ -32080,6 +32112,21 @@
        */
       async getByPaymentIntentId(stripePaymentIntentId: string): Promise<Deposit | null> {
         return prisma.deposit.findFirst({ where: { stripePaymentIntentId } });
+      }
+    
+      /**
+       * Lists every deposit for a venue's reservations on a given date — the
+       * batch read the deposit-exposure dashboard needs (#5832). `deposits`
+       * carries no `venue_id`/`date` column of its own (ADR-026 §1), so it is
+       * scoped via a nested relation filter through its unique `reservationId`,
+       * joining `Reservation.venueId` + `Reservation.date` — the same shape the
+       * `deposit_isolation` RLS policy's own `EXISTS (... FROM reservations ...)`
+       * subquery checks. Callers must run this inside `runWithVenueContext(venueId, ...)`
+       * (see `../routes/deposits.ts`) so the RLS backstop is active for the
+       * query, not just the explicit `where` filter here.
+       */
+      async listByVenueAndDate(venueId: string, date: Date): Promise<Deposit[]> {
+        return prisma.deposit.findMany({ where: { reservation: { venueId, date } } });
       }
     
       /**
