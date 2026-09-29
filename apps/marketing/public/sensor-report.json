@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-29T01:52:38.153Z",
+  "generated_at": "2026-09-29T18:04:33.614Z",
   "period": {
     "start": "2026-09-22",
     "end": "2026-09-29"
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.3,
-          "latest": "2026-09-28T18:39:21.522Z",
+          "age_days": 0.05,
+          "latest": "2026-09-29T16:56:05.895Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-28T18:39:21.522Z",
+      "collected_at": "2026-09-29T16:56:05.895Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -68,17 +68,17 @@
       "total_closed_without_merge": 0,
       "by_category": {
         "tier:trivial": {
-          "merged": 49,
+          "merged": 52,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 17,
+          "merged": 16,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 10,
+          "merged": 8,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -108,24 +108,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 274092234,
-      "output_tokens": 99444,
-      "cache_creation_tokens": 2250569,
-      "cache_hit_rate": 0.9918,
+      "cache_read_tokens": 1174324,
+      "output_tokens": 1643,
+      "cache_creation_tokens": 81979,
+      "cache_hit_rate": 0.9347,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1868,
-          "output_tokens": 99344,
-          "cache_read_tokens": 270598273,
-          "cache_creation_tokens": 1962118
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 408,
-          "output_tokens": 100,
-          "cache_read_tokens": 3493961,
-          "cache_creation_tokens": 288451
+          "input_tokens": 20,
+          "output_tokens": 1643,
+          "cache_read_tokens": 1174324,
+          "cache_creation_tokens": 81979
         }
       }
     },
@@ -133,17 +126,17 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 26,
+      "passed": 23,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36365130720,
+        "databaseId": 36603314996,
         "status": "completed",
         "conclusion": "success",
-        "createdAt": "2026-09-28T01:12:58Z",
-        "name": "Revert Watchdog",
+        "createdAt": "2026-09-29T17:12:37Z",
+        "name": "Scheduled Issue Completion",
         "headBranch": "main",
-        "headSha": "edd3e2e1d93e4055e07b3d4b6950804b5d94b5a2"
+        "headSha": "878b556303c6ea2a1184173d2b8a31181836fa0a"
       }
     },
     "lighthouse": {
@@ -161,17 +154,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 32,
-      "logs_7d": 32,
-      "total_commits_7d": 392,
-      "unique_branches_7d": 1,
-      "branches_7d": ["metrics/progress-tracker-2026-09-29"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.031,
-      "total_lines_added_7d": 677549,
-      "lines_churned_7d": 20921,
+      "total_lines_added_7d": 677787,
+      "lines_churned_7d": 20975,
       "window_days": 7,
       "churn_threshold": 0.3
     },
