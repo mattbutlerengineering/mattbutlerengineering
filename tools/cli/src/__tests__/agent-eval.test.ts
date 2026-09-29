@@ -287,6 +287,60 @@ describe("agent eval command", () => {
     });
   });
 
+  describe("claude-cli cost basis (api-equivalent — the budget's cost arm does not apply)", () => {
+    // `claude-cli` runs on a subscription login but its JSON result still
+    // reports `total_cost_usd` at API prices, inflated on turn 1 by the
+    // repo's cached CLAUDE.md/rules context (~$1.37 measured against a $0.50
+    // task budget). The figure is real but not billed, so scoring it against
+    // `maxCostUsd` would fail every task from its first turn. The basis is
+    // decided once per run by `costBasisForAdapter` (agent-core) and applied
+    // through `isWithinBudget`; the reported figure is kept in the row.
+    it("scores an over-cost, within-turns claude-cli run as within budget, keeps the figure, and labels the row", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      // costUsd 1.37 > maxCostUsd 1 — fails the cost arm under `billed`.
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli", "--threshold", "50"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).toBe(0);
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.adapter).toBe("claude-cli");
+      expect(record.costBasis).toBe("api-equivalent");
+      expect(record.tasks[0].deterministic.withinBudget).toBe(true);
+      // Not zeroed — the per-adapter cost trend (--max-cost-regression) stays meaningful.
+      expect(record.tasks[0].costUsd).toBe(1.37);
+    });
+
+    it("still fails the turns arm under claude-cli", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      // numTurns 51 > maxTurns 50.
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 51 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.tasks[0].deterministic.withinBudget).toBe(false);
+    });
+
+    it("labels a default-adapter (SDK) row as billed", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.adapter).toBe("claude");
+      expect(record.costBasis).toBe("billed");
+    });
+  });
+
   it("appends the EvalReport as JSONL after each run", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunAgentSession.mockResolvedValue(fakeSession());

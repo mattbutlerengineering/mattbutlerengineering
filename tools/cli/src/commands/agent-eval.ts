@@ -12,9 +12,12 @@ import {
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
+  costBasisForAdapter,
+  isWithinBudget,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type AdapterType,
+  type CostBasis,
   type SessionConfig,
   type Task,
   type TaskRunner,
@@ -111,7 +114,12 @@ export const agentEvalCommand = new Command("eval")
           ? loadCostBaseline(findLogFile(), adapterType)
           : null;
 
-      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
+      // Decided once per run: which adapters' reported `costUsd` is billed
+      // money, and therefore whether the budget's cost arm applies. Threaded
+      // to the runner (scoring) and the persisted row (labelling).
+      const costBasis = costBasisForAdapter(adapterType);
+
+      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType, costBasis);
       const report = await runEvalSuite(tasks, {
         runId: `eval-${process.pid}`,
         only: options.task,
@@ -125,7 +133,7 @@ export const agentEvalCommand = new Command("eval")
         return;
       }
 
-      persistReport(report, adapterType);
+      persistReport(report, adapterType, costBasis);
       emitReport(report, options.json);
 
       if (options.calibrate) {
@@ -235,17 +243,25 @@ function loadCostBaseline(logFile: string, adapterType: AdapterType): number | n
 
 /**
  * Appends the report to a JSONL file in metrics/ — mirrors the `mbe stats` record pattern.
- * Each line is a complete {@link EvalReport} enriched with a timestamp and
- * the adapter it ran under (see {@link loadCostBaseline}).
+ * Each line is a complete {@link EvalReport} enriched with a timestamp, the
+ * adapter it ran under (see {@link loadCostBaseline}), and that adapter's
+ * cost basis — so a reader knows whether a task's `costUsd` is billed money
+ * without consulting code. Basis is a function of adapter, not task, so it
+ * lives at the row level beside `adapter`.
  */
-function persistReport(report: EvalReport, adapterType: AdapterType): void {
+function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void {
   const root = findMonorepoRoot(process.cwd());
   const logDir = join(root, "metrics");
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
-  const record = { ...report, timestamp: new Date().toISOString(), adapter: adapterType };
+  const record = {
+    ...report,
+    timestamp: new Date().toISOString(),
+    adapter: adapterType,
+    costBasis,
+  };
   appendFileSync(logFile, JSON.stringify(record) + "\n");
 }
 
@@ -274,11 +290,18 @@ function persistReport(report: EvalReport, adapterType: AdapterType): void {
  * adapter's genuine cost. `loadCostBaseline`/`persistReport` (#4218 rework)
  * tag every persisted report with its adapter and only match same-adapter
  * baselines for exactly this reason.
+ *
+ * `costBasis` (from `costBasisForAdapter`) decides whether the budget's cost
+ * arm applies at all: `claude-cli` reports a real API-equivalent figure that
+ * is not billed under a subscription login — and is inflated on turn 1 by
+ * the repo's cached CLAUDE.md/rules context past every task's `maxCostUsd` —
+ * so only the turns arm bounds it. The reported figure is still recorded.
  */
 function makeAgentTaskRunner(
   repoPath: string,
   model: string,
-  adapterType: AdapterType
+  adapterType: AdapterType,
+  costBasis: CostBasis
 ): TaskRunner {
   const adapter = resolveSessionAdapter(adapterType);
 
@@ -297,11 +320,8 @@ function makeAgentTaskRunner(
 
     const session = await runAgentSession(config, { adapter, onEvent: () => {} });
 
-    const withinBudget =
-      session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
-
     const checks: DeterministicChecks = {
-      withinBudget,
+      withinBudget: isWithinBudget(session, task.budget, costBasis),
       testsPass: task.rubric.testsMustPass
         ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
         : true,
