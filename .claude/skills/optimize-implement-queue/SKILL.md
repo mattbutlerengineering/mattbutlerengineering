@@ -145,7 +145,7 @@ nohup mbe agent run "Run eval suite to diagnose queue efficiency regression — 
   --model sonnet --max-budget 2.00 --no-pr &
 ```
 
-**CRITICAL:** Do NOT run `mbe agent eval` synchronously. The daily slot must complete in under 5 minutes. Eval can take 20–60 minutes. Fire it as a background process or file a separate GitHub issue with label `ready,eval`.
+**CRITICAL:** Do NOT run `node tools/cli/dist/index.js agent eval --adapter claude-cli` synchronously. The daily slot must complete in under 5 minutes. Eval can take 20–60 minutes. Fire it as a background process or file a separate GitHub issue with label `ready,eval`.
 
 ## Step 6: Persist Metrics (always, unless --dry-run)
 
