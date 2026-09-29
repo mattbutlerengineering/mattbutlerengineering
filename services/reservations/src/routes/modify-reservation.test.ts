@@ -412,6 +412,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
       expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
     });
 
+    it("rejects a partySize over 20 with 400 before reaching the service layer", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+
+      const response = await validationApp.inject({
+        method: "PATCH",
+        url: `/public/v1/reservations/manage?token=${token}`,
+        payload: { partySize: 9999 },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    });
+
     it("rejects specialRequests exceeding 500 characters with 400", async () => {
       const token = generateManageToken("res_1", "jane@example.com");
       const tooLongRequests = "x".repeat(501);

@@ -43,6 +43,7 @@ flowchart TD
   subgraph tools["Developer Tools"]
     cli["cli"]
     mutation_testing["mutation-testing"]
+    route_contract["route-contract"]
   end
   subgraph scripts_dir["Automation Scripts"]
     scripts["scripts"]
@@ -147,6 +148,11 @@ flowchart TD
   cli --> gh_client
   cli --> types
   cli --> config
+  route_contract --> agent_service
+  route_contract --> api_client
+  route_contract --> config
+  route_contract --> reservations_service
+  route_contract --> users_service
   scripts --> agent_core
   scripts --> gh_client
 
@@ -184,6 +190,7 @@ flowchart TD
   class types shared
   class cli tooling
   class mutation_testing tooling
+  class route_contract tooling
   class scripts shared
 ```
 

@@ -2,6 +2,7 @@ import { acmmSource } from "./acmm.js";
 import { fullsendSource } from "./fullsend.js";
 import { agenticEngineeringFrameworkSource } from "./agentic-engineering-framework.js";
 import { claudeReflectSource } from "./claude-reflect.js";
+import { localSource } from "./local.js";
 import { META_CRITERIA } from "../meta-criteria.js";
 
 const metaSource = {
@@ -16,6 +17,7 @@ export const SOURCES = [
   fullsendSource,
   agenticEngineeringFrameworkSource,
   claudeReflectSource,
+  localSource,
   metaSource,
 ];
 

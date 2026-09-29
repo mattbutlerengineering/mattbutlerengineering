@@ -8626,6 +8626,7 @@
         reservation?: Reservation;
         error?: string;
         conflict?: ConflictCheckResult;
+        capacityExceeded?: boolean;
       }
     </item>
     <item priority="medium">
@@ -12486,8 +12487,8 @@
       class VenueGroupsClient {
         async list(): Promise<unknown>;
         async get(): Promise<unknown>;
-        async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
       }
     </item>
   </file>
@@ -15370,6 +15371,209 @@
   <file path="tools/cli/src/token-counter.ts">
     <item priority="high">
       export function countTokens(text: string): number { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/client-inventory.ts">
+    <item priority="high">
+      export const EXEMPT_METHODS: Readonly<Record<string, string>>;
+    </item>
+    <item priority="high">
+      export const KNOWN_BLIND_SPOTS: Readonly<Record<string, string>>;
+    </item>
+    <item priority="high">
+      export const DEPOSIT_TRANSITION_ARGS: Readonly<Record<DepositTransition, readonly unknown[]>>;
+    </item>
+    <item priority="low">
+      interface Invocation {
+        clientMethod: string;
+        requestCount: number;
+        exempt: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ClientInventory {
+        pairs: readonly ClientPair[];
+        invocations: readonly Invocation[];
+        subClients: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      interface RosterEntry {
+        name: string;
+        instance: object;
+        prepare?: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function exportedClientClassNames(): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function methodNamesOf(instance: object): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildRoster(): { roster: RosterEntry[]; transportClassName: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function driveClient(): Promise<ClientInventory> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rosterMethodNames(): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function transportClassName(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rosterClassNames(): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function malformedPaths(pairs: readonly ClientPair[]): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/edge-owner.ts">
+    <item priority="low">
+      interface EdgeProbe {
+        disposition: EdgeDisposition;
+        originFetchCalls: number;
+        staticBindingCalls: number;
+      }
+    </item>
+    <item priority="low">
+      interface EdgeOwner {
+        terminalPaths: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export const EDGE_TERMINAL_PATHS: unknown;
+    </item>
+    <item priority="medium">
+      class PassThroughHTMLRewriter {
+        async on(): Promise<unknown>;
+        async transform(): Promise<unknown>;
+      }
+    </item>
+    <item priority="medium">
+      function taggedResponse(tag: string, body: string, contentType: string): Response { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createEdgeOwner(): EdgeOwner { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/fastify-owners.ts">
+    <item priority="high">
+      export const FASTIFY_OWNERS: unknown;
+    </item>
+    <item priority="low">
+      type FastifyOwner = (typeof FASTIFY_OWNERS)[number];
+    </item>
+    <item priority="high">
+      type App = Awaited<ReturnType<typeof buildUsersApp>>;
+    </item>
+    <item priority="low">
+      interface FastifyOwnerTables {
+        
+      }
+    </item>
+    <item priority="low">
+      interface EnvConditionalRoute {
+        owner: FastifyOwner;
+        entry: string;
+        registeredUnder: "test" | "production";
+      }
+    </item>
+    <item priority="high">
+      export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[];
+    </item>
+    <item priority="high">
+      export function printedRouteEntries(printedRoutes: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function countRegisteredRoutes(printedRoutes: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overrideEnv(
+        env: NodeJS.ProcessEnv,
+        overrides: Readonly<Record<string, string>>
+      ): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function importFresh<T>(load: () => Promise<T>): Promise<T> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function bootFastifyOwners(): Promise<FastifyOwnerTables> { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/module-scope-env.fixture.ts">
+    <item priority="high">
+      export const NODE_ENV_AT_EVALUATION: unknown;
+    </item>
+  </file>
+  <file path="tools/route-contract/src/route-contract.ts">
+    <item priority="low">
+      interface Verdict {
+        pair: ClientPair;
+        owners: readonly Owner[];
+        edgeDisposition: EdgeDisposition;
+      }
+    </item>
+    <item priority="low">
+      interface RouteContractReport {
+        verdicts: readonly Verdict[];
+        inventory: ClientInventory;
+        fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
+        edgeTerminalPathCount: number;
+      }
+    </item>
+    <item priority="high">
+      export async function buildRouteContractReport(): Promise<RouteContractReport> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function unownedVerdicts(verdicts: readonly Verdict[]): Verdict[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatUnowned(unowned: readonly Verdict[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function vacuityInputFromReport(report: RouteContractReport): VacuityInput { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/types.ts">
+    <item priority="high">
+      export const HTTP_METHODS: unknown;
+    </item>
+    <item priority="low">
+      type HttpMethod = (typeof HTTP_METHODS)[number];
+    </item>
+    <item priority="high">
+      export const PLACEHOLDER: unknown;
+    </item>
+    <item priority="low">
+      interface ClientPair {
+        method: HttpMethod;
+        path: string;
+        producedBy: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      type Owner = "reservations" | "users" | "agent" | "edge";
+    </item>
+    <item priority="low">
+      type EdgeDisposition = "edge-terminal" | "forwarded-to-origin" | "static-spa";
+    </item>
+  </file>
+  <file path="tools/route-contract/src/vacuity.ts">
+    <item priority="high">
+      export const MINIMUM_CLIENT_PAIRS: unknown;
+    </item>
+    <item priority="low">
+      interface VacuityInput {
+        pairCount: number;
+        subClientPairCounts: Readonly<Record<string, number>>;
+        silentClientMethods: readonly string[];
+        ownerTableSizes: Readonly<Record<string, number>>;
+      }
+    </item>
+    <item priority="high">
+      export function vacuityFailures(input: VacuityInput): string[] { /* ... */ }
     </item>
   </file>
   </section>

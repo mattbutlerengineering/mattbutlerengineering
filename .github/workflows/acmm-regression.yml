@@ -1,20 +1,36 @@
 name: ACMM Regression Detection
 
-# Continuous ACMM maturity regression detection.
+# The single canonical daily ACMM scoring run (#5854).
 #
-# Weekly, this refreshes the ACMM report and compares the repo's maturity
-# level against the last recorded level in `.claude/acmm/state.json`. If the
-# level dropped, it auto-opens an issue (labels `acmm` + `ready`) naming the
-# regressed criteria — deduplicated so only one regression issue is open at a
-# time. If the level is stable or improved, it bumps the state timestamp.
+# Runs the full audit (`plugins/acmm/scripts/audit.js --apply --badge`) once
+# a day on a GitHub Actions runner, which has `gh` available -- unlike the
+# `mbe-morning` cloud routine that used to be the only thing running this
+# audit, whose read-only, no-`gh` environment left every `active` (liveness)
+# criterion permanently `unverifiable`. This folds in what `auto-issue.yml`
+# used to do (the `--apply` gap-filing pass) rather than duplicating its own
+# automation-PR chain, since this workflow's chain (AUTOMATION_PAT, CI
+# dispatch, tier-classifier dispatch, run approval, tier-label wait, gated
+# auto-merge) was already tested and `scripts/__tests__` reference its branch
+# name.
+#
+# Compares the level committed at `HEAD` *before* this run's audit
+# overwrites `.claude/acmm/state.json` against the freshly computed level --
+# never `currentLevel` against its own `history[-1]`, which come from the
+# same computation and can never disagree. If the level dropped, it
+# auto-opens an issue (labels `acmm` + `ready`) naming the regressed
+# criteria -- deduplicated so only one regression issue is open at a time.
+# An audit that could not measure this run (gh unavailable, an unverifiable
+# gate) reports `unmeasurable`, never a regression.
 #
 # The comparison/dedup logic lives in `scripts/acmm-regression-check.mjs`
-# (unit-tested); this workflow just wires inputs and runs it.
+# (unit-tested); this workflow just wires inputs and runs it. Once the
+# audit's write-on-change policy lands (#5852), a day with no detected
+# change produces no diff and therefore no PR.
 
 on:
   schedule:
-    # Saturday 15:00 UTC = 08:00 PT — fits the documented weekend schedule.
-    - cron: "0 15 * * 6"
+    # 04:00 UTC daily -- the old auto-issue.yml slot, now folded in here.
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:
@@ -32,14 +48,21 @@ concurrency:
 jobs:
   detect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
-          fetch-depth: 1
+          # Full history, not the default shallow clone. audit.js's
+          # pr-outcomes.js runs `git log --since=... --grep='^Revert '`
+          # locally to measure the revert rate -- a fetch-depth: 1 checkout
+          # has exactly one commit in its local history, so that git log
+          # can only ever return zero matches regardless of what actually
+          # happened. It also affects short-SHA -> PR resolution for
+          # auto-rollback reverts elsewhere in the same measurement.
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
@@ -64,11 +87,50 @@ jobs:
         # The `...` suffix builds both as transitive deps.
         run: pnpm build --filter @mbe/cli...
 
+      - name: Compute today's date
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Snapshot committed ACMM level
+        id: snapshot
+        # Read BEFORE the audit below overwrites state.json, so this and the
+        # freshly computed level are two independent readings -- comparing
+        # `currentLevel` to its own `history[-1]` (the pre-#5854 approach)
+        # could never disagree, since both come from the same computation.
+        run: |
+          set -o pipefail
+          LEVEL=$(git show HEAD:.claude/acmm/state.json | jq -r '.currentLevel // empty')
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+
+      - name: Merge issuesCreated from a stale daily-audit branch
+        # A prior day's automation/acmm-regression PR may still be open (its
+        # ledger only reaches `main` when that PR merges). Without this,
+        # audit.js --apply below reads a ledger missing that PR's entries and
+        # can refile an issue it already filed. `git ls-remote` is a plain
+        # remote query (no local fetch needed to check existence).
+        run: |
+          set -o pipefail
+          if git ls-remote --exit-code --heads origin automation/acmm-regression > /dev/null 2>&1; then
+            git fetch origin automation/acmm-regression
+            git show FETCH_HEAD:.claude/acmm/state.json > /tmp/branch-acmm-state.json
+            node scripts/acmm-merge-issues-created.mjs --branch-state-file /tmp/branch-acmm-state.json
+            echo "Merged issuesCreated from the still-open automation/acmm-regression branch."
+          else
+            echo "No open automation/acmm-regression branch -- nothing to merge."
+          fi
+
+      - name: Run ACMM audit
+        # Moves the issue-filing pass over from the retired auto-issue.yml.
+        # --badge rewrites the README scorecard badge; --label ready tags
+        # filed issues the same way auto-issue.yml did so implement-queue
+        # keeps picking them up.
+        run: node plugins/acmm/scripts/audit.js --apply --badge --label ready
+
+      - name: Detect regression
+        run: node scripts/acmm-regression-check.mjs --previous-level "${{ steps.snapshot.outputs.level }}"
+
       - name: Refresh ACMM report
         run: node scripts/generate-acmm-report.mjs
-
-      - name: Detect regression / update state
-        run: node scripts/acmm-regression-check.mjs
 
       - name: Open PR with updated ACMM state
         id: create-pr
@@ -87,16 +149,18 @@ jobs:
           # AUTOMATION_PAT is set as a repo secret, this silently falls back
           # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
           token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
-          commit-message: "chore(acmm): refresh regression-check state timestamp"
-          title: "chore(acmm): refresh regression-check state timestamp"
+          commit-message: "chore(acmm): daily audit ${{ steps.date.outputs.today }}"
+          title: "chore(acmm): daily audit ${{ steps.date.outputs.today }}"
           body: |
-            Automated weekly ACMM regression-check state refresh.
+            Automated daily ACMM audit.
 
             Generated by `.github/workflows/acmm-regression.yml`.
           branch: automation/acmm-regression
           delete-branch: true
           add-paths: |
             .claude/acmm/state.json
+            README.md
+            apps/marketing/public/acmm-report.json
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch
@@ -105,7 +169,7 @@ jobs:
         # including the required CI Gate check -- never fires and the PR
         # sits BLOCKED forever. workflow_dispatch is a documented exception:
         # an explicit API call, not a passive event. Only dispatch when a PR
-        # actually exists, so a no-regression week stays a silent no-op.
+        # actually exists, so a no-change day stays a silent no-op.
         if: steps.create-pr.outputs.pull-request-number
         run: gh workflow run ci.yml --ref automation/acmm-regression
 

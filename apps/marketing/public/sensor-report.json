@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-28T01:36:03.871Z",
+  "generated_at": "2026-09-28T18:04:41.116Z",
   "period": {
     "start": "2026-09-21",
     "end": "2026-09-28"
@@ -11,13 +11,21 @@
       "level_name": "Fully Autonomous",
       "criteria_met": 97,
       "criteria_total": 114,
-      "last_run": "2026-09-27T16:05:39.076Z",
+      "last_run": "2026-09-28T16:07:00.403Z",
       "capped": false,
       "failing_gates": []
     },
     "prMetrics": {
       "available": true,
       "latest": {
+        "date": "2026-09-28",
+        "window_days": 30,
+        "total_ai_prs": 150,
+        "merged": 145,
+        "rejected": 5,
+        "acceptance_rate": 0.97
+      },
+      "previous": {
         "date": "2026-09-21",
         "window_days": 30,
         "total_ai_prs": 172,
@@ -25,15 +33,7 @@
         "rejected": 2,
         "acceptance_rate": 0.99
       },
-      "previous": {
-        "date": "2026-09-14",
-        "window_days": 30,
-        "total_ai_prs": 183,
-        "merged": 177,
-        "rejected": 6,
-        "acceptance_rate": 0.97
-      },
-      "entry_count": 10
+      "entry_count": 11
     },
     "metricsFreshness": {
       "available": true,
@@ -42,7 +42,7 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.41,
+          "age_days": 1.1,
           "latest": "2026-09-27T15:42:30.992Z",
           "max_age_days": 3
         }
@@ -63,22 +63,27 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 98,
-      "total_merged": 97,
+      "total_prs": 97,
+      "total_merged": 96,
       "total_closed_without_merge": 1,
       "by_category": {
+        "dependencies": {
+          "merged": 2,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.67
+        },
+        "tier:trivial": {
+          "merged": 43,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:sensitive": {
           "merged": 21,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 24,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:trivial": {
-          "merged": 41,
+          "merged": 20,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -91,11 +96,6 @@
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 1,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.5
         }
       }
     },
@@ -107,42 +107,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 99598760,
-      "output_tokens": 83360,
-      "cache_creation_tokens": 2243649,
-      "cache_hit_rate": 0.978,
+      "cache_read_tokens": 1045065,
+      "output_tokens": 1403,
+      "cache_creation_tokens": 81671,
+      "cache_hit_rate": 0.9275,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 854,
-          "output_tokens": 82709,
-          "cache_read_tokens": 92501983,
-          "cache_creation_tokens": 1679917
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 760,
-          "output_tokens": 651,
-          "cache_read_tokens": 7096777,
-          "cache_creation_tokens": 563732
+          "input_tokens": 18,
+          "output_tokens": 1403,
+          "cache_read_tokens": 1045065,
+          "cache_creation_tokens": 81671
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 27,
-      "passed": 22,
+      "completed": 28,
+      "passed": 20,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36366603892,
+        "databaseId": 36462158202,
         "status": "in_progress",
         "conclusion": null,
-        "createdAt": "2026-09-28T01:36:08Z",
-        "name": "Auto-Merge Policy",
+        "createdAt": "2026-09-28T18:00:33Z",
+        "name": "Chaos Agent",
         "headBranch": "main",
-        "headSha": "0cc939296828c362bbd2170be153eb8e51d00abe"
+        "headSha": "49c7d773d84bf73ed728ba5a223ef340cc09a2e5"
       }
     },
     "lighthouse": {
@@ -160,17 +153,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 24,
-      "logs_7d": 24,
-      "total_commits_7d": 186,
-      "unique_branches_7d": 2,
-      "branches_7d": ["chore/queue-telemetry-2026-09-28", "metrics/progress-tracker-2026-09-28"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.004,
-      "total_lines_added_7d": 665324,
-      "lines_churned_7d": 2667,
+      "churn_rate": 0.003,
+      "total_lines_added_7d": 664701,
+      "lines_churned_7d": 1751,
       "window_days": 7,
       "churn_threshold": 0.3
     },

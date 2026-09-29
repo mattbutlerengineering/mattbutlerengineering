@@ -1,38 +1,96 @@
-const CRITERIA = [
-  {
-    id: "fullsend:test-coverage",
-    source: "fullsend",
-    level: 2,
-    category: "readiness",
-    name: "Test coverage threshold",
-    description: "Documented or enforced test coverage floor.",
-    rationale:
-      "Fullsend treats coverage as a readiness prerequisite: agents cannot be trusted on an untested codebase.",
-    details:
-      "A test coverage threshold is a documented minimum (e.g., 80%) that all code must meet before AI agents are trusted to make changes. Without it, an AI can introduce bugs in untested code paths that no one catches until production. An AI mission will add a codecov config or coverage workflow that enforces your chosen floor on every PR.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        "codecov.yml",
-        ".codecov.yml",
-        "coverage.yml",
-        ".github/workflows/coverage-gate.yml",
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync as _execFileSync } from "node:child_process";
+
+const GOVERNANCE_DOC = "docs/governance.md";
+
+const REQUIRED_CHECKS_HEADING = "### Required Status Checks";
+
+/**
+ * The bolded check names in the doc's "Required Status Checks" table, e.g.
+ * `| **Lint** | ci.yml | ... |` -> "Lint". Scoped to the lines between that
+ * heading and the next `#`-heading — docs/governance.md has a second
+ * bolded-row table further down ("Human Review Required": **Security**,
+ * **Infrastructure**, ...) that is not a status-check list at all. An
+ * unscoped scan over the whole document folded those rows in too, so the
+ * criterion could never pass even once the real table said just CI Gate.
+ */
+function parseDocumentedChecks(content) {
+  const lines = content.split("\n");
+  const start = lines.findIndex((line) => line.trim() === REQUIRED_CHECKS_HEADING);
+  if (start === -1) return [];
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => /^#{1,6}\s/.test(line));
+  const section = end === -1 ? rest : rest.slice(0, end);
+  return section
+    .map((line) => line.match(/^\|\s*\*\*(.+?)\*\*\s*\|/))
+    .filter(Boolean)
+    .map((m) => m[1].trim());
+}
+
+/**
+ * acmm:fullsend:branch-protection-doc — compares the checks docs/governance.md
+ * claims are required against the live `required_status_checks.contexts` for
+ * `main`. Was `any-of` (doc existence only): the doc lists Lint/Typecheck/
+ * Test/Security Scan/Tier Classifier while live protection is `["CI Gate"]`
+ * (`strict: false`) — a doc that contradicts reality passed identically to
+ * one that's accurate. `gh` unavailable -> unverifiable, not a silent pass.
+ */
+export function checkBranchProtectionDoc(cwd, opts = {}) {
+  const fn = opts.execFileSyncFn ?? _execFileSync;
+  const docPath = join(cwd, GOVERNANCE_DOC);
+  if (!existsSync(docPath)) {
+    return { passed: false, evidence: `${GOVERNANCE_DOC} not found` };
+  }
+  let content;
+  try {
+    content = readFileSync(docPath, "utf-8");
+  } catch {
+    return { passed: false, evidence: `${GOVERNANCE_DOC} unreadable` };
+  }
+  const documented = parseDocumentedChecks(content);
+  if (documented.length === 0) {
+    return { passed: false, evidence: `${GOVERNANCE_DOC} lists no required checks` };
+  }
+
+  let liveContexts;
+  try {
+    const raw = fn(
+      "gh",
+      [
+        "api",
+        "repos/{owner}/{repo}/branches/main/protection/required_status_checks",
+        "--jq",
+        ".contexts",
       ],
-    },
-  },
-  {
-    id: "fullsend:ci-cd-maturity",
-    source: "fullsend",
-    level: 2,
-    category: "readiness",
-    name: "CI/CD pipeline",
-    description: "A working CI/CD pipeline that runs on every PR.",
-    rationale:
-      "The second fullsend readiness prerequisite — a repo without CI cannot gate agent work.",
-    details:
-      "A CI/CD pipeline is a set of GitHub Actions workflows that automatically build, test, and validate every pull request before it can merge. Without CI, there is no automated safety net — AI-generated changes could break the build and no one would know until someone manually checks. An AI mission will create a basic CI workflow for your project's language and framework.",
-    detection: { type: "any-of", pattern: [".github/workflows/"] },
-  },
+      { cwd, encoding: "utf-8", timeout: 10_000, stdio: ["pipe", "pipe", "pipe"] }
+    );
+    liveContexts = JSON.parse(raw);
+  } catch {
+    return {
+      passed: null,
+      evidence: "gh CLI unavailable or error querying branch protection",
+    };
+  }
+
+  const documentedSet = new Set(documented);
+  const liveSet = new Set(liveContexts);
+  const matches =
+    documentedSet.size === liveSet.size && [...documentedSet].every((c) => liveSet.has(c));
+
+  if (matches) {
+    return {
+      passed: true,
+      evidence: `${GOVERNANCE_DOC} matches live required checks: ${liveContexts.join(", ")}`,
+    };
+  }
+  return {
+    passed: false,
+    evidence: `${GOVERNANCE_DOC} lists [${[...documentedSet].join(", ")}] but live required checks are [${liveContexts.join(", ")}]`,
+  };
+}
+
+const CRITERIA = [
   {
     id: "fullsend:auto-merge-policy",
     source: "fullsend",
@@ -64,80 +122,9 @@ const CRITERIA = [
     rationale:
       "Autonomy only works on top of explicit protection rules — fullsend treats these as the fence inside which agents may act.",
     details:
-      "Branch protection documentation spells out the rules governing your main branch: how many reviews are required, which CI checks must pass, who can bypass protections. This is the fence inside which AI agents can safely operate — without documented protection, there is no clear boundary for autonomous behavior. An AI mission will document your current branch protection settings and recommend improvements.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/branch-protection.md", "docs/governance.md", ".github/branch-protection.yml"],
-    },
-  },
-  {
-    id: "fullsend:production-feedback",
-    source: "fullsend",
-    level: 4,
-    category: "observability",
-    name: "Production feedback signal",
-    description: "A mechanism that feeds production observations back into the development loop.",
-    rationale:
-      "Fullsend's Production Feedback dimension: platform execution signals should inform what agents work on and how they assess risk.",
-    details:
-      "A production feedback signal is a mechanism (monitoring hooks, post-deploy checks, error rate alerts) that pipes production observations back into the development loop. When a deploy causes errors, the signal tells the AI system what went wrong so it can prioritize the fix. An AI mission will add a post-deploy check workflow or monitoring integration that feeds production data back into your issue tracker.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        "monitoring/",
-        "grafana/",
-        ".github/workflows/post-deploy-check.yml",
-        "scripts/production-feedback.mjs",
-      ],
-    },
-  },
-  {
-    id: "fullsend:observability-runbook",
-    source: "fullsend",
-    level: 4,
-    category: "observability",
-    name: "Observability runbook",
-    description: "A runbook or guide describing how humans debug autonomous behavior.",
-    rationale:
-      "Fullsend's Operational Observability question: how do humans understand what the autonomous system is doing when it goes wrong?",
-    details:
-      "An observability runbook documents how humans investigate when the autonomous system misbehaves: where to find logs, how to trace an AI-generated change, how to roll back a bad auto-merge. Without it, debugging autonomous behavior is guesswork. An AI mission will create a runbook documenting your project's key observability paths and escalation procedures.",
-    detection: {
-      type: "any-of",
-      pattern: ["docs/runbook.md", "docs/runbooks/", "RUNBOOK.md", "docs/operations/"],
-    },
-  },
-  {
-    id: "fullsend:risk-assessment",
-    source: "fullsend",
-    level: 4,
-    category: "autonomy",
-    name: "Risk assessment config",
-    description: "A config that lets the agent assess blast radius before acting.",
-    rationale:
-      "Fullsend emphasizes that agents need a risk model to know when to escalate — static config is the minimum viable version.",
-    details:
-      "A risk assessment config is a YAML or JSON file that maps file paths and change types to risk tiers, letting AI agents estimate the blast radius of their changes before committing. An agent touching a README is low risk; an agent touching auth middleware is high risk and should escalate. An AI mission will create a risk-tier config based on your project's directory structure and critical paths.",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".github/risk-assessment.yml",
-        "docs/risk-tiers.md",
-        ".github/workflows/tier-classifier.yml",
-      ],
-    },
-  },
-  {
-    id: "fullsend:rollback-drill",
-    source: "fullsend",
-    level: 3,
-    category: "readiness",
-    name: "Rollback drill",
-    description: "A documented or automated rollback procedure.",
-    rationale: "Fullsend: autonomy requires the ability to undo, not just to do.",
-    details:
-      "A rollback drill is a documented or scripted procedure for reverting a bad deployment or merge to the last known-good state. Autonomy is only safe when you can undo quickly — if rolling back takes hours, the cost of an AI mistake is too high to tolerate. An AI mission will create a rollback script or document that covers your deployment method (git revert, helm rollback, image tag pin).",
-    detection: { type: "grep", pattern: { file: "docs/rollback.md", contains: "Last drill:" } },
+      "Branch protection documentation spells out the rules governing your main branch: how many reviews are required, which CI checks must pass, who can bypass protections. This is the fence inside which AI agents can safely operate — without documented protection, there is no clear boundary for autonomous behavior. Tightened (#5851/#5853): compares the doc's claimed required checks against the live `required_status_checks` API response instead of trusting the doc's mere existence.",
+    detection: { type: "check", pattern: GOVERNANCE_DOC },
+    check: checkBranchProtectionDoc,
   },
 ];
 

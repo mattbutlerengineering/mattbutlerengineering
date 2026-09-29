@@ -120,6 +120,7 @@ export const DURABLE_OUTSIDE = {
  */
 export const EXTERNAL = {
   "acmm-evals.jsonl": "plugins/acmm/scripts/evals.js",
+  "acmm-cold-start.json": ".github/workflows/acmm-cold-start.yml",
   "agent-perf.jsonl": "tools/cli/src/commands/stats.ts",
   "eval-reports.jsonl": "tools/cli/src/commands/agent-eval.ts",
   "last-audit.json": "tools/cli/src/commands/stats.ts",

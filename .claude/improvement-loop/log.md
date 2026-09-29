@@ -2412,3 +2412,12 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 
 **queueEfficiency:** unavailable (credential_rejected)
 **Issues filed:** 0
+## 2026-09-28 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm, prMetrics, metricsFreshness, reviewBurden, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn). `issues`, `issueFeedback`, `queueEfficiency` unavailable — GitHub REST-fallback 403 (known CCR auth limitation, gotchas.md § Claude Code Remote); `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available (no data source configured for this run).
+**Regressions:** 0 detected, 0 issues created — `metricsFreshness` reports 0 unhealthy (review-burden fresh at 1.1d); `acmm` steady at L6 (97/114); `ciHealth` 100% pass rate (20/20).
+**Sentry triage:** skipped — `sentry.io` is not on this environment's network egress allowlist (403 "Host not in allowlist"), distinct from the usual no-egress-to-production constraint; no Sentry query was possible.
+**Verifications:** 5 checked, 0 verified, 0 failed (reopened) — all skipped: #5815 (no completed CI runs to verify against), #5807/#5806/#5805/#5790 (Lighthouse inventory unavailable — run a site audit first).
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 as the `issues`/`issueFeedback`/`queueEfficiency` sensors above — budgets carried over unchanged from the last successful collection (default 3/category).
+**Skill proposals:** 0 (not Friday — skill-extraction step skipped)
+**Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) reports no adjustments needed. All 5 verification checks landed as `skip` confidence (no CI/Lighthouse data to compare against), so false-positive-rate and fix-effectiveness-rate couldn't be computed from today's window alone — nothing actionable to loosen or tighten.

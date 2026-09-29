@@ -278,6 +278,21 @@ export class DepositService {
   }
 
   /**
+   * Lists every deposit for a venue's reservations on a given date — the
+   * batch read the deposit-exposure dashboard needs (#5832). `deposits`
+   * carries no `venue_id`/`date` column of its own (ADR-026 §1), so it is
+   * scoped via a nested relation filter through its unique `reservationId`,
+   * joining `Reservation.venueId` + `Reservation.date` — the same shape the
+   * `deposit_isolation` RLS policy's own `EXISTS (... FROM reservations ...)`
+   * subquery checks. Callers must run this inside `runWithVenueContext(venueId, ...)`
+   * (see `../routes/deposits.ts`) so the RLS backstop is active for the
+   * query, not just the explicit `where` filter here.
+   */
+  async listByVenueAndDate(venueId: string, date: Date): Promise<Deposit[]> {
+    return prisma.deposit.findMany({ where: { reservation: { venueId, date } } });
+  }
+
+  /**
    * Links a Stripe PaymentIntent to a pending deposit.
    * Called immediately after creating the PaymentIntent so the webhook can find it.
    */

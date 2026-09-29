@@ -20689,58 +20689,90 @@
       // venue-resolution shape as POST / above: the query carries an opaque
       // reservation id, not a venueId, so the app-wide preHandler resolves
       // nothing and this route resolves it itself (module comment, ADR-026).
+      //
+      // GET /api/v1/deposits?venueId=&date= — deposit-exposure dashboard batch
+      // read (#5832): every deposit for a venue's reservations on a given date.
+      // Unlike the reservationId= query above, `venueId` IS present in the
+      // querystring, so the app-wide preHandler already resolves it — the
+      // explicit `runWithVenueContext` below is kept anyway, matching every
+      // other route in this file, so the scope is never implicit.
       fastify.get<{
-        Querystring: { reservationId?: string };
-        Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+        Querystring: { reservationId?: string; venueId?: string; date?: string };
+        Reply: ApiResponse<Deposit | Deposit[] | null> | ReturnType<typeof createProblemDetails>;
       }>(
         "/",
         {
           preHandler: [requireAuth, requireAdmin],
           schema: {
-            summary: "Get a reservation's deposit",
-            operationId: "getDepositByReservation",
+            summary: "Get a reservation's deposit, or list a venue's deposits for a date",
+            operationId: "getDeposits",
             description:
-              "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+              "Look up a reservation's deposit by reservationId (or null if none exists yet), " +
+              "or list every deposit for a venue's reservations on a given date (venueId + date).",
             tags: ["Deposits"],
             querystring: {
               type: "object",
-              required: ["reservationId"],
-              properties: { reservationId: { type: "string" } },
+              properties: {
+                reservationId: { type: "string" },
+                venueId: { type: "string" },
+                date: { type: "string" },
+              },
             },
             response: {
               200: {
-                description: "Deposit found, or null if the reservation has none yet",
+                description: "Deposit found (or null), or the venue's deposits for the date",
                 type: "object",
                 properties: {
                   data: {
-                    anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+                    anyOf: [
+                      { type: "object", properties: depositProperties },
+                      { type: "array", items: { type: "object", properties: depositProperties } },
+                      { type: "null" },
+                    ],
                   },
                 },
               },
-              400: { description: "Missing reservationId", type: "object" },
+              400: {
+                description: "Missing reservationId, or missing venueId/date",
+                type: "object",
+              },
               404: { description: "Reservation not found, or not in any venue", type: "object" },
             },
           },
         },
         async (request, reply) => {
-          const { reservationId } = request.query;
-          if (!reservationId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+          const { reservationId, venueId, date } = request.query;
+    
+          if (reservationId) {
+            const resolvedVenueId = await resolveReservationVenueId(reservationId);
+            if (!resolvedVenueId) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+    
+            const deposit = await runWithVenueContext(resolvedVenueId, () =>
+              depositService.getByReservationId(reservationId)
+            );
+            return { data: deposit };
           }
     
-          const venueId = await resolveReservationVenueId(reservationId);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          if (venueId && date) {
+            const deposits = await runWithVenueContext(venueId, () =>
+              depositService.listByVenueAndDate(venueId, new Date(date))
+            );
+            return { data: deposits };
           }
     
-          const deposit = await runWithVenueContext(venueId, () =>
-            depositService.getByReservationId(reservationId)
-          );
-          return { data: deposit };
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                "reservationId, or venueId and date, is required"
+              )
+            );
         }
       );
     
@@ -27753,7 +27785,7 @@
         date: z.iso.date().describe("New reservation date (YYYY-MM-DD)").optional(),
         startTime: z.iso.datetime({ offset: true }).describe("New start time (ISO 8601)").optional(),
         endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
-        partySize: z.number().int().min(1).describe("New party size").optional(),
+        partySize: z.number().int().min(1).max(20).describe("New party size").optional(),
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
       })
       .describe("Fields to modify via guest self-service");
@@ -32083,6 +32115,21 @@
       }
     
       /**
+       * Lists every deposit for a venue's reservations on a given date — the
+       * batch read the deposit-exposure dashboard needs (#5832). `deposits`
+       * carries no `venue_id`/`date` column of its own (ADR-026 §1), so it is
+       * scoped via a nested relation filter through its unique `reservationId`,
+       * joining `Reservation.venueId` + `Reservation.date` — the same shape the
+       * `deposit_isolation` RLS policy's own `EXISTS (... FROM reservations ...)`
+       * subquery checks. Callers must run this inside `runWithVenueContext(venueId, ...)`
+       * (see `../routes/deposits.ts`) so the RLS backstop is active for the
+       * query, not just the explicit `where` filter here.
+       */
+      async listByVenueAndDate(venueId: string, date: Date): Promise<Deposit[]> {
+        return prisma.deposit.findMany({ where: { reservation: { venueId, date } } });
+      }
+    
+      /**
        * Links a Stripe PaymentIntent to a pending deposit.
        * Called immediately after creating the PaymentIntent so the webhook can find it.
        */
@@ -35455,6 +35502,15 @@
             code: "SLOT_UNAVAILABLE",
           };
         }
+        if (updateResult.capacityExceeded) {
+          return {
+            success: false,
+            status: 422,
+            title: "Party Size Exceeds Table Capacity",
+            detail: updateResult.error!,
+            code: "PARTY_SIZE_EXCEEDS_TABLE",
+          };
+        }
         return {
           success: false,
           status: 500,
@@ -35910,6 +35966,7 @@
       reservation?: Reservation;
       error?: string;
       conflict?: ConflictCheckResult;
+      capacityExceeded?: boolean;
     }
     function compareReservationDateDesc(
       a: { date: Date; startTime: Date },
@@ -36251,6 +36308,25 @@
     
         if (!existing) {
           return { success: false, error: "Reservation not found" };
+        }
+    
+        // Capacity check runs whenever partySize changes, independent of
+        // timeOrTableChanged below — a partySize-only edit is not a slot move,
+        // but it still must not exceed the (possibly unchanged) assigned table's
+        // capacity (#5807).
+        if (data.partySize !== undefined) {
+          const targetTableId = data.tableId ?? existing.tableId;
+          const table = await prisma.table.findUnique({
+            where: { id: targetTableId },
+            select: { capacity: true },
+          });
+          if (table && data.partySize > table.capacity) {
+            return {
+              success: false,
+              error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+              capacityExceeded: true,
+            };
+          }
         }
     
         // Determine if we need to check for conflicts
@@ -49658,17 +49734,6 @@
       }
     
       /**
-       * Get a venue group by slug
-       */
-      async getBySlug(slug: string): Promise<VenueGroup> {
-        return this.client.getOne<VenueGroup>(
-          `/api/v1/venues/groups/by-slug/${slug}`,
-          undefined,
-          VenueGroupSchema
-        );
-      }
-    
-      /**
        * Create a new venue group
        */
       async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
@@ -56506,6 +56571,625 @@
     export function countTokens(text: string): number {
       if (text.length === 0) return 0;
       return Math.ceil(text.length / CHARS_PER_TOKEN);
+    }
+  </file>
+  <file path="tools/route-contract/src/client-inventory.ts">
+    export const EXEMPT_METHODS: Readonly<Record<string, string>> = {
+      "holds.setSessionId": "pure setter — stores the session id for later hold calls",
+      "holds.getSessionId": "pure getter — returns the stored session id",
+      "holds.sessionHeaders": "private header builder; throws when ownership is unprovable",
+    };
+    export const KNOWN_BLIND_SPOTS: Readonly<Record<string, string>> = {
+      streamNDJSON: "takes a caller-supplied config.url and holds no path literal of its own",
+    };
+    export const DEPOSIT_TRANSITION_ARGS: Readonly<Record<DepositTransition, readonly unknown[]>> = {
+      capture: [PLACEHOLDER, "capture"],
+      refund: [PLACEHOLDER, "refund"],
+      forfeit: [PLACEHOLDER, "forfeit"],
+    };
+    export interface Invocation {
+      /** e.g. `"floorPlans.setActive"`. */
+      readonly clientMethod: string;
+      /** Requests issued by THIS call. Zero is a failure unless exempt. */
+      readonly requestCount: number;
+      readonly exempt: boolean;
+    }
+    export interface ClientInventory {
+      /** Deduplicated `method + path`, each carrying every client method that emits it. */
+      readonly pairs: readonly ClientPair[];
+      /** One entry per method call made, in roster order. */
+      readonly invocations: readonly Invocation[];
+      /** Roster sub-client names, e.g. `"floorPlans"`. */
+      readonly subClients: readonly string[];
+      /** How many distinct pairs a given sub-client contributed. */
+      pairCount(subClient: string): number;
+    }
+    interface RosterEntry {
+      readonly name: string;
+      readonly instance: object;
+      /** Run before each invocation on this sub-client. */
+      readonly prepare?: () => void;
+    }
+    export function exportedClientClassNames(): string[] {
+      return Object.entries(apiClientModule)
+        .filter(([name, value]) => typeof value === "function" && CLIENT_CLASS_NAME.test(name))
+        .map(([name]) => name)
+        .sort();
+    }
+    function methodNamesOf(instance: object): string[] {
+      // Own prototype only. AgentSessionClient extends ApiClient, and walking up
+      // would enumerate the transport (request/get/post/…) as client surface.
+      //
+      // Deliberately NOT sorted: `getOwnPropertyNames` on a class prototype yields
+      // declaration order, so `producedBy[0]` is the method that declares a path
+      // and an alias delegating to it comes second. Sorting would still enumerate
+      // everything — the inventory is identical either way — but it would shuffle
+      // which half of each alias pair is "first", and `client-driver-completeness`
+      // pins the three the architecture measured by name.
+      return Object.getOwnPropertyNames(Object.getPrototypeOf(instance))
+        .filter((name) => name !== "constructor")
+        .filter((name) => typeof (instance as Record<string, unknown>)[name] === "function");
+    }
+    function buildRoster(): { roster: RosterEntry[]; transportClassName: string } {
+      const api = createApiClient({ baseUrl: "" });
+      const agentSessions = new AgentSessionClient({ baseUrl: "" });
+    
+      const roster: RosterEntry[] = [
+        { name: "users", instance: api.users },
+        { name: "reservations", instance: api.reservations },
+        { name: "venues", instance: api.venues },
+        { name: "venueGroups", instance: api.venueGroups },
+        { name: "tables", instance: api.tables },
+        { name: "guests", instance: api.guests },
+        { name: "floorPlans", instance: api.floorPlans },
+        { name: "publicVenue", instance: api.publicVenue },
+        { name: "waitlist", instance: api.waitlist },
+        { name: "availability", instance: api.availability },
+        {
+          name: "holds",
+          instance: api.holds,
+          // Four of the hold methods throw without a session id, before issuing
+          // their request. Re-seeded per invocation because createForVenue adopts
+          // the server's id from a body the 204 recorder does not return.
+          prepare: () => api.holds.setSessionId(PLACEHOLDER),
+        },
+        { name: "briefing", instance: api.briefing },
+        { name: "deposits", instance: api.deposits },
+        { name: "health", instance: api.health },
+        // NOT in createApiClient (index.ts:81-97 omits it) — it extends ApiClient
+        // and takes a ClientConfig directly (agent-sessions.ts:38-41). Missed
+        // entirely unless constructed separately.
+        { name: "agentSessions", instance: agentSessions },
+      ];
+    
+      return { roster, transportClassName: api.client.constructor.name };
+    }
+    export async function driveClient(): Promise<ClientInventory> {
+      const { roster } = buildRoster();
+    
+      const records: { method: HttpMethod; path: string; clientMethod: string; subClient: string }[] =
+        [];
+      const invocations: Invocation[] = [];
+    
+      const realFetch = globalThis.fetch;
+      let current: { clientMethod: string; subClient: string; count: number } | null = null;
+    
+      globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const href =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : (input as Request).url;
+        if (current) {
+          current.count += 1;
+          records.push({
+            method: (init?.method ?? "GET") as HttpMethod,
+            // Two client paths embed a query string in the path literal
+            // (reservations.ts:100, :183); buildQueryString adds one for every
+            // params object. Neither is part of the route.
+            path: href.split("?")[0] ?? href,
+            clientMethod: current.clientMethod,
+            subClient: current.subClient,
+          });
+        }
+        return new Response(null, { status: 204 });
+      }) as typeof globalThis.fetch;
+    
+      try {
+        for (const entry of roster) {
+          for (const methodName of methodNamesOf(entry.instance)) {
+            const qualified = `${entry.name}.${methodName}`;
+            const exempt = qualified in EXEMPT_METHODS;
+            const fn = (entry.instance as Record<string, (...args: unknown[]) => unknown>)[methodName];
+            const argSets = ARGUMENT_OVERRIDES[qualified] ?? [
+              Array.from({ length: fn?.length ?? 0 }, () => PLACEHOLDER),
+            ];
+    
+            for (const args of argSets) {
+              entry.prepare?.();
+              current = { clientMethod: qualified, subClient: entry.name, count: 0 };
+              try {
+                await fn?.apply(entry.instance, [...args]);
+              } catch {
+                // Expected: the 204 recorder returns no body, so methods that read
+                // `.data` off the response throw after the request was recorded.
+              }
+              invocations.push({ clientMethod: qualified, requestCount: current.count, exempt });
+              current = null;
+            }
+          }
+        }
+      } finally {
+        globalThis.fetch = realFetch;
+      }
+    
+      const byPair = new Map<string, { pair: ClientPair; subClients: Set<string> }>();
+      for (const record of records) {
+        const key = `${record.method} ${record.path}`;
+        const existing = byPair.get(key);
+        if (existing) {
+          if (!existing.pair.producedBy.includes(record.clientMethod)) {
+            (existing.pair.producedBy as string[]).push(record.clientMethod);
+          }
+          existing.subClients.add(record.subClient);
+        } else {
+          byPair.set(key, {
+            pair: { method: record.method, path: record.path, producedBy: [record.clientMethod] },
+            subClients: new Set([record.subClient]),
+          });
+        }
+      }
+    
+      const entries = [...byPair.values()];
+    
+      return {
+        pairs: entries.map((e) => e.pair),
+        invocations,
+        subClients: roster.map((entry) => entry.name),
+        pairCount: (subClient) => entries.filter((e) => e.subClients.has(subClient)).length,
+      };
+    }
+    export function rosterMethodNames(): string[] {
+      return buildRoster()
+        .roster.flatMap((entry) => methodNamesOf(entry.instance).map((m) => `${entry.name}.${m}`))
+        .sort();
+    }
+    export function transportClassName(): string {
+      return buildRoster().transportClassName;
+    }
+    export function rosterClassNames(): string[] {
+      return buildRoster()
+        .roster.map((entry) => entry.instance.constructor.name)
+        .sort();
+    }
+    export function malformedPaths(pairs: readonly ClientPair[]): string[] {
+      return pairs
+        .filter((pair) => {
+          const segments = pair.path.split("/").slice(1);
+          return segments.some((segment) =>
+            (MALFORMED_SEGMENTS as readonly string[]).includes(segment)
+          );
+        })
+        .map((pair) => `${pair.method} ${pair.path} (from ${pair.producedBy.join(", ")})`);
+    }
+  </file>
+  <file path="tools/route-contract/src/edge-owner.ts">
+    export interface EdgeProbe {
+      readonly disposition: EdgeDisposition;
+      /**
+       * Diagnostics, deliberately reported alongside the verdict and deliberately
+       * NOT used to reach it — see the module comment. The anti-trap test is the
+       * one consumer.
+       */
+      readonly originFetchCalls: number;
+      readonly staticBindingCalls: number;
+    }
+    export interface EdgeOwner {
+      classify(method: HttpMethod, path: string): Promise<EdgeProbe>;
+      /** True only for `edge-terminal`: forwarding to DO makes a *service* the owner. */
+      answers(method: HttpMethod, path: string): Promise<boolean>;
+      /** The paths the edge terminates itself — the anti-vacuity signal for this owner. */
+      readonly terminalPaths: readonly string[];
+    }
+    export const EDGE_TERMINAL_PATHS = [
+      "/health/system",
+      "/health/uptime",
+      "/health/performance",
+      "/health/lighthouse",
+      "/health/deps",
+    ] as const;
+    class PassThroughHTMLRewriter {
+      on(): this {
+        return this;
+      }
+      transform(response: Response): Response {
+        return response;
+      }
+    }
+    function taggedResponse(tag: string, body: string, contentType: string): Response {
+      return new Response(body, {
+        status: 200,
+        headers: { "Content-Type": contentType, [PROBE_HEADER]: tag },
+      });
+    }
+    export function createEdgeOwner(): EdgeOwner {
+      async function probe(method: HttpMethod, path: string): Promise<EdgeProbe> {
+        let originFetchCalls = 0;
+        let staticBindingCalls = 0;
+    
+        // The three KV operations the Worker reaches on these paths: `get` (CSP
+        // policy, circuit-breaker state, CI/deploy/migrate records), `put`
+        // (rate-limit counters, circuit-breaker state) and `list`
+        // (`health/lighthouse.js:11`). Empty answers throughout — every reader
+        // already handles a miss, and with `get` always null the rate limiter's
+        // count is always 0, so repeated probes of `/health/system` (10 req/60 s,
+        // `rate-limiter.js:16`) can never shed.
+        const kv = {
+          get: async () => null,
+          put: async () => undefined,
+          list: async () => ({ keys: [], list_complete: true }),
+        };
+    
+        const env: Record<string, unknown> = {
+          API_ORIGIN: "https://api.mattbutlerengineering.com",
+          HEALTH_STATE: kv,
+        };
+        for (const binding of STATIC_BINDINGS) {
+          env[binding] = {
+            fetch: async () => {
+              staticBindingCalls += 1;
+              // text/plain, not text/html: it keeps `addHeaders` off the
+              // HTMLRewriter path for the common case without changing routing.
+              return taggedResponse("static", "spa", "text/plain");
+            },
+          };
+        }
+    
+        const realFetch = globalThis.fetch;
+        const realRewriter = (globalThis as Record<string, unknown>).HTMLRewriter;
+        globalThis.fetch = (async () => {
+          originFetchCalls += 1;
+          // Valid JSON: health/system.js's checkService() calls response.json() on
+          // it. A throw there is swallowed as "timeout", which would still classify
+          // correctly but would make the diagnostic counts harder to trust.
+          return taggedResponse("origin", "{}", "application/json");
+        }) as typeof globalThis.fetch;
+        (globalThis as Record<string, unknown>).HTMLRewriter = PassThroughHTMLRewriter;
+    
+        try {
+          const response = await edgeRouter.fetch(new Request(`${APEX}${path}`, { method }), env);
+          const tag = response.headers.get(PROBE_HEADER);
+          const disposition: EdgeDisposition =
+            tag === "origin"
+              ? "forwarded-to-origin"
+              : tag === "static"
+                ? "static-spa"
+                : "edge-terminal";
+          return { disposition, originFetchCalls, staticBindingCalls };
+        } finally {
+          globalThis.fetch = realFetch;
+          (globalThis as Record<string, unknown>).HTMLRewriter = realRewriter;
+        }
+      }
+    
+      return {
+        classify: probe,
+        answers: async (method, path) => (await probe(method, path)).disposition === "edge-terminal",
+        terminalPaths: EDGE_TERMINAL_PATHS,
+      };
+    }
+  </file>
+  <file path="tools/route-contract/src/fastify-owners.ts">
+    export const FASTIFY_OWNERS = ["reservations", "users", "agent"] as const;
+    export type FastifyOwner = (typeof FASTIFY_OWNERS)[number];
+    type App = Awaited<ReturnType<typeof buildUsersApp>>;
+    export interface FastifyOwnerTables {
+      /**
+       * Does `owner`'s router match `METHOD url` under BOTH boots? A route only
+       * one of them registers is not an owner — see {@link bootFastifyOwners}.
+       */
+      answers(owner: FastifyOwner, method: HttpMethod, url: string): boolean;
+      /** Every Fastify owner whose router matches, in {@link FASTIFY_OWNERS} order. */
+      ownersOf(method: HttpMethod, url: string): FastifyOwner[];
+      /**
+       * Registered method+path entries in `owner`'s EFFECTIVE table — the entries
+       * both boots register, i.e. the ones `answers` can say yes to. Used only as
+       * the anti-vacuity signal (a table that is empty can never fail the guard,
+       * so the guard has to notice) — never for matching, which is always
+       * `findRoute`'s job.
+       */
+      routeCount(owner: FastifyOwner): number;
+      /**
+       * Registered entries in `owner`'s `NODE_ENV="test"` boot alone. Exposed only
+       * so the difference between the two boots is assertable; the guard itself
+       * never consults it.
+       */
+      testBootRouteCount(owner: FastifyOwner): number;
+      /**
+       * Every route the two boots disagree about, across all three owners, sorted
+       * by owner then entry. Empty would mean no service gates a route on
+       * `NODE_ENV` at all.
+       */
+      envConditionalRoutes(): EnvConditionalRoute[];
+      close(): Promise<void>;
+    }
+    export interface EnvConditionalRoute {
+      readonly owner: FastifyOwner;
+      /** `METHOD /full/path`, exactly as `printRoutes` spells the registration. */
+      readonly entry: string;
+      /** The boot that registered it. The other one did not. */
+      readonly registeredUnder: "test" | "production";
+    }
+    export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[] = [
+      // `services/reservations/src/routes/events.ts:181` — a manual
+      // event-emitting endpoint registered only when `NODE_ENV !== "production"`,
+      // under the unconditional `/api/v1/events` prefix (`app.ts:231`).
+      { owner: "reservations", entry: "POST /api/v1/events/test", registeredUnder: "test" },
+    ];
+    export function printedRouteEntries(printedRoutes: string): string[] {
+      const entries: string[] = [];
+      const fragments: string[] = [];
+    
+      for (const line of printedRoutes.split("\n")) {
+        const node = TREE_NODE.exec(line);
+        const indent = node?.[1];
+        const rest = node?.[2];
+        if (indent === undefined || rest === undefined) continue;
+    
+        const methods = NODE_METHODS.exec(rest);
+        const methodNames = methods?.[1]?.split(", ");
+    
+        const depth = indent.length / 4;
+        fragments.length = depth;
+        fragments[depth] = methods === null ? rest : rest.slice(0, -methods[0].length);
+        if (methodNames === undefined) continue;
+    
+        const path = fragments.join("");
+        for (const method of methodNames) entries.push(`${method} ${path}`);
+      }
+    
+      return entries;
+    }
+    export function countRegisteredRoutes(printedRoutes: string): number {
+      return printedRouteEntries(printedRoutes).length;
+    }
+    export function overrideEnv(
+      env: NodeJS.ProcessEnv,
+      overrides: Readonly<Record<string, string>>
+    ): () => void {
+      const previous = Object.keys(overrides).map((key) => [key, env[key]] as const);
+      Object.assign(env, overrides);
+    
+      return () => {
+        for (const [key, value] of previous) {
+          if (value === undefined) delete env[key];
+          else env[key] = value;
+        }
+      };
+    }
+    export async function importFresh<T>(load: () => Promise<T>): Promise<T> {
+      vi.resetModules();
+      return load();
+    }
+    export async function bootFastifyOwners(): Promise<FastifyOwnerTables> {
+      const production = {} as Record<FastifyOwner, App>;
+      const productionEntries = {} as Record<FastifyOwner, readonly string[]>;
+    
+      const restoreEnv = overrideEnv(process.env, PRODUCTION_BOOT_ENV);
+      try {
+        for (const owner of FASTIFY_OWNERS) {
+          const app = await BUILDERS[owner]();
+          production[owner] = app;
+          productionEntries[owner] = printedRouteEntries(app.printRoutes({ commonPrefix: false }));
+        }
+      } finally {
+        restoreEnv();
+      }
+    
+      process.env.NODE_ENV = "test";
+    
+      const apps = {} as Record<FastifyOwner, App>;
+      const testEntries = {} as Record<FastifyOwner, readonly string[]>;
+      const counts = {} as Record<FastifyOwner, number>;
+    
+      for (const owner of FASTIFY_OWNERS) {
+        const app = await BUILDERS[owner]();
+        await app.ready();
+        apps[owner] = app;
+        testEntries[owner] = printedRouteEntries(app.printRoutes({ commonPrefix: false }));
+        const registeredInProduction = new Set(productionEntries[owner]);
+        counts[owner] = testEntries[owner].filter((entry) => registeredInProduction.has(entry)).length;
+      }
+    
+      const answers = (owner: FastifyOwner, method: HttpMethod, url: string): boolean =>
+        apps[owner].findRoute({ method, url }) !== null &&
+        production[owner].findRoute({ method, url }) !== null;
+    
+      const envConditionalRoutes = (): EnvConditionalRoute[] =>
+        FASTIFY_OWNERS.flatMap((owner) => {
+          const inTest = new Set(testEntries[owner]);
+          const inProduction = new Set(productionEntries[owner]);
+    
+          return [
+            ...[...inTest]
+              .filter((entry) => !inProduction.has(entry))
+              .map((entry) => ({ owner, entry, registeredUnder: "test" as const })),
+            ...[...inProduction]
+              .filter((entry) => !inTest.has(entry))
+              .map((entry) => ({ owner, entry, registeredUnder: "production" as const })),
+          ].sort((a, b) => a.entry.localeCompare(b.entry));
+        });
+    
+      return {
+        answers,
+        ownersOf: (method, url) => FASTIFY_OWNERS.filter((owner) => answers(owner, method, url)),
+        routeCount: (owner) => counts[owner],
+        testBootRouteCount: (owner) => testEntries[owner].length,
+        envConditionalRoutes,
+        close: async () => {
+          for (const owner of FASTIFY_OWNERS) {
+            await apps[owner].close();
+            await production[owner].close();
+          }
+        },
+      };
+    }
+  </file>
+  <file path="tools/route-contract/src/module-scope-env.fixture.ts">
+    export const NODE_ENV_AT_EVALUATION = process.env.NODE_ENV;
+  </file>
+  <file path="tools/route-contract/src/route-contract.ts">
+    export interface Verdict {
+      readonly pair: ClientPair;
+      /** Every owner that answers this pair. Empty is the failure. */
+      readonly owners: readonly Owner[];
+      readonly edgeDisposition: EdgeDisposition;
+    }
+    export interface RouteContractReport {
+      readonly verdicts: readonly Verdict[];
+      readonly inventory: ClientInventory;
+      /** Registered method+path entries per Fastify owner — the anti-vacuity signal. */
+      readonly fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
+      /** Paths the edge terminates itself — the same signal for the fourth owner. */
+      readonly edgeTerminalPathCount: number;
+    }
+    export async function buildRouteContractReport(): Promise<RouteContractReport> {
+      const inventory = await driveClient();
+      const fastify = await bootFastifyOwners();
+      const edge = createEdgeOwner();
+    
+      try {
+        const verdicts: Verdict[] = [];
+    
+        for (const pair of inventory.pairs) {
+          const probe = await edge.classify(pair.method, pair.path);
+          const owners: Owner[] = [...fastify.ownersOf(pair.method, pair.path)];
+    
+          // Forwarding to DO is NOT ownership — a Fastify service still has to
+          // answer. Only a path the edge terminates makes the edge an owner.
+          if (probe.disposition === "edge-terminal") owners.push("edge");
+    
+          verdicts.push({ pair, owners, edgeDisposition: probe.disposition });
+        }
+    
+        const fastifyRouteCounts = Object.fromEntries(
+          FASTIFY_OWNERS.map((owner) => [owner, fastify.routeCount(owner)])
+        ) as Record<FastifyOwner, number>;
+    
+        return {
+          verdicts,
+          inventory,
+          fastifyRouteCounts,
+          edgeTerminalPathCount: EDGE_TERMINAL_PATHS.length,
+        };
+      } finally {
+        await fastify.close();
+      }
+    }
+    export function unownedVerdicts(verdicts: readonly Verdict[]): Verdict[] {
+      return verdicts.filter((verdict) => verdict.owners.length === 0);
+    }
+    export function formatUnowned(unowned: readonly Verdict[]): string {
+      if (unowned.length === 0) return "";
+    
+      const lines = unowned.map((verdict) =>
+        [
+          `  ${verdict.pair.method} ${verdict.pair.path}`,
+          `      produced by:  ${verdict.pair.producedBy.join(", ")}`,
+          `      edge:         ${verdict.edgeDisposition}`,
+          `      fastify:      no match in ${FASTIFY_OWNERS.join(", ")}`,
+        ].join("\n")
+      );
+    
+      return [
+        `${unowned.length} @mbe/api-client pair(s) have no route owner:`,
+        "",
+        ...lines,
+        "",
+        "A client URL with no route to answer it is a 404 in production with every",
+        "other gate green. Fix the client literal, or register the route — do not",
+        "add an allowlist here.",
+      ].join("\n");
+    }
+    export function vacuityInputFromReport(report: RouteContractReport): VacuityInput {
+      return {
+        pairCount: report.inventory.pairs.length,
+        subClientPairCounts: Object.fromEntries(
+          report.inventory.subClients.map((name) => [name, report.inventory.pairCount(name)])
+        ),
+        silentClientMethods: report.inventory.invocations
+          .filter((invocation) => !invocation.exempt && invocation.requestCount === 0)
+          .map((invocation) => invocation.clientMethod),
+        ownerTableSizes: { ...report.fastifyRouteCounts, edge: report.edgeTerminalPathCount },
+      };
+    }
+  </file>
+  <file path="tools/route-contract/src/types.ts">
+    export const HTTP_METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"] as const;
+    export type HttpMethod = (typeof HTTP_METHODS)[number];
+    export const PLACEHOLDER = "route-contract-placeholder";
+    export interface ClientPair {
+      readonly method: HttpMethod;
+      /** Query-stripped, placeholder-substituted, always absolute. */
+      readonly path: string;
+      /** e.g. `["floorPlans.setActive", "floorPlans.activate"]` — for the failure message. */
+      readonly producedBy: readonly string[];
+    }
+    export type Owner = "reservations" | "users" | "agent" | "edge";
+    export type EdgeDisposition =
+      /** The edge answers it itself. An owner. */
+      | "edge-terminal"
+      /** `/api` or `/public` — proxied verbatim to DO; a Fastify service must answer. */
+      | "forwarded-to-origin"
+      /** The marketing SPA answers. NOT an owner — this is what a 404 looks like. */
+      | "static-spa";
+  </file>
+  <file path="tools/route-contract/src/vacuity.ts">
+    export const MINIMUM_CLIENT_PAIRS = 86;
+    export interface VacuityInput {
+      /** Distinct `method + path` pairs the driver produced. */
+      readonly pairCount: number;
+      /** Pairs contributed per roster sub-client. */
+      readonly subClientPairCounts: Readonly<Record<string, number>>;
+      /** Non-exempt client methods that issued no request in their own invocation. */
+      readonly silentClientMethods: readonly string[];
+      /** Registered entries per route owner: three Fastify tables plus the edge's. */
+      readonly ownerTableSizes: Readonly<Record<string, number>>;
+    }
+    export function vacuityFailures(input: VacuityInput): string[] {
+      const failures: string[] = [];
+    
+      if (input.pairCount === 0) {
+        failures.push("the client inventory is empty — the driver produced no pairs at all");
+      } else if (input.pairCount < MINIMUM_CLIENT_PAIRS) {
+        failures.push(
+          `the client inventory holds ${input.pairCount} pairs, below the measured floor of ` +
+            `${MINIMUM_CLIENT_PAIRS} — the driver has narrowed`
+        );
+      }
+    
+      const emptySubClients = Object.entries(input.subClientPairCounts)
+        .filter(([, count]) => count === 0)
+        .map(([name]) => name);
+      if (emptySubClients.length > 0) {
+        failures.push(`sub-client(s) contributed no pairs: ${emptySubClients.join(", ")}`);
+      }
+    
+      if (input.silentClientMethods.length > 0) {
+        failures.push(
+          `non-exempt client method(s) issued no request: ${input.silentClientMethods.join(", ")}`
+        );
+      }
+    
+      const emptyOwners = Object.entries(input.ownerTableSizes)
+        .filter(([, size]) => size === 0)
+        .map(([name]) => name);
+      if (emptyOwners.length > 0) {
+        failures.push(`route owner table(s) are empty: ${emptyOwners.join(", ")}`);
+      }
+    
+      return failures;
     }
   </file>
   </section>
