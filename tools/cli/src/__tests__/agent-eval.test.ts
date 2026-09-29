@@ -341,6 +341,42 @@ describe("agent eval command", () => {
     });
   });
 
+  describe("claude-cli diagnostics", () => {
+    it("names the CLI prerequisite (not ANTHROPIC_API_KEY) and does not persist when every task reports 0 turns / $0 under claude-cli", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain("No task executed via the claude-cli adapter");
+      expect(errOut).toContain("subscription login");
+    });
+
+    it("prints the cost-basis line for a scored claude-cli run so a $1.37 task beside a $0.50 budget is not read as a bug", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).toContain("Cost basis: api-equivalent");
+      expect(out).toContain("budget cost arm not applied");
+    });
+
+    it("prints no cost-basis line for a scored default-adapter (billed) run", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).not.toContain("Cost basis:");
+    });
+  });
+
   it("appends the EvalReport as JSONL after each run", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunAgentSession.mockResolvedValue(fakeSession());

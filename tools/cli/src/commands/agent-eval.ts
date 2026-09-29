@@ -127,14 +127,14 @@ export const agentEvalCommand = new Command("eval")
       });
 
       if (suiteDidNotRun(report)) {
-        emitReport(report, options.json);
+        emitReport(report, options.json, costBasis);
         console.error(`\n${noRunMessage(adapterType)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
         return;
       }
 
       persistReport(report, adapterType, costBasis);
-      emitReport(report, options.json);
+      emitReport(report, options.json, costBasis);
 
       if (options.calibrate) {
         printCalibration(calibrate(report));
@@ -164,12 +164,12 @@ export const agentEvalCommand = new Command("eval")
     }
   );
 
-/** Prints the report as JSON or the human-readable table, per `--json`. */
-function emitReport(report: EvalReport, json: boolean): void {
+/** Prints the report as JSON or the human-readable table, per `--json`. The JSON shape is unchanged. */
+function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void {
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    printReport(report);
+    printReport(report, costBasis);
   }
 }
 
@@ -178,17 +178,30 @@ function emitReport(report: EvalReport, json: boolean): void {
  * reported 0 turns / $0 cost — the agent adapter never actually ran.
  *
  * `auto`/`claude` route through the Claude SDK, which needs
- * `ANTHROPIC_API_KEY`; the gemini/opencode CLI-subprocess adapters have a
- * different, adapter-specific reason a run can look like this (see the
- * cost-absent comment on {@link makeAgentTaskRunner}), so the diagnostic
- * doesn't finger a credential that adapter never needed.
+ * `ANTHROPIC_API_KEY`; `claude-cli` spawns the `claude` binary on a
+ * subscription login and needs no key at all, so fingering the key would
+ * send the weekly routine at the wrong fix; the gemini/opencode
+ * CLI-subprocess adapters have a different, adapter-specific reason a run
+ * can look like this (see the cost-absent comment on
+ * {@link makeAgentTaskRunner}), so the diagnostic doesn't finger a
+ * credential that adapter never needed.
  */
 function noRunMessage(adapterType: AdapterType): string {
   if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
     return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
   }
+  if (adapterType === "claude-cli") {
+    return 'No task executed via the claude-cli adapter: the "claude" CLI is missing from PATH, has no subscription login, or refused to start (0 turns / $0.00). This is not a scored regression — the suite never ran.';
+  }
   return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
 }
+
+// Printed under a non-billed basis only, so a $1.37 task beside a $0.50
+// budget in the routine's log does not read as a scoring bug.
+const NON_BILLED_COST_BASIS_NOTE: Record<Exclude<CostBasis, "billed">, string> = {
+  "api-equivalent": "CLI-reported, not billed; budget cost arm not applied",
+  none: "adapter reports no cost figure; budget cost arm not applied",
+};
 
 function findLogFile(): string {
   const root = findMonorepoRoot(process.cwd());
@@ -383,7 +396,7 @@ function printCalibration(summary: CalibrationSummary): void {
   }
 }
 
-function printReport(report: EvalReport): void {
+function printReport(report: EvalReport, costBasis: CostBasis): void {
   const a = report.aggregate;
   console.log("Eval Report");
   console.log("───────────");
@@ -405,4 +418,7 @@ function printReport(report: EvalReport): void {
       ? `\nExcluded (did not run): ${report.nonRunCount} — not counted in the aggregate above`
       : "";
   console.log(`Failed to complete: ${a.stuckCount}${nonRunLine}`);
+  if (costBasis !== "billed") {
+    console.log(`\nCost basis: ${costBasis} — ${NON_BILLED_COST_BASIS_NOTE[costBasis]}`);
+  }
 }
