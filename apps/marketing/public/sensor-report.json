@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-28T18:04:41.116Z",
+  "generated_at": "2026-09-29T01:52:38.153Z",
   "period": {
-    "start": "2026-09-21",
-    "end": "2026-09-28"
+    "start": "2026-09-22",
+    "end": "2026-09-29"
   },
   "sensors": {
     "acmm": {
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 1.1,
-          "latest": "2026-09-27T15:42:30.992Z",
+          "age_days": 0.3,
+          "latest": "2026-09-28T18:39:21.522Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-27T15:42:30.992Z",
+      "collected_at": "2026-09-28T18:39:21.522Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -63,32 +63,32 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 97,
-      "total_merged": 96,
-      "total_closed_without_merge": 1,
+      "total_prs": 95,
+      "total_merged": 95,
+      "total_closed_without_merge": 0,
       "by_category": {
-        "dependencies": {
-          "merged": 2,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.67
-        },
         "tier:trivial": {
-          "merged": 43,
+          "merged": 49,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 21,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:standard": {
-          "merged": 20,
+          "merged": 17,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 9,
+          "merged": 10,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:standard": {
+          "merged": 17,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "dependencies": {
+          "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -97,7 +97,8 @@
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
-      }
+      },
+      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
     },
     "agentCost": {
       "available": false
@@ -107,35 +108,42 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1045065,
-      "output_tokens": 1403,
-      "cache_creation_tokens": 81671,
-      "cache_hit_rate": 0.9275,
+      "cache_read_tokens": 274092234,
+      "output_tokens": 99444,
+      "cache_creation_tokens": 2250569,
+      "cache_hit_rate": 0.9918,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1403,
-          "cache_read_tokens": 1045065,
-          "cache_creation_tokens": 81671
+          "input_tokens": 1868,
+          "output_tokens": 99344,
+          "cache_read_tokens": 270598273,
+          "cache_creation_tokens": 1962118
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 408,
+          "output_tokens": 100,
+          "cache_read_tokens": 3493961,
+          "cache_creation_tokens": 288451
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 28,
-      "passed": 20,
+      "completed": 30,
+      "passed": 26,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36462158202,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-09-28T18:00:33Z",
-        "name": "Chaos Agent",
+        "databaseId": 36365130720,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-09-28T01:12:58Z",
+        "name": "Revert Watchdog",
         "headBranch": "main",
-        "headSha": "49c7d773d84bf73ed728ba5a223ef340cc09a2e5"
+        "headSha": "edd3e2e1d93e4055e07b3d4b6950804b5d94b5a2"
       }
     },
     "lighthouse": {
@@ -148,22 +156,22 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-27T18:05:43.660Z",
+      "collected_at": "2026-09-28T18:05:23.120Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 32,
+      "logs_7d": 32,
+      "total_commits_7d": 392,
+      "unique_branches_7d": 1,
+      "branches_7d": ["metrics/progress-tracker-2026-09-29"]
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.003,
-      "total_lines_added_7d": 664701,
-      "lines_churned_7d": 1751,
+      "churn_rate": 0.031,
+      "total_lines_added_7d": 677549,
+      "lines_churned_7d": 20921,
       "window_days": 7,
       "churn_threshold": 0.3
     },
