@@ -305,22 +305,34 @@ to a single worker without worktree isolation in cloud and keep the local
      low-risk, high-value) via TDD + full gates, and opens **one PR** targeting `main`.
   2. Files the remaining strong findings as GitHub issues labeled `ready` (with
      self-contained acceptance criteria) so `/implement-queue` can drain them.
-  3. **Weekly eval checkpoint:** runs `mbe agent eval` once against the agent
-     evaluation suite to catch slow-drift quality regressions that the daily
-     free telemetry scorecard (see `optimize-implement-queue` below) can't see.
-     Files a `ready` issue only when `mbe agent eval` exits **1** (a genuine
-     run whose pass rate regressed past `--threshold`). This is the only
-     _scheduled_ paid eval — the daily optimizer fires eval only on a flagged
-     regression, never on every run.
+  3. **Weekly eval checkpoint:** runs `mbe agent eval --adapter claude-cli` once
+     against the agent evaluation suite to catch slow-drift quality regressions
+     that the daily free telemetry scorecard (see `optimize-implement-queue`
+     below) can't see. `--adapter claude-cli` (#5670) runs the suite through
+     the `claude` CLI on the sandbox's subscription login; the default adapter
+     is the Claude SDK and needs `ANTHROPIC_API_KEY`, so a bare `agent eval`
+     can never score here. Files a `ready` issue only when the command exits
+     **1** (a genuine run whose pass rate regressed past `--threshold`). This
+     is the only _scheduled_ eval — the daily optimizer fires eval only on a
+     flagged regression, never on every run; on the subscription it consumes
+     plan quota, not API dollars.
   - **Decision (#3571): no eval credentials are provisioned in the claude.ai
     RemoteTrigger sandbox**, the same call already made for `AUDIT_TOKEN`
     (see "Required secrets" below) — cloud routines don't carry live paid
-    credentials. In that environment `mbe agent eval` exits **2**
-    ("no task executed" — 0 turns / $0 cost, missing `ANTHROPIC_API_KEY`),
-    distinct from the threshold-regression exit **1**. The prompt must treat
-    exit 2 as an expected, silent no-op — never file a `ready` issue for it —
-    since #3571 that non-run result is also no longer appended to
-    `metrics/eval-reports.jsonl`, so it can't poison the baseline either way.
+    credentials, and no `ANTHROPIC_API_KEY` exists there, still. That is why
+    the checkpoint runs on the `claude` CLI's subscription login via
+    `--adapter claude-cli` (#5670) instead of the SDK. Under that adapter an
+    exit **2** (`suiteDidNotRun` — 0 turns / $0 cost) is a surfaced
+    **failure**, never an expected no-op: the `claude` binary is missing from
+    PATH, has no login, or refused to start. The prompt files it under the
+    deterministic title
+    `ci-fix: weekly eval checkpoint did not run under claude-cli` with labels
+    `ci-fix` + `ready-for-human` (not `ready` — the fix is environmental and
+    no agent PR can make it), adds one dated comment on recurrence instead of
+    a second issue, and records it as FAILURE in the step-5 log entry. Exit 2
+    stays distinct from the threshold-regression exit **1**, and a non-run
+    result is still never appended to `metrics/eval-reports.jsonl`, so it
+    can't poison the baseline either way.
 - **Does not merge.** One PR titled `<type>(<scope>): weekly improve <date> — <short description>`
   (e.g. `fix(routines): weekly improve 2026-09-19 — dedupe stale worktree reaper`) —
   this signature is what makes the routine's liveness verifiable (#5344; see
@@ -446,8 +458,9 @@ new weekday schedule slot** (see Plan budget below).
      `.claude/improvement-loop/log.md` (every run, even with no regression).
   2. On a **flagged regression** (difficulty-normalized so it can't be gamed by
      cherry-picking trivial issues): files de-duplicated `ready` issues via the
-     learning-loop sensor→issue pipeline, **and** fires an `mbe agent eval` run
-     **asynchronously** to confirm agent/prompt vs. harder issues — never
+     learning-loop sensor→issue pipeline, **and** fires an
+     `mbe agent eval --adapter claude-cli` run **asynchronously** to confirm
+     agent/prompt vs. harder issues — never
      synchronously inside the daily slot.
   3. Does **not** auto-merge, auto-edit skill prompts, or run eval synchronously
      (phase-1 posture). The phase-2 model-routing auto-tuning seam is documented
