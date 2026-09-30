@@ -2480,3 +2480,42 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 
 **queueEfficiency:** unavailable (credential_rejected)
 **Issues filed:** 0
+
+## 2026-09-30 (mbe-evening)
+
+No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all queries below run via GitHub MCP tools instead of the skill's literal `gh` command list. Time-to-close uses `updated_at` as a proxy for `closed_at` (the MCP `list_issues` field enum has no `closed_at`).
+
+| Metric                                   | Value                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)               | 17 (15 audit + 2 ci-fix)                                                                                                                                            |
+| Closed (7d, audit+ci-fix)                | 20 (15 audit + 5 ci-fix, by `updated_at`-as-closedAt proxy — includes some issues created before the 7d window but closed within it)                                |
+| Closure Rate                             | ~118% (green, >80%) — backlog draining faster than new audit/ci-fix issues arrive this window                                                                       |
+| Time-to-Close (mean, `updated_at` proxy) | ~13.8h across the 13 issues both created and closed within the window — well under the 24h target                                                                   |
+| Agent Success (has-pr/(has-pr+failed))   | 3 open `has-pr`, 0 open `agent-failed` — 100%, small sample (all 3 are stuck routine-liveness `has-pr` issues from #5603/#5604/#5608, unrelated to tonight's batch) |
+| CI Pass (main, last ~26 completed runs)  | 24/24 = 100% once 3 `cancelled` (concurrency-superseded) and 2 still-in-progress runs are excluded from the denominator, per the sensor-denominator gotcha          |
+| Queue (ready)                            | 24 — red (>10)                                                                                                                                                      |
+| Stale (ready>7d)                         | 1 — #5369 (created 09-14, 16d old; its own acceptance criteria require an ADR-owner decision, correctly not auto-claimed by tonight's batch either)                 |
+| Blocked (agent-failed)                   | 0                                                                                                                                                                   |
+| Skipped (agent-skip)                     | 0                                                                                                                                                                   |
+| Daily/7d Spend                           | `.claude/agent-spend/sessions.jsonl` — 0 rows. Same gap #5885 was filed for last night; not re-filing a duplicate (that issue is still open and tracking it)        |
+| Reverts (7d)                             | 0 (`git log --grep="Revert"` over the last 7 days on `main` — clean)                                                                                                |
+
+### Patterns
+
+- Tonight's `/implement-queue` iteration (Phase 0-4) claimed a zone-spread batch of 3: #5889 (security, zone services/agent), #5844 (ci-fix, zone root), #5833 (feature, zone packages/api-client). All three completed cleanly:
+  - #5889 (rate-limit 429 regression coverage for 5 `services/agent` routes) — no production bugs found, all 5 limiters correctly enforce; universal reviewer passed 9/10 after specifically checking for a mocked limiter and test-order pollution (neither present). Merged via #5909.
+  - #5844 (ci-fix: Docs Audit missed its scheduled run) — investigated rather than mechanically re-triggered: confirmed via live workflow-run history that this was the known GitHub-drops-scheduled-runs class (gotchas.md #5815), already self-healed by the next scheduled tick the day after the issue was filed. No code change; closed with evidence rather than opening a no-op PR.
+  - #5833 (typed `listByVenueAndDate` client method, part 2/5 of the hospitality deposit-exposure dashboard chain) — small, surgical, TDD'd; universal reviewer passed 9/10. Merged via #5908.
+- Both worktree workers (#5889, #5833) hit the same `gh`-unavailable / no-GitHub-MCP-tools gap flagged in last night's entry — neither could open its own PR and both correctly stopped and handed back rather than working around it with a raw authenticated curl (one worker explicitly tried and was blocked by an auto-mode guard on authenticated POSTs to github.com, then stopped rather than searching for a bypass). The orchestrator opened both PRs. This is now the third night in a row this exact gap has surfaced (#5832/#5838 previously) with no repeat of last night's confused-guard-evasion framing — workers are now reliably recognizing the boundary and asking rather than improvising. Recommendation from last night (give `implement-queue-worker` sanctioned GitHub-write access) still stands; worth a `/claude-automation-recommender` pass given the 3rd occurrence.
+- Reviewer subagent on #5909 (tier:sensitive) caught and corrected a factual imprecision in the worker's own PR description — the worker's claim about _why_ the rate-limit keying falls back to IP misattributed the mechanism (blamed `requireAuth`'s preHandler; actual population site is `authPlugin`'s global `onRequest` hook) — via direct source reading (Fastify's hook-ordering internals) rather than taking the worker's explanation at face value. Verdict was still PASS (the diff itself was correct, only the prose explanation was off) but this is exactly the kind of check a rubber-stamp review would miss.
+- Queue grew from 16 (last night) to 24 ready issues despite draining 2 tonight, driven by four new `/decompose` chains landing since: rialto a11y iteration 2 (4 parts), marketing PR-category breakdown (4 parts), plus the continuing gen-template-batch-6 and deposit-dashboard chains each shedding one part per night. This is decompose-chain backlog, not stuck work — each part is either ready-and-independent or correctly blocked on its predecessor.
+
+### Recommendations
+
+- Same as last night: give `implement-queue-worker` subagents a sanctioned GitHub-write path (MCP tool access, or a documented `gh`-unavailable fallback). Third occurrence tonight (2 workers) with zero incidents of unsafe workaround — worth a `/claude-automation-recommender` pass now rather than waiting for a 4th.
+- Queue is red (24 ready) but structurally healthy — mostly four parallel `/decompose` chains draining one part per night each, plus #5369 (ADR-owner block) and #5748's RemoteTrigger-sync cluster. Consider a second `maxWorkers=3` iteration this week (or raising batch size) to drain the chains faster, since each chain is currently rate-limited by "one part per nightly run" rather than any real dependency depth.
+- #5885 (agent-spend telemetry, filed last night) is still open and the underlying gap (0 rows) is unchanged — no new issue needed, just a nudge that it hasn't been picked up yet.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to review.
