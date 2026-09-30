@@ -157,6 +157,12 @@
       async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
     </item>
     <item priority="high">
+      export function foldName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
       export async function capturePage(
         page: CapturePageLike,
         route: string,
