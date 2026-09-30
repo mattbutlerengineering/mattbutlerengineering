@@ -2,7 +2,7 @@
 /**
  * rate.mjs — the taste rater's record, not its judgement
  * (docs/features/ui-quality-loop/architecture.md § Components "Taste rater",
- * § Interfaces `rate.mjs pairs | record | calibrate`).
+ * § Interfaces `rate.mjs pairs | record | calibrate | calibration-status`).
  *
  *   pairs   read the capture manifests + rubric, write `.ui-quality/rating-plan.json`:
  *           per app, TASTE_SAMPLE_ROUTES taste-eligible captured routes ×
@@ -28,6 +28,13 @@
  *           record keyed (model_id, rubric_version, set_sha256) to
  *           `metrics/ui-quality-calibrations.jsonl`; exit 0 pass, 1 fail, 2 on an
  *           empty, malformed or under-composed set (never passes on no data).
+ *   calibration-status  --model-id <id> (required): read-only — print one JSON line
+ *           `{ key: { model_id, rubric_version, set_sha256 }, status, agreement,
+ *           inversions, pass_mark }` and write nothing; exit 0 pass, 1 failed,
+ *           3 stale. It and `record` stamp through one helper (`fireCalibration`),
+ *           which owns the `unknown` → `stale` rule, so the routine can ask before
+ *           judging and the row stamped after can differ only if a `calibrate` ran
+ *           in between.
  *
  * The model seam degrades past a bad part, never past a bad unit: a tell id the
  * rubric lacks, or whose `detection` is not `judged`, is dropped, logged and
@@ -36,9 +43,9 @@
  * score is a wrong score. Only pairwise preferences are recorded; an absolute
  * single-answer score is never produced.
  *
- * Exit codes: 0 ok, 1 calibration failed, 2 bad input.
+ * Exit codes: 0 ok, 1 calibration failed, 2 bad input, 3 stale (calibration-status).
  *
- * Usage: node scripts/ui-quality/rate.mjs <pairs [--calibration]|record|calibrate>
+ * Usage: node scripts/ui-quality/rate.mjs <pairs [--calibration]|record|calibrate|calibration-status>
  *          [--verdicts <file>] [--model-id <id>] [--root <dir>]
  */
 
@@ -319,17 +326,49 @@ function recordCommand(ctx) {
       `rate.mjs record: dropped tell ${JSON.stringify(d.tell)} on ${d.pair_id} (not a judged rubric tell)\n`
     );
   }
-  const calibration = calibrationStamp(
-    modelId === UNKNOWN_MODEL_ID ? [] : readJsonl(CALIBRATIONS_METRIC, ctx.root),
-    { modelId, rubricVersion: rubric.rubric_version, setSha256: calibrationSetSha(ctx.root) },
-    rubric.calibration.pass_mark
-  );
+  const { calibration } = fireCalibration(ctx.root, rubric, modelId);
   const rows = ratingRows(plan, byId, dropped, { ts: ctx.now(), modelId, calibration });
   for (const row of rows) append(RATINGS_METRIC, row, { root: ctx.root });
   ctx.stdout(
     `rate.mjs record: ${rows.map((r) => `${r.app} ${r.score}`).join(", ") || "no pairs"}\n`
   );
   return 0;
+}
+
+/**
+ * The one owner of the stamp rule, shared by `record` and `calibration-status`:
+ * the fire's key (model_id, rubric_version, sha256 of calibration.json's bytes)
+ * and its stamp from the latest calibration record with that key. `unknown` is
+ * never calibrated, so it stamps `stale` before any store lookup. Throws (→ exit
+ * 2) on an absent calibration.json or an unparseable calibrations line.
+ */
+export function fireCalibration(root, rubric, modelId) {
+  const key = {
+    model_id: modelId,
+    rubric_version: rubric.rubric_version,
+    set_sha256: calibrationSetSha(root),
+  };
+  const calibration = calibrationStamp(
+    modelId === UNKNOWN_MODEL_ID ? [] : readJsonl(CALIBRATIONS_METRIC, root),
+    { modelId, rubricVersion: key.rubric_version, setSha256: key.set_sha256 },
+    rubric.calibration.pass_mark
+  );
+  return { key, calibration };
+}
+
+const STATUS_EXIT = { pass: 0, failed: 1, stale: 3 };
+
+/**
+ * Read-only: print the fire's key and calibration stamp as one JSON line and
+ * write nothing. Exit 0 pass, 1 failed, 3 stale, 2 bad input. The set is not
+ * validated — the unlabelled placeholder has no record, so it reads `stale`.
+ */
+function calibrationStatusCommand(ctx) {
+  const modelId = requireModelId(ctx);
+  const rubric = loadRubric(ctx.root);
+  const { key, calibration } = fireCalibration(ctx.root, rubric, modelId);
+  ctx.stdout(JSON.stringify({ key, ...calibration }) + "\n");
+  return STATUS_EXIT[calibration.status];
 }
 
 /**
@@ -400,7 +439,12 @@ function calibrateCommand(ctx) {
   return pass ? 0 : 1;
 }
 
-const COMMANDS = { pairs: pairsCommand, record: recordCommand, calibrate: calibrateCommand };
+const COMMANDS = {
+  pairs: pairsCommand,
+  record: recordCommand,
+  calibrate: calibrateCommand,
+  "calibration-status": calibrationStatusCommand,
+};
 
 const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 

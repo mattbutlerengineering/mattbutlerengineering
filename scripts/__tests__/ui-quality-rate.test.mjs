@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -679,5 +688,162 @@ describe("committed calibration.json placeholder", () => {
     const res = calibrate(root, []);
     expect(res.code).toBe(2);
     expect(res.err).toMatch(/Verify/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calibration-status — the read-only query the routine asks before judging
+// ---------------------------------------------------------------------------
+
+/** Every file under `dir` as `path → bytes (base64)`, for a byte-identical check. */
+function snapshotTree(dir) {
+  if (!existsSync(dir)) return {};
+  return Object.fromEntries(
+    readdirSync(dir, { recursive: true })
+      .map((p) => join(dir, String(p)))
+      .filter((p) => statSync(p).isFile())
+      .sort()
+      .map((p) => [p, readFileSync(p).toString("base64")])
+  );
+}
+
+describe("rate.mjs calibration-status --model-id <id>", () => {
+  let root;
+  beforeEach(() => {
+    root = makeRoot();
+  });
+
+  const status = (modelId = "claude-opus-5") =>
+    run(root, ["calibration-status", ...(modelId === null ? [] : ["--model-id", modelId])]);
+  const parsed = (res) => JSON.parse(res.out.trim());
+  const writeRecords = (records) =>
+    writeFileSync(
+      join(root, "metrics/ui-quality-calibrations.jsonl"),
+      records.map((r) => JSON.stringify(r)).join("\n") + "\n"
+    );
+  const rec = (extra = {}) => ({
+    ts: "2026-10-01T00:00:00Z",
+    model_id: "claude-opus-5",
+    rubric_version: RUBRIC.rubric_version,
+    set_sha256: setSha(root),
+    pass: true,
+    agreement: 0.9,
+    inversions: 0,
+    ...extra,
+  });
+
+  it("an empty calibrations store → stale, exit 3, the fire's key printed as one JSON line", () => {
+    const res = status();
+    expect(res.code).toBe(3);
+    expect(res.out.trim().split("\n")).toHaveLength(1);
+    expect(parsed(res)).toEqual({
+      key: {
+        model_id: "claude-opus-5",
+        rubric_version: RUBRIC.rubric_version,
+        set_sha256: setSha(root),
+      },
+      status: "stale",
+      agreement: null,
+      inversions: null,
+      pass_mark: RUBRIC.calibration.pass_mark,
+    });
+  });
+
+  it("a matching pass record → exit 0; a matching failed record → exit 1", () => {
+    writeRecords([rec()]);
+    expect(status()).toMatchObject({ code: 0 });
+    expect(parsed(status())).toMatchObject({ status: "pass", agreement: 0.9, inversions: 0 });
+    writeRecords([rec({ pass: false, agreement: 0.7 })]);
+    expect(status()).toMatchObject({ code: 1 });
+    expect(parsed(status())).toMatchObject({ status: "failed", agreement: 0.7 });
+  });
+
+  it("the newer record for the same key wins", () => {
+    writeRecords([rec({ pass: false }), rec({ ts: "2026-10-02T00:00:00Z" })]);
+    expect(status().code).toBe(0);
+    writeRecords([rec(), rec({ ts: "2026-10-02T00:00:00Z", pass: false })]);
+    expect(status().code).toBe(1);
+  });
+
+  it("a record differing in any one of model_id / rubric_version / set_sha256 → exit 3", () => {
+    for (const diff of [
+      { model_id: "other-model" },
+      { rubric_version: RUBRIC.rubric_version + 1 },
+      { set_sha256: "0".repeat(64) },
+    ]) {
+      writeRecords([rec(diff)]);
+      expect(status().code).toBe(3);
+    }
+  });
+
+  it("--model-id unknown → exit 3 even beside a passing record keyed unknown", () => {
+    writeRecords([rec({ model_id: "unknown" })]);
+    const res = status("unknown");
+    expect(res.code).toBe(3);
+    expect(parsed(res)).toMatchObject({ status: "stale", key: { model_id: "unknown" } });
+  });
+
+  it("no --model-id → exit 2", () => {
+    expect(status(null).code).toBe(2);
+  });
+
+  it("bad input exits 2: absent calibration.json, absent rubric, an unparseable calibrations line", () => {
+    const noSet = makeRoot();
+    rmSync(join(noSet, "docs/ui-quality/calibration.json"));
+    expect(run(noSet, ["calibration-status", "--model-id", "m"]).code).toBe(2);
+    const noRubric = makeRoot();
+    rmSync(join(noRubric, "docs/ui-quality/rubric.json"));
+    expect(run(noRubric, ["calibration-status", "--model-id", "m"]).code).toBe(2);
+    writeFileSync(join(root, "metrics/ui-quality-calibrations.jsonl"), "{not json\n");
+    expect(status().code).toBe(2);
+  });
+
+  it("the unlabelled placeholder (pairs: []) reads stale (exit 3), never bad input", () => {
+    const placeholder = readFileSync(join(REPO, "docs/ui-quality/calibration.json"));
+    writeFileSync(join(root, "docs/ui-quality/calibration.json"), placeholder);
+    expect(status().code).toBe(3);
+  });
+
+  it("writes nothing: the store and .ui-quality/ are byte-identical before and after", () => {
+    writeRecords([rec()]);
+    const before = snapshotTree(root);
+    status();
+    status("unknown");
+    status(null);
+    expect(snapshotTree(root)).toEqual(before);
+  });
+
+  it("usage text names the subcommand", () => {
+    const res = run(root, []);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/calibration-status/);
+  });
+
+  describe("record's calibration.status equals calibration-status's for the same inputs", () => {
+    beforeEach(() => {
+      run(root, ["pairs"]);
+      writeFileSync(
+        join(root, "v.json"),
+        JSON.stringify(
+          readPlan(root).pairs.map((p) => ({ pair_id: p.id, verdict: "tie", tells: [], note: "" }))
+        )
+      );
+    });
+    const stampedBy = (modelId) => {
+      writeFileSync(join(root, "metrics/ui-quality-ratings.jsonl"), "");
+      record(root, "v.json", modelId);
+      return JSON.parse(readRatings(root).split("\n")[0]).calibration;
+    };
+
+    it.each([
+      ["pass", [{}], "claude-opus-5"],
+      ["failed", [{ pass: false, agreement: 0.7 }], "claude-opus-5"],
+      ["stale", [], "claude-opus-5"],
+      ["unknown", [{ model_id: "unknown" }], "unknown"],
+    ])("%s", (_name, records, modelId) => {
+      writeRecords(records.map((r) => rec(r)));
+      const { key: _key, ...queried } = parsed(status(modelId));
+      expect(stampedBy(modelId)).toEqual(queried);
+    });
   });
 });
