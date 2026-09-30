@@ -55179,25 +55179,35 @@
       /** Navigation timeout — one route's timeout fails only that row. */
       timeoutMs?: number;
     }
+    export const HIDDEN_SCRIPT = `Array.from(document.querySelectorAll("[style*=opacity]")).some(
+      (el) => el.style.opacity !== "" && Number(el.style.opacity) < 1
+    )`;
     export const REVEAL_SCRIPT = `(async () => {
       const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const to = (top) => window.scrollTo({ top, left: 0, behavior: "instant" });
       const step = Math.max(1, Math.floor(window.innerHeight * 0.8));
       for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
-        window.scrollTo(0, y);
+        to(y);
         await frame();
       }
-      window.scrollTo(0, document.documentElement.scrollHeight);
+      to(document.documentElement.scrollHeight);
       await frame();
-      window.scrollTo(0, 0);
+      to(0);
       await frame();
     })()`;
+    export const SETTLED_SCRIPT = `window.scrollY === 0 &&
+      document.getAnimations().length === 0 &&
+      document.fonts.status === "loaded" &&
+      Array.from(document.querySelectorAll("[style*=opacity]")).every(
+        (el) => el.style.opacity === "" || Number(el.style.opacity) >= 1
+      )`;
     export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> {
-      await page.evaluate(REVEAL_SCRIPT);
+      if (await page.evaluate(HIDDEN_SCRIPT)) await page.evaluate(REVEAL_SCRIPT);
       const deadline = Date.now() + REVEAL_SETTLE_MS;
-      while (Date.now() < deadline) {
-        if (await page.evaluate(SETTLED_SCRIPT)) return;
+      while (!(await page.evaluate(SETTLED_SCRIPT)) && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, REVEAL_POLL_MS));
       }
+      await page.evaluate(FRAMES_SCRIPT);
     }
     interface Probe {
       hrefs: string[];
