@@ -52,7 +52,11 @@ export interface WorktreeManagerDeps {
     taskDescription: string
   ): Promise<WorktreeInfo>;
   hasChanges(worktreePath: string): Promise<boolean>;
-  commitChanges(worktreePath: string, message: string): Promise<string>;
+  commitChanges(
+    worktreePath: string,
+    message: string,
+    options?: { readonly noVerify?: boolean }
+  ): Promise<string>;
   pushBranch(worktreePath: string, branchName: string): Promise<void>;
   commitAndPush(worktreePath: string, message: string): Promise<void>;
   resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity>;
