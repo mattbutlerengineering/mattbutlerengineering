@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-29T18:04:33.614Z",
+  "generated_at": "2026-09-30T01:16:51.066Z",
   "period": {
-    "start": "2026-09-22",
-    "end": "2026-09-29"
+    "start": "2026-09-23",
+    "end": "2026-09-30"
   },
   "sensors": {
     "acmm": {
@@ -42,7 +42,7 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.05,
+          "age_days": 0.35,
           "latest": "2026-09-29T16:56:05.895Z",
           "max_age_days": 3
         }
@@ -63,36 +63,31 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 95,
-      "total_merged": 95,
+      "total_prs": 93,
+      "total_merged": 93,
       "total_closed_without_merge": 0,
       "by_category": {
-        "tier:trivial": {
-          "merged": 52,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
         "tier:sensitive": {
           "merged": 16,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
+        "tier:trivial": {
+          "merged": 54,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:critical": {
-          "merged": 8,
+          "merged": 7,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 17,
+          "merged": 15,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "dependencies": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "unlabeled": {
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
@@ -108,35 +103,42 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1174324,
-      "output_tokens": 1643,
-      "cache_creation_tokens": 81979,
-      "cache_hit_rate": 0.9347,
+      "cache_read_tokens": 72915629,
+      "output_tokens": 67346,
+      "cache_creation_tokens": 1545088,
+      "cache_hit_rate": 0.9792,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 20,
-          "output_tokens": 1643,
-          "cache_read_tokens": 1174324,
-          "cache_creation_tokens": 81979
+          "input_tokens": 704,
+          "output_tokens": 67330,
+          "cache_read_tokens": 72419076,
+          "cache_creation_tokens": 1445129
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 68,
+          "output_tokens": 16,
+          "cache_read_tokens": 496553,
+          "cache_creation_tokens": 99959
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 23,
+      "completed": 26,
+      "passed": 21,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36603314996,
-        "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-09-29T17:12:37Z",
-        "name": "Scheduled Issue Completion",
+        "databaseId": 36654358388,
+        "status": "queued",
+        "conclusion": null,
+        "createdAt": "2026-09-30T01:16:57Z",
+        "name": "Push on main",
         "headBranch": "main",
-        "headSha": "878b556303c6ea2a1184173d2b8a31181836fa0a"
+        "headSha": "048d7574a65abfb0c563e013af74c753bb2a9132"
       }
     },
     "lighthouse": {
@@ -149,22 +151,22 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-28T18:05:23.120Z",
+      "collected_at": "2026-09-29T18:05:21.120Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
+      "total_logs": 12,
+      "logs_7d": 12,
+      "total_commits_7d": 50,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.031,
-      "total_lines_added_7d": 677787,
-      "lines_churned_7d": 20975,
+      "total_lines_added_7d": 678028,
+      "lines_churned_7d": 21014,
       "window_days": 7,
       "churn_threshold": 0.3
     },

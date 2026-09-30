@@ -2476,6 +2476,11 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` threshold 1 → 1.03 (headroom). Over the 30d verification window (143 entries, 7 non-skip): fix-effectiveness rate 100% (7/7 verified), false-positive rate 0% (no wontfix/invalid closures) — both well within healthy bounds, no loosening or tightening indicated.
 
+## 2026-09-30
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
+
 ## 2026-09-30 (mbe-evening)
 
 No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all queries below run via GitHub MCP tools instead of the skill's literal `gh` command list. Time-to-close uses `updated_at` as a proxy for `closed_at` (the MCP `list_issues` field enum has no `closed_at`).
