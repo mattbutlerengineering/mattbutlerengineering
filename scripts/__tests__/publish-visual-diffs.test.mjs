@@ -17,7 +17,7 @@ import {
   readBudget,
   resolvePlaywrightConfigPath,
 } from "../publish-visual-diffs.mjs";
-import { decideCommentAction, COMMENT_MARKER_PREFIX } from "../visual-diff-comment.mjs";
+import { decideCommentAction, commentMarkerPrefix } from "../visual-diff-comment.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(resolve(__dirname, "../publish-visual-diffs.mjs"), "utf8");
@@ -382,10 +382,10 @@ describe("commentArgs", () => {
 // ---------------------------------------------------------------------------
 
 describe("isStandingComment", () => {
-  const marker = `${COMMENT_MARKER_PREFIX}500 attempt=1 -->\nbody\n`;
+  const marker = `${commentMarkerPrefix("rialto-web")}500 attempt=1 -->\nbody\n`;
 
   it("accepts a marker comment written by the publisher's own identity", () => {
-    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: marker })).toBe(true);
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: marker }, "rialto-web")).toBe(true);
   });
 
   // The suppression attack, stated concretely. On a public repo anyone who can
@@ -395,26 +395,34 @@ describe("isStandingComment", () => {
   // and passing alike — returns `skip`. The only trace is one skip note inside a
   // green job's summary.
   it("REJECTS a marker comment written by anyone else, however plausible", () => {
-    const hostile = `${COMMENT_MARKER_PREFIX}99999999999999 attempt=99 -->\n`;
-    expect(isStandingComment({ login: "a-passing-contributor", body: hostile })).toBe(false);
-    expect(isStandingComment({ login: "github-actions", body: hostile })).toBe(false);
-    expect(isStandingComment({ login: "github-actions[bot] ", body: hostile })).toBe(false);
+    const hostile = `${commentMarkerPrefix("rialto-web")}99999999999999 attempt=99 -->\n`;
+    expect(isStandingComment({ login: "a-passing-contributor", body: hostile }, "rialto-web")).toBe(
+      false
+    );
+    expect(isStandingComment({ login: "github-actions", body: hostile }, "rialto-web")).toBe(false);
+    expect(isStandingComment({ login: "github-actions[bot] ", body: hostile }, "rialto-web")).toBe(
+      false
+    );
   });
 
   it("rejects the publisher's own comments that carry no marker", () => {
-    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: "Preview Deployed" })).toBe(false);
+    expect(
+      isStandingComment({ login: PUBLISHER_LOGIN, body: "Preview Deployed" }, "rialto-web")
+    ).toBe(false);
   });
 
   it("requires the marker at the START of the body, not merely somewhere in it", () => {
-    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: `quoted:\n${marker}` })).toBe(false);
+    expect(
+      isStandingComment({ login: PUBLISHER_LOGIN, body: `quoted:\n${marker}` }, "rialto-web")
+    ).toBe(false);
   });
 
   it("never throws on a malformed or absent comment", () => {
-    expect(isStandingComment(null)).toBe(false);
-    expect(isStandingComment(undefined)).toBe(false);
-    expect(isStandingComment({})).toBe(false);
-    expect(isStandingComment({ login: PUBLISHER_LOGIN })).toBe(false);
-    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: 42 })).toBe(false);
+    expect(isStandingComment(null, "rialto-web")).toBe(false);
+    expect(isStandingComment(undefined, "rialto-web")).toBe(false);
+    expect(isStandingComment({}, "rialto-web")).toBe(false);
+    expect(isStandingComment({ login: PUBLISHER_LOGIN }, "rialto-web")).toBe(false);
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: 42 }, "rialto-web")).toBe(false);
   });
 });
 
@@ -448,19 +456,23 @@ describe("formatSkipNote", () => {
   const ours = { runId: "500", runAttempt: "2" };
 
   it("names both ordinals when a newer run owns the comment", () => {
-    const note = formatSkipNote({ runOrdinal: ours, standingBody: markerBody("600", "1") });
+    const note = formatSkipNote({
+      suite: "rialto-web",
+      runOrdinal: ours,
+      standingBody: markerBody("600", "1"),
+    });
     expect(note).toContain("500");
     expect(note).toContain("600");
   });
 
   it("says so explicitly in the degenerate cell where there is no standing ordinal", () => {
-    const note = formatSkipNote({ runOrdinal: ours, standingBody: null });
+    const note = formatSkipNote({ suite: "rialto-web", runOrdinal: ours, standingBody: null });
     expect(note).toContain("500");
     expect(note.toLowerCase()).toContain("no standing comment");
   });
 
   it("says so when the standing ordinal is unreadable", () => {
-    const note = formatSkipNote({ runOrdinal: ours, standingBody: "garbled" });
+    const note = formatSkipNote({ suite: "rialto-web", runOrdinal: ours, standingBody: "garbled" });
     expect(note.toLowerCase()).toContain("unreadable");
   });
 
@@ -474,14 +486,57 @@ describe("formatSkipNote", () => {
       { existingBody: "garbled", visualFailed: false },
     ];
     for (const cell of cells) {
-      const verb = decideCommentAction({ ...cell, runOrdinal: ours });
+      const verb = decideCommentAction({ ...cell, suite: "rialto-web", runOrdinal: ours });
       expect(verb).toBe("skip");
-      const note = formatSkipNote({ runOrdinal: ours, standingBody: cell.existingBody });
+      const note = formatSkipNote({
+        suite: "rialto-web",
+        runOrdinal: ours,
+        standingBody: cell.existingBody,
+      });
       expect(note.length).toBeGreaterThan(0);
     }
   });
 });
 
 function markerBody(runId, attempt) {
-  return `${COMMENT_MARKER_PREFIX}${runId} attempt=${attempt} -->\nbody\n`;
+  return `${commentMarkerPrefix("rialto-web")}${runId} attempt=${attempt} -->\nbody\n`;
 }
+
+describe("VISUAL_SUITE", () => {
+  it("exits 2 when VISUAL_SUITE is unset, before touching the API", () => {
+    const env = { ...process.env };
+    delete env.VISUAL_SUITE;
+    let code = 0;
+    let stderr = "";
+    try {
+      execFileSync(process.execPath, [resolve(__dirname, "../publish-visual-diffs.mjs")], {
+        env: { ...env, GITHUB_STEP_SUMMARY: "" },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (err) {
+      code = err.status;
+      stderr = String(err.stderr);
+    }
+    expect(code).toBe(2);
+    expect(stderr).toMatch(/VISUAL_SUITE/);
+  });
+
+  it("matches only its own suite's standing comment", () => {
+    const body = (suite) => `${commentMarkerPrefix(suite)}500 attempt=1 -->\nbody\n`;
+    expect(
+      isStandingComment({ login: PUBLISHER_LOGIN, body: body("marketing") }, "marketing")
+    ).toBe(true);
+    expect(
+      isStandingComment({ login: PUBLISHER_LOGIN, body: body("hospitality") }, "marketing")
+    ).toBe(false);
+  });
+
+  it("rialto-web-e2e.yml's publish job sets VISUAL_SUITE=rialto-web", () => {
+    const workflow = readFileSync(
+      resolve(__dirname, "../../.github/workflows/rialto-web-e2e.yml"),
+      "utf8"
+    );
+    expect(workflow).toMatch(/VISUAL_SUITE:\s*rialto-web/);
+  });
+});

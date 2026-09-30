@@ -48,18 +48,42 @@ export function selectDisplayed(changed, cap) {
 }
 
 /**
- * The artifact the `visual` job already uploads. Named in the comment as the
- * full record — this feature is additive to it, never a replacement.
+ * A visual suite's name — `rialto-web`, `marketing`, `hospitality`. Every
+ * suite that publishes to a pull request keeps its OWN sticky comment, so the
+ * name is part of the marker; a plain slug keeps it safe inside both the HTML
+ * comment and the pattern that reads it back.
  */
-export const DIFF_ARTIFACT_NAME = "rialto-web-visual-diffs";
+const SUITE_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+function assertSuite(suite) {
+  if (typeof suite !== "string" || !SUITE_PATTERN.test(suite)) {
+    throw new Error(`visual suite must be a lowercase slug, got ${JSON.stringify(suite)}`);
+  }
+  return suite;
+}
 
 /**
- * Machine marker prefix. The caller finds the standing comment by substring
- * over `GET /repos/{repo}/issues/{n}/comments` — the idiom
+ * The artifact a suite's `visual` job uploads. Named in the comment as the
+ * full record — this feature is additive to it, never a replacement.
+ *
+ * @param {string} suite
+ */
+export function diffArtifactName(suite) {
+  return `${assertSuite(suite)}-visual-diffs`;
+}
+
+/**
+ * Machine marker prefix for one suite. The caller finds its standing comment by
+ * prefix over `GET /repos/{repo}/issues/{n}/comments` — the idiom
  * `preview-deploy.yml` already uses — and `decideCommentAction` reads the
  * ordinal back out of it. It is the ONLY record of which run owns the comment.
+ * A legacy marker without `suite=` belongs to no suite and is never matched.
+ *
+ * @param {string} suite
  */
-export const COMMENT_MARKER_PREFIX = "<!-- visual-diffs-in-pr run=";
+export function commentMarkerPrefix(suite) {
+  return `<!-- visual-diffs-in-pr suite=${assertSuite(suite)} run=`;
+}
 
 /** Width, in CSS pixels, of each embedded image. */
 const IMAGE_WIDTH = 250;
@@ -98,9 +122,9 @@ export function codeSpan(text) {
   return `${fence}${pad}${value}${pad}${fence}`;
 }
 
-/** Pure: the marker line for one run. */
-function markerLine(runId, runAttempt) {
-  return `${COMMENT_MARKER_PREFIX}${runId} attempt=${runAttempt} -->`;
+/** Pure: the marker line for one run of one suite. */
+function markerLine(suite, runId, runAttempt) {
+  return `${commentMarkerPrefix(suite)}${runId} attempt=${runAttempt} -->`;
 }
 
 /**
@@ -187,9 +211,11 @@ function imageSection(rec, { budget, sha, repoSlug, published }) {
  * @param {string} input.repoSlug `owner/repo`.
  * @param {string|number} input.runId
  * @param {string|number} input.runAttempt
+ * @param {string} input.suite The visual suite whose comment this is.
  * @returns {string}
  */
 export function renderComment({
+  suite,
   total,
   changed,
   displayed,
@@ -208,7 +234,7 @@ export function renderComment({
   const published = new Set(publishedBlobs ?? []);
 
   const lines = [
-    markerLine(runId, runAttempt),
+    markerLine(suite, runId, runAttempt),
     `## 🖼 Visual regression — ${all.length} of ${total} changed`,
     "",
   ];
@@ -219,7 +245,7 @@ export function renderComment({
   if (overflow.length > 0) {
     lines.push(
       `**${overflow.length} more changed snapshot${overflow.length === 1 ? "" : "s"}** — ` +
-        `images omitted; the full set is in the \`${DIFF_ARTIFACT_NAME}\` artifact on this run.`,
+        `images omitted; the full set is in the \`${diffArtifactName(suite)}\` artifact on this run.`,
       ""
     );
     for (const rec of overflow) {
@@ -246,7 +272,7 @@ export function renderComment({
   lines.push(
     `<sub>${unchanged} of ${total} snapshots unchanged.${failedNote} ` +
       `Full baseline/actual/diff set: ` +
-      `the <code>${DIFF_ARTIFACT_NAME}</code> artifact on this run.${budgetNote}</sub>`
+      `the <code>${diffArtifactName(suite)}</code> artifact on this run.${budgetNote}</sub>`
   );
 
   return lines.join("\n");
@@ -257,7 +283,12 @@ export function renderComment({
 // shared cell, deletion included.
 // ---------------------------------------------------------------------------
 
-const MARKER_ORDINAL_PATTERN = /<!-- visual-diffs-in-pr run=(\S+) attempt=(\S+) -->/;
+/** The marker pattern for one suite only — another suite's comment never matches. */
+function markerOrdinalPattern(suite) {
+  return new RegExp(
+    `<!-- visual-diffs-in-pr suite=${assertSuite(suite)} run=(\\S+) attempt=(\\S+) -->`
+  );
+}
 
 /**
  * Pure: `[runId, runAttempt]` as numbers, or `null` when either is unreadable.
@@ -278,17 +309,19 @@ function toOrdinal(value) {
  * the staleness decision — that stays in `decideCommentAction`.
  *
  * @param {unknown} existingBody
+ * @param {string} suite the caller's own suite; another suite's marker reads as none
  * @returns {{runId: number, runAttempt: number} | null}
  */
-export function parseCommentOrdinal(existingBody) {
-  const ordinal = parseStandingOrdinal(existingBody);
+export function parseCommentOrdinal(existingBody, suite) {
+  const ordinal = parseStandingOrdinal(existingBody, suite);
   return ordinal === null ? null : { runId: ordinal[0], runAttempt: ordinal[1] };
 }
 
 /** Pure: the ordinal recorded in a standing comment's marker, or `null`. */
-function parseStandingOrdinal(existingBody) {
+function parseStandingOrdinal(existingBody, suite) {
+  const pattern = markerOrdinalPattern(suite);
   if (typeof existingBody !== "string") return null;
-  const match = MARKER_ORDINAL_PATTERN.exec(existingBody);
+  const match = pattern.exec(existingBody);
   if (!match) return null;
   return toOrdinal({ runId: match[1], runAttempt: match[2] });
 }
@@ -341,16 +374,17 @@ function atLeastAsNew(ours, standingOrdinal) {
  * effect is a stale comment standing until the next run replaces it — strictly
  * no worse than today's behaviour, so the guard fails safe.
  *
- * @param {{existingBody: string|null, runOrdinal: {runId: string|number,
+ * @param {{suite: string, existingBody: string|null, runOrdinal: {runId: string|number,
  *          runAttempt: string|number}, visualFailed: boolean}} input
  * @returns {"post"|"patch"|"delete"|"skip"}
  */
-export function decideCommentAction({ existingBody, runOrdinal, visualFailed }) {
+export function decideCommentAction({ suite, existingBody, runOrdinal, visualFailed }) {
+  assertSuite(suite);
   if (existingBody === null || existingBody === undefined) {
     return visualFailed ? "post" : "skip";
   }
 
-  const standingOrdinal = parseStandingOrdinal(existingBody);
+  const standingOrdinal = parseStandingOrdinal(existingBody, suite);
   const ours = toOrdinal(runOrdinal);
 
   // Unparsable on either side: the comparison cannot be made, so resolve
