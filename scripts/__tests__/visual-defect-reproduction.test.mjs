@@ -13,9 +13,9 @@ const require_ = createRequire(import.meta.url);
 
 /**
  * Every guarded visual suite as (config, screenshot dir). The VR floor's two
- * suites (docs/features/ui-quality-loop breakdown M5) have no baselines until
- * Ship commits them from the `visual-actuals-replica-a` artifact; until then
- * their cases skip VISIBLY, and that Ship commit removes the skip.
+ * suites (docs/features/ui-quality-loop breakdown M5) carry baselines committed
+ * from the `visual-actuals-replica-a` artifact, so every suite is live: an
+ * empty directory is the vacuous-pass failure the floor assertion exists for.
  */
 const SUITES = [
   {
@@ -34,9 +34,6 @@ const SUITES = [
     screenshotDir: "apps/hospitality/e2e/screenshots",
   },
 ];
-
-/** Printed as the skipped case's name while a suite has no baselines yet. */
-const BASELINES_PENDING = "baselines pending — Ship commits from replica-a";
 
 /**
  * The declared sensitivity is not blind to the regression this run exists to catch.
@@ -96,23 +93,7 @@ function baselinesIn(screenshotDir) {
 const { utils } = require_(join(resolvePlaywrightCoreDir(), "lib/coreBundle.js"));
 const compare = utils.getComparator("image/png");
 
-// rialto-web is never "pending": its baselines are committed, and an empty
-// directory there is the vacuous-pass failure the floor assertion exists for.
-const PENDING = SUITES.filter(
-  (suite) => suite.app !== "rialto-web" && baselinesIn(suite.screenshotDir).length === 0
-);
-const LIVE = SUITES.filter((suite) => !PENDING.includes(suite));
-
-describe.each(PENDING)("$app — the declared visual sensitivity", ({ app, screenshotDir }) => {
-  // Skipped, never passed: the name is the visible reason. Its body states
-  // the condition the skip stands for, so removing the skip without adding
-  // baselines reds rather than passing vacuously.
-  it.skip(`${app}: ${BASELINES_PENDING}`, () => {
-    expect(baselinesIn(screenshotDir).length).toBeGreaterThan(0);
-  });
-});
-
-describe.each(LIVE)(
+describe.each(SUITES)(
   "$app — the declared visual sensitivity can see defect.md § A's reproduction",
   ({ configPath: CONFIG_PATH, screenshotDir }) => {
     const SCREENSHOT_DIR = resolve(ROOT, screenshotDir);
