@@ -318,9 +318,6 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@mbe/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -403,9 +400,6 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@mbe/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -494,9 +488,6 @@ importers:
       '@mbe/edge-worker':
         specifier: workspace:*
         version: link:../../infrastructure/worker
-      '@mbe/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -1300,15 +1291,9 @@ importers:
 
   packages/test-fixtures:
     dependencies:
-      '@axe-core/playwright':
-        specifier: ^4.13.0
-        version: 4.13.0(playwright-core@1.63.0)
       '@mbe/types':
         specifier: workspace:*
         version: link:../types
-      '@playwright/test':
-        specifier: ^1.63.0
-        version: 1.63.0
     devDependencies:
       '@mbe/config':
         specifier: workspace:*

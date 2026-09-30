@@ -104,10 +104,6 @@ test-results/
 # one .vitest directory per project root, so one entry covers all of them.
 .vitest/
 
-# ui-quality loop per-fire work dir (plan, captures, judge output) — see
-# scripts/ui-quality/ledger.mjs. Only the ledger/runs under metrics/ are kept.
-/.ui-quality/
-
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/mutation/
@@ -143,11 +139,6 @@ reports/mutation/
 !/metrics/service-health.jsonl
 !/metrics/stale-human-blocked.jsonl
 !/metrics/threshold-changes.jsonl
-!/metrics/ui-quality-calibrations.jsonl
-!/metrics/ui-quality-findings.json
-!/metrics/ui-quality-ledger.jsonl
-!/metrics/ui-quality-ratings.jsonl
-!/metrics/ui-quality-runs.jsonl
 !/metrics/verifications.jsonl
 # <<< END generated durable-metrics block
 

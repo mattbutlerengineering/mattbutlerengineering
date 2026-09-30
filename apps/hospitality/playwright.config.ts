@@ -11,15 +11,7 @@ export default defineConfig({
   // in e2e/ and match Playwright's default testMatch. Excluded by exact
   // filename — NOT a blanket "**/*.test.ts" — because a11y.test.ts is a real
   // Playwright spec that also uses .test.ts naming and must stay collected.
-  //
-  // visual.spec.ts belongs to playwright.visual.config.ts (Linux-only
-  // baselines, its own workflow); running it here would double-run it.
-  testIgnore: [
-    "**/fixtures/*.test.ts",
-    "**/journeys/**",
-    "**/workflow-coverage.test.ts",
-    "**/visual.spec.ts",
-  ],
+  testIgnore: ["**/fixtures/*.test.ts", "**/journeys/**", "**/workflow-coverage.test.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

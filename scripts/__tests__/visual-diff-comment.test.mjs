@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  COMMENT_MARKER_PREFIX,
   MAX_IMAGE_ROWS,
-  commentMarkerPrefix,
-  diffArtifactName,
   decideCommentAction,
   parseCommentOrdinal,
   renderComment,
@@ -140,7 +139,6 @@ function render(overrides = {}) {
     repoSlug: SLUG,
     runId: "32873184619",
     runAttempt: "1",
-    suite: "rialto-web",
     ...overrides,
   });
 }
@@ -148,11 +146,11 @@ function render(overrides = {}) {
 describe("renderComment marker and heading", () => {
   it("puts the machine marker on the first line, exactly", () => {
     const first = render().split("\n")[0];
-    expect(first).toBe("<!-- visual-diffs-in-pr suite=rialto-web run=32873184619 attempt=1 -->");
+    expect(first).toBe("<!-- visual-diffs-in-pr run=32873184619 attempt=1 -->");
   });
 
   it("exposes the marker prefix so the caller can find the comment by substring", () => {
-    expect(render()).toContain(commentMarkerPrefix("rialto-web"));
+    expect(render()).toContain(COMMENT_MARKER_PREFIX);
   });
 
   it("heads with changed-of-total, both numbers from the report", () => {
@@ -260,7 +258,6 @@ describe("renderComment and specs that failed without a snapshot diff", () => {
   // telling the reader — and the autonomous review layer this comment is written
   // for — that two specs which never reached a comparison were fine.
   const body = renderComment({
-    suite: "rialto-web",
     total: 3,
     changed: [record("light-button-variants", 579)],
     unchanged: 0,
@@ -360,42 +357,27 @@ const OURS = { runId: "500", runAttempt: "2" };
 
 /** A standing comment body carrying the given ordinal. */
 function standing(runId, runAttempt) {
-  return `${commentMarkerPrefix("rialto-web")}${runId} attempt=${runAttempt} -->\n## 🖼 Visual regression — 1 of 49 changed\n`;
+  return `${COMMENT_MARKER_PREFIX}${runId} attempt=${runAttempt} -->\n## 🖼 Visual regression — 1 of 49 changed\n`;
 }
 
 describe("decideCommentAction — absent standing comment", () => {
   it("posts when the visual job failed", () => {
-    expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: null,
-        runOrdinal: OURS,
-        visualFailed: true,
-      })
-    ).toBe("post");
+    expect(decideCommentAction({ existingBody: null, runOrdinal: OURS, visualFailed: true })).toBe(
+      "post"
+    );
   });
 
   it("SKIPS when the visual job passed — there is nothing to clear, so this is not a post", () => {
     // Easily inverted: "passed" is the delete branch, but with no standing
     // comment there is nothing to delete and nothing to say.
-    expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: null,
-        runOrdinal: OURS,
-        visualFailed: false,
-      })
-    ).toBe("skip");
+    expect(decideCommentAction({ existingBody: null, runOrdinal: OURS, visualFailed: false })).toBe(
+      "skip"
+    );
   });
 
   it("treats undefined the same as null", () => {
     expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: undefined,
-        runOrdinal: OURS,
-        visualFailed: true,
-      })
+      decideCommentAction({ existingBody: undefined, runOrdinal: OURS, visualFailed: true })
     ).toBe("post");
   });
 });
@@ -404,7 +386,6 @@ describe("decideCommentAction — standing ordinal at or below ours", () => {
   it("patches when the visual job failed", () => {
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("400", "1"),
         runOrdinal: OURS,
         visualFailed: true,
@@ -415,7 +396,6 @@ describe("decideCommentAction — standing ordinal at or below ours", () => {
   it("deletes when the visual job passed", () => {
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("400", "1"),
         runOrdinal: OURS,
         visualFailed: false,
@@ -428,7 +408,6 @@ describe("decideCommentAction — standing ordinal strictly newer", () => {
   it("skips when the visual job failed", () => {
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("600", "1"),
         runOrdinal: OURS,
         visualFailed: true,
@@ -442,7 +421,6 @@ describe("decideCommentAction — standing ordinal strictly newer", () => {
     // state SC-1 and SC-5 exist to prevent, arriving from the other side.
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("600", "1"),
         runOrdinal: OURS,
         visualFailed: false,
@@ -458,12 +436,7 @@ describe("decideCommentAction — marker present, ordinal unparsable", () => {
     // The one deliberate asymmetry. A wrong patch leaves visible stale content
     // that the next run of either outcome repairs.
     expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: garbled,
-        runOrdinal: OURS,
-        visualFailed: true,
-      })
+      decideCommentAction({ existingBody: garbled, runOrdinal: OURS, visualFailed: true })
     ).toBe("patch");
   });
 
@@ -471,31 +444,16 @@ describe("decideCommentAction — marker present, ordinal unparsable", () => {
     // A wrong delete leaves a live failure with no comment and nothing
     // announces it. Resolve toward the recoverable wrong answer.
     expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: garbled,
-        runOrdinal: OURS,
-        visualFailed: false,
-      })
+      decideCommentAction({ existingBody: garbled, runOrdinal: OURS, visualFailed: false })
     ).toBe("skip");
   });
 
   it("treats a body with no marker at all the same way", () => {
     expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: "just a comment",
-        runOrdinal: OURS,
-        visualFailed: true,
-      })
+      decideCommentAction({ existingBody: "just a comment", runOrdinal: OURS, visualFailed: true })
     ).toBe("patch");
     expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: "just a comment",
-        runOrdinal: OURS,
-        visualFailed: false,
-      })
+      decideCommentAction({ existingBody: "just a comment", runOrdinal: OURS, visualFailed: false })
     ).toBe("skip");
   });
 });
@@ -506,7 +464,6 @@ describe("decideCommentAction ordinal rule", () => {
     // correcting its own comment, and only this case catches it.
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("500", "2"),
         runOrdinal: OURS,
         visualFailed: true,
@@ -514,7 +471,6 @@ describe("decideCommentAction ordinal rule", () => {
     ).toBe("patch");
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("500", "2"),
         runOrdinal: OURS,
         visualFailed: false,
@@ -525,7 +481,6 @@ describe("decideCommentAction ordinal rule", () => {
   it("compares run id first, then attempt", () => {
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("500", "1"),
         runOrdinal: OURS,
         visualFailed: true,
@@ -533,7 +488,6 @@ describe("decideCommentAction ordinal rule", () => {
     ).toBe("patch");
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("500", "3"),
         runOrdinal: OURS,
         visualFailed: true,
@@ -547,7 +501,6 @@ describe("decideCommentAction ordinal rule", () => {
     const ours = { runId: "32873184619", runAttempt: "1" };
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("9000000000", "1"),
         runOrdinal: ours,
         visualFailed: true,
@@ -558,19 +511,14 @@ describe("decideCommentAction ordinal rule", () => {
   it("never throws on a malformed ordinal of our own", () => {
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: standing("400", "1"),
         runOrdinal: {},
         visualFailed: true,
       })
     ).toBe("patch");
-    expect(
-      decideCommentAction({
-        suite: "rialto-web",
-        existingBody: standing("400", "1"),
-        visualFailed: false,
-      })
-    ).toBe("skip");
+    expect(decideCommentAction({ existingBody: standing("400", "1"), visualFailed: false })).toBe(
+      "skip"
+    );
   });
 });
 
@@ -584,7 +532,6 @@ describe("decideCommentAction concurrency, documented", () => {
     const olderRun = { runId: "600", runAttempt: "1" };
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: newerStanding,
         runOrdinal: olderRun,
         visualFailed: true,
@@ -592,7 +539,6 @@ describe("decideCommentAction concurrency, documented", () => {
     ).toBe("skip");
     expect(
       decideCommentAction({
-        suite: "rialto-web",
         existingBody: newerStanding,
         runOrdinal: olderRun,
         visualFailed: false,
@@ -604,12 +550,7 @@ describe("decideCommentAction concurrency, documented", () => {
     const verbs = new Set(["post", "patch", "delete", "skip"]);
     for (const visualFailed of [true, false]) {
       for (const body of [null, standing("400", "1"), standing("600", "1"), "garbled"]) {
-        const verb = decideCommentAction({
-          suite: "rialto-web",
-          existingBody: body,
-          runOrdinal: OURS,
-          visualFailed,
-        });
+        const verb = decideCommentAction({ existingBody: body, runOrdinal: OURS, visualFailed });
         expect(verbs.has(verb)).toBe(true);
       }
     }
@@ -618,18 +559,13 @@ describe("decideCommentAction concurrency, documented", () => {
 
 describe("parseCommentOrdinal", () => {
   it("reads the ordinal a standing comment records", () => {
-    expect(parseCommentOrdinal(standing("600", "3"), "rialto-web")).toEqual({
-      runId: 600,
-      runAttempt: 3,
-    });
+    expect(parseCommentOrdinal(standing("600", "3"))).toEqual({ runId: 600, runAttempt: 3 });
   });
 
   it("returns null for a body with no marker, a garbled marker, or no body", () => {
-    expect(parseCommentOrdinal("just a comment", "rialto-web")).toBeNull();
-    expect(
-      parseCommentOrdinal("<!-- visual-diffs-in-pr run= attempt= -->", "rialto-web")
-    ).toBeNull();
-    expect(parseCommentOrdinal(null, "rialto-web")).toBeNull();
+    expect(parseCommentOrdinal("just a comment")).toBeNull();
+    expect(parseCommentOrdinal("<!-- visual-diffs-in-pr run= attempt= -->")).toBeNull();
+    expect(parseCommentOrdinal(null)).toBeNull();
   });
 });
 
@@ -755,71 +691,5 @@ describe("renderComment treats the snapshot name as untrusted", () => {
     const changed = [...FIXTURE_CHANGED, hostile("z`z")];
     const body = render({ changed, displayed: selectDisplayed(FIXTURE_CHANGED, 1) });
     expect(body).toContain("``z`z``");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// The `suite` discriminator — two visual suites on one PR keep separate sticky
-// comments (docs/features/ui-quality-loop breakdown M5).
-// ---------------------------------------------------------------------------
-
-describe("the suite discriminator", () => {
-  const body = (suite, runId, attempt) =>
-    `${commentMarkerPrefix(suite)}${runId} attempt=${attempt} -->\n## 🖼 Visual regression\n`;
-
-  it("writes `suite=<name>` into the marker, before the ordinal", () => {
-    expect(render({ suite: "marketing" }).split("\n")[0]).toBe(
-      "<!-- visual-diffs-in-pr suite=marketing run=32873184619 attempt=1 -->"
-    );
-    expect(commentMarkerPrefix("hospitality")).toBe(
-      "<!-- visual-diffs-in-pr suite=hospitality run="
-    );
-  });
-
-  it("names the suite's own diff artifact", () => {
-    expect(diffArtifactName("rialto-web")).toBe("rialto-web-visual-diffs");
-    expect(render({ suite: "marketing" })).toContain("marketing-visual-diffs");
-  });
-
-  it("reads only its own suite's ordinal", () => {
-    expect(parseCommentOrdinal(body("marketing", "600", "3"), "marketing")).toEqual({
-      runId: 600,
-      runAttempt: 3,
-    });
-    expect(parseCommentOrdinal(body("hospitality", "600", "3"), "marketing")).toBeNull();
-  });
-
-  it("two suites on one PR: each decides against its own comment and never the other's", () => {
-    const newerMarketing = body("marketing", "900", "1");
-    // Hospitality's run is older than marketing's comment, yet it is not
-    // marketing's comment, so it cannot be the one hospitality skips over.
-    const ours = { runId: "500", runAttempt: "1" };
-    expect(
-      decideCommentAction({
-        suite: "marketing",
-        existingBody: newerMarketing,
-        runOrdinal: ours,
-        visualFailed: true,
-      })
-    ).toBe("skip");
-    expect(
-      decideCommentAction({
-        suite: "hospitality",
-        existingBody: body("hospitality", "400", "1"),
-        runOrdinal: ours,
-        visualFailed: true,
-      })
-    ).toBe("patch");
-  });
-
-  it("does not match a legacy marker without `suite=`", () => {
-    const legacy = "<!-- visual-diffs-in-pr run=600 attempt=1 -->\nbody\n";
-    expect(parseCommentOrdinal(legacy, "rialto-web")).toBeNull();
-  });
-
-  it("refuses a suite name that is not a plain slug", () => {
-    expect(() => commentMarkerPrefix("")).toThrow(/suite/);
-    expect(() => commentMarkerPrefix("a b")).toThrow(/suite/);
-    expect(() => commentMarkerPrefix("x -->")).toThrow(/suite/);
   });
 });

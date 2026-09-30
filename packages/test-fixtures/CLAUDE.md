@@ -12,7 +12,6 @@ src/
 ├── users.ts             # createMockUser, createMockPaginatedResponse
 ├── reservations.ts      # createMockTable, createMockReservation, createMockPagination, ERROR_* constants
 ├── jwt.ts               # createMockJWTPayload — defined once, shared across domains
-├── ui-quality-capture.ts # capturePage — the ui-quality loop's per-route capture (e2e only, `./ui-quality-capture` export)
 └── __tests__/index.test.ts
 ```
 

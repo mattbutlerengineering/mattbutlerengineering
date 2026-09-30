@@ -204,8 +204,6 @@ jobs:
           VISUAL_OUTCOME: ${{ needs.visual.result }}
           REPORT_FILE: ${{ github.workspace }}/visual-report/report.json
           DIFF_ARTIFACT_DIR: ${{ github.workspace }}/visual-diffs
-          # Its own sticky comment: apps-visual.yml's suites keep theirs.
-          VISUAL_SUITE: rialto-web
         run: |
           set -o pipefail
           node scripts/publish-visual-diffs.mjs

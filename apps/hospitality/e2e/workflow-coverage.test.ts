@@ -117,16 +117,3 @@ describe("venue-journey workflow wiring", () => {
     }
   });
 });
-
-/**
- * visual.spec.ts is the one spec the bare test:e2e does NOT run: the base
- * config testIgnores it, and apps-visual.yml runs it through
- * playwright.visual.config.ts. Named by full path there, never a glob, so it
- * cannot silently stop running (#3955).
- */
-describe("hospitality visual workflow coverage", () => {
-  it("apps-visual.yml names visual.spec.ts by its full path", () => {
-    const workflow = readFileSync(resolve(REPO_ROOT, ".github/workflows/apps-visual.yml"), "utf8");
-    expect(workflow).toContain("apps/hospitality/e2e/visual.spec.ts");
-  });
-});

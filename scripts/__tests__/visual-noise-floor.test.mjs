@@ -4,14 +4,9 @@ import { tmpdir } from "node:os";
 import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { execFileSync } from "node:child_process";
 import {
-  APPS,
-  appPaths,
-  legConfig,
   measure,
   renderMeasurementTable,
-  resolveCommitted,
   resolvePlaywrightCoreDir,
   shiftPngChannels,
   DEFAULT_THRESHOLDS,
@@ -391,91 +386,5 @@ describe("the analyzer measures THIS suite's comparator, not a lookalike", () =>
     for (const forbidden of ["pixelmatch", "pngjs", "playwright", "playwright-core"]) {
       expect(declared).not.toContain(forbidden);
     }
-  });
-});
-
-describe("per-app path resolution — the `app` dispatch input (ui-quality-loop M5)", () => {
-  it("names the three apps, rialto-web first (the dispatch default)", () => {
-    expect(APPS).toEqual(["rialto-web", "marketing", "hospitality"]);
-  });
-
-  it("keeps rialto-web on its production config — the one its visual job runs", () => {
-    expect(appPaths("rialto-web")).toEqual({
-      spec: "apps/rialto-web/e2e/visual.spec.ts",
-      screenshots: "apps/rialto-web/e2e/screenshots",
-      config: "apps/rialto-web/playwright.config.ts",
-      perturbedConfig: "apps/rialto-web/playwright.noise-floor.config.ts",
-      packageJson: "apps/rialto-web/package.json",
-    });
-  });
-
-  it.each(["marketing", "hospitality"])(
-    "resolves %s to its playwright.visual.config.ts and its own perturbed config",
-    (app) => {
-      expect(appPaths(app)).toEqual({
-        spec: `apps/${app}/e2e/visual.spec.ts`,
-        screenshots: `apps/${app}/e2e/screenshots`,
-        config: `apps/${app}/playwright.visual.config.ts`,
-        perturbedConfig: `apps/${app}/playwright.noise-floor.config.ts`,
-        packageJson: `apps/${app}/package.json`,
-      });
-    }
-  );
-
-  it("refuses an unknown app rather than defaulting", () => {
-    expect(() => appPaths("gen")).toThrow(/unknown app "gen"/);
-  });
-
-  it("gives both replicas the production config and only the perturbed leg the perturbed one", () => {
-    expect(legConfig("marketing", "replica-a")).toBe("apps/marketing/playwright.visual.config.ts");
-    expect(legConfig("marketing", "replica-b")).toBe("apps/marketing/playwright.visual.config.ts");
-    expect(legConfig("marketing", "perturbed")).toBe(
-      "apps/marketing/playwright.noise-floor.config.ts"
-    );
-    expect(() => legConfig("marketing", "replica-c")).toThrow(/unknown leg/);
-  });
-
-  it("prints GITHUB_OUTPUT lines from `paths --app <app> --leg <leg>`", () => {
-    const out = execFileSync(
-      process.execPath,
-      [
-        resolve(ROOT, "scripts/visual-noise-floor.mjs"),
-        "paths",
-        "--app",
-        "hospitality",
-        "--leg",
-        "perturbed",
-      ],
-      { encoding: "utf8" }
-    );
-    expect(out.trim().split("\n")).toEqual([
-      "config=apps/hospitality/playwright.noise-floor.config.ts",
-      "spec=apps/hospitality/e2e/visual.spec.ts",
-      "screenshots=apps/hospitality/e2e/screenshots",
-      "package_json=apps/hospitality/package.json",
-    ]);
-  });
-});
-
-describe("resolveCommitted — an app with no committed baselines yet", () => {
-  it("keeps a committed directory that holds PNGs", () => {
-    const dirs = healthy();
-    expect(resolveCommitted(dirs.committed, dirs.replicaA)).toEqual({
-      dir: dirs.committed,
-      baselines: "committed",
-    });
-  });
-
-  it("differences drift against replica-a — the bytes Ship will commit — when none exist", () => {
-    const dirs = healthy();
-    const empty = mkdtempSync(join(root, "empty-"));
-    expect(resolveCommitted(empty, dirs.replicaA)).toEqual({
-      dir: dirs.replicaA,
-      baselines: "none",
-    });
-    expect(resolveCommitted(join(root, "absent"), dirs.replicaA)).toEqual({
-      dir: dirs.replicaA,
-      baselines: "none",
-    });
   });
 });

@@ -321,39 +321,3 @@ describe("familiesForChangedFile", () => {
     expect(familiesForChangedFile("unrelated/path.ts", hypotheticalFamilies)).toEqual([]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// ui-quality-ledger — the route inventory's four router/registry files feed
-// metrics/ui-quality-ledger.jsonl (docs/features/ui-quality-loop).
-// ---------------------------------------------------------------------------
-describe("ui-quality-ledger family", () => {
-  const family = FAMILIES.find((f) => f.id === "ui-quality-ledger");
-
-  it("regenerates the ledger with ledger.mjs generate", () => {
-    expect(family).toBeDefined();
-    expect(family.command).toBe("node scripts/ui-quality/ledger.mjs generate");
-    expect(family.outputs).toEqual(["metrics/ui-quality-ledger.jsonl"]);
-  });
-
-  it("is made stale by each router/registry file, and only those", () => {
-    for (const path of [
-      "apps/hospitality/src/main.tsx",
-      "apps/marketing/src/App.tsx",
-      "apps/rialto-web/src/routes.tsx",
-      "apps/rialto-web/src/data/page-registry.ts",
-    ]) {
-      expect(family.changedBy(path), path).toEqual({
-        command: family.command,
-        outputs: family.outputs,
-      });
-    }
-    expect(family.changedBy("apps/marketing/src/pages/Foo.tsx")).toBeNull();
-    expect(family.changedBy("apps/marketing/src/App.test.tsx")).toBeNull();
-    expect(family.changedBy("apps/hospitality/src/App.tsx")).toBeNull();
-  });
-
-  it("is reported by familiesForChangedFile for a router edit", () => {
-    const ids = familiesForChangedFile("apps/marketing/src/App.tsx").map((f) => f.id);
-    expect(ids).toContain("ui-quality-ledger");
-  });
-});

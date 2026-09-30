@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,29 +11,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const require_ = createRequire(import.meta.url);
 
-/**
- * Every guarded visual suite as (config, screenshot dir). The VR floor's two
- * suites (docs/features/ui-quality-loop breakdown M5) carry baselines committed
- * from the `visual-actuals-replica-a` artifact, so every suite is live: an
- * empty directory is the vacuous-pass failure the floor assertion exists for.
- */
-const SUITES = [
-  {
-    app: "rialto-web",
-    configPath: "apps/rialto-web/playwright.config.ts",
-    screenshotDir: "apps/rialto-web/e2e/screenshots",
-  },
-  {
-    app: "marketing",
-    configPath: "apps/marketing/playwright.visual.config.ts",
-    screenshotDir: "apps/marketing/e2e/screenshots",
-  },
-  {
-    app: "hospitality",
-    configPath: "apps/hospitality/playwright.visual.config.ts",
-    screenshotDir: "apps/hospitality/e2e/screenshots",
-  },
-];
+const CONFIG_PATH = "apps/rialto-web/playwright.config.ts";
+const SCREENSHOT_DIR = resolve(ROOT, "apps/rialto-web/e2e/screenshots");
 
 /**
  * The declared sensitivity is not blind to the regression this run exists to catch.
@@ -68,60 +47,48 @@ const SUITES = [
  */
 const DEFECT_AMPLITUDE = 36;
 
+const directives = readToleranceDirectives(readFileSync(resolve(ROOT, CONFIG_PATH), "utf8"));
+
 /**
  * The live config as the comparator sees it: a directive the config does not
  * declare is *omitted*, so Playwright's own default applies — which is exactly
  * what the running suite does with it. Reproducing the defect means reproducing
  * the defaults it hid behind.
  */
-function liveOptionsOf(configPath) {
-  const directives = readToleranceDirectives(readFileSync(resolve(ROOT, configPath), "utf8"));
-  return {
-    ...(directives.threshold === null ? {} : { threshold: directives.threshold }),
-    ...(directives.maxDiffPixels === null ? {} : { maxDiffPixels: directives.maxDiffPixels }),
-  };
-}
-
-function baselinesIn(screenshotDir) {
-  const dir = resolve(ROOT, screenshotDir);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".png"))
-    .sort();
-}
+const liveOptions = {
+  ...(directives.threshold === null ? {} : { threshold: directives.threshold }),
+  ...(directives.maxDiffPixels === null ? {} : { maxDiffPixels: directives.maxDiffPixels }),
+};
 
 const { utils } = require_(join(resolvePlaywrightCoreDir(), "lib/coreBundle.js"));
 const compare = utils.getComparator("image/png");
 
-describe.each(SUITES)(
-  "$app — the declared visual sensitivity can see defect.md § A's reproduction",
-  ({ configPath: CONFIG_PATH, screenshotDir }) => {
-    const SCREENSHOT_DIR = resolve(ROOT, screenshotDir);
-    const liveOptions = liveOptionsOf(CONFIG_PATH);
-    const baselines = baselinesIn(screenshotDir);
+const baselines = readdirSync(SCREENSHOT_DIR)
+  .filter((name) => name.endsWith(".png"))
+  .sort();
 
-    it("has baselines to test at all", () => {
-      // A silently-empty set would make every assertion below vacuous, which is
-      // the failure mode this repo has hit before: work that passes because it
-      // never ran. The count is deliberately a floor, not an equality — adding a
-      // snapshot must not red this file.
-      expect(baselines.length).toBeGreaterThan(0);
-    });
+describe("the declared visual sensitivity can see defect.md § A's reproduction", () => {
+  it("has baselines to test at all", () => {
+    // A silently-empty set would make every assertion below vacuous, which is
+    // the failure mode this repo has hit before: work that passes because it
+    // never ran. The count is deliberately a floor, not an equality — adding a
+    // snapshot must not red this file.
+    expect(baselines.length).toBeGreaterThan(0);
+  });
 
-    it.each(baselines)("%s", (name) => {
-      const expected = readFileSync(join(SCREENSHOT_DIR, name));
-      const actual = shiftPngChannels(expected, DEFECT_AMPLITUDE);
+  it.each(baselines)("%s", (name) => {
+    const expected = readFileSync(join(SCREENSHOT_DIR, name));
+    const actual = shiftPngChannels(expected, DEFECT_AMPLITUDE);
 
-      // `null` is the comparator's verdict for "these images match". A uniform
-      // whole-image brightening returning `null` is the defect: a change to every
-      // single pixel that the suite reports as no difference at all.
-      const result = compare(actual, expected, liveOptions);
+    // `null` is the comparator's verdict for "these images match". A uniform
+    // whole-image brightening returning `null` is the defect: a change to every
+    // single pixel that the suite reports as no difference at all.
+    const result = compare(actual, expected, liveOptions);
 
-      expect(
-        result,
-        `a uniform +${DEFECT_AMPLITUDE}/255 shift on every pixel of ${name} is invisible ` +
-          `to the tolerance declared in ${CONFIG_PATH}`
-      ).not.toBeNull();
-    });
-  }
-);
+    expect(
+      result,
+      `a uniform +${DEFECT_AMPLITUDE}/255 shift on every pixel of ${name} is invisible ` +
+        `to the tolerance declared in ${CONFIG_PATH}`
+    ).not.toBeNull();
+  });
+});

@@ -1,12 +1,9 @@
 name: Visual Noise Floor
 
-# Measures how many pixels an app's visual suite moves by on a real Linux
+# Measures how many pixels the rialto-web visual suite moves by on a real Linux
 # runner when NOTHING has changed, and how many a known regression moves — the
-# two numbers each visual config's tolerance is set from. See
-# docs/fixes/visual-tolerance-threshold/. The `app` dispatch input picks the
-# suite (rialto-web, marketing, hospitality — docs/features/ui-quality-loop/);
-# every per-app path comes from `scripts/visual-noise-floor.mjs paths`, never
-# from this file.
+# two numbers apps/rialto-web/playwright.config.ts's tolerance has never been
+# set from. See docs/fixes/visual-tolerance-threshold/.
 #
 # It never compares, never asserts, and cannot change what any required check
 # concludes. Every leg runs Playwright with `--update-snapshots=all`, which
@@ -28,17 +25,7 @@ on:
   # The path every future re-measure takes, once this file is on main.
   # Precedent: pulumi-r2-checksum-validation.yml.
   workflow_dispatch:
-    inputs:
-      app:
-        description: "Which app's visual suite to measure"
-        type: choice
-        default: rialto-web
-        options:
-          - rialto-web
-          - marketing
-          - hospitality
-  # The pre-merge path. A push carries no inputs, so it always measures
-  # rialto-web (`APP` below). `workflow_dispatch` cannot fire for a file that is not
+  # The pre-merge path. `workflow_dispatch` cannot fire for a file that is not
   # on the default branch, so before this merges the only way to reach a real
   # Linux runner is a ref push. `measure/**` is deliberately a namespace nothing
   # else in the repo reacts to — asserted, not assumed, by
@@ -53,13 +40,8 @@ on:
 permissions:
   contents: read
 
-env:
-  # Empty on push, so the `measure/**` path stays a rialto-web measurement.
-  APP: ${{ inputs.app || 'rialto-web' }}
-
 concurrency:
-  # Keyed on the app too: two apps dispatched on one ref are two measurements.
-  group: visual-noise-floor-${{ github.ref }}-${{ inputs.app || 'rialto-web' }}
+  group: visual-noise-floor-${{ github.ref }}
   # NOT cancel-in-progress. A half-finished measurement is worse than none:
   # cancelling one leg leaves two artifacts the analyzer refuses anyway, having
   # already paid for them.
@@ -73,10 +55,13 @@ jobs:
       # a recoverable single-leg failure into three wasted runner legs.
       fail-fast: false
       matrix:
-        # Each leg's config comes from `visual-noise-floor.mjs paths`: the
-        # replicas run the app's production visual config, `perturbed` its
-        # playwright.noise-floor.config.ts.
-        leg: [replica-a, replica-b, perturbed]
+        include:
+          - leg: replica-a
+            config: playwright.config.ts
+          - leg: replica-b
+            config: playwright.config.ts
+          - leg: perturbed
+            config: playwright.noise-floor.config.ts
     # The same label the production `visual` job in rialto-web-e2e.yml uses. A
     # different label would measure a different machine, which is the one thing
     # this workflow exists not to do.
@@ -91,43 +76,21 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Resolve ${{ env.APP }} paths (${{ matrix.leg }})
-        id: paths
-        run: |
-          set -o pipefail
-          node scripts/visual-noise-floor.mjs paths --app "$APP" --leg "${{ matrix.leg }}" >> "$GITHUB_OUTPUT"
-      - name: Build rialto (styles + dist export required by every app)
+      - name: Build rialto (styles + dist export required by rialto-web)
         run: pnpm build --filter @mattbutlerengineering/rialto
-      - name: Build marketing (its visual config serves dist via vite preview)
-        if: env.APP == 'marketing'
-        run: pnpm --dir apps/marketing exec vite build
       - name: Install Playwright browsers
-        run: pnpm --dir "apps/$APP" exec playwright install --with-deps chromium
+        run: pnpm --dir apps/rialto-web exec playwright install --with-deps chromium
 
-      - name: Capture actuals (${{ env.APP }} ${{ matrix.leg }})
+      - name: Capture actuals (${{ matrix.leg }})
         # --update-snapshots=all WRITES every screenshot instead of comparing
         # it, so this leg's output is independent of the very tolerance being
         # measured. The invocation otherwise matches the production visual job's
         # exactly — same config file for the two replicas, same single spec.
-        # The Auth0 E2E credential reaches hospitality's legs only (its `setup`
-        # project signs in; e2e.yml passes the same five secrets); every other
-        # app gets empty strings.
-        env:
-          E2E_AUTH0_DOMAIN: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH0_DOMAIN || '' }}
-          E2E_AUTH0_CLIENT_ID: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH0_CLIENT_ID || '' }}
-          E2E_AUTH0_AUDIENCE: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH0_AUDIENCE || '' }}
-          E2E_AUTH_EMAIL: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH_EMAIL || '' }}
-          E2E_AUTH_PASSWORD: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH_PASSWORD || '' }}
-          VITE_AUTH_AUTHORITY: ${{ env.APP == 'hospitality' && format('https://{0}', secrets.E2E_AUTH0_DOMAIN) || '' }}
-          VITE_AUTH_CLIENT_ID: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH0_CLIENT_ID || '' }}
-          VITE_AUTH_AUDIENCE: ${{ env.APP == 'hospitality' && secrets.E2E_AUTH0_AUDIENCE || '' }}
-          VITE_AUTH_REDIRECT_URI: ${{ env.APP == 'hospitality' && 'http://localhost:3002/hospitality/callback' || '' }}
-          VITE_API_URL: ${{ env.APP == 'hospitality' && 'http://localhost:3002' || '' }}
         run: |
           set -o pipefail
           pnpm exec playwright test \
-            --config "${{ steps.paths.outputs.config }}" \
-            "${{ steps.paths.outputs.spec }}" \
+            --config apps/rialto-web/${{ matrix.config }} \
+            apps/rialto-web/e2e/visual.spec.ts \
             --update-snapshots=all
 
       - name: Record provenance
@@ -137,10 +100,10 @@ jobs:
         # difference any leg that lacks it.
         run: |
           set -o pipefail
-          node - > "${{ steps.paths.outputs.screenshots }}/provenance.json" <<'JS'
+          node - > apps/rialto-web/e2e/screenshots/provenance.json <<'JS'
           const path = require("path");
           const { createRequire } = require("module");
-          const require_ = createRequire(path.join(process.cwd(), process.env.PACKAGE_JSON));
+          const require_ = createRequire(path.join(process.cwd(), "apps/rialto-web/package.json"));
           const coreDir = path.dirname(
             require_.resolve("playwright-core/package.json", {
               paths: [path.dirname(require_.resolve("@playwright/test"))],
@@ -162,15 +125,13 @@ jobs:
             )}\n`
           );
           JS
-          cat "${{ steps.paths.outputs.screenshots }}/provenance.json"
-        env:
-          PACKAGE_JSON: ${{ steps.paths.outputs.package_json }}
+          cat apps/rialto-web/e2e/screenshots/provenance.json
 
       - name: Upload actuals (${{ matrix.leg }})
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-actuals-${{ matrix.leg }}
-          path: ${{ steps.paths.outputs.screenshots }}/
+          path: apps/rialto-web/e2e/screenshots/
           retention-days: 14
           if-no-files-found: error
 
@@ -215,15 +176,14 @@ jobs:
 
       - name: Measure
         # Also appends the sweep table to the step summary. `committed` is the
-        # checkout's own baselines, untouched by any capture leg; an app with
-        # none yet is measured against replica-a and the summary says so.
+        # checkout's own baselines, untouched by any capture leg.
         run: |
           set -o pipefail
           node scripts/visual-noise-floor.mjs \
             --replica-a actuals/replica-a \
             --replica-b actuals/replica-b \
             --perturbed actuals/perturbed \
-            --committed "apps/$APP/e2e/screenshots" \
+            --committed apps/rialto-web/e2e/screenshots \
             --out measurement.json
 
       - name: Recommend
