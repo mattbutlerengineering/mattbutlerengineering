@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // visual.spec.ts belongs to playwright.visual.config.ts (Linux-only
+  // baselines, its own workflow); running it here would double-run it.
+  testIgnore: ["**/visual.spec.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
