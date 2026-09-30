@@ -6,15 +6,21 @@
  *
  *   pairs   read the capture manifests + rubric, write `.ui-quality/rating-plan.json`:
  *           per app, TASTE_SAMPLE_ROUTES taste-eligible captured routes ×
- *           TASTE_REFERENCES_PER_ROUTE references of the same category. `harness`
- *           routes are never sampled. Which image is "A" is decided by the parity of
- *           sha256(pair key), so a re-run reproduces the plan byte for byte.
+ *           TASTE_REFERENCES_PER_ROUTE references of the same category. The unit on
+ *           both sides is the 1280×720 fold: ours is the manifest row's `fold` (a row
+ *           without one is not taste-eligible), and every rubric reference must be
+ *           exactly 1280×720 by its PNG header or `pairs` exits 2 writing no plan.
+ *           `harness` routes are never sampled. Which image is "A" is decided by the
+ *           parity of sha256(pair key), so a re-run reproduces the plan byte for byte.
  *           `pairs --calibration` writes `.ui-quality/calibration-plan.json` from
  *           `docs/ui-quality/calibration.json`'s labelled pairs instead.
  *   record  validate the model's verdicts (`[{ pair_id, verdict: "A"|"B"|"tie",
  *           tells, note }]`) against the plan and append one row per app to
  *           `metrics/ui-quality-ratings.jsonl`, stamped `calibration.status`
  *           pass | failed | stale from the latest calibration record for its model_id.
+ *           `--model-id` is required — the judging session's own exact model id; a
+ *           mismatch with the routine doc's `model:` is one stderr line, never an
+ *           exit, and the literal `unknown` always stamps `stale`.
  *   calibrate  score verdicts on the calibration plan against `pass_mark`, print
  *           `{ agreement, inversions, disagreements[] }`, append a record to
  *           `metrics/ui-quality-calibrations.jsonl`; exit 0 pass, 1 fail, 2 on an
@@ -46,6 +52,7 @@ import {
 } from "./calibration.mjs";
 import { TASTE_REFERENCES_PER_ROUTE, TASTE_SAMPLE_ROUTES } from "./config.mjs";
 import { outcomeOf, positionOf, sha256, sides, VERDICTS } from "./pairing.mjs";
+import { pngSizeOfFile } from "./png.mjs";
 import { categoryOf, loadRubric, tellsById } from "./rubric.mjs";
 
 export { positionOf };
@@ -59,8 +66,10 @@ export const CALIBRATION_PLAN_FILE = "calibration-plan.json";
 export const CALIBRATIONS_METRIC = "ui-quality-calibrations";
 export const ROUTINE_DOC = "docs/routines/mbe-ui-quality.md";
 const CAPTURES_DIR = "captures";
-/** The viewport pairs are judged at — the one the references were captured at. */
-const PAIR_VIEWPORT = "1280x720";
+/** The fold size pairs are judged at — the one the references were captured at. */
+export const PAIR_VIEWPORT = "1280x720";
+/** A model id that is not one: never calibrated, so always `stale`. */
+export const UNKNOWN_MODEL_ID = "unknown";
 const OUTCOME_VALUE = { ours: 1, tie: 0.5, reference: 0 };
 
 // ---------------------------------------------------------------------------
@@ -86,7 +95,7 @@ function pairFor(app, row, shot, ref) {
   const key = `${app}|${row.route}|${PAIR_VIEWPORT}|${ref.id}`;
   const ours = {
     route: row.route,
-    viewport: PAIR_VIEWPORT,
+    viewport: shot.viewport,
     sha256: shot.sha256,
     path: `${WORK_DIR}/${CAPTURES_DIR}/${app}/${shot.file}`,
   };
@@ -114,7 +123,7 @@ export function buildPairs({ rubric, manifests }) {
     .sort()
     .flatMap((app) => {
       const eligible = manifests[app].flatMap((row) => {
-        const shot = (row.screenshots ?? []).find((s) => s.viewport === PAIR_VIEWPORT);
+        const shot = row.fold;
         const refs = refsByCategory.get(categoryOf(rubric, app, row.route)) ?? [];
         // `harness` has no references by construction, so it can never be sampled.
         return shot && refs.length > 0 ? [{ row, shot, refs }] : [];
@@ -255,8 +264,23 @@ function calibrationPlanCommand(ctx, rubric, work) {
   return 0;
 }
 
+/** Every rubric reference, sized by its PNG header; throws naming each one that is not the fold size. */
+function assertReferenceSizes(root, rubric) {
+  const wrong = rubric.references.flatMap((ref) => {
+    const { width, height } = pngSizeOfFile(join(root, ref.file));
+    const size = `${width}x${height}`;
+    return size === PAIR_VIEWPORT ? [] : [`${ref.id} (${ref.file}) is ${size}`];
+  });
+  if (wrong.length > 0) {
+    throw new Error(
+      `every reference must be ${PAIR_VIEWPORT} by its PNG header — no plan written:\n  ${wrong.join("\n  ")}`
+    );
+  }
+}
+
 function pairsCommand(ctx) {
   const rubric = loadRubric(ctx.root);
+  assertReferenceSizes(ctx.root, rubric);
   const work = join(ctx.root, WORK_DIR);
   if (ctx.argv.includes("--calibration")) return calibrationPlanCommand(ctx, rubric, work);
   const pairs = buildPairs({ rubric, manifests: readManifests(work) });
@@ -273,7 +297,7 @@ function pairsCommand(ctx) {
 function recordCommand(ctx) {
   const verdictsPath = flag(ctx.argv, "--verdicts");
   if (!verdictsPath) throw new Error("--verdicts <file> is required");
-  const modelId = modelIdOf(ctx);
+  const modelId = requireModelId(ctx);
   const rubric = loadRubric(ctx.root);
   const plan = JSON.parse(readFileSync(join(ctx.root, WORK_DIR, RATING_PLAN_FILE), "utf8"));
   const verdicts = JSON.parse(readFileSync(resolve(ctx.root, verdictsPath), "utf8"));
@@ -288,7 +312,7 @@ function recordCommand(ctx) {
     );
   }
   const calibration = calibrationStamp(
-    readJsonl(CALIBRATIONS_METRIC, ctx.root),
+    modelId === UNKNOWN_MODEL_ID ? [] : readJsonl(CALIBRATIONS_METRIC, ctx.root),
     modelId,
     rubric.calibration.pass_mark
   );
@@ -298,6 +322,23 @@ function recordCommand(ctx) {
     `rate.mjs record: ${rows.map((r) => `${r.app} ${r.score}`).join(", ") || "no pairs"}\n`
   );
   return 0;
+}
+
+/**
+ * The required `--model-id`: the judging session's own exact model id. The
+ * routine doc's `model:` is the declared config and can drift from the
+ * trigger, so it is only compared — one stderr line on a mismatch.
+ */
+function requireModelId(ctx) {
+  const modelId = flag(ctx.argv, "--model-id");
+  if (!modelId) throw new Error("--model-id <the judging session's exact model id> is required");
+  const declared = routineModelId(ctx.root);
+  if (declared !== null && declared !== modelId) {
+    ctx.stderr(
+      `rate.mjs ${ctx.argv[0]}: --model-id ${modelId} differs from ${ROUTINE_DOC} model: ${declared}\n`
+    );
+  }
+  return modelId;
 }
 
 function modelIdOf(ctx) {

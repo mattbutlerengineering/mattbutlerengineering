@@ -9,9 +9,30 @@ import { calibrationPairs, validateCalibrationSet } from "../ui-quality/calibrat
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
 
+const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** A PNG header (signature + IHDR) of the given size — enough for png.mjs, no image library. */
+function png(width, height, salt = "") {
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "ascii");
+  ihdr.writeUInt32BE(width, 8);
+  ihdr.writeUInt32BE(height, 12);
+  ihdr.writeUInt8(8, 16);
+  ihdr.writeUInt8(2, 17);
+  return Buffer.concat([SIGNATURE, ihdr, Buffer.from(salt)]);
+}
+
+const slug = (route) => route.replace(/\W+/g, "_");
+
 const row = (route, extra = {}) => ({
   route,
   path: route === "/" ? "/" : `/${route}`,
+  fold: {
+    viewport: "1280x720",
+    file: `${slug(route)}@1280x720.fold.png`,
+    sha256: `f-${route}`,
+  },
   screenshots: [
     {
       viewport: "1280x720",
@@ -43,6 +64,10 @@ function makeRoot({ routineModel = "claude-opus-5" } = {}) {
   const root = mkdtempSync(join(tmpdir(), "ui-quality-rate-"));
   mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
   writeFileSync(join(root, "docs/ui-quality/rubric.json"), JSON.stringify(RUBRIC));
+  for (const ref of RUBRIC.references) {
+    mkdirSync(dirname(join(root, ref.file)), { recursive: true });
+    writeFileSync(join(root, ref.file), png(1280, 720, ref.id));
+  }
   for (const [app, rows] of Object.entries(MANIFESTS)) {
     const dir = join(root, ".ui-quality/captures", app);
     mkdirSync(dir, { recursive: true });
@@ -72,6 +97,11 @@ function run(root, argv) {
     stderr: (s) => err.push(s),
   });
   return { code, out: out.join(""), err: err.join("") };
+}
+
+/** `rate.mjs record` with the required --model-id. */
+function record(root, verdictsFile, modelId = "claude-opus-5") {
+  return run(root, ["record", "--verdicts", join(root, verdictsFile), "--model-id", modelId]);
 }
 
 const readPlan = (root) =>
@@ -124,18 +154,32 @@ describe("buildPairs", () => {
     expect(pairs.filter((p) => p.app === "rialto-web")).toHaveLength(2);
   });
 
-  it("carries both image paths and the desktop screenshot's sha256", () => {
+  it("carries both image paths and the fold's sha256 — never a full-page shot", () => {
     const p = pairs.find((x) => x.app === "rialto-web");
     expect(p.ours).toMatchObject({
       route: "components/button",
       viewport: "1280x720",
-      sha256: "d-components/button",
-      path: ".ui-quality/captures/rialto-web/components_button@1280x720.png",
+      sha256: "f-components/button",
+      path: ".ui-quality/captures/rialto-web/components_button@1280x720.fold.png",
     });
+    for (const q of pairs) expect(q.ours.path).toMatch(/\.fold\.png$/);
     expect(p.reference.path).toMatch(/^docs\/ui-quality\/reference\/.+\.png$/);
     const [a, b] = p.position === "AB" ? [p.ours, p.reference] : [p.reference, p.ours];
     expect(p.a).toEqual({ path: a.path, sha256: a.sha256 });
     expect(p.b).toEqual({ path: b.path, sha256: b.sha256 });
+  });
+
+  it("skips a row without a fold (not taste-eligible) and leaves the plan otherwise unchanged", () => {
+    const withoutFold = {
+      ...MANIFESTS,
+      marketing: [...MANIFESTS.marketing, { ...row("ai-health"), fold: undefined }],
+    };
+    delete withoutFold.marketing.at(-1).fold;
+    expect(buildPairs({ rubric: RUBRIC, manifests: withoutFold })).toEqual(pairs);
+    const noFoldAtAll = {
+      marketing: MANIFESTS.marketing.map(({ fold: _fold, ...r }) => r),
+    };
+    expect(buildPairs({ rubric: RUBRIC, manifests: noFoldAtAll })).toEqual([]);
   });
 
   it("is identical across runs, with unique ids", () => {
@@ -166,7 +210,15 @@ describe("rate.mjs pairs + record", () => {
     expect(readPlan(root).pairs).toHaveLength(8);
   });
 
-  it("record appends one row per app with the score, model_id from the routine doc, every pair", () => {
+  it("pairs refuses (exit 2, no plan) when a rubric reference is not 1280×720 by its header", () => {
+    writeFileSync(join(root, RUBRIC.references[0].file), png(1280, 4529));
+    const res = run(root, ["pairs"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/1280x4529/);
+    expect(existsSync(join(root, ".ui-quality/rating-plan.json"))).toBe(false);
+  });
+
+  it("record appends one row per app with the score, the --model-id, every pair", () => {
     run(root, ["pairs"]);
     const plan = readPlan(root);
     const marketing = plan.pairs.filter((p) => p.app === "marketing").map((p) => p.id);
@@ -177,7 +229,7 @@ describe("rate.mjs pairs + record", () => {
     };
     writeFileSync(join(root, "v.json"), JSON.stringify(fullVerdicts(plan, outcome)));
 
-    expect(run(root, ["record", "--verdicts", join(root, "v.json")]).code).toBe(0);
+    expect(record(root, "v.json").code).toBe(0);
     const rows = readRatings(root)
       .trim()
       .split("\n")
@@ -202,31 +254,43 @@ describe("rate.mjs pairs + record", () => {
       ours: { route: expect.any(String), viewport: "1280x720", sha256: expect.any(String) },
       reference: { id: expect.any(String), sha256: expect.any(String) },
     });
-    expect(m.pairs[0].ours.path).toMatch(/^\.ui-quality\/captures\/marketing\//);
+    expect(m.pairs[0].ours.path).toMatch(/^\.ui-quality\/captures\/marketing\/.+\.fold\.png$/);
     expect(m.pairs[0].reference.path).toMatch(/^docs\/ui-quality\/reference\//);
   });
 
-  it("--model-id overrides the routine doc; no model id at all exits 2", () => {
+  it("record without --model-id exits 2 and appends nothing — the routine doc is never a fallback", () => {
     run(root, ["pairs"]);
-    const plan = readPlan(root);
-    writeFileSync(join(root, "v.json"), JSON.stringify(fullVerdicts(plan, () => "tie")));
-    expect(
-      run(root, ["record", "--verdicts", join(root, "v.json"), "--model-id", "m-x"]).code
-    ).toBe(0);
-    expect(JSON.parse(readRatings(root).split("\n")[0]).model_id).toBe("m-x");
+    writeFileSync(join(root, "v.json"), JSON.stringify(fullVerdicts(readPlan(root), () => "tie")));
+    const res = run(root, ["record", "--verdicts", join(root, "v.json")]);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/--model-id/);
+    expect(readRatings(root)).toBe("");
+  });
 
-    const bare = makeRoot({ routineModel: null });
-    run(bare, ["pairs"]);
-    writeFileSync(join(bare, "v.json"), JSON.stringify(fullVerdicts(readPlan(bare), () => "tie")));
-    expect(run(bare, ["record", "--verdicts", join(bare, "v.json")]).code).toBe(2);
-    expect(readRatings(bare)).toBe("");
+  it("a --model-id matching the routine doc's model: prints nothing; a mismatch prints exactly one stderr line and still appends", () => {
+    run(root, ["pairs"]);
+    writeFileSync(join(root, "v.json"), JSON.stringify(fullVerdicts(readPlan(root), () => "tie")));
+    const same = record(root, "v.json", "claude-opus-5");
+    expect(same.code).toBe(0);
+    expect(same.err).not.toMatch(/model/);
+
+    const other = makeRoot({ routineModel: "other" });
+    run(other, ["pairs"]);
+    writeFileSync(
+      join(other, "v.json"),
+      JSON.stringify(fullVerdicts(readPlan(other), () => "tie"))
+    );
+    const res = record(other, "v.json", "claude-opus-5");
+    expect(res.code).toBe(0);
+    expect(res.err.split("\n").filter((l) => /model/.test(l))).toHaveLength(1);
+    expect(JSON.parse(readRatings(other).split("\n")[0]).model_id).toBe("claude-opus-5");
   });
 
   it("exits 2 and appends nothing on a missing verdict", () => {
     run(root, ["pairs"]);
     const verdicts = fullVerdicts(readPlan(root), () => "ours").slice(1);
     writeFileSync(join(root, "v.json"), JSON.stringify(verdicts));
-    const res = run(root, ["record", "--verdicts", join(root, "v.json")]);
+    const res = record(root, "v.json");
     expect(res.code).toBe(2);
     expect(res.err).toMatch(/missing/);
     expect(readRatings(root)).toBe("");
@@ -237,7 +301,7 @@ describe("rate.mjs pairs + record", () => {
     const verdicts = fullVerdicts(readPlan(root), () => "ours");
     verdicts.push({ pair_id: "p-nope", verdict: "A", tells: [], note: "" });
     writeFileSync(join(root, "v.json"), JSON.stringify(verdicts));
-    const res = run(root, ["record", "--verdicts", join(root, "v.json")]);
+    const res = record(root, "v.json");
     expect(res.code).toBe(2);
     expect(res.err).toMatch(/p-nope/);
     expect(readRatings(root)).toBe("");
@@ -255,7 +319,7 @@ describe("rate.mjs pairs + record", () => {
     ];
     writeFileSync(join(root, "v.json"), JSON.stringify(verdicts));
 
-    const res = run(root, ["record", "--verdicts", join(root, "v.json")]);
+    const res = record(root, "v.json");
     expect(res.code).toBe(0);
     expect(res.err.match(/dropped tell/g)).toHaveLength(2);
     const [m, r] = readRatings(root)
@@ -273,7 +337,7 @@ describe("rate.mjs pairs + record", () => {
   it("never writes an absolute single-answer score field", () => {
     run(root, ["pairs"]);
     writeFileSync(join(root, "v.json"), JSON.stringify(fullVerdicts(readPlan(root), () => "tie")));
-    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    record(root, "v.json");
     const [m] = readRatings(root)
       .trim()
       .split("\n")
@@ -429,19 +493,29 @@ describe("record stamps calibration status from the last calibration record for 
         inversions: 0,
       }) + "\n"
     );
-    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    record(root, "v.json");
     expect(stamped()).toMatchObject({ status: "stale", pass_mark: RUBRIC.calibration.pass_mark });
+  });
+
+  it("--model-id unknown always stamps stale, even with a passing record under unknown", () => {
+    writeFileSync(
+      join(root, "metrics/ui-quality-calibrations.jsonl"),
+      JSON.stringify({ ts: "t", model_id: "unknown", pass: true, agreement: 1, inversions: 0 }) +
+        "\n"
+    );
+    record(root, "v.json", "unknown");
+    expect(stamped()).toMatchObject({ status: "stale" });
   });
 
   it("pass after a passing calibrate, failed after a failing one", () => {
     const set = labelled(root);
     calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
-    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    record(root, "v.json");
     expect(stamped()).toMatchObject({ status: "pass", agreement: 1, inversions: 0 });
 
     calibrate(root, raterVerdicts(set, { agree: 9, inversions: 1 }));
     writeFileSync(join(root, "metrics/ui-quality-ratings.jsonl"), "");
-    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    record(root, "v.json");
     expect(stamped()).toMatchObject({ status: "failed", agreement: 0.9, inversions: 1 });
   });
 });
