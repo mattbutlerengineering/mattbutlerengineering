@@ -95,9 +95,11 @@ further down describe _why_, not _what_.
 > routes of marketing, rialto-web and hospitality against a local build,
 > judges them against `docs/ui-quality/rubric.md`, and files what the scripts
 > under `scripts/ui-quality/` plan — issues, backlog seeds and at most one fix
-> PR, never merged. Every fire, no-op ones included, opens or refreshes one
-> `chore(ui-quality): ledger <date>` PR carrying the ledger, which is its
-> liveness signature. Prompt:
+> PR, never merged. Its state lives on the rolling `ui-quality/ledger` branch,
+> which every fire checks out first (`state.mjs checkout`); every fire, no-op
+> ones included, commits `chore(ui-quality): ledger <date>` there — its
+> liveness signature, dated by that commit — and opens the PR only when none
+> is open. Nothing waits for that PR to merge. Prompt:
 > [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md); design:
 > `docs/features/ui-quality-loop/architecture.md`.
 

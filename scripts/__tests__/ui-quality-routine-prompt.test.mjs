@@ -88,6 +88,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
   it("covers every CLI the routine drives", () => {
     const pairs = new Set(invocations.map((i) => `${i.file} ${i.sub ?? ""}`.trim()));
     for (const expected of [
+      "state checkout",
       "ledger refresh",
       "ledger due",
       "ledger record",
@@ -202,6 +203,80 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     expect(of("findings", "migrate")[0].index).toBeLessThan(of("findings", "plan")[0].index);
     expect(block).toMatch(/retired/);
     expect(block).toMatch(/state_reason: "not_planned"/);
+  });
+
+  // Architect re-entry 5 (Review C1): every fire reads and writes loop state on
+  // the `ui-quality/ledger` branch, never on main's older copy.
+  describe("state channel — ui-quality/ledger (re-entry 5)", () => {
+    const at = (needle) => {
+      const i = block.indexOf(needle);
+      expect(i, needle).toBeGreaterThan(-1);
+      return i;
+    };
+    const checkout = () => of("state", "checkout")[0];
+    const executedRecord = () =>
+      of("findings", "record").find((i) => i.args.includes(".ui-quality/findings.executed.json"));
+
+    it("step (0) runs state.mjs checkout after install and before any state read", () => {
+      expect(of("state", "checkout")).toHaveLength(1);
+      expect(at("pnpm install --frozen-lockfile")).toBeLessThan(checkout().index);
+      expect(checkout().index).toBeLessThan(of("ledger", "refresh")[0].index);
+    });
+
+    it("its exit 2 skips (1)–(6) and leaves (7) only the log entry", () => {
+      const sentence = block
+        .split(/(?<=\.)\s+/)
+        .find((s) => /state\.mjs checkout/.test(s) && /exit 2/.test(s));
+      expect(sentence).toBeDefined();
+      expect(sentence).toMatch(/skip \(1\)–\(6\)/);
+      expect(block).toMatch(
+        /state-unavailable[^\n]*only the log entry|only the log entry[^\n]*state-unavailable/
+      );
+    });
+
+    it("never reads loop state from main while the branch exists", () => {
+      expect(block).toMatch(/never read loop state from `main`/i);
+    });
+
+    it("6b fetches every ui-quality-labelled issue and 6c passes it as --labelled-issues", () => {
+      const search = at("label:ui-quality ");
+      expect(block.slice(search - 200, search)).toContain("mcp__github__search_issues");
+      for (const plan of of("findings", "plan")) {
+        expect(plan.args).toContain("--labelled-issues .ui-quality/labelled-issues.json");
+        expect(search).toBeLessThan(plan.index);
+      }
+    });
+
+    it("checkpoints (commit + push ui-quality/ledger) after recording, before the fix PR", () => {
+      const checkpoint = at("Checkpoint");
+      expect(executedRecord().index).toBeLessThan(checkpoint);
+      const fixPr = at("ui-quality/fix-<issue>");
+      expect(checkpoint).toBeLessThan(fixPr);
+      expect(block.slice(checkpoint, fixPr)).toMatch(/git push origin ui-quality\/ledger/);
+    });
+
+    it("opens the fix PR on a clean-tree switch from origin/main, then switches back", () => {
+      const fix = block.slice(at("Fix PR (at most one)"), at("P1 SLA"));
+      expect(fix.indexOf("clean tree")).toBeGreaterThan(-1);
+      expect(fix.indexOf("clean tree")).toBeLessThan(fix.indexOf("ui-quality/fix-<issue>"));
+      expect(fix).toContain("origin/main");
+      expect(fix).toMatch(/switch back to `ui-quality\/ledger`|git switch ui-quality\/ledger/);
+    });
+
+    it("7c commits in place, pushes without force, and opens a PR only when none is open", () => {
+      const seven = block.slice(at("(7) Record"));
+      expect(seven).toContain("chore(ui-quality): ledger <YYYY-MM-DD>");
+      expect(seven).toMatch(/in place on `ui-quality\/ledger`/);
+      expect(seven).toMatch(/never force/i);
+      expect(seven).toContain("mcp__github__list_pull_requests");
+      expect(seven).toMatch(/only (if|when) no[^.]*open/);
+      expect(seven).not.toMatch(/ledger-<YYYY-MM-DD>/);
+    });
+
+    it("never merges a pull request and never enables auto-merge", () => {
+      expect(block).toMatch(/never merge a pull request, never enable auto-merge/i);
+      expect(block).not.toMatch(/never merge anything/);
+    });
   });
 
   it("never uses gh or the live site", () => {
