@@ -1,5 +1,5 @@
 ---
-trigger_id: pending
+trigger_id: trig_01DYzgRBp66dxwQ828y9x1jV
 environment_id: env_012GDG167Tpz55u8MEpDkL2y
 cron: "23 7 * * *"
 model: claude-opus-5
