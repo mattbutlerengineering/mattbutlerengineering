@@ -65,6 +65,7 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
+  hospitality --> test_fixtures
   marketing --> rialto
   marketing --> observability
   marketing --> sentry

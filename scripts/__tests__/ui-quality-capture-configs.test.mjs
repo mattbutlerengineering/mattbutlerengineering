@@ -13,7 +13,17 @@ import { fileURLToPath } from "node:url";
  * workflow-coverage tests stay exactly as they were.
  */
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const APPS = ["marketing", "rialto-web"];
+const APPS = ["marketing", "rialto-web", "hospitality"];
+
+const PLACEHOLDER_E2E_ENV = Object.fromEntries(
+  [
+    "E2E_AUTH0_DOMAIN",
+    "E2E_AUTH0_CLIENT_ID",
+    "E2E_AUTH0_AUDIENCE",
+    "E2E_AUTH_EMAIL",
+    "E2E_AUTH_PASSWORD",
+  ].map((name) => [name, `placeholder-${name.toLowerCase()}`])
+);
 
 const read = (app, file) => readFileSync(join(REPO, "apps", app, file), "utf8");
 
@@ -36,7 +46,9 @@ function listed(app, config) {
   const out = execFileSync("pnpm", args, {
     cwd: join(REPO, "apps", app),
     encoding: "utf8",
-    env: { ...process.env, UI_QUALITY_PLAN: "", CI: "" },
+    // Placeholders: hospitality's base config always loads its `setup`
+    // project's auth.setup.ts, which throws at import without these.
+    env: { ...process.env, ...PLACEHOLDER_E2E_ENV, UI_QUALITY_PLAN: "", CI: "" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   return out;
@@ -76,6 +88,32 @@ describe.each(APPS)("%s ui-quality capture config", (app) => {
     expect(listed(app, "playwright.ui-quality.config.ts")).toMatch(
       /ui-quality\.capture\.ts.*\n.*Total: 1 test in 1 file/
     );
-    expect(listed(app, "playwright.config.ts")).toMatch(/Total: 0 tests in 0 files/);
+    expect(listed(app, "playwright.config.ts")).not.toContain("ui-quality.capture.ts");
+  });
+});
+
+describe("hospitality capture specifics", () => {
+  const config = read("hospitality", "playwright.ui-quality.config.ts");
+  const spec = read("hospitality", "e2e/ui-quality.capture.ts");
+
+  it("builds with .env.example's placeholder VITE_AUTH_* so validateAuthConfig() never renders AuthConfigError", () => {
+    expect(config).toContain(".env.example");
+    expect(config).toMatch(/VITE_AUTH_/);
+    expect(config).toMatch(/exec vite build && pnpm --dir apps\/hospitality exec vite preview/);
+  });
+
+  it("drops the base config's setup project and stored auth session", () => {
+    expect(config).not.toMatch(/storageState/);
+    expect(config).not.toMatch(/auth\.setup/);
+    expect(config).toMatch(/projects:/);
+  });
+
+  it("installs mockApi and a fixed clock before capturePage (the timeline.spec.ts pattern)", () => {
+    const mock = spec.indexOf("mockApi(page)");
+    const clock = spec.indexOf("page.clock.setFixedTime(");
+    const capture = spec.indexOf("capturePage(");
+    expect(mock).toBeGreaterThan(-1);
+    expect(clock).toBeGreaterThan(-1);
+    expect(capture).toBeGreaterThan(Math.max(mock, clock));
   });
 });

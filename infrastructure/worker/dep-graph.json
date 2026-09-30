@@ -256,6 +256,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/test-fixtures",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/marketing",
       "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
