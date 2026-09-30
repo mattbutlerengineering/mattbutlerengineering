@@ -17,7 +17,13 @@
  * href?, screenshot_sha256 } } — one per (app, route, tell), sorted, severity
  * always the tell's `default_severity` in rubric.json. Never judges: nothing
  * here reads a pixel. Exit 2 only when a manifest or the rubric is missing or
- * unreadable.
+ * unreadable, or (mechanical) the edge topology cannot be joined to the ledger.
+ *
+ * Dead-link ownership follows the edge route table (edge-topology.mjs): each
+ * collected app-relative link is made absolute with the capturing app's mount,
+ * assigned to the deployed app that serves it, and matched against THAT app's
+ * templates with the mount stripped. A link served by a deployed app with no
+ * ledger rows is out of inventory — one log line, no finding.
  *
  * Usage: node scripts/ui-quality/detect.mjs <mechanical|judged> [--root <dir>]
  */
@@ -33,6 +39,13 @@ import {
   JUDGED_FINDINGS_FILE,
   judgedFindings,
 } from "./detect-judged.mjs";
+import {
+  joinEdgeTopology,
+  mountFor,
+  prefixOf,
+  readEdgeTopology,
+  stripMount,
+} from "./edge-topology.mjs";
 import { LEDGER_METRIC, WORK_DIR, parseLedger } from "./ledger.mjs";
 import { loadRubric, tellsById } from "./rubric.mjs";
 
@@ -71,8 +84,29 @@ function templatesByApp(ledger) {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+/**
+ * The links on one captured page that no template of their serving app
+ * matches. Links served by an app outside the ledger are logged and skipped.
+ */
+function deadLinks(row, { app, templates, topology, log }) {
+  const dead = [];
+  for (const link of row.links) {
+    const absolute = `${prefixOf(topology, app)}${link}`;
+    const mount = mountFor(topology, absolute);
+    if (mount.app === null) {
+      log(
+        `detect.mjs mechanical: out of inventory — ${app} ${row.route} links ${absolute} (mount ${mount.prefix} → apps/${mount.dir}); no finding\n`
+      );
+      continue;
+    }
+    const local = stripMount(mount, absolute);
+    if (!(templates.get(mount.app) ?? []).some((t) => matchesTemplate(local, t))) dead.push(link);
+  }
+  return dead;
+}
+
 /** Raw detections for one manifest row: [{ tell, evidence }] before severity is attached. */
-function detectRow(row, templates) {
+function detectRow(row, context) {
   const hits = [];
   if (
     row.blank.text_chars < BLANK_MIN_TEXT_CHARS ||
@@ -93,7 +127,7 @@ function detectRow(row, templates) {
       },
     });
   }
-  const dead = row.links.filter((link) => !templates.some((t) => matchesTemplate(link, t)));
+  const dead = deadLinks(row, context);
   if (dead.length > 0) {
     hits.push({
       tell: "bugs/dead-in-app-link",
@@ -142,10 +176,12 @@ const byKey = (a, b) => {
 };
 
 /**
- * @param {{ manifests: Record<string, object[]>, ledger: object[], rubric: object }} input
+ * @param {{ manifests: Record<string, object[]>, ledger: object[], rubric: object,
+ *   topology: { mounts: object[] }, log?: (line: string) => void }} input
+ *   topology — `joinEdgeTopology`'s result
  * @returns {object[]} Finding[] — mechanical tells only, sorted by (app, route, tell)
  */
-export function mechanicalFindings({ manifests, ledger, rubric }) {
+export function mechanicalFindings({ manifests, ledger, rubric, topology, log = () => {} }) {
   const tells = tellsById(rubric);
   const templates = templatesByApp(ledger);
   const findings = [];
@@ -154,7 +190,7 @@ export function mechanicalFindings({ manifests, ledger, rubric }) {
       // An errored row with no screenshots was never rendered: it is the
       // ledger's unreachable:build, not a finding.
       if (row.screenshots.length === 0) continue;
-      for (const hit of detectRow(row, templates.get(app) ?? [])) {
+      for (const hit of detectRow(row, { app, templates, topology, log })) {
         const tell = tells.get(hit.tell);
         if (tell?.detection !== "mechanical") {
           throw new Error(`rubric has no mechanical tell ${hit.tell}`);
@@ -211,7 +247,9 @@ function mechanical(ctx) {
   const rubric = loadRubric(ctx.root);
   const manifests = readManifests(ctx.root);
   const ledger = parseLedger(readFileSync(resolvePath(LEDGER_METRIC, { root: ctx.root }), "utf8"));
-  const findings = mechanicalFindings({ manifests, ledger, rubric });
+  const ledgerApps = [...new Set(ledger.map((r) => r.app))].sort();
+  const topology = joinEdgeTopology(readEdgeTopology(ctx.root), ledgerApps);
+  const findings = mechanicalFindings({ manifests, ledger, rubric, topology, log: ctx.stderr });
   writeWorkJson(ctx.root, MECHANICAL_FILE, findings);
   ctx.stderr(
     `detect.mjs mechanical: ${findings.length} findings → ${WORK_DIR}/${MECHANICAL_FILE}\n`

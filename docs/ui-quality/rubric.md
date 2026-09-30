@@ -155,7 +155,9 @@ the page looks fine.
 
 **Looks like:** a same-origin link whose path matches no route of its app and
 is not a redirect or catch-all target — a click that lands on "not found".
-**P1.**
+**P1.** Ownership follows the edge route table
+(`infrastructure/worker/routes-config.json`): a link is checked against the
+routes of the app that serves it, which may be a sibling app.
 
 **A professional team instead:** links only to routes that exist, derived from
 the router rather than typed by hand.

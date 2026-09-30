@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { main, matchesTemplate, mechanicalFindings } from "../ui-quality/detect.mjs";
 import { judgedFindings } from "../ui-quality/detect-judged.mjs";
+import { joinEdgeTopology, readEdgeTopology } from "../ui-quality/edge-topology.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
@@ -38,8 +39,42 @@ const LEDGER = [
   ledgerRow("marketing", "*", "not-found"),
   ledgerRow("marketing", "/"),
   ledgerRow("marketing", "hospitality/*", "redirect"),
+  ledgerRow("marketing", "rialto/*", "redirect"),
+  ledgerRow("rialto-web", "examples/booking-wizard"),
   ledgerRow("rialto-web", "visual-test"),
 ];
+
+/** Fixture edge topology — the shape of infrastructure/worker/routes-config.json staticRoutes. */
+const STATIC_ROUTES = [
+  { prefix: "/hospitality", bindingOrigin: "https://w-hospitality.workers.dev" },
+  { prefix: "/rialto", bindingOrigin: "https://w-rialto-web.workers.dev" },
+  { prefix: "/gen", bindingOrigin: "https://w-gen.workers.dev" },
+  { prefix: "", bindingOrigin: "https://w-marketing.workers.dev" },
+];
+const WORKERS = {
+  gen: "w-gen",
+  hospitality: "w-hospitality",
+  marketing: "w-marketing",
+  "rialto-web": "w-rialto-web",
+};
+const LEDGER_APPS = ["hospitality", "marketing", "rialto-web"];
+const TOPOLOGY = joinEdgeTopology({ staticRoutes: STATIC_ROUTES, workers: WORKERS }, LEDGER_APPS);
+
+/** Write the fixture topology as files: routes-config.json + one wrangler.toml per app dir. */
+function writeTopology(root, { staticRoutes = STATIC_ROUTES, workers = WORKERS } = {}) {
+  mkdirSync(join(root, "infrastructure/worker"), { recursive: true });
+  writeFileSync(
+    join(root, "infrastructure/worker/routes-config.json"),
+    JSON.stringify({ originRoutes: ["/api"], staticRoutes })
+  );
+  for (const [dir, name] of Object.entries(workers)) {
+    mkdirSync(join(root, "apps", dir), { recursive: true });
+    writeFileSync(
+      join(root, "apps", dir, "wrangler.toml"),
+      `# fixture\nname = "${name}"\nmain = "worker.js"\n\n[env.preview]\nname = "${name}-preview"\n`
+    );
+  }
+}
 
 const shot = (sha) => [
   { viewport: "1280x720", file: "a@1280x720.png", sha256: sha },
@@ -79,7 +114,7 @@ const MANIFESTS = {
     row("floor-plans", { blank: { text_chars: 0, painted_ratio: 1 } }),
     row("*", { screenshots: [], error: "net::ERR_CONNECTION_REFUSED" }),
   ],
-  marketing: [row("/", { links: ["/", "/hospitality", "/hospitality/timeline", "/gone"] })],
+  marketing: [row("/", { links: ["/", "/hospitality", "/hospitality/floor-plans/42", "/gone"] })],
   "rialto-web": [row("visual-test", { page_errors: ["boom"] })],
 };
 
@@ -98,7 +133,12 @@ describe("matchesTemplate", () => {
 });
 
 describe("mechanicalFindings", () => {
-  const findings = mechanicalFindings({ manifests: MANIFESTS, ledger: LEDGER, rubric: RUBRIC });
+  const findings = mechanicalFindings({
+    manifests: MANIFESTS,
+    ledger: LEDGER,
+    rubric: RUBRIC,
+    topology: TOPOLOGY,
+  });
 
   it("files a dead in-app link: no template matches and it is not a redirect target; /floor-plans/42 matches floor-plans/:id", () => {
     const [dead] = find(findings, "hospitality", "book/:venueSlug", "bugs/dead-in-app-link");
@@ -109,7 +149,7 @@ describe("mechanicalFindings", () => {
     expect(dead.evidence.screenshot_sha256).toBe("sha-book/:venueSlug");
   });
 
-  it("never treats the catch-all `*` as a match, but does treat a redirect splat as one", () => {
+  it("never treats the catch-all `*` as a match; a sibling-app link is checked against the sibling's templates", () => {
     const [dead] = find(findings, "marketing", "/", "bugs/dead-in-app-link");
     expect(dead.evidence.message).toMatch(/1 dead in-app link: \/gone/);
   });
@@ -176,6 +216,7 @@ describe("detect.mjs mechanical CLI", () => {
       join(root, "metrics/ui-quality-ledger.jsonl"),
       LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
     );
+    writeTopology(root);
     for (const [app, rows] of Object.entries(MANIFESTS)) {
       mkdirSync(join(root, ".ui-quality/captures", app), { recursive: true });
       writeFileSync(
@@ -191,7 +232,12 @@ describe("detect.mjs mechanical CLI", () => {
       readFileSync(join(root, ".ui-quality/findings.mechanical.json"), "utf8")
     );
     expect(written).toEqual(
-      mechanicalFindings({ manifests: MANIFESTS, ledger: LEDGER, rubric: RUBRIC })
+      mechanicalFindings({
+        manifests: MANIFESTS,
+        ledger: LEDGER,
+        rubric: RUBRIC,
+        topology: TOPOLOGY,
+      })
     );
   });
 
@@ -221,6 +267,114 @@ describe("detect.mjs mechanical CLI", () => {
   it("bare detect.mjs prints usage naming mechanical and judged and exits 2", () => {
     expect(main([], io)).toBe(2);
     expect(out.join("")).toMatch(/mechanical\|judged/);
+  });
+});
+
+describe("dead-link ownership via the edge topology", () => {
+  let root;
+  const log = [];
+  const io = { stdout: () => {}, stderr: (s) => log.push(s) };
+  const run = (links, app = "marketing") => {
+    mkdirSync(join(root, ".ui-quality/captures", app), { recursive: true });
+    writeFileSync(
+      join(root, ".ui-quality/captures", app, "manifest.jsonl"),
+      JSON.stringify(row(app === "marketing" ? "/" : "book/:venueSlug", { links })) + "\n"
+    );
+    const code = main(["mechanical", "--root", root], io);
+    const path = join(root, ".ui-quality/findings.mechanical.json");
+    const findings = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+    return { code, findings, dead: findings?.filter((f) => f.tell === "bugs/dead-in-app-link") };
+  };
+
+  beforeEach(() => {
+    log.length = 0;
+    root = mkdtempSync(join(tmpdir(), "uiq-topology-"));
+    mkdirSync(join(root, "metrics"));
+    mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
+    copyFileSync(
+      join(REPO, "docs/ui-quality/rubric.json"),
+      join(root, "docs/ui-quality/rubric.json")
+    );
+    writeFileSync(
+      join(root, "metrics/ui-quality-ledger.jsonl"),
+      LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
+    );
+    writeTopology(root);
+  });
+
+  it("marketing /gen/ → out of inventory: no finding, one log line naming the link and the mount, exit 0", () => {
+    const { code, dead } = run(["/gen/"]);
+    expect(code).toBe(0);
+    expect(dead).toEqual([]);
+    const lines = log
+      .join("")
+      .split("\n")
+      .filter((l) => l.includes("out of inventory"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/\/gen\//);
+    expect(lines[0]).toMatch(/mount \/gen\b/);
+  });
+
+  it("marketing /rialto/examples/nope → one P1 on marketing's route naming the href — the rialto/* redirect splat no longer passes it", () => {
+    const { code, dead } = run(["/rialto/examples/nope"]);
+    expect(code).toBe(0);
+    expect(dead).toHaveLength(1);
+    expect(dead[0]).toMatchObject({ app: "marketing", route: "/", severity: "P1" });
+    expect(dead[0].evidence.href).toBe("/rialto/examples/nope");
+  });
+
+  it("marketing /rialto/examples/booking-wizard → no finding", () => {
+    expect(run(["/rialto/examples/booking-wizard"]).dead).toEqual([]);
+  });
+
+  it("a hospitality link to /hospitality/book/x (collected app-relative as /book/x) still matches book/:venueSlug", () => {
+    expect(run(["/book/x"], "hospitality").dead).toEqual([]);
+    expect(run(["/nope/x"], "hospitality").dead).toHaveLength(1);
+  });
+
+  it("exits 2 when a staticRoutes entry's worker has no apps/*/wrangler.toml, writing nothing", () => {
+    writeTopology(root, {
+      staticRoutes: [
+        { prefix: "/orphan", bindingOrigin: "https://w-orphan.workers.dev" },
+        ...STATIC_ROUTES,
+      ],
+    });
+    const { code, findings } = run(["/"]);
+    expect(code).toBe(2);
+    expect(findings).toBeNull();
+    expect(log.join("")).toMatch(/w-orphan/);
+  });
+
+  it("exits 2 when a ledger app is served by no staticRoutes entry", () => {
+    writeTopology(root, {
+      staticRoutes: STATIC_ROUTES.filter((r) => r.prefix !== "/rialto"),
+    });
+    const { code } = run(["/"]);
+    expect(code).toBe(2);
+    expect(log.join("")).toMatch(/rialto-web/);
+  });
+
+  it("joins the REAL routes-config.json and apps/*/wrangler.toml: each ledger app on its own mount, /gen out of inventory", () => {
+    const ledgerApps = [
+      ...new Set(
+        readFileSync(join(REPO, "metrics/ui-quality-ledger.jsonl"), "utf8")
+          .trim()
+          .split("\n")
+          .map((l) => JSON.parse(l).app)
+      ),
+    ].sort();
+    const topology = joinEdgeTopology(readEdgeTopology(REPO), ledgerApps);
+    const mountOf = Object.fromEntries(
+      topology.mounts.filter((m) => m.app).map((m) => [m.app, m.prefix])
+    );
+    expect(mountOf).toEqual({
+      hospitality: "/hospitality",
+      "rialto-web": "/rialto",
+      marketing: "",
+    });
+    expect(topology.mounts.filter((m) => !m.app)).toEqual([
+      expect.objectContaining({ prefix: "/gen", dir: "gen", app: null }),
+    ]);
   });
 });
 
