@@ -9,7 +9,7 @@ import {
   buildRoutineFindingTitle,
   extractRoutineNameFromIssueTitle,
   extractRoutineFindingStatusFromTitle,
-  findPriorRoutineFindingIssue,
+  findPriorRoutineFindingCandidate,
   buildRoutineFindingBody,
   buildRoutineFindingCreateArgs,
   buildRoutineRecoveryComment,
@@ -193,17 +193,19 @@ describe("buildRoutineFindingTitle / extractRoutineNameFromIssueTitle", () => {
   });
 });
 
-describe("findPriorRoutineFindingIssue", () => {
-  it("finds the issue number for a matching routine name", () => {
+describe("findPriorRoutineFindingCandidate", () => {
+  it("finds the candidate issue for a matching routine name", () => {
     const candidates = [
       { number: 10, title: buildRoutineFindingTitle("mbe-daily-issue", "unverifiable") },
       { number: 11, title: buildRoutineFindingTitle("mbe-weekly-improve", "dark") },
     ];
-    expect(findPriorRoutineFindingIssue(candidates, "mbe-weekly-improve")).toBe(11);
+    expect(findPriorRoutineFindingCandidate(candidates, "mbe-weekly-improve")).toEqual(
+      candidates[1]
+    );
   });
 
   it("returns null when no candidate matches", () => {
-    expect(findPriorRoutineFindingIssue([], "mbe-weekly-improve")).toBe(null);
+    expect(findPriorRoutineFindingCandidate([], "mbe-weekly-improve")).toBe(null);
   });
 });
 

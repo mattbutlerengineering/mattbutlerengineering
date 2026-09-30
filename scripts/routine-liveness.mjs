@@ -149,19 +149,6 @@ export function findPriorRoutineFindingCandidate(candidates, routineName) {
 }
 
 /**
- * Pure: finds a prior finding issue's number for `routineName` among
- * candidate issues (any state).
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @param {string} routineName
- * @returns {number | null}
- */
-export function findPriorRoutineFindingIssue(candidates, routineName) {
-  const match = findPriorRoutineFindingCandidate(candidates, routineName);
-  return match ? match.number : null;
-}
-
-/**
  * Pure decision: given a routine's classified liveness status and any
  * existing tracking issue found for it, decides whether to create a fresh
  * issue, skip (already tracked), close a recovered routine's issue, or do
