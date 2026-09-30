@@ -576,4 +576,33 @@ describe("POST /api/gen/ui", () => {
 
     expect(response.statusCode).toBe(500);
   });
+
+  it("caps repeated calls with a 429 (max: 20/hour)", async () => {
+    // Per-user cap declared in gen-ui.ts's config.rateLimit — regression
+    // coverage so the limiter can't silently stop enforcing.
+    vi.mocked(streamText).mockImplementation(
+      () =>
+        ({
+          fullStream: mockAsyncIterable([]),
+          usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+          providerMetadata: Promise.resolve({}),
+        }) as never
+    );
+
+    const post = () =>
+      app.inject({
+        method: "POST",
+        url: "/api/gen/ui",
+        payload: { prompt: "make a form" },
+      });
+
+    const GEN_UI_RATE_LIMIT_MAX = 20;
+    const codes: number[] = [];
+    for (let i = 0; i < GEN_UI_RATE_LIMIT_MAX + 1; i++) {
+      codes.push((await post()).statusCode);
+    }
+
+    expect(codes.slice(0, GEN_UI_RATE_LIMIT_MAX)).not.toContain(429);
+    expect(codes.at(-1)).toBe(429);
+  });
 });
