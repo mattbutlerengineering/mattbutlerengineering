@@ -45,5 +45,6 @@ export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Prom
     selfEvaluation: session.evaluation,
     costUsd: session.costUsd,
     turns: session.numTurns,
+    ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
   };
 }

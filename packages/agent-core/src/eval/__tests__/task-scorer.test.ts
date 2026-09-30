@@ -230,3 +230,28 @@ describe("scoreTask — LLM judge (stubbed via JudgeFunction seam)", () => {
     expect(score.judgeResult).toBeUndefined();
   });
 });
+
+// TaskScore.sessionErrors (amendment 2026-09-29): the session's own errors ride
+// on the score only when there are any; `error` keeps its thrown-task meaning.
+describe("scoreTask — sessionErrors", () => {
+  it("copies non-empty session.errors into sessionErrors", async () => {
+    const score = await scoreTask(
+      makeRun(ALL_PASS, makeTask(), makeSession({ status: "failed", errors: ["x"] }))
+    );
+    expect(score.sessionErrors).toEqual(["x"]);
+    expect(score.error).toBeUndefined();
+  });
+
+  it("omits the key when session.errors is empty", async () => {
+    const score = await scoreTask(makeRun(ALL_PASS, makeTask(), makeSession({ errors: [] })));
+    expect("sessionErrors" in score).toBe(false);
+    expect(score.error).toBeUndefined();
+  });
+
+  it("omits the key when session.errors is absent", async () => {
+    const session = { ...makeSession(), errors: undefined } as unknown as SessionResult;
+    const score = await scoreTask(makeRun(ALL_PASS, makeTask(), session));
+    expect("sessionErrors" in score).toBe(false);
+    expect(score.error).toBeUndefined();
+  });
+});
