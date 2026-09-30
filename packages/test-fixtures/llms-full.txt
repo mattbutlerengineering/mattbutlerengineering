@@ -198,6 +198,26 @@
       /** Navigation timeout — one route's timeout fails only that row. */
       timeoutMs?: number;
     }
+    export const REVEAL_SCRIPT = `(async () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const step = Math.max(1, Math.floor(window.innerHeight * 0.8));
+      for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
+        window.scrollTo(0, y);
+        await frame();
+      }
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      await frame();
+      window.scrollTo(0, 0);
+      await frame();
+    })()`;
+    export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> {
+      await page.evaluate(REVEAL_SCRIPT);
+      const deadline = Date.now() + REVEAL_SETTLE_MS;
+      while (Date.now() < deadline) {
+        if (await page.evaluate(SETTLED_SCRIPT)) return;
+        await new Promise((r) => setTimeout(r, REVEAL_POLL_MS));
+      }
+    }
     interface Probe {
       hrefs: string[];
       text_chars: number;
@@ -358,6 +378,8 @@
         const probe = (await page.evaluate(PROBE_SCRIPT)) as Probe;
         row.links = sameOriginLinks(probe.hrefs, opts.baseUrl);
         row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
+        // A failed reveal is not a failed route: the shots are still taken, as before.
+        await revealLazyContent(page).catch(() => {});
         row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
         row.screenshots = await screenshotAll(page, route, opts);
         const fold = await screenshotFold(page, route, opts);

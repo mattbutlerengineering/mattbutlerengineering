@@ -113,6 +113,12 @@
       }
     </item>
     <item priority="high">
+      export const REVEAL_SCRIPT: unknown;
+    </item>
+    <item priority="high">
+      export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
       interface Probe {
         hrefs: string[];
         text_chars: number;
