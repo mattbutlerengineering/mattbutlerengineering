@@ -27,8 +27,12 @@ on:
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "packages/rialto/src/**"
-      # The specs read the route set from these two files at test time.
-      - "metrics/ui-quality-ledger.jsonl"
+      # The specs read the route set from the coverage ledger's identity
+      # columns, which change only with these sources — never the ledger file
+      # itself, whose audit columns every mbe-ui-quality fire rewrites on the
+      # ui-quality/ledger branch (review m3).
+      - "scripts/ui-quality/routes.mjs"
+      - "scripts/ui-quality/ledger.mjs"
       - "scripts/ui-quality/route-fixtures.json"
       # The publisher and the pure modules it runs.
       - "scripts/publish-visual-diffs.mjs"
@@ -41,8 +45,12 @@ on:
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "packages/rialto/src/**"
-      # The specs read the route set from these two files at test time.
-      - "metrics/ui-quality-ledger.jsonl"
+      # The specs read the route set from the coverage ledger's identity
+      # columns, which change only with these sources — never the ledger file
+      # itself, whose audit columns every mbe-ui-quality fire rewrites on the
+      # ui-quality/ledger branch (review m3).
+      - "scripts/ui-quality/routes.mjs"
+      - "scripts/ui-quality/ledger.mjs"
       - "scripts/ui-quality/route-fixtures.json"
       # The publisher and the pure modules it runs.
       - "scripts/publish-visual-diffs.mjs"
@@ -70,7 +78,8 @@ jobs:
           filters: |
             shared: &shared
               - 'packages/rialto/src/**'
-              - 'metrics/ui-quality-ledger.jsonl'
+              - 'scripts/ui-quality/routes.mjs'
+              - 'scripts/ui-quality/ledger.mjs'
               - 'scripts/ui-quality/route-fixtures.json'
               - 'scripts/publish-visual-diffs.mjs'
               - 'scripts/visual-diff-*.mjs'

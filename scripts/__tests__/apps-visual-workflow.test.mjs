@@ -76,6 +76,31 @@ describe("apps-visual.yml — triggers and gating", () => {
     }
   });
 
+  // Review m3 / architecture re-entry 5: every fire pushes the ledger file's
+  // audit columns to the `ui-quality/ledger` branch; the specs read only its
+  // identity columns, which change only with routes.mjs / ledger.mjs.
+  const TRIGGER_BLOCKS = [
+    ["push", /^ {2}push:\n([\s\S]*?)(?=^ {2}pull_request:)/m],
+    ["pull_request", /^ {2}pull_request:\n([\s\S]*?)(?=^permissions:)/m],
+    ["paths-filter shared", /^ {12}shared: &shared\n([\s\S]*?)(?=^ {12}marketing:)/m],
+  ];
+
+  it.each(TRIGGER_BLOCKS)(
+    "%s filters on the ledger's identity sources, never the ledger file itself",
+    (_name, pattern) => {
+      const block = WORKFLOW.match(pattern)?.[1];
+      expect(block).toBeDefined();
+      expect(block).not.toContain("metrics/ui-quality-ledger.jsonl");
+      for (const path of [
+        "scripts/ui-quality/route-fixtures.json",
+        "scripts/ui-quality/routes.mjs",
+        "scripts/ui-quality/ledger.mjs",
+      ]) {
+        expect(block).toContain(path);
+      }
+    }
+  );
+
   it("skips hospitality for Dependabot, which holds no E2E secrets", () => {
     expect(job("hospitality-visual")).toMatch(/github\.actor != 'dependabot\[bot\]'/);
   });
