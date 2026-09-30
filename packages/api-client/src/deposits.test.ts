@@ -111,6 +111,27 @@ describe("DepositsClient", () => {
     });
   });
 
+  describe("listByVenueAndDate", () => {
+    it("GETs /api/v1/deposits?venueId=&date= and returns the validated deposit array", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeDeposit] }));
+
+      const result = await makeClient().listByVenueAndDate("venue_1", "2026-01-25");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/deposits?venueId=venue_1&date=2026-01-25");
+      expect(options?.method ?? "GET").toBe("GET");
+      expect(result).toEqual([fakeDeposit]);
+    });
+
+    it("throws ApiValidationError when an entry in the array fails schema validation", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [{ id: "dep_1" }] }));
+
+      await expect(makeClient().listByVenueAndDate("venue_1", "2026-01-25")).rejects.toBeInstanceOf(
+        ApiValidationError
+      );
+    });
+  });
+
   describe("capture", () => {
     it("POSTs /api/v1/deposits/:id/capture and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(

@@ -1,8 +1,11 @@
+import { z } from "zod";
 import type { Deposit } from "@mbe/types";
 import { DepositSchema } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 const DEPOSIT_BASE_PATH = "/api/v1/deposits";
+
+const depositListSchema = z.array(DepositSchema);
 
 export interface CreateDepositRequest {
   reservationId: string;
@@ -50,6 +53,14 @@ export class DepositsClient {
       { reservationId },
       DepositSchema.nullable()
     );
+  }
+
+  /**
+   * Deposit-exposure dashboard: list every deposit for a venue's
+   * reservations on a given date.
+   */
+  async listByVenueAndDate(venueId: string, date: string): Promise<Deposit[]> {
+    return this.client.getOne<Deposit[]>(DEPOSIT_BASE_PATH, { venueId, date }, depositListSchema);
   }
 
   /**
