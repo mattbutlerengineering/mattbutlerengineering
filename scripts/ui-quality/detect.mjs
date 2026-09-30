@@ -27,7 +27,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolvePath } from "../metrics-store.mjs";
 import { BLANK_MIN_PAINTED_RATIO, BLANK_MIN_TEXT_CHARS } from "./config.mjs";
-import { judgedCommand } from "./detect-judged.mjs";
+import {
+  JUDGE_STATUS_FILE,
+  JUDGED_DIR,
+  JUDGED_FINDINGS_FILE,
+  judgedFindings,
+} from "./detect-judged.mjs";
 import { LEDGER_METRIC, WORK_DIR, parseLedger } from "./ledger.mjs";
 import { loadRubric, tellsById } from "./rubric.mjs";
 
@@ -214,7 +219,37 @@ function mechanical(ctx) {
   return 0;
 }
 
-const COMMANDS = { mechanical, judged: judgedCommand };
+/** app → the model's raw Judge file text, for every app that has one. */
+function readJudged(root, apps) {
+  const dir = join(root, WORK_DIR, JUDGED_DIR);
+  return Object.fromEntries(
+    apps
+      .filter((app) => existsSync(join(dir, `${app}.json`)))
+      .map((app) => [app, readFileSync(join(dir, `${app}.json`), "utf8")])
+  );
+}
+
+function judged(ctx) {
+  const rubric = loadRubric(ctx.root);
+  const manifests = readManifests(ctx.root);
+  const { findings, status } = judgedFindings({
+    manifests,
+    judged: readJudged(ctx.root, Object.keys(manifests)),
+    rubric,
+    log: ctx.stderr,
+  });
+  writeWorkJson(ctx.root, JUDGED_FINDINGS_FILE, findings);
+  writeWorkJson(ctx.root, JUDGE_STATUS_FILE, status);
+  const unjudged = Object.values(status.routes)
+    .flatMap((r) => Object.values(r))
+    .filter((v) => v !== "judged").length;
+  ctx.stderr(
+    `detect.mjs judged: ${findings.length} findings, ${unjudged} unjudged, ${status.dropped.length} dropped → ${WORK_DIR}/${JUDGED_FINDINGS_FILE}, ${WORK_DIR}/${JUDGE_STATUS_FILE}\n`
+  );
+  return 0;
+}
+
+const COMMANDS = { mechanical, judged };
 
 /**
  * @param {string[]} argv

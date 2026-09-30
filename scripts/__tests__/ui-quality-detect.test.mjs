@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { main, matchesTemplate, mechanicalFindings } from "../ui-quality/detect.mjs";
+import { judgedFindings } from "../ui-quality/detect-judged.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
@@ -220,5 +221,279 @@ describe("detect.mjs mechanical CLI", () => {
   it("bare detect.mjs prints usage naming mechanical and judged and exits 2", () => {
     expect(main([], io)).toBe(2);
     expect(out.join("")).toMatch(/mechanical\|judged/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detect.mjs judged
+// ---------------------------------------------------------------------------
+
+describe("judgedFindings", () => {
+  // marketing: three judgeable routes; hospitality: two judgeable + one errored no-screenshot row.
+  const manifests = {
+    marketing: [row("/"), row("acmm"), row("status")],
+    hospitality: [
+      row("book/:venueSlug"),
+      row("reservations/manage"),
+      row("*", { screenshots: [], error: "x" }),
+    ],
+  };
+  const judged = {
+    marketing: {
+      app: "marketing",
+      rubric_version: 1,
+      model_id: "claude-opus-5",
+      routes: [
+        {
+          route: "/",
+          tells: [
+            {
+              tell: "agent-built/gradient-background",
+              evidence: "purple hero gradient",
+              severity: "P1",
+            },
+            { tell: "agent-built/made-up-tell", evidence: "x", severity: "P2" },
+            { tell: "bugs/blank-render", evidence: "looks blank", severity: "P1" },
+          ],
+        },
+        { route: "acmm", unjudged: "tool-error" },
+        { route: "status", tells: "not-an-array" },
+        { route: "no-such-route", tells: [] },
+      ],
+    },
+    hospitality: {
+      app: "hospitality",
+      rubric_version: 1,
+      model_id: "claude-opus-5",
+      routes: [{ route: "book/:venueSlug", tells: [] }],
+    },
+  };
+  const logs = [];
+  const { findings, status } = judgedFindings({
+    manifests,
+    judged,
+    rubric: RUBRIC,
+    log: (l) => logs.push(l),
+  });
+
+  it("files a valid judged tell with the rubric's default severity, even when the model wrote P1", () => {
+    expect(findings).toEqual([
+      {
+        app: "marketing",
+        route: "/",
+        tell: "agent-built/gradient-background",
+        severity: "P2",
+        evidence: {
+          message: "purple hero gradient",
+          screenshot_sha256: "sha-/",
+          screenshot_sha256s: ["sha-/", "sha-/-m"],
+        },
+      },
+    ]);
+  });
+
+  it("drops an unknown tell and a mechanical-detection tell, logs each once, lists them, and keeps the route judged", () => {
+    expect(status.routes.marketing["/"]).toBe("judged");
+    expect(status.dropped).toEqual(
+      expect.arrayContaining([
+        { app: "marketing", route: "/", tell: "agent-built/made-up-tell", reason: "unknown-tell" },
+        { app: "marketing", route: "/", tell: "bugs/blank-render", reason: "not-judged-detection" },
+      ])
+    );
+    expect(logs.filter((l) => l.includes("agent-built/made-up-tell"))).toHaveLength(1);
+    expect(logs.filter((l) => l.includes("bugs/blank-render"))).toHaveLength(1);
+  });
+
+  it("drops an entry for a route the manifest lacks", () => {
+    expect(status.dropped).toContainEqual({
+      app: "marketing",
+      route: "no-such-route",
+      tell: null,
+      reason: "unknown-route",
+    });
+    expect(status.routes.marketing["no-such-route"]).toBeUndefined();
+  });
+
+  it("maps unjudged, schema-failing and omitted routes to unjudged:<reason>", () => {
+    expect(status.routes.marketing.acmm).toBe("unjudged:tool-error");
+    expect(status.routes.marketing.status).toBe("unjudged:malformed");
+    expect(status.routes.hospitality["reservations/manage"]).toBe("unjudged:missing");
+  });
+
+  it("treats `tells: []` as judged clean, and leaves the errored no-screenshot row out of routes", () => {
+    expect(status.routes.hospitality["book/:venueSlug"]).toBe("judged");
+    expect(Object.keys(status.routes.hospitality)).not.toContain("*");
+  });
+
+  it("marks every judgeable route of an app malformed on a wrong rubric_version or an unparseable file", () => {
+    const wrongVersion = judgedFindings({
+      manifests,
+      judged: { ...judged, marketing: { ...judged.marketing, rubric_version: 2 } },
+      rubric: RUBRIC,
+      log: () => {},
+    });
+    expect(wrongVersion.status.routes.marketing).toEqual({
+      "/": "unjudged:malformed",
+      acmm: "unjudged:malformed",
+      status: "unjudged:malformed",
+    });
+    expect(wrongVersion.findings.filter((f) => f.app === "marketing")).toEqual([]);
+    const unparseable = judgedFindings({
+      manifests,
+      judged: { ...judged, hospitality: "{not json" },
+      rubric: RUBRIC,
+      log: () => {},
+    });
+    expect(unparseable.status.routes.hospitality).toEqual({
+      "book/:venueSlug": "unjudged:malformed",
+      "reservations/manage": "unjudged:malformed",
+    });
+  });
+
+  it("an app with no judged file has every judgeable route unjudged:missing", () => {
+    const none = judgedFindings({ manifests, judged: {}, rubric: RUBRIC, log: () => {} });
+    expect(none.status.routes.hospitality).toEqual({
+      "book/:venueSlug": "unjudged:missing",
+      "reservations/manage": "unjudged:missing",
+    });
+  });
+
+  it("never emits a judged finding whose severity is not its tell's default (SC-2)", () => {
+    const tells = new Map(RUBRIC.tells.map((t) => [t.id, t]));
+    for (const f of findings) {
+      expect(tells.get(f.tell).detection).toBe("judged");
+      expect(f.severity).toBe(tells.get(f.tell).default_severity);
+    }
+  });
+});
+
+describe("detect.mjs judged CLI + the ledger.mjs record round-trip", () => {
+  let root;
+  const io = { stdout: () => {}, stderr: () => {} };
+  const writeJsonl = (path, rows) => {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  };
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "uiq-judged-"));
+    mkdirSync(join(root, "metrics"));
+    mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
+    copyFileSync(
+      join(REPO, "docs/ui-quality/rubric.json"),
+      join(root, "docs/ui-quality/rubric.json")
+    );
+    writeJsonl(join(root, "metrics/ui-quality-ledger.jsonl"), [
+      ledgerRow("marketing", "/"),
+      ledgerRow("marketing", "acmm"),
+      ledgerRow("marketing", "metrics"),
+      ledgerRow("marketing", "status"),
+    ]);
+    writeFileSync(join(root, "metrics/ui-quality-runs.jsonl"), "");
+    writeJsonl(join(root, ".ui-quality/captures/marketing/manifest.jsonl"), [
+      row("/"),
+      row("acmm"),
+      row("metrics", { screenshots: [], error: "timeout" }),
+      row("status"),
+    ]);
+    writeFileSync(
+      join(root, ".ui-quality/due.json"),
+      JSON.stringify({
+        at: "2026-10-01T07:30:00Z",
+        git_depth: "full",
+        due: ["/", "acmm", "metrics", "status"].map((route) => ({
+          app: "marketing",
+          route,
+          path: route === "/" ? "/" : `/${route}`,
+        })),
+        unreachable_auth: [],
+      })
+    );
+    mkdirSync(join(root, ".ui-quality/judged"), { recursive: true });
+    writeFileSync(
+      join(root, ".ui-quality/judged/marketing.json"),
+      JSON.stringify({
+        app: "marketing",
+        rubric_version: 1,
+        model_id: "claude-opus-5",
+        routes: [
+          {
+            route: "/",
+            tells: [
+              { tell: "agent-built/icon-card-grid", evidence: "icon cards", severity: "P2" },
+              { tell: "agent-built/nope", evidence: "x", severity: "P2" },
+            ],
+          },
+          { route: "acmm", unjudged: "tool-error" },
+        ],
+      })
+    );
+  });
+
+  it("writes findings.judged.json + judge-status.json, and ledger.mjs record turns them into exactly the implied rows and counts", async () => {
+    expect(main(["judged", "--root", root], io)).toBe(0);
+    const findings = JSON.parse(
+      readFileSync(join(root, ".ui-quality/findings.judged.json"), "utf8")
+    );
+    expect(findings.map((f) => f.tell)).toEqual(["agent-built/icon-card-grid"]);
+    const status = JSON.parse(readFileSync(join(root, ".ui-quality/judge-status.json"), "utf8"));
+    expect(status.routes.marketing).toEqual({
+      "/": "judged",
+      acmm: "unjudged:tool-error",
+      status: "unjudged:missing",
+    });
+
+    const { main: ledgerMain } = await import("../ui-quality/ledger.mjs");
+    const now = "2026-10-01T08:00:00Z";
+    expect(
+      ledgerMain(["record", "--rubric-version", "1", "--root", root], { now: () => now, ...io })
+    ).toBe(0);
+    const rows = readFileSync(join(root, "metrics/ui-quality-ledger.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    const by = Object.fromEntries(rows.map((r) => [r.route, r]));
+    expect(by["/"]).toMatchObject({
+      reachability: "audited",
+      last_audited_at: now,
+      rubric_version: 1,
+    });
+    expect(by.acmm).toMatchObject({ reachability: "unjudged:tool-error", last_audited_at: null });
+    expect(by.status).toMatchObject({ reachability: "unjudged:missing", last_audited_at: null });
+    expect(by.metrics).toMatchObject({ reachability: "unreachable:build" });
+    const [run] = readFileSync(join(root, "metrics/ui-quality-runs.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(run).toMatchObject({
+      due: 4,
+      audited: 1,
+      unjudged: 2,
+      dropped_tells: 1,
+      unreachable: { auth: 0, build: 1 },
+    });
+  });
+
+  it("exits 0 with every route unjudged:malformed on an unparseable judged file", () => {
+    writeFileSync(join(root, ".ui-quality/judged/marketing.json"), "{nope");
+    expect(main(["judged", "--root", root], io)).toBe(0);
+    const status = JSON.parse(readFileSync(join(root, ".ui-quality/judge-status.json"), "utf8"));
+    expect(Object.values(status.routes.marketing)).toEqual([
+      "unjudged:malformed",
+      "unjudged:malformed",
+      "unjudged:malformed",
+    ]);
+  });
+
+  it("exits 2 on a missing rubric or a missing manifest", () => {
+    writeFileSync(join(root, "docs/ui-quality/rubric.json"), "");
+    expect(main(["judged", "--root", root], io)).toBe(2);
+    const bare = mkdtempSync(join(tmpdir(), "uiq-judged-bare-"));
+    mkdirSync(join(bare, "docs/ui-quality"), { recursive: true });
+    copyFileSync(
+      join(REPO, "docs/ui-quality/rubric.json"),
+      join(bare, "docs/ui-quality/rubric.json")
+    );
+    expect(main(["judged", "--root", bare], io)).toBe(2);
   });
 });
