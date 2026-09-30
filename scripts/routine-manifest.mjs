@@ -47,6 +47,9 @@
  * @property {string} [outOfScopeReason]
  * @property {boolean} [unverifiable]
  * @property {string} [unverifiableReason]
+ * @property {string} [activatedAt]       ISO date the RemoteTrigger was created; until it is
+ *                                        2 x periodDays old, a routine with no matching artifact
+ *                                        is `pending`, not `dark` (routine-liveness.mjs)
  */
 
 /** @type {RoutineManifestEntry[]} */

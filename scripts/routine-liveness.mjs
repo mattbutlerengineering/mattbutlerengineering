@@ -61,16 +61,29 @@ export function matchesSignature(artifact, signature) {
  * - Most recent matching artifact is older than `periodDays` but within
  *   `2 * periodDays` → `late` (it ran, just not on schedule).
  * - No matching artifact within `2 * periodDays` (or none at all) → `dark`.
+ * - Exception: no matching artifact at all while the routine's `activatedAt`
+ *   is younger than `2 * periodDays` → `pending` (files nothing). A routine
+ *   created today has had no chance to fire yet; without this the checker
+ *   files a false `dark` on the morning between merge and first fire. An
+ *   unparseable `activatedAt` grants no grace, and without one the result is
+ *   exactly what it always was.
  *
  * @param {{
  *   signature?: import("./routine-manifest.mjs").RoutineSignature,
  *   periodDays: number,
  *   observedArtifacts?: Array<{type?: string, title?: string, labels?: string[], observedAt?: string}>,
  *   now: string|number|Date,
+ *   activatedAt?: string,
  * }} args
- * @returns {{status: "alive"|"late"|"dark"|"unverifiable", matched: object|null}}
+ * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending", matched: object|null, reason?: string}}
  */
-export function classifyRoutineLiveness({ signature, periodDays, observedArtifacts = [], now }) {
+export function classifyRoutineLiveness({
+  signature,
+  periodDays,
+  observedArtifacts = [],
+  now,
+  activatedAt,
+}) {
   if (!signature) {
     return { status: "unverifiable", matched: null };
   }
@@ -91,6 +104,14 @@ export function classifyRoutineLiveness({ signature, periodDays, observedArtifac
 
   const mostRecent = matching[0];
   if (!mostRecent) {
+    const activatedMs = activatedAt === undefined ? NaN : new Date(activatedAt).getTime();
+    if (Number.isFinite(activatedMs) && nowMs - activatedMs < periodMs * 2) {
+      return {
+        status: "pending",
+        matched: null,
+        reason: `activated ${activatedAt}, younger than 2 x ${period}-day period — no run expected yet`,
+      };
+    }
     return { status: "dark", matched: null };
   }
   if (mostRecent.ageMs <= periodMs) {
@@ -263,8 +284,12 @@ export function runRoutineLivenessCheck({
       periodDays: entry.periodDays,
       observedArtifacts,
       now,
+      activatedAt: entry.activatedAt,
     });
 
+    if (result.status === "pending") {
+      log(`${entry.name} is pending: ${result.reason}`);
+    }
     if (result.status !== "dark" && result.status !== "unverifiable") {
       return { routine: entry.name, status: result.status };
     }

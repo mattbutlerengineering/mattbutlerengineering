@@ -814,3 +814,92 @@ describe("PR-title signatures confirmed against a live routine run", () => {
     expect(prompt).toContain("(mbe-daily-issue #<ISSUE>)");
   });
 });
+
+describe("classifyRoutineLiveness — activatedAt grace (ui-quality-loop)", () => {
+  const now = "2026-10-02T08:10:00Z";
+  const DAILY = {
+    type: "pr-title",
+    pattern: String.raw`chore\(x\): ledger \d{4}-\d{2}-\d{2}`,
+    searchTerm: "x",
+  };
+  const ago = (days) => new Date(Date.parse(now) - days * 24 * 60 * 60 * 1000).toISOString();
+
+  it("is pending when activated 1 day ago with periodDays 1 and no artifact matched", () => {
+    const result = classifyRoutineLiveness({
+      signature: DAILY,
+      periodDays: 1,
+      observedArtifacts: [],
+      now,
+      activatedAt: ago(1),
+    });
+    expect(result.status).toBe("pending");
+    expect(result.matched).toBeNull();
+    expect(result.reason).toContain(ago(1));
+  });
+
+  it("is dark once activatedAt is 3 days old with periodDays 1", () => {
+    const result = classifyRoutineLiveness({
+      signature: DAILY,
+      periodDays: 1,
+      observedArtifacts: [],
+      now,
+      activatedAt: ago(3),
+    });
+    expect(result).toEqual({ status: "dark", matched: null });
+  });
+
+  it("is alive on a matching artifact within the window, activatedAt regardless", () => {
+    const artifact = { type: "pr", title: "chore(x): ledger 2026-10-02", observedAt: ago(0.1) };
+    const result = classifyRoutineLiveness({
+      signature: DAILY,
+      periodDays: 1,
+      observedArtifacts: [artifact],
+      now,
+      activatedAt: ago(1),
+    });
+    expect(result).toEqual({ status: "alive", matched: artifact });
+  });
+
+  it("without activatedAt the no-artifact case is dark, exactly as before", () => {
+    expect(
+      classifyRoutineLiveness({ signature: DAILY, periodDays: 1, observedArtifacts: [], now })
+    ).toEqual({ status: "dark", matched: null });
+  });
+
+  it("an unparseable activatedAt grants no grace", () => {
+    const result = classifyRoutineLiveness({
+      signature: DAILY,
+      periodDays: 1,
+      observedArtifacts: [],
+      now,
+      activatedAt: "not-a-date",
+    });
+    expect(result.status).toBe("dark");
+  });
+
+  it("runRoutineLivenessCheck files no issue for a pending routine and logs why", () => {
+    const created = [];
+    const logs = [];
+    const results = runRoutineLivenessCheck({
+      manifest: [
+        {
+          name: "mbe-ui-quality",
+          triggerId: "trig_x",
+          periodDays: 1,
+          signature: DAILY,
+          activatedAt: ago(1),
+        },
+      ],
+      fetchObservedArtifacts: () => [],
+      now,
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+      log: (m) => logs.push(m),
+    });
+    expect(created).toEqual([]);
+    expect(results).toEqual([{ routine: "mbe-ui-quality", status: "pending" }]);
+    expect(logs.join("\n")).toMatch(/mbe-ui-quality.*pending/);
+  });
+});
