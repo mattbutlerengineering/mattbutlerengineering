@@ -310,8 +310,11 @@ to a single worker without worktree isolation in cloud and keep the local
      that the daily free telemetry scorecard (see `optimize-implement-queue`
      below) can't see. `--adapter claude-cli` (#5670) runs the suite through
      the `claude` CLI on the sandbox's subscription login; the default adapter
-     is the Claude SDK and needs `ANTHROPIC_API_KEY`, so a bare `agent eval`
-     can never score here. Files a `ready` issue only when the command exits
+     is the Claude SDK and needs `ANTHROPIC_API_KEY`, so an invocation without
+     that flag can never score here. A task that ran and then failed (a
+     `sessionErrors` list on its row, or `testsPass`/`typecheckPass` false) is a
+     scored failure row under exit **0**, not a non-run, and is committed like
+     any other row. Files a `ready` issue only when the command exits
      **1** (a genuine run whose pass rate regressed past `--threshold`). This
      is the only _scheduled_ eval — the daily optimizer fires eval only on a
      flagged regression, never on every run; on the subscription it consumes
@@ -322,9 +325,12 @@ to a single worker without worktree isolation in cloud and keep the local
     credentials, and no `ANTHROPIC_API_KEY` exists there, still. That is why
     the checkpoint runs on the `claude` CLI's subscription login via
     `--adapter claude-cli` (#5670) instead of the SDK. Under that adapter an
-    exit **2** (`suiteDidNotRun` — 0 turns / $0 cost) is a surfaced
-    **failure**, never an expected no-op: the `claude` binary is missing from
-    PATH, has no login, or refused to start. The prompt files it under the
+    exit **2** (`suiteDidNotRun` — no task produced any usage: 0 turns / $0
+    cost) is a surfaced **failure**, never an expected no-op. Its stderr
+    diagnostic claims only what it can distinguish: it either quotes each
+    session's own error line or, when no session reported one, names the
+    `claude` binary being absent from PATH or lacking a subscription login as
+    the most likely cause. The prompt files it under the
     deterministic title
     `ci-fix: weekly eval checkpoint did not run under claude-cli` with labels
     `ci-fix` + `ready-for-human` (not `ready` — the fix is environmental and
