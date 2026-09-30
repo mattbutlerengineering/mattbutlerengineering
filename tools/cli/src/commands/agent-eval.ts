@@ -9,6 +9,7 @@ import {
   runEvalSuite,
   loadSuite,
   calibrate,
+  removeWorktree,
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
@@ -19,6 +20,7 @@ import {
   type AdapterType,
   type CostBasis,
   type SessionConfig,
+  type SessionResult,
   type Task,
   type TaskRunner,
   type TaskRunResult,
@@ -287,7 +289,8 @@ function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: 
 
 /**
  * Builds the live runner: run the agent (via the resolved adapter) on a
- * task, then verify its branch.
+ * task, then verify its change inside the session's kept worktree
+ * ({@link verifyInWorktree}).
  *
  * Cost-absent CLI adapters (#4199, option (a)): Gemini's `CliUsage` never
  * carries a cost figure (see `parseGeminiUsage` in cli-usage-parser.ts —
@@ -342,40 +345,137 @@ function makeAgentTaskRunner(
 
     const checks: DeterministicChecks = {
       withinBudget: isWithinBudget(session, task.budget, costBasis),
-      testsPass: task.rubric.testsMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-        : true,
-      typecheckPass: task.rubric.typecheckMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-        : true,
-      lintPass: task.rubric.lintMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-        : true,
+      ...(await verifyInWorktree(task, session)),
     };
+
+    await releaseWorktree(repoPath, task.id, session);
 
     return { task, session, checks };
   };
 }
 
+type FixtureScript = "test" | "typecheck" | "lint";
+
+/** A cold monorepo install can exceed the 60 s `syncLockfileIfNeeded` uses. */
+const INSTALL_TIMEOUT_MS = 300_000;
 /**
- * Runs a pnpm script for the fixture's package on the agent's produced branch.
- * Conservative: any failure (including an inability to run) scores as `false`.
+ * Per script, through turbo: the first one also builds the fixture's
+ * workspace deps (`^build` + `db:generate`, ~68 s measured cold for
+ * services/reservations); later ones hit the worktree's own turbo cache.
  */
-async function verify(
-  repoPath: string,
-  branch: string,
-  fixtureRef: string,
-  script: "test" | "typecheck" | "lint"
+const SCRIPT_TIMEOUT_MS = 600_000;
+const OUTPUT_TAIL_LINES = 20;
+
+/**
+ * Eval fixture verifier: runs the rubric's fixture scripts inside the
+ * session's kept worktree — never a `git checkout` in the caller's repo,
+ * which git refuses while the worktree holds the branch and which would
+ * switch the caller's own checkout if it didn't.
+ *
+ * One `pnpm install --frozen-lockfile` per task, then each required script
+ * through turbo so the task graph's `^build` builds the workspace deps a
+ * fresh worktree has no `dist/` for (G1). Conservative: any failure —
+ * including an inability to run, or no worktree at all — scores `false`,
+ * never throws, and says why on stderr. The row does not distinguish a
+ * harness-caused `false` from an agent-caused one.
+ */
+async function verifyInWorktree(
+  task: Task,
+  session: SessionResult
+): Promise<Omit<DeterministicChecks, "withinBudget">> {
+  const { rubric, fixtureRef } = task;
+  const required: Readonly<Record<FixtureScript, boolean>> = {
+    test: rubric.testsMustPass,
+    typecheck: rubric.typecheckMustPass,
+    lint: rubric.lintMustPass,
+  };
+  const anyRequired = Object.values(required).some(Boolean);
+  const worktreePath = session.worktreePath;
+
+  if (anyRequired && worktreePath === undefined) {
+    const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";
+    console.error(
+      `${task.id}: no worktree to verify in (session ${session.status}; errors: ${errors}) — every rubric check scored false`
+    );
+  }
+
+  const installed =
+    anyRequired && worktreePath !== undefined
+      ? await runStep(
+          task.id,
+          "install",
+          worktreePath,
+          ["install", "--frozen-lockfile"],
+          INSTALL_TIMEOUT_MS
+        )
+      : false;
+
+  const check = async (script: FixtureScript): Promise<boolean> => {
+    if (!required[script]) return true;
+    if (!installed || worktreePath === undefined) return false;
+    return runStep(
+      task.id,
+      script,
+      worktreePath,
+      ["turbo", "run", script, `--filter=./${fixtureRef}`, "--output-logs=errors-only"],
+      SCRIPT_TIMEOUT_MS
+    );
+  };
+
+  return {
+    testsPass: await check("test"),
+    typecheckPass: await check("typecheck"),
+    lintPass: await check("lint"),
+  };
+}
+
+/** Runs one `pnpm` step in the worktree; `false` (plus a stderr line) on any failure. */
+async function runStep(
+  taskId: string,
+  step: string,
+  worktreePath: string,
+  args: readonly string[],
+  timeout: number
 ): Promise<boolean> {
   try {
-    await execFileAsync("git", ["-C", repoPath, "checkout", branch], { timeout: 30_000 });
-    await execFileAsync("pnpm", ["--filter", `./${fixtureRef}`, script], {
-      cwd: repoPath,
-      timeout: 300_000,
-    });
+    await execFileAsync("pnpm", [...args], { cwd: worktreePath, timeout });
     return true;
-  } catch {
+  } catch (err) {
+    console.error(`${taskId}: ${step} failed in ${worktreePath} — ${outputTail(err)}`);
     return false;
+  }
+}
+
+function outputTail(err: unknown): string {
+  const e = err as { stdout?: unknown; stderr?: unknown; message?: unknown };
+  const output = [e.stdout, e.stderr]
+    .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+    .join("\n");
+  const text = output !== "" ? output : String(e.message ?? err);
+  return text.trimEnd().split("\n").slice(-OUTPUT_TAIL_LINES).join("\n");
+}
+
+/**
+ * A succeeded session's worktree is removed (best-effort — the `agent/*`
+ * branch ref is kept, so `git show` still has the diff); any other session's
+ * is kept for inspection and its path printed.
+ */
+async function releaseWorktree(
+  repoPath: string,
+  taskId: string,
+  session: SessionResult
+): Promise<void> {
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return;
+  if (session.status !== "succeeded") {
+    console.error(`${taskId}: worktree kept for inspection at ${worktreePath}`);
+    return;
+  }
+  try {
+    // Bounded at 60 s by agent-core's own git timeout.
+    await removeWorktree(repoPath, worktreePath);
+  } catch {
+    // Best-effort: a leftover worktree is litter, not a scoring error.
   }
 }
 

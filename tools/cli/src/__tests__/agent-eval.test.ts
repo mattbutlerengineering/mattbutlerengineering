@@ -8,6 +8,10 @@ const mockAppendFileSync = vi.fn();
 const mockMkdirSync = vi.fn();
 const mockExistsSync = vi.fn();
 const mockReadFileSync = vi.fn();
+const mockRemoveWorktree = vi.fn();
+// Every execFile call the verifier makes: (cmd, args, opts) → an Error to
+// reject with, or null to resolve. Reset to "always resolve" in beforeEach.
+const mockExecFile = vi.fn<(cmd: string, args: string[], opts: unknown) => Error | null>();
 
 // Static import keeps the heavy module load (real @mbe/agent-core via
 // importOriginal) in file setup, outside the per-test timeout window.
@@ -31,19 +35,23 @@ vi.mock("@mbe/agent-core", async (orig) => {
       return { name: String(a[0]), runSession: () => {} };
     },
     runAgentSession: (...a: unknown[]) => mockRunAgentSession(...a),
+    removeWorktree: (...a: unknown[]) => mockRemoveWorktree(...a),
   };
 });
 
-// verify() shells out via promisify(execFile); make it resolve (checks pass).
+// The fixture verifier shells out via promisify(execFile); route every call
+// through mockExecFile (default: resolve, so checks pass).
 vi.mock("node:child_process", () => ({
   execFile: (
-    _cmd: string,
-    _args: string[],
+    cmd: string,
+    args: string[],
     optsOrCb: unknown,
     cb?: (err: unknown, res: { stdout: string; stderr: string }) => void
   ) => {
+    const opts = typeof optsOrCb === "function" ? undefined : optsOrCb;
     const callback = typeof optsOrCb === "function" ? optsOrCb : cb;
-    (callback as (e: unknown, r: { stdout: string; stderr: string }) => void)(null, {
+    const err = mockExecFile(cmd, args, opts);
+    (callback as (e: unknown, r: { stdout: string; stderr: string }) => void)(err ?? null, {
       stdout: "",
       stderr: "",
     });
@@ -70,6 +78,7 @@ function fakeSession(overrides: Record<string, unknown> = {}) {
     resultText: "",
     errors: [],
     evaluation: { passed: true, confidence: 0.9, reasoning: "ok" },
+    worktreePath: "/repo/.agent-worktrees/t1",
     ...overrides,
   };
 }
@@ -93,6 +102,8 @@ describe("agent eval command", () => {
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.exitCode = 0;
     mockExistsSync.mockReturnValue(true);
+    mockExecFile.mockImplementation(() => null);
+    mockRemoveWorktree.mockResolvedValue(undefined);
   });
 
   it("runs the suite and prints a report", async () => {
@@ -439,6 +450,147 @@ describe("agent eval command", () => {
 
       const out = logSpy.mock.calls.flat().join("\n");
       expect(out).not.toContain("Cost basis:");
+    });
+  });
+
+  describe("eval fixture verifier (runs the fixture scripts inside the kept eval worktree)", () => {
+    const WT = "/repo/.agent-worktrees/t1";
+    const turbo = (script: string) => [
+      "turbo",
+      "run",
+      script,
+      "--filter=./services/reservations",
+      "--output-logs=errors-only",
+    ];
+    const pnpmCalls = () =>
+      mockExecFile.mock.calls.filter(([cmd]) => cmd === "pnpm") as [
+        string,
+        string[],
+        { cwd?: string; timeout?: number },
+      ][];
+    async function runJson(): Promise<{ deterministic: Record<string, boolean> }> {
+      await agentEvalCommand.parseAsync(["--json"], { from: "user" });
+      const parsed = JSON.parse(logSpy.mock.calls.flat().join("\n"));
+      return parsed.tasks[0];
+    }
+    function failWith(match: (args: string[]) => boolean, text: string) {
+      mockExecFile.mockImplementation((_cmd, args) => {
+        if (!match(args)) return null;
+        return Object.assign(new Error("Command failed"), { stdout: text, stderr: "" });
+      });
+    }
+
+    it("(a) never checks out the agent branch in the caller's repo", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockExecFile.mock.calls.some(([, args]) => args.includes("checkout"))).toBe(false);
+    });
+
+    it("(b) installs once per task in the worktree (300 s), then runs each script through turbo there (600 s)", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const calls = pnpmCalls();
+      expect(calls.map(([, args]) => args)).toEqual([
+        ["install", "--frozen-lockfile"],
+        turbo("test"),
+        turbo("typecheck"),
+      ]);
+      expect(calls[0]?.[2]).toMatchObject({ cwd: WT, timeout: 300_000 });
+      expect(calls[1]?.[2]).toMatchObject({ cwd: WT, timeout: 600_000 });
+      expect(calls[2]?.[2]).toMatchObject({ cwd: WT, timeout: 600_000 });
+      expect(calls.some(([, args]) => args[0] === "--filter")).toBe(false);
+    });
+
+    it("(b) installs once per task, each in its own worktree", async () => {
+      mockLoadSuite.mockResolvedValue([task, { ...task, id: "t2" }]);
+      mockRunAgentSession
+        .mockResolvedValueOnce(fakeSession())
+        .mockResolvedValueOnce(fakeSession({ worktreePath: "/repo/.agent-worktrees/t2" }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const installs = pnpmCalls().filter(([, args]) => args[0] === "install");
+      expect(installs.map(([, , opts]) => opts.cwd)).toEqual([WT, "/repo/.agent-worktrees/t2"]);
+    });
+
+    it("(c) an install failure scores every script false, does not throw, and names the step", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+      failWith((args) => args[0] === "install", "ERR_PNPM_OUTDATED_LOCKFILE");
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(false);
+      expect(pnpmCalls().filter(([, args]) => args[0] === "turbo")).toHaveLength(0);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(`t1: install failed in ${WT} — `);
+      expect(errOut).toContain("ERR_PNPM_OUTDATED_LOCKFILE");
+    });
+
+    it("(c) one failing script scores only that check false and prints its last 20 lines", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+      const lines = Array.from({ length: 25 }, (_, i) => `line ${i + 1}`).join("\n");
+      failWith((args) => args[2] === "test", lines);
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(true);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(`t1: test failed in ${WT} — `);
+      expect(errOut).toContain("line 25");
+      expect(errOut).toContain("line 6");
+      expect(errOut).not.toMatch(/line 5\b/);
+    });
+
+    it("(d) no worktreePath scores every rubric check false without running pnpm, in one stderr line", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({ worktreePath: undefined, status: "failed", errors: ["worktree add failed"] })
+      );
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(false);
+      expect(mockExecFile).not.toHaveBeenCalled();
+      const t1Lines = errSpy.mock.calls.flat().filter((l: unknown) => String(l).startsWith("t1:"));
+      expect(t1Lines).toHaveLength(1);
+      expect(t1Lines[0]).toContain("failed");
+      expect(t1Lines[0]).toContain("worktree add failed");
+      expect(mockRemoveWorktree).not.toHaveBeenCalled();
+    });
+
+    it("(e) removes the worktree of a succeeded session, swallowing a removal failure", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+      mockRemoveWorktree.mockRejectedValue(new Error("worktree locked"));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockRemoveWorktree).toHaveBeenCalledOnce();
+      expect(mockRemoveWorktree).toHaveBeenCalledWith(process.cwd(), WT);
+      expect(process.exitCode).toBe(0);
+      expect(errSpy.mock.calls.flat().join("\n")).not.toContain("worktree kept for inspection");
+    });
+
+    it("(e) keeps the worktree of a failed session and prints its path", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "failed", numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockRemoveWorktree).not.toHaveBeenCalled();
+      const all = [...logSpy.mock.calls, ...errSpy.mock.calls].flat().join("\n");
+      expect(all).toContain(`t1: worktree kept for inspection at ${WT}`);
     });
   });
 
