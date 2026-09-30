@@ -303,3 +303,27 @@ mattbutlerengineering/.claude/worktrees/agent-eval-claude-cli-caller`,
    the removal (the stage subagent was denied it by the harness). The test's
    glob excluding `.agent-worktrees/**` is a logged adjacent smell, out of
    scope.
+
+## Decisions added after Verify (Matt, 2026-09-29)
+
+6. **Verify criterion 1 FAILED and the fix is IN SCOPE for this run.** The one
+   authorized claude-cli task ran (66 s, 15 assistant turns on
+   `claude-sonnet-5`, ~$0.60 API-equivalent, a test left staged in the eval
+   worktree), then the harness's `commitChanges()` (`cli-adapter-base.ts`)
+   ran `git commit` in the fresh `.agent-worktrees/` checkout; husky's
+   pre-commit `check-adr --staged` needs `@mbe/agent-core/dist`, absent in a
+   fresh worktree → `ERR_MODULE_NOT_FOUND` → commit failed → the dispatch
+   threw before usage was recorded (`run-cli-adapter-session.ts` has no outer
+   catch) → `eval-harness.ts:failedScore()` hard-coded 0 turns / $0 →
+   `taskDidNotRun` → `suiteDidNotRun` → exit 2 with a `noRunMessage` whose
+   stated cause (binary missing / no login) is false. Pre-existing and
+   adapter-independent; the Friday sandbox would hit the identical path.
+   Matt chose **"Fix in this run + one more authorized spend"**: route back
+   to Architect to amend the design, then Decompose → Implement → Verify
+   again. **A SECOND real run of `--task example-bugfix --adapter claude-cli`
+   is authorized** (and only that; no `--suite cost`, no third attempt without
+   asking). Rejected: ship as-is (weekly misdiagnosed `ci-fix` issue), fix
+   without re-spend (criterion 1 stays unverified), stop.
+7. Also carried into the amendment: Verify's F2 — the drift guard is
+   line-level `includes`, so stripping the flag while keeping a prose mention
+   on the same line stays green; tighten to the exact invocation string.
