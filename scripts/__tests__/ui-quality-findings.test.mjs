@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findingKey, main } from "../ui-quality/findings.mjs";
+import { ESCALATION_FILE, findingKey, main } from "../ui-quality/findings.mjs";
+import { ESCALATION_TITLE, titleFor } from "../ui-quality/findings-plan.mjs";
 import { hashTells } from "../ui-quality/rubric.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -55,6 +56,18 @@ const record = (issue, extra = {}) => ({
   ...extra,
 });
 
+/**
+ * One `--labelled-issues` entry, as routine step 6b writes it from
+ * `search_issues`. A bare number in a test's list means an issue whose title
+ * is no finding title — the plan can never adopt it.
+ */
+const labelledIssue = (number, title = "an unrelated ui-quality issue", state = "open") => ({
+  number,
+  title,
+  state,
+});
+const toLabelled = (list) => list.map((i) => (typeof i === "number" ? labelledIssue(i) : i));
+
 /** `labelled`: the `--labelled-issues` value — `null` omits the flag, a string is a raw path. */
 function plan(files, states = {}, extra = [], labelled = []) {
   const out = [];
@@ -64,7 +77,7 @@ function plan(files, states = {}, extra = [], labelled = []) {
   args.push("--issue-states", writeJson("in/states.json", states), ...extra, "--root", root);
   if (typeof labelled === "string") args.push("--labelled-issues", labelled);
   else if (labelled !== null)
-    args.push("--labelled-issues", writeJson("in/labelled.json", labelled));
+    args.push("--labelled-issues", writeJson("in/labelled.json", toLabelled(labelled)));
   const code = main(args, { stdout: (s) => out.push(s), stderr: (s) => err.push(s) });
   const planPath = join(root, PLAN);
   const result = existsSync(planPath) ? JSON.parse(readFileSync(planPath, "utf8")) : null;
@@ -220,6 +233,139 @@ describe("findings.mjs plan — --labelled-issues completeness check", () => {
     ]);
     const empty = plan([[DEAD]], { 101: "open", 300: "open" }, [], []);
     expect(empty.plan).toEqual(withFlag.plan);
+  });
+});
+
+// Re-review N3: an unknown `ui-quality` issue used to refuse filing on every
+// fire forever, with the only signal in an unmerged log. It is now adopted
+// when its title is a finding title, and otherwise escalated once.
+describe("findings.mjs plan — unknown labelled issues: adopt or escalate once", () => {
+  const ESCALATION = join(".ui-quality", "findings.escalation.json");
+  const escalationOf = () =>
+    existsSync(join(root, ESCALATION))
+      ? JSON.parse(readFileSync(join(root, ESCALATION), "utf8"))
+      : null;
+  const DEAD_KEY = findingKey(DEAD, 1);
+
+  it("the escalation file path is the one exported for the routine", () => {
+    expect(ESCALATION_FILE).toBe("findings.escalation.json");
+  });
+
+  it("a bare-number list is refused as bad input — the plan needs titles and states", () => {
+    const raw = writeJson("in/raw.json", [101]);
+    const { code, plan: p, err } = plan([[DEAD]], {}, [], raw);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("--labelled-issues");
+  });
+
+  it("adopts an unknown issue titled as this fire's finding: skip under its key, no refile", () => {
+    const { code, plan: p } = plan([[DEAD]], {}, [], [labelledIssue(101, titleFor(DEAD, 1))]);
+    expect(code).toBe(0);
+    expect(p.actions).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, action: "skip", issue: 101 }),
+    ]);
+    expect(byAction(p, "create")).toEqual([]);
+  });
+
+  it("a closed adopted issue whose finding recurs is reopened, like any ledgered one", () => {
+    const { code, plan: p } = plan(
+      [[DEAD]],
+      {},
+      [],
+      [labelledIssue(101, titleFor(DEAD, 1), "closed")]
+    );
+    expect(code).toBe(0);
+    expect(p.actions).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, action: "reopen", issue: 101 }),
+    ]);
+  });
+
+  it("adopts an issue whose finding is absent this fire as an `adopt` action that record writes", () => {
+    const aggregateTitle = `ui-quality: marketing — bugs/dead-in-app-link on multiple routes (rubric v1)`;
+    const { code, plan: p } = plan(
+      [[AXE]],
+      {},
+      [],
+      [labelledIssue(101, titleFor(DEAD, 1)), labelledIssue(300, aggregateTitle)]
+    );
+    expect(code).toBe(0);
+    const adopted = byAction(p, "adopt");
+    expect(adopted).toEqual([
+      expect.objectContaining({ key: DEAD_KEY, issue: 101, carrier: "issue", severity: "P1" }),
+      expect.objectContaining({
+        key: findingKey({ ...DEAD, route: "(multiple)" }, 1),
+        issue: 300,
+        carrier: "issue",
+        severity: "P1",
+      }),
+    ]);
+    expect(byAction(p, "create")).toEqual([expect.objectContaining({ key: findingKey(AXE, 1) })]);
+
+    const executed = writeJson("in/executed.json", {
+      ...p,
+      actions: p.actions.map((a) => (a.action === "create" ? { ...a, issue: 555 } : a)),
+    });
+    expect(main(["record", "--executed", executed, "--root", root], { stderr: () => {} })).toBe(0);
+    const ledger = JSON.parse(readFileSync(join(root, LEDGER), "utf8"));
+    expect(ledger[DEAD_KEY]).toMatchObject({ issue: 101, carrier: "issue" });
+    // Next fire, the adopted issues are known: nothing unknown, nothing escalated.
+    const next = plan([[AXE]], { 101: "open", 300: "open", 555: "open" }, [], [101, 300, 555]);
+    expect(next.code).toBe(0);
+    expect(byAction(next.plan, "adopt")).toEqual([]);
+  });
+
+  it("escalates an unadoptable issue once: exit 2, no plan, one needs-review escalation naming it", () => {
+    const { code, plan: p, err } = plan([[DEAD]], {}, [], [777]);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("#777");
+    const escalation = escalationOf();
+    expect(escalation).toMatchObject({
+      action: "escalate",
+      title: ESCALATION_TITLE,
+      labels: ["ui-quality", "needs-review"],
+      unknown: [777],
+    });
+    expect(escalation.body).toContain("#777");
+    expect(escalation.body).toMatch(/remove the `ui-quality` label/);
+  });
+
+  it("while an escalation issue is open it is not re-created, and filing still refuses", () => {
+    plan([[DEAD]], {}, [], [777]);
+    const {
+      code,
+      plan: p,
+      err,
+    } = plan([[DEAD]], {}, [], [777, labelledIssue(900, ESCALATION_TITLE, "open")]);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(escalationOf()).toBeNull();
+    expect(err).toContain("#900");
+    expect(err).not.toMatch(/#900 .*does not reference|, #900/);
+  });
+
+  it("a closed escalation issue does not suppress a new one", () => {
+    const { code } = plan([[DEAD]], {}, [], [777, labelledIssue(900, ESCALATION_TITLE, "closed")]);
+    expect(code).toBe(2);
+    expect(escalationOf()).toMatchObject({ unknown: [777] });
+  });
+
+  it("with one adoptable and one unadoptable issue it still refuses, escalating only the second", () => {
+    const { code, plan: p } = plan([[DEAD]], {}, [], [labelledIssue(101, titleFor(DEAD, 1)), 777]);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(escalationOf().unknown).toEqual([777]);
+  });
+
+  it("never adopts a stale-version title, an unknown tell, or a key already carried by another issue", () => {
+    writeJson(LEDGER, { [DEAD_KEY]: record(101, { severity: "P1" }) });
+    const stale = labelledIssue(701, titleFor(AXE, 0));
+    const unknownTell = labelledIssue(702, "ui-quality: marketing / — made/up (rubric v1)");
+    const duplicate = labelledIssue(703, titleFor(DEAD, 1));
+    const { code } = plan([[DEAD]], { 101: "open" }, [], [101, stale, unknownTell, duplicate]);
+    expect(code).toBe(2);
+    expect(escalationOf().unknown).toEqual([701, 702, 703]);
   });
 });
 

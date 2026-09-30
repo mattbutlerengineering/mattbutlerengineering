@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { STATE_BRANCH, createDeps, main as stateMain } from "../ui-quality/state.mjs";
 import { findingKey, main as findingsMain } from "../ui-quality/findings.mjs";
+import { titleFor } from "../ui-quality/findings-plan.mjs";
 import { main as rateMain } from "../ui-quality/rate.mjs";
 import { parseLedger } from "../ui-quality/ledger.mjs";
 import {
@@ -145,6 +146,9 @@ function mainMovesOn(fixture) {
   commitAndPush(dir, "feat(marketing): brand-new page", "main");
 }
 
+/** Fire 1's filed issue as routine step 6b's `search_issues` reports it. */
+const FILED_101 = { number: 101, title: titleFor(DEAD, 1), state: "open" };
+
 function planIn(dir, labelled) {
   writeRel(dir, ".ui-quality/in/mechanical.json", JSON.stringify([DEAD]));
   writeRel(dir, ".ui-quality/in/states.json", JSON.stringify({ 101: "open" }));
@@ -208,7 +212,7 @@ describe("two-fire simulation — fire 2 reads fire 1's unmerged state", () => {
   });
 
   it("findings plan with {101: open} skips the filed key — no refile", () => {
-    const { code, plan } = planIn(dir, [101]);
+    const { code, plan } = planIn(dir, [FILED_101]);
     expect(code).toBe(0);
     expect(plan.actions).toEqual([
       expect.objectContaining({ key: fire1.key, action: "skip", issue: 101 }),
@@ -255,8 +259,19 @@ describe("two-fire simulation — negative: the unmerged branch is deleted", () 
     expect(JSON.parse(readRel(dir, "metrics/ui-quality-findings.json"))).toEqual({});
   });
 
-  it("findings plan --labelled-issues [101] exits 2, names #101 and plans nothing", () => {
-    const { code, plan, err } = planIn(dir, [101]);
+  // Re-review N3: #101 carries its finding's title, so the lost state
+  // self-heals — adopted under its key and skipped, never refiled.
+  it("findings plan adopts the filed #101 by its title and does not refile it", () => {
+    const { code, plan, err } = planIn(dir, [FILED_101]);
+    expect(code).toBe(0);
+    expect(err).toContain("adopted #101");
+    expect(plan.actions).toEqual([
+      expect.objectContaining({ key: findingKey(DEAD, 1), action: "skip", issue: 101 }),
+    ]);
+  });
+
+  it("an unknown #101 whose title is no finding title exits 2, names it and plans nothing", () => {
+    const { code, plan, err } = planIn(dir, [{ ...FILED_101, title: "a hand-labelled issue" }]);
     expect(code).toBe(2);
     expect(err).toContain("#101");
     expect(plan).toBeNull();

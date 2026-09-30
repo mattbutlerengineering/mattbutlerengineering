@@ -15,11 +15,17 @@
  * Subcommands:
  *   plan  --findings <json> [--findings <json>…] --issue-states <json>
  *         --labelled-issues <json> [--calibration-status pass|failed|stale]
- *         → .ui-quality/findings.plan.json; exit 2 (nothing written) on an
+ *         → .ui-quality/findings.plan.json; exit 2 (no plan written) on an
  *         unknown tell, while an open key predates the rubric's version, or
- *         when --labelled-issues (every `ui-quality`-labelled issue number, a
- *         JSON array) is absent, unreadable, or names a number the findings
- *         ledger does not reference — the fire read incomplete state.
+ *         when --labelled-issues (every `ui-quality`-labelled issue as
+ *         `{ number, title, state }`, a JSON array) is absent or unreadable,
+ *         or names an issue the findings ledger does not reference whose
+ *         title is no current finding title — the fire read incomplete
+ *         state. An unknown issue whose title IS a current finding title is
+ *         adopted under its key (an `adopt` action `record` writes). A
+ *         blocked plan writes .ui-quality/findings.escalation.json — one
+ *         `needs-review` issue to open — unless an open escalation issue is
+ *         already among the labelled issues.
  *         No --calibration-status is `stale`: agent-built findings drop.
  *   record  --executed <json> [--now <iso>] — the executed plan (every create
  *           given its issue number, optional `fix_pr: { key, pr }`, optional
@@ -34,7 +40,7 @@
  * Usage: node scripts/ui-quality/findings.mjs <plan|record|migrate|seeds> [flags] [--root <dir>]
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { read as readMetric, write as writeMetric } from "../metrics-store.mjs";
@@ -42,7 +48,7 @@ import { applyExecuted, migrateLedger, renderSeeds } from "./findings-ledger.mjs
 import {
   CALIBRATION_STATUSES,
   planFindings,
-  unknownLabelledIssues,
+  reconcileLabelled,
   unmigratedKeys,
 } from "./findings-plan.mjs";
 import { WORK_DIR } from "./ledger.mjs";
@@ -53,6 +59,8 @@ export { findingKey, parseKey } from "./findings-plan.mjs";
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const FINDINGS_METRIC = "ui-quality-findings";
 export const PLAN_FILE = "findings.plan.json";
+/** Written (under WORK_DIR) only by a blocked `plan` that needs an escalation issue opened. */
+export const ESCALATION_FILE = "findings.escalation.json";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -86,7 +94,10 @@ function writeWork(root, file, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
 }
 
-/** `--labelled-issues`: a JSON array of positive issue numbers; anything else throws (exit 2). */
+/**
+ * `--labelled-issues`: a JSON array of `{ number, title, state }` (routine
+ * step 6b's `search_issues` result, reduced); anything else throws (exit 2).
+ */
 function readLabelledIssues(file) {
   if (!file) {
     throw new Error(
@@ -99,13 +110,24 @@ function readLabelledIssues(file) {
   } catch (err) {
     throw new Error(`--labelled-issues ${file} is unreadable: ${err.message}`, { cause: err });
   }
-  if (!Array.isArray(value) || !value.every((n) => Number.isInteger(n) && n > 0)) {
-    throw new Error(`--labelled-issues ${file} is not a JSON array of issue numbers`);
+  const isIssue = (i) =>
+    Number.isInteger(i?.number) &&
+    i.number > 0 &&
+    typeof i.title === "string" &&
+    typeof i.state === "string";
+  if (!Array.isArray(value) || !value.every(isIssue)) {
+    throw new Error(
+      `--labelled-issues ${file} is not a JSON array of { number, title, state } issues`
+    );
   }
   return value;
 }
 
 function plan(ctx, argv) {
+  // A refused plan must never leave an earlier run's plan or escalation behind.
+  for (const file of [PLAN_FILE, ESCALATION_FILE]) {
+    rmSync(join(ctx.root, WORK_DIR, file), { force: true });
+  }
   const files = flagValues(argv, "--findings");
   const statesFile = flagValue(argv, "--issue-states");
   if (files.length === 0 || !statesFile) {
@@ -114,13 +136,31 @@ function plan(ctx, argv) {
   const labelled = readLabelledIssues(flagValue(argv, "--labelled-issues"));
   const rubric = loadRubric(ctx.root);
   const ledger = readLedger(ctx.root);
-  const unknown = unknownLabelledIssues(ledger, labelled);
-  if (unknown.length > 0) {
+  const reconciled = reconcileLabelled(ledger, labelled, rubric);
+  if (reconciled.blocked.length > 0) {
     ctx.stderr(
-      `findings.mjs plan: ${unknown.length} ui-quality-labelled issue(s) the findings ledger does not reference — this fire read incomplete state, so it plans nothing: ${unknown.map((n) => `#${n}`).join(", ")}\n`
+      `findings.mjs plan: ${reconciled.blocked.length} ui-quality-labelled issue(s) the findings ledger does not reference and whose title is no current finding title — this fire read incomplete state, so it plans nothing: ${reconciled.blocked.map((n) => `#${n}`).join(", ")}\n`
     );
+    if (reconciled.escalation) {
+      writeWork(ctx.root, ESCALATION_FILE, reconciled.escalation);
+      ctx.stderr(`findings.mjs plan: escalation → ${WORK_DIR}/${ESCALATION_FILE}\n`);
+    } else {
+      ctx.stderr(
+        `findings.mjs plan: open escalation ${reconciled.escalationOpen.map((n) => `#${n}`).join(", ")} already tracks it — none written\n`
+      );
+    }
     return 2;
   }
+  for (const a of reconciled.adopted) {
+    ctx.stderr(`findings.mjs plan: adopted #${a.issue} under ${a.key}\n`);
+  }
+  const adoptedLedger = Object.fromEntries(
+    reconciled.adopted.map((a) => [
+      a.key,
+      { issue: a.issue, carrier: "issue", state: "open", severity: a.severity },
+    ])
+  );
+  const adoptedStates = Object.fromEntries(reconciled.adopted.map((a) => [a.issue, a.state]));
   const blocked = unmigratedKeys(ledger, rubric);
   if (blocked.length > 0) {
     ctx.stderr(
@@ -142,11 +182,12 @@ function plan(ctx, argv) {
   }
   const result = planFindings({
     sources,
-    ledger,
-    states: readJson(statesFile),
+    ledger: { ...ledger, ...adoptedLedger },
+    states: { ...readJson(statesFile), ...adoptedStates },
     rubric,
     calibrationStatus,
     backlogLines: readBacklogLines(ctx.root),
+    adopted: reconciled.adopted,
   });
   if (result.dropped.length > 0) {
     ctx.stderr(

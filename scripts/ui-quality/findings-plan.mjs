@@ -77,6 +77,113 @@ export function unknownLabelledIssues(ledger, labelled) {
   return [...new Set(labelled)].filter((n) => !known.has(n)).sort((a, b) => a - b);
 }
 
+/** The one issue a blocked fire opens, de-duplicated by this exact title. */
+export const ESCALATION_TITLE = "ui-quality: filing blocked by unknown labelled issues";
+const ESCALATION_LABELS = [LABEL.base, "needs-review"];
+
+const FINDING_TITLE = /^ui-quality: (\S+) (\S+) — (\S+) \(rubric v(\d+)\)$/;
+const AGGREGATE_TITLE = /^ui-quality: (\S+) — (\S+) on multiple routes \(rubric v(\d+)\)$/;
+
+/**
+ * The finding key an issue title names — the inverse of `titleFor` /
+ * `aggregateTitle` — or null unless the title is at the rubric's current
+ * version and names a tell the rubric has.
+ *
+ * @returns {{ key: string, severity: string } | null}
+ */
+export function keyFromTitle(title, rubric) {
+  const finding = FINDING_TITLE.exec(title ?? "");
+  const aggregate = finding ? null : AGGREGATE_TITLE.exec(title ?? "");
+  const parts = finding
+    ? { app: finding[1], route: finding[2], tell: finding[3], version: Number(finding[4]) }
+    : aggregate
+      ? {
+          app: aggregate[1],
+          route: AGGREGATE_ROUTE,
+          tell: aggregate[2],
+          version: Number(aggregate[3]),
+        }
+      : null;
+  const tell = parts && tellsById(rubric).get(parts.tell);
+  if (!tell || parts.version !== rubric.rubric_version) return null;
+  return {
+    key: findingKey(parts, parts.version),
+    severity: aggregate ? "P1" : tell.default_severity,
+  };
+}
+
+/**
+ * Reconcile every `ui-quality`-labelled issue with the findings ledger
+ * (re-review N3). An unknown issue whose title names a finding key at the
+ * current rubric version — and that key is not already carried by another
+ * issue — is adopted under that key. Any other unknown issue blocks filing,
+ * and asks for one escalation issue unless an open one already exists.
+ * Escalation issues themselves are never unknown.
+ *
+ * @param {Record<string, object>} ledger
+ * @param {Array<{number: number, title: string, state: string}>} labelled
+ * @param {object} rubric
+ * @returns {{ adopted: Array<{key: string, issue: number, state: string, severity: string}>, blocked: number[], escalationOpen: number[], escalation: object|null }}
+ */
+export function reconcileLabelled(ledger, labelled, rubric) {
+  const isEscalation = (i) => i.title === ESCALATION_TITLE;
+  const unknown = new Set(
+    unknownLabelledIssues(
+      ledger,
+      labelled.filter((i) => !isEscalation(i)).map((i) => i.number)
+    )
+  );
+  const candidates = labelled
+    .filter((i) => unknown.has(i.number) && !isEscalation(i))
+    .sort((a, b) => a.number - b.number);
+  const adopted = [];
+  const blocked = [];
+  for (const issue of candidates) {
+    const parsed = keyFromTitle(issue.title, rubric);
+    const taken =
+      parsed !== null &&
+      (Number.isInteger(ledger[parsed.key]?.issue) || adopted.some((a) => a.key === parsed.key));
+    if (parsed === null || taken) {
+      if (!blocked.includes(issue.number)) blocked.push(issue.number);
+      continue;
+    }
+    adopted.push({
+      key: parsed.key,
+      issue: issue.number,
+      state: String(issue.state).toLowerCase(),
+      severity: parsed.severity,
+    });
+  }
+  const escalationOpen = labelled
+    .filter((i) => isEscalation(i) && String(i.state).toLowerCase() === "open")
+    .map((i) => i.number);
+  const escalation =
+    blocked.length === 0 || escalationOpen.length > 0
+      ? null
+      : {
+          action: "escalate",
+          title: ESCALATION_TITLE,
+          labels: ESCALATION_LABELS,
+          unknown: blocked,
+          body: escalationBody(blocked),
+        };
+  return { adopted, blocked, escalationOpen, escalation };
+}
+
+function escalationBody(blocked) {
+  return [
+    "The daily `mbe-ui-quality` fire has stopped filing findings: these `ui-quality`-labelled issues are not in the findings ledger (`metrics/ui-quality-findings.json` on `ui-quality/ledger`), and their titles are not a current finding title the fire could adopt under its key.",
+    "",
+    ...blocked.map((n) => `- #${n}`),
+    "",
+    "Recovery, per issue:",
+    "- If it is a finding this loop filed, retitle it to its finding title (`ui-quality: <app> <route> — <tell-id> (rubric v<N>)` at the current rubric version); the next fire adopts it under that key.",
+    "- Otherwise remove the `ui-quality` label from it.",
+    "",
+    "Then close this issue. While it is open the fire keeps refusing to file and does not open another; a later block after it is closed opens a new one.",
+  ].join("\n");
+}
+
 export function titleFor(finding, version) {
   return `ui-quality: ${finding.app} ${finding.route} — ${finding.tell} (rubric v${version})`;
 }
@@ -215,6 +322,10 @@ function isFixCandidate(finding, record) {
  * @param {object} input.rubric
  * @param {"pass"|"failed"|"stale"} input.calibrationStatus
  * @param {string[]} [input.backlogLines]   docs/backlog.md, one entry per line
+ * @param {Array<{key: string, issue: number, severity: string}>} [input.adopted]
+ *   issues `reconcileLabelled` adopted — `input.ledger` and `input.states`
+ *   already carry them; a key no finding of this fire names is emitted as an
+ *   `adopt` action so `record` writes it
  * @returns {{ actions: object[], seeds: object[], fix_pr_candidate: string|null, dropped: string[], reports: string[] }}
  */
 export function planFindings({
@@ -224,6 +335,7 @@ export function planFindings({
   rubric,
   calibrationStatus,
   backlogLines = [],
+  adopted = [],
 }) {
   const version = rubric.rubric_version;
   const tells = tellsById(rubric);
@@ -289,8 +401,22 @@ export function planFindings({
   const candidate = actions.find(
     (a) => a.carrier === "issue" && isFixCandidate(findingOf.get(a.key), ledger[a.key])
   );
+  const planned = new Set(actions.map((a) => a.key));
+  const adoptions = [];
+  for (const a of adopted.filter((x) => !planned.has(x.key))) {
+    adoptions.push({
+      key: a.key,
+      action: "adopt",
+      issue: a.issue,
+      carrier: "issue",
+      severity: a.severity,
+    });
+  }
+
   return {
-    actions: actions.map((a) => (a === candidate ? { ...a, fix_pr_candidate: true } : a)),
+    actions: [...actions, ...adoptions].map((a) =>
+      a === candidate ? { ...a, fix_pr_candidate: true } : a
+    ),
     seeds,
     fix_pr_candidate: candidate?.key ?? null,
     dropped,

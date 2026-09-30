@@ -247,6 +247,22 @@ describe("docs/routines/mbe-ui-quality.md", () => {
       }
     });
 
+    // Re-review N3: an unknown labelled issue is adopted by its title or
+    // escalated once — never a silent, permanent stop.
+    it("6b records each labelled issue's number, title and state for adoption", () => {
+      const six = block.slice(at("b. Issue states"), at("c. Plan"));
+      expect(six).toMatch(/\{ "number": <n>, "title": "<title>", "state": "open" \| "closed" \}/);
+    });
+
+    it("6c opens the plan's escalation issue exactly once, and 6d executes `adopt` as nothing", () => {
+      const planStep = block.slice(at("c. Plan"), at("d. Execute"));
+      expect(planStep).toContain(".ui-quality/findings.escalation.json");
+      expect(planStep).toMatch(/exactly that one issue with `mcp__github__create_issue`/);
+      expect(planStep).toMatch(/never search for or open another/);
+      expect(planStep).toMatch(/adopt/);
+      expect(block.slice(at("d. Execute"), at("e. `node"))).toMatch(/`adopt` → nothing/);
+    });
+
     it("checkpoints (commit + push ui-quality/ledger) after recording, before the fix PR", () => {
       const checkpoint = at("Checkpoint");
       expect(executedRecord().index).toBeLessThan(checkpoint);
