@@ -59,6 +59,7 @@ This is a regression the diff introduced. The architecture document does not rec
 - The eval never takes this path (it always passes `createPr: false`), so the authorized release is unaffected either way.
 - Standard: none.
 - Decision: **fix recommended before Ship (route to Implement; about 10 lines).** The orchestrator may defer instead. A deferral must be logged with a reason and carried as a `docs/backlog.md` seed.
+- Resolution (2026-09-29, Implement re-entry, breakdown item 20): fixed in `bd4164668`. The runner removes the worktree only when `createPr` is true and nothing threw, and reports `worktreePath` whenever the worktree is kept. The `createPr: true` row now expects the worktree kept, and a new case pins removal after a successful `createPr: true` session.
 
 ### Minor m1: for a non-run, the fixture verifier still installs and tests, and prints a passing line
 
