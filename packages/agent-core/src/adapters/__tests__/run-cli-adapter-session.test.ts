@@ -339,7 +339,7 @@ describe("runCliAdapterSession", () => {
     expect(result.failureCategory).toBe("rate_limited");
   });
 
-  it("does not create a PR when createPr is false, even though the branch is pushed", async () => {
+  it("neither pushes nor creates a PR when createPr is false", async () => {
     const adapter = makeCliAdapter("gemini", { success: true });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
@@ -350,7 +350,7 @@ describe("runCliAdapterSession", () => {
       deps
     );
 
-    expect(deps.worktreeManager.pushBranch).toHaveBeenCalledOnce();
+    expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
     expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
     expect(result.prUrl).toBeNull();
   });

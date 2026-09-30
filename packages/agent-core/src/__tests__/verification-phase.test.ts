@@ -34,6 +34,7 @@ vi.mock("../post-commit-gateway.js", async () => {
 // ── Imports (after mocks) ───────────────────────────────────────────
 
 import { VerificationPhase } from "../phases/verification-phase.js";
+import { withRetry } from "../retry.js";
 import { getGitDiff } from "../success-evaluator.js";
 import { runPostCommitGateway } from "../post-commit-gateway.js";
 
@@ -168,5 +169,46 @@ describe("VerificationPhase", () => {
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);
     expect((resultEvents[0].data as { message: string }).message).toContain("No changes");
+  });
+
+  // Non-publishing session rule (amendment 2026-09-29): createPr: false commits
+  // with --no-verify and never pushes; createPr: true is byte-unchanged.
+  describe("non-publishing arm", () => {
+    const worktreePath = "/repo/.agent-worktrees/agent-fix-bug-abc123";
+    const commitMsg = "feat: Fix the login bug";
+
+    it("createPr: false commits with noVerify, does not push, still runs the gateway", async () => {
+      const { result, output } = await phase.run(
+        makeInput({ config: { ...BASE_CONFIG, createPr: false } }),
+        deps
+      );
+
+      expect(deps.worktreeManager.commitChanges).toHaveBeenCalledWith(worktreePath, commitMsg, {
+        noVerify: true,
+      });
+      expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
+      expect(withRetry).not.toHaveBeenCalled();
+      expect(runPostCommitGateway).toHaveBeenCalledOnce();
+      expect(result.status).toBe("success");
+      expect(output).toEqual({
+        hasChanges: true,
+        commitMsg,
+        gatewayVerdict: { outcome: "create-pr", passed: true, gateFailures: [], errors: [] },
+        gatewayEvaluation: undefined,
+      });
+    });
+
+    it("createPr: true commits with hooks and pushes through the retry path", async () => {
+      await phase.run(makeInput(), deps);
+
+      expect(deps.worktreeManager.commitChanges).toHaveBeenCalledWith(worktreePath, commitMsg, {
+        noVerify: false,
+      });
+      expect(withRetry).toHaveBeenCalledOnce();
+      expect(deps.worktreeManager.pushBranch).toHaveBeenCalledWith(
+        worktreePath,
+        "agent/fix-bug-abc123"
+      );
+    });
   });
 });
