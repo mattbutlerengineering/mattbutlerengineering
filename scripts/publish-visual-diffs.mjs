@@ -461,14 +461,17 @@ async function main() {
   // GITHUB_RUN_ID and increments GITHUB_RUN_ATTEMPT, and a name built from the
   // id alone would have attempt 2 push at attempt 1's ref — rejected
   // non-fast-forward, and the one flag that would resolve it is forbidden here.
+  // And the SUITE: apps-visual.yml publishes marketing and hospitality from one
+  // run, so they share the ordinal and would otherwise push at one ref.
   const refName = buildRefName({
     prNumber,
+    suite,
     runId: runOrdinal.runId,
     runAttempt: runOrdinal.runAttempt,
   });
   const sha = buildOrphanCommit({
     files,
-    message: `visual diffs for PR #${prNumber} (run ${runOrdinal.runId} attempt ${runOrdinal.runAttempt})`,
+    message: `${suite} visual diffs for PR #${prNumber} (run ${runOrdinal.runId} attempt ${runOrdinal.runAttempt})`,
     cwd: workspace,
   });
 

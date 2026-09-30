@@ -31,21 +31,23 @@ describe("ref namespace constants", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildRefName", () => {
-  it("produces exactly visual-diffs/pr-<N>/run-<id>-attempt-<n>", () => {
-    expect(buildRefName({ prNumber: 4567, runId: 32873184619, runAttempt: 1 })).toBe(
-      "visual-diffs/pr-4567/run-32873184619-attempt-1"
-    );
+  it("produces exactly visual-diffs/pr-<N>/<suite>/run-<id>-attempt-<n>", () => {
+    expect(
+      buildRefName({ prNumber: 4567, runId: 32873184619, runAttempt: 1, suite: "rialto-web" })
+    ).toBe("visual-diffs/pr-4567/rialto-web/run-32873184619-attempt-1");
   });
 
   it("accepts string inputs unchanged (run ids arrive from the environment as strings)", () => {
-    expect(buildRefName({ prNumber: "12", runId: "34", runAttempt: "5" })).toBe(
-      "visual-diffs/pr-12/run-34-attempt-5"
-    );
+    expect(
+      buildRefName({ prNumber: "12", runId: "34", runAttempt: "5", suite: "rialto-web" })
+    ).toBe("visual-diffs/pr-12/rialto-web/run-34-attempt-5");
   });
 
   it("is built from REF_PREFIX rather than a second literal", () => {
     expect(
-      buildRefName({ prNumber: 1, runId: 2, runAttempt: 1 }).startsWith(`${REF_PREFIX}/`)
+      buildRefName({ prNumber: 1, runId: 2, runAttempt: 1, suite: "rialto-web" }).startsWith(
+        `${REF_PREFIX}/`
+      )
     ).toBe(true);
   });
 
@@ -61,8 +63,8 @@ describe("buildRefName", () => {
   // publisher exits 1, and the comment keeps attempt 1's images — defeating
   // SC-4, whose demonstration in breakdown.md item 3.5 step 5 IS a re-run.
   it("gives a re-run its own ref, so attempt 2 never pushes at attempt 1's ref", () => {
-    const attempt1 = buildRefName({ prNumber: 1, runId: 999, runAttempt: 1 });
-    const attempt2 = buildRefName({ prNumber: 1, runId: 999, runAttempt: 2 });
+    const attempt1 = buildRefName({ prNumber: 1, runId: 999, runAttempt: 1, suite: "rialto-web" });
+    const attempt2 = buildRefName({ prNumber: 1, runId: 999, runAttempt: 2, suite: "rialto-web" });
     expect(attempt2).not.toBe(attempt1);
   });
 });
@@ -79,8 +81,18 @@ describe("fullRef", () => {
 
 describe("parseRefName", () => {
   it("round-trips a constructed name, attempt included", () => {
-    const name = buildRefName({ prNumber: 4567, runId: 32873184619, runAttempt: 3 });
-    expect(parseRefName(name)).toEqual({ prNumber: 4567, runId: 32873184619, runAttempt: 3 });
+    const name = buildRefName({
+      prNumber: 4567,
+      runId: 32873184619,
+      runAttempt: 3,
+      suite: "rialto-web",
+    });
+    expect(parseRefName(name)).toEqual({
+      prNumber: 4567,
+      runId: 32873184619,
+      runAttempt: 3,
+      suite: "rialto-web",
+    });
   });
 
   it("returns null for main", () => {
@@ -148,7 +160,7 @@ const hoursAgo = (h) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
 /** A ref as `git for-each-ref` reports it after fetching the namespace. */
 function ref(prNumber, runId, ageHours, runAttempt = 1) {
   return {
-    name: buildRefName({ prNumber, runId, runAttempt }),
+    name: buildRefName({ prNumber, runId, runAttempt, suite: "rialto-web" }),
     committedAt: hoursAgo(ageHours),
   };
 }
@@ -169,15 +181,17 @@ describe("selectRefsToDelete", () => {
     // its own images deleted out from under a live comment, breaking SC-3.
     const refs = [ref(10, 900, 500), ref(10, 800, 600)];
     const toDelete = selectRefsToDelete({ refs, openPrNumbers: [10], now: NOW });
-    expect(names(toDelete)).toEqual([buildRefName({ prNumber: 10, runId: 800, runAttempt: 1 })]);
+    expect(names(toDelete)).toEqual([
+      buildRefName({ prNumber: 10, runId: 800, runAttempt: 1, suite: "rialto-web" }),
+    ]);
   });
 
   it("DELETES superseded runs on an open PR", () => {
     const refs = [ref(10, 900, 100), ref(10, 800, 200), ref(10, 700, 300)];
     const toDelete = selectRefsToDelete({ refs, openPrNumbers: [10], now: NOW });
     expect(names(toDelete)).toEqual([
-      buildRefName({ prNumber: 10, runId: 800, runAttempt: 1 }),
-      buildRefName({ prNumber: 10, runId: 700, runAttempt: 1 }),
+      buildRefName({ prNumber: 10, runId: 800, runAttempt: 1, suite: "rialto-web" }),
+      buildRefName({ prNumber: 10, runId: 700, runAttempt: 1, suite: "rialto-web" }),
     ]);
   });
 
@@ -228,7 +242,7 @@ describe("selectRefsToDelete", () => {
     const refs = [ref(10, 32873184619, 100), ref(10, 9000000000, 200)];
     const toDelete = selectRefsToDelete({ refs, openPrNumbers: [10], now: NOW });
     expect(names(toDelete)).toEqual([
-      buildRefName({ prNumber: 10, runId: 9000000000, runAttempt: 1 }),
+      buildRefName({ prNumber: 10, runId: 9000000000, runAttempt: 1, suite: "rialto-web" }),
     ]);
   });
 
@@ -239,13 +253,17 @@ describe("selectRefsToDelete", () => {
     // can retire the very ref the standing comment points at.
     const refs = [ref(10, 900, 100, 1), ref(10, 900, 90, 2)];
     const toDelete = selectRefsToDelete({ refs, openPrNumbers: [10], now: NOW });
-    expect(names(toDelete)).toEqual([buildRefName({ prNumber: 10, runId: 900, runAttempt: 1 })]);
+    expect(names(toDelete)).toEqual([
+      buildRefName({ prNumber: 10, runId: 900, runAttempt: 1, suite: "rialto-web" }),
+    ]);
   });
 
   it("orders on the tuple run id first — a high attempt of an older run still loses", () => {
     const refs = [ref(10, 900, 100, 1), ref(10, 800, 90, 9)];
     const toDelete = selectRefsToDelete({ refs, openPrNumbers: [10], now: NOW });
-    expect(names(toDelete)).toEqual([buildRefName({ prNumber: 10, runId: 800, runAttempt: 9 })]);
+    expect(names(toDelete)).toEqual([
+      buildRefName({ prNumber: 10, runId: 800, runAttempt: 9, suite: "rialto-web" }),
+    ]);
   });
 
   it("accepts open PR numbers as strings or numbers", () => {
@@ -285,7 +303,12 @@ describe("planRefSweep", () => {
   it.each([null, undefined, "", "   ", "not-a-date", 0, {}])(
     "keeps a ref it cannot date (committedAt %o) instead of reading it as ancient",
     (committedAt) => {
-      const refs = [{ name: buildRefName({ prNumber: 77, runId: 5, runAttempt: 1 }), committedAt }];
+      const refs = [
+        {
+          name: buildRefName({ prNumber: 77, runId: 5, runAttempt: 1, suite: "rialto-web" }),
+          committedAt,
+        },
+      ];
       const plan = planRefSweep({ refs, openPrNumbers: [], now: NOW });
       expect(plan.toDelete).toEqual([]);
       expect(plan.retained.map((r) => r.reason)).toEqual(["undated"]);
@@ -293,7 +316,9 @@ describe("planRefSweep", () => {
   );
 
   it("keeps a ref whose committedAt key is absent entirely", () => {
-    const refs = [{ name: buildRefName({ prNumber: 78, runId: 6, runAttempt: 1 }) }];
+    const refs = [
+      { name: buildRefName({ prNumber: 78, runId: 6, runAttempt: 1, suite: "rialto-web" }) },
+    ];
     const plan = planRefSweep({ refs, openPrNumbers: [], now: NOW });
     expect(plan.toDelete).toEqual([]);
     expect(plan.retained[0].reason).toBe("undated");
@@ -321,5 +346,76 @@ describe("planRefSweep", () => {
     const plan = planRefSweep({ refs, openPrNumbers: [10], now: NOW });
     const reasons = new Set(plan.retained.map((r) => r.reason));
     expect(reasons).toEqual(new Set(["newest-on-open-pr", "too-recent", "unparsable"]));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ui-quality-loop review M1: the suite is part of the ref name. apps-visual.yml
+// runs the marketing and hospitality publishers in ONE workflow run, so they
+// share GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT; a name built from those alone
+// sends both orphan commits at one ref, the second push is rejected
+// non-fast-forward, and that suite's comment is never posted.
+// ---------------------------------------------------------------------------
+
+describe("suite-scoped ref names (ui-quality-loop M1)", () => {
+  const ordinal = { prNumber: 4567, runId: 32873184619, runAttempt: 1 };
+
+  it("puts the suite in the name: visual-diffs/pr-<N>/<suite>/run-<id>-attempt-<n>", () => {
+    expect(buildRefName({ ...ordinal, suite: "marketing" })).toBe(
+      "visual-diffs/pr-4567/marketing/run-32873184619-attempt-1"
+    );
+  });
+
+  it("gives two suites of the SAME run attempt distinct refs", () => {
+    const marketing = buildRefName({ ...ordinal, suite: "marketing" });
+    const hospitality = buildRefName({ ...ordinal, suite: "hospitality" });
+    expect(marketing).not.toBe(hospitality);
+    expect(fullRef(marketing)).not.toBe(fullRef(hospitality));
+  });
+
+  it.each([undefined, "", "Marketing", "a/b", "../x", "run-1"])(
+    "refuses a missing or unsafe suite (%o) rather than build a shared name",
+    (suite) => {
+      expect(() => buildRefName({ ...ordinal, suite })).toThrow(/suite/);
+    }
+  );
+
+  it("round-trips the suite through parseRefName", () => {
+    expect(parseRefName(buildRefName({ ...ordinal, suite: "hospitality" }))).toEqual({
+      ...ordinal,
+      suite: "hospitality",
+    });
+  });
+
+  it("still parses a pre-suite ref as rialto-web's (the only publisher before the suite)", () => {
+    expect(parseRefName("visual-diffs/pr-4567/run-32873184619-attempt-2")).toEqual({
+      prNumber: 4567,
+      runId: 32873184619,
+      runAttempt: 2,
+      suite: "rialto-web",
+    });
+  });
+
+  it("keeps the newest ref of EACH suite on an open PR, not only the newest overall", () => {
+    // marketing last failed in run 800; hospitality failed again in run 900.
+    // marketing's standing comment still points at run 800's commit.
+    const refs = [
+      {
+        name: buildRefName({ prNumber: 10, runId: 900, runAttempt: 1, suite: "hospitality" }),
+        committedAt: hoursAgo(100),
+      },
+      {
+        name: buildRefName({ prNumber: 10, runId: 800, runAttempt: 1, suite: "marketing" }),
+        committedAt: hoursAgo(200),
+      },
+      {
+        name: buildRefName({ prNumber: 10, runId: 700, runAttempt: 1, suite: "marketing" }),
+        committedAt: hoursAgo(300),
+      },
+    ];
+    const plan = planRefSweep({ refs, openPrNumbers: [10], now: NOW });
+    expect(names(plan.toDelete)).toEqual([
+      buildRefName({ prNumber: 10, runId: 700, runAttempt: 1, suite: "marketing" }),
+    ]);
   });
 });

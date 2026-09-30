@@ -12,7 +12,12 @@ const WORKFLOW_DIR = resolve(ROOT, ".github/workflows");
  * A concrete ref this feature will actually push. Every matcher below is asked
  * one question: could this workflow fire for THIS ref?
  */
-const SAMPLE_REF = buildRefName({ prNumber: 4567, runId: 32873184619, runAttempt: 2 });
+const SAMPLE_REF = buildRefName({
+  prNumber: 4567,
+  runId: 32873184619,
+  runAttempt: 2,
+  suite: "hospitality",
+});
 
 /**
  * Parsed textually rather than with a YAML library. `@mbe/scripts` declares no

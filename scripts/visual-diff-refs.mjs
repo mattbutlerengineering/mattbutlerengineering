@@ -6,7 +6,8 @@
  *
  * Every run of the `visual` job in `.github/workflows/rialto-web-e2e.yml`
  * that has images to show publishes them as ONE orphan commit on a ref only
- * that run names: `visual-diffs/pr-<N>/run-<run_id>-attempt-<run_attempt>`.
+ * that run and suite names:
+ * `visual-diffs/pr-<N>/<suite>/run-<run_id>-attempt-<run_attempt>`.
  * The attempt is part of the name because GitHub keeps `GITHUB_RUN_ID` stable
  * across "Re-run failed jobs" and increments `GITHUB_RUN_ATTEMPT` — and two
  * attempts build two different orphan commits even from a byte-identical tree
@@ -46,22 +47,45 @@ export const REF_ROOT = "refs/heads";
  */
 export const REF_PREFIX = "visual-diffs";
 
-const REF_NAME_PATTERN = new RegExp(`^${REF_PREFIX}/pr-(\\d+)/run-(\\d+)-attempt-(\\d+)$`);
+/**
+ * A suite name: lowercase, one path segment, and never `run-…` so it cannot be
+ * mistaken for the ordinal segment that follows it.
+ */
+const SUITE_PATTERN = /^(?!run-)[a-z][a-z0-9-]*$/;
+
+const REF_NAME_PATTERN = new RegExp(
+  `^${REF_PREFIX}/pr-(\\d+)/((?!run-)[a-z][a-z0-9-]*)/run-(\\d+)-attempt-(\\d+)$`
+);
 
 /**
- * Pure: the ref name for one run ATTEMPT's images.
+ * The pre-suite form. Only rialto-web published before the suite joined the
+ * name, so a legacy ref parses as rialto-web's and the sweep can still retire it.
+ */
+const LEGACY_REF_NAME_PATTERN = new RegExp(`^${REF_PREFIX}/pr-(\\d+)/run-(\\d+)-attempt-(\\d+)$`);
+const LEGACY_SUITE = "rialto-web";
+
+/**
+ * Pure: the ref name for one suite's images in one run ATTEMPT.
  *
  * The attempt is not decoration. `GITHUB_RUN_ID` is stable across a re-run and
  * `GITHUB_RUN_ATTEMPT` is what increments, so omitting it points attempt 2 at
  * the ref attempt 1 already created — a non-fast-forward push that `--force`
  * is forbidden to resolve, which fails the publisher and strands SC-4.
  *
+ * The suite is not decoration either: `apps-visual.yml` publishes marketing
+ * and hospitality from one workflow run, so both share the run ordinal, and a
+ * name without the suite sends two different orphan commits at one ref. It is
+ * required — a missing suite throws rather than fall back to a shared name.
+ *
  * @param {{prNumber: number|string, runId: number|string,
- *          runAttempt: number|string}} input
- * @returns {string} e.g. `visual-diffs/pr-4567/run-32873184619-attempt-1`
+ *          runAttempt: number|string, suite: string}} input
+ * @returns {string} e.g. `visual-diffs/pr-4567/marketing/run-32873184619-attempt-1`
  */
-export function buildRefName({ prNumber, runId, runAttempt }) {
-  return `${REF_PREFIX}/pr-${prNumber}/run-${runId}-attempt-${runAttempt}`;
+export function buildRefName({ prNumber, runId, runAttempt, suite }) {
+  if (typeof suite !== "string" || !SUITE_PATTERN.test(suite)) {
+    throw new Error(`buildRefName: invalid suite ${JSON.stringify(suite)}`);
+  }
+  return `${REF_PREFIX}/pr-${prNumber}/${suite}/run-${runId}-attempt-${runAttempt}`;
 }
 
 /**
@@ -91,16 +115,26 @@ export function fullRef(refName) {
  * request. An ordinal that cannot be ordered must not be parsed at all.
  *
  * @param {unknown} refName
- * @returns {{prNumber: number, runId: number, runAttempt: number} | null}
+ * @returns {{prNumber: number, runId: number, runAttempt: number, suite: string} | null}
  */
 export function parseRefName(refName) {
   if (typeof refName !== "string") return null;
   const match = REF_NAME_PATTERN.exec(refName);
-  if (!match) return null;
+  if (match) {
+    return {
+      prNumber: Number(match[1]),
+      runId: Number(match[3]),
+      runAttempt: Number(match[4]),
+      suite: match[2],
+    };
+  }
+  const legacy = LEGACY_REF_NAME_PATTERN.exec(refName);
+  if (!legacy) return null;
   return {
-    prNumber: Number(match[1]),
-    runId: Number(match[2]),
-    runAttempt: Number(match[3]),
+    prNumber: Number(legacy[1]),
+    runId: Number(legacy[2]),
+    runAttempt: Number(legacy[3]),
+    suite: LEGACY_SUITE,
   };
 }
 
@@ -138,19 +172,24 @@ function isNewerOrdinal(a, b) {
   return a.runAttempt > b.runAttempt;
 }
 
+/** The retention group: each suite keeps its own standing comment per PR. */
+const groupKey = (parsed) => `${parsed.prNumber}|${parsed.suite}`;
+
 /**
- * Pure: newest `[run_id, run_attempt]` ordinal seen per PR number.
+ * Pure: newest `[run_id, run_attempt]` ordinal seen per (PR number, suite).
  *
  * The tuple, not the run id alone: a re-run keeps the run id and increments the
  * attempt, so two refs of one re-run PR share a run id and a run-id-only
- * comparison cannot tell the live one from the superseded one.
+ * comparison cannot tell the live one from the superseded one. Per suite, not
+ * per PR: each suite has its own standing comment, so marketing's newest ref
+ * stays live even when hospitality has published in a later run.
  */
 function newestOrdinalByPr(parsedRefs) {
   const newest = new Map();
   for (const { parsed } of parsedRefs) {
-    const current = newest.get(parsed.prNumber);
+    const current = newest.get(groupKey(parsed));
     if (current === undefined || isNewerOrdinal(parsed, current)) {
-      newest.set(parsed.prNumber, { runId: parsed.runId, runAttempt: parsed.runAttempt });
+      newest.set(groupKey(parsed), { runId: parsed.runId, runAttempt: parsed.runAttempt });
     }
   }
   return newest;
@@ -160,8 +199,8 @@ function newestOrdinalByPr(parsedRefs) {
  * Pure: the full keep/delete plan, one verdict per ref.
  *
  * Three clauses, each with the thing it protects:
- *   1. KEEP the newest ref of each *open* PR — it is what that PR's standing
- *      comment points at. (A flat age floor was the alternative and loses on
+ *   1. KEEP the newest ref of each suite on each *open* PR — it is what that
+ *      suite's standing comment on the PR points at. (A flat age floor was the alternative and loses on
  *      correctness: a PR open longer than the floor would have its own images
  *      deleted out from under a live comment, breaking SC-3.)
  *   2. KEEP any ref younger than `minAgeHours` — its run may still be in flight.
@@ -202,7 +241,7 @@ export function planRefSweep({
 
   for (const { ref, parsed } of parsedRefs) {
     const age = ageHours(ref.committedAt, now);
-    const newestForPr = newest.get(parsed.prNumber);
+    const newestForPr = newest.get(groupKey(parsed));
     const isNewestOnOpenPr =
       open.has(parsed.prNumber) &&
       newestForPr !== undefined &&

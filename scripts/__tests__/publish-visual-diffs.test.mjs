@@ -78,6 +78,13 @@ describe("publish-visual-diffs.mjs is a thin caller", () => {
     expect(SRC).toMatch(/buildRefName\(\{[^)]*runAttempt[^)]*\}\)/);
   });
 
+  it("names the diff ref with the suite too (ui-quality-loop M1)", () => {
+    // apps-visual.yml publishes marketing and hospitality from ONE run, so
+    // they share the run ordinal; without the suite their refs collide and
+    // the second push is rejected non-fast-forward.
+    expect(SRC).toMatch(/buildRefName\(\{[^)]*\bsuite\b[^)]*\}\)/);
+  });
+
   it("shells out only through execFileSync with argv arrays", () => {
     expect(SRC).toContain("execFileSync");
     expect(SRC).not.toContain("execSync");
