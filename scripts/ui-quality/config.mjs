@@ -29,3 +29,11 @@ export const VIEWPORTS = Object.freeze([
   Object.freeze({ width: 1280, height: 720 }),
   Object.freeze({ width: 375, height: 812 }),
 ]);
+
+/**
+ * Blank render (`bugs/blank-render`): the main landmark holds fewer text
+ * characters than this, or less of the viewport than BLANK_MIN_PAINTED_RATIO
+ * is covered by anything but <html>/<body>.
+ */
+export const BLANK_MIN_TEXT_CHARS = 1;
+export const BLANK_MIN_PAINTED_RATIO = 0.05;
