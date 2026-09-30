@@ -42,10 +42,10 @@ export default defineConfig({
       // explicit so Playwright's 0.2 default cannot hide a whole-page shift.
       // scripts/__tests__/visual-tolerance-guard.test.mjs reds if either value
       // moves without its provenance line; re-measure to re-tune.
-      // noise-floor: run 36767790241 · ubuntu24 20260920.314.1 · playwright 1.63.0
-      // noise-floor-values: threshold=0 maxDiffPixels=90
+      // noise-floor: run 36782403630 · ubuntu24 20260927.320.1 · playwright 1.63.0
+      // noise-floor-values: threshold=0 maxDiffPixels=202
       threshold: 0,
-      maxDiffPixels: 90,
+      maxDiffPixels: 202,
     },
   },
   use: {
