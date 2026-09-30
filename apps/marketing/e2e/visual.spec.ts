@@ -13,6 +13,12 @@
  * `/api/` request fails the row — a baseline of an error state records the
  * error as correct (breakdown Milestone 5b).
  *
+ * The acmm, ai-health and metrics pages fetch committed JSON under `public/`
+ * that automation rewrites about twice a day; a baseline over the live file
+ * would go red on every metrics PR. Those fetches are answered from frozen
+ * copies in `e2e/fixtures/visual/`, and any other same-origin `.json` fetch
+ * fails the row like an unmocked `/api/` call (review M3).
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
@@ -34,9 +40,22 @@ const VIEWPORTS = [
 
 /**
  * A fixed instant: the status page renders `Date.now()` latencies and
- * timestamps, which would otherwise differ on every run.
+ * timestamps, which would otherwise differ on every run. It sits after every
+ * frozen data fixture's `generated_at` (the latest is 2026-09-30T01:16Z), so
+ * no page reads its data as stale or from the future.
  */
-const FIXED_NOW = new Date("2026-06-15T12:00:00Z");
+const FIXED_NOW = new Date("2026-09-30T12:00:00Z");
+
+/**
+ * Frozen copies of the automation-rewritten `public/` JSON, taken at the
+ * commit that introduced them. Refresh them deliberately, with the baselines.
+ */
+const FROZEN_DATA = new URL("fixtures/visual/", import.meta.url);
+const FROZEN_JSON: Record<string, string> = Object.fromEntries(
+  ["/sensor-report.json", "/ai-health-trends.json", "/metrics.json", "/acmm-report.json"].map(
+    (path) => [path, readFileSync(new URL(path.slice(1), FROZEN_DATA), "utf8")]
+  )
+);
 
 /** StatusPage's SERVICES, answered the way a healthy service answers. */
 // Joined from segments: scripts/check-ai-antipatterns.mjs counts quoted /api/ route literals.
@@ -44,8 +63,10 @@ const HEALTHY_SERVICES = ["v1/users", "v1/reservations", "gen"].map((svc) =>
   ["", "api", svc, "health"].join("/")
 );
 
-const isAppApi = (url: URL) =>
-  url.hostname === "localhost" && /^\/(api|public)\//.test(url.pathname);
+/** Same-origin API calls and data fetches — everything a row must not reach unanswered. */
+const isAppData = (url: URL) =>
+  url.hostname === "localhost" &&
+  (/^\/(api|public)\//.test(url.pathname) || /\.json$/.test(url.pathname));
 
 /* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, not React hooks */
 const test = base.extend<{ unmockedApi: string[] }>({
@@ -54,10 +75,14 @@ const test = base.extend<{ unmockedApi: string[] }>({
     await use([]);
   },
   page: async ({ page, unmockedApi }, use) => {
-    await page.route(isAppApi, (route) => {
+    await page.route(isAppData, (route) => {
       const url = new URL(route.request().url());
       if (HEALTHY_SERVICES.includes(url.pathname)) {
         return route.fulfill({ status: 200, json: { status: "ok", version: "1.0.0" } });
+      }
+      const frozen = FROZEN_JSON[url.pathname];
+      if (frozen !== undefined) {
+        return route.fulfill({ status: 200, contentType: "application/json", body: frozen });
       }
       unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
       return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });

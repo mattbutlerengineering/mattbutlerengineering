@@ -119,3 +119,39 @@ describe("hospitality visual spec — mocked API, fixed clock, the setup auth pr
     expect(visualConfig).toMatch(/dependencies:\s*\["setup"\]/);
   });
 });
+
+// ui-quality-loop review M3: four marketing pages render committed JSON under
+// apps/marketing/public/ that automation rewrites about twice a day. A
+// baseline over the live file goes red on every metrics PR with nothing wrong
+// in the product, so the visual rows read frozen copies instead.
+describe("marketing visual spec — frozen data, never automation-rewritten JSON (review M3)", () => {
+  const spec = read("apps/marketing/e2e/visual.spec.ts");
+  const DATA_FILES = ["sensor-report", "ai-health-trends", "metrics", "acmm-report"];
+
+  it.each(DATA_FILES)(
+    "answers /%s.json from a frozen fixture under e2e/fixtures/visual/",
+    (name) => {
+      expect(spec).toMatch(new RegExp(`"/${name}\\.json"`));
+      const fixture = JSON.parse(read(`apps/marketing/e2e/fixtures/visual/${name}.json`));
+      expect(Object.keys(fixture).length).toBeGreaterThan(0);
+    }
+  );
+
+  it("reads the frozen fixtures, never apps/marketing/public/", () => {
+    expect(spec).toMatch(/fixtures\/visual\//);
+    expect(spec).not.toMatch(/public\/[\w-]+\.json/);
+  });
+
+  it("widens the unmocked-request guard to any same-origin .json fetch", () => {
+    expect(spec).toMatch(/\\\.json\$/);
+  });
+
+  it("pins FIXED_NOW after every frozen fixture's generated_at, so no page reads its data as from the future", () => {
+    const fixedNow = Date.parse(spec.match(/const FIXED_NOW = new Date\("([^"]+)"\)/)[1]);
+    for (const name of DATA_FILES) {
+      const fixture = JSON.parse(read(`apps/marketing/e2e/fixtures/visual/${name}.json`));
+      const generated = Date.parse(fixture.generated_at ?? fixture.generatedAt);
+      expect(generated, name).toBeLessThan(fixedNow);
+    }
+  });
+});
