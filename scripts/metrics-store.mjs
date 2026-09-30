@@ -100,6 +100,9 @@ export const METRICS = {
   // One row per ui-quality routine fire, appended by `ledger.mjs record`; the
   // first row anchors coverage.mjs's 30-day clock. Union merge via the glob.
   "ui-quality-runs": { file: "ui-quality-runs.jsonl", format: "jsonl", durable: true },
+  // One row per app per ui-quality fire, appended by `rate.mjs record`: the
+  // pairwise taste score with every verdict. Union merge via the glob.
+  "ui-quality-ratings": { file: "ui-quality-ratings.jsonl", format: "jsonl", durable: true },
 };
 
 /**
