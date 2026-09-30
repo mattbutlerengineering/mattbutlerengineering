@@ -2475,3 +2475,8 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 as the `issues`/`issueFeedback`/`queueEfficiency` sensors above — budgets carried over unchanged from the last successful collection (default 3/category). Moot this run since 0 regressions means no issue creation was gated on it anyway.
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` threshold 1 → 1.03 (headroom). Over the 30d verification window (143 entries, 7 non-skip): fix-effectiveness rate 100% (7/7 verified), false-positive rate 0% (no wontfix/invalid closures) — both well within healthy bounds, no loosening or tightening indicated.
+
+## 2026-09-30
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
