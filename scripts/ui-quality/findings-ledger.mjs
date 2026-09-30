@@ -29,12 +29,16 @@ function nextRecord(prev, { issue, carrier, severity, legacy, state = "open" }, 
  * Write an executed plan back: issue numbers, carriers, last_seen.
  * Throws (nothing written) when a create or reopen carries no issue number —
  * the routine's execution was partial and recording it would lose the link.
+ * `escalated` (issue numbers `p1-age.mjs --escalate` actions were executed
+ * for) stamps `escalated_at` on every record carried by that issue, once.
  *
  * @param {Record<string, object>} ledger
- * @param {{ actions: object[], seeds?: object[], fix_pr?: { key: string, pr: number } }} executed
- * @param {string} today YYYY-MM-DD
+ * @param {{ actions: object[], seeds?: object[], fix_pr?: { key: string, pr: number }, escalated?: number[] }} executed
+ * @param {string} now ISO timestamp; its date is last_seen
  */
-export function applyExecuted(ledger, executed, today) {
+export function applyExecuted(ledger, executed, now) {
+  const today = now.slice(0, 10);
+  const escalatedAt = now;
   const unnumbered = executed.actions
     .filter((a) => a.carrier !== "seed" && !Number.isInteger(a.issue))
     .map((a) => a.key);
@@ -62,10 +66,11 @@ export function applyExecuted(ledger, executed, today) {
     s.key,
     { issue: null, carrier: "seed", severity: s.severity },
   ]);
+  const escalated = new Set(executed.escalated ?? []);
   const fix = executed.fix_pr;
   const withFix = (key, update) =>
     fix && fix.key === key ? { ...update, carrier: `fix-pr:${fix.pr}` } : update;
-  return {
+  const recorded = {
     ...ledger,
     ...Object.fromEntries(
       [...updates, ...seedUpdates].map(([key, update]) => [
@@ -74,6 +79,12 @@ export function applyExecuted(ledger, executed, today) {
       ])
     ),
   };
+  return Object.fromEntries(
+    Object.entries(recorded).map(([key, rec]) => [
+      key,
+      escalated.has(rec.issue) && !rec.escalated_at ? { ...rec, escalated_at: escalatedAt } : rec,
+    ])
+  );
 }
 
 /**

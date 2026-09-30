@@ -19,7 +19,8 @@
  *         unknown tell or while an open key predates the rubric's version.
  *         No --calibration-status is `stale`: agent-built findings drop.
  *   record  --executed <json> [--now <iso>] — the executed plan (every create
- *           given its issue number, optional `fix_pr: { key, pr }`) written
+ *           given its issue number, optional `fix_pr: { key, pr }`, optional
+ *           `escalated: [issue]` from p1-age.mjs --escalate) written
  *           back to metrics/ui-quality-findings.json
  *   migrate --from <v> --to <v> — re-key open findings whose tell survives to
  *           the rubric's current version; print { rekeyed, retired }
@@ -135,7 +136,8 @@ const today = (argv) => (flagValue(argv, "--now") ?? new Date().toISOString()).s
 function record(ctx, argv) {
   const file = flagValue(argv, "--executed");
   if (!file) throw new Error("needs --executed <json>");
-  const next = applyExecuted(readLedger(ctx.root), readJson(file), today(argv));
+  const now = flagValue(argv, "--now") ?? new Date().toISOString();
+  const next = applyExecuted(readLedger(ctx.root), readJson(file), now);
   writeMetric(FINDINGS_METRIC, next, { root: ctx.root });
   ctx.stderr(`findings.mjs record: ${Object.keys(next).length} key(s) in the findings ledger\n`);
   return 0;

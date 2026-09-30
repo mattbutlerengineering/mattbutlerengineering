@@ -67,3 +67,6 @@ export const FIX_PR_TELLS = Object.freeze([
 
 /** A fix PR never touches a file under one of these prefixes. */
 export const FIX_PR_EXCLUDED_PREFIXES = Object.freeze(["packages/rialto/src/", ".github/"]);
+
+/** An open P1 ui-quality issue older than this breaches the SLA (`p1-age.mjs` exits 1). */
+export const P1_SLA_DAYS = 7;
