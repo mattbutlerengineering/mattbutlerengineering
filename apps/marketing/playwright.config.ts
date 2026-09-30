@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: "./e2e",
   // visual.spec.ts belongs to playwright.visual.config.ts (Linux-only
   // baselines, its own workflow); running it here would double-run it.
-  testIgnore: ["**/visual.spec.ts"],
+  // workflow-coverage.test.ts is a vitest-only guard that matches Playwright's
+  // default testMatch — excluded by exact name, a11y.test.ts stays collected.
+  testIgnore: ["**/visual.spec.ts", "**/workflow-coverage.test.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
