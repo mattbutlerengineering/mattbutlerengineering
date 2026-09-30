@@ -46,3 +46,7 @@ export const CALIBRATION_MIN_OURS = 5;
 
 /** Distinct reference ids a labelled calibration set must span. */
 export const CALIBRATION_MIN_REFERENCES = 5;
+
+/** Where an issue body links the rubric; rubric.md carries one `### <tell-id>` per tell. */
+export const RUBRIC_URL =
+  "https://github.com/mattbutlerengineering/mattbutlerengineering/blob/main/docs/ui-quality/rubric.md";

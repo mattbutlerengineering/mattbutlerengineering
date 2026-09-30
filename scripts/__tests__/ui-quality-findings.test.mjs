@@ -1,0 +1,194 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { findingKey, main } from "../ui-quality/findings.mjs";
+import { hashTells } from "../ui-quality/rubric.mjs";
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const REAL_RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
+const PLAN = ".ui-quality/findings.plan.json";
+const LEDGER = "metrics/ui-quality-findings.json";
+
+let root;
+
+const finding = (app, route, tell, severity = "P2", extra = {}) => ({
+  app,
+  route,
+  tell,
+  severity,
+  evidence: { message: `${tell} on ${route}`, screenshot_sha256: "a".repeat(64) },
+  ...extra,
+});
+
+const DEAD = finding("marketing", "/", "bugs/dead-in-app-link", "P1");
+const AXE = finding("hospitality", "book/:venueSlug", "accessibility/axe-moderate");
+const ALT = finding("marketing", "acmm", "accessibility/non-descriptive-alt");
+
+function writeRubric(rubric) {
+  mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
+  writeFileSync(join(root, "docs/ui-quality/rubric.json"), JSON.stringify(rubric, null, 2));
+}
+
+/** A valid v2 rubric that retired `retire` and kept every other v1 tell. */
+function rubricV2(retire) {
+  const tells = REAL_RUBRIC.tells.filter((t) => t.id !== retire);
+  return { ...REAL_RUBRIC, rubric_version: 2, tells, tells_hash: hashTells(tells) };
+}
+
+function writeJson(rel, value) {
+  const path = join(root, rel);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(value, null, 2));
+  return path;
+}
+
+const record = (issue, extra = {}) => ({
+  issue,
+  carrier: "issue",
+  state: "open",
+  severity: "P2",
+  first_seen: "2026-10-01",
+  last_seen: "2026-10-01",
+  escalated_at: null,
+  ...extra,
+});
+
+function plan(files, states = {}, extra = []) {
+  const out = [];
+  const err = [];
+  const args = ["plan"];
+  files.forEach((f, i) => args.push("--findings", writeJson(`in/findings-${i}.json`, f)));
+  args.push("--issue-states", writeJson("in/states.json", states), ...extra, "--root", root);
+  const code = main(args, { stdout: (s) => out.push(s), stderr: (s) => err.push(s) });
+  const planPath = join(root, PLAN);
+  const result = existsSync(planPath) ? JSON.parse(readFileSync(planPath, "utf8")) : null;
+  return { code, plan: result, out: out.join(""), err: err.join("") };
+}
+
+const byAction = (p, action) => p.actions.filter((a) => a.action === action);
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), "ui-quality-findings-"));
+  mkdirSync(join(root, "metrics"));
+  writeRubric(REAL_RUBRIC);
+});
+
+describe("findingKey", () => {
+  it("is <app>|<route>|r<rubric_version>|<tell-id>", () => {
+    expect(findingKey(AXE, 1)).toBe("hospitality|book/:venueSlug|r1|accessibility/axe-moderate");
+  });
+});
+
+describe("findings.mjs plan — dedupe through fileIssue()", () => {
+  it("creates one issue per new finding with a deterministic title and the three labels", () => {
+    const { code, plan: p } = plan([[DEAD, AXE]]);
+    expect(code).toBe(0);
+    expect(byAction(p, "create")).toHaveLength(2);
+    const dead = p.actions.find((a) => a.key === "marketing|/|r1|bugs/dead-in-app-link");
+    expect(dead.title).toBe("ui-quality: marketing / — bugs/dead-in-app-link (rubric v1)");
+    expect(dead.labels).toEqual(["ui-quality", "ui-quality:p1", "ready"]);
+    const axe = p.actions.find((a) => a.key === findingKey(AXE, 1));
+    expect(axe.labels).toEqual(["ui-quality", "ui-quality:p2", "ready"]);
+    expect(axe.body).toContain("accessibility/axe-moderate on book/:venueSlug");
+    expect(axe.body).toContain("docs/ui-quality/rubric.md");
+  });
+
+  it("titles carry no timestamp or counter — a re-plan renders them byte-identically", () => {
+    const first = plan([[DEAD, AXE]]).plan;
+    const second = plan([[DEAD, AXE]]).plan;
+    expect(second).toEqual(first);
+    for (const a of first.actions) expect(a.title).not.toMatch(/\d{4}-\d{2}-\d{2}|#\d+|\(\d+\)/);
+  });
+
+  it("a second plan with the first plan's issues open yields zero create", () => {
+    writeJson(LEDGER, {
+      [findingKey(DEAD, 1)]: record(101, { severity: "P1" }),
+      [findingKey(AXE, 1)]: record(102),
+    });
+    const { code, plan: p } = plan([[DEAD, AXE]], { 101: "open", 102: "open" });
+    expect(code).toBe(0);
+    expect(byAction(p, "create")).toHaveLength(0);
+    expect(
+      byAction(p, "skip")
+        .map((a) => a.issue)
+        .sort()
+    ).toEqual([101, 102]);
+  });
+
+  it("a closed issue is reopened under the same number; a missing one is created fresh", () => {
+    writeJson(LEDGER, {
+      [findingKey(DEAD, 1)]: record(101, { severity: "P1" }),
+      [findingKey(AXE, 1)]: record(102),
+    });
+    const { plan: p } = plan([[DEAD, AXE]], { 101: "closed", 102: "missing" });
+    expect(byAction(p, "reopen")).toEqual([
+      expect.objectContaining({ key: findingKey(DEAD, 1), issue: 101 }),
+    ]);
+    expect(byAction(p, "create").map((a) => a.key)).toEqual([findingKey(AXE, 1)]);
+  });
+
+  it("a ledgered key absent from a partial state map is skipped and reported, never re-created", () => {
+    writeJson(LEDGER, {
+      [findingKey(DEAD, 1)]: record(101, { severity: "P1" }),
+      [findingKey(AXE, 1)]: record(102),
+    });
+    const { code, plan: p, err } = plan([[DEAD, AXE]], { 101: "open" });
+    expect(code).toBe(0);
+    expect(byAction(p, "create")).toHaveLength(0);
+    expect(p.actions.find((a) => a.key === findingKey(AXE, 1))).toMatchObject({
+      action: "skip",
+      issue: 102,
+    });
+    expect(p.reports).toEqual([`${findingKey(AXE, 1)}: issue #102 has no state — skipped`]);
+    expect(err).toContain("issue #102 has no state");
+  });
+
+  it("two --findings files plan the union, identically to the same set in one file", () => {
+    const two = plan([[DEAD], [AXE, ALT]]).plan;
+    const one = plan([[AXE, ALT, DEAD]]).plan;
+    expect(two).toEqual(one);
+    expect(two.actions).toHaveLength(3);
+  });
+
+  it.each([0, 1])("an unknown tell in file %i exits 2 and writes no plan", (bad) => {
+    const files = [[DEAD], [AXE]];
+    files[bad] = [...files[bad], finding("marketing", "/", "agent-built/made-up")];
+    const { code, plan: p, err } = plan(files);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("agent-built/made-up");
+  });
+});
+
+describe("findings.mjs plan — unmigrated keys after a rubric bump", () => {
+  const OLD = "hospitality|book/:venueSlug|r1|accessibility/axe-moderate";
+
+  it("refuses while an open r1 key's tell survives in v2, naming migrate and the key", () => {
+    writeRubric(rubricV2("agent-built/generic-hero-copy"));
+    writeJson(LEDGER, { [OLD]: record(102) });
+    const { code, plan: p, err } = plan([[DEAD]], { 102: "open" });
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("migrate");
+    expect(err).toContain(OLD);
+  });
+
+  it("plans normally when that key is closed", () => {
+    writeRubric(rubricV2("agent-built/generic-hero-copy"));
+    writeJson(LEDGER, { [OLD]: record(102, { state: "closed" }) });
+    const { code, plan: p } = plan([[DEAD]], { 102: "closed" });
+    expect(code).toBe(0);
+    expect(p.actions.map((a) => a.title)).toEqual([
+      "ui-quality: marketing / — bugs/dead-in-app-link (rubric v2)",
+    ]);
+  });
+
+  it("plans normally when the open r1 key's tell was retired by v2", () => {
+    writeRubric(rubricV2("accessibility/axe-moderate"));
+    writeJson(LEDGER, { [OLD]: record(102) });
+    const { code } = plan([[DEAD]], { 102: "open" });
+    expect(code).toBe(0);
+  });
+});

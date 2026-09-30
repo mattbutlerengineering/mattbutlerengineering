@@ -144,6 +144,7 @@ reports/mutation/
 !/metrics/stale-human-blocked.jsonl
 !/metrics/threshold-changes.jsonl
 !/metrics/ui-quality-calibrations.jsonl
+!/metrics/ui-quality-findings.json
 !/metrics/ui-quality-ledger.jsonl
 !/metrics/ui-quality-ratings.jsonl
 !/metrics/ui-quality-runs.jsonl

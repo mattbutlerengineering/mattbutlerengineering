@@ -110,6 +110,9 @@ export const METRICS = {
     format: "jsonl",
     durable: true,
   },
+  // Finding key → the issue/seed that carries it, rewritten per key by
+  // scripts/ui-quality/findings.mjs `record` / `migrate`.
+  "ui-quality-findings": { file: "ui-quality-findings.json", format: "json-object", durable: true },
 };
 
 /**
