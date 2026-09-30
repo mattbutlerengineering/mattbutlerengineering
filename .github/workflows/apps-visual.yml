@@ -208,7 +208,7 @@ jobs:
         run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
       - name: Run visual regression tests
         # The `setup` project signs the E2E user in once (auth.setup.ts); the
-        # dev server bakes the VITE_AUTH_* values in. Same values as e2e.yml.
+        # visual config's `vite build` bakes the VITE_* values in. Same values as e2e.yml.
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/visual-report/report.json
           VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}

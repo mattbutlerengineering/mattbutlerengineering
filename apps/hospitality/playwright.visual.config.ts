@@ -12,9 +12,23 @@ import baseConfig from "./playwright.config";
  * (`mockedPage`). Baselines are Linux-only, committed from the noise-floor
  * workflow's `visual-actuals-replica-a` artifact.
  *
- *   E2E_AUTH0_…/E2E_AUTH_… + VITE_AUTH_… set, then
+ * Serves a `vite build` through `vite preview`, like marketing's and
+ * rialto-web's visual configs: the base config's dev server can re-optimise
+ * dependencies cold and reload mid-test, and it is not what ships. Same port
+ * as the base config, so the `VITE_API_URL`/`VITE_AUTH_REDIRECT_URI` values
+ * e2e.yml bakes in stay valid; a dev server already on it fails the run rather
+ * than being screenshotted.
+ *
+ *   E2E_AUTH0_…/E2E_AUTH_… + VITE_AUTH_… + VITE_API_URL set, then
  *   pnpm --dir apps/hospitality exec playwright test --config playwright.visual.config.ts
  */
+const BASE_URL = "http://localhost:3002/hospitality/";
+
+// api-mocks.ts dates its fixtures on the Node side (`localDay()`/`atLocal()`),
+// so the workers' zone must match the browser's pinned `timezoneId` below or
+// a reservation's wall clock shifts by the runner's offset. Workers inherit it.
+process.env.TZ = "UTC";
+
 export default defineConfig({
   ...baseConfig,
   testIgnore: [],
@@ -34,6 +48,12 @@ export default defineConfig({
       maxDiffPixels: 3583,
     },
   },
+  use: {
+    ...baseConfig.use,
+    baseURL: BASE_URL,
+    // Rendered times must not depend on the runner's zone (FIXED_NOW is UTC).
+    timezoneId: "UTC",
+  },
   projects: [
     {
       name: "setup",
@@ -50,4 +70,13 @@ export default defineConfig({
       dependencies: ["setup"],
     },
   ],
+  webServer: {
+    // The build bakes in the VITE_* env this process holds. `pnpm exec vite
+    // preview`, never `pnpm preview -- --port`: pnpm forwards the `--`
+    // literally and vite then ignores the flags.
+    command: "pnpm exec vite build && pnpm exec vite preview --port 3002 --strictPort",
+    url: BASE_URL,
+    reuseExistingServer: false,
+    timeout: 180_000,
+  },
 });

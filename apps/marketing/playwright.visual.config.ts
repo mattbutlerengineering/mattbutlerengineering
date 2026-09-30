@@ -38,6 +38,8 @@ export default defineConfig({
   use: {
     ...baseConfig.use,
     baseURL: BASE_URL,
+    // Rendered times must not depend on the runner's zone (FIXED_NOW is UTC).
+    timezoneId: "UTC",
     screenshot: "off",
     video: "off",
   },

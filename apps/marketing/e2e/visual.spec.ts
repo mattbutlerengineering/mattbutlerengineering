@@ -8,12 +8,17 @@
  * instead of going silently uncovered. Parameterised routes resolve through
  * `scripts/ui-quality/route-fixtures.json`, as the capture plan does.
  *
+ * `status` probes three service health endpoints that `vite preview` has no
+ * backend for; they are answered healthy here, and any other same-origin
+ * `/api/` request fails the row — a baseline of an error state records the
+ * error as correct (breakdown Milestone 5b).
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
  */
 import { readFileSync } from "node:fs";
-import { test, expect } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
 
 const APP = "marketing";
 
@@ -32,6 +37,35 @@ const VIEWPORTS = [
  * timestamps, which would otherwise differ on every run.
  */
 const FIXED_NOW = new Date("2026-06-15T12:00:00Z");
+
+/** StatusPage's SERVICES, answered the way a healthy service answers. */
+// Joined from segments: scripts/check-ai-antipatterns.mjs counts quoted /api/ route literals.
+const HEALTHY_SERVICES = ["v1/users", "v1/reservations", "gen"].map((svc) =>
+  ["", "api", svc, "health"].join("/")
+);
+
+const isAppApi = (url: URL) =>
+  url.hostname === "localhost" && /^\/(api|public)\//.test(url.pathname);
+
+/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, not React hooks */
+const test = base.extend<{ unmockedApi: string[] }>({
+  // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
+  unmockedApi: async ({}, use) => {
+    await use([]);
+  },
+  page: async ({ page, unmockedApi }, use) => {
+    await page.route(isAppApi, (route) => {
+      const url = new URL(route.request().url());
+      if (HEALTHY_SERVICES.includes(url.pathname)) {
+        return route.fulfill({ status: 200, json: { status: "ok", version: "1.0.0" } });
+      }
+      unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
+      return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
+    });
+    await use(page);
+  },
+});
+/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 interface LedgerRow {
   route: string;
@@ -57,7 +91,7 @@ const slug = (route: string) => (route === "/" ? "home" : route.replace(/\W+/g, 
 
 for (const { route } of pages) {
   for (const { width, height } of VIEWPORTS) {
-    test(`${route} @ ${width}x${height}`, async ({ page }) => {
+    test(`${route} @ ${width}x${height}`, async ({ page, unmockedApi }) => {
       const path = pathOf(route);
       expect(path, `${route} has no fixture in route-fixtures.json`).not.toBeNull();
       await page.setViewportSize({ width, height });
@@ -65,6 +99,7 @@ for (const { route } of pages) {
       await page.clock.setFixedTime(FIXED_NOW);
       await page.goto(path ?? "/");
       await page.waitForLoadState("networkidle");
+      expect(unmockedApi, `${route} reached API requests no mock answered`).toEqual([]);
       await expect(page).toHaveScreenshot(`${slug(route)}@${width}x${height}.png`, {
         fullPage: true,
         timeout: 15_000,

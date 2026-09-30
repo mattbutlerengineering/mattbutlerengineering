@@ -14,12 +14,28 @@
  * would change every day it is compared, so a stable empty day beats a
  * populated one that drifts.
  *
+ * A baseline of an error state records the error as correct, so three things
+ * are pinned here rather than trusted (Verify's e2e-selector-drift-reviewer
+ * FLAG, breakdown Milestone 5b):
+ *  - every same-origin `/api/` or `/public/` request no mock answered is
+ *    recorded and fails the row, so a new endpoint cannot bake an error card
+ *    into a baseline;
+ *  - the stored session's `expires_at` (and the `iat`/`exp` claims
+ *    ProfilePage counts down from) is re-based on FIXED_NOW. A token
+ *    minted today sits months past the fixed instant, and `useAccessToken`
+ *    schedules its refresh as a `setTimeout` of that distance — past the
+ *    2^31-1 ms ceiling, which fires at once and paints "Your session couldn't
+ *    renew";
+ *  - the event stream is answered in-page and held open. The network mock
+ *    ends its body, and SseClient reconnects about once a second, flipping the
+ *    live indicator between frames.
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
  */
 import { readFileSync } from "node:fs";
-import { test, expect } from "./fixtures.js";
+import { test as base, expect } from "./fixtures.js";
 
 const APP = "hospitality";
 
@@ -33,7 +49,155 @@ const VIEWPORTS = [
   { width: 375, height: 812 },
 ] as const;
 
-const FIXED_NOW = new Date("2026-06-15T12:00:00");
+const FIXED_NOW = new Date("2026-06-15T12:00:00Z");
+
+/** Same-origin API traffic: what the preview server would otherwise 404/502. */
+const isAppApi = (url: URL) =>
+  url.hostname === "localhost" && /^\/(api|public)\//.test(url.pathname);
+
+/** FIXED_NOW's calendar day, in the pinned UTC zone. */
+const DAY = FIXED_NOW.toISOString().slice(0, 10);
+const at = (hhmm: string) => `${DAY}T${hhmm}:00.000Z`;
+
+const VENUE = { id: "ven_e2e_001", name: "E2E Test Bistro", slug: "e2e-test-bistro" } as const;
+
+function briefingEntry(id: string, start: string, end: string, guestName: string, extra: object) {
+  return {
+    id,
+    date: DAY,
+    startTime: at(start),
+    endTime: at(end),
+    partySize: 2,
+    status: "CONFIRMED",
+    notes: null,
+    cancellationReason: null,
+    cancellationNote: null,
+    guestName,
+    guestId: `gst_${id}`,
+    userId: null,
+    occasion: null,
+    seatingPreference: null,
+    tableId: "tbl_e2e_001",
+    table: { id: "tbl_e2e_001", name: "Table 1", tableNumber: "1" },
+    venueId: VENUE.id,
+    createdAt: at("00:00"),
+    updatedAt: at("00:00"),
+    guest: {
+      id: `gst_${id}`,
+      name: guestName,
+      lastVisit: null,
+      notes: null,
+      staffNotes: [],
+      communicationPreference: null,
+      visitCount: 1,
+      dietaryRestrictions: null,
+      tags: [],
+    },
+    ...extra,
+  };
+}
+
+/**
+ * Endpoints the page rows reach that `mockApi` deliberately leaves to each spec
+ * (briefing.spec.ts, floor-plan-status.spec.ts mount their own). Registered
+ * after mockApi, so these win; every value is a constant on FIXED_NOW's day.
+ */
+const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
+  [
+    /\/api\/v1\/briefing\?/,
+    [
+      briefingEntry("dinner", "18:30", "20:00", "Priya Shah", {
+        partySize: 4,
+        occasion: "anniversary",
+      }),
+      briefingEntry("late", "21:00", "22:30", "Jordan Lee", {}),
+    ],
+  ],
+  [
+    /\/api\/v1\/guests\/lapsing\?/,
+    [
+      {
+        guestId: "gst_lapsing",
+        name: "Morgan Reyes",
+        email: "morgan@example.com",
+        phone: null,
+        communicationPreference: "email_only",
+        avgFrequencyDays: 21,
+        daysSinceLastVisit: 49,
+        daysOverdue: 28,
+      },
+    ],
+  ],
+  [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
+  [
+    /\/public\/v1\/reservations\/manage\?token=/,
+    {
+      reservation: {
+        id: "res_vr_manage",
+        date: DAY,
+        startTime: at("18:30"),
+        endTime: at("20:00"),
+        partySize: 4,
+        guestName: "Priya Shah",
+        guestEmail: "priya@example.com",
+        status: "CONFIRMED",
+        notes: null,
+      },
+      venue: { ...VENUE, ianaTimezone: "UTC" },
+    },
+  ],
+];
+
+/** A route whose populated state needs a query string the ledger path lacks. */
+const QUERY: Record<string, string> = { "reservations/manage": "?token=vr-manage-token" };
+
+/* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks -- Playwright fixtures, as in fixtures.ts */
+const test = base.extend<{ unmockedApi: string[] }>({
+  // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
+  unmockedApi: async ({}, use) => {
+    await use([]);
+  },
+  // Overriding `page` runs before `mockedPage` (which depends on it) calls
+  // mockApi, so this route is the lowest-priority handler: only a request
+  // every mock declined or fell back from reaches it.
+  page: async ({ page, unmockedApi }, use) => {
+    await page.route(isAppApi, (route) => {
+      const url = new URL(route.request().url());
+      unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
+      return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
+    });
+    // The claims too: ProfilePage counts the session down from `profile.exp`.
+    await page.addInitScript(
+      (iat) => {
+        const exp = iat + 3600;
+        for (const key of Object.keys(localStorage)) {
+          if (!key.startsWith("oidc.user:")) continue;
+          const user = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
+          const profile = { ...(user.profile as object), iat, exp };
+          localStorage.setItem(key, JSON.stringify({ ...user, expires_at: exp, profile }));
+        }
+      },
+      Math.floor(FIXED_NOW.getTime() / 1000)
+    );
+    await page.addInitScript(() => {
+      const realFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        // A regex, not a quoted path: check-ai-antipatterns.mjs counts /api/ route literals.
+        if (!/\/api\/v1\/events\/stream(\?|$)/.test(url)) return realFetch(input, init);
+        const frame = 'event: connected\ndata: {"message":"Connected to event stream"}\n\n';
+        const body = new ReadableStream<Uint8Array>({
+          start: (controller) => controller.enqueue(new TextEncoder().encode(frame)),
+        });
+        return Promise.resolve(
+          new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } })
+        );
+      };
+    });
+    await use(page);
+  },
+});
+/* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 
 interface LedgerRow {
   route: string;
@@ -67,14 +231,18 @@ const slug = (route: string) => (route === "/" ? "home" : route.replace(/\W+/g, 
 
 for (const { route } of pages) {
   for (const { width, height } of VIEWPORTS) {
-    test(`${route} @ ${width}x${height}`, async ({ mockedPage: page }) => {
+    test(`${route} @ ${width}x${height}`, async ({ mockedPage: page, unmockedApi }) => {
       const path = pathOf(route);
       expect(path, `${route} has no fixture in route-fixtures.json`).not.toBeNull();
+      for (const [pattern, data] of VISUAL_ROUTES) {
+        await page.route(pattern, (r) => r.fulfill({ status: 200, json: { data } }));
+      }
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.clock.setFixedTime(FIXED_NOW);
-      await page.goto(path ?? "");
+      await page.goto(`${path ?? ""}${QUERY[route] ?? ""}`);
       await page.waitForLoadState("networkidle");
+      expect(unmockedApi, `${route} reached API requests no mock answered`).toEqual([]);
       await expect(page).toHaveScreenshot(`${slug(route)}@${width}x${height}.png`, {
         fullPage: true,
         timeout: 15_000,

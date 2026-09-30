@@ -65,6 +65,19 @@ describe.each(APPS)("%s visual spec + configs", (app) => {
     expect(baseConfig).toMatch(/testIgnore:\s*\[[^\]]*"\*\*\/visual\.spec\.ts"[^\]]*\]/);
   });
 
+  // Verify's e2e-selector-drift-reviewer FLAG (breakdown Milestone 5b): a
+  // baseline of an error state records the error as correct.
+  it("fails a row that reaches a same-origin /api/ or /public/ request no mock answered", () => {
+    expect(spec).toMatch(/unmockedApi/);
+    expect(spec).toMatch(/\(api\|public\)/);
+    expect(spec).toMatch(/expect\(unmockedApi[^)]*\)\.toEqual\(\[\]\)/);
+  });
+
+  it("pins the clock to an explicit UTC instant and the browser to UTC", () => {
+    expect(spec).toMatch(/const FIXED_NOW = new Date\("[0-9-]+T[0-9:]+Z"\)/);
+    expect(visualConfig).toMatch(/timezoneId:\s*"UTC"/);
+  });
+
   it("has a perturbed noise-floor config over the visual one", () => {
     expect(noiseFloorConfig).toMatch(/from "\.\/playwright\.visual\.config"/);
     expect(noiseFloorConfig).toMatch(/stylePath/);
@@ -80,6 +93,24 @@ describe("hospitality visual spec — mocked API, fixed clock, the setup auth pr
     expect(spec).toMatch(/mockedPage/);
     expect(spec).toMatch(/clock\.setFixedTime/);
     expect(spec).not.toMatch(/auth === "public"/);
+  });
+
+  it("screenshots a built bundle through vite preview, never the dev server", () => {
+    expect(visualConfig).toMatch(/webServer:\s*\{/);
+    expect(visualConfig).toMatch(/vite build/);
+    expect(visualConfig).toMatch(/vite preview/);
+    expect(visualConfig).not.toMatch(/\bdev\b.*--port/);
+    expect(visualConfig).toMatch(/reuseExistingServer:\s*false/);
+  });
+
+  it("re-bases the stored session's expires_at on FIXED_NOW, so the fixed clock cannot trip a refresh", () => {
+    expect(spec).toMatch(/expires_at/);
+    expect(spec).toMatch(/FIXED_NOW\.getTime\(\)/);
+  });
+
+  it("holds the SSE stream open in-page instead of letting it reconnect", () => {
+    expect(spec).toMatch(/events\\?\/stream/);
+    expect(spec).toMatch(/ReadableStream/);
   });
 
   it("keeps projects [setup, chromium] with chromium depending on setup", () => {
