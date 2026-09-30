@@ -10,9 +10,14 @@
  * routes resolve through `scripts/ui-quality/route-fixtures.json`.
  *
  * Every page runs against `mockedPage` (api-mocks.ts) under a fixed clock. The
- * instant is a constant, not `localDay()`: a baseline that renders "today"
- * would change every day it is compared, so a stable empty day beats a
- * populated one that drifts.
+ * instant is a constant, not the runner's day: a baseline that renders "today"
+ * would change every day it is compared. The reservations list is re-served
+ * on FIXED_NOW's day (mockApi dates it on the runner's real one, which the
+ * fixed clock never shows), so `/` and `timeline` baseline a populated grid.
+ *
+ * Every row asserts it landed on the route it asked for before the shot — a
+ * guard redirect would otherwise baseline the page it redirected to. `admin`
+ * is captured with the `admin` permission on the stored session (review M5).
  *
  * A baseline of an error state records the error as correct, so three things
  * are pinned here rather than trusted (Verify's e2e-selector-drift-reviewer
@@ -49,7 +54,11 @@ const VIEWPORTS = [
   { width: 375, height: 812 },
 ] as const;
 
-const FIXED_NOW = new Date("2026-06-15T12:00:00Z");
+/**
+ * 17:30 UTC: just before the fixture's 18:00 first seating. The timeline
+ * scrolls its grid to "now", so a morning instant leaves every block off-screen.
+ */
+const FIXED_NOW = new Date("2026-06-15T17:30:00Z");
 
 /** Same-origin API traffic: what the preview server would otherwise 404/502. */
 const isAppApi = (url: URL) =>
@@ -148,6 +157,36 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
   ],
 ];
 
+const RESERVATIONS_LIST = new URL("fixtures/reservations-list.json", import.meta.url);
+
+/**
+ * The shared reservations fixture, re-dated onto FIXED_NOW's day at its own
+ * wall clock (the browser is pinned to UTC). Overrides mockApi's list, which
+ * dates it on the runner's real day and so leaves the fixed-clock grid empty.
+ */
+function reservationsOnFixedDay(): object {
+  const fixture = JSON.parse(readFileSync(RESERVATIONS_LIST, "utf8")) as {
+    data: Array<Record<string, unknown>>;
+  };
+  const wallClock = (iso: unknown) => at(String(iso).slice(11, 16));
+  return {
+    ...fixture,
+    data: fixture.data.map((r) => ({
+      ...r,
+      date: DAY,
+      startTime: wallClock(r.startTime),
+      endTime: wallClock(r.endTime),
+    })),
+  };
+}
+
+/**
+ * Designed redirects: for an operational venue (what mockApi serves)
+ * DashboardLayout sends the index route to `timeline`. Any landing not named
+ * here, or not the requested route, fails the row.
+ */
+const LANDS_ON: Record<string, string> = { "/": "timeline" };
+
 /** A route whose populated state needs a query string the ledger path lacks. */
 const QUERY: Record<string, string> = { "reservations/manage": "?token=vr-manage-token" };
 
@@ -237,11 +276,54 @@ for (const { route } of pages) {
       for (const [pattern, data] of VISUAL_ROUTES) {
         await page.route(pattern, (r) => r.fulfill({ status: 200, json: { data } }));
       }
+      const reservations = reservationsOnFixedDay();
+      await page.route(/\/api\/v1\/reservations\?/, (r) =>
+        r.fulfill({ status: 200, json: reservations })
+      );
+      if (route === "setup") {
+        // An operational venue is bounced off the /setup checklist; with no
+        // floor plan the venue is still in setup and the checklist renders.
+        await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
+          r.fulfill({
+            status: 200,
+            json: {
+              data: [],
+              pagination: {
+                page: 1,
+                limit: 25,
+                total: 0,
+                totalPages: 0,
+                hasNext: false,
+                hasPrev: false,
+              },
+            },
+          })
+        );
+      }
+      if (route === "admin") {
+        // RequireAdmin reads the `admin` permission off the OIDC profile.
+        await page.addInitScript(() => {
+          for (const key of Object.keys(localStorage)) {
+            if (!key.startsWith("oidc.user:")) continue;
+            const user = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
+            const profile = { ...(user.profile as object), permissions: ["admin"] };
+            localStorage.setItem(key, JSON.stringify({ ...user, profile }));
+          }
+        });
+      }
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.clock.setFixedTime(FIXED_NOW);
       await page.goto(`${path ?? ""}${QUERY[route] ?? ""}`);
       await page.waitForLoadState("networkidle");
+      const landing = LANDS_ON[route] ?? path ?? "";
+      const requested = new URL(landing, test.info().project.use.baseURL).pathname;
+      const trim = (p: string) => p.replace(/\/$/, "");
+      await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
+        (url) => trim(url.pathname) === trim(requested)
+      );
+      // react-router's error boundary is a page too; it must never become a baseline.
+      await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
       expect(unmockedApi, `${route} reached API requests no mock answered`).toEqual([]);
       await expect(page).toHaveScreenshot(`${slug(route)}@${width}x${height}.png`, {
         fullPage: true,

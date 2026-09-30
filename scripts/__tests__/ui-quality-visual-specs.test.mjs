@@ -176,3 +176,54 @@ describe("marketing visual spec — scroll-revealed sections are rendered, never
     expect(spec).not.toMatch(/data-reveal[^\n]*(display|visibility|opacity)/);
   });
 });
+
+// ui-quality-loop review M5: a hospitality row could baseline a redirect
+// (`admin` → `/` for a non-admin session) or an empty grid (mockApi dates
+// reservations on the runner's real day, the browser clock sits on FIXED_NOW's).
+describe("hospitality visual spec — every row lands where it asked, on a populated day (review M5)", () => {
+  const spec = read("apps/hospitality/e2e/visual.spec.ts");
+  const body = spec.slice(spec.indexOf("for (const { route } of pages)"));
+
+  it("asserts the landed URL is the requested route before the screenshot", () => {
+    const landed = body.indexOf("toHaveURL(");
+    expect(landed).toBeGreaterThan(-1);
+    expect(landed).toBeLessThan(body.indexOf("toHaveScreenshot("));
+  });
+
+  it("serves the reservations list dated on FIXED_NOW's day, not the runner's", () => {
+    expect(spec).toMatch(/\/\\\/api\\\/v1\\\/reservations\\\?\//);
+    expect(spec).toMatch(/reservations-list/);
+    expect(spec).not.toMatch(/\blocalDay\(/);
+  });
+
+  it("names each designed redirect it accepts, rather than accepting any landing", () => {
+    expect(spec).toMatch(/const LANDS_ON: Record<string, string> = \{\s*"\/": "timeline"\s*\}/);
+  });
+
+  it("captures `setup` in a venue still in setup (no floor plan), not bounced to the timeline", () => {
+    expect(spec).toMatch(/route === "setup"/);
+    expect(spec).toMatch(/floor-plans\\\?/);
+  });
+
+  it("fails a row that renders the router's error boundary instead of its page", () => {
+    const guard = body.indexOf('getByText("Unexpected Application Error")');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(body.indexOf("toHaveScreenshot("));
+  });
+
+  it("pins FIXED_NOW inside the service window, so the timeline scrolls onto the fixture's reservations", () => {
+    const now = new Date(spec.match(/const FIXED_NOW = new Date\("([^"]+)"\)/)[1]);
+    const fixture = JSON.parse(read("apps/hospitality/e2e/fixtures/reservations-list.json"));
+    const firstStart = Math.min(
+      ...fixture.data.map((r) => Number(String(r.startTime).slice(11, 13)))
+    );
+    // The grid scrolls to "now"; a now hours before service leaves every block off-screen.
+    expect(now.getUTCHours()).toBeGreaterThanOrEqual(firstStart - 1);
+    expect(now.getUTCHours()).toBeLessThan(firstStart + 1);
+  });
+
+  it("captures `admin` with an admin session instead of letting it redirect", () => {
+    expect(spec).toMatch(/permissions:\s*\["admin"\]/);
+    expect(spec).toMatch(/route === "admin"/);
+  });
+});
