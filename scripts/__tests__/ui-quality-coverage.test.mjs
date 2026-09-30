@@ -98,6 +98,21 @@ describe("coverage.mjs", () => {
     expect(out).toMatch(/100(\.0)? ?%/);
   });
 
+  it("counts a row audited inside the window under an older rubric_version as covered (a bump never craters SC-1)", () => {
+    seed(
+      [audited("/", at(30)), audited("status", at(25))].map((r) => ({ ...r, rubric_version: 1 })),
+      [{ ts: FIRST_RUN }]
+    );
+    mkdirSync(join(root, "docs", "ui-quality"), { recursive: true });
+    writeFileSync(
+      join(root, "docs", "ui-quality", "rubric.json"),
+      JSON.stringify({ rubric_version: 2 })
+    );
+    const { code, out } = run(["--now", at(31)]);
+    expect(code).toBe(0);
+    expect(out).toMatch(/100(\.0)? ?%/);
+  });
+
   it("drops unreachable rows from the denominator and lists them by reason", () => {
     seed(
       [

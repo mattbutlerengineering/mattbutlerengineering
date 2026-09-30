@@ -401,6 +401,7 @@ describe("detect.mjs judged CLI + the ledger.mjs record round-trip", () => {
       JSON.stringify({
         at: "2026-10-01T07:30:00Z",
         git_depth: "full",
+        rubric_version: 1,
         due: ["/", "acmm", "metrics", "status"].map((route) => ({
           app: "marketing",
           route,
@@ -445,9 +446,7 @@ describe("detect.mjs judged CLI + the ledger.mjs record round-trip", () => {
 
     const { main: ledgerMain } = await import("../ui-quality/ledger.mjs");
     const now = "2026-10-01T08:00:00Z";
-    expect(
-      ledgerMain(["record", "--rubric-version", "1", "--root", root], { now: () => now, ...io })
-    ).toBe(0);
+    expect(ledgerMain(["record", "--root", root], { now: () => now, ...io })).toBe(0);
     const rows = readFileSync(join(root, "metrics/ui-quality-ledger.jsonl"), "utf8")
       .trim()
       .split("\n")

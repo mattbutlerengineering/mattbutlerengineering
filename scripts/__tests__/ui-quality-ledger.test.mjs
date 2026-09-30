@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +41,17 @@ function ledgerPath() {
   return join(root, "metrics", "ui-quality-ledger.jsonl");
 }
 
+const REAL_RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
+
+/** A valid fixture rubric at `version` (the version is not part of tells_hash). */
+function writeRubric(version) {
+  mkdirSync(join(root, "docs", "ui-quality"), { recursive: true });
+  writeFileSync(
+    join(root, "docs", "ui-quality", "rubric.json"),
+    JSON.stringify({ ...REAL_RUBRIC, rubric_version: version })
+  );
+}
+
 /** Run the CLI body against the temp root with an injected inventory + git. */
 function run(argv, overrides = {}) {
   const out = [];
@@ -60,6 +71,7 @@ function run(argv, overrides = {}) {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "ui-quality-ledger-"));
   mkdirSync(join(root, "metrics"));
+  writeRubric(1);
 });
 
 describe("ledger.mjs generate", () => {
@@ -403,6 +415,7 @@ describe("ledger.mjs record", () => {
       row("hospitality", "timeline", { auth: "auth0" }),
       row("rialto-web", "demos/drivers/:id"),
     ]);
+    writeRubric(2);
     runAudit(["due"]);
     writeManifest("marketing", [
       { route: "/", path: "/", screenshots: [shot("1280x720"), shot("375x812")] },
@@ -415,7 +428,7 @@ describe("ledger.mjs record", () => {
 
   it("marks a judged row audited, advancing all three audit columns", () => {
     judged({ marketing: { "/": "judged", status: "unjudged:tool-error" } });
-    expect(runAudit(["record", "--rubric-version", "2"]).code).toBe(0);
+    expect(runAudit(["record"]).code).toBe(0);
     expect(find("marketing", "/")).toMatchObject({
       reachability: "audited",
       last_audited_at: NOW,
@@ -425,7 +438,7 @@ describe("ledger.mjs record", () => {
 
   it("marks an unjudged row with its reason, dates untouched, and due selects it again", () => {
     judged({ marketing: { "/": "judged", status: "unjudged:tool-error" } });
-    runAudit(["record", "--rubric-version", "2"]);
+    runAudit(["record"]);
     expect(find("marketing", "status")).toMatchObject({
       reachability: "unjudged:tool-error",
       last_audited_at: daysBefore(40),
@@ -439,20 +452,20 @@ describe("ledger.mjs record", () => {
 
   it("marks a captured row absent from judge-status unjudged:missing", () => {
     judged({ marketing: { "/": "judged" } });
-    runAudit(["record", "--rubric-version", "2"]);
+    runAudit(["record"]);
     expect(find("marketing", "weekly").reachability).toBe("unjudged:missing");
   });
 
   it("marks an errored no-screenshot row, and a row in no manifest, unreachable:build", () => {
     judged({ marketing: { "/": "judged" } });
-    runAudit(["record", "--rubric-version", "2"]);
+    runAudit(["record"]);
     expect(find("marketing", "acmm").reachability).toBe("unreachable:build");
     expect(find("marketing", "metrics").reachability).toBe("unreachable:build");
     expect(find("rialto-web", "demos/drivers/:id").reachability).toBe("unreachable:build");
   });
 
   it("with no judge-status file marks every captured row unjudged:missing and none audited", () => {
-    const result = runAudit(["record", "--rubric-version", "2"]);
+    const result = runAudit(["record"]);
     expect(result.code).toBe(0);
     expect(result.err).toMatch(/judge-status\.json.*missing/);
     for (const route of ["/", "status", "weekly"]) {
@@ -463,7 +476,7 @@ describe("ledger.mjs record", () => {
 
   it("leaves no due row with reachability null", () => {
     judged({ marketing: { "/": "judged" } });
-    runAudit(["record", "--rubric-version", "2"]);
+    runAudit(["record"]);
     const due = readJson(".ui-quality/due.json");
     for (const d of [...due.due, ...due.unreachable_auth]) {
       expect(find(d.app, d.route).reachability, `${d.app} ${d.route}`).not.toBeNull();
@@ -474,7 +487,7 @@ describe("ledger.mjs record", () => {
     judged({ marketing: { "/": "judged", status: "unjudged:malformed" } }, [
       { app: "marketing", route: "/", tell: "agent-built/made-up", reason: "unknown-tell" },
     ]);
-    runAudit(["record", "--rubric-version", "2"]);
+    runAudit(["record"]);
     const runs = parseLedger(readFileSync(join(root, "metrics", "ui-quality-runs.jsonl"), "utf8"));
     expect(runs).toHaveLength(1);
     expect(runs[0]).toEqual({
@@ -489,11 +502,190 @@ describe("ledger.mjs record", () => {
     });
   });
 
-  it("exits 2 without --rubric-version, or without a due.json to record against", () => {
-    expect(runAudit(["record"]).code).toBe(2);
+  it("exits 2 without a due.json to record against", () => {
     const fresh = mkdtempSync(join(tmpdir(), "ui-quality-nodue-"));
     mkdirSync(join(fresh, "metrics"));
-    expect(runAudit(["record", "--rubric-version", "1"], { root: fresh }).code).toBe(2);
+    root = fresh;
+    writeRubric(1);
+    seed([row("marketing", "/")]);
+    expect(runAudit(["record"]).code).toBe(2);
+  });
+});
+
+describe("ledger.mjs rubric_version — a bump re-queues audited rows, last", () => {
+  const versionOnly = (i) =>
+    row("marketing", `v${String(i).padStart(2, "0")}`, {
+      last_changed_at: daysBefore(200),
+      last_audited_at: daysBefore(1 + i / 10),
+      reachability: "audited",
+      rubric_version: 1,
+    });
+  const changed = (i) =>
+    row("marketing", `c${String(i).padStart(2, "0")}`, {
+      last_changed_at: daysBefore(1),
+      last_audited_at: daysBefore(2 + i / 10),
+      reachability: "audited",
+      rubric_version: 2,
+    });
+  const neverAudited = (i) => row("marketing", `n${String(i).padStart(2, "0")}`);
+  const dueRoutes = () => readJson(".ui-quality/due.json").due.map((d) => d.route);
+  const judgeAll = (routes) => {
+    mkdirSync(join(root, ".ui-quality"), { recursive: true });
+    writeFileSync(
+      join(root, ".ui-quality", "judge-status.json"),
+      JSON.stringify({
+        routes: { marketing: Object.fromEntries(routes.map((r) => [r, "judged"])) },
+        dropped: [],
+      })
+    );
+    writeManifest(
+      "marketing",
+      routes.map((route) => ({ route, path: `/${route}`, screenshots: [shot("1280x720")] }))
+    );
+  };
+
+  it("makes an audited-in-window row at v1 due under a v2 rubric", () => {
+    writeRubric(2);
+    seed([versionOnly(0)]);
+    runAudit(["due"]);
+    expect(dueRoutes()).toEqual(["v00"]);
+  });
+
+  it("keeps an audited-in-window row at v1 NOT due under a v1 rubric", () => {
+    seed([versionOnly(0)]);
+    runAudit(["due"]);
+    expect(dueRoutes()).toEqual([]);
+  });
+
+  it("45 changed/never-audited + 10 version-only: the plan holds 40 non-version rows and no version-only row", () => {
+    writeRubric(2);
+    seed([
+      ...Array.from({ length: 30 }, (_, i) => changed(i)),
+      ...Array.from({ length: 15 }, (_, i) => neverAudited(i)),
+      ...Array.from({ length: 10 }, (_, i) => versionOnly(i)),
+    ]);
+    runAudit(["due"]);
+    const due = dueRoutes();
+    expect(due).toHaveLength(40);
+    expect(due.some((r) => r.startsWith("v"))).toBe(false);
+  });
+
+  it("30 changed + 20 version-only: 30 changed, then the 10 stalest version-only rows", () => {
+    writeRubric(2);
+    seed([
+      ...Array.from({ length: 30 }, (_, i) => changed(i)),
+      ...Array.from({ length: 20 }, (_, i) => versionOnly(i)),
+    ]);
+    runAudit(["due"]);
+    const due = dueRoutes();
+    expect(due).toHaveLength(40);
+    expect(due.slice(0, 30).every((r) => r.startsWith("c"))).toBe(true);
+    expect(due.slice(30)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `v${String(19 - i).padStart(2, "0")}`)
+    );
+  });
+
+  it("drains across fires: each fire takes the stalest version-only rows the changed rows leave room for", () => {
+    writeRubric(2);
+    seed([
+      ...Array.from({ length: 30 }, (_, i) => changed(i)),
+      ...Array.from({ length: 25 }, (_, i) => versionOnly(i)),
+    ]);
+    const fires = [];
+    for (let fire = 0; fire < 3; fire += 1) {
+      const now = new Date(Date.parse(NOW) + fire * 60_000).toISOString();
+      runAudit(["due"], { now: () => now });
+      const versionRows = dueRoutes().filter((r) => r.startsWith("v"));
+      fires.push(versionRows);
+      judgeAll(versionRows); // the changed rows stay due (captured by nobody)
+      expect(runAudit(["record"], { now: () => now }).code).toBe(0);
+    }
+    expect(fires.map((f) => f.length)).toEqual([10, 10, 5]);
+    expect(new Set(fires.flat()).size).toBe(25);
+    expect(
+      ledgerRows()
+        .filter((r) => r.route.startsWith("v"))
+        .map((r) => r.rubric_version)
+    ).toEqual(Array(25).fill(2));
+  });
+
+  it("a version-stale row older than AUDIT_TTL_DAYS is TTL-due, ahead of every version-only row", () => {
+    writeRubric(2);
+    const ttl = row("marketing", "ttl", {
+      last_audited_at: daysBefore(29),
+      reachability: "audited",
+      rubric_version: 1,
+    });
+    seed([
+      ...Array.from({ length: 40 }, (_, i) => changed(i)),
+      ...Array.from({ length: 5 }, (_, i) => versionOnly(i)),
+      ttl,
+    ]);
+    runAudit(["due"]);
+    const due = dueRoutes();
+    expect(due).toContain("ttl");
+    expect(due.some((r) => r.startsWith("v"))).toBe(false);
+  });
+
+  it("due.json carries the rubric_version it planned under", () => {
+    writeRubric(2);
+    seed([versionOnly(0)]);
+    runAudit(["due"]);
+    expect(readJson(".ui-quality/due.json").rubric_version).toBe(2);
+  });
+
+  it("record with no flag reads the version from the rubric and stamps audited rows with it", () => {
+    writeRubric(2);
+    seed([versionOnly(0)]);
+    runAudit(["due"]);
+    judgeAll(["v00"]);
+    expect(runAudit(["record"]).code).toBe(0);
+    expect(find("marketing", "v00")).toMatchObject({ reachability: "audited", rubric_version: 2 });
+    const runs = parseLedger(readFileSync(join(root, "metrics", "ui-quality-runs.jsonl"), "utf8"));
+    expect(runs[0].rubric_version).toBe(2);
+  });
+
+  it("a leftover --rubric-version flag exits 2 and writes nothing — the retired flag is never honoured or ignored", () => {
+    writeRubric(2);
+    seed([versionOnly(0)]);
+    runAudit(["due"]);
+    judgeAll(["v00"]);
+    const before = readFileSync(ledgerPath(), "utf8");
+    const result = runAudit(["record", "--rubric-version", "1"]);
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/--rubric-version/);
+    expect(readFileSync(ledgerPath(), "utf8")).toBe(before);
+    expect(existsSync(join(root, "metrics", "ui-quality-runs.jsonl"))).toBe(false);
+  });
+
+  it("due.json at v1 with rubric.json at v2 (rubric changed mid-fire): exit 2, ledger + runs byte-identical", () => {
+    seed([versionOnly(0), neverAudited(0)]);
+    runAudit(["due"]);
+    judgeAll(["n00"]);
+    writeFileSync(join(root, "metrics", "ui-quality-runs.jsonl"), '{"ts":"earlier"}\n');
+    writeRubric(2);
+    const ledgerBefore = readFileSync(ledgerPath(), "utf8");
+    const result = runAudit(["record"]);
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/planned under rubric_version 1.*now 2/);
+    expect(readFileSync(ledgerPath(), "utf8")).toBe(ledgerBefore);
+    expect(readFileSync(join(root, "metrics", "ui-quality-runs.jsonl"), "utf8")).toBe(
+      '{"ts":"earlier"}\n'
+    );
+  });
+
+  it("an unreadable or invalid rubric exits 2 from both due and record", () => {
+    seed([neverAudited(0)]);
+    runAudit(["due"]);
+    writeFileSync(join(root, "docs", "ui-quality", "rubric.json"), "{nope");
+    expect(runAudit(["due"]).code).toBe(2);
+    expect(runAudit(["record"]).code).toBe(2);
+    writeFileSync(
+      join(root, "docs", "ui-quality", "rubric.json"),
+      JSON.stringify({ ...REAL_RUBRIC, tells_hash: "0" })
+    );
+    expect(runAudit(["due"]).code).toBe(2);
+    expect(runAudit(["record"]).code).toBe(2);
   });
 });
 

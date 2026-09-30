@@ -22,8 +22,15 @@
  *             viewports }] }`) and .ui-quality/due.json (record's input: the whole due
  *             set incl. no-fixture rows, plus the auth0 rows); mark auth0 rows
  *             `unreachable:auth` in the same ledger write
- *   record    --rubric-version N: apply .ui-quality/captures/<app>/manifest.jsonl +
+ *   record    apply .ui-quality/captures/<app>/manifest.jsonl +
  *             .ui-quality/judge-status.json to every due row, append the runs row
+ *
+ * `due` and `record` read the current `rubric_version` from
+ * docs/ui-quality/rubric.json through rubric.mjs (an unreadable or invalid
+ * rubric exits 2). `due` plans under it and writes it into due.json; `record`
+ * refuses (exit 2, writes nothing) when the rubric changed since — the judge
+ * read one bar and the ledger would stamp another. There is no
+ * `--rubric-version` flag; passing the retired one exits 2.
  *
  * Pure core (`buildLedger`, `diffIdentity`, `parseLedger`, `renderLedger`) plus a
  * `main(argv, deps)` whose deps (`inventory`, `lastChangedAt`, `gitDepth`, fs
@@ -40,6 +47,7 @@ import { append, resolvePath } from "../metrics-store.mjs";
 import { AUDIT_TTL_DAYS, MAX_ROUTES_PER_FIRE, VIEWPORTS } from "./config.mjs";
 import { applyRecord, buildPlan, markUnreachableAuth, selectDue } from "./ledger-audit.mjs";
 import { createRepoIo, extractAll } from "./routes.mjs";
+import { loadRubric } from "./rubric.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -249,7 +257,9 @@ function refresh(ctx) {
 
 function due(ctx) {
   const rows = requireLedger(ctx);
+  const rubricVersion = loadRubric(ctx.root).rubric_version;
   const { due: dueRows, unreachableAuth } = selectDue(rows, {
+    rubricVersion,
     now: ctx.now(),
     ttlDays: AUDIT_TTL_DAYS,
     maxRoutes: MAX_ROUTES_PER_FIRE,
@@ -260,6 +270,7 @@ function due(ctx) {
   writeJson(join(work, DUE_FILE), {
     at: ctx.now(),
     git_depth: ctx.gitDepth(),
+    rubric_version: rubricVersion,
     due: dueRows,
     unreachable_auth: unreachableAuth,
   });
@@ -284,14 +295,20 @@ function readManifests(work) {
 }
 
 function record(ctx) {
-  const flag = ctx.argv.indexOf("--rubric-version");
-  const rubricVersion = flag === -1 ? NaN : Number(ctx.argv[flag + 1]);
-  if (!Number.isInteger(rubricVersion) || rubricVersion < 1) {
-    throw new Error("--rubric-version <positive integer> is required");
+  if (ctx.argv.includes("--rubric-version")) {
+    throw new Error(
+      "--rubric-version is retired — the version is read from docs/ui-quality/rubric.json"
+    );
   }
+  const rubricVersion = loadRubric(ctx.root).rubric_version;
   const work = join(ctx.root, WORK_DIR);
   const dueFile = readJsonIfPresent(join(work, DUE_FILE));
   if (dueFile === null) throw new Error(`${WORK_DIR}/${DUE_FILE} is missing — run due first`);
+  if (dueFile.rubric_version !== rubricVersion) {
+    throw new Error(
+      `${WORK_DIR}/${DUE_FILE} was planned under rubric_version ${dueFile.rubric_version} but docs/ui-quality/rubric.json is now ${rubricVersion} — the rubric changed mid-fire; nothing recorded`
+    );
+  }
   const judgeStatus = readJsonIfPresent(join(work, JUDGE_STATUS_FILE));
   if (judgeStatus === null) {
     ctx.stderr(

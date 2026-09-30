@@ -44,6 +44,15 @@ export function isDue(row, { now, ttlDays }) {
   return Date.parse(now) - audited > ttlDays * DAY_MS;
 }
 
+/** Audited under a `rubric_version` below the rubric's current one. */
+export function isVersionStale(row, rubricVersion) {
+  return (
+    Boolean(row.last_audited_at) &&
+    Number.isInteger(row.rubric_version) &&
+    row.rubric_version < rubricVersion
+  );
+}
+
 /** Staleness-first: never-audited rows, then oldest audit; ties by (app, route). */
 function byStaleness(a, b) {
   const at = a.last_audited_at ?? "";
@@ -53,14 +62,20 @@ function byStaleness(a, b) {
 }
 
 /**
- * The fire's due set.
+ * The fire's due set. Rows due for an ordinary reason (never audited, changed,
+ * TTL) come first; rows due ONLY because a rubric bump left them version-stale
+ * come after all of them, so a bump drains in leftover capacity and never
+ * starves a changed route. Staleness-first within each group.
  * @returns {{ due: Array<{app, route, path: string|null, detail?: string}>,
  *   unreachableAuth: Array<{app, route}> }}
  */
-export function selectDue(rows, { now, ttlDays, maxRoutes, fixtures }) {
-  const candidates = rows
-    .filter((r) => AUDITABLE_KINDS.includes(r.kind) && isDue(r, { now, ttlDays }))
+export function selectDue(rows, { now, ttlDays, maxRoutes, fixtures, rubricVersion }) {
+  const auditable = rows.filter((r) => AUDITABLE_KINDS.includes(r.kind));
+  const ordinary = auditable.filter((r) => isDue(r, { now, ttlDays })).sort(byStaleness);
+  const versionOnly = auditable
+    .filter((r) => !isDue(r, { now, ttlDays }) && isVersionStale(r, rubricVersion))
     .sort(byStaleness);
+  const candidates = [...ordinary, ...versionOnly];
   const unreachableAuth = candidates
     .filter((r) => r.auth === "auth0")
     .map(({ app, route }) => ({ app, route }));
