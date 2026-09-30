@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-09-30T00:41:11.142Z",
+  "generatedAt": "2026-09-30T05:51:51.514Z",
   "patterns": {
     "magicTimeouts": {
       "count": 23,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
-      "count": 78,
+      "count": 79,
       "description": "Empty or comment-only catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 715,
+      "count": 717,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {
