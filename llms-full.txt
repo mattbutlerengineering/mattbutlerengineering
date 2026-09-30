@@ -2997,7 +2997,11 @@
         errors.push(error instanceof Error ? error.message : String(error));
       }
     
-      if (worktree && config.createPr) {
+      // A throw keeps the worktree even when publishing (Review M1): the failure
+      // may predate any commit, so `git worktree remove --force` would destroy
+      // the agent's only copy of its edits.
+      const keepsWorktree = !config.createPr || threw;
+      if (worktree && !keepsWorktree) {
         await deps.worktreeManager.removeWorktree(config.repoPath, worktree.path);
       }
     
@@ -3055,7 +3059,7 @@
         errors,
         ...(failureCategory ? { failureCategory } : {}),
         // Present iff the worktree is kept — see SessionResult.worktreePath.
-        ...(!config.createPr && worktree ? { worktreePath: worktree.path } : {}),
+        ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
       };
     }
     function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean {
@@ -46818,8 +46822,9 @@
       /** Non-fatal errors from post-session cleanup (e.g. worktree removal failures). */
       readonly cleanupErrors?: readonly string[];
       /**
-       * Path of the session's worktree — present iff it was kept (`createPr:
-       * false` and the worktree was created), absent once removed. Consumers
+       * Path of the session's worktree — present iff it was kept (the worktree
+       * was created and either `createPr: false`, or a CLI adapter session threw
+       * after it was created), absent once removed. Consumers
        * treat absence as "nothing to inspect" and never derive a path from
        * `branchName`.
        */
