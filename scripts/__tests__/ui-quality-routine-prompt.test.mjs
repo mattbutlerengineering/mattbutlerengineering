@@ -306,7 +306,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     const entry = ROUTINE_MANIFEST.find((e) => e.name === "mbe-ui-quality");
     expect(entry).toBeDefined();
     expect(entry.periodDays).toBe(1);
-    expect(entry.activatedAt).toBeUndefined();
+    expect(entry.activatedAt).toBe("2026-09-30");
     expect(entry.signature.type).toBe("pr-title");
     const concrete = title[1].replace("<YYYY-MM-DD>", "2026-10-01");
     expect(new RegExp(entry.signature.pattern).test(concrete)).toBe(true);

@@ -209,6 +209,7 @@ export const ROUTINE_MANIFEST = [
     // and routine-liveness.mjs's `activatedAt` grace is what keeps the first
     // two days `pending` instead of `dark`.
     triggerId: null,
+    activatedAt: "2026-09-30",
     periodDays: 1,
     // docs/routines/mbe-ui-quality.md step (7) commits `chore(ui-quality):
     // ledger <date>` onto the `ui-quality/ledger` branch on every fire, no-op
