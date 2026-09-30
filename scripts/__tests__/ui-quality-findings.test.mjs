@@ -327,3 +327,192 @@ describe("findings.mjs plan — carrier rules", () => {
     expect(p.actions[0].body).not.toContain("unrelated");
   });
 });
+
+function run(argv) {
+  const out = [];
+  const err = [];
+  const code = main([...argv, "--root", root], {
+    stdout: (s) => out.push(s),
+    stderr: (s) => err.push(s),
+  });
+  return { code, out: out.join(""), err: err.join("") };
+}
+
+const readLedger = () => JSON.parse(readFileSync(join(root, LEDGER), "utf8"));
+
+/** The routine's executed plan: every create given the number GitHub returned. */
+function execute(p, first = 500) {
+  let next = first;
+  return {
+    ...p,
+    actions: p.actions.map((a) => (a.action === "create" ? { ...a, issue: next++ } : a)),
+  };
+}
+
+describe("findings.mjs record", () => {
+  const NOW = ["--now", "2026-10-02T07:40:00Z"];
+
+  it("round-trips issue numbers, carriers and last_seen, so the next plan creates nothing", () => {
+    const first = plan([[DEAD, AXE]], {}, ["--calibration-status", "pass"]).plan;
+    const executed = writeJson("in/executed.json", execute(first));
+    expect(run(["record", "--executed", executed, ...NOW]).code).toBe(0);
+    const ledger = readLedger();
+    expect(ledger[findingKey(DEAD, 1)]).toEqual({
+      issue: 501,
+      carrier: "issue",
+      state: "open",
+      severity: "P1",
+      first_seen: "2026-10-02",
+      last_seen: "2026-10-02",
+      escalated_at: null,
+    });
+    expect(ledger[findingKey(AXE, 1)].issue).toBe(500);
+    const again = plan([[DEAD, AXE]], { 500: "open", 501: "open" }, [
+      "--calibration-status",
+      "pass",
+    ]).plan;
+    expect(again.actions.map((a) => a.action)).toEqual(["skip", "skip"]);
+  });
+
+  it("keeps first_seen and escalated_at on a later fire and advances last_seen", () => {
+    writeJson(LEDGER, {
+      [findingKey(AXE, 1)]: record(102, { escalated_at: "2026-10-01T08:00:00Z" }),
+    });
+    const p = plan([[AXE]], { 102: "open" }, ["--calibration-status", "pass"]).plan;
+    run(["record", "--executed", writeJson("in/executed.json", p), ...NOW]);
+    expect(readLedger()[findingKey(AXE, 1)]).toMatchObject({
+      issue: 102,
+      first_seen: "2026-10-01",
+      last_seen: "2026-10-02",
+      escalated_at: "2026-10-01T08:00:00Z",
+    });
+  });
+
+  it("records seeds, aggregate members, a legacy link and the fix PR", () => {
+    const axe = ["a", "b", "c", "d"].map((r) =>
+      finding("marketing", r, "accessibility/axe-moderate")
+    );
+    const dead = ["p", "q", "r", "s", "t", "u"].map((r) =>
+      finding("marketing", r, "bugs/dead-in-app-link", "P1")
+    );
+    const alt = finding("marketing", "acmm", "accessibility/non-descriptive-alt", "P2", {
+      evidence: { message: "x", file: "apps/marketing/src/pages/AcmmPage.tsx" },
+      legacy: 5271,
+    });
+    const p = plan([[...axe, ...dead, alt]], { 5271: "open" }, [
+      "--calibration-status",
+      "pass",
+    ]).plan;
+    const executed = { ...execute(p), fix_pr: { key: findingKey(alt, 1), pr: 5903 } };
+    expect(run(["record", "--executed", writeJson("in/x.json", executed), ...NOW]).code).toBe(0);
+    const ledger = readLedger();
+    const agg = p.actions.find((a) => a.carrier === "aggregate");
+    const aggIssue = ledger[agg.key].issue;
+    expect(Number.isInteger(aggIssue)).toBe(true);
+    for (const f of dead) {
+      expect(ledger[findingKey(f, 1)]).toMatchObject({
+        issue: aggIssue,
+        carrier: `aggregate:${aggIssue}`,
+      });
+    }
+    expect(ledger[findingKey(axe[3], 1)]).toMatchObject({ issue: null, carrier: "seed" });
+    expect(ledger[findingKey(alt, 1)]).toMatchObject({
+      issue: 5271,
+      legacy: 5271,
+      carrier: "fix-pr:5903",
+    });
+  });
+
+  it("refuses a create that came back without an issue number and writes nothing", () => {
+    const p = plan([[DEAD]], {}, ["--calibration-status", "pass"]).plan;
+    const { code, err } = run(["record", "--executed", writeJson("in/x.json", p), ...NOW]);
+    expect(code).toBe(2);
+    expect(err).toContain(findingKey(DEAD, 1));
+    expect(existsSync(join(root, LEDGER))).toBe(false);
+  });
+});
+
+describe("findings.mjs migrate", () => {
+  const OLD = "hospitality|book/:venueSlug|r1|accessibility/axe-moderate";
+  const RETIRED = "marketing|/|r1|agent-built/generic-hero-copy";
+
+  it("re-keys a surviving open finding under the same issue and reports a retired one", () => {
+    writeRubric(rubricV2("agent-built/generic-hero-copy"));
+    writeJson(LEDGER, {
+      [OLD]: record(102),
+      [RETIRED]: record(103),
+      "marketing|x|r1|bugs/blank-render": record(104, { state: "closed" }),
+    });
+    const { code, out } = run(["migrate", "--from", "1", "--to", "2"]);
+    expect(code).toBe(0);
+    const ledger = readLedger();
+    expect(ledger[OLD]).toBeUndefined();
+    expect(ledger["hospitality|book/:venueSlug|r2|accessibility/axe-moderate"]).toEqual(
+      record(102)
+    );
+    expect(ledger[RETIRED]).toEqual(record(103));
+    expect(ledger["marketing|x|r1|bugs/blank-render"]).toEqual(record(104, { state: "closed" }));
+    expect(JSON.parse(out)).toEqual({
+      rekeyed: [
+        { from: OLD, to: "hospitality|book/:venueSlug|r2|accessibility/axe-moderate", issue: 102 },
+      ],
+      retired: [{ key: RETIRED, issue: 103 }],
+    });
+  });
+
+  it("refuses a --to that is not the rubric's current version", () => {
+    writeJson(LEDGER, { [OLD]: record(102) });
+    const { code, err } = run(["migrate", "--from", "1", "--to", "2"]);
+    expect(code).toBe(2);
+    expect(err).toContain("rubric v1");
+    expect(readLedger()[OLD]).toEqual(record(102));
+  });
+
+  it("round-trip: a ledger that makes plan exit 2 under v2 plans normally after migrate", () => {
+    writeRubric(rubricV2("agent-built/generic-hero-copy"));
+    writeJson(LEDGER, { [OLD]: record(102) });
+    expect(plan([[AXE]], { 102: "open" }).code).toBe(2);
+    expect(run(["migrate", "--from", "1", "--to", "2"]).code).toBe(0);
+    const { code, plan: p } = plan([[AXE]], { 102: "open" });
+    expect(code).toBe(0);
+    expect(p.actions).toEqual([
+      expect.objectContaining({
+        key: "hospitality|book/:venueSlug|r2|accessibility/axe-moderate",
+        action: "skip",
+        issue: 102,
+      }),
+    ]);
+  });
+});
+
+describe("findings.mjs seeds", () => {
+  const PROTOCOL = /^- .+ \(from: session:\d{4}-\d{2}-\d{2}\)$/;
+
+  it("appends protocol-form lines and never rewrites an existing backlog line", () => {
+    mkdirSync(join(root, "docs"), { recursive: true });
+    const existing =
+      "# Seed backlog\n\n- keep me exactly (from: #1)\n- ui-quality: marketing r3 — accessibility/axe-moderate (rubric v1) (from: session:2026-10-01)\n";
+    writeFileSync(join(root, "docs/backlog.md"), existing);
+    const axe = ["r0", "r1", "r2", "r3", "r4"].map((r) =>
+      finding("marketing", r, "accessibility/axe-moderate")
+    );
+    const p = plan([axe], {}, ["--calibration-status", "pass"]).plan;
+    const { code, out } = run([
+      "seeds",
+      "--plan",
+      join(root, PLAN),
+      "--now",
+      "2026-10-02T07:40:00Z",
+    ]);
+    expect(code).toBe(0);
+    const after = readFileSync(join(root, "docs/backlog.md"), "utf8");
+    expect(after.startsWith(existing)).toBe(true);
+    const added = after.slice(existing.length).split("\n").filter(Boolean);
+    expect(added).toEqual([
+      "- ui-quality: marketing r4 — accessibility/axe-moderate (rubric v1) (from: session:2026-10-02)",
+    ]);
+    for (const line of added) expect(line).toMatch(PROTOCOL);
+    expect(out.trim()).toBe(added.join("\n"));
+    expect(p.seeds).toHaveLength(2);
+  });
+});

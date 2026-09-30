@@ -18,14 +18,23 @@
  *         → .ui-quality/findings.plan.json; exit 2 (nothing written) on an
  *         unknown tell or while an open key predates the rubric's version.
  *         No --calibration-status is `stale`: agent-built findings drop.
+ *   record  --executed <json> [--now <iso>] — the executed plan (every create
+ *           given its issue number, optional `fix_pr: { key, pr }`) written
+ *           back to metrics/ui-quality-findings.json
+ *   migrate --from <v> --to <v> — re-key open findings whose tell survives to
+ *           the rubric's current version; print { rekeyed, retired }
+ *   seeds   --plan <json> [--now <iso>] — append the plan's seeds to
+ *           docs/backlog.md as `- <title> (from: session:<date>)`; existing
+ *           lines are never rewritten
  *
- * Usage: node scripts/ui-quality/findings.mjs <plan> [flags] [--root <dir>]
+ * Usage: node scripts/ui-quality/findings.mjs <plan|record|migrate|seeds> [flags] [--root <dir>]
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { read as readMetric } from "../metrics-store.mjs";
+import { read as readMetric, write as writeMetric } from "../metrics-store.mjs";
+import { applyExecuted, migrateLedger, renderSeeds } from "./findings-ledger.mjs";
 import { CALIBRATION_STATUSES, planFindings, unmigratedKeys } from "./findings-plan.mjs";
 import { WORK_DIR } from "./ledger.mjs";
 import { loadRubric } from "./rubric.mjs";
@@ -121,7 +130,44 @@ function plan(ctx, argv) {
   return 0;
 }
 
-const COMMANDS = { plan };
+const today = (argv) => (flagValue(argv, "--now") ?? new Date().toISOString()).slice(0, 10);
+
+function record(ctx, argv) {
+  const file = flagValue(argv, "--executed");
+  if (!file) throw new Error("needs --executed <json>");
+  const next = applyExecuted(readLedger(ctx.root), readJson(file), today(argv));
+  writeMetric(FINDINGS_METRIC, next, { root: ctx.root });
+  ctx.stderr(`findings.mjs record: ${Object.keys(next).length} key(s) in the findings ledger\n`);
+  return 0;
+}
+
+function migrate(ctx, argv) {
+  const from = Number(flagValue(argv, "--from"));
+  const to = Number(flagValue(argv, "--to"));
+  if (!Number.isInteger(from) || !Number.isInteger(to)) {
+    throw new Error("needs --from <version> and --to <version>");
+  }
+  const result = migrateLedger(readLedger(ctx.root), from, to, loadRubric(ctx.root));
+  writeMetric(FINDINGS_METRIC, result.ledger, { root: ctx.root });
+  ctx.stdout(`${JSON.stringify({ rekeyed: result.rekeyed, retired: result.retired }, null, 2)}\n`);
+  return 0;
+}
+
+function seeds(ctx, argv) {
+  const file = flagValue(argv, "--plan");
+  if (!file) throw new Error("needs --plan <json>");
+  const path = join(ctx.root, BACKLOG_FILE);
+  const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const lines = renderSeeds(readJson(file).seeds ?? [], current.split("\n"), today(argv));
+  if (lines.length > 0) {
+    const sep = current === "" || current.endsWith("\n") ? "" : "\n";
+    writeFileSync(path, `${current}${sep}${lines.join("\n")}\n`);
+  }
+  ctx.stdout(lines.length > 0 ? `${lines.join("\n")}\n` : "");
+  return 0;
+}
+
+const COMMANDS = { plan, record, migrate, seeds };
 
 /**
  * @param {string[]} argv
