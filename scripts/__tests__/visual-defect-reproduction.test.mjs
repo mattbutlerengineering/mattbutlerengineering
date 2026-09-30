@@ -103,8 +103,13 @@ const PENDING = SUITES.filter(
 );
 const LIVE = SUITES.filter((suite) => !PENDING.includes(suite));
 
-describe.each(PENDING)("$app — the declared visual sensitivity", ({ app }) => {
-  it.skip(`${app}: ${BASELINES_PENDING}`, () => {});
+describe.each(PENDING)("$app — the declared visual sensitivity", ({ app, screenshotDir }) => {
+  // Skipped, never passed: the name is the visible reason. Its body states
+  // the condition the skip stands for, so removing the skip without adding
+  // baselines reds rather than passing vacuously.
+  it.skip(`${app}: ${BASELINES_PENDING}`, () => {
+    expect(baselinesIn(screenshotDir).length).toBeGreaterThan(0);
+  });
 });
 
 describe.each(LIVE)(
