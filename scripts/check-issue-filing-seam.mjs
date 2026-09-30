@@ -71,6 +71,12 @@ const EXEMPT_FILES = new Set([
   // to build/install — see the step's own comment in the workflow and its
   // dedicated assertions in scripts/__tests__/issue-filing-migration.test.mjs.
   ".github/workflows/revert-watchdog.yml",
+  // fileIssue()'s skip/create/reopen model has no "close" outcome, and this
+  // producer needs one (a dark->alive recovery auto-closes its own tracking
+  // issue, #5817). Its own decideIssueTransition() owns the equivalent
+  // skip/create/close decision instead — a superset of fileIssue()'s
+  // contract, not a bypass of it.
+  "scripts/routine-liveness.mjs",
 ]);
 
 /** True for any `*.test.mjs` / `*.test.js` / `*.test.ts` file, anywhere. */
