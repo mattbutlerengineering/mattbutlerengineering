@@ -139,6 +139,7 @@ reports/mutation/
 !/metrics/service-health.jsonl
 !/metrics/stale-human-blocked.jsonl
 !/metrics/threshold-changes.jsonl
+!/metrics/ui-quality-ledger.jsonl
 !/metrics/verifications.jsonl
 # <<< END generated durable-metrics block
 
