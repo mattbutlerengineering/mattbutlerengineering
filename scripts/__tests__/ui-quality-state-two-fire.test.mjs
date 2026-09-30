@@ -146,6 +146,8 @@ function mainMovesOn(fixture) {
   commitAndPush(dir, "feat(marketing): brand-new page", "main");
 }
 
+const isCleanTree = (dir) => git(dir, ["status", "--porcelain", "--untracked-files=no"]) === "";
+
 /** Fire 1's filed issue as routine step 6b's `search_issues` reports it. */
 const FILED_101 = { number: 101, title: titleFor(DEAD, 1), state: "open" };
 
@@ -282,6 +284,61 @@ describe.each(["single-branch", "shallow"])(
     });
   }
 );
+
+// Re-review n1: a human squash-merges the ledger PR while a fire is running;
+// `delete_branch_on_merge` deletes the branch, and that fire's (7c) push
+// re-creates it carrying commits `main` now has in squashed form.
+describe("two-fire simulation — ledger PR squash-merged mid-fire, branch re-created", () => {
+  let fixture, fire1, dir, state;
+  beforeAll(() => {
+    fixture = createStateRemote({ routes: pageRoutes(45) });
+    fire1 = fireOne(fixture);
+    const merger = fixture.clone("merger");
+    git(merger, ["fetch", "--quiet", "origin", STATE_BRANCH]);
+    git(merger, ["merge", "--squash", "--quiet", "FETCH_HEAD"]);
+    git(merger, ["commit", "--quiet", "-m", "chore(ui-quality): ledger 2026-10-01 (#9001)"]);
+    git(merger, ["push", "--quiet", "origin", "main"]);
+    git(merger, ["push", "--quiet", "origin", "--delete", STATE_BRANCH]);
+    mainMovesOn(fixture);
+    // The running fire (fire 1's sandbox) commits its ledger and pushes: the
+    // branch is re-created from its pre-merge history.
+    const midFire = join(fixture.base, "fire1");
+    writeRel(
+      midFire,
+      BACKLOG,
+      `${readRel(midFire, BACKLOG)}- ui-quality: a mid-fire seed (from: session:2026-10-02)\n`
+    );
+    commitAndPush(midFire, "chore(ui-quality): ledger 2026-10-02", STATE_BRANCH);
+    dir = fixture.clone("fire3");
+    state = checkout(dir);
+  });
+
+  it("the next fire converges: source branch, every conflict rule-resolved, ledger checks", () => {
+    expect(state.code).toBe(0);
+    expect(state.json).toMatchObject({ source: "branch", branch: STATE_BRANCH });
+    expect(ledgerRunner(dir)("check")).toBe(0);
+    expect(isCleanTree(dir)).toBe(true);
+  });
+
+  it("keeps fire 1's filed key, its audits, and every side's backlog line", () => {
+    const { code, plan } = planIn(dir, [FILED_101]);
+    expect(code).toBe(0);
+    expect(plan.actions).toEqual([
+      expect.objectContaining({ key: fire1.key, action: "skip", issue: 101 }),
+    ]);
+    const rows = parseLedger(readRel(dir, LEDGER));
+    expect(rows.filter((r) => r.last_audited_at === FIRE1_AT)).toHaveLength(40);
+    expect(rows.find((r) => r.route === "brand-new-00")).toBeDefined();
+    const backlog = readRel(dir, BACKLOG);
+    for (const line of [
+      "- ui-quality: a routine seed",
+      "- a human seed",
+      "- ui-quality: a mid-fire seed",
+    ]) {
+      expect(backlog).toContain(line);
+    }
+  });
+});
 
 describe("two-fire simulation — negative: the unmerged branch is deleted", () => {
   let fixture, dir, state;
