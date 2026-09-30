@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const read = (p) => readFileSync(resolve(ROOT, p), "utf8");
 
-const APPS = ["marketing"];
+const APPS = ["marketing", "hospitality"];
 
 describe.each(APPS)("%s visual spec + configs", (app) => {
   const spec = read(`apps/${app}/e2e/visual.spec.ts`);
@@ -68,5 +68,23 @@ describe.each(APPS)("%s visual spec + configs", (app) => {
   it("has a perturbed noise-floor config over the visual one", () => {
     expect(noiseFloorConfig).toMatch(/from "\.\/playwright\.visual\.config"/);
     expect(noiseFloorConfig).toMatch(/stylePath/);
+  });
+});
+
+describe("hospitality visual spec — mocked API, fixed clock, the setup auth project", () => {
+  const spec = read("apps/hospitality/e2e/visual.spec.ts");
+  const visualConfig = read("apps/hospitality/playwright.visual.config.ts");
+
+  it("uses mockedPage and a fixed clock, and covers auth0 rows too", () => {
+    expect(spec).toMatch(/from "\.\/fixtures\.js"/);
+    expect(spec).toMatch(/mockedPage/);
+    expect(spec).toMatch(/clock\.setFixedTime/);
+    expect(spec).not.toMatch(/auth === "public"/);
+  });
+
+  it("keeps projects [setup, chromium] with chromium depending on setup", () => {
+    expect(visualConfig).toMatch(/name:\s*"setup"/);
+    expect(visualConfig).toMatch(/testMatch:\s*\/auth\\\.setup\\\.ts\//);
+    expect(visualConfig).toMatch(/dependencies:\s*\["setup"\]/);
   });
 });
