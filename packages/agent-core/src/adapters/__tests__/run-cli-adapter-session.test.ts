@@ -396,11 +396,13 @@ describe("runCliAdapterSession", () => {
   // after WorktreePhase becomes a failed result that keeps the adapter's usage.
   describe("outer catch", () => {
     it.each([
-      { createPr: false, keepsWorktree: true },
-      { createPr: true, keepsWorktree: false },
+      // Review M1: a throw keeps the worktree on the createPr: true path too —
+      // no commit exists yet, so removal would destroy the agent's only copy.
+      { createPr: false },
+      { createPr: true },
     ])(
-      "a post-dispatch commit rejection resolves as failed with the adapter's usage (createPr: $createPr)",
-      async ({ createPr, keepsWorktree }) => {
+      "a post-dispatch commit rejection resolves as failed with the adapter's usage and keeps the worktree (createPr: $createPr)",
+      async ({ createPr }) => {
         const adapter = makeCliAdapter("claude-cli", {
           success: true,
           costUsd: 0.6,
@@ -430,13 +432,27 @@ describe("runCliAdapterSession", () => {
           "/repo",
           expect.objectContaining({ costUsd: 0.6, numTurns: 15, status: "failed" })
         );
-        if (keepsWorktree) {
-          expect(result.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
-        } else {
-          expect("worktreePath" in result).toBe(false);
-        }
+        expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
+        expect(result.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
       }
     );
+
+    it("still removes the worktree after a successful createPr: true session", async () => {
+      const adapter = makeCliAdapter("claude-cli", { success: true, costUsd: 0.6, numTurns: 15 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ createPr: true }),
+        undefined,
+        deps
+      );
+
+      expect(result.status).toBe("succeeded");
+      expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledOnce();
+      expect("worktreePath" in result).toBe(false);
+      expect(recordSpend).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("reports durationMs from the adapter's own reported duration", async () => {

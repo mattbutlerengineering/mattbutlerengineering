@@ -200,7 +200,11 @@ export async function runCliAdapterSession(
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
-  if (worktree && config.createPr) {
+  // A throw keeps the worktree even when publishing (Review M1): the failure
+  // may predate any commit, so `git worktree remove --force` would destroy
+  // the agent's only copy of its edits.
+  const keepsWorktree = !config.createPr || threw;
+  if (worktree && !keepsWorktree) {
     await deps.worktreeManager.removeWorktree(config.repoPath, worktree.path);
   }
 
@@ -258,7 +262,7 @@ export async function runCliAdapterSession(
     errors,
     ...(failureCategory ? { failureCategory } : {}),
     // Present iff the worktree is kept — see SessionResult.worktreePath.
-    ...(!config.createPr && worktree ? { worktreePath: worktree.path } : {}),
+    ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
   };
 }
 
