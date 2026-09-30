@@ -276,6 +276,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/marketing",
+      "to": "@mbe/test-fixtures",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/rialto-web",
       "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
@@ -303,6 +308,11 @@
     {
       "from": "@mbe/rialto-web",
       "to": "@mbe/edge-worker",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/test-fixtures",
       "type": "devDependency"
     },
     {

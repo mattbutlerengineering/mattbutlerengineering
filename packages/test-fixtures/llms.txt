@@ -120,7 +120,26 @@
       }
     </item>
     <item priority="high">
-      export function sameOriginLinks(hrefs: readonly string[], origin: string): string[] { /* ... */ }
+      export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CapturePlan {
+        entries: Array<{ route: string; path: string; viewports: Viewport[...;
+        outDir: string;
+        manifestPath: string;
+      }
+    </item>
+    <item priority="high">
+      export function loadCapturePlan(
+        app: string,
+        env: Record<string, string | undefined> = process.env
+      ): CapturePlan { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetManifest(plan: CapturePlan, workerIndex: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void { /* ... */ }
     </item>
     <item priority="high">
       export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }

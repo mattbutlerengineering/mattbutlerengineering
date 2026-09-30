@@ -18,8 +18,8 @@
  * `@mbe/test-fixtures/ui-quality-capture`.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
 
 export interface Viewport {
@@ -107,8 +107,17 @@ interface Probe {
   painted_ratio: number;
 }
 
-/** Same-origin hrefs as sorted, deduped pathnames; external, non-http and unparseable dropped. */
-export function sameOriginLinks(hrefs: readonly string[], origin: string): string[] {
+/** `baseUrl` with a trailing slash, so relative joins stay under the app's base path. */
+const asBase = (baseUrl: string) => (baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+
+/**
+ * In-app links: hrefs on the app's origin and under its base path, as sorted,
+ * deduped app-relative pathnames (`/rialto/components/x` under `/rialto/` →
+ * `/components/x`). External, other-app, non-http and unparseable hrefs are
+ * dropped; query and fragment are ignored.
+ */
+export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] {
+  const base = new URL(asBase(baseUrl));
   const paths = new Set<string>();
   for (const href of hrefs) {
     let url: URL;
@@ -117,9 +126,52 @@ export function sameOriginLinks(hrefs: readonly string[], origin: string): strin
     } catch {
       continue;
     }
-    if (url.origin === new URL(origin).origin) paths.add(url.pathname);
+    if (url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
+      paths.add(`/${url.pathname.slice(base.pathname.length)}`);
+    }
   }
   return [...paths].sort();
+}
+
+export interface CapturePlan {
+  entries: Array<{ route: string; path: string; viewports: Viewport[] }>;
+  outDir: string;
+  manifestPath: string;
+}
+
+/**
+ * The app's slice of `$UI_QUALITY_PLAN` (`ledger.mjs due`'s
+ * `.ui-quality/plan.json`, `{ app → [{ route, path, viewports }] }`). Captures
+ * go beside the plan, in `captures/<app>/`. Read-only — Playwright loads a
+ * spec file in the runner and again in every worker, so truncating here
+ * would race the rows already written.
+ */
+export function loadCapturePlan(
+  app: string,
+  env: Record<string, string | undefined> = process.env
+): CapturePlan {
+  const planPath = env.UI_QUALITY_PLAN;
+  const outDir = planPath ? join(dirname(planPath), "captures", app) : "";
+  const none = { entries: [], outDir, manifestPath: join(outDir, "manifest.jsonl") };
+  if (!planPath) return none;
+  const plan = JSON.parse(readFileSync(planPath, "utf8")) as Record<string, CapturePlan["entries"]>;
+  return { ...none, entries: plan[app] ?? [] };
+}
+
+/**
+ * Start this run's manifest empty — only in the run's first worker
+ * (`testInfo.workerIndex === 0`). Playwright replaces a worker after a failed
+ * test with a new, higher index; that worker must append, not wipe.
+ */
+export function resetManifest(plan: CapturePlan, workerIndex: number): void {
+  if (workerIndex !== 0 || plan.entries.length === 0) return;
+  mkdirSync(plan.outDir, { recursive: true });
+  writeFileSync(plan.manifestPath, "");
+}
+
+/** One JSONL line per captured route. */
+export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void {
+  appendFileSync(plan.manifestPath, `${JSON.stringify(row)}\n`);
 }
 
 /** `book/:venueSlug` @ 1280×720 → `book-venueSlug@1280x720.png`; `/` → `root`, `*` → `not-found`. */
@@ -225,13 +277,13 @@ export async function capturePage(
     await page.emulateMedia({ reducedMotion: "reduce" });
     const [first] = opts.viewports;
     if (first) await page.setViewportSize(first);
-    await page.goto(new URL(opts.path, opts.baseUrl).href, {
+    await page.goto(new URL(opts.path.replace(/^\/+/, ""), asBase(opts.baseUrl)).href, {
       waitUntil: "load",
       timeout: opts.timeoutMs ?? NAVIGATION_TIMEOUT_MS,
     });
     await page.waitForLoadState("networkidle", { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
     const probe = (await page.evaluate(PROBE_SCRIPT)) as Probe;
-    row.links = sameOriginLinks(probe.hrefs, origin);
+    row.links = sameOriginLinks(probe.hrefs, opts.baseUrl);
     row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
     row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
     row.screenshots = await screenshotAll(page, route, opts);

@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  appendManifestRow,
   capturePage,
+  loadCapturePlan,
+  resetManifest,
   sameOriginLinks,
   screenshotName,
   type CapturePageLike,
@@ -176,9 +179,62 @@ describe("sameOriginLinks", () => {
           "mailto:hi@example.com",
           "not a url",
         ],
-        ORIGIN
+        `${ORIGIN}/`
       )
     ).toEqual(["/a", "/b"]);
+  });
+});
+
+describe("capturePage under an app base path", () => {
+  it("joins the app-relative plan path onto the base and reports links app-relative", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-capture-"));
+    const { page, calls } = fakePage({
+      probe: {
+        hrefs: [`${ORIGIN}/rialto/components/button`, `${ORIGIN}/`, `${ORIGIN}/rialto/`],
+        text_chars: 10,
+        painted_ratio: 0.5,
+      },
+    });
+    const row = await capturePage(page, "components/button", {
+      ...opts(outDir),
+      baseUrl: `${ORIGIN}/rialto/`,
+      path: "/components/button",
+    });
+    expect(calls).toContain(`goto:${ORIGIN}/rialto/components/button`);
+    expect(row.links).toEqual(["/", "/components/button"]);
+  });
+});
+
+describe("loadCapturePlan + resetManifest + appendManifestRow", () => {
+  it("reads the app's entries from UI_QUALITY_PLAN and puts captures beside it; only resetManifest truncates", () => {
+    const work = mkdtempSync(join(tmpdir(), "uiq-plan-"));
+    const planPath = join(work, "plan.json");
+    const entry = { route: "/", path: "/", viewports: VIEWPORTS };
+    writeFileSync(planPath, JSON.stringify({ marketing: [entry] }));
+    mkdirSync(join(work, "captures", "marketing"), { recursive: true });
+    writeFileSync(join(work, "captures", "marketing", "manifest.jsonl"), "stale\n");
+
+    const plan = loadCapturePlan("marketing", { UI_QUALITY_PLAN: planPath });
+    expect(plan.entries).toEqual([entry]);
+    expect(plan.outDir).toBe(join(work, "captures", "marketing"));
+    expect(readFileSync(plan.manifestPath, "utf8")).toBe("stale\n");
+
+    resetManifest(plan, 1); // a restarted worker: rows already written must survive
+    expect(readFileSync(plan.manifestPath, "utf8")).toBe("stale\n");
+    resetManifest(plan, 0); // the run's first worker starts the manifest
+    expect(readFileSync(plan.manifestPath, "utf8")).toBe("");
+
+    appendManifestRow(plan, { route: "/" } as never);
+    appendManifestRow(plan, { route: "acmm" } as never);
+    expect(readFileSync(plan.manifestPath, "utf8")).toBe('{"route":"/"}\n{"route":"acmm"}\n');
+  });
+
+  it("has no entries — and writes nothing — for an app absent from the plan or with no UI_QUALITY_PLAN", () => {
+    const work = mkdtempSync(join(tmpdir(), "uiq-plan-"));
+    const planPath = join(work, "plan.json");
+    writeFileSync(planPath, JSON.stringify({ marketing: [] }));
+    expect(loadCapturePlan("hospitality", { UI_QUALITY_PLAN: planPath }).entries).toEqual([]);
+    expect(loadCapturePlan("marketing", {}).entries).toEqual([]);
   });
 });
 
