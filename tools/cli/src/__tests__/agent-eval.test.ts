@@ -8,6 +8,10 @@ const mockAppendFileSync = vi.fn();
 const mockMkdirSync = vi.fn();
 const mockExistsSync = vi.fn();
 const mockReadFileSync = vi.fn();
+const mockRemoveWorktree = vi.fn();
+// Every execFile call the verifier makes: (cmd, args, opts) → an Error to
+// reject with, or null to resolve. Reset to "always resolve" in beforeEach.
+const mockExecFile = vi.fn<(cmd: string, args: string[], opts: unknown) => Error | null>();
 
 // Static import keeps the heavy module load (real @mbe/agent-core via
 // importOriginal) in file setup, outside the per-test timeout window.
@@ -31,19 +35,23 @@ vi.mock("@mbe/agent-core", async (orig) => {
       return { name: String(a[0]), runSession: () => {} };
     },
     runAgentSession: (...a: unknown[]) => mockRunAgentSession(...a),
+    removeWorktree: (...a: unknown[]) => mockRemoveWorktree(...a),
   };
 });
 
-// verify() shells out via promisify(execFile); make it resolve (checks pass).
+// The fixture verifier shells out via promisify(execFile); route every call
+// through mockExecFile (default: resolve, so checks pass).
 vi.mock("node:child_process", () => ({
   execFile: (
-    _cmd: string,
-    _args: string[],
+    cmd: string,
+    args: string[],
     optsOrCb: unknown,
     cb?: (err: unknown, res: { stdout: string; stderr: string }) => void
   ) => {
+    const opts = typeof optsOrCb === "function" ? undefined : optsOrCb;
     const callback = typeof optsOrCb === "function" ? optsOrCb : cb;
-    (callback as (e: unknown, r: { stdout: string; stderr: string }) => void)(null, {
+    const err = mockExecFile(cmd, args, opts);
+    (callback as (e: unknown, r: { stdout: string; stderr: string }) => void)(err ?? null, {
       stdout: "",
       stderr: "",
     });
@@ -70,6 +78,7 @@ function fakeSession(overrides: Record<string, unknown> = {}) {
     resultText: "",
     errors: [],
     evaluation: { passed: true, confidence: 0.9, reasoning: "ok" },
+    worktreePath: "/repo/.agent-worktrees/t1",
     ...overrides,
   };
 }
@@ -93,6 +102,8 @@ describe("agent eval command", () => {
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.exitCode = 0;
     mockExistsSync.mockReturnValue(true);
+    mockExecFile.mockImplementation(() => null);
+    mockRemoveWorktree.mockResolvedValue(undefined);
   });
 
   it("runs the suite and prints a report", async () => {
@@ -284,6 +295,302 @@ describe("agent eval command", () => {
 
       expect(process.exitCode).not.toBe(2);
       expect(mockAppendFileSync).toHaveBeenCalled();
+    });
+  });
+
+  describe("claude-cli cost basis (api-equivalent — the budget's cost arm does not apply)", () => {
+    // `claude-cli` runs on a subscription login but its JSON result still
+    // reports `total_cost_usd` at API prices, inflated on turn 1 by the
+    // repo's cached CLAUDE.md/rules context (~$1.37 measured against a $0.50
+    // task budget). The figure is real but not billed, so scoring it against
+    // `maxCostUsd` would fail every task from its first turn. The basis is
+    // decided once per run by `costBasisForAdapter` (agent-core) and applied
+    // through `isWithinBudget`; the reported figure is kept in the row.
+    it("scores an over-cost, within-turns claude-cli run as within budget, keeps the figure, and labels the row", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      // costUsd 1.37 > maxCostUsd 1 — fails the cost arm under `billed`.
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli", "--threshold", "50"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).toBe(0);
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.adapter).toBe("claude-cli");
+      expect(record.costBasis).toBe("api-equivalent");
+      expect(record.tasks[0].deterministic.withinBudget).toBe(true);
+      // Not zeroed — the per-adapter cost trend (--max-cost-regression) stays meaningful.
+      expect(record.tasks[0].costUsd).toBe(1.37);
+    });
+
+    it("still fails the turns arm under claude-cli", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      // numTurns 51 > maxTurns 50.
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 51 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.tasks[0].deterministic.withinBudget).toBe(false);
+    });
+
+    it("labels a default-adapter (SDK) row as billed", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.adapter).toBe("claude");
+      expect(record.costBasis).toBe("billed");
+    });
+  });
+
+  describe("claude-cli diagnostics", () => {
+    it("names the CLI prerequisite (not ANTHROPIC_API_KEY) and does not persist when every task reports 0 turns / $0 under claude-cli", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain("No task produced any usage via the claude-cli adapter");
+      expect(errOut).toContain("subscription login");
+      expect(errOut).not.toContain("refused to start");
+    });
+
+    // noRunMessage v2 (amendment 2026-09-29): say only what is distinguishable.
+    it("quotes the sessions' own errors instead of guessing a cause when a claude-cli non-run reported one", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({
+          numTurns: 0,
+          costUsd: 0,
+          errors: ["Claude CLI exited with non-zero status"],
+        })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain("The sessions reported — ");
+      expect(errOut).toContain("t1: Claude CLI exited with non-zero status");
+      expect(errOut).not.toContain("subscription login");
+      expect(errOut).not.toContain("refused to start");
+    });
+
+    it("appends the sessions' errors to today's sentence for a non-claude-cli non-run", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({ numTurns: 0, costUsd: 0, errors: ["gemini: 401 Unauthorized"] })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(
+        'No task executed: every task reported 0 turns and $0.00 cost via the "gemini" adapter. This is not a scored regression — the suite never ran. The sessions reported — t1: gemini: 401 Unauthorized'
+      );
+    });
+
+    it("scores a claude-cli task that ran and then failed a post-dispatch step as a row, never a non-run (Verify F1.2)", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({
+          status: "failed",
+          numTurns: 15,
+          costUsd: 0.6,
+          errors: ["git commit -m … failed"],
+        })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(0);
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.costBasis).toBe("api-equivalent");
+      expect(record.nonRunCount).toBe(0);
+      expect(record.tasks[0].turns).toBe(15);
+      expect(record.tasks[0].costUsd).toBe(0.6);
+      expect(record.tasks[0].sessionErrors).toEqual(["git commit -m … failed"]);
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).toContain("    session errors: git commit -m … failed");
+      expect(out).not.toContain("Excluded (did not run)");
+    });
+
+    it("prints the cost-basis line for a scored claude-cli run so a $1.37 task beside a $0.50 budget is not read as a bug", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).toContain("Cost basis: api-equivalent");
+      expect(out).toContain("budget cost arm not applied");
+    });
+
+    it("prints no cost-basis line for a scored default-adapter (billed) run", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).not.toContain("Cost basis:");
+    });
+  });
+
+  describe("eval fixture verifier (runs the fixture scripts inside the kept eval worktree)", () => {
+    const WT = "/repo/.agent-worktrees/t1";
+    const turbo = (script: string) => [
+      "turbo",
+      "run",
+      script,
+      "--filter=./services/reservations",
+      "--output-logs=errors-only",
+    ];
+    const pnpmCalls = () =>
+      mockExecFile.mock.calls.filter(([cmd]) => cmd === "pnpm") as [
+        string,
+        string[],
+        { cwd?: string; timeout?: number },
+      ][];
+    async function runJson(): Promise<{ deterministic: Record<string, boolean> }> {
+      await agentEvalCommand.parseAsync(["--json"], { from: "user" });
+      const parsed = JSON.parse(logSpy.mock.calls.flat().join("\n"));
+      return parsed.tasks[0];
+    }
+    function failWith(match: (args: string[]) => boolean, text: string) {
+      mockExecFile.mockImplementation((_cmd, args) => {
+        if (!match(args)) return null;
+        return Object.assign(new Error("Command failed"), { stdout: text, stderr: "" });
+      });
+    }
+
+    it("(a) never checks out the agent branch in the caller's repo", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockExecFile.mock.calls.some(([, args]) => args.includes("checkout"))).toBe(false);
+    });
+
+    it("(b) installs once per task in the worktree (300 s), then runs each script through turbo there (600 s)", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const calls = pnpmCalls();
+      expect(calls.map(([, args]) => args)).toEqual([
+        ["install", "--frozen-lockfile"],
+        turbo("test"),
+        turbo("typecheck"),
+      ]);
+      expect(calls[0]?.[2]).toMatchObject({ cwd: WT, timeout: 300_000 });
+      expect(calls[1]?.[2]).toMatchObject({ cwd: WT, timeout: 600_000 });
+      expect(calls[2]?.[2]).toMatchObject({ cwd: WT, timeout: 600_000 });
+      expect(calls.some(([, args]) => args[0] === "--filter")).toBe(false);
+    });
+
+    it("(b) installs once per task, each in its own worktree", async () => {
+      mockLoadSuite.mockResolvedValue([task, { ...task, id: "t2" }]);
+      mockRunAgentSession
+        .mockResolvedValueOnce(fakeSession())
+        .mockResolvedValueOnce(fakeSession({ worktreePath: "/repo/.agent-worktrees/t2" }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const installs = pnpmCalls().filter(([, args]) => args[0] === "install");
+      expect(installs.map(([, , opts]) => opts.cwd)).toEqual([WT, "/repo/.agent-worktrees/t2"]);
+    });
+
+    it("(c) an install failure scores every script false, does not throw, and names the step", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+      failWith((args) => args[0] === "install", "ERR_PNPM_OUTDATED_LOCKFILE");
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(false);
+      expect(pnpmCalls().filter(([, args]) => args[0] === "turbo")).toHaveLength(0);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(`t1: install failed in ${WT} — `);
+      expect(errOut).toContain("ERR_PNPM_OUTDATED_LOCKFILE");
+    });
+
+    it("(c) one failing script scores only that check false and prints its last 20 lines", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+      const lines = Array.from({ length: 25 }, (_, i) => `line ${i + 1}`).join("\n");
+      failWith((args) => args[2] === "test", lines);
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(true);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(`t1: test failed in ${WT} — `);
+      expect(errOut).toContain("line 25");
+      expect(errOut).toContain("line 6");
+      expect(errOut).not.toMatch(/line 5\b/);
+    });
+
+    it("(d) no worktreePath scores every rubric check false without running pnpm, in one stderr line", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({ worktreePath: undefined, status: "failed", errors: ["worktree add failed"] })
+      );
+
+      const row = await runJson();
+
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(false);
+      expect(mockExecFile).not.toHaveBeenCalled();
+      const t1Lines = errSpy.mock.calls.flat().filter((l: unknown) => String(l).startsWith("t1:"));
+      expect(t1Lines).toHaveLength(1);
+      expect(t1Lines[0]).toContain("failed");
+      expect(t1Lines[0]).toContain("worktree add failed");
+      expect(mockRemoveWorktree).not.toHaveBeenCalled();
+    });
+
+    it("(e) removes the worktree of a succeeded session, swallowing a removal failure", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+      mockRemoveWorktree.mockRejectedValue(new Error("worktree locked"));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockRemoveWorktree).toHaveBeenCalledOnce();
+      expect(mockRemoveWorktree).toHaveBeenCalledWith(process.cwd(), WT);
+      expect(process.exitCode).toBe(0);
+      expect(errSpy.mock.calls.flat().join("\n")).not.toContain("worktree kept for inspection");
+    });
+
+    it("(e) keeps the worktree of a failed session and prints its path", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "failed", numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockRemoveWorktree).not.toHaveBeenCalled();
+      const all = [...logSpy.mock.calls, ...errSpy.mock.calls].flat().join("\n");
+      expect(all).toContain(`t1: worktree kept for inspection at ${WT}`);
     });
   });
 

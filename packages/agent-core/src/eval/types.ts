@@ -91,6 +91,12 @@ export interface TaskScore {
   readonly turns: number;
   /** Set when the task crashed mid-run rather than completing. */
   readonly error?: string;
+  /**
+   * The `SessionResult.errors` of a task that ran (e.g. a post-dispatch commit
+   * that failed); omitted when empty. Unlike `error`, never read by
+   * `taskDidNotRun`, `suiteDidNotRun` or `stuckCount`.
+   */
+  readonly sessionErrors?: readonly string[];
 }
 
 export interface EvalAggregate {

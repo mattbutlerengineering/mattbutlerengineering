@@ -9,13 +9,18 @@ import {
   runEvalSuite,
   loadSuite,
   calibrate,
+  removeWorktree,
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
+  costBasisForAdapter,
+  isWithinBudget,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type AdapterType,
+  type CostBasis,
   type SessionConfig,
+  type SessionResult,
   type Task,
   type TaskRunner,
   type TaskRunResult,
@@ -111,7 +116,12 @@ export const agentEvalCommand = new Command("eval")
           ? loadCostBaseline(findLogFile(), adapterType)
           : null;
 
-      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
+      // Decided once per run: which adapters' reported `costUsd` is billed
+      // money, and therefore whether the budget's cost arm applies. Threaded
+      // to the runner (scoring) and the persisted row (labelling).
+      const costBasis = costBasisForAdapter(adapterType);
+
+      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType, costBasis);
       const report = await runEvalSuite(tasks, {
         runId: `eval-${process.pid}`,
         only: options.task,
@@ -119,14 +129,14 @@ export const agentEvalCommand = new Command("eval")
       });
 
       if (suiteDidNotRun(report)) {
-        emitReport(report, options.json);
-        console.error(`\n${noRunMessage(adapterType)}`);
+        emitReport(report, options.json, costBasis);
+        console.error(`\n${noRunMessage(adapterType, report)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
         return;
       }
 
-      persistReport(report, adapterType);
-      emitReport(report, options.json);
+      persistReport(report, adapterType, costBasis);
+      emitReport(report, options.json, costBasis);
 
       if (options.calibrate) {
         printCalibration(calibrate(report));
@@ -156,31 +166,51 @@ export const agentEvalCommand = new Command("eval")
     }
   );
 
-/** Prints the report as JSON or the human-readable table, per `--json`. */
-function emitReport(report: EvalReport, json: boolean): void {
+/** Prints the report as JSON or the human-readable table, per `--json`. The JSON shape is unchanged. */
+function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void {
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    printReport(report);
+    printReport(report, costBasis);
   }
 }
 
+const NEVER_RAN = "This is not a scored regression — the suite never ran.";
+
 /**
- * Names the most likely missing prerequisite for a suite where every task
- * reported 0 turns / $0 cost — the agent adapter never actually ran.
+ * Explains a suite where every task reported 0 turns / $0 cost — the agent
+ * adapter produced no usage — claiming only causes it can distinguish.
  *
- * `auto`/`claude` route through the Claude SDK, which needs
- * `ANTHROPIC_API_KEY`; the gemini/opencode CLI-subprocess adapters have a
- * different, adapter-specific reason a run can look like this (see the
- * cost-absent comment on {@link makeAgentTaskRunner}), so the diagnostic
- * doesn't finger a credential that adapter never needed.
+ * `auto`/`claude` route through the Claude SDK, whose missing
+ * `ANTHROPIC_API_KEY` is directly observable, so it is named. For every
+ * other adapter the command cannot see why the process produced nothing, so
+ * it quotes each session's own error line when any exists (`sessionErrors`)
+ * and otherwise, for `claude-cli`, names the binary/login as only the most
+ * likely cause — never asserts one it cannot see.
  */
-function noRunMessage(adapterType: AdapterType): string {
+function noRunMessage(adapterType: AdapterType, report: EvalReport): string {
   if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
-    return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
+    return `No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. ${NEVER_RAN}`;
   }
-  return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
+  const reported = report.tasks
+    .filter((t) => t.sessionErrors !== undefined && t.sessionErrors.length > 0)
+    .map((t) => `${t.taskId}: ${t.sessionErrors!.join("; ")}`);
+  if (adapterType === "claude-cli") {
+    const prefix = "No task produced any usage via the claude-cli adapter (0 turns / $0.00)";
+    return reported.length > 0
+      ? `${prefix}. The sessions reported — ${reported.join("; ")}. ${NEVER_RAN}`
+      : `${prefix} and no session reported an error: most likely the "claude" CLI is not on PATH or has no subscription login. ${NEVER_RAN}`;
+  }
+  const base = `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. ${NEVER_RAN}`;
+  return reported.length > 0 ? `${base} The sessions reported — ${reported.join("; ")}` : base;
 }
+
+// Printed under a non-billed basis only, so a $1.37 task beside a $0.50
+// budget in the routine's log does not read as a scoring bug.
+const NON_BILLED_COST_BASIS_NOTE: Record<Exclude<CostBasis, "billed">, string> = {
+  "api-equivalent": "CLI-reported, not billed; budget cost arm not applied",
+  none: "adapter reports no cost figure; budget cost arm not applied",
+};
 
 function findLogFile(): string {
   const root = findMonorepoRoot(process.cwd());
@@ -235,23 +265,32 @@ function loadCostBaseline(logFile: string, adapterType: AdapterType): number | n
 
 /**
  * Appends the report to a JSONL file in metrics/ — mirrors the `mbe stats` record pattern.
- * Each line is a complete {@link EvalReport} enriched with a timestamp and
- * the adapter it ran under (see {@link loadCostBaseline}).
+ * Each line is a complete {@link EvalReport} enriched with a timestamp, the
+ * adapter it ran under (see {@link loadCostBaseline}), and that adapter's
+ * cost basis — so a reader knows whether a task's `costUsd` is billed money
+ * without consulting code. Basis is a function of adapter, not task, so it
+ * lives at the row level beside `adapter`.
  */
-function persistReport(report: EvalReport, adapterType: AdapterType): void {
+function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void {
   const root = findMonorepoRoot(process.cwd());
   const logDir = join(root, "metrics");
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
-  const record = { ...report, timestamp: new Date().toISOString(), adapter: adapterType };
+  const record = {
+    ...report,
+    timestamp: new Date().toISOString(),
+    adapter: adapterType,
+    costBasis,
+  };
   appendFileSync(logFile, JSON.stringify(record) + "\n");
 }
 
 /**
  * Builds the live runner: run the agent (via the resolved adapter) on a
- * task, then verify its branch.
+ * task, then verify its change inside the session's kept worktree
+ * ({@link verifyInWorktree}).
  *
  * Cost-absent CLI adapters (#4199, option (a)): Gemini's `CliUsage` never
  * carries a cost figure (see `parseGeminiUsage` in cli-usage-parser.ts —
@@ -274,11 +313,18 @@ function persistReport(report: EvalReport, adapterType: AdapterType): void {
  * adapter's genuine cost. `loadCostBaseline`/`persistReport` (#4218 rework)
  * tag every persisted report with its adapter and only match same-adapter
  * baselines for exactly this reason.
+ *
+ * `costBasis` (from `costBasisForAdapter`) decides whether the budget's cost
+ * arm applies at all: `claude-cli` reports a real API-equivalent figure that
+ * is not billed under a subscription login — and is inflated on turn 1 by
+ * the repo's cached CLAUDE.md/rules context past every task's `maxCostUsd` —
+ * so only the turns arm bounds it. The reported figure is still recorded.
  */
 function makeAgentTaskRunner(
   repoPath: string,
   model: string,
-  adapterType: AdapterType
+  adapterType: AdapterType,
+  costBasis: CostBasis
 ): TaskRunner {
   const adapter = resolveSessionAdapter(adapterType);
 
@@ -297,45 +343,139 @@ function makeAgentTaskRunner(
 
     const session = await runAgentSession(config, { adapter, onEvent: () => {} });
 
-    const withinBudget =
-      session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
-
     const checks: DeterministicChecks = {
-      withinBudget,
-      testsPass: task.rubric.testsMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-        : true,
-      typecheckPass: task.rubric.typecheckMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-        : true,
-      lintPass: task.rubric.lintMustPass
-        ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-        : true,
+      withinBudget: isWithinBudget(session, task.budget, costBasis),
+      ...(await verifyInWorktree(task, session)),
     };
+
+    await releaseWorktree(repoPath, task.id, session);
 
     return { task, session, checks };
   };
 }
 
+type FixtureScript = "test" | "typecheck" | "lint";
+
+/** A cold monorepo install can exceed the 60 s `syncLockfileIfNeeded` uses. */
+const INSTALL_TIMEOUT_MS = 300_000;
 /**
- * Runs a pnpm script for the fixture's package on the agent's produced branch.
- * Conservative: any failure (including an inability to run) scores as `false`.
+ * Per script, through turbo: the first one also builds the fixture's
+ * workspace deps (`^build` + `db:generate`, ~68 s measured cold for
+ * services/reservations); later ones hit the worktree's own turbo cache.
  */
-async function verify(
-  repoPath: string,
-  branch: string,
-  fixtureRef: string,
-  script: "test" | "typecheck" | "lint"
+const SCRIPT_TIMEOUT_MS = 600_000;
+const OUTPUT_TAIL_LINES = 20;
+
+/**
+ * Eval fixture verifier: runs the rubric's fixture scripts inside the
+ * session's kept worktree — never a `git checkout` in the caller's repo,
+ * which git refuses while the worktree holds the branch and which would
+ * switch the caller's own checkout if it didn't.
+ *
+ * One `pnpm install --frozen-lockfile` per task, then each required script
+ * through turbo so the task graph's `^build` builds the workspace deps a
+ * fresh worktree has no `dist/` for (G1). Conservative: any failure —
+ * including an inability to run, or no worktree at all — scores `false`,
+ * never throws, and says why on stderr. The row does not distinguish a
+ * harness-caused `false` from an agent-caused one.
+ */
+async function verifyInWorktree(
+  task: Task,
+  session: SessionResult
+): Promise<Omit<DeterministicChecks, "withinBudget">> {
+  const { rubric, fixtureRef } = task;
+  const required: Readonly<Record<FixtureScript, boolean>> = {
+    test: rubric.testsMustPass,
+    typecheck: rubric.typecheckMustPass,
+    lint: rubric.lintMustPass,
+  };
+  const anyRequired = Object.values(required).some(Boolean);
+  const worktreePath = session.worktreePath;
+
+  if (anyRequired && worktreePath === undefined) {
+    const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";
+    console.error(
+      `${task.id}: no worktree to verify in (session ${session.status}; errors: ${errors}) — every rubric check scored false`
+    );
+  }
+
+  const installed =
+    anyRequired && worktreePath !== undefined
+      ? await runStep(
+          task.id,
+          "install",
+          worktreePath,
+          ["install", "--frozen-lockfile"],
+          INSTALL_TIMEOUT_MS
+        )
+      : false;
+
+  const check = async (script: FixtureScript): Promise<boolean> => {
+    if (!required[script]) return true;
+    if (!installed || worktreePath === undefined) return false;
+    return runStep(
+      task.id,
+      script,
+      worktreePath,
+      ["turbo", "run", script, `--filter=./${fixtureRef}`, "--output-logs=errors-only"],
+      SCRIPT_TIMEOUT_MS
+    );
+  };
+
+  return {
+    testsPass: await check("test"),
+    typecheckPass: await check("typecheck"),
+    lintPass: await check("lint"),
+  };
+}
+
+/** Runs one `pnpm` step in the worktree; `false` (plus a stderr line) on any failure. */
+async function runStep(
+  taskId: string,
+  step: string,
+  worktreePath: string,
+  args: readonly string[],
+  timeout: number
 ): Promise<boolean> {
   try {
-    await execFileAsync("git", ["-C", repoPath, "checkout", branch], { timeout: 30_000 });
-    await execFileAsync("pnpm", ["--filter", `./${fixtureRef}`, script], {
-      cwd: repoPath,
-      timeout: 300_000,
-    });
+    await execFileAsync("pnpm", [...args], { cwd: worktreePath, timeout });
     return true;
-  } catch {
+  } catch (err) {
+    console.error(`${taskId}: ${step} failed in ${worktreePath} — ${outputTail(err)}`);
     return false;
+  }
+}
+
+function outputTail(err: unknown): string {
+  const e = err as { stdout?: unknown; stderr?: unknown; message?: unknown };
+  const output = [e.stdout, e.stderr]
+    .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+    .join("\n");
+  const text = output !== "" ? output : String(e.message ?? err);
+  return text.trimEnd().split("\n").slice(-OUTPUT_TAIL_LINES).join("\n");
+}
+
+/**
+ * A succeeded session's worktree is removed (best-effort — the `agent/*`
+ * branch ref is kept, so `git show` still has the diff); any other session's
+ * is kept for inspection and its path printed.
+ */
+async function releaseWorktree(
+  repoPath: string,
+  taskId: string,
+  session: SessionResult
+): Promise<void> {
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return;
+  if (session.status !== "succeeded") {
+    console.error(`${taskId}: worktree kept for inspection at ${worktreePath}`);
+    return;
+  }
+  try {
+    // Bounded at 60 s by agent-core's own git timeout.
+    await removeWorktree(repoPath, worktreePath);
+  } catch {
+    // Best-effort: a leftover worktree is litter, not a scoring error.
   }
 }
 
@@ -363,7 +503,7 @@ function printCalibration(summary: CalibrationSummary): void {
   }
 }
 
-function printReport(report: EvalReport): void {
+function printReport(report: EvalReport, costBasis: CostBasis): void {
   const a = report.aggregate;
   console.log("Eval Report");
   console.log("───────────");
@@ -373,6 +513,9 @@ function printReport(report: EvalReport): void {
     console.log(
       `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
     );
+    if (t.sessionErrors && t.sessionErrors.length > 0) {
+      console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+    }
   }
   console.log("");
   console.log(`Tasks:       ${a.total}`);
@@ -385,4 +528,7 @@ function printReport(report: EvalReport): void {
       ? `\nExcluded (did not run): ${report.nonRunCount} — not counted in the aggregate above`
       : "";
   console.log(`Failed to complete: ${a.stuckCount}${nonRunLine}`);
+  if (costBasis !== "billed") {
+    console.log(`\nCost basis: ${costBasis} — ${NON_BILLED_COST_BASIS_NOTE[costBasis]}`);
+  }
 }

@@ -460,6 +460,34 @@ describe("runSession", () => {
     expect(deps.worktreeManager.commitChanges).not.toHaveBeenCalled();
   });
 
+  // SessionResult.worktreePath (amendment 2026-09-29): the catch-path result
+  // carries the kept worktree's path, and only when it was kept.
+  it("carries worktreePath on the failed result when a post-worktree throw happens with createPr: false", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("Unexpected API error")
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runSession({ ...BASE_CONFIG, createPr: false }, undefined, deps);
+
+    expect(result.status).toBe("failed");
+    expect(result.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
+    expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
+  });
+
+  it("omits worktreePath on the failed result when createPr: true (worktree removed)", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("Unexpected API error")
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runSession(BASE_CONFIG, undefined, deps);
+
+    expect(result.status).toBe("failed");
+    expect("worktreePath" in result).toBe(false);
+    expect(deps.worktreeManager.removeWorktree).toHaveBeenCalled();
+  });
+
   // ── Retry logic tests ──────────────────────────────────────────────
 
   it("uses withRetry for createWorktree", async () => {

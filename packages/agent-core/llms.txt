@@ -156,6 +156,21 @@
       export function calibrate(report: EvalReport): CalibrationSummary { /* ... */ }
     </item>
   </file>
+  <file path="src/eval/cost-basis.ts">
+    <item priority="low">
+      type CostBasis = "billed" | "api-equivalent" | "none";
+    </item>
+    <item priority="high">
+      export function costBasisForAdapter(adapterType: AdapterType): CostBasis { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWithinBudget(
+        usage: { readonly costUsd: number; readonly numTurns: number },
+        budget: TaskBudget,
+        costBasis: CostBasis
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/eval/cost-regression.ts">
     <item priority="high">
       export function checkCostRegression(
@@ -2838,7 +2853,11 @@
       export async function cleanupWorktrees(repoPath: string): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export async function commitChanges(worktreePath: string, message: string): Promise<string> { /* ... */ }
+      export async function commitChanges(
+        worktreePath: string,
+        message: string,
+        options: { readonly noVerify?: boolean } = {}
+      ): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
       export async function pushBranch(worktreePath: string, branchName: string): Promise<void> { /* ... */ }

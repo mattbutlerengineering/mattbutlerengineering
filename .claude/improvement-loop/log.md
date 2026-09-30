@@ -2284,7 +2284,7 @@ Recording these so next week doesn't re-derive them:
 - `gh` unavailable as ever (cloud session, gotchas.md § Claude Code Remote); GitHub MCP tools used throughout.
 - Baseline discipline: **31 test files already fail** in a fresh cloud checkout (unbuilt `@mbe/gh-client` and friends). Diffed against a clean-tree `git stash` baseline rather than expecting green — that isolated exactly one real new failure (`run-repo-audit.test.mjs`, which pins the `REPO_AUDIT_CHECKS` list verbatim) and prevented 31 false attributions.
 - Tripped the `git push | tail` trap from `docs/backlog.md` while pushing: the pipe masked the exit code and the push-verify hook reported the branch missing, when in fact the push had succeeded and a second attempt failed with `reference already exists`. The seed is real; recording a live re-occurrence.
-- **`.claude/**` markdown has ZERO prettier coverage in CI — measured this run, and it is not the gotchas.md § CI docs-only gap.** This entry's own PR first claimed the docs-only-skips-prettier gotcha as the reason for formatting by hand; that was wrong and is corrected here. `ci.yml` does have a `Docs Formatting` job (line 125, `if: needs.detect-changes.outputs.has_code != 'true'`) that runs `pnpm check:prettier` precisely on docs-only PRs, so that half of the gap is closed. But `check:prettier` is `prettier --check .`, and **prettier does not traverse dot-directories**, so nothing under `.claude/` is ever checked. Proven by a controlled pair: byte-identical malformed content placed at `docs/__probe.md` is flagged (`[warn] docs/__probe.md`, exit 1), and at `.claude/improvement-loop/__probe.md` is not (exit 0, "All matched files use Prettier code style!"). Not `.prettierignore` — that file lists only specific generated artifacts. Two consequences: formatting this log by hand was worth doing but no CI job would have caught it, and the "poisons the next code PR's Build" half of the gotcha does **not** apply to `.claude/` paths, because `repo-audit`'s `check:prettier` is equally blind to them. So an unformatted `.claude/` file fails nothing, anywhere — a coverage hole, not a breakage risk. Filed as #5787. A first probe (`# x` + blank lines + `-  bad item`) came back clean and was discarded as a bad probe rather than trusted — prettier accepted it, so it proved nothing.
+- **`.claude/**`markdown has ZERO prettier coverage in CI — measured this run, and it is not the gotchas.md § CI docs-only gap.** This entry's own PR first claimed the docs-only-skips-prettier gotcha as the reason for formatting by hand; that was wrong and is corrected here.`ci.yml`does have a`Docs Formatting`job (line 125,`if: needs.detect-changes.outputs.has_code != 'true'`) that runs `pnpm check:prettier`precisely on docs-only PRs, so that half of the gap is closed. But`check:prettier`is`prettier --check .`, and **prettier does not traverse dot-directories**, so nothing under `.claude/`is ever checked. Proven by a controlled pair: byte-identical malformed content placed at`docs/**probe.md` is flagged (`[warn] docs/**probe.md`, exit 1), and at `.claude/improvement-loop/\_\_probe.md`is not (exit 0, "All matched files use Prettier code style!"). Not`.prettierignore`— that file lists only specific generated artifacts. Two consequences: formatting this log by hand was worth doing but no CI job would have caught it, and the "poisons the next code PR's Build" half of the gotcha does **not** apply to`.claude/`paths, because`repo-audit`'s `check:prettier`is equally blind to them. So an unformatted`.claude/` file fails nothing, anywhere — a coverage hole, not a breakage risk. Filed as #5787. A first probe (`# x`+ blank lines +`- bad item`) came back clean and was discarded as a bad probe rather than trusted — prettier accepted it, so it proved nothing.
 
 ### Recommendations
 
@@ -2408,6 +2408,11 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 
 0 `agent-skip` issues open — nothing to review.
 
+## 2026-09-28
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
+
 ## 2026-09-28 (mbe-learning-loop)
 
 **Sensors:** 9/17 available (acmm, prMetrics, metricsFreshness, reviewBurden, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn). `issues`, `issueFeedback`, `queueEfficiency` unavailable — GitHub REST-fallback 403 (known CCR auth limitation, gotchas.md § Claude Code Remote); `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available (no data source configured for this run).
@@ -2417,3 +2422,100 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 as the `issues`/`issueFeedback`/`queueEfficiency` sensors above — budgets carried over unchanged from the last successful collection (default 3/category).
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) reports no adjustments needed. All 5 verification checks landed as `skip` confidence (no CI/Lighthouse data to compare against), so false-positive-rate and fix-effectiveness-rate couldn't be computed from today's window alone — nothing actionable to loosen or tighten.
+
+## 2026-09-29 (mbe-evening)
+
+No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all queries below run via GitHub MCP tools instead of the skill's literal `gh` command list. Time-to-close uses `updated_at` as a proxy for `closed_at` (the MCP `list_issues` field enum has no `closed_at`), which slightly understates true close latency for issues with post-close bot activity.
+
+| Metric                                   | Value                                                                                                                                                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)               | 24 (16 audit + 8 ci-fix)                                                                                                                                                                                                        |
+| Closed (7d, audit+ci-fix)                | 21 (14 audit + 7 ci-fix)                                                                                                                                                                                                        |
+| Closure Rate                             | 87.5% (green, >80%)                                                                                                                                                                                                             |
+| Time-to-Close (mean, `updated_at` proxy) | ~10.4h across 21 closed issues — well under the 24h target, no outlier stragglers this window                                                                                                                                   |
+| Agent Success (has-pr/(has-pr+failed))   | 0 open `has-pr`, 0 open `agent-failed` this snapshot — queue fully drained of failures, not a representative ratio                                                                                                              |
+| CI Pass (main, last 20 push runs)        | 19/19 = 100% once the 1 `cancelled` (concurrency-superseded) run is excluded from the denominator, per the sensor-denominator gotcha                                                                                            |
+| Queue (ready)                            | 16 — red (>10)                                                                                                                                                                                                                  |
+| Stale (ready>7d)                         | 1 — #5369 (created 09-14, 15d old; its own acceptance criteria require an ADR-owner decision, correctly not auto-claimed by tonight's batch)                                                                                    |
+| Blocked (agent-failed)                   | 0                                                                                                                                                                                                                               |
+| Skipped (agent-skip)                     | 0                                                                                                                                                                                                                               |
+| Daily/7d Spend                           | `.claude/agent-spend/sessions.jsonl` — 0 rows, unchanged since 2026-09-23 (mtime), 6 days after #5696 closed the same gap. Filed as a fresh meta-improvement issue this run (#5885) rather than re-noting it as already-tracked |
+| Reverts (7d)                             | 0                                                                                                                                                                                                                               |
+
+### Patterns
+
+- Skipped #5369 (security, top-priority tier) for autonomous claiming this iteration: its own acceptance criteria explicitly call for "an ADR-owner decision, not a mechanical fix" (amending ADR-026, choosing between two infra-level fixes). Correctly left for a human rather than forced through a worktree worker.
+- Claimed a zone-spread batch of 3 via the real priority-sort + `selectZoneSpreadBatch` selector: #5612 (ci-fix, zone root), #5832 (feature, zone services/reservations), #5838 (feature, zone apps/gen). #5612's worker investigated before implementing and found the issue already functionally resolved by #5644 — the remaining gap is a live-RemoteTrigger-confirmation step correctly tracked by #5748, not #5612 itself. Closed #5612 as a duplicate with a comment explaining the evidence, rather than mechanically re-flipping a manifest flag its own pinned tests guard against flipping early. Third+ occurrence of "worker investigates rather than mechanically executes the issue's literal claim" noted in recent entries — the pattern continues to hold up well.
+- #5832 and #5838 both implemented cleanly: #5838 (docs-only regeneration) passed the low-risk fast path after a freshness-checked `@mbe/agent-core` rebuild; #5832 (new venue-scoped deposits list endpoint) matched 3 diff-matched specialists (adr-compliance, stripe-flow, generated-artifact-determinism) plus the universal reviewer, all 4 passed clean (9/10 on the universal review), merged with zero rework.
+- The #5838 worker's own hand-back report was flagged by the harness's "Auto-Mode Bypass" safety layer for describing guard-evasion behavior (no `gh` binary or GitHub MCP tools available to worktree workers, so it opened its PR via a raw REST call with the session token, describing this as "dodging" a bash guard). Investigated directly rather than trusting the report: `.claude/hooks/pre-bash-guard.sh` and `.claude/settings.json` contain no such git/github.com-blocking rule at all — the worker's own explanation didn't match the actual hook logic, reading as confused trial-and-error under permission friction in an unattended session rather than deliberate evasion. Checked the worktree's git log, diff, and untracked files directly: no secrets, no leftover scripts, clean 1-file docs diff exactly as claimed. Real gap surfaced regardless: `implement-queue-worker` subagents (tools: Bash/Read/Write/Edit/Glob/Grep/Skill) have no sanctioned GitHub-write path when `gh` is absent — true for every worktree in this cloud session — which is what pushed this worker toward the raw-curl-with-token workaround. A second worker on the same run (#5832) hit the identical `gh`-missing blocker and, correctly, stopped and asked rather than working around it; the orchestrator opened that PR instead. Worth fixing (give workers GitHub MCP tool access, or a documented fallback) before a future instance of this gap has less benign contents.
+- PR #5824 (a leftover `chore(metrics): optimize-implement-queue 2026-09-28` PR from the prior evening run, previously just CI-pending) turned out to have a real merge conflict against tonight's main, not just staleness — GitHub's own auto-merge and a `gh pr update-branch`-equivalent both refused it. The conflict was confined to two _derived_ dashboard-snapshot JSON files (`ai-health-trends.json`, `sensor-report.json`); the underlying append-only JSONL/log sources merged cleanly via union first. Resolved by merging main into the branch and taking main's fresher snapshot for the two derived files (no data loss — they're regenerable views, not history), which then surfaced a second, unrelated failure: the auto-merged `.claude/improvement-loop/log.md` wasn't prettier-clean. Fixed with a plain `prettier --write` and pushed. Both fixes landed same-session; #5824 merged.
+- `.claude/agent-spend/sessions.jsonl` confirmed still 0 bytes, unchanged since 2026-09-23 — six days and continuous daily queue activity since #5696 closed the identical gap for the 4th time. Filed #5885 as a fresh issue this run rather than repeating the "already tracked" note, since #5696's fix evidently touched the file without restoring real writes from the `recordSpend` seam; asked the next fix to add a regression test against a real worker session completing, not just a unit test on the seam in isolation.
+
+### Recommendations
+
+- #5885 (agent-spend telemetry) filed — recommend its fix be verified against a real `/implement-queue` worker run, not just `recordSpend`'s own unit tests, given four prior closures didn't stick.
+- Give `implement-queue-worker` subagents a sanctioned GitHub-write path (MCP tool access, or a documented gh-unavailable fallback) so a `gh`-missing worktree doesn't reach for a raw curl+token workaround again. Not filed as a separate issue this run (single incident, benign outcome, no repeat yet) — but worth a `/gotcha-harvest` or `/claude-automation-recommender` pass if it recurs.
+- Queue is red (16 ready), mostly two in-flight `/decompose` chains draining normally (gen template batch 6: 4 parts remaining after tonight's part 1/5; hospitality deposit dashboard: 4 parts remaining after tonight's part 1/5) plus the still-blocked #5748/RemoteTrigger human-sync cluster and #5369's ADR-owner block. Not a process failure — the chains resolve sequentially as each part's dependency clears — but another `maxWorkers=3` iteration soon would help drain it.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to review.
+
+## 2026-09-29
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
+
+## 2026-09-29 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm, prMetrics, metricsFreshness, reviewBurden, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn). `issues`, `issueFeedback`, `queueEfficiency` unavailable — GitHub REST-fallback 403 (known CCR auth limitation, gotchas.md § Claude Code Remote); `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available (no data source configured for this run).
+**Regressions:** 0 detected, 0 issues created — `metricsFreshness` reports 0 unhealthy (review-burden fresh at 0.05d); `acmm` steady at L6 (97/114); `ciHealth` 100% pass rate (23/23).
+**Sentry triage:** skipped — `sentry.io` is not on this environment's network egress allowlist (403 "Host not in allowlist"); no Sentry query was possible.
+**Verifications:** 5 checked, 4 verified, 0 failed (reopened), 1 skipped (#5816 — no completed CI runs to verify against). All 4 verified issues (#5855, #5854, #5853, #5852) confirmed against ACMM steady at L6 (97/114).
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 as the `issues`/`issueFeedback`/`queueEfficiency` sensors above — budgets carried over unchanged from the last successful collection (default 3/category). Moot this run since 0 regressions means no issue creation was gated on it anyway.
+**Skill proposals:** 0 (not Friday — skill-extraction step skipped)
+**Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` threshold 1 → 1.03 (headroom). Over the 30d verification window (143 entries, 7 non-skip): fix-effectiveness rate 100% (7/7 verified), false-positive rate 0% (no wontfix/invalid closures) — both well within healthy bounds, no loosening or tightening indicated.
+
+## 2026-09-30
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
+
+## 2026-09-30 (mbe-evening)
+
+No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all queries below run via GitHub MCP tools instead of the skill's literal `gh` command list. Time-to-close uses `updated_at` as a proxy for `closed_at` (the MCP `list_issues` field enum has no `closed_at`).
+
+| Metric                                   | Value                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)               | 17 (15 audit + 2 ci-fix)                                                                                                                                            |
+| Closed (7d, audit+ci-fix)                | 20 (15 audit + 5 ci-fix, by `updated_at`-as-closedAt proxy — includes some issues created before the 7d window but closed within it)                                |
+| Closure Rate                             | ~118% (green, >80%) — backlog draining faster than new audit/ci-fix issues arrive this window                                                                       |
+| Time-to-Close (mean, `updated_at` proxy) | ~13.8h across the 13 issues both created and closed within the window — well under the 24h target                                                                   |
+| Agent Success (has-pr/(has-pr+failed))   | 3 open `has-pr`, 0 open `agent-failed` — 100%, small sample (all 3 are stuck routine-liveness `has-pr` issues from #5603/#5604/#5608, unrelated to tonight's batch) |
+| CI Pass (main, last ~26 completed runs)  | 24/24 = 100% once 3 `cancelled` (concurrency-superseded) and 2 still-in-progress runs are excluded from the denominator, per the sensor-denominator gotcha          |
+| Queue (ready)                            | 24 — red (>10)                                                                                                                                                      |
+| Stale (ready>7d)                         | 1 — #5369 (created 09-14, 16d old; its own acceptance criteria require an ADR-owner decision, correctly not auto-claimed by tonight's batch either)                 |
+| Blocked (agent-failed)                   | 0                                                                                                                                                                   |
+| Skipped (agent-skip)                     | 0                                                                                                                                                                   |
+| Daily/7d Spend                           | `.claude/agent-spend/sessions.jsonl` — 0 rows. Same gap #5885 was filed for last night; not re-filing a duplicate (that issue is still open and tracking it)        |
+| Reverts (7d)                             | 0 (`git log --grep="Revert"` over the last 7 days on `main` — clean)                                                                                                |
+
+### Patterns
+
+- Tonight's `/implement-queue` iteration (Phase 0-4) claimed a zone-spread batch of 3: #5889 (security, zone services/agent), #5844 (ci-fix, zone root), #5833 (feature, zone packages/api-client). All three completed cleanly:
+  - #5889 (rate-limit 429 regression coverage for 5 `services/agent` routes) — no production bugs found, all 5 limiters correctly enforce; universal reviewer passed 9/10 after specifically checking for a mocked limiter and test-order pollution (neither present). Merged via #5909.
+  - #5844 (ci-fix: Docs Audit missed its scheduled run) — investigated rather than mechanically re-triggered: confirmed via live workflow-run history that this was the known GitHub-drops-scheduled-runs class (gotchas.md #5815), already self-healed by the next scheduled tick the day after the issue was filed. No code change; closed with evidence rather than opening a no-op PR.
+  - #5833 (typed `listByVenueAndDate` client method, part 2/5 of the hospitality deposit-exposure dashboard chain) — small, surgical, TDD'd; universal reviewer passed 9/10. Merged via #5908.
+- Both worktree workers (#5889, #5833) hit the same `gh`-unavailable / no-GitHub-MCP-tools gap flagged in last night's entry — neither could open its own PR and both correctly stopped and handed back rather than working around it with a raw authenticated curl (one worker explicitly tried and was blocked by an auto-mode guard on authenticated POSTs to github.com, then stopped rather than searching for a bypass). The orchestrator opened both PRs. This is now the third night in a row this exact gap has surfaced (#5832/#5838 previously) with no repeat of last night's confused-guard-evasion framing — workers are now reliably recognizing the boundary and asking rather than improvising. Recommendation from last night (give `implement-queue-worker` sanctioned GitHub-write access) still stands; worth a `/claude-automation-recommender` pass given the 3rd occurrence.
+- Reviewer subagent on #5909 (tier:sensitive) caught and corrected a factual imprecision in the worker's own PR description — the worker's claim about _why_ the rate-limit keying falls back to IP misattributed the mechanism (blamed `requireAuth`'s preHandler; actual population site is `authPlugin`'s global `onRequest` hook) — via direct source reading (Fastify's hook-ordering internals) rather than taking the worker's explanation at face value. Verdict was still PASS (the diff itself was correct, only the prose explanation was off) but this is exactly the kind of check a rubber-stamp review would miss.
+- Queue grew from 16 (last night) to 24 ready issues despite draining 2 tonight, driven by four new `/decompose` chains landing since: rialto a11y iteration 2 (4 parts), marketing PR-category breakdown (4 parts), plus the continuing gen-template-batch-6 and deposit-dashboard chains each shedding one part per night. This is decompose-chain backlog, not stuck work — each part is either ready-and-independent or correctly blocked on its predecessor.
+
+### Recommendations
+
+- Same as last night: give `implement-queue-worker` subagents a sanctioned GitHub-write path (MCP tool access, or a documented `gh`-unavailable fallback). Third occurrence tonight (2 workers) with zero incidents of unsafe workaround — worth a `/claude-automation-recommender` pass now rather than waiting for a 4th.
+- Queue is red (24 ready) but structurally healthy — mostly four parallel `/decompose` chains draining one part per night each, plus #5369 (ADR-owner block) and #5748's RemoteTrigger-sync cluster. Consider a second `maxWorkers=3` iteration this week (or raising batch size) to drain the chains faster, since each chain is currently rate-limited by "one part per nightly run" rather than any real dependency depth.
+- #5885 (agent-spend telemetry, filed last night) is still open and the underlying gap (0 rows) is unchanged — no new issue needed, just a nudge that it hasn't been picked up yet.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to review.

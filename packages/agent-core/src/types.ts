@@ -142,6 +142,14 @@ export interface SessionResult {
   readonly errors: readonly string[];
   /** Non-fatal errors from post-session cleanup (e.g. worktree removal failures). */
   readonly cleanupErrors?: readonly string[];
+  /**
+   * Path of the session's worktree — present iff it was kept (the worktree
+   * was created and either `createPr: false`, or a CLI adapter session threw
+   * after it was created), absent once removed. Consumers
+   * treat absence as "nothing to inspect" and never derive a path from
+   * `branchName`.
+   */
+  readonly worktreePath?: string;
   readonly stuckPattern?: string;
   readonly failureCategory?: FailureCategory;
   readonly turnMetrics?: readonly TurnMetrics[];

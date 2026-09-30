@@ -26,7 +26,6 @@
 
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
 import { ROUTINE_MANIFEST } from "./routine-manifest.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -141,18 +140,78 @@ export function extractRoutineNameFromIssueTitle(issue) {
 }
 
 /**
- * Pure: finds a prior finding issue for `routineName` among candidate issues
- * (any state).
+ * Pure: extracts which status ("dark" or "unverifiable") a finding issue was
+ * originally filed for, from its title. Used by `decideIssueTransition` to
+ * tell a genuine dark→alive recovery (auto-closeable) from an unverifiable
+ * finding (never auto-closed by a signature flip alone — see #5817).
+ *
+ * @param {{title?: string}} issue
+ * @returns {"dark" | "unverifiable" | null}
+ */
+export function extractRoutineFindingStatusFromTitle(issue) {
+  const title = issue?.title ?? "";
+  if (!ROUTINE_FINDING_TITLE_PATTERN.test(title)) return null;
+  return title.includes("has no declared liveness signature") ? "unverifiable" : "dark";
+}
+
+/**
+ * Pure: finds a prior finding issue (candidate object) for `routineName`
+ * among candidate issues (any state).
  *
  * @param {Array<{number: number, title: string}>} candidates
  * @param {string} routineName
- * @returns {number | null}
+ * @returns {{number: number, title: string} | null}
  */
-export function findPriorRoutineFindingIssue(candidates, routineName) {
+export function findPriorRoutineFindingCandidate(candidates, routineName) {
   const match = (candidates ?? []).find(
     (issue) => extractRoutineNameFromIssueTitle(issue) === routineName
   );
-  return match ? match.number : null;
+  return match ?? null;
+}
+
+/**
+ * Pure decision: given a routine's classified liveness status and any
+ * existing tracking issue found for it, decides whether to create a fresh
+ * issue, skip (already tracked), close a recovered routine's issue, or do
+ * nothing.
+ *
+ * Never reopens a closed issue — a closed finding was either resolved by a
+ * human or auto-closed by this check on recovery, and either way a fresh
+ * occurrence is a new incident with its own record, not a reopen of the old
+ * one (#5817).
+ *
+ * `existingIssue.filedStatus` is which status the issue was ORIGINALLY filed
+ * for. Only a genuine dark→alive recovery closes automatically: an
+ * `unverifiable` finding stays open until a human gives its routine a
+ * detectable signature — that's #5748's job, not this check's — so an
+ * `alive` routine with an open *unverifiable* tracking issue is a no-op here.
+ *
+ * @param {{
+ *   status: "alive"|"late"|"dark"|"unverifiable",
+ *   existingIssue: {number: number, state: "open"|"closed"|"missing", filedStatus?: "dark"|"unverifiable"|null} | null,
+ * }} args
+ * @returns {{action: "create"} | {action: "skip", issueNumber: number} | {action: "close", issueNumber: number} | {action: "no-op"}}
+ */
+export function decideIssueTransition({ status, existingIssue }) {
+  if (status === "dark" || status === "unverifiable") {
+    if (!existingIssue || existingIssue.state === "missing") {
+      return { action: "create" };
+    }
+    if (existingIssue.state === "open") {
+      return { action: "skip", issueNumber: existingIssue.number };
+    }
+    return { action: "create" };
+  }
+
+  if (
+    status === "alive" &&
+    existingIssue?.state === "open" &&
+    existingIssue.filedStatus === "dark"
+  ) {
+    return { action: "close", issueNumber: existingIssue.number };
+  }
+
+  return { action: "no-op" };
 }
 
 /** Pure: builds the issue body describing why a routine was flagged. */
@@ -173,6 +232,25 @@ ${triggerLine}${matchedLine}${reasonLine}
 **Action Required:** investigate whether \`${name}\` actually ran this period, and — if it has no signature yet — give it a detectable PR-title or issue-label convention (see \`docs/routines/mbe-weekly-improve.md\` and #5344/#5373 for the pattern).`;
 }
 
+/**
+ * Pure: builds the comment posted when auto-closing a routine's tracking
+ * issue on recovery, naming the run and the artifact that proves liveness —
+ * so the close is auditable, not a silent state change (#5817).
+ *
+ * @param {{name: string, runId?: string|number, matched: {title?: string, labels?: string[], observedAt?: string} | null}} args
+ * @returns {string}
+ */
+export function buildRoutineRecoveryComment({ name, runId, matched }) {
+  const runLine = runId
+    ? `Closed automatically by run \`${runId}\`.`
+    : "Closed automatically by routine-liveness.mjs.";
+  const matchedLine = matched
+    ? ` Observed artifact: ${matched.title ?? JSON.stringify(matched.labels ?? [])} (${matched.observedAt}).`
+    : "";
+
+  return `\`${name}\` reports \`alive\` again — this finding's condition has cleared.\n\n${runLine}${matchedLine}`;
+}
+
 /** Pure: builds the `gh issue create` args for a routine-liveness finding. */
 export function buildRoutineFindingCreateArgs(title, body) {
   return [
@@ -191,9 +269,15 @@ export function buildRoutineFindingCreateArgs(title, body) {
  * Orchestrates the liveness check across the manifest, with injected GitHub
  * operations (testable without the network). `outOfScope` entries are
  * skipped entirely — they're watched by a different detector
- * (scheduled-workflow-health.mjs). For every other entry: classify, and on
- * `dark` or `unverifiable`, file (or dedupe against) one `ci-fix` issue via
- * the shared `fileIssue()` seam — at most one open issue per routine.
+ * (scheduled-workflow-health.mjs). For every other entry: classify, look up
+ * any existing tracking issue, and let `decideIssueTransition()` pick
+ * create/skip/close/no-op — at most one open issue per routine, and a
+ * `dark`→`alive` recovery closes it automatically (#5817).
+ *
+ * `searchCiFixIssues` now runs lazily and at most once per run (not once per
+ * entry) — a genuinely `alive` routine needs the same candidate lookup a
+ * `dark`/`unverifiable` one does, to know whether it has something to close,
+ * so reusing one search keeps this from turning into N network round-trips.
  *
  * @param {{
  *   manifest: import("./routine-manifest.mjs").RoutineManifestEntry[],
@@ -202,7 +286,8 @@ export function buildRoutineFindingCreateArgs(title, body) {
  *   searchCiFixIssues?: () => Array<{number: number, title: string}>,
  *   getIssueState?: (issueNumber: number) => "open"|"closed"|"missing",
  *   createIssue: (title: string, body: string, labels: string[]) => number,
- *   reopenIssue?: (issueNumber: number) => void,
+ *   closeIssue?: (issueNumber: number, comment: string) => void,
+ *   runId?: string|number,
  *   log?: (msg: string) => void,
  * }} deps
  * @returns {Array<{routine: string, status: string, action?: string, issueNumber?: number}>}
@@ -249,7 +334,8 @@ export function runRoutineLivenessCheck({
   searchCiFixIssues = () => [],
   getIssueState = () => "missing",
   createIssue,
-  reopenIssue = () => {},
+  closeIssue = () => {},
+  runId,
   log = () => {},
 }) {
   const inScope = manifest.filter((entry) => !entry.outOfScope);
@@ -278,6 +364,27 @@ export function runRoutineLivenessCheck({
     return observations.map(({ entry }) => ({ routine: entry.name, status: "unobserved" }));
   }
 
+  // Fail CLOSED on a failed search, run at most once for the whole batch. For
+  // dark/unverifiable this avoids filing a duplicate issue on every run the
+  // search is down (#5553); for alive it just means a recovered routine's
+  // issue stays open one more run — cosmetic, not a correctness risk, so it
+  // is not worth a second failure mode. Lazy: entries with no reason to look
+  // (status "late") never pay for it.
+  let candidates = null;
+  let searchError = null;
+  let searchAttempted = false;
+  const getCandidates = () => {
+    if (searchAttempted) return candidates;
+    searchAttempted = true;
+    try {
+      candidates = searchCiFixIssues();
+    } catch (err) {
+      searchError = err;
+      candidates = null;
+    }
+    return candidates;
+  };
+
   return observations.map(({ entry, observedArtifacts }) => {
     const result = classifyRoutineLiveness({
       signature: entry.signature,
@@ -290,10 +397,68 @@ export function runRoutineLivenessCheck({
     if (result.status === "pending") {
       log(`${entry.name} is pending: ${result.reason}`);
     }
-    if (result.status !== "dark" && result.status !== "unverifiable") {
+    // late and pending never file or close anything: late is below the issue
+    // threshold, and pending (#activatedAt grace) has no artifact yet.
+    if (result.status === "late" || result.status === "pending") {
       return { routine: entry.name, status: result.status };
     }
 
+    const cands = getCandidates();
+    if (cands === null) {
+      if (result.status === "dark" || result.status === "unverifiable") {
+        log(
+          `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
+            `this run, to avoid duplicating an issue the search could not see: ${searchError?.message}`
+        );
+        return { routine: entry.name, status: result.status, action: "search-failed" };
+      }
+      return { routine: entry.name, status: result.status };
+    }
+
+    const priorMatch = findPriorRoutineFindingCandidate(cands, entry.name);
+    const existingIssue = priorMatch
+      ? {
+          number: priorMatch.number,
+          state: getIssueState(priorMatch.number),
+          filedStatus: extractRoutineFindingStatusFromTitle(priorMatch),
+        }
+      : null;
+
+    const decision = decideIssueTransition({ status: result.status, existingIssue });
+
+    if (decision.action === "no-op") {
+      return { routine: entry.name, status: result.status };
+    }
+
+    if (decision.action === "skip") {
+      log(
+        `Issue #${decision.issueNumber} already tracks ${entry.name}'s ${result.status} liveness — skipping.`
+      );
+      return {
+        routine: entry.name,
+        status: result.status,
+        action: "skip",
+        issueNumber: decision.issueNumber,
+      };
+    }
+
+    if (decision.action === "close") {
+      const comment = buildRoutineRecoveryComment({
+        name: entry.name,
+        runId,
+        matched: result.matched,
+      });
+      closeIssue(decision.issueNumber, comment);
+      log(`Closed issue #${decision.issueNumber} — ${entry.name} recovered to alive.`);
+      return {
+        routine: entry.name,
+        status: result.status,
+        action: "close",
+        issueNumber: decision.issueNumber,
+      };
+    }
+
+    // decision.action === "create"
     const title = buildRoutineFindingTitle(entry.name, result.status);
     const body = buildRoutineFindingBody({
       name: entry.name,
@@ -304,46 +469,10 @@ export function runRoutineLivenessCheck({
       matched: result.matched,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
+    const issueNumber = createIssue(title, body, labels);
+    log(`Created issue #${issueNumber} for ${entry.name}'s ${result.status} liveness.`);
 
-    // Fail CLOSED on a failed search. Failing open looks safer — never lose a
-    // finding — but this producer files every single day, so "proceed as
-    // no-match" means a duplicate issue on every run the search is down, and
-    // the finding it was protecting is already tracked by the issue it could
-    // not see. A missed day is recoverable; a self-multiplying issue stream is
-    // what #5553 is open about.
-    let candidates;
-    try {
-      candidates = searchCiFixIssues();
-    } catch (err) {
-      log(
-        `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
-          `this run, to avoid duplicating an issue the search could not see: ${err.message}`
-      );
-      return { routine: entry.name, status: result.status, action: "search-failed" };
-    }
-    const priorNumber = findPriorRoutineFindingIssue(candidates, entry.name);
-    const ledger = priorNumber !== null ? { [entry.name]: priorNumber } : {};
-
-    const fileResult = fileIssue({ title, body, labels, dedupeKey: entry.name }, ledger, {
-      getIssueState,
-      createIssue,
-      reopenIssue,
-    });
-
-    log(
-      fileResult.action === "skip"
-        ? `Issue #${fileResult.issueNumber} already tracks ${entry.name}'s ${result.status} liveness — skipping.`
-        : fileResult.action === "reopen"
-          ? `Reopened issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
-          : `Created issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
-    );
-
-    return {
-      routine: entry.name,
-      status: result.status,
-      action: fileResult.action,
-      issueNumber: fileResult.issueNumber,
-    };
+    return { routine: entry.name, status: result.status, action: "create", issueNumber };
   });
 }
 
@@ -413,7 +542,7 @@ function parseIssueNumberFromUrl(url) {
   return parseInt(match[1], 10);
 }
 
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+/** Real `getIssueState` dep for `decideIssueTransition()`, backed by `gh issue view`. */
 function getIssueStateViaGhClient(ghClient, issueNumber) {
   try {
     const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
@@ -454,7 +583,9 @@ function main() {
     getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
     createIssue: (title, body) =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildRoutineFindingCreateArgs(title, body))),
-    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    closeIssue: (issueNumber, comment) =>
+      ghClient.issue.close(issueNumber, ["--reason", "completed", "--comment", comment]),
+    runId: process.env.GITHUB_RUN_ID,
     log: (msg) => console.error(msg),
   });
 

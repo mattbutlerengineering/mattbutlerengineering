@@ -337,14 +337,15 @@ client-supplied `venueId`.
 
 ### Deposits (authenticated)
 
-| Method | Path                              | Description                                                             |
-| ------ | --------------------------------- | ----------------------------------------------------------------------- |
-| POST   | `/api/v1/deposits`                | Create deposit in `pending` state                                       |
-| GET    | `/api/v1/deposits?reservationId=` | Operator visibility: look up a reservation's deposit, or `null` if none |
-| GET    | `/api/v1/deposits/:id`            | Get deposit by ID                                                       |
-| POST   | `/api/v1/deposits/:id/capture`    | Apply (capture) a `held` deposit                                        |
-| POST   | `/api/v1/deposits/:id/refund`     | Refund a `held` deposit                                                 |
-| POST   | `/api/v1/deposits/:id/forfeit`    | Forfeit a `held` deposit (no-show)                                      |
+| Method | Path                              | Description                                                                        |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------- |
+| POST   | `/api/v1/deposits`                | Create deposit in `pending` state                                                  |
+| GET    | `/api/v1/deposits?reservationId=` | Operator visibility: look up a reservation's deposit, or `null` if none            |
+| GET    | `/api/v1/deposits?venueId=&date=` | Deposit-exposure dashboard: list all deposits for a venue's reservations on a date |
+| GET    | `/api/v1/deposits/:id`            | Get deposit by ID                                                                  |
+| POST   | `/api/v1/deposits/:id/capture`    | Apply (capture) a `held` deposit                                                   |
+| POST   | `/api/v1/deposits/:id/refund`     | Refund a `held` deposit                                                            |
+| POST   | `/api/v1/deposits/:id/forfeit`    | Forfeit a `held` deposit (no-show)                                                 |
 
 ### Stripe Webhook (unauthenticated)
 

@@ -2884,110 +2884,124 @@
     
       let aborted = worktree ? checkAborted(signal, errors) : true;
     
-      if (worktree && !aborted) {
-        adapterResult = await cliAdapter.dispatch({
-          taskDescription: config.taskDescription,
-          worktreePath: worktree.path,
-          repoPath: config.repoPath,
-          baseBranch: config.baseBranch,
-          model: config.model,
-          maxTurns: config.maxTurns,
-          timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
-        });
-        if (adapterResult.error) errors.push(adapterResult.error);
-    
-        resultSummary = {
-          success: adapterResult.success,
-          sessionId: cliAdapter.name,
-          costUsd: adapterResult.costUsd ?? 0,
-          // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
-          // for how each adapter derives it); 0 only when genuinely absent. 0 is
-          // deliberate here, not a fabricated guess: paired with $0 cost it is
-          // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
-          // detect a run that never happened, which is the correct classification
-          // for "the CLI produced no usable signal at all".
-          numTurns: adapterResult.numTurns ?? 0,
-        };
-    
-        const breach = shouldHaltForBudget(
-          buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
-          config.maxBudgetUsd
-        );
-        if (breach.exceeded) {
-          emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
-          if (config.enforceBudget) {
-            errors.push(
-              `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
-            );
-            budgetEnforced = true;
-          }
-        }
-    
-        aborted = checkAborted(signal, errors);
-      }
-    
+      let threw = false;
       let hasChanges = false;
       let gatewayVerdict: GatewayVerdict | undefined;
     
-      if (worktree && !aborted && !budgetEnforced) {
-        const verifyExec = await verificationPhase.run(
-          { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
-          deps
-        );
-        errors.push(...verifyExec.result.errors);
-        hasChanges = verifyExec.output?.hasChanges ?? false;
-        gatewayVerdict = verifyExec.output?.gatewayVerdict;
+      // A throw anywhere after WorktreePhase (dispatch, verification, publish,
+      // feedback) lands in errors[] and falls through to the retention →
+      // recordSpend → return tail below, so a session that ran keeps the
+      // adapter's parsed usage. Mirrors session-runner.ts's outer catch.
+      try {
+        if (worktree && !aborted) {
+          adapterResult = await cliAdapter.dispatch({
+            taskDescription: config.taskDescription,
+            worktreePath: worktree.path,
+            repoPath: config.repoPath,
+            baseBranch: config.baseBranch,
+            model: config.model,
+            maxTurns: config.maxTurns,
+            timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+          });
+          if (adapterResult.error) errors.push(adapterResult.error);
     
-        // A failed CLI dispatch that still wrote changes must always publish via
-        // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
-        // skips the gateway entirely on failure (isSuccess false), leaving
-        // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
-        // branch otherwise treats identically to "gates passed, ship a normal
-        // PR" (resultSummary is always a truthy object, even on failure).
-        // Forcing "create-draft-pr" here routes PublishPhase into its
-        // unconditional buildFailurePrBody branch. Mirrors the deleted
-        // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
-        // failure branch.
-        if (adapterResult?.success === false) {
-          gatewayVerdict = {
-            outcome: "create-draft-pr",
-            passed: false,
-            gateFailures: ["cli-dispatch"],
-            errors: [],
+          resultSummary = {
+            success: adapterResult.success,
+            sessionId: cliAdapter.name,
+            costUsd: adapterResult.costUsd ?? 0,
+            // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+            // for how each adapter derives it); 0 only when genuinely absent. 0 is
+            // deliberate here, not a fabricated guess: paired with $0 cost it is
+            // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+            // detect a run that never happened, which is the correct classification
+            // for "the CLI produced no usable signal at all".
+            numTurns: adapterResult.numTurns ?? 0,
           };
+    
+          const breach = shouldHaltForBudget(
+            buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
+            config.maxBudgetUsd
+          );
+          if (breach.exceeded) {
+            emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
+            if (config.enforceBudget) {
+              errors.push(
+                `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
+              );
+              budgetEnforced = true;
+            }
+          }
+    
+          aborted = checkAborted(signal, errors);
         }
     
-        aborted = checkAborted(signal, errors);
-      }
-    
-      if (worktree && !aborted && !budgetEnforced) {
-        const publishExec = await publishPhase.run(
-          {
-            config,
-            onEvent,
-            worktree,
-            hasChanges,
-            resultMessage: resultSummary,
-            stuckReason: undefined,
-            gatewayVerdict,
-            errors,
-          },
-          deps
-        );
-        prUrl = publishExec.output?.prUrl ?? null;
-        const prNumber = publishExec.output?.prNumber;
-    
-        aborted = checkAborted(signal, errors);
-    
-        if (!aborted) {
-          await feedbackPhase.run(
-            { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+        if (worktree && !aborted && !budgetEnforced) {
+          const verifyExec = await verificationPhase.run(
+            { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
             deps
           );
+          errors.push(...verifyExec.result.errors);
+          hasChanges = verifyExec.output?.hasChanges ?? false;
+          gatewayVerdict = verifyExec.output?.gatewayVerdict;
+    
+          // A failed CLI dispatch that still wrote changes must always publish via
+          // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
+          // skips the gateway entirely on failure (isSuccess false), leaving
+          // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
+          // branch otherwise treats identically to "gates passed, ship a normal
+          // PR" (resultSummary is always a truthy object, even on failure).
+          // Forcing "create-draft-pr" here routes PublishPhase into its
+          // unconditional buildFailurePrBody branch. Mirrors the deleted
+          // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
+          // failure branch.
+          if (adapterResult?.success === false) {
+            gatewayVerdict = {
+              outcome: "create-draft-pr",
+              passed: false,
+              gateFailures: ["cli-dispatch"],
+              errors: [],
+            };
+          }
+    
+          aborted = checkAborted(signal, errors);
         }
+    
+        if (worktree && !aborted && !budgetEnforced) {
+          const publishExec = await publishPhase.run(
+            {
+              config,
+              onEvent,
+              worktree,
+              hasChanges,
+              resultMessage: resultSummary,
+              stuckReason: undefined,
+              gatewayVerdict,
+              errors,
+            },
+            deps
+          );
+          prUrl = publishExec.output?.prUrl ?? null;
+          const prNumber = publishExec.output?.prNumber;
+    
+          aborted = checkAborted(signal, errors);
+    
+          if (!aborted) {
+            await feedbackPhase.run(
+              { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+              deps
+            );
+          }
+        }
+      } catch (error) {
+        threw = true;
+        errors.push(error instanceof Error ? error.message : String(error));
       }
     
-      if (worktree && config.createPr) {
+      // A throw keeps the worktree even when publishing (Review M1): the failure
+      // may predate any commit, so `git worktree remove --force` would destroy
+      // the agent's only copy of its edits.
+      const keepsWorktree = !config.createPr || threw;
+      if (worktree && !keepsWorktree) {
         await deps.worktreeManager.removeWorktree(config.repoPath, worktree.path);
       }
     
@@ -2996,7 +3010,7 @@
       // thrown "Session aborted" always lands in the outer catch's failure
       // result, even after a fully successful query/verification/publish.
       const status: SessionStatus =
-        aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
+        threw || aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
       emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
     
       const failureCategory: FailureCategory | undefined =
@@ -3044,6 +3058,8 @@
         resultText: "",
         errors,
         ...(failureCategory ? { failureCategory } : {}),
+        // Present iff the worktree is kept — see SessionResult.worktreePath.
+        ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
       };
     }
     function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean {
@@ -5354,7 +5370,12 @@
               ? loadCostBaseline(findLogFile(), adapterType)
               : null;
     
-          const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
+          // Decided once per run: which adapters' reported `costUsd` is billed
+          // money, and therefore whether the budget's cost arm applies. Threaded
+          // to the runner (scoring) and the persisted row (labelling).
+          const costBasis = costBasisForAdapter(adapterType);
+    
+          const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType, costBasis);
           const report = await runEvalSuite(tasks, {
             runId: `eval-${process.pid}`,
             only: options.task,
@@ -5362,14 +5383,14 @@
           });
     
           if (suiteDidNotRun(report)) {
-            emitReport(report, options.json);
-            console.error(`\n${noRunMessage(adapterType)}`);
+            emitReport(report, options.json, costBasis);
+            console.error(`\n${noRunMessage(adapterType, report)}`);
             process.exitCode = NO_RUN_EXIT_CODE;
             return;
           }
     
-          persistReport(report, adapterType);
-          emitReport(report, options.json);
+          persistReport(report, adapterType, costBasis);
+          emitReport(report, options.json, costBasis);
     
           if (options.calibrate) {
             printCalibration(calibrate(report));
@@ -5398,18 +5419,28 @@
           }
         }
       );
-    function emitReport(report: EvalReport, json: boolean): void {
+    function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void {
       if (json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
-        printReport(report);
+        printReport(report, costBasis);
       }
     }
-    function noRunMessage(adapterType: AdapterType): string {
+    function noRunMessage(adapterType: AdapterType, report: EvalReport): string {
       if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
-        return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
+        return `No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. ${NEVER_RAN}`;
       }
-      return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
+      const reported = report.tasks
+        .filter((t) => t.sessionErrors !== undefined && t.sessionErrors.length > 0)
+        .map((t) => `${t.taskId}: ${t.sessionErrors!.join("; ")}`);
+      if (adapterType === "claude-cli") {
+        const prefix = "No task produced any usage via the claude-cli adapter (0 turns / $0.00)";
+        return reported.length > 0
+          ? `${prefix}. The sessions reported — ${reported.join("; ")}. ${NEVER_RAN}`
+          : `${prefix} and no session reported an error: most likely the "claude" CLI is not on PATH or has no subscription login. ${NEVER_RAN}`;
+      }
+      const base = `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. ${NEVER_RAN}`;
+      return reported.length > 0 ? `${base} The sessions reported — ${reported.join("; ")}` : base;
     }
     function findLogFile(): string {
       const root = findMonorepoRoot(process.cwd());
@@ -5443,20 +5474,26 @@
       }
       return null;
     }
-    function persistReport(report: EvalReport, adapterType: AdapterType): void {
+    function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void {
       const root = findMonorepoRoot(process.cwd());
       const logDir = join(root, "metrics");
       const logFile = join(logDir, "eval-reports.jsonl");
       if (!existsSync(logDir)) {
         mkdirSync(logDir, { recursive: true });
       }
-      const record = { ...report, timestamp: new Date().toISOString(), adapter: adapterType };
+      const record = {
+        ...report,
+        timestamp: new Date().toISOString(),
+        adapter: adapterType,
+        costBasis,
+      };
       appendFileSync(logFile, JSON.stringify(record) + "\n");
     }
     function makeAgentTaskRunner(
       repoPath: string,
       model: string,
-      adapterType: AdapterType
+      adapterType: AdapterType,
+      costBasis: CostBasis
     ): TaskRunner {
       const adapter = resolveSessionAdapter(adapterType);
     
@@ -5475,40 +5512,105 @@
     
         const session = await runAgentSession(config, { adapter, onEvent: () => {} });
     
-        const withinBudget =
-          session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
-    
         const checks: DeterministicChecks = {
-          withinBudget,
-          testsPass: task.rubric.testsMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-            : true,
-          typecheckPass: task.rubric.typecheckMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-            : true,
-          lintPass: task.rubric.lintMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-            : true,
+          withinBudget: isWithinBudget(session, task.budget, costBasis),
+          ...(await verifyInWorktree(task, session)),
         };
+    
+        await releaseWorktree(repoPath, task.id, session);
     
         return { task, session, checks };
       };
     }
-    async function verify(
-      repoPath: string,
-      branch: string,
-      fixtureRef: string,
-      script: "test" | "typecheck" | "lint"
+    type FixtureScript = "test" | "typecheck" | "lint";
+    async function verifyInWorktree(
+      task: Task,
+      session: SessionResult
+    ): Promise<Omit<DeterministicChecks, "withinBudget">> {
+      const { rubric, fixtureRef } = task;
+      const required: Readonly<Record<FixtureScript, boolean>> = {
+        test: rubric.testsMustPass,
+        typecheck: rubric.typecheckMustPass,
+        lint: rubric.lintMustPass,
+      };
+      const anyRequired = Object.values(required).some(Boolean);
+      const worktreePath = session.worktreePath;
+    
+      if (anyRequired && worktreePath === undefined) {
+        const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";
+        console.error(
+          `${task.id}: no worktree to verify in (session ${session.status}; errors: ${errors}) — every rubric check scored false`
+        );
+      }
+    
+      const installed =
+        anyRequired && worktreePath !== undefined
+          ? await runStep(
+              task.id,
+              "install",
+              worktreePath,
+              ["install", "--frozen-lockfile"],
+              INSTALL_TIMEOUT_MS
+            )
+          : false;
+    
+      const check = async (script: FixtureScript): Promise<boolean> => {
+        if (!required[script]) return true;
+        if (!installed || worktreePath === undefined) return false;
+        return runStep(
+          task.id,
+          script,
+          worktreePath,
+          ["turbo", "run", script, `--filter=./${fixtureRef}`, "--output-logs=errors-only"],
+          SCRIPT_TIMEOUT_MS
+        );
+      };
+    
+      return {
+        testsPass: await check("test"),
+        typecheckPass: await check("typecheck"),
+        lintPass: await check("lint"),
+      };
+    }
+    async function runStep(
+      taskId: string,
+      step: string,
+      worktreePath: string,
+      args: readonly string[],
+      timeout: number
     ): Promise<boolean> {
       try {
-        await execFileAsync("git", ["-C", repoPath, "checkout", branch], { timeout: 30_000 });
-        await execFileAsync("pnpm", ["--filter", `./${fixtureRef}`, script], {
-          cwd: repoPath,
-          timeout: 300_000,
-        });
+        await execFileAsync("pnpm", [...args], { cwd: worktreePath, timeout });
         return true;
-      } catch {
+      } catch (err) {
+        console.error(`${taskId}: ${step} failed in ${worktreePath} — ${outputTail(err)}`);
         return false;
+      }
+    }
+    function outputTail(err: unknown): string {
+      const e = err as { stdout?: unknown; stderr?: unknown; message?: unknown };
+      const output = [e.stdout, e.stderr]
+        .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+        .join("\n");
+      const text = output !== "" ? output : String(e.message ?? err);
+      return text.trimEnd().split("\n").slice(-OUTPUT_TAIL_LINES).join("\n");
+    }
+    async function releaseWorktree(
+      repoPath: string,
+      taskId: string,
+      session: SessionResult
+    ): Promise<void> {
+      const worktreePath = session.worktreePath;
+      if (worktreePath === undefined) return;
+      if (session.status !== "succeeded") {
+        console.error(`${taskId}: worktree kept for inspection at ${worktreePath}`);
+        return;
+      }
+      try {
+        // Bounded at 60 s by agent-core's own git timeout.
+        await removeWorktree(repoPath, worktreePath);
+      } catch {
+        // Best-effort: a leftover worktree is litter, not a scoring error.
       }
     }
     function printCalibration(summary: CalibrationSummary): void {
@@ -5534,7 +5636,7 @@
         console.log(`  Tasks without self-eval (excluded): ${summary.totalWithoutSelfEval}`);
       }
     }
-    function printReport(report: EvalReport): void {
+    function printReport(report: EvalReport, costBasis: CostBasis): void {
       const a = report.aggregate;
       console.log("Eval Report");
       console.log("───────────");
@@ -5544,6 +5646,9 @@
         console.log(
           `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
         );
+        if (t.sessionErrors && t.sessionErrors.length > 0) {
+          console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+        }
       }
       console.log("");
       console.log(`Tasks:       ${a.total}`);
@@ -5556,6 +5661,9 @@
           ? `\nExcluded (did not run): ${report.nonRunCount} — not counted in the aggregate above`
           : "";
       console.log(`Failed to complete: ${a.stuckCount}${nonRunLine}`);
+      if (costBasis !== "billed") {
+        console.log(`\nCost basis: ${costBasis} — ${NON_BILLED_COST_BASIS_NOTE[costBasis]}`);
+      }
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -9785,6 +9893,31 @@
       };
     }
   </file>
+  <file path="packages/agent-core/src/eval/cost-basis.ts">
+    export type CostBasis = "billed" | "api-equivalent" | "none";
+    export function costBasisForAdapter(adapterType: AdapterType): CostBasis {
+      switch (adapterType) {
+        case "claude":
+        case "opencode":
+        case "auto":
+          return "billed";
+        case "claude-cli":
+          return "api-equivalent";
+        case "gemini":
+          return "none";
+      }
+    }
+    export function isWithinBudget(
+      usage: { readonly costUsd: number; readonly numTurns: number },
+      budget: TaskBudget,
+      costBasis: CostBasis
+    ): boolean {
+      return (
+        usage.numTurns <= budget.maxTurns &&
+        (costBasis !== "billed" || usage.costUsd <= budget.maxCostUsd)
+      );
+    }
+  </file>
   <file path="packages/agent-core/src/eval/cost-regression.ts">
     export function checkCostRegression(
       current: number,
@@ -9983,6 +10116,7 @@
         selfEvaluation: session.evaluation,
         costUsd: session.costUsd,
         turns: session.numTurns,
+        ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
       };
     }
   </file>
@@ -10053,6 +10187,12 @@
       readonly turns: number;
       /** Set when the task crashed mid-run rather than completing. */
       readonly error?: string;
+      /**
+       * The `SessionResult.errors` of a task that ran (e.g. a post-dispatch commit
+       * that failed); omitted when empty. Unlike `error`, never read by
+       * `taskDidNotRun`, `suiteDidNotRun` or `stuckCount`.
+       */
+      readonly sessionErrors?: readonly string[];
     }
     export interface EvalAggregate {
       readonly total: number;
@@ -16489,7 +16629,11 @@
         taskDescription: string
       ): Promise<WorktreeInfo>;
       hasChanges(worktreePath: string): Promise<boolean>;
-      commitChanges(worktreePath: string, message: string): Promise<string>;
+      commitChanges(
+        worktreePath: string,
+        message: string,
+        options?: { readonly noVerify?: boolean }
+      ): Promise<string>;
       pushBranch(worktreePath: string, branchName: string): Promise<void>;
       commitAndPush(worktreePath: string, message: string): Promise<void>;
       resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity>;
@@ -16895,12 +17039,20 @@
         const isSuccess = resultMessage?.success === true && !stuckReason;
         const prefix = isSuccess ? "feat" : "wip";
         const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-        await worktreeManager.commitChanges(worktree.path, commitMsg);
+        // A non-publishing session (createPr: false) commits without the parent
+        // repo's hooks — a fresh worktree cannot run them — and never pushes: the
+        // hooks and the push exist to guard what reaches origin, and it publishes
+        // nothing. createPr: true is unchanged.
+        await worktreeManager.commitChanges(worktree.path, commitMsg, {
+          noVerify: !config.createPr,
+        });
     
         // Push with retry for transient network failures
-        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
-          maxRetries: 3,
-        });
+        if (config.createPr) {
+          await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+            maxRetries: 3,
+          });
+        }
     
         // Run post-commit gateway (verification + quality gates) only on success.
         // The diff is fetched once and passed straight through as an immutable
@@ -20689,58 +20841,90 @@
       // venue-resolution shape as POST / above: the query carries an opaque
       // reservation id, not a venueId, so the app-wide preHandler resolves
       // nothing and this route resolves it itself (module comment, ADR-026).
+      //
+      // GET /api/v1/deposits?venueId=&date= — deposit-exposure dashboard batch
+      // read (#5832): every deposit for a venue's reservations on a given date.
+      // Unlike the reservationId= query above, `venueId` IS present in the
+      // querystring, so the app-wide preHandler already resolves it — the
+      // explicit `runWithVenueContext` below is kept anyway, matching every
+      // other route in this file, so the scope is never implicit.
       fastify.get<{
-        Querystring: { reservationId?: string };
-        Reply: ApiResponse<Deposit | null> | ReturnType<typeof createProblemDetails>;
+        Querystring: { reservationId?: string; venueId?: string; date?: string };
+        Reply: ApiResponse<Deposit | Deposit[] | null> | ReturnType<typeof createProblemDetails>;
       }>(
         "/",
         {
           preHandler: [requireAuth, requireAdmin],
           schema: {
-            summary: "Get a reservation's deposit",
-            operationId: "getDepositByReservation",
+            summary: "Get a reservation's deposit, or list a venue's deposits for a date",
+            operationId: "getDeposits",
             description:
-              "Look up a reservation's deposit by reservationId, or null if none exists yet.",
+              "Look up a reservation's deposit by reservationId (or null if none exists yet), " +
+              "or list every deposit for a venue's reservations on a given date (venueId + date).",
             tags: ["Deposits"],
             querystring: {
               type: "object",
-              required: ["reservationId"],
-              properties: { reservationId: { type: "string" } },
+              properties: {
+                reservationId: { type: "string" },
+                venueId: { type: "string" },
+                date: { type: "string" },
+              },
             },
             response: {
               200: {
-                description: "Deposit found, or null if the reservation has none yet",
+                description: "Deposit found (or null), or the venue's deposits for the date",
                 type: "object",
                 properties: {
                   data: {
-                    anyOf: [{ type: "object", properties: depositProperties }, { type: "null" }],
+                    anyOf: [
+                      { type: "object", properties: depositProperties },
+                      { type: "array", items: { type: "object", properties: depositProperties } },
+                      { type: "null" },
+                    ],
                   },
                 },
               },
-              400: { description: "Missing reservationId", type: "object" },
+              400: {
+                description: "Missing reservationId, or missing venueId/date",
+                type: "object",
+              },
               404: { description: "Reservation not found, or not in any venue", type: "object" },
             },
           },
         },
         async (request, reply) => {
-          const { reservationId } = request.query;
-          if (!reservationId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "reservationId is required"));
+          const { reservationId, venueId, date } = request.query;
+    
+          if (reservationId) {
+            const resolvedVenueId = await resolveReservationVenueId(reservationId);
+            if (!resolvedVenueId) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+    
+            const deposit = await runWithVenueContext(resolvedVenueId, () =>
+              depositService.getByReservationId(reservationId)
+            );
+            return { data: deposit };
           }
     
-          const venueId = await resolveReservationVenueId(reservationId);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          if (venueId && date) {
+            const deposits = await runWithVenueContext(venueId, () =>
+              depositService.listByVenueAndDate(venueId, new Date(date))
+            );
+            return { data: deposits };
           }
     
-          const deposit = await runWithVenueContext(venueId, () =>
-            depositService.getByReservationId(reservationId)
-          );
-          return { data: deposit };
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                "reservationId, or venueId and date, is required"
+              )
+            );
         }
       );
     
@@ -32080,6 +32264,21 @@
        */
       async getByPaymentIntentId(stripePaymentIntentId: string): Promise<Deposit | null> {
         return prisma.deposit.findFirst({ where: { stripePaymentIntentId } });
+      }
+    
+      /**
+       * Lists every deposit for a venue's reservations on a given date — the
+       * batch read the deposit-exposure dashboard needs (#5832). `deposits`
+       * carries no `venue_id`/`date` column of its own (ADR-026 §1), so it is
+       * scoped via a nested relation filter through its unique `reservationId`,
+       * joining `Reservation.venueId` + `Reservation.date` — the same shape the
+       * `deposit_isolation` RLS policy's own `EXISTS (... FROM reservations ...)`
+       * subquery checks. Callers must run this inside `runWithVenueContext(venueId, ...)`
+       * (see `../routes/deposits.ts`) so the RLS backstop is active for the
+       * query, not just the explicit `where` filter here.
+       */
+      async listByVenueAndDate(venueId: string, date: Date): Promise<Deposit[]> {
+        return prisma.deposit.findMany({ where: { reservation: { venueId, date } } });
       }
     
       /**
@@ -44028,6 +44227,9 @@
     
       const collectedTurnMetrics = turnMetrics ?? [];
       const collectedToolCallMetrics = toolCallMetrics ?? [];
+      // Present iff the worktree is kept (createPr: false) — see SessionResult.worktreePath.
+      const keptWorktree =
+        !config.createPr && outcome.worktree ? { worktreePath: outcome.worktree.path } : {};
     
       if (resultMessage) {
         const sessionResult = buildSessionResult(
@@ -44053,6 +44255,7 @@
             : {}),
           ...(evalSummary ? { evaluation: evalSummary } : {}),
           ...(failureCategory ? { failureCategory } : {}),
+          ...keptWorktree,
           turnMetrics: collectedTurnMetrics,
           toolCallMetrics: collectedToolCallMetrics,
         };
@@ -44133,6 +44336,7 @@
         stuckPattern: stuckReason?.type,
         evaluation: evalSummary,
         ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+        ...keptWorktree,
         turnMetrics: collectedTurnMetrics,
         toolCallMetrics: collectedToolCallMetrics,
       };
@@ -45136,6 +45340,7 @@
                 );
     
                 rootSpan.setAttribute("session.status", "failed");
+                const keptWorktree = pipelineWorktree(run);
                 pendingResult = {
                   sessionId: "",
                   status: "failed",
@@ -45148,6 +45353,10 @@
                   resultText: "",
                   errors: [errorMessage],
                   stuckPattern: pipelineStuckReason(run)?.type,
+                  // Present iff the worktree is kept — see SessionResult.worktreePath.
+                  ...(!effectiveConfig.createPr && keptWorktree
+                    ? { worktreePath: keptWorktree.path }
+                    : {}),
                 };
               } finally {
                 // Clean up worktree when PR was created (branch is pushed).
@@ -46659,6 +46868,14 @@
       readonly errors: readonly string[];
       /** Non-fatal errors from post-session cleanup (e.g. worktree removal failures). */
       readonly cleanupErrors?: readonly string[];
+      /**
+       * Path of the session's worktree — present iff it was kept (the worktree
+       * was created and either `createPr: false`, or a CLI adapter session threw
+       * after it was created), absent once removed. Consumers
+       * treat absence as "nothing to inspect" and never derive a path from
+       * `branchName`.
+       */
+      readonly worktreePath?: string;
       readonly stuckPattern?: string;
       readonly failureCategory?: FailureCategory;
       readonly turnMetrics?: readonly TurnMetrics[];
@@ -46864,7 +47081,11 @@
       await git(["worktree", "prune"], repoPath);
       await rm(worktreesDir, { recursive: true, force: true });
     }
-    export async function commitChanges(worktreePath: string, message: string): Promise<string> {
+    export async function commitChanges(
+      worktreePath: string,
+      message: string,
+      options: { readonly noVerify?: boolean } = {}
+    ): Promise<string> {
       validatePath(worktreePath, "worktreePath");
     
       await git(["add", "-A"], worktreePath);
@@ -46874,7 +47095,10 @@
         return "";
       }
     
-      await git(["commit", "-m", message], worktreePath);
+      const commitArgs = options.noVerify
+        ? ["commit", "--no-verify", "-m", message]
+        : ["commit", "-m", message];
+      await git(commitArgs, worktreePath);
       const sha = await git(["rev-parse", "HEAD"], worktreePath);
       return sha;
     }
@@ -48790,6 +49014,14 @@
           { reservationId },
           DepositSchema.nullable()
         );
+      }
+    
+      /**
+       * Deposit-exposure dashboard: list every deposit for a venue's
+       * reservations on a given date.
+       */
+      async listByVenueAndDate(venueId: string, date: string): Promise<Deposit[]> {
+        return this.client.getOne<Deposit[]>(DEPOSIT_BASE_PATH, { venueId, date }, depositListSchema);
       }
     
       /**

@@ -102,14 +102,27 @@ function isOpen(issue) {
 }
 
 /**
- * Pure: open issues whose `updatedAt` is older than `thresholdMs`, excluding
- * any issue carrying an {@link EXCLUDED_LABELS} entry — independent of
- * whether a human-blocker label (`ready-for-human`, `blocked`, etc.) is
- * present. This is the #3322 case: that issue carried none of those labels
- * and was invisible to the label-based weekly-retro query for three
- * consecutive weeks.
+ * Pure: open issues whose last *human* touch (see {@link lastHumanTouchAt})
+ * is older than `thresholdMs`, excluding any issue carrying an
+ * {@link EXCLUDED_LABELS} entry — independent of whether a human-blocker
+ * label (`ready-for-human`, `blocked`, etc.) is present. This is the #3322
+ * case: that issue carried none of those labels and was invisible to the
+ * label-based weekly-retro query for three consecutive weeks.
  *
- * @param {Array<{number:number,title:string,state:string,updatedAt:string,labels:Array}>} issues
+ * Deliberately NOT gated on `updatedAt` (#5816) — `updatedAt` is bumped by
+ * any bot write (this detector's own `ready-for-human` label, a
+ * cross-reference, `auto-label.yml`), so gating candidate selection on it
+ * reproduces the exact #4274 trap one layer up: the detector goes blind to
+ * exactly the issues it, or another bot, has already touched, which are the
+ * ones it flagged as most ignored. Selection now reads the same signal
+ * {@link buildStaleMetricRow} persists as `last_human_touch_at`, so
+ * selection and measurement can no longer disagree.
+ *
+ * Each `issue` is expected to carry a `timelineEvents` array (the caller
+ * fetches it — this function stays pure/sync) alongside the `createdAt` and
+ * `comments` fields {@link lastHumanTouchAt} already reads.
+ *
+ * @param {Array<{number:number,title:string,state:string,createdAt?:string,comments?:Array,timelineEvents?:Array,labels:Array}>} issues
  * @param {number} nowMs - reference timestamp in ms (injected for determinism)
  * @param {{thresholdMs?:number}} [opts]
  * @returns {Array} new array, most-stale first; input is not mutated
@@ -119,9 +132,9 @@ export function findStaleHumanBlockedIssues(issues, nowMs, opts = {}) {
   return (issues ?? [])
     .filter((i) => isOpen(i))
     .filter((i) => !hasAnyLabel(i, EXCLUDED_LABELS))
-    .map((i) => ({ issue: i, updatedMs: Date.parse(i?.updatedAt) }))
-    .filter(({ updatedMs }) => Number.isFinite(updatedMs) && nowMs - updatedMs > thresholdMs)
-    .sort((a, b) => a.updatedMs - b.updatedMs) // most-stale (oldest updatedAt) first
+    .map((i) => ({ issue: i, touchMs: Date.parse(lastHumanTouchAt(i, i?.timelineEvents) ?? "") }))
+    .filter(({ touchMs }) => Number.isFinite(touchMs) && nowMs - touchMs > thresholdMs)
+    .sort((a, b) => a.touchMs - b.touchMs) // most-stale (oldest human touch) first
     .map(({ issue }) => issue);
 }
 
@@ -254,7 +267,7 @@ export function buildStaleMetricRow({ issue, timelineEvents = [], nowMs, labeled
  *   dryRun?: boolean,
  *   log?: (msg:string) => void,
  * }} deps
- * @returns {Promise<{stale:number[], labeled:number[], recorded:object[]}>}
+ * @returns {Promise<{stale:number[], labeled:number[], recorded:object[], considered:number}>}
  */
 export async function runStaleHumanBlocked({
   listOpenIssues,
@@ -267,7 +280,25 @@ export async function runStaleHumanBlocked({
   log = () => {},
 }) {
   const issues = await listOpenIssues();
-  const stale = findStaleHumanBlockedIssues(issues, now, { thresholdMs });
+
+  // The candidate gate needs each issue's timeline to compute its true last
+  // human touch (#5816) — `updatedAt` alone isn't enough, since a bot write
+  // (this run's own label, a cross-reference) bumps it without a human
+  // having touched the issue. Fetch it up front, for every open,
+  // non-excluded issue, so selection and the metric row it produces read the
+  // same signal. `--dry-run` skips this network round-trip and previews
+  // using creation-time + comments only: that can under-select relative to a
+  // real run (an issue whose only recent activity is bot noise won't show up
+  // in a timeline-blind preview) but never over-selects, and costs nothing
+  // to run repeatedly.
+  const openCandidates = issues.filter((i) => isOpen(i) && !hasAnyLabel(i, EXCLUDED_LABELS));
+  const enriched = [];
+  for (const issue of openCandidates) {
+    const timelineEvents = dryRun ? [] : await fetchTimeline(issue.number);
+    enriched.push({ ...issue, timelineEvents });
+  }
+
+  const stale = findStaleHumanBlockedIssues(enriched, now, { thresholdMs });
 
   const labeled = [];
   const recorded = [];
@@ -282,10 +313,9 @@ export async function runStaleHumanBlocked({
     // --dry-run is a read: no label write, and no metrics write either.
     if (dryRun) continue;
 
-    const timelineEvents = await fetchTimeline(issue.number);
     const row = buildStaleMetricRow({
       issue,
-      timelineEvents,
+      timelineEvents: issue.timelineEvents,
       nowMs: now,
       labeled: !alreadyLabeled,
     });
@@ -299,7 +329,12 @@ export async function runStaleHumanBlocked({
     log(`labeled #${issue.number} ${READY_FOR_HUMAN_LABEL}`);
   }
 
-  return { stale: stale.map((i) => i.number), labeled, recorded };
+  return {
+    stale: stale.map((i) => i.number),
+    labeled,
+    recorded,
+    considered: openCandidates.length,
+  };
 }
 
 /**
@@ -349,7 +384,7 @@ async function run() {
     ? ""
     : `, recorded ${result.recorded.length} row(s) to ${STALE_METRICS_PATH}`;
   console.log(
-    `[stale-human-blocked] ${dryRun ? "[dry-run] " : ""}found ${result.stale.length} stale issue(s), labeled ${
+    `[stale-human-blocked] ${dryRun ? "[dry-run] " : ""}considered ${result.considered} open candidate(s), found ${result.stale.length} stale issue(s), labeled ${
       result.labeled.length
     }${recordedSummary}: ${result.stale.map((n) => `#${n}`).join(", ") || "none"}`
   );

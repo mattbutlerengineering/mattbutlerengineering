@@ -36,12 +36,20 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
     const isSuccess = resultMessage?.success === true && !stuckReason;
     const prefix = isSuccess ? "feat" : "wip";
     const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-    await worktreeManager.commitChanges(worktree.path, commitMsg);
+    // A non-publishing session (createPr: false) commits without the parent
+    // repo's hooks — a fresh worktree cannot run them — and never pushes: the
+    // hooks and the push exist to guard what reaches origin, and it publishes
+    // nothing. createPr: true is unchanged.
+    await worktreeManager.commitChanges(worktree.path, commitMsg, {
+      noVerify: !config.createPr,
+    });
 
     // Push with retry for transient network failures
-    await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
-      maxRetries: 3,
-    });
+    if (config.createPr) {
+      await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+        maxRetries: 3,
+      });
+    }
 
     // Run post-commit gateway (verification + quality gates) only on success.
     // The diff is fetched once and passed straight through as an immutable
