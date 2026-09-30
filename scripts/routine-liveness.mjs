@@ -16,14 +16,18 @@
  * signature + period + observed artifacts; the network lives entirely behind
  * injected callbacks in `runRoutineLivenessCheck()`, mirroring
  * `scheduled-workflow-health.mjs`'s design so the two stay easy to read
- * side by side. Does not depend on the `gh` CLI — `@mbe/gh-client` falls
- * back to the GitHub REST API when `gh` is unavailable (Claude Code Remote
- * sessions; see .claude/rules/gotchas.md § Claude Code Remote).
+ * side by side. The list/issue queries go through `@mbe/gh-client`, which
+ * falls back to the GitHub REST API when `gh` is unavailable (Claude Code
+ * Remote sessions; see .claude/rules/gotchas.md § Claude Code Remote). The
+ * one exception is `observe: "latest-matching-commit"`'s commit lookup, which
+ * calls `gh api` (the Actions runner has it); without `gh` that routine alone
+ * reads `unobserved`, never aborting the run.
  *
  * Usage:
  *   node scripts/routine-liveness.mjs
  */
 
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { ROUTINE_MANIFEST } from "./routine-manifest.mjs";
@@ -342,14 +346,27 @@ export function runRoutineLivenessCheck({
 
   // Observe every routine BEFORE classifying any, so a run-wide observation
   // failure is visible as such instead of N separate "dark" verdicts.
+  //
+  // One routine's observation throwing must not abort the run (review N1:
+  // an over-limit GraphQL query took down every routine's classification).
+  // A failed observation is `unobserved` — not `dark`/`unverifiable`, whose
+  // issue titles would blame the routine for the query's failure.
   const observations = inScope.map((entry) => {
-    const observedArtifacts = entry.signature ? fetchObservedArtifacts(entry) : [];
+    let observedArtifacts = [];
+    let observeError = null;
     if (entry.signature) {
-      log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
+      try {
+        observedArtifacts = fetchObservedArtifacts(entry);
+        log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
+      } catch (err) {
+        observeError = err;
+        log(`observing ${entry.name} failed — not classifying it this run: ${err?.message ?? err}`);
+      }
     }
     return {
       entry,
       observedArtifacts,
+      observeError,
       hasSignature: Boolean(entry.signature),
       observedCount: observedArtifacts.length,
     };
@@ -361,7 +378,11 @@ export function runRoutineLivenessCheck({
         `artifact-query failure, not ${observations.filter((o) => o.hasSignature).length} dark routines. ` +
         `Filing nothing this run (#5606).`
     );
-    return observations.map(({ entry }) => ({ routine: entry.name, status: "unobserved" }));
+    return observations.map(({ entry, observeError }) =>
+      observeError
+        ? { routine: entry.name, status: "unobserved", action: "observe-failed" }
+        : { routine: entry.name, status: "unobserved" }
+    );
   }
 
   // Fail CLOSED on a failed search, run at most once for the whole batch. For
@@ -385,7 +406,10 @@ export function runRoutineLivenessCheck({
     return candidates;
   };
 
-  return observations.map(({ entry, observedArtifacts }) => {
+  return observations.map(({ entry, observedArtifacts, observeError }) => {
+    if (observeError) {
+      return { routine: entry.name, status: "unobserved", action: "observe-failed" };
+    }
     const result = classifyRoutineLiveness({
       signature: entry.signature,
       periodDays: entry.periodDays,
@@ -502,6 +526,62 @@ export function latestMatchingCommitAt(pr, signature) {
   return newest ? newest.at : pr.createdAt;
 }
 
+/** Page size for the REST commit listings below (GitHub's maximum). */
+const COMMITS_PER_PAGE = 100;
+/**
+ * Pages read from an open PR's head branch before giving up. The branch
+ * carries `main`'s merged-in history, newest first, so a live routine's
+ * ledger commit is on page 1; ten pages is weeks of `main` traffic, past
+ * which the routine is `dark` whatever the exact date.
+ */
+export const MAX_BRANCH_COMMIT_PAGES = 10;
+
+/** Real `apiGet`: one `gh api` GET, parsed. `{owner}/{repo}` resolve from the checkout. */
+function ghApiGet(path) {
+  return JSON.parse(
+    execFileSync("gh", ["api", path], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+  );
+}
+
+/** Pure: a REST commit row as the `{messageHeadline, committedDate}` `latestMatchingCommitAt` reads. */
+function toHeadlineCommit(row) {
+  return {
+    messageHeadline: String(row?.commit?.message ?? "").split("\n")[0],
+    committedDate: row?.commit?.committer?.date,
+  };
+}
+
+/**
+ * The commits that date one title-matching PR under `observe:
+ * "latest-matching-commit"`, via REST — never the GraphQL `commits` field,
+ * whose `first: 100` both breaks the 500,000-node limit inside a `--limit
+ * 50` list (review N1) and hides every commit past the 100th (N2).
+ *
+ * - Open PR: its head branch, newest first, stopping at the first page that
+ *   carries a match.
+ * - Closed or merged PR: its own commit list, every page (GitHub caps it at
+ *   250) — its branch may already be deleted.
+ *
+ * @param {(path: string) => Array<object>} apiGet
+ * @param {{number?: number, state?: string, headRefName?: string}} pr
+ * @param {RegExp} pattern
+ */
+function fetchPrCommits(apiGet, pr, pattern) {
+  const open = pr.state === "OPEN" && pr.headRefName;
+  const base = open
+    ? `repos/{owner}/{repo}/commits?sha=${pr.headRefName}&per_page=${COMMITS_PER_PAGE}`
+    : `repos/{owner}/{repo}/pulls/${pr.number}/commits?per_page=${COMMITS_PER_PAGE}`;
+  const commits = [];
+  for (let page = 1; !open || page <= MAX_BRANCH_COMMIT_PAGES; page++) {
+    const rows = apiGet(`${base}&page=${page}`);
+    const mapped = (Array.isArray(rows) ? rows : []).map(toHeadlineCommit);
+    commits.push(...mapped);
+    if (mapped.length < COMMITS_PER_PAGE) break;
+    if (open && mapped.some((c) => pattern.test(c.messageHeadline))) break;
+  }
+  return commits;
+}
+
 /**
  * Fetches observed artifacts for one manifest entry via a real `@mbe/gh-client`
  * instance. Search results are capped at 50 and not date-sorted server-side
@@ -509,25 +589,33 @@ export function latestMatchingCommitAt(pr, signature) {
  * because `classifyRoutineLiveness()` only needs the single most-recent
  * match, not a complete history.
  *
+ * `observe: "latest-matching-commit"` fetches commits (via `apiGet`, `gh
+ * api` by default) only for the PRs whose title matches the signature — the
+ * only ones `classifyRoutineLiveness()` reads.
+ *
  * @param {ReturnType<typeof createGhClient>} ghClient
  * @param {import("./routine-manifest.mjs").RoutineManifestEntry} entry
+ * @param {{apiGet?: (path: string) => Array<object>}} [deps]
  * @returns {Array<{type: string, title?: string, labels?: string[], observedAt?: string}>}
  */
-export function fetchObservedArtifactsViaGhClient(ghClient, entry) {
+export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = ghApiGet } = {}) {
   const signature = entry.signature;
   if (!signature) return [];
 
   if (signature.type === "pr-title") {
     const latestCommit = signature.observe === LATEST_MATCHING_COMMIT;
+    const pattern = new RegExp(signature.pattern);
     const prs =
-      /** @type {Array<{title: string, createdAt?: string, mergedAt?: string|null, commits?: Array<{messageHeadline?: string, committedDate?: string}>}>} */ (
+      /** @type {Array<{title: string, number?: number, state?: string, headRefName?: string, createdAt?: string, mergedAt?: string|null}>} */ (
         ghClient.pr.list([
           "--search",
           signature.searchTerm,
           "--state",
           "all",
           "--json",
-          latestCommit ? "title,createdAt,mergedAt,commits" : "title,createdAt,mergedAt",
+          latestCommit
+            ? "title,createdAt,mergedAt,number,state,headRefName"
+            : "title,createdAt,mergedAt",
           "--limit",
           "50",
         ])
@@ -535,9 +623,14 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry) {
     return prs.map((pr) => ({
       type: "pr",
       title: pr.title,
-      observedAt: latestCommit
-        ? latestMatchingCommitAt(pr, signature)
-        : (pr.mergedAt ?? pr.createdAt),
+      observedAt: !latestCommit
+        ? (pr.mergedAt ?? pr.createdAt)
+        : pattern.test(pr.title ?? "")
+          ? latestMatchingCommitAt(
+              { ...pr, commits: fetchPrCommits(apiGet, pr, pattern) },
+              signature
+            )
+          : pr.createdAt,
     }));
   }
 
@@ -622,6 +715,14 @@ function main() {
   const findings = results.filter((r) => r.status === "dark" || r.status === "unverifiable");
   if (findings.length > 0) {
     console.error(`${findings.length} routine(s) flagged (dark or unverifiable).`);
+  }
+
+  // A routine whose observation failed was not classified: finish the run for
+  // every other routine, then fail the job so the gap is visible (review N1).
+  const unobserved = results.filter((r) => r.action === "observe-failed");
+  if (unobserved.length > 0) {
+    console.error(`${unobserved.length} routine(s) could not be observed this run.`);
+    process.exitCode = 1;
   }
 
   process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);

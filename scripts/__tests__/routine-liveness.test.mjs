@@ -1158,7 +1158,14 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     signature,
     ...extra,
   });
-  /** A fake gh client recording every `pr.list` argument vector. */
+  /** GitHub's real refusal of the pre-N1 list shape (measured, gh 2.72.0). */
+  const NODE_LIMIT_ERROR =
+    "Command failed: gh pr list --search ui-quality --state all --json title,createdAt,mergedAt,commits --limit 50\n" +
+    "GraphQL: This query requests up to 505,050 possible nodes which exceeds the maximum limit of 500,000.";
+  /**
+   * A fake gh client recording every `pr.list` argument vector. Like the real
+   * API, it refuses any `--limit`ed list that asks for `commits` (N1).
+   */
   function fakeGh(prs) {
     const calls = [];
     return {
@@ -1166,27 +1173,63 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
       pr: {
         list: (args) => {
           calls.push(args);
+          if (args.some((a) => /(^|,)commits(,|$)/.test(a))) throw new Error(NODE_LIMIT_ERROR);
           return prs;
         },
       },
     };
   }
-  const commit = (headline, committedDate) => ({ messageHeadline: headline, committedDate });
+  /** REST commit rows, in the shape `GET /repos/{o}/{r}/commits` and `/pulls/{n}/commits` return. */
+  const rest = (headline, date) => ({
+    commit: { message: `${headline}\n\nbody line`, committer: { date } },
+  });
+  /**
+   * A fake REST `apiGet`, serving each path's rows 100 per `page=` like the
+   * real endpoints. Records every path requested.
+   */
+  function fakeApi(rowsByBase) {
+    const paths = [];
+    const apiGet = (path) => {
+      paths.push(path);
+      const [base, query = ""] = path.split("?");
+      const params = new URLSearchParams(query);
+      const perPage = Number(params.get("per_page") ?? 30);
+      const page = Number(params.get("page") ?? 1);
+      const key = params.get("sha") ? `${base}?sha=${params.get("sha")}` : base;
+      const rows = rowsByBase[key];
+      if (!rows) throw new Error(`HTTP 404: no fake for ${path}`);
+      return rows.slice((page - 1) * perPage, page * perPage);
+    };
+    return { apiGet, paths };
+  }
+  const BRANCH = "repos/{owner}/{repo}/commits?sha=ui-quality/ledger";
   const LEDGER_PR = {
+    number: 900,
+    state: "OPEN",
+    headRefName: "ui-quality/ledger",
     title: "chore(ui-quality): ledger 2026-10-02",
     createdAt: ago(3),
     mergedAt: null,
-    commits: [
-      commit("chore(ui-quality): ledger 2026-10-02", ago(3)),
-      commit("Merge remote-tracking branch 'origin/main' into ui-quality/ledger", ago(0.05)),
-      commit("chore(ui-quality): ledger 2026-10-05", ago(0.1)),
-    ],
+  };
+  // Newest first, as the branch commits endpoint returns them.
+  const LEDGER_BRANCH_ROWS = [
+    rest("Merge remote-tracking branch 'origin/main' into ui-quality/ledger", ago(0.05)),
+    rest("chore(ui-quality): ledger 2026-10-05", ago(0.1)),
+    rest("chore(ui-quality): ledger 2026-10-02", ago(3)),
+  ];
+  const observe = (prs, entry, rows = { [BRANCH]: LEDGER_BRANCH_ROWS }) => {
+    const gh = fakeGh(prs);
+    const api = fakeApi(rows);
+    return {
+      gh,
+      api,
+      observed: fetchObservedArtifactsViaGhClient(gh, entry, { apiGet: api.apiGet }),
+    };
   };
 
   it("a PR created 3 days ago with a matching commit today reads alive", () => {
-    const gh = fakeGh([LEDGER_PR]);
     const entry = entryOf(OPTED);
-    const observed = fetchObservedArtifactsViaGhClient(gh, entry);
+    const { observed } = observe([LEDGER_PR], entry);
     expect(observed).toEqual([{ type: "pr", title: LEDGER_PR.title, observedAt: ago(0.1) }]);
     const result = classifyRoutineLiveness({
       signature: entry.signature,
@@ -1198,7 +1241,7 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
   });
 
   it("the same PR without the opt-in reads dark by its createdAt — the C1 failure", () => {
-    const observed = fetchObservedArtifactsViaGhClient(fakeGh([LEDGER_PR]), entryOf(BASE));
+    const { observed } = observe([LEDGER_PR], entryOf(BASE));
     expect(observed[0].observedAt).toBe(ago(3));
     expect(
       classifyRoutineLiveness({ signature: BASE, periodDays: 1, observedArtifacts: observed, now })
@@ -1206,13 +1249,18 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     ).toBe("dark");
   });
 
-  it("requests commits only for opted-in entries; others keep the exact argument vector", () => {
-    const opted = fakeGh([]);
-    fetchObservedArtifactsViaGhClient(opted, entryOf(OPTED));
-    expect(opted.calls[0]).toContain("title,createdAt,mergedAt,commits");
-    const plain = fakeGh([]);
-    fetchObservedArtifactsViaGhClient(plain, entryOf(BASE));
-    expect(plain.calls[0]).toEqual([
+  // Review N1: `--json …,commits --limit 50` asks GitHub for 505,050 nodes and
+  // is refused outright, so the list query must never carry `commits`.
+  it("N1: the opted-in list query never requests `commits`, so it survives the node limit", () => {
+    const { gh } = observe([LEDGER_PR], entryOf(OPTED));
+    expect(gh.calls).toHaveLength(1);
+    expect(gh.calls[0].join(" ")).not.toMatch(/commits/);
+    expect(gh.calls[0]).toContain("title,createdAt,mergedAt,number,state,headRefName");
+  });
+
+  it("non-opted entries keep the exact argument vector and fetch no commits", () => {
+    const { gh, api } = observe([LEDGER_PR], entryOf(BASE));
+    expect(gh.calls[0]).toEqual([
       "--search",
       "ui-quality",
       "--state",
@@ -1222,49 +1270,98 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
       "--limit",
       "50",
     ]);
+    expect(api.paths).toEqual([]);
+  });
+
+  it("fetches commits only for PRs whose title matches the signature", () => {
+    const other = { ...LEDGER_PR, number: 901, title: "fix(ui-quality): unrelated" };
+    const { api, observed } = observe([other, LEDGER_PR], entryOf(OPTED));
+    expect(api.paths.every((p) => p.startsWith(BRANCH))).toBe(true);
+    expect(observed[0]).toEqual({ type: "pr", title: other.title, observedAt: ago(3) });
   });
 
   it("non-opted entries keep mergedAt ?? createdAt byte-identically", () => {
     const merged = { ...LEDGER_PR, mergedAt: ago(0.2) };
-    expect(fetchObservedArtifactsViaGhClient(fakeGh([merged]), entryOf(BASE))).toEqual([
+    expect(observe([merged], entryOf(BASE)).observed).toEqual([
       { type: "pr", title: merged.title, observedAt: ago(0.2) },
     ]);
-    expect(fetchObservedArtifactsViaGhClient(fakeGh([LEDGER_PR]), entryOf(BASE))).toEqual([
+    expect(observe([LEDGER_PR], entryOf(BASE)).observed).toEqual([
       { type: "pr", title: LEDGER_PR.title, observedAt: ago(3) },
     ]);
   });
 
-  it("opted in, mergedAt is ignored — a merge is someone else's act, not a fire", () => {
-    const merged = {
-      ...LEDGER_PR,
-      mergedAt: ago(0.01),
-      commits: [commit("chore(ui-quality): ledger 2026-10-02", ago(3))],
-    };
-    const [a] = fetchObservedArtifactsViaGhClient(fakeGh([merged]), entryOf(OPTED));
-    expect(a.observedAt).toBe(ago(3));
+  it("opted in, a merged PR is dated by its own commits (branch may be deleted), never mergedAt", () => {
+    const merged = { ...LEDGER_PR, state: "MERGED", mergedAt: ago(0.01) };
+    const { observed, api } = observe([merged], entryOf(OPTED), {
+      "repos/{owner}/{repo}/pulls/900/commits": [
+        rest("chore(ui-quality): ledger 2026-10-02", ago(3)),
+      ],
+    });
+    expect(observed[0].observedAt).toBe(ago(3));
+    expect(api.paths[0]).toMatch(/^repos\/\{owner\}\/\{repo\}\/pulls\/900\/commits\?/);
   });
 
   it("falls back to createdAt with no matching commit, and ignores unparseable dates", () => {
-    const noMatch = {
-      ...LEDGER_PR,
-      commits: [
-        commit("fix: something else", ago(0.1)),
-        commit("chore(ui-quality): ledger 2026-10-05", "not-a-date"),
-        commit("chore(ui-quality): ledger 2026-10-04", undefined),
+    const {
+      observed: [a],
+    } = observe([LEDGER_PR], entryOf(OPTED), {
+      [BRANCH]: [
+        rest("fix: something else", ago(0.1)),
+        rest("chore(ui-quality): ledger 2026-10-05", "not-a-date"),
+        rest("chore(ui-quality): ledger 2026-10-04", undefined),
       ],
-    };
-    const [a] = fetchObservedArtifactsViaGhClient(fakeGh([noMatch]), entryOf(OPTED));
+    });
     expect(a.observedAt).toBe(ago(3));
-    const noCommits = { ...LEDGER_PR, commits: undefined };
-    const [b] = fetchObservedArtifactsViaGhClient(fakeGh([noCommits]), entryOf(OPTED));
+    const {
+      observed: [b],
+    } = observe([LEDGER_PR], entryOf(OPTED), { [BRANCH]: [] });
     expect(b.observedAt).toBe(ago(3));
   });
 
+  // Review N2: gh's `commits` field is `commits(first: 100)`, so a ledger PR
+  // past ~100 commits was dated by an ever-older visible commit.
+  it("N2: an open PR whose newest ledger commit sits past the first 100 branch commits reads alive", () => {
+    const mainNoise = Array.from({ length: 150 }, (_, i) =>
+      rest(`feat: main commit ${i}`, ago(0.01 + i * 0.0001))
+    );
+    const rows = {
+      [BRANCH]: [
+        ...mainNoise,
+        rest("chore(ui-quality): ledger 2026-10-05", ago(0.2)),
+        rest("chore(ui-quality): ledger 2026-10-04", ago(1.2)),
+      ],
+    };
+    const { observed, api } = observe([LEDGER_PR], entryOf(OPTED), rows);
+    expect(observed[0].observedAt).toBe(ago(0.2));
+    expect(api.paths).toHaveLength(2);
+  });
+
+  it("N2: a closed PR with more than 100 commits is dated by its newest page, not its first", () => {
+    const closed = { ...LEDGER_PR, state: "CLOSED" };
+    const commits = Array.from({ length: 240 }, (_, i) =>
+      rest("chore(ui-quality): ledger 2026-09-01", ago(80 - i * 0.3))
+    );
+    const { observed, api } = observe([closed], entryOf(OPTED), {
+      "repos/{owner}/{repo}/pulls/900/commits": commits,
+    });
+    expect(observed[0].observedAt).toBe(ago(80 - 239 * 0.3));
+    expect(api.paths).toHaveLength(3);
+  });
+
+  it("an open PR stops paging at the first page carrying a match", () => {
+    const rows = { [BRANCH]: Array.from({ length: 300 }, () => LEDGER_BRANCH_ROWS[1]) };
+    const { api } = observe([LEDGER_PR], entryOf(OPTED), rows);
+    expect(api.paths).toHaveLength(1);
+  });
+
   it("composes with the activatedAt grace and main's late tier", () => {
-    const run = (prs, extra) =>
+    const run = (prs, extra, rows = LEDGER_BRANCH_ROWS) =>
       runRoutineLivenessCheck({
         manifest: [entryOf(OPTED, extra)],
-        fetchObservedArtifacts: (e) => fetchObservedArtifactsViaGhClient(fakeGh(prs), e),
+        fetchObservedArtifacts: (e) =>
+          fetchObservedArtifactsViaGhClient(fakeGh(prs), e, {
+            apiGet: fakeApi({ [BRANCH]: rows }).apiGet,
+          }),
         now,
         createIssue: () => {
           throw new Error("must not file");
@@ -1273,11 +1370,46 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     expect(run([], { activatedAt: ago(1) })).toEqual([
       { routine: "mbe-ui-quality", status: "pending" },
     ]);
-    const late = {
-      ...LEDGER_PR,
-      commits: [commit("chore(ui-quality): ledger 2026-10-03", ago(1.5))],
-    };
-    expect(run([late], {})).toEqual([{ routine: "mbe-ui-quality", status: "late" }]);
+    expect(run([LEDGER_PR], {}, [rest("chore(ui-quality): ledger 2026-10-03", ago(1.5))])).toEqual([
+      { routine: "mbe-ui-quality", status: "late" },
+    ]);
+  });
+
+  // Review N1: one routine's observation throwing aborted the whole run, so
+  // no routine was classified and no issue was filed or closed fleet-wide.
+  it("N1: one routine's failed observation marks only that routine, and the run completes", () => {
+    const logs = [];
+    const created = [];
+    const results = runRoutineLivenessCheck({
+      manifest: [
+        entryOf(OPTED),
+        {
+          name: "mbe-other",
+          triggerId: "trig_y",
+          periodDays: 1,
+          signature: { type: "pr-title", pattern: "other \\d+", searchTerm: "other" },
+        },
+      ],
+      fetchObservedArtifacts: (e) => {
+        if (e.name === "mbe-ui-quality") throw new Error(NODE_LIMIT_ERROR);
+        return [{ type: "pr", title: "unrelated", observedAt: ago(0.1) }];
+      },
+      now,
+      searchCiFixIssues: () => [],
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+      log: (m) => logs.push(m),
+    });
+    expect(results[0]).toEqual({
+      routine: "mbe-ui-quality",
+      status: "unobserved",
+      action: "observe-failed",
+    });
+    expect(results[1]).toMatchObject({ routine: "mbe-other", status: "dark", action: "create" });
+    expect(created).toEqual([expect.stringContaining("mbe-other")]);
+    expect(logs.some((m) => m.includes("mbe-ui-quality") && m.includes("505,050"))).toBe(true);
   });
 
   it("the mbe-ui-quality manifest entry opts in, and no other entry does", () => {
