@@ -128,7 +128,7 @@ export const agentEvalCommand = new Command("eval")
 
       if (suiteDidNotRun(report)) {
         emitReport(report, options.json, costBasis);
-        console.error(`\n${noRunMessage(adapterType)}`);
+        console.error(`\n${noRunMessage(adapterType, report)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
         return;
       }
@@ -173,27 +173,34 @@ function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): vo
   }
 }
 
+const NEVER_RAN = "This is not a scored regression — the suite never ran.";
+
 /**
- * Names the most likely missing prerequisite for a suite where every task
- * reported 0 turns / $0 cost — the agent adapter never actually ran.
+ * Explains a suite where every task reported 0 turns / $0 cost — the agent
+ * adapter produced no usage — claiming only causes it can distinguish.
  *
- * `auto`/`claude` route through the Claude SDK, which needs
- * `ANTHROPIC_API_KEY`; `claude-cli` spawns the `claude` binary on a
- * subscription login and needs no key at all, so fingering the key would
- * send the weekly routine at the wrong fix; the gemini/opencode
- * CLI-subprocess adapters have a different, adapter-specific reason a run
- * can look like this (see the cost-absent comment on
- * {@link makeAgentTaskRunner}), so the diagnostic doesn't finger a
- * credential that adapter never needed.
+ * `auto`/`claude` route through the Claude SDK, whose missing
+ * `ANTHROPIC_API_KEY` is directly observable, so it is named. For every
+ * other adapter the command cannot see why the process produced nothing, so
+ * it quotes each session's own error line when any exists (`sessionErrors`)
+ * and otherwise, for `claude-cli`, names the binary/login as only the most
+ * likely cause — never asserts one it cannot see.
  */
-function noRunMessage(adapterType: AdapterType): string {
+function noRunMessage(adapterType: AdapterType, report: EvalReport): string {
   if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
-    return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
+    return `No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. ${NEVER_RAN}`;
   }
+  const reported = report.tasks
+    .filter((t) => t.sessionErrors !== undefined && t.sessionErrors.length > 0)
+    .map((t) => `${t.taskId}: ${t.sessionErrors!.join("; ")}`);
   if (adapterType === "claude-cli") {
-    return 'No task executed via the claude-cli adapter: the "claude" CLI is missing from PATH, has no subscription login, or refused to start (0 turns / $0.00). This is not a scored regression — the suite never ran.';
+    const prefix = "No task produced any usage via the claude-cli adapter (0 turns / $0.00)";
+    return reported.length > 0
+      ? `${prefix}. The sessions reported — ${reported.join("; ")}. ${NEVER_RAN}`
+      : `${prefix} and no session reported an error: most likely the "claude" CLI is not on PATH or has no subscription login. ${NEVER_RAN}`;
   }
-  return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
+  const base = `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. ${NEVER_RAN}`;
+  return reported.length > 0 ? `${base} The sessions reported — ${reported.join("; ")}` : base;
 }
 
 // Printed under a non-billed basis only, so a $1.37 task beside a $0.50
@@ -406,6 +413,9 @@ function printReport(report: EvalReport, costBasis: CostBasis): void {
     console.log(
       `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
     );
+    if (t.sessionErrors && t.sessionErrors.length > 0) {
+      console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+    }
   }
   console.log("");
   console.log(`Tasks:       ${a.total}`);

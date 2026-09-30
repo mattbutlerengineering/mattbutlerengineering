@@ -351,8 +351,73 @@ describe("agent eval command", () => {
       expect(process.exitCode).toBe(2);
       expect(mockAppendFileSync).not.toHaveBeenCalled();
       const errOut = errSpy.mock.calls.flat().join("\n");
-      expect(errOut).toContain("No task executed via the claude-cli adapter");
+      expect(errOut).toContain("No task produced any usage via the claude-cli adapter");
       expect(errOut).toContain("subscription login");
+      expect(errOut).not.toContain("refused to start");
+    });
+
+    // noRunMessage v2 (amendment 2026-09-29): say only what is distinguishable.
+    it("quotes the sessions' own errors instead of guessing a cause when a claude-cli non-run reported one", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({
+          numTurns: 0,
+          costUsd: 0,
+          errors: ["Claude CLI exited with non-zero status"],
+        })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain("The sessions reported — ");
+      expect(errOut).toContain("t1: Claude CLI exited with non-zero status");
+      expect(errOut).not.toContain("subscription login");
+      expect(errOut).not.toContain("refused to start");
+    });
+
+    it("appends the sessions' errors to today's sentence for a non-claude-cli non-run", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({ numTurns: 0, costUsd: 0, errors: ["gemini: 401 Unauthorized"] })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toContain(
+        'No task executed: every task reported 0 turns and $0.00 cost via the "gemini" adapter. This is not a scored regression — the suite never ran. The sessions reported — t1: gemini: 401 Unauthorized'
+      );
+    });
+
+    it("scores a claude-cli task that ran and then failed a post-dispatch step as a row, never a non-run (Verify F1.2)", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({
+          status: "failed",
+          numTurns: 15,
+          costUsd: 0.6,
+          errors: ["git commit -m … failed"],
+        })
+      );
+
+      await agentEvalCommand.parseAsync(["--adapter", "claude-cli"], { from: "user" });
+
+      expect(process.exitCode).toBe(0);
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.costBasis).toBe("api-equivalent");
+      expect(record.nonRunCount).toBe(0);
+      expect(record.tasks[0].turns).toBe(15);
+      expect(record.tasks[0].costUsd).toBe(0.6);
+      expect(record.tasks[0].sessionErrors).toEqual(["git commit -m … failed"]);
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).toContain("    session errors: git commit -m … failed");
+      expect(out).not.toContain("Excluded (did not run)");
     });
 
     it("prints the cost-basis line for a scored claude-cli run so a $1.37 task beside a $0.50 budget is not read as a bug", async () => {
