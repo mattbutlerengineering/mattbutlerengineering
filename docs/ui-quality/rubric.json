@@ -114,7 +114,72 @@
       "default_severity": "P2"
     }
   ],
-  "references": [],
+  "references": [
+    {
+      "id": "shadcn-home",
+      "category": "marketing-site",
+      "file": "docs/ui-quality/reference/shadcn-home.png",
+      "sha256": "8b55ad83e2c62af711044e828c405fc88ab5ca75c099400ee12f6426dc2fc757",
+      "source": "https://ui.shadcn.com/",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "mantine-home",
+      "category": "marketing-site",
+      "file": "docs/ui-quality/reference/mantine-home.png",
+      "sha256": "873f0beb4cb47f9e07101d0b848665efefa2f026f133e7a23271011bcd0f5d01",
+      "source": "https://mantine.dev/",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "medusa-product",
+      "category": "booking-checkout",
+      "file": "docs/ui-quality/reference/medusa-product.png",
+      "sha256": "76e64f24f47b472bddfe3faaacf14aadbecc0ebffba5d3afbf5b4507e0b370eb",
+      "source": "https://next.medusajs.com/us/products/hoodie",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "medusa-checkout",
+      "category": "booking-checkout",
+      "file": "docs/ui-quality/reference/medusa-checkout.png",
+      "sha256": "f7f84d70895cd435e111c45cfb4fb2b35767402ff6f241321a39c199e6e60821",
+      "source": "https://next.medusajs.com/us/checkout?step=address",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "shadcn-dashboard-01",
+      "category": "product-dashboard",
+      "file": "docs/ui-quality/reference/shadcn-dashboard-01.png",
+      "sha256": "79053dfcc1df890a85af9fd1fe4fc65bdd3630c6579ae6bb7a9b78375948afc1",
+      "source": "https://ui.shadcn.com/view/new-york-v4/dashboard-01",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "tremor-overview",
+      "category": "product-dashboard",
+      "file": "docs/ui-quality/reference/tremor-overview.png",
+      "sha256": "baffa7ec625eabc996581433d1f99cbd94066adee8009277b132ebd4f65d2b87",
+      "source": "https://dashboard.tremor.so/overview",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "mantine-button-docs",
+      "category": "component-docs",
+      "file": "docs/ui-quality/reference/mantine-button-docs.png",
+      "sha256": "2273cf6e1ccb805c4795297cf4000e4459fdfd7318bfe9155209795e7d79fd57",
+      "source": "https://mantine.dev/core/button/",
+      "captured_at": "2026-09-30T05:48:00Z"
+    },
+    {
+      "id": "chakra-button-docs",
+      "category": "component-docs",
+      "file": "docs/ui-quality/reference/chakra-button-docs.png",
+      "sha256": "8fa3a50e62b7e13760c5abcccb2f52c01272ca8fa05725084c0be39e78845be4",
+      "source": "https://chakra-ui.com/docs/components/button",
+      "captured_at": "2026-09-30T05:48:00Z"
+    }
+  ],
   "route_categories": [
     {
       "app": "marketing",

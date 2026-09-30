@@ -85,8 +85,8 @@ describe("committed rubric v1", () => {
     expect(json.calibration.pass_mark).toEqual({ agreement: 0.8, inversions: 0 });
   });
 
-  it("ships references empty — the M3 reference-set item fills them at v1", () => {
-    expect(json.references).toEqual([]);
+  it("carries the M3 reference set at v1 (contents pinned by ui-quality-references.test.mjs)", () => {
+    expect(json.references.length).toBeGreaterThanOrEqual(5);
   });
 
   it("categorises visual-test as harness, and every app route to a category", () => {
