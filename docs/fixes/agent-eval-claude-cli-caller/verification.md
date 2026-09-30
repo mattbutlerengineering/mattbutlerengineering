@@ -11,9 +11,337 @@ assumptions:
   - "The nested `claude` CLI's own transcript under `~/.claude/projects/` was read (read-only, outside the repo) to establish that the CLI actually ran and how many turns it took, since the eval discarded that signal."
   - "The eval-worktree litter created by this stage (one repro worktree, one spend worktree) was removed by this stage — the harness permitted `git worktree remove --force` + `git branch -D` this time — under brief § Decisions added after Implement item 5, scoped to the two `.agent-worktrees/agent-*` created inside this worktree during Verify."
   - "Criterion 2's live-trigger half is Ship's deliverable and was not attempted; only the doc side is verified here."
+  - "Re-verification (2026-09-29 local / 2026-09-30 UTC): the second-spend expectation's `numTurns > 0` is graded against the eval row's `turns` field — `TaskScore` names it `turns`; `numTurns` is the `SessionResult`/spend-ledger name, and the ledger row carries `numTurns: 10` too."
+  - "Re-verification: `testsPass`/`typecheckPass` were cross-checked by replaying the verifier's own commands (`CI=1 pnpm install --frozen-lockfile`, `pnpm turbo run test|typecheck --filter=./services/reservations`) in a throwaway detached worktree at the agent's commit `59e82a803` under the scratchpad, removed afterwards, because the eval deletes a succeeded session's worktree and prints nothing on success. Non-spending (no model call)."
+  - "Re-verification: the default-adapter repro (`env -u ANTHROPIC_API_KEY node tools/cli/dist/index.js agent eval`) was run on the previous verification's word that it is non-spending. It is not on this machine — see § Re-verification F4. That spend was not authorized by brief decision 6; it is disclosed, not hidden."
+  - "Re-verification: the repro's `.agent-worktrees/…-732e84` worktree and its `agent/…-732e84` branch (at `7a3961d0a`, no commits) were removed under brief decision 5 (non-spending exit-2 repros are named in its scope). The authorized spend's `agent/…-4c3714` branch is kept: architecture § Eval fixture verifier keeps the branch ref of a succeeded session on purpose so `git show` still has the diff."
+reverified: 2026-09-29
 ---
 
 # Verification: wire the weekly eval checkpoint to the claude-cli adapter, scored honestly
+
+## Re-verification 2026-09-29 (after amendment)
+
+**All five brief criteria PASS at the code/doc level; criterion 1 now PASSES live.** The second and last authorized run of `--task example-bugfix --adapter claude-cli` exited **0** in 165 s and appended one scored row — `adapter: "claude-cli"`, `costBasis: "api-equivalent"`, 10 turns, $0.63, `withinBudget: true`, `testsPass: true`, `typecheckPass: true`, no `sessionErrors` — plus one `succeeded` spend-ledger row; the eval worktree was removed and nothing was pushed. F1 (commit hook in a build-less worktree, usage discarded, false cause) and F2 (line-level drift guard) are closed. **One new finding needs Matt (F4):** the default-adapter repro that this run has treated as non-spending since Capture actually runs the model on this machine through the local subscription login, hits the SDK's $0.50 budget cap, and is then reported as a 0-turn non-run blaming a missing `ANTHROPIC_API_KEY`. Every one of this run's four default-adapter repros did this (~$0.51–$0.53 API-equivalent each), including one made by this stage.
+
+Environment: worktree `/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-eval-claude-cli-caller`, branch `fix/agent-eval-claude-cli-caller` at `36c738239` (20 commits ahead of `origin/main` `35517bbae`), breakdown 19/19 checked. `claude` = `/Users/mbutler/.local/bin/claude` `2.1.285 (Claude Code)`; Node `v22.22.3`; `ANTHROPIC_API_KEY` unset. Timestamps are UTC (2026-09-30Z = 2026-09-29 evening local).
+
+### Pre-flight
+
+```
+$ ls -la .agent-worktrees            -> total 0 (empty)
+$ git worktree list | grep 'agent-eval-claude-cli-caller/.agent-worktrees'   -> (no entries)
+$ git branch --list 'agent/add-a-regression*'
+  agent/add-a-regression-test-to-services-reserv-60e999
+  agent/add-a-regression-test-to-services-reserv-6ded90      <- both predate this run
+$ wc -c metrics/eval-reports.jsonl; wc -l .claude/agent-spend/sessions.jsonl
+       0 metrics/eval-reports.jsonl
+       0 .claude/agent-spend/sessions.jsonl
+$ pnpm build --filter @mbe/cli...
+ Tasks:    6 successful, 6 total   Cached: 6 cached, 6 total   build_exit=0
+$ node scripts/agent-core-build-freshness.mjs check
+{"trusted":true,"state":"fresh","reason":"dist is newer than or equal to every src file",...}   fresh_exit=0
+$ grep -c sessionErrors tools/cli/dist/commands/agent-eval.js -> 5 ; grep -c turbo … -> 4
+$ grep -rl -- '--no-verify' packages/agent-core/dist -> worktree-manager.js, worktree-manager.d.ts
+```
+
+Result: PASS — the amendment's code is in the dist the spend ran.
+
+### Brief criterion 1 — the authorized spend: scored, one honest `claude-cli` row
+
+- Check: exactly one invocation, not retried, no `--suite cost`: `node tools/cli/dist/index.js agent eval --task example-bugfix --adapter claude-cli` from the worktree root, stdout and stderr to separate scratchpad files.
+- Evidence:
+
+  ```
+  start=2026-09-30T05:14:37Z   end=2026-09-30T05:17:22Z   elapsed_s=165   exit=0
+  --- stdout
+  Eval Report
+  ───────────
+  ✓ example-bugfix [test-writing] — score 100% (10 turns, $0.63)
+
+  Tasks:       1
+  Pass rate:   100.0%
+  Mean score:  100.0%
+  Mean cost:   $0.63
+  Mean turns:  10.0
+  Failed to complete: 0
+
+  Cost basis: api-equivalent — CLI-reported, not billed; budget cost arm not applied
+  --- stderr: 0 bytes
+  ```
+
+  `metrics/eval-reports.jsonl` (1 line, the whole file):
+
+  ```json
+  {
+    "runId": "eval-66202",
+    "tasks": [
+      {
+        "taskId": "example-bugfix",
+        "category": "test-writing",
+        "passed": true,
+        "score": 1,
+        "deterministic": {
+          "withinBudget": true,
+          "testsPass": true,
+          "typecheckPass": true,
+          "lintPass": true
+        },
+        "costUsd": 0.6328623999999999,
+        "turns": 10
+      }
+    ],
+    "nonRunCount": 0,
+    "aggregate": {
+      "total": 1,
+      "passRate": 1,
+      "meanScore": 1,
+      "meanCostUsd": 0.6328623999999999,
+      "meanTurns": 10,
+      "stuckCount": 0
+    },
+    "byCategory": {
+      "test-writing": {
+        "total": 1,
+        "passRate": 1,
+        "meanScore": 1,
+        "meanCostUsd": 0.6328623999999999,
+        "meanTurns": 10,
+        "stuckCount": 0
+      }
+    },
+    "timestamp": "2026-09-30T05:17:22.349Z",
+    "adapter": "claude-cli",
+    "costBasis": "api-equivalent"
+  }
+  ```
+
+  `.claude/agent-spend/sessions.jsonl` (1 line):
+
+  ```json
+  {
+    "date": "2026-09-30",
+    "timestamp": "2026-09-30T05:17:04.988Z",
+    "costUsd": 0.6328623999999999,
+    "model": "claude-sonnet-5",
+    "adapter": "claude-cli",
+    "status": "succeeded",
+    "inputTokens": 18,
+    "outputTokens": 2120,
+    "numTurns": 10
+  }
+  ```
+
+  The agent's work, committed on the kept branch ref and never pushed:
+
+  ```
+  $ git log -1 --format='%h %ad %s' agent/add-a-regression-test-to-services-reserv-4c3714
+  59e82a803 2026-09-29 22:15:55 -0700 feat: Add a regression test to services/reservations/src/services/booking-noti
+  $ git merge-base … fix/agent-eval-claude-cli-caller -> 7a3961d0a  (= local main)
+  $ git show --stat --format= 59e82a803
+   .../src/services/booking-notifications.test.ts | 15 +++++++++++++++
+  +  it("cancelBookingNotifications still sends the cancellation when the guest is unsubscribed from marketing (transactional, per contact-policy.ts)", async () => {
+  +    const reservation = makeReservation({
+  +      guest: { visitCount: 3, communicationPreference: "both", unsubscribed: true },
+  +    });
+  +    await notifier.cancelBookingNotifications(reservation as never, "tok", "guest");
+  +    expect(deps.notificationAdapter.sendBookingCancelled).toHaveBeenCalledWith(
+  +      expect.objectContaining({ reservationId: "res-1" }), "both");
+  $ git ls-remote --heads origin agent/add-a-regression-test-to-services-reserv-4c3714 | wc -l
+         0
+  ```
+
+  The nested CLI's own transcript (`~/.claude/projects/…-reserv-4c3714/087c4722-….jsonl`, 745,614 bytes): 16 assistant entries, all `"model":"claude-sonnet-5"`, `05:14:42.875Z` → `05:15:54.408Z`. (16 transcript entries vs the CLI's `num_turns: 10` — the transcript writes one entry per content block, so the counts are not the same unit.)
+
+- Grade against architecture's "Second-spend expectation":
+
+  | Expectation                                                                   | Observed                                                                                                                                                        | Verdict |
+  | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+  | exit 0                                                                        | `exit=0`                                                                                                                                                        | PASS    |
+  | one row, `adapter: "claude-cli"`, `costBasis: "api-equivalent"`               | 1 line; both fields as expected                                                                                                                                 | PASS    |
+  | `numTurns > 0`                                                                | row `turns: 10`; ledger `numTurns: 10`                                                                                                                          | PASS    |
+  | `withinBudget` true iff turns ≤ 20                                            | 10 ≤ 20 → `withinBudget: true`, with `costUsd` 0.633 > `maxCostUsd` 0.5 — the cost arm really was skipped live; under `billed` this row would have been `false` | PASS    |
+  | `testsPass`/`typecheckPass` real                                              | both `true`; independently replayed (below)                                                                                                                     | PASS    |
+  | `sessionErrors` only if the gateway amend-hook path fired                     | absent from the row; stdout has no `session errors:` line; ledger `status: "succeeded"`                                                                         | PASS    |
+  | no `.agent-worktrees/` entry left when `succeeded`                            | `ls -la .agent-worktrees` → empty; `git worktree list` → no entries                                                                                             | PASS    |
+  | one spend-ledger row                                                          | 1 line, `adapter: "claude-cli"`, `status: "succeeded"`, `$0.633`, 10 turns                                                                                      | PASS    |
+  | (architecture: the non-publishing session commits hook-free and never pushes) | commit `59e82a803` exists in a worktree with no `packages/agent-core/dist` (the F1 crash site); `ls-remote` → 0 heads                                           | PASS    |
+
+- `testsPass`/`typecheckPass` cross-check. The eval removes a succeeded worktree and prints nothing on success, so the verifier's own output is gone. Its commands were replayed in a throwaway detached worktree at `59e82a803` (scratchpad, removed afterwards, `replay_remove=0`):
+
+  ```
+  CI=1 pnpm install --frozen-lockfile                                  install_exit=0  16 s
+  pnpm turbo run test --filter=./services/reservations                 test_exit=0     39 s
+    @mbe/reservations-service:test:  ✓ src/services/booking-notifications.test.ts (20 tests)
+    @mbe/reservations-service:test:  Test Files  98 passed | 1 skipped (99)
+    Tasks:    13 successful, 13 total   Cached:    0 cached, 13 total
+  pnpm turbo run typecheck --filter=./services/reservations            typecheck_exit=0  6 s
+    Tasks:    13 successful, 13 total   Cached:   12 cached, 13 total
+  ```
+
+  `booking-notifications.test.ts` has 20 tests at the agent's commit (G1 measured 19 before it), so the agent's new test is in the run and passes, and the suite-wide pass is real, not a missing-dist artefact.
+
+  **Unexplained timing, recorded not resolved:** the spend-ledger row (written at session end, 05:17:04.988Z) and the report row (05:17:22.349Z) bound the verifier + worktree removal to about **17 s**, while the replay of the same commands took 61 s and G1 measured 68 s cold for the test step alone. No remote turbo cache is reachable (`turbo.json` has `remoteCache.enabled: true` but no `TURBO_*` env and no turborepo login), and neither this worktree's nor the main checkout's `.turbo/` received any file between 22:14:30 and 22:17:30 local, so the verifier did not borrow a sibling cache. A plausible but unmeasured explanation is that `WorktreePhase`'s own lockfile sync had already installed, leaving a near-no-op install. The replay above is the evidence that both `true` values are correct. The 17 s is not.
+
+- Result: **PASS.** Brief criterion 1 is met live: the run exited 0, wrote one scored `claude-cli` row with real turns and cost, and scored the budget honestly under the chosen mechanism.
+
+### Criterion 1 regression repro — default adapter
+
+- Check: `env -u ANTHROPIC_API_KEY node tools/cli/dist/index.js agent eval; echo "exit=$?"`, run **after** the spend's rows were quoted and reverted, on the earlier section's word that it is non-spending.
+- Evidence (Langfuse/SDK warnings above the report omitted):
+
+  ```
+  example-bugfix: worktree kept for inspection at /Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-eval-claude-cli-caller/.agent-worktrees/agent-add-a-regression-test-to-services-reserv-732e84
+  Eval Report
+  ───────────
+  ✓ example-bugfix [test-writing] — score 100% (0 turns, $0.00)
+      session errors: Claude Code returned an error result: Reached maximum budget ($0.5); No result message received from agent
+
+  Tasks:       0
+  …
+  Excluded (did not run): 1 — not counted in the aggregate above
+
+  No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.
+  exit=2
+         0 metrics/eval-reports.jsonl
+         1 .claude/agent-spend/sessions.jsonl
+  {"date":"2026-09-30","timestamp":"2026-09-30T05:22:15.830Z","costUsd":0,"model":"claude-sonnet-5","adapter":"claude","status":"failed","inputTokens":0,"outputTokens":0,"numTurns":0}
+  ```
+
+  The nested transcript `~/.claude/projects/…-reserv-732e84/ac355520-….jsonl` (771,954 bytes): 7 assistant entries on `claude-sonnet-5`, `05:21:57.468Z` → `05:22:15.672Z`, last `"costUSD":0.5295295999999999`. The model ran.
+
+- Result: **exit code and the no-key sentence are unchanged, as breakdown item 3 requires (PASS as written). But the premise is false: FINDING F4, below.** The run's target, the false non-run under `claude-cli`, no longer reproduces (criterion 1 above). Under the default adapter the false non-run still reproduces. It is now visible for what it is, because the amendment's `session errors:` line prints the SDK's own error.
+
+### Brief criterion 2 — step 4 invokes `--adapter claude-cli`, exit 2 not "expected"
+
+- Check: step-4 line of `docs/routines/mbe-weekly-improve.md` byte-compared with architecture § Routine step-4 contract (amended, `> ` stripped); secondary callers grepped.
+- Evidence:
+  ```
+      2435 v2-step4-doc.txt
+      2435 v2-step4-arch.txt
+  459464816caa32db  v2-step4-doc.txt
+  459464816caa32db  v2-step4-arch.txt
+  diff_exit=0
+  .claude/skills/optimize-implement-queue/SKILL.md:148:**CRITICAL:** Do NOT run `node tools/cli/dist/index.js agent eval --adapter claude-cli` …
+  docs/routines/mbe-evening.md:24:3. … agent eval --adapter claude-cli …
+  ```
+- Result: PASS for the doc. **Live trigger byte-match: still NOT VERIFIED.** It belongs to Ship.
+
+### Brief criterion 3 — the drift guard fails on regression (F2 re-graded)
+
+- Check: guard green on the tree; M1 (flag stripped from the invocation only, prose mention kept on the same line); M2 (line 26 replaced with `origin/main`'s text). Each restored with `git checkout --` and confirmed clean.
+- Evidence:
+
+  ```
+  (a) $ pnpm --dir scripts test -- routine-eval-adapter
+   ✓ scripts/__tests__/routine-eval-adapter.test.mjs (12 tests)   Tests  12 passed (12)   exit=0
+
+  (b) M1: adapter-mentions-left=1 invocation-has-flag=0   1 file changed, 1 insertion(+), 1 deletion(-)
+         × contains the exact invocation `node tools/cli/dist/index.js agent eval --adapter claude-cli` — a zero-match pass would pin nothing
+         × follows every `agent eval` with `--adapter claude-cli`
+  AssertionError: docs/routines/mbe-weekly-improve.md no longer contains `node tools/cli/dist/index.js agent eval --adapter claude-cli` — restore the invocation, …
+        Tests  2 failed | 10 passed (12)
+  M1_guard_exit=1
+  M1 restored: clean
+
+  (c) M2: 1 file changed, 1 insertion(+), 1 deletion(-)
+         × contains the exact invocation …
+         × follows every `agent eval` with `--adapter claude-cli`
+       × files the deterministic issue title `ci-fix: weekly eval checkpoint did not run under claude-cli`
+       × no longer calls exit 2 "treat it as a silent no-op"
+       × calls a task that ran and then failed a "scored failure row", not a non-run
+        Tests  5 failed | 7 passed (12)
+  M2_guard_exit=1
+  M2 restored: clean
+  ```
+
+- Result: **PASS.** M1, which passed 10/10 before the amendment, now fails 2 tests. F2 is closed.
+
+### Brief criterion 4 — the local row is not committed
+
+- Evidence:
+  ```
+  $ git checkout -- metrics/eval-reports.jsonl .claude/agent-spend/sessions.jsonl   revert_exit=0   (after the spend, and again after the repro)
+         0 metrics/eval-reports.jsonl
+         0 .claude/agent-spend/sessions.jsonl
+  $ git status --short | grep -v '^?? .claude/sessions/'    -> (empty)
+  ```
+- Result: PASS. The row is quoted above and exists nowhere in git. This stage commits only `verification.md`.
+
+### Brief criterion 5 — gates green; llms regen clean
+
+- Evidence:
+  ```
+  packages/agent-core  lint=0  typecheck=0  test=0   Test Files  97 passed (97)   Tests  1768 passed (1768)
+  tools/cli            lint=0  typecheck=0  test=0   Test Files  44 passed (44)   Tests  389 passed (389)
+  scripts              test=0                        Test Files  217 passed (217) Tests  4109 passed (4109)   (after litter removal)
+  $ pnpm regen --check
+  All generated artifacts are up to date.   regen=0
+  ```
+  Amendment contracts, verbose (selection):
+  ```
+  ✓ worktree-manager.test.ts > commitChanges > adds --no-verify to the commit when asked
+  ✓ worktree-manager.test.ts > commitAndPush > commits with the hooked form (no --no-verify)
+  ✓ run-cli-adapter-session.test.ts > neither pushes nor creates a PR when createPr is false
+  ✓ run-cli-adapter-session.test.ts > reports worktreePath on a successful session only when createPr is false
+  ✓ run-cli-adapter-session.test.ts > outer catch > a post-dispatch commit rejection resolves as failed with the adapter's usage (createPr: false)
+  ✓ agent-eval.test.ts > eval fixture verifier … > (a) never checks out the agent branch in the caller's repo
+  ✓ agent-eval.test.ts > eval fixture verifier … > (b) installs once per task in the worktree (300 s), then runs each script through turbo there (600 s)
+  ✓ agent-eval.test.ts > eval fixture verifier … > (e) removes the worktree of a succeeded session, swallowing a removal failure
+  ✓ agent-eval.test.ts > eval fixture verifier … > (e) keeps the worktree of a failed session and prints its path
+  ```
+- Result: PASS.
+
+### Earlier failures, re-graded
+
+- **F1 (commit in a build-less worktree; usage discarded; false cause): CLOSED for `claude-cli`.** The session committed (`59e82a803`) in a worktree with no dist, did not push, and its usage reached both sinks. The live run did not exercise the throw-with-usage path (nothing threw). That path is unit-verified only (`outer catch` tests above).
+- **F2 (line-level guard): CLOSED** — M1 is red.
+- **F3 (`Cost basis:` line on the exit-2 path):** not re-observed. No claude-cli exit 2 occurred. Unchanged, cosmetic.
+- **Assumption 10 (refused checkout):** superseded. The verifier no longer checks out, pinned by unit test (a). Live: this worktree stayed on `fix/agent-eval-claude-cli-caller` throughout (`git rev-parse --abbrev-ref HEAD` after the run).
+
+### New finding F4 — the default adapter is not key-gated here: it spends, then reports a non-run with a false cause (needs Matt)
+
+On this machine, with `ANTHROPIC_API_KEY` unset, `node tools/cli/dist/index.js agent eval` (default `--adapter claude`) **runs the model** through the Agent SDK. It evidently uses the local Claude Code subscription login. It hits the session's `maxBudgetUsd` ($0.50), the SDK returns `Reached maximum budget ($0.5)`, the SDK path's catch zeroes usage (architecture's Operate seed: `session-runner.ts`'s outer catch), and the eval reports `0 turns, $0.00`, exit 2, and "ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run". That sentence is false. It also prints `✓ … score 100%` for the excluded task: the verifier ran the fixture on an unchanged worktree, so the tests passed trivially. Every default-adapter "non-spending" repro in this run did the same:
+
+```
+nested transcript (~/.claude/projects/…-reserv-<hash>)   assistant  first timestamp              last costUSD
+a6511a  (Capture repro)                                   8          2026-09-29T03:26:46.675Z      0.5250756
+c061fa  (Implement item 3 repro)                          14         2026-09-29T04:16:51.755Z      0.5267792
+f6f0cc  (Verify #1 repro)                                 9          2026-09-29T05:01:10.147Z      0.5090246
+732e84  (this re-verification's repro)                    7          2026-09-30T05:21:57.468Z      0.5295296
+60e999, 6ded90 (pre-run, 2026-09-21)                       13 / 6     2026-09-21T23:59 / 23:58      0.5212 / 0.5148
+```
+
+Consequences:
+
+1. **Unplanned spend.** Brief decision 6 authorized one run. This stage's repro was a second model call, ~$0.53 API-equivalent on the subscription and not billed to a key, made on the previous verification's statement that the command is non-spending. Capture's and Implement's repros spent the same way.
+2. **The defect's stated mechanism needs re-checking before Operate reads Friday's result.** `defect.md` and the earlier section attribute the default path's exit 2 to "no credentials". Locally the cause is budget cap plus usage loss. Whether the RemoteTrigger sandbox's SDK path is key-gated (no subscription login) or behaves like this machine is unmeasured. The fix direction (`--adapter claude-cli`) is unaffected: it scored correctly here.
+3. **Not fixed here.** It is out of this run's scope: architecture leaves the SDK catch as an Operate seed, and the default-adapter message is required to stay byte-unchanged. Candidate seed: the SDK path should carry usage through its catch, the way the amendment did for the CLI path, and `noRunMessage` should not assert "no credentials" when a session reported errors.
+
+### Worktree state, before → after
+
+```
+before: .agent-worktrees/ empty; no registered eval worktrees; agent/…-{60e999,6ded90} (pre-run)
+spend:  created …-4c3714 → removed by the eval itself (status succeeded); branch agent/…-4c3714 kept by design
+repro:  created …-732e84 (kept, status failed) → removed by this stage:
+          git worktree remove --force .agent-worktrees/…-732e84   wt_remove=0
+          git worktree prune                                       prune=0
+          Deleted branch agent/add-a-regression-test-to-services-reserv-732e84 (was 7a3961d0a).
+replay: scratchpad/v2-replay-4c3714 (detached 59e82a803) → git worktree remove --force   replay_remove=0
+after:  .agent-worktrees/ empty; no registered eval worktrees; agent/…-{4c3714,60e999,6ded90}
+```
+
+### Still not verified
+
+- **Live RemoteTrigger prompt byte-match** (criterion 2). Ship owns it.
+- **Whether the claude.ai sandbox has `claude` on PATH with a subscription login.** The first Friday run (2026-10-02 14:00 UTC) is the proof.
+- **The throw-with-usage path live** (`status: failed` row carrying `sessionErrors`). Unit-verified only, because nothing threw in the spend.
+- **The verifier's ~17 s wall time** (see criterion 1). Its `true` values were independently reproduced; its speed was not explained.
+- **The eval worktree base.** It was still cut from local `main` `7a3961d0a` (2026-09-20), not `origin/main`. This is the earlier Observation, unchanged. The agent was evaluated against 9-day-old code.
+
+---
+
+The sections below are the original verification (2026-09-28/29, before the amendment), kept as written.
 
 ## Summary
 
