@@ -476,6 +476,32 @@ export function runRoutineLivenessCheck({
   });
 }
 
+/** The one `observe` mode a `pr-title` signature may opt into. */
+export const LATEST_MATCHING_COMMIT = "latest-matching-commit";
+
+/**
+ * Pure: the `observedAt` of a PR under `observe: "latest-matching-commit"` —
+ * the newest `committedDate` among its commits whose `messageHeadline` matches
+ * the signature pattern, else `createdAt`. A long-lived PR that a routine
+ * commits to on every fire (mbe-ui-quality's ledger PR) is dated by its latest
+ * fire, not its first day; `mergedAt` is never used — a merge is someone
+ * else's act, not a fire. An unparseable commit date is ignored, never read
+ * as fresh.
+ *
+ * @param {{createdAt?: string, commits?: Array<{messageHeadline?: string, committedDate?: string}>}} pr
+ * @param {{pattern: string}} signature
+ * @returns {string|undefined}
+ */
+export function latestMatchingCommitAt(pr, signature) {
+  const pattern = new RegExp(signature.pattern);
+  const newest = (pr.commits ?? [])
+    .filter((c) => pattern.test(c?.messageHeadline ?? ""))
+    .map((c) => ({ at: c.committedDate, ms: new Date(c.committedDate ?? "").getTime() }))
+    .filter((c) => Number.isFinite(c.ms))
+    .sort((a, b) => b.ms - a.ms)[0];
+  return newest ? newest.at : pr.createdAt;
+}
+
 /**
  * Fetches observed artifacts for one manifest entry via a real `@mbe/gh-client`
  * instance. Search results are capped at 50 and not date-sorted server-side
@@ -492,22 +518,26 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry) {
   if (!signature) return [];
 
   if (signature.type === "pr-title") {
-    const prs = /** @type {Array<{title: string, createdAt?: string, mergedAt?: string|null}>} */ (
-      ghClient.pr.list([
-        "--search",
-        signature.searchTerm,
-        "--state",
-        "all",
-        "--json",
-        "title,createdAt,mergedAt",
-        "--limit",
-        "50",
-      ])
-    );
+    const latestCommit = signature.observe === LATEST_MATCHING_COMMIT;
+    const prs =
+      /** @type {Array<{title: string, createdAt?: string, mergedAt?: string|null, commits?: Array<{messageHeadline?: string, committedDate?: string}>}>} */ (
+        ghClient.pr.list([
+          "--search",
+          signature.searchTerm,
+          "--state",
+          "all",
+          "--json",
+          latestCommit ? "title,createdAt,mergedAt,commits" : "title,createdAt,mergedAt",
+          "--limit",
+          "50",
+        ])
+      );
     return prs.map((pr) => ({
       type: "pr",
       title: pr.title,
-      observedAt: pr.mergedAt ?? pr.createdAt,
+      observedAt: latestCommit
+        ? latestMatchingCommitAt(pr, signature)
+        : (pr.mergedAt ?? pr.createdAt),
     }));
   }
 

@@ -16,6 +16,7 @@ import {
   decideIssueTransition,
   runRoutineLivenessCheck,
   isObservationBlackout,
+  fetchObservedArtifactsViaGhClient,
 } from "../routine-liveness.mjs";
 import { ROUTINE_MANIFEST, parseRoutineCatalog } from "../routine-manifest.mjs";
 
@@ -1135,5 +1136,153 @@ describe("runRoutineLivenessCheck — closing a recovered routine's tracking iss
 
     expect(results[0]).toMatchObject({ routine: "mbe-evening", status: "alive" });
     expect(results[0].action).toBeUndefined();
+  });
+});
+
+// Architect re-entry 5 (ui-quality-loop, Review C1): the ledger PR stays open
+// across fires, so `createdAt` dates only its first day. An opted-in
+// signature dates it by its newest commit whose headline matches the pattern.
+describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () => {
+  const now = "2026-10-05T08:10:00Z";
+  const ago = (days) => new Date(Date.parse(now) - days * 24 * 60 * 60 * 1000).toISOString();
+  const BASE = {
+    type: "pr-title",
+    pattern: String.raw`chore\(ui-quality\): ledger \d{4}-\d{2}-\d{2}`,
+    searchTerm: "ui-quality",
+  };
+  const OPTED = { ...BASE, observe: "latest-matching-commit" };
+  const entryOf = (signature, extra = {}) => ({
+    name: "mbe-ui-quality",
+    triggerId: "trig_x",
+    periodDays: 1,
+    signature,
+    ...extra,
+  });
+  /** A fake gh client recording every `pr.list` argument vector. */
+  function fakeGh(prs) {
+    const calls = [];
+    return {
+      calls,
+      pr: {
+        list: (args) => {
+          calls.push(args);
+          return prs;
+        },
+      },
+    };
+  }
+  const commit = (headline, committedDate) => ({ messageHeadline: headline, committedDate });
+  const LEDGER_PR = {
+    title: "chore(ui-quality): ledger 2026-10-02",
+    createdAt: ago(3),
+    mergedAt: null,
+    commits: [
+      commit("chore(ui-quality): ledger 2026-10-02", ago(3)),
+      commit("Merge remote-tracking branch 'origin/main' into ui-quality/ledger", ago(0.05)),
+      commit("chore(ui-quality): ledger 2026-10-05", ago(0.1)),
+    ],
+  };
+
+  it("a PR created 3 days ago with a matching commit today reads alive", () => {
+    const gh = fakeGh([LEDGER_PR]);
+    const entry = entryOf(OPTED);
+    const observed = fetchObservedArtifactsViaGhClient(gh, entry);
+    expect(observed).toEqual([{ type: "pr", title: LEDGER_PR.title, observedAt: ago(0.1) }]);
+    const result = classifyRoutineLiveness({
+      signature: entry.signature,
+      periodDays: 1,
+      observedArtifacts: observed,
+      now,
+    });
+    expect(result.status).toBe("alive");
+  });
+
+  it("the same PR without the opt-in reads dark by its createdAt — the C1 failure", () => {
+    const observed = fetchObservedArtifactsViaGhClient(fakeGh([LEDGER_PR]), entryOf(BASE));
+    expect(observed[0].observedAt).toBe(ago(3));
+    expect(
+      classifyRoutineLiveness({ signature: BASE, periodDays: 1, observedArtifacts: observed, now })
+        .status
+    ).toBe("dark");
+  });
+
+  it("requests commits only for opted-in entries; others keep the exact argument vector", () => {
+    const opted = fakeGh([]);
+    fetchObservedArtifactsViaGhClient(opted, entryOf(OPTED));
+    expect(opted.calls[0]).toContain("title,createdAt,mergedAt,commits");
+    const plain = fakeGh([]);
+    fetchObservedArtifactsViaGhClient(plain, entryOf(BASE));
+    expect(plain.calls[0]).toEqual([
+      "--search",
+      "ui-quality",
+      "--state",
+      "all",
+      "--json",
+      "title,createdAt,mergedAt",
+      "--limit",
+      "50",
+    ]);
+  });
+
+  it("non-opted entries keep mergedAt ?? createdAt byte-identically", () => {
+    const merged = { ...LEDGER_PR, mergedAt: ago(0.2) };
+    expect(fetchObservedArtifactsViaGhClient(fakeGh([merged]), entryOf(BASE))).toEqual([
+      { type: "pr", title: merged.title, observedAt: ago(0.2) },
+    ]);
+    expect(fetchObservedArtifactsViaGhClient(fakeGh([LEDGER_PR]), entryOf(BASE))).toEqual([
+      { type: "pr", title: LEDGER_PR.title, observedAt: ago(3) },
+    ]);
+  });
+
+  it("opted in, mergedAt is ignored — a merge is someone else's act, not a fire", () => {
+    const merged = {
+      ...LEDGER_PR,
+      mergedAt: ago(0.01),
+      commits: [commit("chore(ui-quality): ledger 2026-10-02", ago(3))],
+    };
+    const [a] = fetchObservedArtifactsViaGhClient(fakeGh([merged]), entryOf(OPTED));
+    expect(a.observedAt).toBe(ago(3));
+  });
+
+  it("falls back to createdAt with no matching commit, and ignores unparseable dates", () => {
+    const noMatch = {
+      ...LEDGER_PR,
+      commits: [
+        commit("fix: something else", ago(0.1)),
+        commit("chore(ui-quality): ledger 2026-10-05", "not-a-date"),
+        commit("chore(ui-quality): ledger 2026-10-04", undefined),
+      ],
+    };
+    const [a] = fetchObservedArtifactsViaGhClient(fakeGh([noMatch]), entryOf(OPTED));
+    expect(a.observedAt).toBe(ago(3));
+    const noCommits = { ...LEDGER_PR, commits: undefined };
+    const [b] = fetchObservedArtifactsViaGhClient(fakeGh([noCommits]), entryOf(OPTED));
+    expect(b.observedAt).toBe(ago(3));
+  });
+
+  it("composes with the activatedAt grace and main's late tier", () => {
+    const run = (prs, extra) =>
+      runRoutineLivenessCheck({
+        manifest: [entryOf(OPTED, extra)],
+        fetchObservedArtifacts: (e) => fetchObservedArtifactsViaGhClient(fakeGh(prs), e),
+        now,
+        createIssue: () => {
+          throw new Error("must not file");
+        },
+      });
+    expect(run([], { activatedAt: ago(1) })).toEqual([
+      { routine: "mbe-ui-quality", status: "pending" },
+    ]);
+    const late = {
+      ...LEDGER_PR,
+      commits: [commit("chore(ui-quality): ledger 2026-10-03", ago(1.5))],
+    };
+    expect(run([late], {})).toEqual([{ routine: "mbe-ui-quality", status: "late" }]);
+  });
+
+  it("the mbe-ui-quality manifest entry opts in, and no other entry does", () => {
+    const opted = ROUTINE_MANIFEST.filter((e) => e.signature?.observe !== undefined);
+    expect(opted.map((e) => e.name)).toEqual(["mbe-ui-quality"]);
+    expect(opted[0].signature.observe).toBe("latest-matching-commit");
   });
 });

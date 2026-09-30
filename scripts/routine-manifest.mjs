@@ -33,7 +33,12 @@
  * @module routine-manifest
  */
 
-/** @typedef {{type: "pr-title", pattern: string, searchTerm: string}} PrTitleSignature */
+/**
+ * @typedef {{type: "pr-title", pattern: string, searchTerm: string, observe?: "latest-matching-commit"}} PrTitleSignature
+ * `observe: "latest-matching-commit"` (opt-in) dates a matching PR by its newest
+ * commit whose headline matches `pattern` instead of `mergedAt ?? createdAt` —
+ * for a routine that commits to one long-lived PR on every fire.
+ */
 /** @typedef {{type: "issue-label", label: string}} IssueLabelSignature */
 /** @typedef {PrTitleSignature | IssueLabelSignature} RoutineSignature */
 
@@ -205,12 +210,17 @@ export const ROUTINE_MANIFEST = [
     // two days `pending` instead of `dark`.
     triggerId: null,
     periodDays: 1,
-    // docs/routines/mbe-ui-quality.md step (7) opens this PR on every fire,
-    // no-op fires included; pinned by scripts/__tests__/ui-quality-routine-prompt.test.mjs.
+    // docs/routines/mbe-ui-quality.md step (7) commits `chore(ui-quality):
+    // ledger <date>` onto the `ui-quality/ledger` branch on every fire, no-op
+    // fires included, and opens the PR only when none is open — so the PR
+    // stays open across fires and is dated by its newest matching commit
+    // (`observe`), not its first day's createdAt. Pinned by
+    // scripts/__tests__/ui-quality-routine-prompt.test.mjs.
     signature: {
       type: "pr-title",
       pattern: String.raw`chore\(ui-quality\): ledger \d{4}-\d{2}-\d{2}`,
       searchTerm: "ui-quality",
+      observe: "latest-matching-commit",
     },
   },
 ];
