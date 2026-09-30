@@ -204,11 +204,10 @@ export const ROUTINE_MANIFEST = [
   },
   {
     name: "mbe-ui-quality",
-    // Ship writes the RemoteTrigger id here, and `activatedAt` below it, the
-    // same day it creates the trigger — until then no fire can have happened,
-    // and routine-liveness.mjs's `activatedAt` grace is what keeps the first
-    // two days `pending` instead of `dark`.
-    triggerId: null,
+    // RemoteTrigger created 2026-09-30 by the ui-quality-loop Ship stage;
+    // routine-liveness.mjs's `activatedAt` grace keeps the first two days
+    // `pending` instead of `dark`.
+    triggerId: "trig_01DYzgRBp66dxwQ828y9x1jV",
     activatedAt: "2026-09-30",
     periodDays: 1,
     // docs/routines/mbe-ui-quality.md step (7) commits `chore(ui-quality):

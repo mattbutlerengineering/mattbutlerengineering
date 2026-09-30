@@ -58,7 +58,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
   it("exists with house frontmatter and a fenced text prompt", () => {
     expect(doc).not.toBe("");
     expect(frontmatter).toMatchObject({
-      trigger_id: "pending",
+      trigger_id: "trig_01DYzgRBp66dxwQ828y9x1jV",
       environment_id: "env_012GDG167Tpz55u8MEpDkL2y",
       cron: "23 7 * * *",
       model: "claude-opus-5",
@@ -317,10 +317,10 @@ describe("docs/routines/mbe-ui-quality.md", () => {
 describe("docs/scheduled-tasks.md — mbe-ui-quality", () => {
   const catalog = readFileSync(join(ROOT, "docs/scheduled-tasks.md"), "utf8");
 
-  it("catalogues the routine with a pending trigger and its prompt file", () => {
+  it("catalogues the routine with its live trigger id and its prompt file", () => {
     expect(parseRoutineCatalog(catalog)).toContainEqual({
       name: "mbe-ui-quality",
-      triggerId: "pending",
+      triggerId: "trig_01DYzgRBp66dxwQ828y9x1jV",
     });
     const row = catalog.split("\n").find((line) => line.startsWith("| `mbe-ui-quality`"));
     expect(row).toContain("routines/mbe-ui-quality.md");
