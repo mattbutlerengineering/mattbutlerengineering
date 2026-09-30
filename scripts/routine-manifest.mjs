@@ -197,6 +197,22 @@ export const ROUTINE_MANIFEST = [
     unverifiableReason:
       'docs/routines/mbe-monthly-meta-audit.md:25 now specifies a distinct `chore(meta): monthly meta-audit <YYYY-MM-DD>` PR title (#5612 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine opens its PR under no enforced convention, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. The PR is the signature target rather than the `ready` issues this routine also files: those are conditional ("for the rest") and carry no distinct label. Flip to a real signature (`searchTerm: "monthly meta-audit"`) in a follow-up PR once a PR carrying the new title is observed, proving the live trigger was updated.',
   },
+  {
+    name: "mbe-ui-quality",
+    // Ship writes the RemoteTrigger id here, and `activatedAt` below it, the
+    // same day it creates the trigger — until then no fire can have happened,
+    // and routine-liveness.mjs's `activatedAt` grace is what keeps the first
+    // two days `pending` instead of `dark`.
+    triggerId: null,
+    periodDays: 1,
+    // docs/routines/mbe-ui-quality.md step (7) opens this PR on every fire,
+    // no-op fires included; pinned by scripts/__tests__/ui-quality-routine-prompt.test.mjs.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`chore\(ui-quality\): ledger \d{4}-\d{2}-\d{2}`,
+      searchTerm: "ui-quality",
+    },
+  },
 ];
 
 const CATALOG_ROW_PATTERN = /^\|\s*`([a-z0-9-]+)`/;
