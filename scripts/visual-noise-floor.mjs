@@ -28,6 +28,9 @@
  *   node scripts/visual-noise-floor.mjs \
  *     --replica-a <dir> --replica-b <dir> --perturbed <dir> --committed <dir> \
  *     [--thresholds 0,0.005,…] [--defect-amplitude 36] [--out measurement.json]
+ *   node scripts/visual-noise-floor.mjs paths --app <app> --leg <leg>
+ *     prints `config=`/`spec=`/`screenshots=`/`package_json=` lines for
+ *     `$GITHUB_OUTPUT` — the workflow's one source of per-app paths.
  */
 
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, statSync } from "node:fs";
@@ -77,6 +80,70 @@ export const PROVENANCE_FILENAME = "provenance.json";
 
 /** The fields a provenance tuple must carry, and must agree on across legs. */
 export const PROVENANCE_FIELDS = ["imageOs", "imageVersion", "playwrightVersion", "chromiumBuild"];
+
+/**
+ * The apps the workflow's `app` dispatch input can measure, default first.
+ * rialto-web's replicas run its production `playwright.config.ts` (its visual
+ * job's config); marketing and hospitality keep their visual suite in a
+ * dedicated `playwright.visual.config.ts`. Every app's perturbed leg is its own
+ * `playwright.noise-floor.config.ts`.
+ */
+export const APPS = ["rialto-web", "marketing", "hospitality"];
+
+/** The three capture legs, in the workflow's matrix order. */
+export const LEGS = ["replica-a", "replica-b", "perturbed"];
+
+/**
+ * Repo-relative paths for one app's measurement.
+ *
+ * @param {string} app one of APPS
+ */
+export function appPaths(app) {
+  if (!APPS.includes(app)) {
+    throw new Error(`unknown app ${JSON.stringify(app)} — expected one of ${APPS.join(", ")}`);
+  }
+  const dir = `apps/${app}`;
+  return {
+    spec: `${dir}/e2e/visual.spec.ts`,
+    screenshots: `${dir}/e2e/screenshots`,
+    config:
+      app === "rialto-web" ? `${dir}/playwright.config.ts` : `${dir}/playwright.visual.config.ts`,
+    perturbedConfig: `${dir}/playwright.noise-floor.config.ts`,
+    packageJson: `${dir}/package.json`,
+  };
+}
+
+/** The Playwright config one capture leg runs: replicas the production one, `perturbed` its own. */
+export function legConfig(app, leg) {
+  if (!LEGS.includes(leg)) {
+    throw new Error(`unknown leg ${JSON.stringify(leg)} — expected one of ${LEGS.join(", ")}`);
+  }
+  const paths = appPaths(app);
+  return leg === "perturbed" ? paths.perturbedConfig : paths.config;
+}
+
+/**
+ * The `committed` leg for the `drift` pairing.
+ *
+ * An app measured before its first baselines land has no committed PNGs. Ship
+ * commits replica-a's bytes as those baselines, so replica-a IS the committed
+ * set the suite will diff against — drift is measured against it (zero by
+ * construction) and the substitution is reported as `baselines: "none"`,
+ * never silently. A directory that holds any PNG is used as-is.
+ *
+ * @returns {{ dir: string, baselines: "committed" | "none" }}
+ */
+export function resolveCommitted(committedDir, replicaADir) {
+  let pngs = [];
+  try {
+    pngs = readdirSync(committedDir).filter((e) => e.toLowerCase().endsWith(".png"));
+  } catch {
+    // Absent directory: no baselines yet.
+  }
+  return pngs.length > 0
+    ? { dir: committedDir, baselines: "committed" }
+    : { dir: replicaADir, baselines: "none" };
+}
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -400,8 +467,22 @@ function readFlag(args, name) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
+function pathsCommand(args) {
+  const app = readFlag(args, "--app");
+  const leg = readFlag(args, "--leg");
+  const paths = appPaths(app);
+  process.stdout.write(
+    `config=${legConfig(app, leg)}\nspec=${paths.spec}\n` +
+      `screenshots=${paths.screenshots}\npackage_json=${paths.packageJson}\n`
+  );
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args[0] === "paths") {
+    pathsCommand(args);
+    return;
+  }
   const required = {
     replicaA: readFlag(args, "--replica-a"),
     replicaB: readFlag(args, "--replica-b"),
@@ -422,13 +503,25 @@ function main() {
 
   const sweep = readFlag(args, "--thresholds");
   const amplitude = readFlag(args, "--defect-amplitude");
+  const committed = resolveCommitted(required.committed, required.replicaA);
+  if (committed.baselines === "none") {
+    console.error(
+      `visual-noise-floor.mjs: no committed baselines in ${required.committed} — ` +
+        "drift is measured against replica-a, the bytes Ship commits as baselines"
+    );
+  }
   const { measurements, provenance } = measure({
     ...required,
+    committed: committed.dir,
     ...(sweep ? { thresholds: sweep.split(",").map(Number) } : {}),
     ...(amplitude ? { defectAmplitude: Number(amplitude) } : {}),
   });
 
-  const payload = JSON.stringify({ provenance, measurements }, null, 2);
+  const payload = JSON.stringify(
+    { provenance, committedBaselines: committed.baselines, measurements },
+    null,
+    2
+  );
   const out = readFlag(args, "--out");
   if (out) writeFileSync(out, `${payload}\n`);
   else process.stdout.write(`${payload}\n`);
@@ -439,6 +532,9 @@ function main() {
       `## Visual noise floor\n\n` +
         `\`${provenance.imageOs} ${provenance.imageVersion}\` · ` +
         `playwright \`${provenance.playwrightVersion}\` · \`${provenance.chromiumBuild}\`\n\n` +
+        (committed.baselines === "none"
+          ? "No committed baselines: `drift` is replica-a against itself (Ship commits replica-a).\n\n"
+          : "") +
         `${renderMeasurementTable(measurements)}\n`
     );
   }
