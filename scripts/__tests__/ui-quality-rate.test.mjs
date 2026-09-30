@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildPairs, main, positionOf, scoreOf } from "../ui-quality/rate.mjs";
+import { calibrationPairs, validateCalibrationSet } from "../ui-quality/calibration.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
@@ -279,5 +280,189 @@ describe("rate.mjs pairs + record", () => {
       .map((l) => JSON.parse(l));
     for (const p of m.pairs) expect(p).not.toHaveProperty("score");
     expect(existsSync(join(root, ".ui-quality/rating-plan.json"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calibrate + calibration.json
+// ---------------------------------------------------------------------------
+
+const REFS = RUBRIC.references.map((r) => r.id);
+
+/** Ten labelled pairs over committed-style PNGs in the temp root. */
+function labelled(root, prefers = () => "reference") {
+  const dir = join(root, "docs/ui-quality/calibration");
+  mkdirSync(dir, { recursive: true });
+  const pairs = Array.from({ length: 10 }, (_, i) => {
+    const ours = `docs/ui-quality/calibration/ours-${i % 5}.png`;
+    writeFileSync(join(root, ours), `png-${i % 5}`);
+    return { ours, reference: REFS[i % REFS.length], human_prefers: prefers(i) };
+  });
+  const set = { labelled_at: "2026-10-01", labelled_by: "Matt", pairs };
+  writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(set));
+  return set;
+}
+
+/**
+ * Rater verdicts that agree with the human on the first `agree` pairs; of the
+ * rest, the first `inversions` prefer ours where the human preferred the
+ * reference, and the remainder are ties.
+ */
+function raterVerdicts(set, { agree, inversions }) {
+  return calibrationPairs(set).map((p, i) => {
+    const human = set.pairs[i].human_prefers;
+    let outcome = human;
+    if (i >= agree) outcome = i < agree + inversions ? "ours" : "tie";
+    return { pair_id: p.id, verdict: verdictFor(p, outcome), tells: [], note: "" };
+  });
+}
+
+function calibrate(root, verdicts, extra = []) {
+  writeFileSync(join(root, "cv.json"), JSON.stringify(verdicts));
+  return run(root, ["calibrate", "--verdicts", join(root, "cv.json"), ...extra]);
+}
+
+const calibrations = (root) => {
+  const file = join(root, "metrics/ui-quality-calibrations.jsonl");
+  return existsSync(file)
+    ? readFileSync(file, "utf8")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l))
+    : [];
+};
+
+describe("rate.mjs calibrate", () => {
+  let root;
+  let set;
+  beforeEach(() => {
+    root = makeRoot();
+    set = labelled(root);
+  });
+
+  it("9/10 agreement with 1 inversion fails (exit 1): an inversion is never tolerated", () => {
+    const res = calibrate(root, raterVerdicts(set, { agree: 9, inversions: 1 }));
+    expect(res.code).toBe(1);
+    const report = JSON.parse(res.out);
+    expect(report).toMatchObject({ agreement: 0.9, inversions: 1 });
+    expect(report.disagreements).toHaveLength(1);
+    expect(report.disagreements[0]).toMatchObject({
+      human_prefers: "reference",
+      rater_prefers: "ours",
+    });
+  });
+
+  it("8/10 agreement with 0 inversions passes (exit 0)", () => {
+    const res = calibrate(root, raterVerdicts(set, { agree: 8, inversions: 0 }));
+    expect(res.code).toBe(0);
+    expect(JSON.parse(res.out)).toMatchObject({ agreement: 0.8, inversions: 0 });
+    expect(calibrations(root)).toEqual([
+      expect.objectContaining({ model_id: "claude-opus-5", pass: true, agreement: 0.8 }),
+    ]);
+  });
+
+  it("7/10 agreement with 0 inversions fails (exit 1)", () => {
+    const res = calibrate(root, raterVerdicts(set, { agree: 7, inversions: 0 }));
+    expect(res.code).toBe(1);
+    expect(calibrations(root)).toEqual([expect.objectContaining({ pass: false })]);
+  });
+
+  it("an empty labelled set exits 2 and records nothing — never passes on no data", () => {
+    writeFileSync(
+      join(root, "docs/ui-quality/calibration.json"),
+      JSON.stringify({ labelled_at: null, labelled_by: null, pairs: [] })
+    );
+    const res = calibrate(root, []);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/Verify/);
+    expect(calibrations(root)).toEqual([]);
+  });
+
+  it("a malformed set (unknown reference, bad human_prefers, missing image) exits 2", () => {
+    for (const mutate of [
+      (s) => (s.pairs[0].reference = "not-a-ref"),
+      (s) => (s.pairs[0].human_prefers = "tie"),
+      (s) => (s.pairs[0].ours = "docs/ui-quality/calibration/missing.png"),
+    ]) {
+      const bad = JSON.parse(JSON.stringify(set));
+      mutate(bad);
+      writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(bad));
+      expect(calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 })).code).toBe(2);
+    }
+  });
+
+  it("a missing verdict exits 2", () => {
+    expect(calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }).slice(1)).code).toBe(2);
+  });
+
+  it("pairs --calibration writes the calibration plan the model judges", () => {
+    expect(run(root, ["pairs", "--calibration"]).code).toBe(0);
+    const plan = JSON.parse(readFileSync(join(root, ".ui-quality/calibration-plan.json"), "utf8"));
+    expect(plan.pairs.map((p) => p.id)).toEqual(calibrationPairs(set).map((p) => p.id));
+    expect(plan.pairs[0].a.path).toMatch(/\.png$/);
+  });
+});
+
+describe("record stamps calibration status from the last calibration record for its model_id", () => {
+  let root;
+  beforeEach(() => {
+    root = makeRoot();
+    run(root, ["pairs"]);
+    writeFileSync(
+      join(root, "v.json"),
+      JSON.stringify(
+        readPlan(root).pairs.map((p) => ({ pair_id: p.id, verdict: "tie", tells: [], note: "" }))
+      )
+    );
+  });
+  const stamped = () => JSON.parse(readRatings(root).split("\n")[0]).calibration;
+
+  it("stale when no calibration record exists for this model_id", () => {
+    writeFileSync(
+      join(root, "metrics/ui-quality-calibrations.jsonl"),
+      JSON.stringify({
+        ts: "t",
+        model_id: "older-model",
+        pass: true,
+        agreement: 1,
+        inversions: 0,
+      }) + "\n"
+    );
+    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    expect(stamped()).toMatchObject({ status: "stale", pass_mark: RUBRIC.calibration.pass_mark });
+  });
+
+  it("pass after a passing calibrate, failed after a failing one", () => {
+    const set = labelled(root);
+    calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
+    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    expect(stamped()).toMatchObject({ status: "pass", agreement: 1, inversions: 0 });
+
+    calibrate(root, raterVerdicts(set, { agree: 9, inversions: 1 }));
+    writeFileSync(join(root, "metrics/ui-quality-ratings.jsonl"), "");
+    run(root, ["record", "--verdicts", join(root, "v.json")]);
+    expect(stamped()).toMatchObject({ status: "failed", agreement: 0.9, inversions: 1 });
+  });
+});
+
+describe("committed calibration.json placeholder", () => {
+  const placeholder = JSON.parse(
+    readFileSync(join(REPO, "docs/ui-quality/calibration.json"), "utf8")
+  );
+
+  it("ships labelled_at: null and pairs: [] and validates against the schema", () => {
+    expect(placeholder).toEqual({ labelled_at: null, labelled_by: null, pairs: [] });
+    expect(
+      validateCalibrationSet(placeholder, { root: REPO, rubric: RUBRIC, allowEmpty: true })
+    ).toEqual([]);
+  });
+
+  it("calibrate on it exits 2 naming the Verify step", () => {
+    const root = makeRoot();
+    writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(placeholder));
+    const res = calibrate(root, []);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/Verify/);
   });
 });

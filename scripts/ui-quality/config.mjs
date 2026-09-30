@@ -37,3 +37,6 @@ export const VIEWPORTS = Object.freeze([
  */
 export const BLANK_MIN_TEXT_CHARS = 1;
 export const BLANK_MIN_PAINTED_RATIO = 0.05;
+
+/** A labelled calibration set smaller than this never passes (`rate.mjs calibrate` exits 2). */
+export const CALIBRATION_MIN_PAIRS = 10;

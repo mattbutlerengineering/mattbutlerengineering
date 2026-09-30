@@ -9,9 +9,16 @@
  *           TASTE_REFERENCES_PER_ROUTE references of the same category. `harness`
  *           routes are never sampled. Which image is "A" is decided by the parity of
  *           sha256(pair key), so a re-run reproduces the plan byte for byte.
+ *           `pairs --calibration` writes `.ui-quality/calibration-plan.json` from
+ *           `docs/ui-quality/calibration.json`'s labelled pairs instead.
  *   record  validate the model's verdicts (`[{ pair_id, verdict: "A"|"B"|"tie",
  *           tells, note }]`) against the plan and append one row per app to
- *           `metrics/ui-quality-ratings.jsonl`.
+ *           `metrics/ui-quality-ratings.jsonl`, stamped `calibration.status`
+ *           pass | failed | stale from the latest calibration record for its model_id.
+ *   calibrate  score verdicts on the calibration plan against `pass_mark`, print
+ *           `{ agreement, inversions, disagreements[] }`, append a record to
+ *           `metrics/ui-quality-calibrations.jsonl`; exit 0 pass, 1 fail, 2 on an
+ *           empty or malformed set (never passes on no data).
  *
  * The model seam degrades past a bad part, never past a bad unit: a tell id the
  * rubric lacks, or whose `detection` is not `judged`, is dropped, logged and
@@ -20,42 +27,45 @@
  * score is a wrong score. Only pairwise preferences are recorded; an absolute
  * single-answer score is never produced.
  *
- * Exit codes: 0 ok, 2 bad input.
+ * Exit codes: 0 ok, 1 calibration failed, 2 bad input.
  *
- * Usage: node scripts/ui-quality/rate.mjs <pairs|record> [--verdicts <file>]
- *          [--model-id <id>] [--root <dir>]
+ * Usage: node scripts/ui-quality/rate.mjs <pairs [--calibration]|record|calibrate>
+ *          [--verdicts <file>] [--model-id <id>] [--root <dir>]
  */
 
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { append } from "../metrics-store.mjs";
+import { append, resolvePath } from "../metrics-store.mjs";
+import {
+  CALIBRATION_FILE,
+  calibrationPairs,
+  calibrationStamp,
+  scoreCalibration,
+  validateCalibrationSet,
+} from "./calibration.mjs";
 import { TASTE_REFERENCES_PER_ROUTE, TASTE_SAMPLE_ROUTES } from "./config.mjs";
+import { outcomeOf, positionOf, sha256, sides, VERDICTS } from "./pairing.mjs";
 import { categoryOf, loadRubric, tellsById } from "./rubric.mjs";
+
+export { positionOf };
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const RATINGS_METRIC = "ui-quality-ratings";
 export const WORK_DIR = ".ui-quality";
 export const RATING_PLAN_FILE = "rating-plan.json";
+export const CALIBRATION_PLAN_FILE = "calibration-plan.json";
+export const CALIBRATIONS_METRIC = "ui-quality-calibrations";
 export const ROUTINE_DOC = "docs/routines/mbe-ui-quality.md";
 const CAPTURES_DIR = "captures";
 /** The viewport pairs are judged at — the one the references were captured at. */
 const PAIR_VIEWPORT = "1280x720";
-const VERDICTS = ["A", "B", "tie"];
 const OUTCOME_VALUE = { ours: 1, tie: 0.5, reference: 0 };
-
-const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 // ---------------------------------------------------------------------------
 // Pure core
 // ---------------------------------------------------------------------------
-
-/** "AB" (ours is A) when sha256(key)'s first byte is even, else "BA". */
-export function positionOf(key) {
-  return parseInt(sha256(key).slice(0, 2), 16) % 2 === 0 ? "AB" : "BA";
-}
 
 /** 5 × mean over outcomes `ours` (1) | `tie` (0.5) | `reference` (0). */
 export function scoreOf(outcomes) {
@@ -81,8 +91,7 @@ function pairFor(app, row, shot, ref) {
     path: `${WORK_DIR}/${CAPTURES_DIR}/${app}/${shot.file}`,
   };
   const reference = { id: ref.id, sha256: ref.sha256, path: ref.file };
-  const position = positionOf(key);
-  const [a, b] = position === "AB" ? [ours, reference] : [reference, ours];
+  const { position, a, b } = sides(key, ours, reference);
   return {
     id: `p-${sha256(key).slice(0, 12)}`,
     app,
@@ -117,12 +126,6 @@ export function buildPairs({ rubric, manifests }) {
           )
       );
     });
-}
-
-/** ours | tie | reference, from the verdict and which side ours was on. */
-function outcomeOf(pair, verdict) {
-  if (verdict === "tie") return "tie";
-  return (verdict === "A") === (pair.position === "AB") ? "ours" : "reference";
 }
 
 /**
@@ -161,7 +164,7 @@ export function validateVerdicts(plan, verdicts, rubric) {
 }
 
 /** One ratings row per app in the plan, pairs in plan order. */
-export function ratingRows(plan, byId, dropped, { ts, modelId }) {
+export function ratingRows(plan, byId, dropped, { ts, modelId, calibration }) {
   const apps = [...new Set(plan.pairs.map((p) => p.app))];
   return apps.map((app) => {
     const pairs = plan.pairs
@@ -186,6 +189,7 @@ export function ratingRows(plan, byId, dropped, { ts, modelId }) {
       score: Math.round(scoreOf(pairs.map((p) => outcomeOf(p, p.verdict))) * 100) / 100,
       dropped_tells: dropped.filter((d) => d.app === app).length,
       pairs,
+      calibration,
     };
   });
 }
@@ -222,9 +226,39 @@ function flag(argv, name) {
   return i === -1 ? undefined : argv[i + 1];
 }
 
+/** Every row of a jsonl metric, or [] when the file is absent. */
+function readJsonl(name, root) {
+  const file = resolvePath(name, { root });
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .filter((l) => l.trim() !== "")
+    .map((l) => JSON.parse(l));
+}
+
+/** calibration.json, validated; throws VERIFY_HINT or every schema error. */
+function loadCalibrationSet(root, rubric) {
+  const doc = JSON.parse(readFileSync(join(root, CALIBRATION_FILE), "utf8"));
+  const errors = validateCalibrationSet(doc, { root, rubric });
+  if (errors.length > 0) throw new Error(errors.join("\n  "));
+  return doc;
+}
+
+function calibrationPlanCommand(ctx, rubric, work) {
+  const pairs = calibrationPairs(loadCalibrationSet(ctx.root, rubric), rubric);
+  mkdirSync(work, { recursive: true });
+  const plan = { rubric_version: rubric.rubric_version, pairs };
+  writeFileSync(join(work, CALIBRATION_PLAN_FILE), JSON.stringify(plan, null, 2) + "\n");
+  ctx.stdout(
+    `rate.mjs pairs --calibration: ${pairs.length} pairs → ${WORK_DIR}/${CALIBRATION_PLAN_FILE}\n`
+  );
+  return 0;
+}
+
 function pairsCommand(ctx) {
   const rubric = loadRubric(ctx.root);
   const work = join(ctx.root, WORK_DIR);
+  if (ctx.argv.includes("--calibration")) return calibrationPlanCommand(ctx, rubric, work);
   const pairs = buildPairs({ rubric, manifests: readManifests(work) });
   mkdirSync(work, { recursive: true });
   const plan = { rubric_version: rubric.rubric_version, pairs };
@@ -239,8 +273,7 @@ function pairsCommand(ctx) {
 function recordCommand(ctx) {
   const verdictsPath = flag(ctx.argv, "--verdicts");
   if (!verdictsPath) throw new Error("--verdicts <file> is required");
-  const modelId = flag(ctx.argv, "--model-id") ?? routineModelId(ctx.root);
-  if (!modelId) throw new Error(`no model_id: pass --model-id or set model: in ${ROUTINE_DOC}`);
+  const modelId = modelIdOf(ctx);
   const rubric = loadRubric(ctx.root);
   const plan = JSON.parse(readFileSync(join(ctx.root, WORK_DIR, RATING_PLAN_FILE), "utf8"));
   const verdicts = JSON.parse(readFileSync(resolve(ctx.root, verdictsPath), "utf8"));
@@ -254,7 +287,12 @@ function recordCommand(ctx) {
       `rate.mjs record: dropped tell ${JSON.stringify(d.tell)} on ${d.pair_id} (not a judged rubric tell)\n`
     );
   }
-  const rows = ratingRows(plan, byId, dropped, { ts: ctx.now(), modelId });
+  const calibration = calibrationStamp(
+    readJsonl(CALIBRATIONS_METRIC, ctx.root),
+    modelId,
+    rubric.calibration.pass_mark
+  );
+  const rows = ratingRows(plan, byId, dropped, { ts: ctx.now(), modelId, calibration });
   for (const row of rows) append(RATINGS_METRIC, row, { root: ctx.root });
   ctx.stdout(
     `rate.mjs record: ${rows.map((r) => `${r.app} ${r.score}`).join(", ") || "no pairs"}\n`
@@ -262,7 +300,52 @@ function recordCommand(ctx) {
   return 0;
 }
 
-const COMMANDS = { pairs: pairsCommand, record: recordCommand };
+function modelIdOf(ctx) {
+  const modelId = flag(ctx.argv, "--model-id") ?? routineModelId(ctx.root);
+  if (!modelId) throw new Error(`no model_id: pass --model-id or set model: in ${ROUTINE_DOC}`);
+  return modelId;
+}
+
+/**
+ * Score the rater's verdicts on the labelled set against the pass mark, print
+ * `{ agreement, inversions, disagreements[] }`, append a calibration record.
+ * Exit 0 on pass, 1 on fail, 2 on an empty/malformed set or verdict file.
+ */
+function calibrateCommand(ctx) {
+  const verdictsPath = flag(ctx.argv, "--verdicts");
+  const rubric = loadRubric(ctx.root);
+  const doc = loadCalibrationSet(ctx.root, rubric);
+  if (!verdictsPath) throw new Error("--verdicts <file> is required");
+  const modelId = modelIdOf(ctx);
+  const verdicts = JSON.parse(readFileSync(resolve(ctx.root, verdictsPath), "utf8"));
+  const { errors, byId } = validateVerdicts({ pairs: calibrationPairs(doc) }, verdicts, rubric);
+  if (errors.length > 0) {
+    ctx.stderr(`rate.mjs calibrate: nothing recorded\n  ${errors.join("\n  ")}\n`);
+    return 2;
+  }
+  const passMark = rubric.calibration.pass_mark;
+  const { agreement, inversions, disagreements, pass } = scoreCalibration(doc, byId, passMark);
+  append(
+    CALIBRATIONS_METRIC,
+    {
+      ts: ctx.now(),
+      model_id: modelId,
+      rubric_version: rubric.rubric_version,
+      labelled_at: doc.labelled_at,
+      pairs: doc.pairs.length,
+      agreement,
+      inversions,
+      pass,
+      pass_mark: passMark,
+    },
+    { root: ctx.root }
+  );
+  ctx.stdout(JSON.stringify({ agreement, inversions, disagreements }, null, 2) + "\n");
+  ctx.stderr(`rate.mjs calibrate: ${pass ? "PASS" : "FAIL"} for ${modelId}\n`);
+  return pass ? 0 : 1;
+}
+
+const COMMANDS = { pairs: pairsCommand, record: recordCommand, calibrate: calibrateCommand };
 
 const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 

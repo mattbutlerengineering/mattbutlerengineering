@@ -103,6 +103,13 @@ export const METRICS = {
   // One row per app per ui-quality fire, appended by `rate.mjs record`: the
   // pairwise taste score with every verdict. Union merge via the glob.
   "ui-quality-ratings": { file: "ui-quality-ratings.jsonl", format: "jsonl", durable: true },
+  // One row per `rate.mjs calibrate` run; `record` stamps each ratings row
+  // pass|failed|stale from the latest row for its model_id. Union merge via the glob.
+  "ui-quality-calibrations": {
+    file: "ui-quality-calibrations.jsonl",
+    format: "jsonl",
+    durable: true,
+  },
 };
 
 /**

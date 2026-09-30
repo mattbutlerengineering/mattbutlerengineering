@@ -143,6 +143,7 @@ reports/mutation/
 !/metrics/service-health.jsonl
 !/metrics/stale-human-blocked.jsonl
 !/metrics/threshold-changes.jsonl
+!/metrics/ui-quality-calibrations.jsonl
 !/metrics/ui-quality-ledger.jsonl
 !/metrics/ui-quality-ratings.jsonl
 !/metrics/ui-quality-runs.jsonl
