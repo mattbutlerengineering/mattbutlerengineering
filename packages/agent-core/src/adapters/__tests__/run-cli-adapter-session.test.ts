@@ -339,7 +339,7 @@ describe("runCliAdapterSession", () => {
     expect(result.failureCategory).toBe("rate_limited");
   });
 
-  it("does not create a PR when createPr is false, even though the branch is pushed", async () => {
+  it("neither pushes nor creates a PR when createPr is false", async () => {
     const adapter = makeCliAdapter("gemini", { success: true });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
@@ -350,7 +350,7 @@ describe("runCliAdapterSession", () => {
       deps
     );
 
-    expect(deps.worktreeManager.pushBranch).toHaveBeenCalledOnce();
+    expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
     expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
     expect(result.prUrl).toBeNull();
   });
@@ -366,6 +366,93 @@ describe("runCliAdapterSession", () => {
 
     await runCliAdapterSession(adapter, makeSessionConfig({ createPr: false }), undefined, deps);
     expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
+  });
+
+  // SessionResult.worktreePath (amendment 2026-09-29): present iff kept.
+  it("reports worktreePath on a successful session only when createPr is false", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const kept = await runCliAdapterSession(
+      adapter,
+      makeSessionConfig({ createPr: false }),
+      undefined,
+      deps
+    );
+    expect(kept.status).toBe("succeeded");
+    expect(kept.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
+
+    const removed = await runCliAdapterSession(
+      adapter,
+      makeSessionConfig({ createPr: true }),
+      undefined,
+      deps
+    );
+    expect(removed.status).toBe("succeeded");
+    expect("worktreePath" in removed).toBe(false);
+  });
+
+  // runCliAdapterSession(...) result contract (amendment 2026-09-29): a throw
+  // after WorktreePhase becomes a failed result that keeps the adapter's usage.
+  describe("outer catch", () => {
+    it.each([
+      // Review M1: a throw keeps the worktree on the createPr: true path too —
+      // no commit exists yet, so removal would destroy the agent's only copy.
+      { createPr: false },
+      { createPr: true },
+    ])(
+      "a post-dispatch commit rejection resolves as failed with the adapter's usage and keeps the worktree (createPr: $createPr)",
+      async ({ createPr }) => {
+        const adapter = makeCliAdapter("claude-cli", {
+          success: true,
+          costUsd: 0.6,
+          numTurns: 15,
+        });
+        vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+        vi.mocked(deps.worktreeManager.commitChanges).mockRejectedValue(
+          new Error("git commit -m feat: Fix the login bug failed: hook exited 1")
+        );
+
+        const result = await runCliAdapterSession(
+          adapter,
+          makeSessionConfig({ createPr }),
+          undefined,
+          deps
+        );
+
+        expect(result.status).toBe("failed");
+        expect(result.numTurns).toBe(15);
+        expect(result.costUsd).toBe(0.6);
+        expect(result.errors).toContain(
+          "git commit -m feat: Fix the login bug failed: hook exited 1"
+        );
+        expect(result.failureCategory).toBeDefined();
+        expect(recordSpend).toHaveBeenCalledTimes(1);
+        expect(recordSpend).toHaveBeenCalledWith(
+          "/repo",
+          expect.objectContaining({ costUsd: 0.6, numTurns: 15, status: "failed" })
+        );
+        expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
+        expect(result.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
+      }
+    );
+
+    it("still removes the worktree after a successful createPr: true session", async () => {
+      const adapter = makeCliAdapter("claude-cli", { success: true, costUsd: 0.6, numTurns: 15 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ createPr: true }),
+        undefined,
+        deps
+      );
+
+      expect(result.status).toBe("succeeded");
+      expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledOnce();
+      expect("worktreePath" in result).toBe(false);
+      expect(recordSpend).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("reports durationMs from the adapter's own reported duration", async () => {

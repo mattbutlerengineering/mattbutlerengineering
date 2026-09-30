@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { taskDidNotRun, suiteDidNotRun } from "../run-detection.js";
-import type { EvalReport, TaskScore } from "../types.js";
+import { runEvalSuite } from "../eval-harness.js";
+import type { EvalReport, Task, TaskScore } from "../types.js";
+import type { SessionResult } from "../../types.js";
 
 function score(overrides: Partial<TaskScore> = {}): TaskScore {
   return {
@@ -68,5 +70,58 @@ describe("suiteDidNotRun", () => {
 
   it("is false when the report has no tasks", () => {
     expect(suiteDidNotRun(report([]))).toBe(false);
+  });
+});
+
+// Errored-with-usage (amendment 2026-09-29): a session that ran and then failed
+// a post-dispatch step is a scored task, never a non-run, and not "stuck".
+describe("errored-with-usage", () => {
+  const sessionErrors = ["git commit -m … failed"];
+
+  it("is not a non-run, and a suite containing it did run", () => {
+    const errored = score({ turns: 15, costUsd: 0.6, sessionErrors });
+    expect(taskDidNotRun(errored)).toBe(false);
+    expect(suiteDidNotRun(report([errored, score({ taskId: "t2" })]))).toBe(false);
+  });
+
+  it("is not counted in stuckCount (only a thrown task's `error` is)", async () => {
+    const task: Task = {
+      id: "t1",
+      category: "bugfix",
+      prompt: "fix it",
+      fixtureRef: "fixtures/t1",
+      rubric: {
+        testsMustPass: true,
+        typecheckMustPass: true,
+        lintMustPass: false,
+        judgeCriteria: [],
+      },
+      budget: { maxTurns: 20, maxCostUsd: 1 },
+    };
+    const session: SessionResult = {
+      sessionId: "",
+      status: "failed",
+      branchName: "agent/t1",
+      prUrl: null,
+      costUsd: 0.6,
+      tokenUsage: { inputTokens: 0, outputTokens: 0 },
+      durationMs: 1,
+      numTurns: 15,
+      resultText: "",
+      errors: sessionErrors,
+    };
+    const result = await runEvalSuite([task], {
+      runId: "r1",
+      runTask: async (t) => ({
+        task: t,
+        session,
+        checks: { testsPass: false, typecheckPass: false, lintPass: true, withinBudget: true },
+      }),
+    });
+    expect(result.tasks[0]!.sessionErrors).toEqual(sessionErrors);
+    expect(result.tasks[0]!.error).toBeUndefined();
+    expect(result.aggregate.stuckCount).toBe(0);
+    expect(result.nonRunCount).toBe(0);
+    expect(suiteDidNotRun(result)).toBe(false);
   });
 });

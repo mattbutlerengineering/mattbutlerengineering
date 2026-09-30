@@ -269,6 +269,51 @@ describe("buildFinalResult", () => {
     expect(result.stuckPattern).toBe("context_window_loop");
     expect(result.failureCategory).toBe("stuck_loop");
   });
+
+  // SessionResult.worktreePath (amendment 2026-09-29): present iff the
+  // worktree was kept (createPr: false), on both branches.
+  describe("worktreePath", () => {
+    const worktree = {
+      path: "/repo/.agent-worktrees/agent-fix-login",
+      branchName: "agent/fix-login",
+      mode: "full" as const,
+    };
+    const noPr = { ...BASE_CONFIG, createPr: false };
+
+    it("is the kept worktree's path with a result message and createPr: false", () => {
+      const state = baseState({ worktree, resultMessage: successResultMessage() });
+      const result = buildFinalResult(noPr, state, fakeSpan(), undefined);
+      expect(result.worktreePath).toBe(worktree.path);
+    });
+
+    it("is the kept worktree's path with no result message and createPr: false", () => {
+      const state = baseState({ worktree, errors: ["boom"] });
+      const result = buildFinalResult(noPr, state, fakeSpan(), undefined);
+      expect(result.worktreePath).toBe(worktree.path);
+    });
+
+    it("is absent on both branches with createPr: true", () => {
+      const withMsg = buildFinalResult(
+        BASE_CONFIG,
+        baseState({ worktree, resultMessage: successResultMessage() }),
+        fakeSpan(),
+        undefined
+      );
+      const withoutMsg = buildFinalResult(
+        BASE_CONFIG,
+        baseState({ worktree, errors: ["boom"] }),
+        fakeSpan(),
+        undefined
+      );
+      expect("worktreePath" in withMsg).toBe(false);
+      expect("worktreePath" in withoutMsg).toBe(false);
+    });
+
+    it("is absent when no worktree was created", () => {
+      const result = buildFinalResult(noPr, baseState({ errors: ["boom"] }), fakeSpan(), undefined);
+      expect("worktreePath" in result).toBe(false);
+    });
+  });
 });
 
 describe("buildRootSpanAttributes", () => {

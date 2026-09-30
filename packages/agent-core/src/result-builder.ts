@@ -97,6 +97,9 @@ export function buildFinalResult(
 
   const collectedTurnMetrics = turnMetrics ?? [];
   const collectedToolCallMetrics = toolCallMetrics ?? [];
+  // Present iff the worktree is kept (createPr: false) — see SessionResult.worktreePath.
+  const keptWorktree =
+    !config.createPr && outcome.worktree ? { worktreePath: outcome.worktree.path } : {};
 
   if (resultMessage) {
     const sessionResult = buildSessionResult(
@@ -122,6 +125,7 @@ export function buildFinalResult(
         : {}),
       ...(evalSummary ? { evaluation: evalSummary } : {}),
       ...(failureCategory ? { failureCategory } : {}),
+      ...keptWorktree,
       turnMetrics: collectedTurnMetrics,
       toolCallMetrics: collectedToolCallMetrics,
     };
@@ -202,6 +206,7 @@ export function buildFinalResult(
     stuckPattern: stuckReason?.type,
     evaluation: evalSummary,
     ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+    ...keptWorktree,
     turnMetrics: collectedTurnMetrics,
     toolCallMetrics: collectedToolCallMetrics,
   };

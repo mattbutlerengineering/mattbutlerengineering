@@ -689,110 +689,124 @@
     
       let aborted = worktree ? checkAborted(signal, errors) : true;
     
-      if (worktree && !aborted) {
-        adapterResult = await cliAdapter.dispatch({
-          taskDescription: config.taskDescription,
-          worktreePath: worktree.path,
-          repoPath: config.repoPath,
-          baseBranch: config.baseBranch,
-          model: config.model,
-          maxTurns: config.maxTurns,
-          timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
-        });
-        if (adapterResult.error) errors.push(adapterResult.error);
-    
-        resultSummary = {
-          success: adapterResult.success,
-          sessionId: cliAdapter.name,
-          costUsd: adapterResult.costUsd ?? 0,
-          // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
-          // for how each adapter derives it); 0 only when genuinely absent. 0 is
-          // deliberate here, not a fabricated guess: paired with $0 cost it is
-          // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
-          // detect a run that never happened, which is the correct classification
-          // for "the CLI produced no usable signal at all".
-          numTurns: adapterResult.numTurns ?? 0,
-        };
-    
-        const breach = shouldHaltForBudget(
-          buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
-          config.maxBudgetUsd
-        );
-        if (breach.exceeded) {
-          emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
-          if (config.enforceBudget) {
-            errors.push(
-              `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
-            );
-            budgetEnforced = true;
-          }
-        }
-    
-        aborted = checkAborted(signal, errors);
-      }
-    
+      let threw = false;
       let hasChanges = false;
       let gatewayVerdict: GatewayVerdict | undefined;
     
-      if (worktree && !aborted && !budgetEnforced) {
-        const verifyExec = await verificationPhase.run(
-          { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
-          deps
-        );
-        errors.push(...verifyExec.result.errors);
-        hasChanges = verifyExec.output?.hasChanges ?? false;
-        gatewayVerdict = verifyExec.output?.gatewayVerdict;
+      // A throw anywhere after WorktreePhase (dispatch, verification, publish,
+      // feedback) lands in errors[] and falls through to the retention →
+      // recordSpend → return tail below, so a session that ran keeps the
+      // adapter's parsed usage. Mirrors session-runner.ts's outer catch.
+      try {
+        if (worktree && !aborted) {
+          adapterResult = await cliAdapter.dispatch({
+            taskDescription: config.taskDescription,
+            worktreePath: worktree.path,
+            repoPath: config.repoPath,
+            baseBranch: config.baseBranch,
+            model: config.model,
+            maxTurns: config.maxTurns,
+            timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+          });
+          if (adapterResult.error) errors.push(adapterResult.error);
     
-        // A failed CLI dispatch that still wrote changes must always publish via
-        // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
-        // skips the gateway entirely on failure (isSuccess false), leaving
-        // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
-        // branch otherwise treats identically to "gates passed, ship a normal
-        // PR" (resultSummary is always a truthy object, even on failure).
-        // Forcing "create-draft-pr" here routes PublishPhase into its
-        // unconditional buildFailurePrBody branch. Mirrors the deleted
-        // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
-        // failure branch.
-        if (adapterResult?.success === false) {
-          gatewayVerdict = {
-            outcome: "create-draft-pr",
-            passed: false,
-            gateFailures: ["cli-dispatch"],
-            errors: [],
+          resultSummary = {
+            success: adapterResult.success,
+            sessionId: cliAdapter.name,
+            costUsd: adapterResult.costUsd ?? 0,
+            // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+            // for how each adapter derives it); 0 only when genuinely absent. 0 is
+            // deliberate here, not a fabricated guess: paired with $0 cost it is
+            // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+            // detect a run that never happened, which is the correct classification
+            // for "the CLI produced no usable signal at all".
+            numTurns: adapterResult.numTurns ?? 0,
           };
+    
+          const breach = shouldHaltForBudget(
+            buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
+            config.maxBudgetUsd
+          );
+          if (breach.exceeded) {
+            emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
+            if (config.enforceBudget) {
+              errors.push(
+                `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
+              );
+              budgetEnforced = true;
+            }
+          }
+    
+          aborted = checkAborted(signal, errors);
         }
     
-        aborted = checkAborted(signal, errors);
-      }
-    
-      if (worktree && !aborted && !budgetEnforced) {
-        const publishExec = await publishPhase.run(
-          {
-            config,
-            onEvent,
-            worktree,
-            hasChanges,
-            resultMessage: resultSummary,
-            stuckReason: undefined,
-            gatewayVerdict,
-            errors,
-          },
-          deps
-        );
-        prUrl = publishExec.output?.prUrl ?? null;
-        const prNumber = publishExec.output?.prNumber;
-    
-        aborted = checkAborted(signal, errors);
-    
-        if (!aborted) {
-          await feedbackPhase.run(
-            { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+        if (worktree && !aborted && !budgetEnforced) {
+          const verifyExec = await verificationPhase.run(
+            { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
             deps
           );
+          errors.push(...verifyExec.result.errors);
+          hasChanges = verifyExec.output?.hasChanges ?? false;
+          gatewayVerdict = verifyExec.output?.gatewayVerdict;
+    
+          // A failed CLI dispatch that still wrote changes must always publish via
+          // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
+          // skips the gateway entirely on failure (isSuccess false), leaving
+          // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
+          // branch otherwise treats identically to "gates passed, ship a normal
+          // PR" (resultSummary is always a truthy object, even on failure).
+          // Forcing "create-draft-pr" here routes PublishPhase into its
+          // unconditional buildFailurePrBody branch. Mirrors the deleted
+          // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
+          // failure branch.
+          if (adapterResult?.success === false) {
+            gatewayVerdict = {
+              outcome: "create-draft-pr",
+              passed: false,
+              gateFailures: ["cli-dispatch"],
+              errors: [],
+            };
+          }
+    
+          aborted = checkAborted(signal, errors);
         }
+    
+        if (worktree && !aborted && !budgetEnforced) {
+          const publishExec = await publishPhase.run(
+            {
+              config,
+              onEvent,
+              worktree,
+              hasChanges,
+              resultMessage: resultSummary,
+              stuckReason: undefined,
+              gatewayVerdict,
+              errors,
+            },
+            deps
+          );
+          prUrl = publishExec.output?.prUrl ?? null;
+          const prNumber = publishExec.output?.prNumber;
+    
+          aborted = checkAborted(signal, errors);
+    
+          if (!aborted) {
+            await feedbackPhase.run(
+              { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+              deps
+            );
+          }
+        }
+      } catch (error) {
+        threw = true;
+        errors.push(error instanceof Error ? error.message : String(error));
       }
     
-      if (worktree && config.createPr) {
+      // A throw keeps the worktree even when publishing (Review M1): the failure
+      // may predate any commit, so `git worktree remove --force` would destroy
+      // the agent's only copy of its edits.
+      const keepsWorktree = !config.createPr || threw;
+      if (worktree && !keepsWorktree) {
         await deps.worktreeManager.removeWorktree(config.repoPath, worktree.path);
       }
     
@@ -801,7 +815,7 @@
       // thrown "Session aborted" always lands in the outer catch's failure
       // result, even after a fully successful query/verification/publish.
       const status: SessionStatus =
-        aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
+        threw || aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
       emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
     
       const failureCategory: FailureCategory | undefined =
@@ -849,6 +863,8 @@
         resultText: "",
         errors,
         ...(failureCategory ? { failureCategory } : {}),
+        // Present iff the worktree is kept — see SessionResult.worktreePath.
+        ...(keepsWorktree && worktree ? { worktreePath: worktree.path } : {}),
       };
     }
     function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean {
@@ -930,6 +946,31 @@
         totalWithSelfEval: withSelfEval,
         totalWithoutSelfEval: withoutSelfEval,
       };
+    }
+  </file>
+  <file path="src/eval/cost-basis.ts">
+    export type CostBasis = "billed" | "api-equivalent" | "none";
+    export function costBasisForAdapter(adapterType: AdapterType): CostBasis {
+      switch (adapterType) {
+        case "claude":
+        case "opencode":
+        case "auto":
+          return "billed";
+        case "claude-cli":
+          return "api-equivalent";
+        case "gemini":
+          return "none";
+      }
+    }
+    export function isWithinBudget(
+      usage: { readonly costUsd: number; readonly numTurns: number },
+      budget: TaskBudget,
+      costBasis: CostBasis
+    ): boolean {
+      return (
+        usage.numTurns <= budget.maxTurns &&
+        (costBasis !== "billed" || usage.costUsd <= budget.maxCostUsd)
+      );
     }
   </file>
   <file path="src/eval/cost-regression.ts">
@@ -1130,6 +1171,7 @@
         selfEvaluation: session.evaluation,
         costUsd: session.costUsd,
         turns: session.numTurns,
+        ...(session.errors?.length ? { sessionErrors: session.errors } : {}),
       };
     }
   </file>
@@ -1200,6 +1242,12 @@
       readonly turns: number;
       /** Set when the task crashed mid-run rather than completing. */
       readonly error?: string;
+      /**
+       * The `SessionResult.errors` of a task that ran (e.g. a post-dispatch commit
+       * that failed); omitted when empty. Unlike `error`, never read by
+       * `taskDidNotRun`, `suiteDidNotRun` or `stuckCount`.
+       */
+      readonly sessionErrors?: readonly string[];
     }
     export interface EvalAggregate {
       readonly total: number;
@@ -1467,7 +1515,11 @@
         taskDescription: string
       ): Promise<WorktreeInfo>;
       hasChanges(worktreePath: string): Promise<boolean>;
-      commitChanges(worktreePath: string, message: string): Promise<string>;
+      commitChanges(
+        worktreePath: string,
+        message: string,
+        options?: { readonly noVerify?: boolean }
+      ): Promise<string>;
       pushBranch(worktreePath: string, branchName: string): Promise<void>;
       commitAndPush(worktreePath: string, message: string): Promise<void>;
       resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity>;
@@ -1873,12 +1925,20 @@
         const isSuccess = resultMessage?.success === true && !stuckReason;
         const prefix = isSuccess ? "feat" : "wip";
         const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-        await worktreeManager.commitChanges(worktree.path, commitMsg);
+        // A non-publishing session (createPr: false) commits without the parent
+        // repo's hooks — a fresh worktree cannot run them — and never pushes: the
+        // hooks and the push exist to guard what reaches origin, and it publishes
+        // nothing. createPr: true is unchanged.
+        await worktreeManager.commitChanges(worktree.path, commitMsg, {
+          noVerify: !config.createPr,
+        });
     
         // Push with retry for transient network failures
-        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
-          maxRetries: 3,
-        });
+        if (config.createPr) {
+          await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+            maxRetries: 3,
+          });
+        }
     
         // Run post-commit gateway (verification + quality gates) only on success.
         // The diff is fetched once and passed straight through as an immutable
@@ -7015,6 +7075,9 @@
     
       const collectedTurnMetrics = turnMetrics ?? [];
       const collectedToolCallMetrics = toolCallMetrics ?? [];
+      // Present iff the worktree is kept (createPr: false) — see SessionResult.worktreePath.
+      const keptWorktree =
+        !config.createPr && outcome.worktree ? { worktreePath: outcome.worktree.path } : {};
     
       if (resultMessage) {
         const sessionResult = buildSessionResult(
@@ -7040,6 +7103,7 @@
             : {}),
           ...(evalSummary ? { evaluation: evalSummary } : {}),
           ...(failureCategory ? { failureCategory } : {}),
+          ...keptWorktree,
           turnMetrics: collectedTurnMetrics,
           toolCallMetrics: collectedToolCallMetrics,
         };
@@ -7120,6 +7184,7 @@
         stuckPattern: stuckReason?.type,
         evaluation: evalSummary,
         ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+        ...keptWorktree,
         turnMetrics: collectedTurnMetrics,
         toolCallMetrics: collectedToolCallMetrics,
       };
@@ -8123,6 +8188,7 @@
                 );
     
                 rootSpan.setAttribute("session.status", "failed");
+                const keptWorktree = pipelineWorktree(run);
                 pendingResult = {
                   sessionId: "",
                   status: "failed",
@@ -8135,6 +8201,10 @@
                   resultText: "",
                   errors: [errorMessage],
                   stuckPattern: pipelineStuckReason(run)?.type,
+                  // Present iff the worktree is kept — see SessionResult.worktreePath.
+                  ...(!effectiveConfig.createPr && keptWorktree
+                    ? { worktreePath: keptWorktree.path }
+                    : {}),
                 };
               } finally {
                 // Clean up worktree when PR was created (branch is pushed).
@@ -9646,6 +9716,14 @@
       readonly errors: readonly string[];
       /** Non-fatal errors from post-session cleanup (e.g. worktree removal failures). */
       readonly cleanupErrors?: readonly string[];
+      /**
+       * Path of the session's worktree — present iff it was kept (the worktree
+       * was created and either `createPr: false`, or a CLI adapter session threw
+       * after it was created), absent once removed. Consumers
+       * treat absence as "nothing to inspect" and never derive a path from
+       * `branchName`.
+       */
+      readonly worktreePath?: string;
       readonly stuckPattern?: string;
       readonly failureCategory?: FailureCategory;
       readonly turnMetrics?: readonly TurnMetrics[];
@@ -9851,7 +9929,11 @@
       await git(["worktree", "prune"], repoPath);
       await rm(worktreesDir, { recursive: true, force: true });
     }
-    export async function commitChanges(worktreePath: string, message: string): Promise<string> {
+    export async function commitChanges(
+      worktreePath: string,
+      message: string,
+      options: { readonly noVerify?: boolean } = {}
+    ): Promise<string> {
       validatePath(worktreePath, "worktreePath");
     
       await git(["add", "-A"], worktreePath);
@@ -9861,7 +9943,10 @@
         return "";
       }
     
-      await git(["commit", "-m", message], worktreePath);
+      const commitArgs = options.noVerify
+        ? ["commit", "--no-verify", "-m", message]
+        : ["commit", "-m", message];
+      await git(commitArgs, worktreePath);
       const sha = await git(["rev-parse", "HEAD"], worktreePath);
       return sha;
     }

@@ -1471,10 +1471,10 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
+      function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void { /* ... */ }
     </item>
     <item priority="medium">
-      function noRunMessage(adapterType: AdapterType): string { /* ... */ }
+      function noRunMessage(adapterType: AdapterType, report: EvalReport): string { /* ... */ }
     </item>
     <item priority="medium">
       function findLogFile(): string { /* ... */ }
@@ -1483,28 +1483,49 @@
       function loadCostBaseline(logFile: string, adapterType: AdapterType): number | null { /* ... */ }
     </item>
     <item priority="medium">
-      function persistReport(report: EvalReport, adapterType: AdapterType): void { /* ... */ }
+      function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void { /* ... */ }
     </item>
     <item priority="medium">
       function makeAgentTaskRunner(
         repoPath: string,
         model: string,
-        adapterType: AdapterType
+        adapterType: AdapterType,
+        costBasis: CostBasis
       ): TaskRunner { /* ... */ }
     </item>
+    <item priority="high">
+      type FixtureScript = "test" | "typecheck" | "lint";
+    </item>
     <item priority="low">
-      async function verify(
-        repoPath: string,
-        branch: string,
-        fixtureRef: string,
-        script: "test" | "typecheck" | "lint"
+      async function verifyInWorktree(
+        task: Task,
+        session: SessionResult
+      ): Promise<Omit<DeterministicChecks, "withinBudget">> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runStep(
+        taskId: string,
+        step: string,
+        worktreePath: string,
+        args: readonly string[],
+        timeout: number
       ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outputTail(err: unknown): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function releaseWorktree(
+        repoPath: string,
+        taskId: string,
+        session: SessionResult
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
       function printCalibration(summary: CalibrationSummary): void { /* ... */ }
     </item>
     <item priority="medium">
-      function printReport(report: EvalReport): void { /* ... */ }
+      function printReport(report: EvalReport, costBasis: CostBasis): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2612,6 +2633,21 @@
     </item>
     <item priority="high">
       export function calibrate(report: EvalReport): CalibrationSummary { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/cost-basis.ts">
+    <item priority="low">
+      type CostBasis = "billed" | "api-equivalent" | "none";
+    </item>
+    <item priority="high">
+      export function costBasisForAdapter(adapterType: AdapterType): CostBasis { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isWithinBudget(
+        usage: { readonly costUsd: number; readonly numTurns: number },
+        budget: TaskBudget,
+        costBasis: CostBasis
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/cost-regression.ts">
@@ -11688,7 +11724,11 @@
       export async function cleanupWorktrees(repoPath: string): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export async function commitChanges(worktreePath: string, message: string): Promise<string> { /* ... */ }
+      export async function commitChanges(
+        worktreePath: string,
+        message: string,
+        options: { readonly noVerify?: boolean } = {}
+      ): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
       export async function pushBranch(worktreePath: string, branchName: string): Promise<void> { /* ... */ }

@@ -314,6 +314,45 @@ describe("commitChanges", () => {
     const sha = await commitChanges("/worktree", "feat: nothing");
     expect(sha).toBe("");
   });
+
+  // Non-publishing session rule (amendment 2026-09-29): a `createPr: false`
+  // session commits with git's own --no-verify; every other caller keeps the
+  // hooked form byte-for-byte.
+  function commitArgs(): string[] | undefined {
+    const call = vi
+      .mocked(execFile)
+      .mock.calls.find((c) => c[0] === "git" && (c[1] as string[])[0] === "commit");
+    return call?.[1] as string[] | undefined;
+  }
+
+  it("adds --no-verify to the commit when asked", async () => {
+    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+
+    await commitChanges("/worktree", "feat: msg", { noVerify: true });
+    expect(commitArgs()).toEqual(["commit", "--no-verify", "-m", "feat: msg"]);
+  });
+
+  it("issues today's hooked commit with no options", async () => {
+    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+
+    await commitChanges("/worktree", "feat: msg");
+    expect(commitArgs()).toEqual(["commit", "-m", "feat: msg"]);
+  });
+
+  it("issues today's hooked commit with noVerify: false", async () => {
+    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+
+    await commitChanges("/worktree", "feat: msg", { noVerify: false });
+    expect(commitArgs()).toEqual(["commit", "-m", "feat: msg"]);
+  });
+
+  it("returns empty string without committing when nothing is staged, even with noVerify", async () => {
+    setupExecFileMock(["", ""]);
+
+    const sha = await commitChanges("/worktree", "feat: nothing", { noVerify: true });
+    expect(sha).toBe("");
+    expect(commitArgs()).toBeUndefined();
+  });
 });
 
 // ── commitAndPush ─────────────────────────────────────────────────────────────
@@ -337,6 +376,17 @@ describe("commitAndPush", () => {
     const pushCall = gitCalls.find((call) => (call[1] as string[]).includes("push"));
     expect(pushCall).toBeDefined();
     expect(pushCall![1]).toContain("agent/fix-bug-abc123");
+  });
+
+  it("commits with the hooked form (no --no-verify)", async () => {
+    setupExecFileMock(["", "M src/index.ts", "", "abc123", "agent/fix-bug-abc123", ""]);
+
+    await commitAndPush("/worktree", "fix: address feedback");
+
+    const commitCall = vi
+      .mocked(execFile)
+      .mock.calls.find((c) => c[0] === "git" && (c[1] as string[])[0] === "commit");
+    expect(commitCall![1]).toEqual(["commit", "-m", "fix: address feedback"]);
   });
 
   it("does not push when there is nothing to commit", async () => {

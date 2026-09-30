@@ -172,7 +172,17 @@ export async function cleanupWorktrees(repoPath: string): Promise<void> {
   await rm(worktreesDir, { recursive: true, force: true });
 }
 
-export async function commitChanges(worktreePath: string, message: string): Promise<string> {
+/**
+ * Stage everything and commit. `noVerify` adds git's own `--no-verify` —
+ * reserved for non-publishing (`createPr: false`) sessions, whose fresh
+ * worktree cannot run the parent repo's commit hooks; every publishing
+ * caller passes no options and keeps the hooked form.
+ */
+export async function commitChanges(
+  worktreePath: string,
+  message: string,
+  options: { readonly noVerify?: boolean } = {}
+): Promise<string> {
   validatePath(worktreePath, "worktreePath");
 
   await git(["add", "-A"], worktreePath);
@@ -182,7 +192,10 @@ export async function commitChanges(worktreePath: string, message: string): Prom
     return "";
   }
 
-  await git(["commit", "-m", message], worktreePath);
+  const commitArgs = options.noVerify
+    ? ["commit", "--no-verify", "-m", message]
+    : ["commit", "-m", message];
+  await git(commitArgs, worktreePath);
   const sha = await git(["rev-parse", "HEAD"], worktreePath);
   return sha;
 }

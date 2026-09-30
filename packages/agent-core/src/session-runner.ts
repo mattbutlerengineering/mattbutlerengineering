@@ -114,6 +114,7 @@ export async function runSession(
             );
 
             rootSpan.setAttribute("session.status", "failed");
+            const keptWorktree = pipelineWorktree(run);
             pendingResult = {
               sessionId: "",
               status: "failed",
@@ -126,6 +127,10 @@ export async function runSession(
               resultText: "",
               errors: [errorMessage],
               stuckPattern: pipelineStuckReason(run)?.type,
+              // Present iff the worktree is kept — see SessionResult.worktreePath.
+              ...(!effectiveConfig.createPr && keptWorktree
+                ? { worktreePath: keptWorktree.path }
+                : {}),
             };
           } finally {
             // Clean up worktree when PR was created (branch is pushed).

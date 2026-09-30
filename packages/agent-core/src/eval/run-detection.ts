@@ -6,6 +6,10 @@ import type { EvalReport, TaskScore } from "./types.js";
  * `ANTHROPIC_API_KEY`), but also when a session crashes before its first
  * result message and cost/turns are never recorded. A genuine completed run,
  * even one that scores 0%, always burns at least one turn or some cost.
+ *
+ * A session that ran and then failed a post-dispatch step (e.g. `{ turns: 15,
+ * costUsd: 0.6 }` beside `sessionErrors: ["git commit … failed"]`) is a
+ * scored task, never a non-run: its usage survives, so this stays false.
  */
 export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
   return score.turns === 0 && score.costUsd === 0;
