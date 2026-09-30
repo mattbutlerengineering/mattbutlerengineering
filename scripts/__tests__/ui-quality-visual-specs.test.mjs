@@ -155,3 +155,24 @@ describe("marketing visual spec — frozen data, never automation-rewritten JSON
     }
   });
 });
+
+// ui-quality-loop review M2: marketing `/` baselined empty "Projects" and
+// "Elsewhere" — scroll-reveal sections stay at opacity 0 until scrolled into
+// view, and a fullPage screenshot never scrolls. The row reveals them first.
+describe("marketing visual spec — scroll-revealed sections are rendered, never hidden (review M2)", () => {
+  const spec = read("apps/marketing/e2e/visual.spec.ts");
+
+  it("reveals scroll-triggered content with the shared capture helper before the screenshot", () => {
+    expect(spec).toMatch(
+      /import \{[^}]*\brevealLazyContent\b[^}]*\} from "@mbe\/test-fixtures\/ui-quality-capture"/
+    );
+    const reveal = spec.indexOf("await revealLazyContent(page)");
+    expect(reveal).toBeGreaterThan(-1);
+    expect(reveal).toBeLessThan(spec.indexOf("toHaveScreenshot("));
+  });
+
+  it("does not mask or hide the sections to get a stable shot", () => {
+    expect(spec).not.toMatch(/\bmask\s*:/);
+    expect(spec).not.toMatch(/data-reveal[^\n]*(display|visibility|opacity)/);
+  });
+});

@@ -105,6 +105,49 @@ const PROBE_SCRIPT = `(() => {
   return { hrefs, text_chars, painted_ratio: painted / 100 };
 })()`;
 
+/**
+ * Runs in the page: scrolls it through, top to bottom in steps of 80 % of the
+ * viewport, one double-rAF per step so IntersectionObservers fire, then back
+ * to the top. Content that reveals on scroll (rialto's `useScrollReveal`, which
+ * stays at opacity 0 until it is 80 px inside the viewport) is otherwise never
+ * shown to a `fullPage` screenshot, which does not scroll (review M2).
+ */
+export const REVEAL_SCRIPT = `(async () => {
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const step = Math.max(1, Math.floor(window.innerHeight * 0.8));
+  for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
+    window.scrollTo(0, y);
+    await frame();
+  }
+  window.scrollTo(0, document.documentElement.scrollHeight);
+  await frame();
+  window.scrollTo(0, 0);
+  await frame();
+})()`;
+
+/** Runs in the page: true once no element carries a mid-reveal inline opacity. */
+const SETTLED_SCRIPT = `Array.from(document.querySelectorAll("[style*=opacity]")).every(
+  (el) => el.style.opacity === "" || Number(el.style.opacity) >= 1
+)`;
+
+const REVEAL_SETTLE_MS = 3_000;
+const REVEAL_POLL_MS = 100;
+
+/**
+ * Scroll-triggered content, revealed and settled before a screenshot. Waits at
+ * most {@link REVEAL_SETTLE_MS} for inline opacities to reach 1, then returns
+ * either way — a page that keeps a translucent element by design is captured
+ * as it is, not failed.
+ */
+export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> {
+  await page.evaluate(REVEAL_SCRIPT);
+  const deadline = Date.now() + REVEAL_SETTLE_MS;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(SETTLED_SCRIPT)) return;
+    await new Promise((r) => setTimeout(r, REVEAL_POLL_MS));
+  }
+}
+
 interface Probe {
   hrefs: string[];
   text_chars: number;
@@ -312,6 +355,8 @@ export async function capturePage(
     const probe = (await page.evaluate(PROBE_SCRIPT)) as Probe;
     row.links = sameOriginLinks(probe.hrefs, opts.baseUrl);
     row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
+    // A failed reveal is not a failed route: the shots are still taken, as before.
+    await revealLazyContent(page).catch(() => {});
     row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
     row.screenshots = await screenshotAll(page, route, opts);
     const fold = await screenshotFold(page, route, opts);

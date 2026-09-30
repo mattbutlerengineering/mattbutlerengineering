@@ -19,12 +19,16 @@
  * copies in `e2e/fixtures/visual/`, and any other same-origin `.json` fetch
  * fails the row like an unmocked `/api/` call (review M3).
  *
+ * Sections that reveal on scroll are scrolled through and settled before the
+ * shot — rendered, never masked (review M2).
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
  */
 import { readFileSync } from "node:fs";
 import { test as base, expect } from "@playwright/test";
+import { revealLazyContent } from "@mbe/test-fixtures/ui-quality-capture";
 
 const APP = "marketing";
 
@@ -124,6 +128,9 @@ for (const { route } of pages) {
       await page.clock.setFixedTime(FIXED_NOW);
       await page.goto(path ?? "/");
       await page.waitForLoadState("networkidle");
+      // `/`'s Projects and Elsewhere reveal on scroll, and a fullPage shot never
+      // scrolls: without this they baseline empty (review M2).
+      await revealLazyContent(page);
       expect(unmockedApi, `${route} reached API requests no mock answered`).toEqual([]);
       await expect(page).toHaveScreenshot(`${slug(route)}@${width}x${height}.png`, {
         fullPage: true,

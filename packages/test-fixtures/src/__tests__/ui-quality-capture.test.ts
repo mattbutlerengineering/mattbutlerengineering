@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendManifestRow,
   capturePage,
+  REVEAL_SCRIPT,
   loadCapturePlan,
   resetManifest,
   sameOriginLinks,
@@ -26,6 +27,7 @@ function fakePage(
   script: {
     gotoError?: Error;
     foldError?: Error;
+    revealError?: Error;
     events?: Array<[string, unknown]>;
     probe?: { hrefs: string[]; text_chars: number; painted_ratio: number };
   } = {}
@@ -57,7 +59,12 @@ function fakePage(
       return null;
     },
     async waitForLoadState() {},
-    async evaluate() {
+    async evaluate(fn: unknown) {
+      if (fn === REVEAL_SCRIPT) {
+        calls.push("reveal");
+        if (script.revealError) throw script.revealError;
+        return undefined;
+      }
       return script.probe ?? { hrefs: [], text_chars: 0, painted_ratio: 0 };
     },
     async screenshot(opts: { path: string; fullPage?: boolean }) {
@@ -221,6 +228,30 @@ describe("capturePage fold", () => {
     const row = await capturePage(page, "/", { ...opts(outDir), path: "/" });
     expect(row.fold).toBeUndefined();
     expect(row.error).toBe("net::ERR_CONNECTION_REFUSED");
+  });
+});
+
+// ui-quality-loop review M2: sections that reveal on scroll (rialto's
+// useScrollReveal) stay at opacity 0 below the fold, and a fullPage screenshot
+// never scrolls — so the judge and the VR floor both saw empty sections.
+describe("capturePage reveals scroll-triggered content", () => {
+  it("scrolls the page through once before the first screenshot", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-reveal-"));
+    const { page, calls } = fakePage();
+    const row = await capturePage(page, "/", opts(outDir));
+    expect(row.error).toBeUndefined();
+    const reveal = calls.indexOf("reveal");
+    const firstShot = calls.findIndex((c) => c.startsWith("screenshot:"));
+    expect(reveal).toBeGreaterThan(-1);
+    expect(reveal).toBeLessThan(firstShot);
+  });
+
+  it("a reveal failure is not a row failure — the row still gets its screenshots", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-reveal-"));
+    const { page, calls } = fakePage({ revealError: new Error("scroll failed") });
+    const row = await capturePage(page, "/", opts(outDir));
+    expect(row.error).toBeUndefined();
+    expect(calls.filter((c) => c.startsWith("screenshot:")).length).toBeGreaterThan(0);
   });
 });
 
