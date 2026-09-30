@@ -33,7 +33,14 @@
  *     `$GITHUB_OUTPUT` — the workflow's one source of per-app paths.
  */
 
-import { readFileSync, readdirSync, writeFileSync, appendFileSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -134,12 +141,9 @@ export function legConfig(app, leg) {
  * @returns {{ dir: string, baselines: "committed" | "none" }}
  */
 export function resolveCommitted(committedDir, replicaADir) {
-  let pngs = [];
-  try {
-    pngs = readdirSync(committedDir).filter((e) => e.toLowerCase().endsWith(".png"));
-  } catch {
-    // Absent directory: no baselines yet.
-  }
+  const pngs = existsSync(committedDir)
+    ? readdirSync(committedDir).filter((e) => e.toLowerCase().endsWith(".png"))
+    : [];
   return pngs.length > 0
     ? { dir: committedDir, baselines: "committed" }
     : { dir: replicaADir, baselines: "none" };
