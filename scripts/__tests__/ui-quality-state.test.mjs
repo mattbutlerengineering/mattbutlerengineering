@@ -228,6 +228,41 @@ describe("state.mjs checkout — remote state branch exists", () => {
   });
 });
 
+// Re-review N4: the ledger branch is fetched by explicit refspec, and "the
+// remote has no such branch" is told apart from "the fetch failed".
+describe("state.mjs — ledger branch fetch", () => {
+  const isLedgerFetch = (args) =>
+    args[0] === "fetch" && args.some((a) => a.includes(`refs/heads/${STATE_BRANCH}`));
+
+  it("a failed ledger-branch fetch (not a missing branch) exits 2 — never a silent fall back to main", () => {
+    const fixture = createStateRemote();
+    pushStateBranch(fixture, (d) => auditRows(d, 1));
+    const tip = remoteSha(fixture.remote, STATE_BRANCH);
+    const dir = fixture.clone("fire2");
+    const realGit = createDeps(dir).git;
+    const { code, err } = run(dir, {
+      git: (args, opts) =>
+        isLedgerFetch(args)
+          ? { ok: false, stdout: "", stderr: "fatal: unable to access: Connection reset" }
+          : realGit(args, opts),
+    });
+    expect(code).toBe(2);
+    expect(err).toContain(STATE_BRANCH);
+    expect(branchOf(dir)).toBe(STATE_BRANCH);
+    expect(head(dir)).toBe(tip);
+  });
+
+  it("a branch deleted on origin reads as absent even with a stale remote-tracking ref", () => {
+    const fixture = createStateRemote();
+    pushStateBranch(fixture, (d) => auditRows(d, 1));
+    const dir = fixture.clone("fire2");
+    git(fixture.clone("deleter"), ["push", "--quiet", "origin", "--delete", STATE_BRANCH]);
+    const { code, json } = run(dir);
+    expect(code).toBe(0);
+    expect(json).toMatchObject({ source: "main" });
+  });
+});
+
 describe("state.mjs — module shape", () => {
   it("checkoutState is the pure core: every effect goes through the injected deps", () => {
     const calls = [];
@@ -241,7 +276,7 @@ describe("state.mjs — module shape", () => {
       writeFile: () => {},
     });
     expect(result.code).toBe(2);
-    expect(calls[0]).toBe("fetch origin");
+    expect(calls).toContain("fetch origin");
     expect(calls.some((c) => c.startsWith("push"))).toBe(false);
   });
 

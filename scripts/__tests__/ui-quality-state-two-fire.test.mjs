@@ -242,6 +242,47 @@ describe("two-fire simulation — fire 2 reads fire 1's unmerged state", () => {
   });
 });
 
+// Re-review N4: a `--single-branch` or shallow sandbox clone has a fetch
+// refspec for `main` only, so a bare `git fetch origin` never created the
+// ledger's remote-tracking ref and fire 2 silently read `main`.
+describe.each(["single-branch", "shallow"])(
+  "two-fire simulation — fire 2 in a %s clone still reads the branch",
+  (mode) => {
+    let fixture, fire1, dir, state;
+    beforeAll(() => {
+      fixture = createStateRemote({ routes: pageRoutes(45) });
+      fire1 = fireOne(fixture);
+      mainMovesOn(fixture);
+      dir = fixture.clone(`fire2-${mode}`, mode);
+      state = checkout(dir);
+    });
+
+    it("the clone starts without the ledger's remote-tracking ref", () => {
+      // Guards the fixture: the arm proves nothing if the clone already had it.
+      const refspec = git(dir, ["config", "--get-all", "remote.origin.fetch"]);
+      expect(refspec).toBe("+refs/heads/main:refs/remotes/origin/main");
+    });
+
+    it("state.mjs checkout reports source branch and merges main", () => {
+      expect(state.code).toBe(0);
+      expect(state.json).toMatchObject({ source: "branch", branch: STATE_BRANCH });
+      expect(state.json.resolved).toEqual([BACKLOG, LEDGER]);
+    });
+
+    it("fire 1's audit stamps and filed key survive — no refile", () => {
+      const audited = parseLedger(readRel(dir, LEDGER)).filter(
+        (r) => r.last_audited_at === FIRE1_AT
+      );
+      expect(audited).toHaveLength(40);
+      const { code, plan } = planIn(dir, [FILED_101]);
+      expect(code).toBe(0);
+      expect(plan.actions).toEqual([
+        expect.objectContaining({ key: fire1.key, action: "skip", issue: 101 }),
+      ]);
+    });
+  }
+);
+
 describe("two-fire simulation — negative: the unmerged branch is deleted", () => {
   let fixture, dir, state;
   beforeAll(() => {

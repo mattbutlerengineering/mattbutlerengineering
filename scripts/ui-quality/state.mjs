@@ -11,7 +11,11 @@
  * yesterday's findings and re-run yesterday's calibration.
  *
  * `checkout` (routine step (0), after install, before any state read):
+ *   git fetch --unshallow origin  (only in a shallow clone)
  *   git fetch origin
+ *   git fetch origin +refs/heads/ui-quality/ledger:refs/remotes/origin/ui-quality/ledger
+ *     (explicit, so a --single-branch clone sees it; "couldn't find remote
+ *     ref" means absent, any other failure is state-unavailable)
  *   origin/ui-quality/ledger exists → check it out as local ui-quality/ledger,
  *     `git merge --no-edit origin/main` into it (source "branch")
  *   otherwise → create ui-quality/ledger from origin/main (source "main")
@@ -127,6 +131,39 @@ function concludeMerge(deps) {
   return ordered;
 }
 
+const REMOTE_MISSING = /couldn't find remote ref/i;
+const failure = (r) => (r.stderr || r.stdout).trim();
+
+/**
+ * Fetch what `checkout` reads, in any clone mode (re-review N4). A
+ * `--single-branch` or `--depth` clone's refspec names `main` only, so a bare
+ * `git fetch origin` never creates the ledger's remote-tracking ref: the
+ * branch is fetched by explicit refspec. A shallow clone is unshallowed
+ * first, or merging `origin/main` can lack a merge base.
+ *
+ * @returns {{ error: string|null, branchMissing: boolean }} `branchMissing`
+ *   only when origin answered that the branch does not exist; any other
+ *   failure is an `error` (`state-unavailable`), never a fall back to main.
+ */
+function fetchState(git) {
+  const shallow = git(["rev-parse", "--is-shallow-repository"]);
+  if (shallow.ok && shallow.stdout.trim() === "true") {
+    const unshallow = git(["fetch", "--unshallow", "origin"]);
+    if (!unshallow.ok)
+      return { error: `unshallow failed: ${failure(unshallow)}`, branchMissing: false };
+  }
+  const main = git(["fetch", "origin"]);
+  if (!main.ok) return { error: `fetch failed: ${failure(main)}`, branchMissing: false };
+  const branch = git([
+    "fetch",
+    "origin",
+    `+refs/heads/${STATE_BRANCH}:refs/remotes/${REMOTE_BRANCH}`,
+  ]);
+  if (branch.ok) return { error: null, branchMissing: false };
+  if (REMOTE_MISSING.test(failure(branch))) return { error: null, branchMissing: true };
+  return { error: `fetching ${STATE_BRANCH} failed: ${failure(branch)}`, branchMissing: false };
+}
+
 /**
  * The pure core of `state.mjs checkout`.
  *
@@ -139,17 +176,17 @@ function concludeMerge(deps) {
  */
 export function checkoutState(deps) {
   const { git } = deps;
-  const fetched = git(["fetch", "origin"]);
-  const hasBranch = git(["rev-parse", "--verify", "--quiet", `refs/remotes/${REMOTE_BRANCH}`]).ok;
+  const fetched = fetchState(git);
+  const hasBranch =
+    !fetched.branchMissing &&
+    git(["rev-parse", "--verify", "--quiet", `refs/remotes/${REMOTE_BRANCH}`]).ok;
   const start = hasBranch ? REMOTE_BRANCH : MAIN;
   try {
     must(git, ["checkout", "--quiet", "-B", STATE_BRANCH, start], `checking out ${start}`);
   } catch (err) {
     return { code: 2, reason: err.message };
   }
-  if (!fetched.ok) {
-    return { code: 2, reason: `fetch failed: ${(fetched.stderr || fetched.stdout).trim()}` };
-  }
+  if (fetched.error) return { code: 2, reason: fetched.error };
   const head = () => git(["rev-parse", "HEAD"]).stdout.trim();
   if (!hasBranch) {
     return {

@@ -84,7 +84,7 @@ export function ledgerRunner(root, overrides = {}) {
 
 /**
  * A bare `origin` whose `main` holds the seeded state, and a clone factory.
- * @returns {{ base: string, remote: string, clone: (name: string) => string }}
+ * @returns {{ base: string, remote: string, clone: (name: string, mode?: "full"|"single-branch"|"shallow") => string }}
  */
 export function createStateRemote({ routes = pageRoutes(45) } = {}) {
   const base = mkdtempSync(join(tmpdir(), "ui-quality-state-"));
@@ -115,9 +115,20 @@ export function createStateRemote({ routes = pageRoutes(45) } = {}) {
   git(seed, ["add", "-A"]);
   git(seed, ["commit", "--quiet", "-m", "seed"]);
   git(seed, ["push", "--quiet", "origin", "main"]);
-  const clone = (name) => {
+  /**
+   * `mode`: "full" (default), "single-branch" (`--single-branch` of main), or
+   * "shallow" (`--depth 1` over `file://`, which also implies single-branch —
+   * a plain local-path clone ignores `--depth`).
+   */
+  const clone = (name, mode = "full") => {
     const dir = join(base, name);
-    git(base, ["clone", "--quiet", remote, dir]);
+    const args = {
+      full: [remote],
+      "single-branch": ["--single-branch", "--branch", "main", remote],
+      shallow: ["--depth", "1", "--branch", "main", `file://${remote}`],
+    }[mode];
+    if (!args) throw new Error(`fixture: unknown clone mode ${mode}`);
+    git(base, ["clone", "--quiet", ...args, dir]);
     // state.mjs runs plain `git` (no -c identity), as the sandbox does.
     git(dir, ["config", "user.name", "Fixture"]);
     git(dir, ["config", "user.email", "fixture@example.invalid"]);
