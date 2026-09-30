@@ -4,8 +4,10 @@
  * § Interfaces "Capture spec").
  *
  * `capturePage(page, route, opts)` visits one planned route and returns its
- * `manifest.jsonl` row: a screenshot per viewport (written to `opts.outDir`,
- * `file` relative to it, i.e. to the manifest), the full axe-core result
+ * `manifest.jsonl` row: a full-page screenshot per viewport (written to
+ * `opts.outDir`, `file` relative to it, i.e. to the manifest), one
+ * viewport-only `fold` shot at the first viewport (the taste rater's unit; a
+ * row without one is not taste-eligible), the full axe-core result
  * (every impact, `color-contrast` on), uncaught page errors, console errors,
  * failed same-origin requests, same-origin links, and a blank-render measure.
  * It never throws: a route that fails to load (or whose axe run fails) still
@@ -45,6 +47,8 @@ export interface ManifestRow {
   links: string[];
   blank: { text_chars: number; painted_ratio: number };
   ms: number;
+  /** Viewport-only shot at the first viewport; absent when it failed — never an `error`. */
+  fold?: { viewport: string; file: string; sha256: string };
   error?: string;
 }
 
@@ -251,6 +255,29 @@ async function screenshotAll(page: CapturePageLike, route: string, opts: Capture
   return shots;
 }
 
+/** `root@1280x720.png` → `root@1280x720.fold.png` */
+export function foldName(route: string, viewport: Viewport): string {
+  return screenshotName(route, viewport).replace(/\.png$/, ".fold.png");
+}
+
+/**
+ * The fold: what a visitor sees before scrolling, at the first viewport. A
+ * failure here is swallowed — the row keeps its full pages and simply has no
+ * `fold`, so it is not taste-eligible.
+ */
+async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) {
+  const [viewport] = opts.viewports;
+  if (!viewport) return undefined;
+  try {
+    await page.setViewportSize(viewport);
+    const file = foldName(route, viewport);
+    const bytes = await page.screenshot({ path: join(opts.outDir, file), fullPage: false });
+    return { viewport: `${viewport.width}x${viewport.height}`, file, sha256: sha256(bytes) };
+  } catch {
+    return undefined;
+  }
+}
+
 /** Visit one route and return its manifest row. Never throws. */
 export async function capturePage(
   page: CapturePageLike,
@@ -287,6 +314,8 @@ export async function capturePage(
     row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
     row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
     row.screenshots = await screenshotAll(page, route, opts);
+    const fold = await screenshotFold(page, route, opts);
+    if (fold) row.fold = fold;
   } catch (err) {
     row.error = message(err);
   } finally {

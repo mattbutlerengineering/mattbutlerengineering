@@ -9,6 +9,7 @@ import {
   referenceErrors,
   rubricReferences,
 } from "../ui-quality/references.mjs";
+import { pngSize } from "../ui-quality/png.mjs";
 import { CATEGORIES } from "../ui-quality/rubric.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -31,11 +32,6 @@ const FIELDS = [
 // Cal.com is open source but AGPL-3.0 — outside the allowlist, so excluded too.
 const EXCLUDED_APPS =
   /stripe|linear|vercel|notion|figma|airbnb|opentable|resy|shopify|apple|google|cal\.com/i;
-
-/** PNG IHDR width/height (bytes 16..23, big-endian). */
-function pngSize(bytes) {
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
-}
 
 describe("committed OSS reference set", () => {
   const refs = doc.references;
@@ -78,6 +74,14 @@ describe("committed OSS reference set", () => {
       expect(covered.has(category), category).toBe(true);
     }
     expect(covered.has("harness")).toBe(false);
+  });
+
+  it("every committed reference PNG is exactly 1280×720 by its header (png.mjs)", () => {
+    const files = rubric.references.map((r) => r.file);
+    expect(files.length).toBeGreaterThanOrEqual(8);
+    for (const file of files) {
+      expect(pngSize(readFileSync(join(REPO, file))), file).toEqual({ width: 1280, height: 720 });
+    }
   });
 
   it("validates clean", () => {

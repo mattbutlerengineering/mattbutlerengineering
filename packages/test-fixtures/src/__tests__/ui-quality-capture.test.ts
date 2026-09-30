@@ -25,6 +25,7 @@ type Handler = (arg: unknown) => void;
 function fakePage(
   script: {
     gotoError?: Error;
+    foldError?: Error;
     events?: Array<[string, unknown]>;
     probe?: { hrefs: string[]; text_chars: number; painted_ratio: number };
   } = {}
@@ -59,8 +60,9 @@ function fakePage(
     async evaluate() {
       return script.probe ?? { hrefs: [], text_chars: 0, painted_ratio: 0 };
     },
-    async screenshot(opts: { path: string }) {
+    async screenshot(opts: { path: string; fullPage?: boolean }) {
       calls.push(`screenshot:${opts.path}`);
+      if (opts.fullPage === false && script.foldError) throw script.foldError;
       const bytes = Buffer.from(`png:${opts.path}`);
       writeFileSync(opts.path, bytes); // Playwright writes `path` and returns the bytes
       return bytes;
@@ -164,6 +166,61 @@ describe("capturePage", () => {
       },
     });
     expect(row.error).toBe("axe exploded");
+  });
+});
+
+describe("capturePage fold", () => {
+  it("takes one viewport-only 1280×720 shot after the full pages and records it as `fold`", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-capture-"));
+    const { page, calls } = fakePage();
+    const shots: Array<{ path: string; fullPage?: boolean; at: string }> = [];
+    let viewport = "";
+    const setViewportSize = page.setViewportSize.bind(page);
+    const screenshot = page.screenshot.bind(page);
+    page.setViewportSize = async (v) => {
+      viewport = `${v.width}x${v.height}`;
+      return setViewportSize(v);
+    };
+    page.screenshot = (async (o: { path: string; fullPage?: boolean }) => {
+      shots.push({ path: o.path, fullPage: o.fullPage, at: viewport });
+      return screenshot(o);
+    }) as CapturePageLike["screenshot"];
+
+    const row = await capturePage(page, "book/:venueSlug", opts(outDir));
+
+    expect(shots.map((s) => [s.fullPage, s.at])).toEqual([
+      [true, "1280x720"],
+      [true, "375x812"],
+      [false, "1280x720"],
+    ]);
+    expect(shots[2].path).toBe(join(outDir, "book-venueSlug@1280x720.fold.png"));
+    expect(row.screenshots).toHaveLength(2);
+    expect(row.fold).toEqual({
+      viewport: "1280x720",
+      file: "book-venueSlug@1280x720.fold.png",
+      sha256: createHash("sha256")
+        .update(readFileSync(join(outDir, "book-venueSlug@1280x720.fold.png")))
+        .digest("hex"),
+    });
+    expect(row.error).toBeUndefined();
+    expect(calls.filter((c) => c.startsWith("screenshot:"))).toHaveLength(3);
+  });
+
+  it("a fold failure leaves `fold` absent and `error` unset — the row is simply not taste-eligible", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-capture-"));
+    const { page } = fakePage({ foldError: new Error("fold exploded") });
+    const row = await capturePage(page, "/", { ...opts(outDir), path: "/" });
+    expect(row.fold).toBeUndefined();
+    expect(row.error).toBeUndefined();
+    expect(row.screenshots).toHaveLength(2);
+  });
+
+  it("takes no fold when the route itself failed to load", async () => {
+    const outDir = mkdtempSync(join(tmpdir(), "uiq-capture-"));
+    const { page } = fakePage({ gotoError: new Error("net::ERR_CONNECTION_REFUSED") });
+    const row = await capturePage(page, "/", { ...opts(outDir), path: "/" });
+    expect(row.fold).toBeUndefined();
+    expect(row.error).toBe("net::ERR_CONNECTION_REFUSED");
   });
 });
 
