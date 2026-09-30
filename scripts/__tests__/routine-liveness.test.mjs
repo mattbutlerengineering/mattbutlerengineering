@@ -8,9 +8,12 @@ import {
   matchesSignature,
   buildRoutineFindingTitle,
   extractRoutineNameFromIssueTitle,
+  extractRoutineFindingStatusFromTitle,
   findPriorRoutineFindingIssue,
   buildRoutineFindingBody,
   buildRoutineFindingCreateArgs,
+  buildRoutineRecoveryComment,
+  decideIssueTransition,
   runRoutineLivenessCheck,
   isObservationBlackout,
 } from "../routine-liveness.mjs";
@@ -588,26 +591,26 @@ describe("runRoutineLivenessCheck — issue filing (dedup)", () => {
     });
   });
 
-  it("reopens a previously closed finding issue rather than creating a duplicate", () => {
+  it("creates a fresh issue rather than reopening a closed prior finding (#5817 — each incident gets its own record)", () => {
     const priorTitle = buildRoutineFindingTitle("mbe-weekly-improve", "dark");
-    const reopened = [];
+    const created = [];
     const results = runRoutineLivenessCheck({
       manifest: darkManifest,
       fetchObservedArtifacts: () => [],
       now,
       searchCiFixIssues: () => [{ number: 42, title: priorTitle }],
       getIssueState: () => "closed",
-      createIssue: () => {
-        throw new Error("should not create when a closed prior issue can be reopened");
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 999;
       },
-      reopenIssue: (issueNumber) => reopened.push(issueNumber),
     });
-    expect(reopened).toEqual([42]);
+    expect(created).toHaveLength(1);
     expect(results[0]).toMatchObject({
       routine: "mbe-weekly-improve",
       status: "dark",
-      action: "reopen",
-      issueNumber: 42,
+      action: "create",
+      issueNumber: 999,
     });
   });
 
@@ -812,5 +815,234 @@ describe("PR-title signatures confirmed against a live routine run", () => {
   it("mbe-daily-issue's prompt still documents that suffix", () => {
     const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-daily-issue.md"), "utf-8");
     expect(prompt).toContain("(mbe-daily-issue #<ISSUE>)");
+  });
+});
+
+// #5817: a routine that recovers (dark -> alive) should close its own
+// tracking issue instead of leaving a stale red sitting in the ci-fix queue
+// forever.
+describe("extractRoutineFindingStatusFromTitle — pins the exact title format (#5817)", () => {
+  it("round-trips a dark finding's status through its title", () => {
+    const title = buildRoutineFindingTitle("mbe-evening", "dark");
+    expect(title).toBe("ci-fix: routine mbe-evening is dark — no expected artifact observed");
+    expect(extractRoutineFindingStatusFromTitle({ title })).toBe("dark");
+  });
+
+  it("round-trips an unverifiable finding's status through its title", () => {
+    const title = buildRoutineFindingTitle("mbe-night", "unverifiable");
+    expect(title).toBe(
+      "ci-fix: routine mbe-night has no declared liveness signature (unverifiable)"
+    );
+    expect(extractRoutineFindingStatusFromTitle({ title })).toBe("unverifiable");
+  });
+
+  it("returns null for a title that isn't a routine-liveness finding", () => {
+    expect(extractRoutineFindingStatusFromTitle({ title: "ci-fix: something unrelated" })).toBe(
+      null
+    );
+  });
+});
+
+describe("decideIssueTransition", () => {
+  it("dark, no existing issue -> create", () => {
+    expect(decideIssueTransition({ status: "dark", existingIssue: null })).toEqual({
+      action: "create",
+    });
+  });
+
+  it("dark, existing issue open -> skip", () => {
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        existingIssue: { number: 42, state: "open", filedStatus: "dark" },
+      })
+    ).toEqual({ action: "skip", issueNumber: 42 });
+  });
+
+  it("dark, existing issue closed -> create (never reopen, new incident)", () => {
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        existingIssue: { number: 42, state: "closed", filedStatus: "dark" },
+      })
+    ).toEqual({ action: "create" });
+  });
+
+  it("unverifiable, existing issue open -> skip (byte-identical to dark)", () => {
+    expect(
+      decideIssueTransition({
+        status: "unverifiable",
+        existingIssue: { number: 7, state: "open", filedStatus: "unverifiable" },
+      })
+    ).toEqual({ action: "skip", issueNumber: 7 });
+  });
+
+  it("alive, open dark tracking issue exists -> close", () => {
+    expect(
+      decideIssueTransition({
+        status: "alive",
+        existingIssue: { number: 42, state: "open", filedStatus: "dark" },
+      })
+    ).toEqual({ action: "close", issueNumber: 42 });
+  });
+
+  it("alive, no existing issue -> no-op", () => {
+    expect(decideIssueTransition({ status: "alive", existingIssue: null })).toEqual({
+      action: "no-op",
+    });
+  });
+
+  it("alive, existing issue already closed -> no-op (nothing to close)", () => {
+    expect(
+      decideIssueTransition({
+        status: "alive",
+        existingIssue: { number: 42, state: "closed", filedStatus: "dark" },
+      })
+    ).toEqual({ action: "no-op" });
+  });
+
+  it("alive, open UNVERIFIABLE tracking issue exists -> no-op (never auto-closed by a signature flip alone — that's #5748's job)", () => {
+    expect(
+      decideIssueTransition({
+        status: "alive",
+        existingIssue: { number: 7, state: "open", filedStatus: "unverifiable" },
+      })
+    ).toEqual({ action: "no-op" });
+  });
+
+  it("late, open dark tracking issue exists -> no-op (only genuine dark -> alive recoveries close automatically)", () => {
+    expect(
+      decideIssueTransition({
+        status: "late",
+        existingIssue: { number: 42, state: "open", filedStatus: "dark" },
+      })
+    ).toEqual({ action: "no-op" });
+  });
+});
+
+describe("buildRoutineRecoveryComment", () => {
+  it("names the run id and the observed artifact that proves liveness", () => {
+    const comment = buildRoutineRecoveryComment({
+      name: "mbe-evening",
+      runId: "36323989915",
+      matched: {
+        title: "chore(metrics): optimize-implement-queue 2026-09-27",
+        observedAt: "2026-09-27T00:30:00Z",
+      },
+    });
+    expect(comment).toContain("mbe-evening");
+    expect(comment).toContain("36323989915");
+    expect(comment).toContain("chore(metrics): optimize-implement-queue 2026-09-27");
+    expect(comment).toContain("2026-09-27T00:30:00Z");
+  });
+
+  it("still produces a usable comment with no runId (e.g. run locally, not in Actions)", () => {
+    const comment = buildRoutineRecoveryComment({
+      name: "mbe-evening",
+      runId: undefined,
+      matched: null,
+    });
+    expect(comment).toContain("mbe-evening");
+  });
+});
+
+describe("runRoutineLivenessCheck — closing a recovered routine's tracking issue (#5817)", () => {
+  const now = "2026-09-27T13:54:00Z";
+  const aliveManifest = [
+    {
+      name: "mbe-evening",
+      triggerId: "trig_01PHwfbFQcFveYajVPaTrbZk",
+      periodDays: 1,
+      signature: {
+        type: "pr-title",
+        pattern: String.raw`optimize-implement-queue`,
+        searchTerm: "optimize-implement-queue",
+      },
+    },
+  ];
+  const observedArtifacts = [
+    {
+      type: "pr",
+      title: "chore(metrics): optimize-implement-queue 2026-09-27",
+      observedAt: "2026-09-27T00:30:00Z",
+    },
+  ];
+  const darkPriorTitle = buildRoutineFindingTitle("mbe-evening", "dark");
+
+  it("closes the open dark tracking issue with state_reason completed and an evidencing comment, when the routine is now alive", () => {
+    const closed = [];
+    const results = runRoutineLivenessCheck({
+      manifest: aliveManifest,
+      fetchObservedArtifacts: () => observedArtifacts,
+      now,
+      searchCiFixIssues: () => [{ number: 5603, title: darkPriorTitle }],
+      getIssueState: () => "open",
+      createIssue: () => {
+        throw new Error("should not create when the routine is alive");
+      },
+      closeIssue: (issueNumber, comment) => closed.push({ issueNumber, comment }),
+      runId: "36323989915",
+      log: () => {},
+    });
+
+    expect(closed).toHaveLength(1);
+    expect(closed[0].issueNumber).toBe(5603);
+    expect(closed[0].comment).toContain("mbe-evening");
+    expect(closed[0].comment).toContain("36323989915");
+    expect(results[0]).toMatchObject({
+      routine: "mbe-evening",
+      status: "alive",
+      action: "close",
+      issueNumber: 5603,
+    });
+  });
+
+  it("does nothing when the routine is alive and no tracking issue exists", () => {
+    const closed = [];
+    const results = runRoutineLivenessCheck({
+      manifest: aliveManifest,
+      fetchObservedArtifacts: () => observedArtifacts,
+      now,
+      searchCiFixIssues: () => [],
+      closeIssue: (issueNumber) => closed.push(issueNumber),
+    });
+
+    expect(closed).toEqual([]);
+    expect(results[0]).toMatchObject({ routine: "mbe-evening", status: "alive" });
+    expect(results[0].action).toBeUndefined();
+  });
+
+  it("does not close an UNVERIFIABLE tracking issue just because the routine now reports alive (#5748 is that work's job)", () => {
+    const unverifiablePriorTitle = buildRoutineFindingTitle("mbe-evening", "unverifiable");
+    const closed = [];
+    const results = runRoutineLivenessCheck({
+      manifest: aliveManifest,
+      fetchObservedArtifacts: () => observedArtifacts,
+      now,
+      searchCiFixIssues: () => [{ number: 5604, title: unverifiablePriorTitle }],
+      getIssueState: () => "open",
+      closeIssue: (issueNumber) => closed.push(issueNumber),
+    });
+
+    expect(closed).toEqual([]);
+    expect(results[0]).toMatchObject({ routine: "mbe-evening", status: "alive" });
+    expect(results[0].action).toBeUndefined();
+  });
+
+  it("does not fail the run when the search for a closeable issue throws — alive routines just skip silently, only dark/unverifiable ones report search-failed", () => {
+    const results = runRoutineLivenessCheck({
+      manifest: aliveManifest,
+      fetchObservedArtifacts: () => observedArtifacts,
+      now,
+      searchCiFixIssues: () => {
+        throw new Error("gh: rate limited");
+      },
+      closeIssue: () => {
+        throw new Error("should not attempt to close when the search failed");
+      },
+    });
+
+    expect(results[0]).toMatchObject({ routine: "mbe-evening", status: "alive" });
+    expect(results[0].action).toBeUndefined();
   });
 });
