@@ -421,4 +421,33 @@ describe("POST /api/gen/agent", () => {
 
     expect(lines).toEqual([{ type: "text", content: "Let me try that again — no slots tonight." }]);
   });
+
+  it("caps repeated calls with a 429 (max: 30/hour)", async () => {
+    // Per-user cap declared in gen-route-factory.ts's config.rateLimit —
+    // regression coverage so the limiter can't silently stop enforcing.
+    vi.mocked(streamText).mockImplementation(
+      () =>
+        ({
+          fullStream: mockAsyncIterable([]),
+          usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+          providerMetadata: Promise.resolve({}),
+        }) as never
+    );
+
+    const post = () =>
+      app.inject({
+        method: "POST",
+        url: "/api/gen/agent",
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+    const GEN_AGENT_RATE_LIMIT_MAX = 30;
+    const codes: number[] = [];
+    for (let i = 0; i < GEN_AGENT_RATE_LIMIT_MAX + 1; i++) {
+      codes.push((await post()).statusCode);
+    }
+
+    expect(codes.slice(0, GEN_AGENT_RATE_LIMIT_MAX)).not.toContain(429);
+    expect(codes.at(-1)).toBe(429);
+  });
 });

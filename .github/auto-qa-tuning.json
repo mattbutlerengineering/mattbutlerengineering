@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/specs/auto-qa-tuning",
   "$comment": "Self-tuning thresholds for the agent QA loop. These thresholds are consumed by agent dispatch (mbe agent run) and reviewer agents. Run `node plugins/acmm/scripts/auto-qa-tune.js` to read PR-acceptance metrics from metrics/pr-acceptance.json and write back adjusted thresholds. See docs/review-criteria.md for the rubric the QA loop applies.",
   "version": 1,
-  "lastTunedAt": "2026-09-13",
+  "lastTunedAt": "2026-09-29",
   "thresholds": {
     "acceptanceRateFloor": 0.85,
     "acceptanceRateFloor.$comment": "Minimum acceptance rate before the loop tightens budgets. Below this, max-budget halves and review specialists are added by default.",
@@ -158,9 +158,16 @@
         "Acceptance rate 100% meets or exceeds the 85% floor (115 merged, 0 rejected). No adjustments needed."
       ],
       "note": "Reviewed PR acceptance data from 2026-09-07. All metrics within acceptable ranges."
+    },
+    {
+      "date": "2026-09-29",
+      "trigger": "threshold-auto-tuner",
+      "adjustments": ["acmm: 1 → 1.03 (headroom)"],
+      "note": "Auto-tuned 1 sensor threshold(s) from verification results: acmm."
     }
   ],
   "sensorSensitivity": {
-    "ci-fix": 1.248
+    "ci-fix": 1.248,
+    "acmm": 1.03
   }
 }

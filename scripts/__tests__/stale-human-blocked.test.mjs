@@ -29,7 +29,10 @@ const makeIssue = (overrides = {}) => ({
   number: 3322,
   title: "fix(ci): Release 'Publish to npm' 401",
   state: "OPEN",
+  createdAt: at(30 * DAY),
   updatedAt: at(30 * DAY),
+  comments: [],
+  timelineEvents: [],
   labels: [{ name: "ci-fix" }],
   ...overrides,
 });
@@ -41,64 +44,66 @@ const makeIssue = (overrides = {}) => ({
 describe("findStaleHumanBlockedIssues", () => {
   it("reports the #3322 case: stale with no blocker label at all", () => {
     const issues = [
-      makeIssue({ number: 3322, updatedAt: at(30 * DAY), labels: [{ name: "ci-fix" }] }),
+      makeIssue({ number: 3322, createdAt: at(30 * DAY), labels: [{ name: "ci-fix" }] }),
     ];
     expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([3322]);
   });
 
   it("reports an issue stale by an existing blocker label (already found today)", () => {
     const issues = [
-      makeIssue({ number: 1, updatedAt: at(20 * DAY), labels: [{ name: "ready-for-human" }] }),
+      makeIssue({ number: 1, createdAt: at(20 * DAY), labels: [{ name: "ready-for-human" }] }),
     ];
     expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([1]);
   });
 
   it("does not report a fresh issue", () => {
-    const issues = [makeIssue({ number: 2, updatedAt: at(1 * DAY) })];
+    const issues = [makeIssue({ number: 2, createdAt: at(1 * DAY) })];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 
   it.each(EXCLUDED_LABELS)(
     "does not report a stale issue carrying the excluded label %s",
     (label) => {
-      const issues = [makeIssue({ number: 4, updatedAt: at(30 * DAY), labels: [{ name: label }] })];
+      const issues = [makeIssue({ number: 4, createdAt: at(30 * DAY), labels: [{ name: label }] })];
       expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
     }
   );
 
   it("does not report a closed issue, however stale", () => {
-    const issues = [makeIssue({ number: 5, state: "CLOSED", updatedAt: at(90 * DAY) })];
+    const issues = [makeIssue({ number: 5, state: "CLOSED", createdAt: at(90 * DAY) })];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 
   it("treats exactly the threshold as not-yet-stale (strict greater-than, matches auto-retry-stale precedent)", () => {
     const issues = [
-      makeIssue({ number: 6, updatedAt: new Date(NOW - STALE_THRESHOLD_MS).toISOString() }),
+      makeIssue({ number: 6, createdAt: new Date(NOW - STALE_THRESHOLD_MS).toISOString() }),
     ];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 
   it("reports an issue 1ms past the threshold", () => {
     const issues = [
-      makeIssue({ number: 7, updatedAt: new Date(NOW - STALE_THRESHOLD_MS - 1).toISOString() }),
+      makeIssue({ number: 7, createdAt: new Date(NOW - STALE_THRESHOLD_MS - 1).toISOString() }),
     ];
     expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([7]);
   });
 
   it("honors an explicit thresholdMs override", () => {
-    const issues = [makeIssue({ number: 8, updatedAt: at(2 * DAY) })];
+    const issues = [makeIssue({ number: 8, createdAt: at(2 * DAY) })];
     expect(
       findStaleHumanBlockedIssues(issues, NOW, { thresholdMs: 1 * DAY }).map((i) => i.number)
     ).toEqual([8]);
   });
 
   it("supports string labels as well as {name} objects", () => {
-    const issues = [makeIssue({ number: 9, updatedAt: at(30 * DAY), labels: ["vetoed"] })];
+    const issues = [makeIssue({ number: 9, createdAt: at(30 * DAY), labels: ["vetoed"] })];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 
-  it("excludes issues with a malformed updatedAt", () => {
-    const issues = [makeIssue({ number: 10, updatedAt: "not-a-date" })];
+  it("excludes issues with no parseable human-touch time (malformed createdAt, no comments/timeline)", () => {
+    const issues = [
+      makeIssue({ number: 10, createdAt: "not-a-date", comments: [], timelineEvents: [] }),
+    ];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 
@@ -110,8 +115,8 @@ describe("findStaleHumanBlockedIssues", () => {
 
   it("does not mutate the input array", () => {
     const issues = [
-      makeIssue({ number: 1, updatedAt: at(20 * DAY) }),
-      makeIssue({ number: 2, updatedAt: at(30 * DAY) }),
+      makeIssue({ number: 1, createdAt: at(20 * DAY) }),
+      makeIssue({ number: 2, createdAt: at(30 * DAY) }),
     ];
     const snapshot = issues.map((i) => i.number);
     findStaleHumanBlockedIssues(issues, NOW);
@@ -120,11 +125,48 @@ describe("findStaleHumanBlockedIssues", () => {
 
   it("sorts most-stale first", () => {
     const issues = [
-      makeIssue({ number: 1, updatedAt: at(20 * DAY) }),
-      makeIssue({ number: 2, updatedAt: at(90 * DAY) }),
-      makeIssue({ number: 3, updatedAt: at(40 * DAY) }),
+      makeIssue({ number: 1, createdAt: at(20 * DAY) }),
+      makeIssue({ number: 2, createdAt: at(90 * DAY) }),
+      makeIssue({ number: 3, createdAt: at(40 * DAY) }),
     ];
     expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([2, 3, 1]);
+  });
+
+  // ---------------------------------------------------------------------------
+  // #5816: the candidate gate must not use updatedAt — a bot write (this
+  // detector's own label, a cross-reference) bumps updatedAt without the
+  // issue having actually been touched by a human, and the gate must not go
+  // blind to exactly the issues it (or another bot) already touched.
+  // ---------------------------------------------------------------------------
+
+  it("selects an issue whose updatedAt is recent (bot noise) but whose real last human touch is stale — the #4670 shape", () => {
+    // #4670: last_human_touch_at 2026-08-29, updatedAt 2026-09-26 (bot
+    // relabel/cross-reference), 14-day threshold measured from 2026-09-27.
+    const nowMs = Date.parse("2026-09-27T19:04:00Z");
+    const issues = [
+      makeIssue({
+        number: 4670,
+        labels: [{ name: "audit" }, { name: "ready-for-human" }],
+        createdAt: "2026-08-01T00:00:00Z",
+        updatedAt: "2026-09-26T00:00:00Z", // bot noise — must NOT gate selection
+        comments: [
+          { createdAt: "2026-08-29T10:31:40Z", author: { login: "mattbutlerengineering" } },
+        ],
+        timelineEvents: [{ event: "labeled", created_at: "2026-09-26T00:00:00Z" }],
+      }),
+    ];
+    expect(findStaleHumanBlockedIssues(issues, nowMs).map((i) => i.number)).toEqual([4670]);
+  });
+
+  it("excludes an issue with a genuine recent human touch, even though its creation is old (no regression to 'report everything')", () => {
+    const issues = [
+      makeIssue({
+        number: 11,
+        createdAt: at(90 * DAY),
+        comments: [{ createdAt: at(2 * DAY), author: { login: "mattbutlerengineering" } }],
+      }),
+    ];
+    expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
   });
 });
 
@@ -139,7 +181,7 @@ describe("runStaleHumanBlocked", () => {
   });
 
   it("labels each newly-found stale issue with ready-for-human", async () => {
-    const issues = [makeIssue({ number: 3322, updatedAt: at(30 * DAY) })];
+    const issues = [makeIssue({ number: 3322, createdAt: at(30 * DAY) })];
     const deps = makeDeps(issues);
     const result = await runStaleHumanBlocked({ ...deps, now: NOW });
 
@@ -152,7 +194,7 @@ describe("runStaleHumanBlocked", () => {
     const issues = [
       makeIssue({
         number: 3322,
-        updatedAt: at(30 * DAY),
+        createdAt: at(30 * DAY),
         labels: [{ name: "ci-fix" }, { name: READY_FOR_HUMAN_LABEL }],
       }),
     ];
@@ -165,7 +207,7 @@ describe("runStaleHumanBlocked", () => {
   });
 
   it("dry-run reports the selection but performs no mutations", async () => {
-    const issues = [makeIssue({ number: 3322, updatedAt: at(30 * DAY) })];
+    const issues = [makeIssue({ number: 3322, createdAt: at(30 * DAY) })];
     const deps = makeDeps(issues);
     const result = await runStaleHumanBlocked({ ...deps, now: NOW, dryRun: true });
 
@@ -175,7 +217,7 @@ describe("runStaleHumanBlocked", () => {
   });
 
   it("does nothing when no issues qualify", async () => {
-    const deps = makeDeps([makeIssue({ number: 1, updatedAt: at(1 * DAY) })]);
+    const deps = makeDeps([makeIssue({ number: 1, createdAt: at(1 * DAY) })]);
     const result = await runStaleHumanBlocked({ ...deps, now: NOW });
 
     expect(result.stale).toEqual([]);
@@ -195,6 +237,68 @@ describe("runStaleHumanBlocked", () => {
       /authentication failed/
     );
     expect(deps.applyLabel).not.toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // #5816: selection reads the timeline-derived human touch, not updatedAt.
+  // ---------------------------------------------------------------------------
+
+  it("selects an issue whose updatedAt is fresh (bot noise) but whose fetched timeline shows a stale real human touch — the #4670 shape", async () => {
+    const issue = makeIssue({
+      number: 4670,
+      labels: [{ name: "audit" }, { name: "ready-for-human" }],
+      createdAt: "2026-08-01T00:00:00Z",
+      updatedAt: "2026-09-26T00:00:00Z", // bot relabel — must not suppress selection
+      comments: [],
+    });
+    const nowMs = Date.parse("2026-09-27T19:04:00Z");
+
+    const result = await runStaleHumanBlocked({
+      listOpenIssues: async () => [issue],
+      applyLabel: async () => {},
+      fetchTimeline: async () => [
+        { event: "labeled", created_at: "2026-09-26T00:00:00Z" },
+        {
+          event: "commented",
+          created_at: "2026-08-29T10:31:40Z",
+          actor: { login: "mattbutlerengineering" },
+        },
+      ],
+      now: nowMs,
+    });
+
+    expect(result.stale).toEqual([4670]);
+  });
+
+  it("reports how many open candidates it considered, distinct from how many were stale (#5816 acceptance: an empty result must be distinguishable from a run that measured nothing)", async () => {
+    const deps = makeDeps([
+      makeIssue({ number: 1, createdAt: at(1 * DAY) }),
+      makeIssue({ number: 2, createdAt: at(30 * DAY) }),
+    ]);
+    const result = await runStaleHumanBlocked({ ...deps, now: NOW });
+
+    expect(result.considered).toBe(2);
+    expect(result.stale).toEqual([2]);
+  });
+
+  it("does not fetch the timeline for an excluded-label or closed issue (avoids a wasted network round-trip)", async () => {
+    const fetched = [];
+    const deps = {
+      listOpenIssues: vi.fn(async () => [
+        makeIssue({ number: 1, createdAt: at(30 * DAY), labels: [{ name: "vetoed" }] }),
+        makeIssue({ number: 2, state: "CLOSED", createdAt: at(30 * DAY) }),
+      ]),
+      applyLabel: vi.fn(async () => {}),
+      fetchTimeline: async (n) => {
+        fetched.push(n);
+        return [];
+      },
+    };
+    const result = await runStaleHumanBlocked({ ...deps, now: NOW });
+
+    expect(fetched).toEqual([]);
+    expect(result.considered).toBe(0);
+    expect(result.stale).toEqual([]);
   });
 });
 
@@ -450,7 +554,7 @@ describe("runStaleHumanBlocked metrics", () => {
     expect(result.labeled).toEqual([]);
   });
 
-  it("uses the timeline when one is available, and asks for it per issue", async () => {
+  it("uses the timeline when one is available, and asks for it exactly once per issue", async () => {
     const fetched = [];
     const rows = [];
 
@@ -462,15 +566,17 @@ describe("runStaleHumanBlocked metrics", () => {
         return [
           { event: "labeled", created_at: at(0) },
           { event: "cross-referenced", created_at: at(1) }, // must not reset the clock (#5083)
-          { event: "assigned", created_at: at(9 * DAY), actor: { login: "a-human" } },
+          { event: "assigned", created_at: at(20 * DAY), actor: { login: "a-human" } },
         ];
       },
       recordMetric: async (row) => rows.push(row),
       now: NOW,
     });
 
+    // Fetched exactly once: the same timeline read that gates selection
+    // (#5816) is reused to build the metric row, never re-fetched.
     expect(fetched).toEqual([7]);
-    expect(rows[0].days_stale).toBe(9);
+    expect(rows[0].days_stale).toBe(20);
   });
 
   it("dry-run writes no metrics and applies no labels", async () => {

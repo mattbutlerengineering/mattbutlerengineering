@@ -4,6 +4,7 @@ const { mockDepositDb, mockGuestDb, mockQueryRaw } = vi.hoisted(() => ({
   mockDepositDb: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -357,6 +358,127 @@ describe("Deposit API routes", () => {
       const response = await app.inject({
         method: "GET",
         url: `${DEPOSITS_URL}?reservationId=res-123`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(observed.current).toBe(VENUE_ID);
+      await app.close();
+    });
+  });
+
+  describe("GET /api/v1/deposits?venueId=&date= (list, #5832)", () => {
+    it("returns all deposits for the venue and date, venue-scoped", async () => {
+      const depositA = makeDeposit({ id: "dep-a" });
+      const depositB = makeDeposit({ id: "dep-b", reservationId: "res-456" });
+      mockDepositDb.findMany.mockResolvedValueOnce([depositA, depositB]);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?venueId=${VENUE_ID}&date=2026-01-25`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body) as { data: Deposit[] };
+      expect(body.data).toHaveLength(2);
+      expect(body.data.map((d) => d.id)).toEqual(["dep-a", "dep-b"]);
+      expect(mockDepositDb.findMany).toHaveBeenCalledWith({
+        where: { reservation: { venueId: VENUE_ID, date: new Date("2026-01-25") } },
+      });
+      await app.close();
+    });
+
+    it("returns 400 when neither reservationId nor venueId+date is supplied", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockDepositDb.findMany).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("returns 400 when venueId is supplied without date", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?venueId=${VENUE_ID}`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockDepositDb.findMany).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("returns 400 when date is supplied without venueId", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?date=2026-01-25`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockDepositDb.findMany).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("returns 403 as non-admin", async () => {
+      vi.mocked(requireAuth).mockImplementationOnce(async (request: { user?: unknown }) => {
+        request.user = {
+          sub: "auth0|guest-456",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          iat: Math.floor(Date.now() / 1000),
+          email: "guest@example.com",
+          email_verified: true,
+          name: "Guest User",
+          picture: "https://example.com/pic.jpg",
+          permissions: [],
+        };
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?venueId=${VENUE_ID}&date=2026-01-25`,
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("runs inside the requested venue's context (ADR-026)", async () => {
+      const observed: { current: string | null | undefined } = { current: undefined };
+      mockDepositDb.findMany.mockImplementationOnce(async () => {
+        observed.current = getCurrentVenueId();
+        return [makeDeposit()];
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${DEPOSITS_URL}?venueId=${VENUE_ID}&date=2026-01-25`,
         headers: { authorization: ADMIN_TOKEN },
       });
 

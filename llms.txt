@@ -12319,7 +12319,7 @@
         async create(): Promise<unknown>;
         async get(): Promise<unknown>;
         async getByReservation(): Promise<unknown>;
-        async capture(): Promise<unknown>;
+        async listByVenueAndDate(): Promise<unknown>;
       }
     </item>
   </file>
