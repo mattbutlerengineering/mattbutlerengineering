@@ -14,9 +14,12 @@
  *
  * Subcommands:
  *   plan  --findings <json> [--findings <json>…] --issue-states <json>
- *         [--calibration-status pass|failed|stale]
+ *         --labelled-issues <json> [--calibration-status pass|failed|stale]
  *         → .ui-quality/findings.plan.json; exit 2 (nothing written) on an
- *         unknown tell or while an open key predates the rubric's version.
+ *         unknown tell, while an open key predates the rubric's version, or
+ *         when --labelled-issues (every `ui-quality`-labelled issue number, a
+ *         JSON array) is absent, unreadable, or names a number the findings
+ *         ledger does not reference — the fire read incomplete state.
  *         No --calibration-status is `stale`: agent-built findings drop.
  *   record  --executed <json> [--now <iso>] — the executed plan (every create
  *           given its issue number, optional `fix_pr: { key, pr }`, optional
@@ -36,7 +39,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { read as readMetric, write as writeMetric } from "../metrics-store.mjs";
 import { applyExecuted, migrateLedger, renderSeeds } from "./findings-ledger.mjs";
-import { CALIBRATION_STATUSES, planFindings, unmigratedKeys } from "./findings-plan.mjs";
+import {
+  CALIBRATION_STATUSES,
+  planFindings,
+  unknownLabelledIssues,
+  unmigratedKeys,
+} from "./findings-plan.mjs";
 import { WORK_DIR } from "./ledger.mjs";
 import { loadRubric } from "./rubric.mjs";
 
@@ -78,14 +86,41 @@ function writeWork(root, file, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
 }
 
+/** `--labelled-issues`: a JSON array of positive issue numbers; anything else throws (exit 2). */
+function readLabelledIssues(file) {
+  if (!file) {
+    throw new Error(
+      "needs --labelled-issues <json> (every ui-quality-labelled issue number) — without it the fire cannot prove its state is complete"
+    );
+  }
+  let value;
+  try {
+    value = readJson(file);
+  } catch (err) {
+    throw new Error(`--labelled-issues ${file} is unreadable: ${err.message}`, { cause: err });
+  }
+  if (!Array.isArray(value) || !value.every((n) => Number.isInteger(n) && n > 0)) {
+    throw new Error(`--labelled-issues ${file} is not a JSON array of issue numbers`);
+  }
+  return value;
+}
+
 function plan(ctx, argv) {
   const files = flagValues(argv, "--findings");
   const statesFile = flagValue(argv, "--issue-states");
   if (files.length === 0 || !statesFile) {
     throw new Error("needs --findings <json> (repeatable) and --issue-states <json>");
   }
+  const labelled = readLabelledIssues(flagValue(argv, "--labelled-issues"));
   const rubric = loadRubric(ctx.root);
   const ledger = readLedger(ctx.root);
+  const unknown = unknownLabelledIssues(ledger, labelled);
+  if (unknown.length > 0) {
+    ctx.stderr(
+      `findings.mjs plan: ${unknown.length} ui-quality-labelled issue(s) the findings ledger does not reference — this fire read incomplete state, so it plans nothing: ${unknown.map((n) => `#${n}`).join(", ")}\n`
+    );
+    return 2;
+  }
   const blocked = unmigratedKeys(ledger, rubric);
   if (blocked.length > 0) {
     ctx.stderr(

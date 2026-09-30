@@ -55,12 +55,16 @@ const record = (issue, extra = {}) => ({
   ...extra,
 });
 
-function plan(files, states = {}, extra = []) {
+/** `labelled`: the `--labelled-issues` value — `null` omits the flag, a string is a raw path. */
+function plan(files, states = {}, extra = [], labelled = []) {
   const out = [];
   const err = [];
   const args = ["plan"];
   files.forEach((f, i) => args.push("--findings", writeJson(`in/findings-${i}.json`, f)));
   args.push("--issue-states", writeJson("in/states.json", states), ...extra, "--root", root);
+  if (typeof labelled === "string") args.push("--labelled-issues", labelled);
+  else if (labelled !== null)
+    args.push("--labelled-issues", writeJson("in/labelled.json", labelled));
   const code = main(args, { stdout: (s) => out.push(s), stderr: (s) => err.push(s) });
   const planPath = join(root, PLAN);
   const result = existsSync(planPath) ? JSON.parse(readFileSync(planPath, "utf8")) : null;
@@ -159,6 +163,63 @@ describe("findings.mjs plan — dedupe through fileIssue()", () => {
     expect(code).toBe(2);
     expect(p).toBeNull();
     expect(err).toContain("agent-built/made-up");
+  });
+});
+
+describe("findings.mjs plan — --labelled-issues completeness check", () => {
+  const ledgered = () =>
+    writeJson(LEDGER, {
+      [findingKey(DEAD, 1)]: record(101, { severity: "P1" }),
+      [findingKey({ ...DEAD, route: "(multiple)" }, 1)]: record(300, { severity: "P1" }),
+      [findingKey({ ...DEAD, route: "acmm" }, 1)]: record(300, {
+        severity: "P1",
+        carrier: "aggregate:300",
+      }),
+      [findingKey(ALT, 1)]: record(null, { carrier: "seed" }),
+    });
+
+  it("without --labelled-issues it exits 2 and plans nothing", () => {
+    const { code, plan: p, err } = plan([[DEAD]], {}, [], null);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("--labelled-issues");
+  });
+
+  it("an unreadable or non-array --labelled-issues file exits 2 and plans nothing", () => {
+    expect(plan([[DEAD]], {}, [], join(root, "in/nope.json")).code).toBe(2);
+    const bad = writeJson("in/bad.json", { 101: "open" });
+    const { code, plan: p } = plan([[DEAD]], {}, [], bad);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+  });
+
+  it("a labelled number the findings ledger does not reference exits 2, names it, plans nothing", () => {
+    ledgered();
+    const { code, plan: p, err } = plan([[DEAD]], { 101: "open" }, [], [101, 300, 777, 778]);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("#777");
+    expect(err).toContain("#778");
+    expect(err).not.toContain("#101");
+    expect(err).not.toContain("#300");
+  });
+
+  it("an empty ledger refuses any labelled issue — fire 2 on lost state never refiles", () => {
+    const { code, plan: p, err } = plan([[DEAD]], {}, [], [101]);
+    expect(code).toBe(2);
+    expect(p).toBeNull();
+    expect(err).toContain("#101");
+  });
+
+  it("numbers referenced as `issue` or `aggregate:<n>` pass, and the plan is unchanged", () => {
+    ledgered();
+    const withFlag = plan([[DEAD]], { 101: "open", 300: "open" }, [], [101, 300]);
+    expect(withFlag.code).toBe(0);
+    expect(withFlag.plan.actions).toEqual([
+      expect.objectContaining({ key: findingKey(DEAD, 1), action: "skip", issue: 101 }),
+    ]);
+    const empty = plan([[DEAD]], { 101: "open", 300: "open" }, [], []);
+    expect(empty.plan).toEqual(withFlag.plan);
   });
 });
 

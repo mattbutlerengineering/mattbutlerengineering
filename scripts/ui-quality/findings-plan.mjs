@@ -57,6 +57,26 @@ export function unmigratedKeys(ledger, rubric) {
     .sort(byString);
 }
 
+/**
+ * The labelled issue numbers the findings ledger does not reference — as a
+ * record's `issue` or an `aggregate:<n>` carrier. Non-empty means this fire
+ * read incomplete state (a lost `ui-quality/ledger` branch, a push that failed
+ * after filing), and planning against it would refile.
+ *
+ * @param {Record<string, object>} ledger
+ * @param {number[]} labelled   every `ui-quality`-labelled issue number, any state
+ * @returns {number[]} sorted ascending, deduplicated
+ */
+export function unknownLabelledIssues(ledger, labelled) {
+  const known = new Set();
+  for (const rec of Object.values(ledger)) {
+    if (Number.isInteger(rec.issue)) known.add(rec.issue);
+    const aggregate = /^aggregate:(\d+)$/.exec(String(rec.carrier ?? ""));
+    if (aggregate) known.add(Number(aggregate[1]));
+  }
+  return [...new Set(labelled)].filter((n) => !known.has(n)).sort((a, b) => a - b);
+}
+
 export function titleFor(finding, version) {
   return `ui-quality: ${finding.app} ${finding.route} — ${finding.tell} (rubric v${version})`;
 }
