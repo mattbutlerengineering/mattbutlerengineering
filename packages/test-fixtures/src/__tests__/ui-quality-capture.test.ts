@@ -6,8 +6,11 @@ import { describe, expect, it } from "vitest";
 import {
   appendManifestRow,
   capturePage,
+  HIDDEN_SCRIPT,
   REVEAL_SCRIPT,
+  SETTLED_SCRIPT,
   loadCapturePlan,
+  revealLazyContent,
   resetManifest,
   sameOriginLinks,
   screenshotName,
@@ -252,6 +255,71 @@ describe("capturePage reveals scroll-triggered content", () => {
     const row = await capturePage(page, "/", opts(outDir));
     expect(row.error).toBeUndefined();
     expect(calls.filter((c) => c.startsWith("screenshot:")).length).toBeGreaterThan(0);
+  });
+});
+
+// ui-quality-loop re-review N5: marketing's `html { scroll-behavior: smooth }`
+// turned every `scrollTo` into an animation, so the reveal returned while the
+// page was still scrolling back (measured: scrollY 224 on /status) and the
+// shot landed at a run-dependent offset — noise on routes with nothing to
+// reveal at all.
+describe("revealLazyContent settles the page before returning (re-review N5)", () => {
+  /** A page whose evaluate answers each script from `answers`, recording the order. */
+  function scriptedPage(answers: Map<string, unknown[]>) {
+    const calls: string[] = [];
+    const name = (fn: unknown) =>
+      fn === HIDDEN_SCRIPT
+        ? "hidden"
+        : fn === REVEAL_SCRIPT
+          ? "reveal"
+          : fn === SETTLED_SCRIPT
+            ? "settled"
+            : "frames";
+    return {
+      calls,
+      page: {
+        async evaluate(fn: unknown) {
+          const n = name(fn);
+          calls.push(n);
+          const queue = answers.get(n) ?? [];
+          return queue.length > 1 ? queue.shift() : queue[0];
+        },
+      } as unknown as Parameters<typeof revealLazyContent>[0],
+    };
+  }
+
+  it("scrolls instantly, never through the page's smooth scroll-behavior", () => {
+    expect(REVEAL_SCRIPT).toMatch(/behavior: "instant"/);
+    expect(REVEAL_SCRIPT).not.toMatch(/scrollTo\(0, /);
+  });
+
+  it("counts the page settled only at the top, with no running animation and fonts loaded", () => {
+    expect(SETTLED_SCRIPT).toMatch(/window\.scrollY === 0/);
+    expect(SETTLED_SCRIPT).toMatch(/document\.getAnimations\(\)\.length === 0/);
+    expect(SETTLED_SCRIPT).toMatch(/document\.fonts\.status === "loaded"/);
+  });
+
+  it("does not scroll a page with nothing hidden, but still settles it", async () => {
+    const { page, calls } = scriptedPage(
+      new Map<string, unknown[]>([
+        ["hidden", [false]],
+        ["settled", [true]],
+      ])
+    );
+    await revealLazyContent(page);
+    expect(calls).not.toContain("reveal");
+    expect(calls).toEqual(["hidden", "settled", "frames"]);
+  });
+
+  it("with hidden content it scrolls, polls until settled, then waits two frames", async () => {
+    const { page, calls } = scriptedPage(
+      new Map<string, unknown[]>([
+        ["hidden", [true]],
+        ["settled", [false, false, true]],
+      ])
+    );
+    await revealLazyContent(page);
+    expect(calls).toEqual(["hidden", "reveal", "settled", "settled", "settled", "frames"]);
   });
 });
 

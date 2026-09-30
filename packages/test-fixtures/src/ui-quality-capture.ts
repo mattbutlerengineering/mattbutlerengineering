@@ -106,46 +106,71 @@ const PROBE_SCRIPT = `(() => {
 })()`;
 
 /**
+ * Runs in the page: true while any element carries a below-1 inline opacity —
+ * content a scroll reveal has not shown yet (rialto's `useScrollReveal` keeps
+ * it at Framer's `initial="hidden"` until it is 80 px inside the viewport).
+ */
+export const HIDDEN_SCRIPT = `Array.from(document.querySelectorAll("[style*=opacity]")).some(
+  (el) => el.style.opacity !== "" && Number(el.style.opacity) < 1
+)`;
+
+/**
  * Runs in the page: scrolls it through, top to bottom in steps of 80 % of the
  * viewport, one double-rAF per step so IntersectionObservers fire, then back
- * to the top. Content that reveals on scroll (rialto's `useScrollReveal`, which
- * stays at opacity 0 until it is 80 px inside the viewport) is otherwise never
- * shown to a `fullPage` screenshot, which does not scroll (review M2).
+ * to the top. Content that reveals on scroll is otherwise never shown to a
+ * `fullPage` screenshot, which does not scroll (review M2). Every scroll is
+ * `behavior: "instant"`: under a page's `scroll-behavior: smooth` (marketing's
+ * `global.css`) a plain `scrollTo` animates, so the steps never landed and the
+ * return to the top was still running when the shot was taken (re-review N5).
  */
 export const REVEAL_SCRIPT = `(async () => {
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const to = (top) => window.scrollTo({ top, left: 0, behavior: "instant" });
   const step = Math.max(1, Math.floor(window.innerHeight * 0.8));
   for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
-    window.scrollTo(0, y);
+    to(y);
     await frame();
   }
-  window.scrollTo(0, document.documentElement.scrollHeight);
+  to(document.documentElement.scrollHeight);
   await frame();
-  window.scrollTo(0, 0);
+  to(0);
   await frame();
 })()`;
 
-/** Runs in the page: true once no element carries a mid-reveal inline opacity. */
-const SETTLED_SCRIPT = `Array.from(document.querySelectorAll("[style*=opacity]")).every(
-  (el) => el.style.opacity === "" || Number(el.style.opacity) >= 1
-)`;
+/**
+ * Runs in the page: true once the page is at the top, no CSS/Web animation is
+ * running (Framer's reveal runs as Web Animations), web fonts are loaded, and
+ * no element carries a mid-reveal inline opacity.
+ */
+export const SETTLED_SCRIPT = `window.scrollY === 0 &&
+  document.getAnimations().length === 0 &&
+  document.fonts.status === "loaded" &&
+  Array.from(document.querySelectorAll("[style*=opacity]")).every(
+    (el) => el.style.opacity === "" || Number(el.style.opacity) >= 1
+  )`;
+
+/** Runs in the page: resolves after two animation frames, so the settled state is painted. */
+const FRAMES_SCRIPT = `new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`;
 
 const REVEAL_SETTLE_MS = 3_000;
 const REVEAL_POLL_MS = 100;
 
 /**
- * Scroll-triggered content, revealed and settled before a screenshot. Waits at
- * most {@link REVEAL_SETTLE_MS} for inline opacities to reach 1, then returns
- * either way — a page that keeps a translucent element by design is captured
- * as it is, not failed.
+ * Scroll-triggered content, revealed and settled before a screenshot. Scrolls
+ * only when something is still hidden — a page with nothing to reveal is never
+ * scrolled, so it cannot pick up scroll-induced render state (re-review N5).
+ * Either way it waits at most {@link REVEAL_SETTLE_MS} for
+ * {@link SETTLED_SCRIPT}, then two frames, and returns — a page that keeps a
+ * translucent element or an endless animation by design is captured as it is,
+ * not failed.
  */
 export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> {
-  await page.evaluate(REVEAL_SCRIPT);
+  if (await page.evaluate(HIDDEN_SCRIPT)) await page.evaluate(REVEAL_SCRIPT);
   const deadline = Date.now() + REVEAL_SETTLE_MS;
-  while (Date.now() < deadline) {
-    if (await page.evaluate(SETTLED_SCRIPT)) return;
+  while (!(await page.evaluate(SETTLED_SCRIPT)) && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, REVEAL_POLL_MS));
   }
+  await page.evaluate(FRAMES_SCRIPT);
 }
 
 interface Probe {

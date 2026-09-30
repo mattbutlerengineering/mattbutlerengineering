@@ -20,7 +20,10 @@
  * fails the row like an unmocked `/api/` call (review M3).
  *
  * Sections that reveal on scroll are scrolled through and settled before the
- * shot — rendered, never masked (review M2).
+ * shot — rendered, never masked (review M2). The helper scrolls only a page
+ * that still hides content, scrolls instantly despite `global.css`'s
+ * `scroll-behavior: smooth`, and waits for the top, no running animation and
+ * loaded fonts — without that the shot landed mid-scroll (re-review N5).
  *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
