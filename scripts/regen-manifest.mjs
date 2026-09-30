@@ -33,6 +33,7 @@ import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WORKSPACE_ROOTS } from "./merge-train-lock.mjs";
+import { ROUTER_FILES } from "./ui-quality/routes.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -194,6 +195,19 @@ export const FAMILIES = [
     outputs: ["infrastructure/worker/dep-graph.json"],
     changedBy(path) {
       return isDependencyManifestChange(path)
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
+  },
+  {
+    id: "ui-quality-ledger",
+    label: "metrics/ui-quality-ledger.jsonl (route inventory identity columns)",
+    command: "node scripts/ui-quality/ledger.mjs generate",
+    outputs: ["metrics/ui-quality-ledger.jsonl"],
+    // Only the four files the route inventory parses can change a route
+    // template; page modules change `last_changed_at`, which `refresh` owns.
+    changedBy(path) {
+      return ROUTER_FILES.some((file) => path === file || path.endsWith(`/${file}`))
         ? { command: this.command, outputs: this.outputs }
         : null;
     },
