@@ -402,4 +402,17 @@ describe("screenshotName", () => {
     expect(screenshotName("/", { width: 375, height: 812 })).toBe("root@375x812.png");
     expect(screenshotName("*", { width: 375, height: 812 })).toBe("not-found@375x812.png");
   });
+
+  it("trims leading and trailing separators", () => {
+    expect(screenshotName("/reservations/:id/", { width: 375, height: 812 })).toBe(
+      "reservations-id@375x812.png"
+    );
+  });
+
+  it("stays linear on long separator runs (CodeQL js/polynomial-redos)", () => {
+    const route = `a${"-".repeat(100_000)}b${"/".repeat(100_000)}`;
+    const started = performance.now();
+    expect(screenshotName(route, { width: 375, height: 812 })).toBe("a-b@375x812.png");
+    expect(performance.now() - started).toBeLessThan(500);
+  });
 });

@@ -253,7 +253,9 @@ export function screenshotName(route: string, viewport: Viewport): string {
       ? "root"
       : route === "*"
         ? "not-found"
-        : route.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        : // The first pass collapses every separator run to one "-", so at most
+          // one survives at each end — trim it without a backtracking `-+$`.
+          route.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `${slug}@${viewport.width}x${viewport.height}.png`;
 }
 
