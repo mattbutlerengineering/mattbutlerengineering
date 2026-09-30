@@ -66,6 +66,85 @@
       export const ERROR_FORBIDDEN: unknown;
     </item>
   </file>
+  <file path="src/ui-quality-capture.ts">
+    <item priority="low">
+      interface Viewport {
+        width: number;
+        height: number;
+      }
+    </item>
+    <item priority="low">
+      interface AxeViolation {
+        id: string;
+        impact: string | null;
+        help: string;
+        nodes: Array<{ target: unknown }>;
+      }
+    </item>
+    <item priority="low">
+      interface ManifestRow {
+        route: string;
+        path: string;
+        screenshots: Array<{ viewport: string; file: string; sha256: string }>;
+        axe: { violations: AxeViolation[] };
+        page_errors: string[];
+      }
+    </item>
+    <item priority="low">
+      type CapturePageLike = Pick<
+        Page,
+        "emulateMedia" | "setViewportSize" | "got...;
+    </item>
+    <item priority="high">
+      interface RawAxe {
+        violations: Array<{
+          id: string;
+          impact?: string | null;
+          h...;
+      }
+    </item>
+    <item priority="low">
+      interface CaptureOptions {
+        baseUrl: string;
+        path: string;
+        outDir: string;
+        viewports: readonly Viewport[];
+        analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
+      }
+    </item>
+    <item priority="high">
+      interface Probe {
+        hrefs: string[];
+        text_chars: number;
+        painted_ratio: number;
+      }
+    </item>
+    <item priority="high">
+      export function sameOriginLinks(hrefs: readonly string[], origin: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function screenshotName(route: string, viewport: Viewport): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function trimAxe(raw: RawAxe): { violations: AxeViolation[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listen(page: CapturePageLike, origin: string) { /* ... */ }
+    </item>
+    <item priority="low">
+      async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function capturePage(
+        page: CapturePageLike,
+        route: string,
+        opts: CaptureOptions
+      ): Promise<ManifestRow> { /* ... */ }
+    </item>
+  </file>
   <file path="src/users.ts">
     <item priority="low">
       interface MockUserPreferences {
