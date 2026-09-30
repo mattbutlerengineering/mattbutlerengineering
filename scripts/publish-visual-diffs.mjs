@@ -17,6 +17,10 @@
  *
  * Every shell-out is `execFileSync` with an argv array — never string
  * interpolation into a shell.
+ *
+ * `VISUAL_SUITE` (required — exit 2 when unset) names the suite this run
+ * publishes for (`rialto-web`, `marketing`, `hospitality`): each suite keeps
+ * its own sticky comment, found and ordered by its own marker only.
  */
 
 import { execFileSync } from "node:child_process";
@@ -34,9 +38,9 @@ import { fileURLToPath } from "node:url";
 
 import { parseMaxDiffPixels, parseVisualReport } from "./visual-diff-report.mjs";
 import {
-  COMMENT_MARKER_PREFIX,
   MAX_IMAGE_ROWS,
   blobName,
+  commentMarkerPrefix,
   decideCommentAction,
   parseCommentOrdinal,
   renderComment,
@@ -71,13 +75,14 @@ export const PUBLISHER_LOGIN = "github-actions[bot]";
  * skip note inside a green job's summary.
  *
  * @param {{login?: unknown, body?: unknown}|null|undefined} comment
+ * @param {string} suite this run's suite — another suite's comment is never ours
  * @returns {boolean}
  */
-export function isStandingComment(comment) {
+export function isStandingComment(comment, suite) {
   return (
     comment?.login === PUBLISHER_LOGIN &&
     typeof comment.body === "string" &&
-    comment.body.startsWith(COMMENT_MARKER_PREFIX)
+    comment.body.startsWith(commentMarkerPrefix(suite))
   );
 }
 
@@ -305,14 +310,14 @@ export function isRetryable(verb) {
  * @param {{runOrdinal: object, standingBody: string|null}} input
  * @returns {string}
  */
-export function formatSkipNote({ runOrdinal, standingBody }) {
+export function formatSkipNote({ suite, runOrdinal, standingBody }) {
   const ours = `run ${runOrdinal?.runId} attempt ${runOrdinal?.runAttempt}`;
 
   if (standingBody === null || standingBody === undefined) {
     return `Skipped: this run (${ours}) had nothing to do — no standing comment on this pull request.`;
   }
 
-  const standing = parseCommentOrdinal(standingBody);
+  const standing = parseCommentOrdinal(standingBody, suite);
   if (standing === null) {
     return `Skipped: this run (${ours}) declined to act — the standing comment's ordinal is unreadable.`;
   }
@@ -355,7 +360,7 @@ function gh(args) {
  * author clause it would carry is the one line stopping anyone with comment
  * access from suppressing this feature on a pull request.
  */
-function findStandingComment(repo, prNumber) {
+function findStandingComment(repo, prNumber, suite) {
   const comments = gh([
     "api",
     `repos/${repo}/issues/${prNumber}/comments`,
@@ -368,7 +373,7 @@ function findStandingComment(repo, prNumber) {
     .filter(Boolean)
     .map((line) => JSON.parse(line));
 
-  const standing = comments.find(isStandingComment);
+  const standing = comments.find((comment) => isStandingComment(comment, suite));
   return standing === undefined ? null : { id: standing.id, body: standing.body };
 }
 
@@ -395,6 +400,11 @@ function executeVerb({ verb, repo, prNumber, standing, body }) {
 }
 
 async function main() {
+  const suite = process.env.VISUAL_SUITE;
+  if (!suite) {
+    process.stderr.write("publish-visual-diffs.mjs: VISUAL_SUITE is required (e.g. rialto-web)\n");
+    process.exit(2);
+  }
   const repo = process.env.GITHUB_REPOSITORY;
   const workspace = process.env.GITHUB_WORKSPACE;
   const prNumber = process.env.PR_NUMBER;
@@ -404,15 +414,20 @@ async function main() {
   };
   const visualFailed = process.env.VISUAL_OUTCOME !== "success";
 
-  const standing = findStandingComment(repo, prNumber);
+  const standing = findStandingComment(repo, prNumber, suite);
   const standingBody = standing?.body ?? null;
 
   // The success path never reads either artifact: the diffs artifact does not
   // exist on a passing run, and gating the clear behind it would leave a stale
   // failure comment standing (SC-5).
   if (!visualFailed) {
-    const verb = decideCommentAction({ existingBody: standingBody, runOrdinal, visualFailed });
-    if (verb === "skip") note(formatSkipNote({ runOrdinal, standingBody }));
+    const verb = decideCommentAction({
+      suite,
+      existingBody: standingBody,
+      runOrdinal,
+      visualFailed,
+    });
+    if (verb === "skip") note(formatSkipNote({ suite, runOrdinal, standingBody }));
     executeVerb({ verb, repo, prNumber, standing, body: null });
     return;
   }
@@ -446,14 +461,17 @@ async function main() {
   // GITHUB_RUN_ID and increments GITHUB_RUN_ATTEMPT, and a name built from the
   // id alone would have attempt 2 push at attempt 1's ref — rejected
   // non-fast-forward, and the one flag that would resolve it is forbidden here.
+  // And the SUITE: apps-visual.yml publishes marketing and hospitality from one
+  // run, so they share the ordinal and would otherwise push at one ref.
   const refName = buildRefName({
     prNumber,
+    suite,
     runId: runOrdinal.runId,
     runAttempt: runOrdinal.runAttempt,
   });
   const sha = buildOrphanCommit({
     files,
-    message: `visual diffs for PR #${prNumber} (run ${runOrdinal.runId} attempt ${runOrdinal.runAttempt})`,
+    message: `${suite} visual diffs for PR #${prNumber} (run ${runOrdinal.runId} attempt ${runOrdinal.runAttempt})`,
     cwd: workspace,
   });
 
@@ -461,6 +479,7 @@ async function main() {
   note(`Published ${files.length} image(s) as ${sha} on \`${refName}\`.`);
 
   const body = renderComment({
+    suite,
     total,
     changed,
     displayed,
@@ -474,8 +493,13 @@ async function main() {
     runAttempt: runOrdinal.runAttempt,
   });
 
-  const verb = decideCommentAction({ existingBody: standingBody, runOrdinal, visualFailed });
-  if (verb === "skip") note(formatSkipNote({ runOrdinal, standingBody }));
+  const verb = decideCommentAction({
+    suite,
+    existingBody: standingBody,
+    runOrdinal,
+    visualFailed,
+  });
+  if (verb === "skip") note(formatSkipNote({ suite, runOrdinal, standingBody }));
   executeVerb({ verb, repo, prNumber, standing, body });
 }
 

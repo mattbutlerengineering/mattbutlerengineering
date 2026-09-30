@@ -178,6 +178,8 @@ see `llms-full.txt` in the repo root (or `llms.txt` for a condensed overview).
 This file (CLAUDE.md) covers authoring and contributing to Rialto;
 llms-full.txt covers consuming the library in an application.
 
+Before writing any page UI, read `.claude/rules/ui-quality.md` — the tells the daily ui-quality loop files, each answered by a token rule above.
+
 ## Commands
 
 - `pnpm dev` — Start dev server (run from monorepo root)

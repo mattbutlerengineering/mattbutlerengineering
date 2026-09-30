@@ -19,6 +19,7 @@ export const FILES_TO_CHECK = [
   "llms.txt",
   "llms-full.txt",
   ".cursorrules",
+  ".claude/rules/ui-quality.md",
 ];
 
 /**

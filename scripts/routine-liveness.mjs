@@ -16,14 +16,18 @@
  * signature + period + observed artifacts; the network lives entirely behind
  * injected callbacks in `runRoutineLivenessCheck()`, mirroring
  * `scheduled-workflow-health.mjs`'s design so the two stay easy to read
- * side by side. Does not depend on the `gh` CLI — `@mbe/gh-client` falls
- * back to the GitHub REST API when `gh` is unavailable (Claude Code Remote
- * sessions; see .claude/rules/gotchas.md § Claude Code Remote).
+ * side by side. The list/issue queries go through `@mbe/gh-client`, which
+ * falls back to the GitHub REST API when `gh` is unavailable (Claude Code
+ * Remote sessions; see .claude/rules/gotchas.md § Claude Code Remote). The
+ * one exception is `observe: "latest-matching-commit"`'s commit lookup, which
+ * calls `gh api` (the Actions runner has it); without `gh` that routine alone
+ * reads `unobserved`, never aborting the run.
  *
  * Usage:
  *   node scripts/routine-liveness.mjs
  */
 
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { ROUTINE_MANIFEST } from "./routine-manifest.mjs";
@@ -60,16 +64,29 @@ export function matchesSignature(artifact, signature) {
  * - Most recent matching artifact is older than `periodDays` but within
  *   `2 * periodDays` → `late` (it ran, just not on schedule).
  * - No matching artifact within `2 * periodDays` (or none at all) → `dark`.
+ * - Exception: no matching artifact at all while the routine's `activatedAt`
+ *   is younger than `2 * periodDays` → `pending` (files nothing). A routine
+ *   created today has had no chance to fire yet; without this the checker
+ *   files a false `dark` on the morning between merge and first fire. An
+ *   unparseable `activatedAt` grants no grace, and without one the result is
+ *   exactly what it always was.
  *
  * @param {{
  *   signature?: import("./routine-manifest.mjs").RoutineSignature,
  *   periodDays: number,
  *   observedArtifacts?: Array<{type?: string, title?: string, labels?: string[], observedAt?: string}>,
  *   now: string|number|Date,
+ *   activatedAt?: string,
  * }} args
- * @returns {{status: "alive"|"late"|"dark"|"unverifiable", matched: object|null}}
+ * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending", matched: object|null, reason?: string}}
  */
-export function classifyRoutineLiveness({ signature, periodDays, observedArtifacts = [], now }) {
+export function classifyRoutineLiveness({
+  signature,
+  periodDays,
+  observedArtifacts = [],
+  now,
+  activatedAt,
+}) {
   if (!signature) {
     return { status: "unverifiable", matched: null };
   }
@@ -90,6 +107,14 @@ export function classifyRoutineLiveness({ signature, periodDays, observedArtifac
 
   const mostRecent = matching[0];
   if (!mostRecent) {
+    const activatedMs = activatedAt === undefined ? NaN : new Date(activatedAt).getTime();
+    if (Number.isFinite(activatedMs) && nowMs - activatedMs < periodMs * 2) {
+      return {
+        status: "pending",
+        matched: null,
+        reason: `activated ${activatedAt}, younger than 2 x ${period}-day period — no run expected yet`,
+      };
+    }
     return { status: "dark", matched: null };
   }
   if (mostRecent.ageMs <= periodMs) {
@@ -321,14 +346,27 @@ export function runRoutineLivenessCheck({
 
   // Observe every routine BEFORE classifying any, so a run-wide observation
   // failure is visible as such instead of N separate "dark" verdicts.
+  //
+  // One routine's observation throwing must not abort the run (review N1:
+  // an over-limit GraphQL query took down every routine's classification).
+  // A failed observation is `unobserved` — not `dark`/`unverifiable`, whose
+  // issue titles would blame the routine for the query's failure.
   const observations = inScope.map((entry) => {
-    const observedArtifacts = entry.signature ? fetchObservedArtifacts(entry) : [];
+    let observedArtifacts = [];
+    let observeError = null;
     if (entry.signature) {
-      log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
+      try {
+        observedArtifacts = fetchObservedArtifacts(entry);
+        log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
+      } catch (err) {
+        observeError = err;
+        log(`observing ${entry.name} failed — not classifying it this run: ${err?.message ?? err}`);
+      }
     }
     return {
       entry,
       observedArtifacts,
+      observeError,
       hasSignature: Boolean(entry.signature),
       observedCount: observedArtifacts.length,
     };
@@ -340,7 +378,11 @@ export function runRoutineLivenessCheck({
         `artifact-query failure, not ${observations.filter((o) => o.hasSignature).length} dark routines. ` +
         `Filing nothing this run (#5606).`
     );
-    return observations.map(({ entry }) => ({ routine: entry.name, status: "unobserved" }));
+    return observations.map(({ entry, observeError }) =>
+      observeError
+        ? { routine: entry.name, status: "unobserved", action: "observe-failed" }
+        : { routine: entry.name, status: "unobserved" }
+    );
   }
 
   // Fail CLOSED on a failed search, run at most once for the whole batch. For
@@ -364,15 +406,24 @@ export function runRoutineLivenessCheck({
     return candidates;
   };
 
-  return observations.map(({ entry, observedArtifacts }) => {
+  return observations.map(({ entry, observedArtifacts, observeError }) => {
+    if (observeError) {
+      return { routine: entry.name, status: "unobserved", action: "observe-failed" };
+    }
     const result = classifyRoutineLiveness({
       signature: entry.signature,
       periodDays: entry.periodDays,
       observedArtifacts,
       now,
+      activatedAt: entry.activatedAt,
     });
 
-    if (result.status === "late") {
+    if (result.status === "pending") {
+      log(`${entry.name} is pending: ${result.reason}`);
+    }
+    // late and pending never file or close anything: late is below the issue
+    // threshold, and pending (#activatedAt grace) has no artifact yet.
+    if (result.status === "late" || result.status === "pending") {
       return { routine: entry.name, status: result.status };
     }
 
@@ -449,6 +500,88 @@ export function runRoutineLivenessCheck({
   });
 }
 
+/** The one `observe` mode a `pr-title` signature may opt into. */
+export const LATEST_MATCHING_COMMIT = "latest-matching-commit";
+
+/**
+ * Pure: the `observedAt` of a PR under `observe: "latest-matching-commit"` —
+ * the newest `committedDate` among its commits whose `messageHeadline` matches
+ * the signature pattern, else `createdAt`. A long-lived PR that a routine
+ * commits to on every fire (mbe-ui-quality's ledger PR) is dated by its latest
+ * fire, not its first day; `mergedAt` is never used — a merge is someone
+ * else's act, not a fire. An unparseable commit date is ignored, never read
+ * as fresh.
+ *
+ * @param {{createdAt?: string, commits?: Array<{messageHeadline?: string, committedDate?: string}>}} pr
+ * @param {{pattern: string}} signature
+ * @returns {string|undefined}
+ */
+export function latestMatchingCommitAt(pr, signature) {
+  const pattern = new RegExp(signature.pattern);
+  const newest = (pr.commits ?? [])
+    .filter((c) => pattern.test(c?.messageHeadline ?? ""))
+    .map((c) => ({ at: c.committedDate, ms: new Date(c.committedDate ?? "").getTime() }))
+    .filter((c) => Number.isFinite(c.ms))
+    .sort((a, b) => b.ms - a.ms)[0];
+  return newest ? newest.at : pr.createdAt;
+}
+
+/** Page size for the REST commit listings below (GitHub's maximum). */
+const COMMITS_PER_PAGE = 100;
+/**
+ * Pages read from an open PR's head branch before giving up. The branch
+ * carries `main`'s merged-in history, newest first, so a live routine's
+ * ledger commit is on page 1; ten pages is weeks of `main` traffic, past
+ * which the routine is `dark` whatever the exact date.
+ */
+export const MAX_BRANCH_COMMIT_PAGES = 10;
+
+/** Real `apiGet`: one `gh api` GET, parsed. `{owner}/{repo}` resolve from the checkout. */
+function ghApiGet(path) {
+  return JSON.parse(
+    execFileSync("gh", ["api", path], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+  );
+}
+
+/** Pure: a REST commit row as the `{messageHeadline, committedDate}` `latestMatchingCommitAt` reads. */
+function toHeadlineCommit(row) {
+  return {
+    messageHeadline: String(row?.commit?.message ?? "").split("\n")[0],
+    committedDate: row?.commit?.committer?.date,
+  };
+}
+
+/**
+ * The commits that date one title-matching PR under `observe:
+ * "latest-matching-commit"`, via REST — never the GraphQL `commits` field,
+ * whose `first: 100` both breaks the 500,000-node limit inside a `--limit
+ * 50` list (review N1) and hides every commit past the 100th (N2).
+ *
+ * - Open PR: its head branch, newest first, stopping at the first page that
+ *   carries a match.
+ * - Closed or merged PR: its own commit list, every page (GitHub caps it at
+ *   250) — its branch may already be deleted.
+ *
+ * @param {(path: string) => Array<object>} apiGet
+ * @param {{number?: number, state?: string, headRefName?: string}} pr
+ * @param {RegExp} pattern
+ */
+function fetchPrCommits(apiGet, pr, pattern) {
+  const open = pr.state === "OPEN" && pr.headRefName;
+  const base = open
+    ? `repos/{owner}/{repo}/commits?sha=${pr.headRefName}&per_page=${COMMITS_PER_PAGE}`
+    : `repos/{owner}/{repo}/pulls/${pr.number}/commits?per_page=${COMMITS_PER_PAGE}`;
+  const commits = [];
+  for (let page = 1; !open || page <= MAX_BRANCH_COMMIT_PAGES; page++) {
+    const rows = apiGet(`${base}&page=${page}`);
+    const mapped = (Array.isArray(rows) ? rows : []).map(toHeadlineCommit);
+    commits.push(...mapped);
+    if (mapped.length < COMMITS_PER_PAGE) break;
+    if (open && mapped.some((c) => pattern.test(c.messageHeadline))) break;
+  }
+  return commits;
+}
+
 /**
  * Fetches observed artifacts for one manifest entry via a real `@mbe/gh-client`
  * instance. Search results are capped at 50 and not date-sorted server-side
@@ -456,31 +589,48 @@ export function runRoutineLivenessCheck({
  * because `classifyRoutineLiveness()` only needs the single most-recent
  * match, not a complete history.
  *
+ * `observe: "latest-matching-commit"` fetches commits (via `apiGet`, `gh
+ * api` by default) only for the PRs whose title matches the signature — the
+ * only ones `classifyRoutineLiveness()` reads.
+ *
  * @param {ReturnType<typeof createGhClient>} ghClient
  * @param {import("./routine-manifest.mjs").RoutineManifestEntry} entry
+ * @param {{apiGet?: (path: string) => Array<object>}} [deps]
  * @returns {Array<{type: string, title?: string, labels?: string[], observedAt?: string}>}
  */
-export function fetchObservedArtifactsViaGhClient(ghClient, entry) {
+export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = ghApiGet } = {}) {
   const signature = entry.signature;
   if (!signature) return [];
 
   if (signature.type === "pr-title") {
-    const prs = /** @type {Array<{title: string, createdAt?: string, mergedAt?: string|null}>} */ (
-      ghClient.pr.list([
-        "--search",
-        signature.searchTerm,
-        "--state",
-        "all",
-        "--json",
-        "title,createdAt,mergedAt",
-        "--limit",
-        "50",
-      ])
-    );
+    const latestCommit = signature.observe === LATEST_MATCHING_COMMIT;
+    const pattern = new RegExp(signature.pattern);
+    const prs =
+      /** @type {Array<{title: string, number?: number, state?: string, headRefName?: string, createdAt?: string, mergedAt?: string|null}>} */ (
+        ghClient.pr.list([
+          "--search",
+          signature.searchTerm,
+          "--state",
+          "all",
+          "--json",
+          latestCommit
+            ? "title,createdAt,mergedAt,number,state,headRefName"
+            : "title,createdAt,mergedAt",
+          "--limit",
+          "50",
+        ])
+      );
     return prs.map((pr) => ({
       type: "pr",
       title: pr.title,
-      observedAt: pr.mergedAt ?? pr.createdAt,
+      observedAt: !latestCommit
+        ? (pr.mergedAt ?? pr.createdAt)
+        : pattern.test(pr.title ?? "")
+          ? latestMatchingCommitAt(
+              { ...pr, commits: fetchPrCommits(apiGet, pr, pattern) },
+              signature
+            )
+          : pr.createdAt,
     }));
   }
 
@@ -565,6 +715,14 @@ function main() {
   const findings = results.filter((r) => r.status === "dark" || r.status === "unverifiable");
   if (findings.length > 0) {
     console.error(`${findings.length} routine(s) flagged (dark or unverifiable).`);
+  }
+
+  // A routine whose observation failed was not classified: finish the run for
+  // every other routine, then fail the job so the gap is visible (review N1).
+  const unobserved = results.filter((r) => r.action === "observe-failed");
+  if (unobserved.length > 0) {
+    console.error(`${unobserved.length} routine(s) could not be observed this run.`);
+    process.exitCode = 1;
   }
 
   process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);

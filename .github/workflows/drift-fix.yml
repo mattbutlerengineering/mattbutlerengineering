@@ -135,6 +135,7 @@ jobs:
             packages/rialto-catalog/src/generated-schemas.ts
             infrastructure/worker/dep-graph.json
             docs/architecture/dependency-graph.md
+            metrics/ui-quality-ledger.jsonl
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch

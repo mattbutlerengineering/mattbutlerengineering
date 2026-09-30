@@ -1,0 +1,12 @@
+/*
+ * The noise-floor measurement's known-regression signal for marketing.
+ *
+ * Injected by playwright.noise-floor.config.ts via
+ * `expect.toHaveScreenshot.stylePath`, so it touches no application source.
+ * visual.spec.ts screenshots the whole page, so the subject is the whole page:
+ * the same `opacity: 0.55` rialto-web's perturbation applies to its sections
+ * (apps/rialto-web/e2e/noise-floor-perturbation.css).
+ */
+body {
+  opacity: 0.55;
+}

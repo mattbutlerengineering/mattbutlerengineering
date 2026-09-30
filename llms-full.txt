@@ -55125,6 +55125,267 @@
     export const ERROR_CONFLICT = "Conflict";
     export const ERROR_FORBIDDEN = "Forbidden";
   </file>
+  <file path="packages/test-fixtures/src/ui-quality-capture.ts">
+    export interface Viewport {
+      width: number;
+      height: number;
+    }
+    export interface AxeViolation {
+      id: string;
+      impact: string | null;
+      help: string;
+      nodes: Array<{ target: unknown }>;
+    }
+    export interface ManifestRow {
+      route: string;
+      path: string;
+      screenshots: Array<{ viewport: string; file: string; sha256: string }>;
+      axe: { violations: AxeViolation[] };
+      page_errors: string[];
+      console_errors: string[];
+      failed_requests: Array<{ url: string; reason: string }>;
+      links: string[];
+      blank: { text_chars: number; painted_ratio: number };
+      ms: number;
+      /** Viewport-only shot at the first viewport; absent when it failed — never an `error`. */
+      fold?: { viewport: string; file: string; sha256: string };
+      error?: string;
+    }
+    export type CapturePageLike = Pick<
+      Page,
+      "emulateMedia" | "setViewportSize" | "goto" | "waitForLoadState" | "evaluate" | "screenshot"
+    > & {
+      on(event: string, handler: (arg: never) => void): unknown;
+      off(event: string, handler: (arg: never) => void): unknown;
+    };
+    interface RawAxe {
+      violations: Array<{
+        id: string;
+        impact?: string | null;
+        help: string;
+        nodes: Array<{ target: unknown }>;
+      }>;
+    }
+    export interface CaptureOptions {
+      /** e.g. `http://127.0.0.1:4173` — the `vite preview` origin */
+      baseUrl: string;
+      /** the concrete path planned for this route (fixture-resolved) */
+      path: string;
+      /** `.ui-quality/captures/<app>/` — created if absent */
+      outDir: string;
+      viewports: readonly Viewport[];
+      /** Runs axe on the loaded page. Defaults to `@axe-core/playwright`'s AxeBuilder. */
+      analyzeAxe?: (page: CapturePageLike) => Promise<RawAxe>;
+      /** Navigation timeout — one route's timeout fails only that row. */
+      timeoutMs?: number;
+    }
+    export const HIDDEN_SCRIPT = `Array.from(document.querySelectorAll("[style*=opacity]")).some(
+      (el) => el.style.opacity !== "" && Number(el.style.opacity) < 1
+    )`;
+    export const REVEAL_SCRIPT = `(async () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const to = (top) => window.scrollTo({ top, left: 0, behavior: "instant" });
+      const step = Math.max(1, Math.floor(window.innerHeight * 0.8));
+      for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
+        to(y);
+        await frame();
+      }
+      to(document.documentElement.scrollHeight);
+      await frame();
+      to(0);
+      await frame();
+    })()`;
+    export const SETTLED_SCRIPT = `window.scrollY === 0 &&
+      document.getAnimations().length === 0 &&
+      document.fonts.status === "loaded" &&
+      Array.from(document.querySelectorAll("[style*=opacity]")).every(
+        (el) => el.style.opacity === "" || Number(el.style.opacity) >= 1
+      )`;
+    export async function revealLazyContent(page: Pick<Page, "evaluate">): Promise<void> {
+      if (await page.evaluate(HIDDEN_SCRIPT)) await page.evaluate(REVEAL_SCRIPT);
+      const deadline = Date.now() + REVEAL_SETTLE_MS;
+      while (!(await page.evaluate(SETTLED_SCRIPT)) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, REVEAL_POLL_MS));
+      }
+      await page.evaluate(FRAMES_SCRIPT);
+    }
+    interface Probe {
+      hrefs: string[];
+      text_chars: number;
+      painted_ratio: number;
+    }
+    export function sameOriginLinks(hrefs: readonly string[], baseUrl: string): string[] {
+      const base = new URL(asBase(baseUrl));
+      const paths = new Set<string>();
+      for (const href of hrefs) {
+        let url: URL;
+        try {
+          url = new URL(href);
+        } catch {
+          continue;
+        }
+        if (url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
+          paths.add(`/${url.pathname.slice(base.pathname.length)}`);
+        }
+      }
+      return [...paths].sort();
+    }
+    export interface CapturePlan {
+      entries: Array<{ route: string; path: string; viewports: Viewport[] }>;
+      outDir: string;
+      manifestPath: string;
+    }
+    export function loadCapturePlan(
+      app: string,
+      env: Record<string, string | undefined> = process.env
+    ): CapturePlan {
+      const planPath = env.UI_QUALITY_PLAN;
+      const outDir = planPath ? join(dirname(planPath), "captures", app) : "";
+      const none = { entries: [], outDir, manifestPath: join(outDir, "manifest.jsonl") };
+      if (!planPath) return none;
+      const plan = JSON.parse(readFileSync(planPath, "utf8")) as Record<string, CapturePlan["entries"]>;
+      return { ...none, entries: plan[app] ?? [] };
+    }
+    export function resetManifest(plan: CapturePlan, workerIndex: number): void {
+      if (workerIndex !== 0 || plan.entries.length === 0) return;
+      mkdirSync(plan.outDir, { recursive: true });
+      writeFileSync(plan.manifestPath, "");
+    }
+    export function appendManifestRow(plan: CapturePlan, row: ManifestRow): void {
+      appendFileSync(plan.manifestPath, `${JSON.stringify(row)}\n`);
+    }
+    export function screenshotName(route: string, viewport: Viewport): string {
+      const slug =
+        route === "/"
+          ? "root"
+          : route === "*"
+            ? "not-found"
+            : // The first pass collapses every separator run to one "-", so at most
+              // one survives at each end — trim it without a backtracking `-+$`.
+              route.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return `${slug}@${viewport.width}x${viewport.height}.png`;
+    }
+    async function defaultAnalyzeAxe(page: CapturePageLike): Promise<RawAxe> {
+      const { AxeBuilder } = await import("@axe-core/playwright");
+      return new AxeBuilder({ page: page as unknown as Page }).analyze();
+    }
+    function trimAxe(raw: RawAxe): { violations: AxeViolation[] } {
+      return {
+        violations: raw.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact ?? null,
+          help: v.help,
+          nodes: v.nodes.map((n) => ({ target: n.target })),
+        })),
+      };
+    }
+    function listen(page: CapturePageLike, origin: string) {
+      const page_errors: string[] = [];
+      const console_errors: string[] = [];
+      const failed_requests: Array<{ url: string; reason: string }> = [];
+      const sameOrigin = (url: string) => {
+        try {
+          return new URL(url).origin === origin;
+        } catch {
+          return false;
+        }
+      };
+      const handlers: Record<string, (arg: never) => void> = {
+        pageerror: (err: Error) => page_errors.push(err.message),
+        console: (msg: { type(): string; text(): string }) => {
+          if (msg.type() === "error") console_errors.push(msg.text());
+        },
+        requestfailed: (req: { url(): string; failure(): { errorText: string } | null }) => {
+          if (sameOrigin(req.url())) {
+            failed_requests.push({ url: req.url(), reason: req.failure()?.errorText ?? "failed" });
+          }
+        },
+        response: (res: { url(): string; status(): number }) => {
+          if (res.status() >= 400 && sameOrigin(res.url())) {
+            failed_requests.push({ url: res.url(), reason: `HTTP ${res.status()}` });
+          }
+        },
+      };
+      for (const [event, handler] of Object.entries(handlers)) page.on(event, handler);
+      const stop = () => {
+        for (const [event, handler] of Object.entries(handlers)) page.off(event, handler);
+      };
+      return { page_errors, console_errors, failed_requests, stop };
+    }
+    async function screenshotAll(page: CapturePageLike, route: string, opts: CaptureOptions) {
+      const shots: ManifestRow["screenshots"] = [];
+      for (const viewport of opts.viewports) {
+        await page.setViewportSize(viewport);
+        const file = screenshotName(route, viewport);
+        const path = join(opts.outDir, file);
+        const bytes = await page.screenshot({ path, fullPage: true });
+        shots.push({ viewport: `${viewport.width}x${viewport.height}`, file, sha256: sha256(bytes) });
+      }
+      return shots;
+    }
+    export function foldName(route: string, viewport: Viewport): string {
+      return screenshotName(route, viewport).replace(/\.png$/, ".fold.png");
+    }
+    async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) {
+      const [viewport] = opts.viewports;
+      if (!viewport) return undefined;
+      try {
+        await page.setViewportSize(viewport);
+        const file = foldName(route, viewport);
+        const bytes = await page.screenshot({ path: join(opts.outDir, file), fullPage: false });
+        return { viewport: `${viewport.width}x${viewport.height}`, file, sha256: sha256(bytes) };
+      } catch {
+        return undefined;
+      }
+    }
+    export async function capturePage(
+      page: CapturePageLike,
+      route: string,
+      opts: CaptureOptions
+    ): Promise<ManifestRow> {
+      const started = Date.now();
+      const origin = new URL(opts.baseUrl).origin;
+      const events = listen(page, origin);
+      const row: ManifestRow = {
+        route,
+        path: opts.path,
+        screenshots: [],
+        axe: { violations: [] },
+        page_errors: events.page_errors,
+        console_errors: events.console_errors,
+        failed_requests: events.failed_requests,
+        links: [],
+        blank: { text_chars: 0, painted_ratio: 0 },
+        ms: 0,
+      };
+      try {
+        mkdirSync(opts.outDir, { recursive: true });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        const [first] = opts.viewports;
+        if (first) await page.setViewportSize(first);
+        await page.goto(new URL(opts.path.replace(/^\/+/, ""), asBase(opts.baseUrl)).href, {
+          waitUntil: "load",
+          timeout: opts.timeoutMs ?? NAVIGATION_TIMEOUT_MS,
+        });
+        await page.waitForLoadState("networkidle", { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
+        const probe = (await page.evaluate(PROBE_SCRIPT)) as Probe;
+        row.links = sameOriginLinks(probe.hrefs, opts.baseUrl);
+        row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
+        // A failed reveal is not a failed route: the shots are still taken, as before.
+        await revealLazyContent(page).catch(() => {});
+        row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
+        row.screenshots = await screenshotAll(page, route, opts);
+        const fold = await screenshotFold(page, route, opts);
+        if (fold) row.fold = fold;
+      } catch (err) {
+        row.error = message(err);
+      } finally {
+        events.stop();
+      }
+      row.ms = Date.now() - started;
+      return row;
+    }
+  </file>
   <file path="packages/test-fixtures/src/users.ts">
     export interface MockUserPreferences {
       readonly theme: "light" | "dark" | "system";

@@ -53,6 +53,7 @@ further down describe _why_, not _what_.
 | `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                         |
 | `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                  |
 | `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                              |
+| `mbe-ui-quality` _(new)_     | `pending`                        | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `23 7 * * *`  | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues     | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                        |
 | `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues | Codebase improvement survey → implement the best change (see note)                                                      |
 | `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                                            | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                       |
 | `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues                                | Process retro — what blocked flow last week and what to change (see note)                                               |
@@ -89,6 +90,18 @@ further down describe _why_, not _what_.
 > label claim is the race guard. Added 2026-09-20 alongside the three batch
 > routines rather than replacing one — prune after a week of runs if the queue
 > turns out to be drained before it fires.
+
+> **`mbe-ui-quality`** works the UI coverage ledger: it captures the due
+> routes of marketing, rialto-web and hospitality against a local build,
+> judges them against `docs/ui-quality/rubric.md`, and files what the scripts
+> under `scripts/ui-quality/` plan — issues, backlog seeds and at most one fix
+> PR, never merged. Its state lives on the rolling `ui-quality/ledger` branch,
+> which every fire checks out first (`state.mjs checkout`); every fire, no-op
+> ones included, commits `chore(ui-quality): ledger <date>` there — its
+> liveness signature, dated by that commit — and opens the PR only when none
+> is open. Nothing waits for that PR to merge. Prompt:
+> [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md); design:
+> `docs/features/ui-quality-loop/architecture.md`.
 
 > **`mbe-auditor`** runs a read-only rotating 7-lens audit — one lens per day,
 > cycling through the week. Prompt:
@@ -505,16 +518,16 @@ new weekday schedule slot** (see Plan budget below).
 ## Plan budget (Max 20x)
 
 The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
-interactive use. The **daily** baseline is 6 runs (`mbe-evening`, `mbe-night`,
-`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`, `mbe-midday`). Weekly/monthly
-triggers add a 7th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
+interactive use. The **daily** baseline is 7 runs (`mbe-evening`, `mbe-night`,
+`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`, `mbe-midday`,
+`mbe-ui-quality`). Weekly/monthly triggers add runs on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 8
-- Sun: + `mbe-weekly-retro` (opus) → 7
-- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 9 if the 1st is a Fri)
+- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 9
+- Sun: + `mbe-weekly-retro` (opus) → 8
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 8 (or briefly 10 if the 1st is a Fri)
 
-6-9 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+7-10 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
 interactive local sessions. The two weekly opus routines are deliberately split
 across different days — `mbe-weekly-improve` on Friday, `mbe-weekly-retro` on
 Sunday — so the heaviest runs never stack. `mbe-monthly-meta-audit` is the one
@@ -522,7 +535,7 @@ exception: it lands on whatever weekday the 1st falls on, occasionally Friday.
 
 > **`optimize-implement-queue` consumes no new slot.** It is folded into the
 > existing `mbe-evening` run (an extra skill invocation at the tail of one run),
-> so the daily baseline stays at 6. The only added paid work is the weekly
+> so the daily baseline is unchanged by it. The only added paid work is the weekly
 > `mbe agent eval` checkpoint inside `mbe-weekly-improve` (still one Friday run);
 > the daily optimizer's eval fires only on a flagged regression, asynchronously.
 

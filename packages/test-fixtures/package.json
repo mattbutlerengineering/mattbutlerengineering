@@ -8,6 +8,11 @@
       "types": "./src/index.ts",
       "production": "./dist/index.js",
       "default": "./src/index.ts"
+    },
+    "./ui-quality-capture": {
+      "types": "./src/ui-quality-capture.ts",
+      "production": "./dist/ui-quality-capture.js",
+      "default": "./src/ui-quality-capture.ts"
     }
   },
   "scripts": {
@@ -19,7 +24,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@mbe/types": "workspace:*"
+    "@axe-core/playwright": "^4.13.0",
+    "@mbe/types": "workspace:*",
+    "@playwright/test": "^1.63.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",

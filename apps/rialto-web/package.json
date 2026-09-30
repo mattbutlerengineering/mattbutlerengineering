@@ -43,6 +43,7 @@
     "@axe-core/playwright": "^4.13.0",
     "@mbe/config": "workspace:*",
     "@mbe/edge-worker": "workspace:*",
+    "@mbe/test-fixtures": "workspace:*",
     "@playwright/test": "^1.63.0",
     "@sentry/vite-plugin": "^5.4.0",
     "@testing-library/jest-dom": "catalog:",

@@ -93,6 +93,26 @@ export const METRICS = {
   // label write bumps `updated_at`, destroying the staleness it measured
   // (#4274). Durable — the detector runs in an ephemeral checkout.
   "stale-human-blocked": { file: "stale-human-blocked.jsonl", format: "jsonl", durable: true },
+  // One row per route template, rewritten in place by scripts/ui-quality/ledger.mjs
+  // (identity from source, audit state from the routine). `-merge` in
+  // .gitattributes, not union: a union merge of a rewritten file duplicates rows.
+  "ui-quality-ledger": { file: "ui-quality-ledger.jsonl", format: "jsonl", durable: true },
+  // One row per ui-quality routine fire, appended by `ledger.mjs record`; the
+  // first row anchors coverage.mjs's 30-day clock. Union merge via the glob.
+  "ui-quality-runs": { file: "ui-quality-runs.jsonl", format: "jsonl", durable: true },
+  // One row per app per ui-quality fire, appended by `rate.mjs record`: the
+  // pairwise taste score with every verdict. Union merge via the glob.
+  "ui-quality-ratings": { file: "ui-quality-ratings.jsonl", format: "jsonl", durable: true },
+  // One row per `rate.mjs calibrate` run; `record` stamps each ratings row
+  // pass|failed|stale from the latest row for its model_id. Union merge via the glob.
+  "ui-quality-calibrations": {
+    file: "ui-quality-calibrations.jsonl",
+    format: "jsonl",
+    durable: true,
+  },
+  // Finding key → the issue/seed that carries it, rewritten per key by
+  // scripts/ui-quality/findings.mjs `record` / `migrate`.
+  "ui-quality-findings": { file: "ui-quality-findings.json", format: "json-object", durable: true },
 };
 
 /**

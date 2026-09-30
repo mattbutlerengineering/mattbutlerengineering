@@ -1,0 +1,133 @@
+{
+  "references": [
+    {
+      "id": "shadcn-home",
+      "category": "marketing-site",
+      "file": "docs/ui-quality/reference/shadcn-home.png",
+      "app": "shadcn/ui website (apps/v4)",
+      "license": "MIT",
+      "source": {
+        "url": "https://ui.shadcn.com/",
+        "repo": "https://github.com/shadcn-ui/ui",
+        "commit": "08ab84f7d1952cc1f36055aa8931213a86b01bbd",
+        "license_file": "LICENSE.md"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "8b55ad83e2c62af711044e828c405fc88ab5ca75c099400ee12f6426dc2fc757"
+    },
+    {
+      "id": "mantine-home",
+      "category": "marketing-site",
+      "file": "docs/ui-quality/reference/mantine-home.png",
+      "app": "Mantine website (apps/mantine.dev)",
+      "license": "MIT",
+      "source": {
+        "url": "https://mantine.dev/",
+        "repo": "https://github.com/mantinedev/mantine",
+        "commit": "f38933cb4f1c534600f4ff59ee3ddbb4685a4bc4",
+        "license_file": "LICENSE"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "873f0beb4cb47f9e07101d0b848665efefa2f026f133e7a23271011bcd0f5d01"
+    },
+    {
+      "id": "medusa-product",
+      "category": "booking-checkout",
+      "file": "docs/ui-quality/reference/medusa-product.png",
+      "app": "Medusa Next.js Starter storefront",
+      "license": "MIT",
+      "source": {
+        "url": "https://next.medusajs.com/us/products/hoodie",
+        "repo": "https://github.com/medusajs/nextjs-starter-medusa",
+        "commit": "9818886f06e493cb2249733d114d339aa216ef00",
+        "license_file": "LICENSE"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "76e64f24f47b472bddfe3faaacf14aadbecc0ebffba5d3afbf5b4507e0b370eb"
+    },
+    {
+      "id": "medusa-checkout",
+      "category": "booking-checkout",
+      "file": "docs/ui-quality/reference/medusa-checkout.png",
+      "app": "Medusa Next.js Starter storefront",
+      "license": "MIT",
+      "source": {
+        "url": "https://next.medusajs.com/us/checkout?step=address",
+        "repo": "https://github.com/medusajs/nextjs-starter-medusa",
+        "commit": "9818886f06e493cb2249733d114d339aa216ef00",
+        "license_file": "LICENSE"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "f7f84d70895cd435e111c45cfb4fb2b35767402ff6f241321a39c199e6e60821",
+      "capture_note": "one item added to the cart with the product page's Add to cart button, then the checkout URL loaded"
+    },
+    {
+      "id": "shadcn-dashboard-01",
+      "category": "product-dashboard",
+      "file": "docs/ui-quality/reference/shadcn-dashboard-01.png",
+      "app": "shadcn/ui dashboard-01 block (apps/v4)",
+      "license": "MIT",
+      "source": {
+        "url": "https://ui.shadcn.com/view/new-york-v4/dashboard-01",
+        "repo": "https://github.com/shadcn-ui/ui",
+        "commit": "08ab84f7d1952cc1f36055aa8931213a86b01bbd",
+        "license_file": "LICENSE.md"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "79053dfcc1df890a85af9fd1fe4fc65bdd3630c6579ae6bb7a9b78375948afc1"
+    },
+    {
+      "id": "tremor-overview",
+      "category": "product-dashboard",
+      "file": "docs/ui-quality/reference/tremor-overview.png",
+      "app": "Tremor OSS dashboard template",
+      "license": "Apache-2.0",
+      "source": {
+        "url": "https://dashboard.tremor.so/overview",
+        "repo": "https://github.com/tremorlabs/template-dashboard-oss",
+        "commit": "a20f619680e4582122c331bacf2efdef6daf460f",
+        "license_file": "LICENSE.md"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "baffa7ec625eabc996581433d1f99cbd94066adee8009277b132ebd4f65d2b87"
+    },
+    {
+      "id": "mantine-button-docs",
+      "category": "component-docs",
+      "file": "docs/ui-quality/reference/mantine-button-docs.png",
+      "app": "Mantine docs (apps/mantine.dev)",
+      "license": "MIT",
+      "source": {
+        "url": "https://mantine.dev/core/button/",
+        "repo": "https://github.com/mantinedev/mantine",
+        "commit": "f38933cb4f1c534600f4ff59ee3ddbb4685a4bc4",
+        "license_file": "LICENSE"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "2273cf6e1ccb805c4795297cf4000e4459fdfd7318bfe9155209795e7d79fd57"
+    },
+    {
+      "id": "chakra-button-docs",
+      "category": "component-docs",
+      "file": "docs/ui-quality/reference/chakra-button-docs.png",
+      "app": "Chakra UI docs (apps/www)",
+      "license": "MIT",
+      "source": {
+        "url": "https://chakra-ui.com/docs/components/button",
+        "repo": "https://github.com/chakra-ui/chakra-ui",
+        "commit": "961161428b8c59157ad921dd23303b73c294d73f",
+        "license_file": "LICENSE"
+      },
+      "captured_at": "2026-09-30T05:48:00Z",
+      "viewport": "1280x720",
+      "sha256": "8fa3a50e62b7e13760c5abcccb2f52c01272ca8fa05725084c0be39e78845be4"
+    }
+  ]
+}

@@ -59,6 +59,7 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    - Use `import type` for type-only imports
    - Double quotes, semicolons, 2-space indent, trailing commas
    - kebab-case files, camelCase functions, PascalCase types, UPPER_SNAKE constants
+   - UI changes (`apps/**/*.{tsx,css}`, `packages/rialto/**`): follow `.claude/rules/ui-quality.md` — the tells the ui-quality loop files
 
 4. **Run gates** — Execute all three on the affected packages (run from inside the package directory, not the monorepo root):
 

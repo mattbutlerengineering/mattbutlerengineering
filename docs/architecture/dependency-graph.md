@@ -65,15 +65,18 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
+  hospitality --> test_fixtures
   marketing --> rialto
   marketing --> observability
   marketing --> sentry
   marketing --> config
+  marketing --> test_fixtures
   rialto_web --> rialto
   rialto_web --> api_client
   rialto_web --> observability
   rialto_web --> sentry
   rialto_web --> config
+  rialto_web --> test_fixtures
   agent_service --> agent_core
   agent_service --> api_client
   agent_service --> auth
