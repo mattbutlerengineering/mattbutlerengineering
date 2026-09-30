@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRepoIo, extractApp, renderRoutes, main } from "../ui-quality/routes.mjs";
@@ -105,5 +106,107 @@ describe("hospitality adapter", () => {
     expect(result.code).toBe(2);
     expect(result.out).toBe("");
     expect(result.err).toMatch(/zero routes/);
+  });
+});
+
+describe("marketing adapter", () => {
+  const rows = extractApp("marketing", io);
+  const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
+
+  it("yields 9 rows: 6 pages, 2 <Navigate> redirects, 1 not-found", () => {
+    expect(rows).toHaveLength(9);
+    expect(rows.filter((r) => r.kind === "redirect").map((r) => r.route)).toEqual([
+      "hospitality/*",
+      "rialto/*",
+    ]);
+    expect(rows.filter((r) => r.kind === "not-found").map((r) => r.route)).toEqual(["*"]);
+    expect(rows.every((r) => r.auth === "public")).toBe(true);
+  });
+
+  it("names the page module and App.tsx in source_files", () => {
+    expect(byRoute["/"].source_files).toEqual([
+      "apps/marketing/src/pages/HomePage.tsx",
+      "apps/marketing/src/App.tsx",
+    ]);
+    expect(byRoute["status"].source_files).toEqual([
+      "apps/marketing/src/pages/StatusPage.tsx",
+      "apps/marketing/src/App.tsx",
+    ]);
+    expect(byRoute["rialto/*"].source_files).toEqual(["apps/marketing/src/App.tsx"]);
+  });
+});
+
+describe("rialto-web adapter", () => {
+  const rows = extractApp("rialto-web", io);
+  const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
+  const registryRows = rows.filter((r) => /^(components|examples)\/|^dashboard$/.test(r.route));
+
+  it("yields every PAGE_REGISTRY path plus the 17 routeTree leaves (124 today)", () => {
+    expect(registryRows).toHaveLength(107);
+    expect(rows).toHaveLength(107 + 17);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(rows.length);
+  });
+
+  it("derives registry paths by the page-registry.ts convention", () => {
+    expect(byRoute["components/button"]).toBeDefined();
+    expect(byRoute["dashboard"]).toBeDefined(); // category Dashboard
+    expect(byRoute["examples/guest-profile"]).toBeDefined(); // example- prefix stripped
+    expect(byRoute["examples/invoice"]).toBeDefined(); // no prefix to strip
+  });
+
+  it("carries the tree literals, visual-test included, and * as a redirect", () => {
+    for (const route of [
+      "/",
+      "privacy",
+      "visual-test",
+      "demos/login",
+      "demos/visual-test",
+      "demos/drivers",
+      "demos/drivers/:id",
+      "demos/drivers/:id/edit",
+    ]) {
+      expect(byRoute[route], route).toBeDefined();
+    }
+    expect(byRoute["demos"]).toBeUndefined(); // a layout with no index is not a row
+    expect(byRoute["*"].kind).toBe("redirect");
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(rows.length - 1);
+    expect(rows.every((r) => r.auth === "public")).toBe(true);
+  });
+
+  it("resolves each registry row's page module (convention or explicit load)", () => {
+    expect(byRoute["components/button"].source_files).toEqual([
+      "apps/rialto-web/src/pages/forms/ButtonPage.tsx",
+      "apps/rialto-web/src/routes.tsx",
+      "apps/rialto-web/src/data/page-registry.ts",
+    ]);
+    expect(byRoute["examples/guest-profile"].source_files[0]).toBe(
+      "apps/rialto-web/src/pages/examples/GuestDetailExamplePage.tsx"
+    );
+    expect(byRoute["demos/drivers/:id"].source_files).toEqual([
+      "apps/rialto-web/src/pages/drivers/DriverRead.tsx",
+      "apps/rialto-web/src/routes.tsx",
+    ]);
+    for (const row of registryRows) expect(row.source_files).toHaveLength(3);
+  });
+});
+
+describe("routes.mjs all", () => {
+  it("emits every app sorted by (app, route), byte-identical across two processes", () => {
+    const script = resolve(ROOT, "scripts/ui-quality/routes.mjs");
+    const a = execFileSync(process.execPath, [script, "all"], { encoding: "utf8" });
+    const b = execFileSync(process.execPath, [script, "all"], { encoding: "utf8" });
+    expect(a).toBe(b);
+    const rows = a
+      .trimEnd()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(rows).toHaveLength(21 + 9 + 124);
+    const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
+    expect(keys).toEqual([...keys].sort());
+    expect([...new Set(rows.map((r) => r.app))]).toEqual([
+      "hospitality",
+      "marketing",
+      "rialto-web",
+    ]);
   });
 });
