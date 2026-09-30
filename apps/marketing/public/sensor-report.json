@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T01:16:51.066Z",
+  "generated_at": "2026-09-30T18:06:34.492Z",
   "period": {
     "start": "2026-09-23",
     "end": "2026-09-30"
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.35,
-          "latest": "2026-09-29T16:56:05.895Z",
+          "age_days": 0.05,
+          "latest": "2026-09-30T16:53:34.786Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-29T16:56:05.895Z",
+      "collected_at": "2026-09-30T16:53:34.786Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -63,27 +63,27 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 93,
-      "total_merged": 93,
+      "total_prs": 95,
+      "total_merged": 95,
       "total_closed_without_merge": 0,
       "by_category": {
-        "tier:sensitive": {
-          "merged": 16,
+        "tier:trivial": {
+          "merged": 55,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 54,
+        "tier:sensitive": {
+          "merged": 18,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:standard": {
+          "merged": 14,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
           "merged": 7,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:standard": {
-          "merged": 15,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -103,42 +103,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 72915629,
-      "output_tokens": 67346,
-      "cache_creation_tokens": 1545088,
-      "cache_hit_rate": 0.9792,
+      "cache_read_tokens": 3340730,
+      "output_tokens": 7917,
+      "cache_creation_tokens": 117076,
+      "cache_hit_rate": 0.9661,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 704,
-          "output_tokens": 67330,
-          "cache_read_tokens": 72419076,
-          "cache_creation_tokens": 1445129
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 68,
-          "output_tokens": 16,
-          "cache_read_tokens": 496553,
-          "cache_creation_tokens": 99959
+          "input_tokens": 50,
+          "output_tokens": 7917,
+          "cache_read_tokens": 3340730,
+          "cache_creation_tokens": 117076
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 26,
-      "passed": 21,
+      "completed": 30,
+      "passed": 27,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36654358388,
-        "status": "queued",
-        "conclusion": null,
-        "createdAt": "2026-09-30T01:16:57Z",
+        "databaseId": 36755066493,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-09-30T17:57:04Z",
         "name": "Push on main",
         "headBranch": "main",
-        "headSha": "048d7574a65abfb0c563e013af74c753bb2a9132"
+        "headSha": "cf87df7bcfb8067b1c3586ef4f7ac809ab7d5c9f"
       }
     },
     "lighthouse": {
@@ -156,17 +149,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 12,
-      "logs_7d": 12,
-      "total_commits_7d": 50,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.031,
-      "total_lines_added_7d": 678028,
-      "lines_churned_7d": 21014,
+      "churn_rate": 0.03,
+      "total_lines_added_7d": 681109,
+      "lines_churned_7d": 20530,
       "window_days": 7,
       "churn_threshold": 0.3
     },
