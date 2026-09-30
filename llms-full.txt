@@ -48840,6 +48840,14 @@
       }
     
       /**
+       * Deposit-exposure dashboard: list every deposit for a venue's
+       * reservations on a given date.
+       */
+      async listByVenueAndDate(venueId: string, date: string): Promise<Deposit[]> {
+        return this.client.getOne<Deposit[]>(DEPOSIT_BASE_PATH, { venueId, date }, depositListSchema);
+      }
+    
+      /**
        * Capture (apply) a held deposit — charges the card.
        */
       async capture(id: string): Promise<Deposit> {
