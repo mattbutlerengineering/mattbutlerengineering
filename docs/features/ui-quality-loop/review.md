@@ -9,6 +9,9 @@ assumptions:
   - "`docs/standards.json` does not exist in this repo, so no finding cites a standards slug."
   - "Specialists ran read-only against the worktree. The dependency reviewer did its install/build/test in a scratch `git archive` export. `rialto-prop-drift-detector` was not dispatched: `git diff --name-only origin/main...HEAD -- packages/rialto/src` is empty, and only `packages/rialto/CLAUDE.md` changed."
   - "Severity follows the skill: critical blocks Ship, major is fixed or explicitly deferred by Matt, minor may be deferred freely. I fixed nothing myself."
+  - "Re-review 2026-09-30 scope is `1e6141481..748e1a36a` (the main merge `5468839da` plus the M1, M2, M3, M5, C1 and M4 fix commits). `origin/main` had not moved past the merge at re-review time, and `git merge-tree` against it was clean."
+  - "Re-review: GitHub's GraphQL node limit for `gh pr list --json commits --limit 50` was measured locally (gh 2.72.0, answer: 505,050 requested nodes, over the 500,000 limit). The Actions runner's gh version was not measured. gh's current `trunk` source still queries `commits(first: 100)` with `authors(first:100)`, so the node count is assumed to be the same on the runner."
+  - "Re-review: whether the RemoteTrigger sandbox clone is full, `--single-branch` or shallow is unknown. The two-fire simulation uses full clones only. N4 is conditional on that unknown."
 ---
 
 # Review: A UI-quality loop that keeps every page at a professional bar
@@ -233,3 +236,197 @@ This is not a code defect, but GitHub cannot build a merge ref until it is resol
 - **Minors:** deferred with the reasons above. The product defects become backlog seeds at Operate.
 
 Everything within a single fire is sound: fail-closed calibration, prompt guardrails, the shared-file changes, and workflow security.
+
+## Re-review 2026-09-30
+
+- **Scope:** `1e6141481..748e1a36a`: the `origin/main` merge `5468839da`, M1 `9f1c254b0`, M3 `50e9960e9`, M2 `d2d0bb058`, M5 `4cf81feb7`, the C1 items `a7e901246..b7898bc18`, and M4 `748e1a36a`.
+- **Read in full:**
+  - `scripts/ui-quality/state.mjs`
+  - routine steps (0), (6) and (7)
+  - the `--labelled-issues` guard in `findings.mjs` and `findings-plan.mjs`
+  - the `observe` path in `routine-liveness.mjs`
+  - the M1 ref-name diff
+  - both visual specs
+  - `revealLazyContent`
+  - the M4 provenance lines
+- **Tests run, all green:**
+  - `pnpm exec vitest run --config scripts/vitest.config.mjs` over the state, two-fire, findings, liveness, prompt, visual-diff-refs, publish, visual-specs, apps-visual-workflow, trigger-safety and stale-human-blocked suites: 11 files, 432 tests.
+- **Live probes:**
+  - the real `fetchObservedArtifactsViaGhClient` for the `mbe-ui-quality` entry, run against the GitHub API
+  - the marketing noise-floor artifacts of run 36764144910 (`measurement`, `replica-a`, `replica-b`), diffed pixel by pixel
+
+### Per-finding status
+
+- **C1: CLOSED within a fire and across fires, when the clone fetches the branch.** Now fixed:
+  - Step (0) `state.mjs checkout` makes `ui-quality/ledger` the state authority. Every conflict it can hit is resolved by fixed rule.
+  - `.claude/improvement-loop/log.md` and `metrics/*.jsonl` are `merge=union` in `.gitattributes`, so they never reach the resolver.
+  - The two-fire simulation proves fire 2 skips fire 1's key, keeps its `failed` calibration and does not re-plan fire 1's 40 routes.
+  - The checkpoint (6f) closes the "filed but unrecorded" window, and the fix-PR branch switch now happens on a clean tree.
+  - Liveness no longer counts a checkpoint commit as a fire. The signature is `chore\(ui-quality\): ledger \d{4}-…`, which `chore(ui-quality): checkpoint <date>` and the merge commit's `Merge remote-tracking branch…` headline both fail to match.
+  - `checkout -B` cannot lose unpushed work, because the sandbox holds none at step (0).
+  - Merge commits from `main` keep the PR mergeable, since the repo is squash-only and `delete_branch_on_merge: true`. A human merge therefore just restarts the branch from `main`.
+
+  Adversarial passes turned up four new defects in the fix itself: N1 and N2 (liveness), N3 (a permanent refusal), and N4 (clone mode).
+
+- **M1: CLOSED.**
+  - `buildRefName` requires a suite, and `parseRefName` reads both forms. A legacy ref parses as rialto-web's.
+  - Retention keeps the newest ref per (PR, suite).
+  - Legacy `pr-N/run-…` refs and suite refs `pr-N/<suite>/run-…` cannot collide as git refs: `run-…` is barred as a suite name, and both forms sit under the directory `pr-N`.
+- **M2: CLOSED.**
+  - `revealLazyContent` runs before every capture and every marketing `toHaveScreenshot`.
+  - Checked on the image itself: replica-a `home-1280x720.png` renders the Projects cards and the Elsewhere links.
+  - The fix does cost noise. See N5.
+- **M3: CLOSED.**
+  - The four automation-rewritten `public/*.json` files are served from frozen copies.
+  - Any other same-origin `.json` fetch now fails the row (`isAppData`, `apps/marketing/e2e/visual.spec.ts`).
+- **M4: CLOSED as specified: both tolerances were re-measured on the post-fix harness.**
+  - Hospitality went from 3583 to 90 (N = 0 over 38 snapshots, S = 8177, verdict `ok`). That is sane, and confirms the review's prediction that the 3583 budget was absorbing noise that no longer exists.
+  - The marketing result (300 to 23679) is a new problem. It is recorded as N5.
+  - Ship's standing caveat still applies: both runs rendered on image `20260920.314.1` while `ubuntu-latest` is rolling to `20260927.320.1`, so Ship re-measures if the image changed.
+- **M5: CLOSED.**
+  - Every hospitality row asserts `toHaveURL(requested)` before the shot.
+  - `admin` is captured with the `admin` permission on the stored profile.
+  - `**/api/v1/reservations?*` is re-served on `FIXED_NOW`'s day.
+- **Merge with `main`: CLOSED, and #5817 is preserved.** The branch's diff against `origin/main` in `routine-liveness.mjs` is additive only. `extractRoutineFindingStatusFromTitle`, `findPriorRoutineFindingCandidate`, `decideIssueTransition` (never reopen, recovery-only close) and the injected `closeIssue`/`getIssueState` are all intact, and the #5817 tests run in the green suite. Against current `origin/main`: 0 commits behind, and `merge-tree` is clean.
+- **Minors m1, m2 and m5 to m9:** unchanged, and still deferred as recorded.
+  - m3 is resolved by `bdc4326e2`: the path filter now keys on identity sources, not the ledger file.
+  - m4 is still a Ship precondition.
+
+### New findings
+
+#### Critical
+
+##### N1: the liveness query for `observe: "latest-matching-commit"` exceeds GitHub's GraphQL node limit, so the daily Routine Liveness job crashes for every routine
+
+- **Where:**
+  - `scripts/routine-liveness.mjs:530-532` (`--json title,createdAt,mergedAt,commits --limit 50`)
+  - `scripts/routine-liveness.mjs:346`, where the throw is not caught
+- **Measured, not inferred.** The real `fetchObservedArtifactsViaGhClient(createGhClient(), <mbe-ui-quality entry>)` throws:
+
+  ```
+  Command failed: gh pr list --search ui-quality --state all --json title,createdAt,mergedAt,commits --limit 50
+  GraphQL: This query requests up to 505,050 possible nodes which exceeds the maximum limit of 500,000.
+  ```
+
+  gh's `commits` field is `commits(first: 100) { … authors(first:100) }`, so 50 × (1 + 100 × (1 + 100)) = 505,050. gh's current `trunk` source (`api/query_builder.go`) still has both `first: 100` values.
+
+- **Scenario:** the throw fails before any data is read, so it does not depend on any PR existing. It fires on the first 08:10Z run after merge, because `mbe-ui-quality` is in scope with a signature even while `triggerId` is null.
+  - `runRoutineLivenessCheck` calls `fetchObservedArtifacts` inside `inScope.map` with no try/catch. The throw aborts the whole run before any routine is classified.
+  - The observation-blackout guard never runs.
+  - The job goes red every day, and **no routine's** dark/recovery issue is filed or closed. This includes #5817's new recovery close.
+- **Why it slipped through:** every test injects a fake `pr.list`. Only a real query can see the node limit.
+- **Why critical:** merging this blinds an existing, shared production monitor for the whole routine fleet. It is not just a gap in the new feature.
+- **Fix direction:**
+  - Keep the list query as `title,createdAt,mergedAt`.
+  - Fetch commits only for the PRs whose title matches the signature, one PR at a time. Use `gh pr view <n> --json commits` (10,101 nodes), or better, the REST `GET /repos/{o}/{r}/pulls/{n}/commits` or `GET /repos/{o}/{r}/commits?sha=ui-quality/ledger`, filtering the newest matching headline. REST also avoids N2.
+  - Wrap each entry's `fetchObservedArtifacts` in try/catch, so one bad signature degrades that routine to `unobserved` instead of killing the run.
+  - Pin it with a test on the real argument list: no `commits` field in a `--limit`ed list call.
+
+#### Major
+
+##### N2: `latestMatchingCommitAt` reads only the PR's first 100 commits, so a long-open ledger PR reads `dark` after about five weeks
+
+- **Where:** `scripts/routine-liveness.mjs` `latestMatchingCommitAt`, fed by gh's `commits(first: 100)`.
+- **Scenario:** each fire adds 2–3 commits to the never-merged ledger PR: the `origin/main` merge, the checkpoint, and the ledger commit. Around fire 35–50, the newest `chore(ui-quality): ledger` commit falls outside the first 100.
+  - The PR is then dated by the last _visible_ matching commit, which only gets older.
+  - The routine turns `late` and then `dark`, and a false `ci-fix` + `ready` issue is filed. The loop explicitly never waits for the PR to merge.
+- **Fix:** the same fix as N1. Date the PR by the head branch's newest matching commit through REST (newest first), or by the newest page of the PR's commits, never the first page. Pin it with a >100-commit fixture.
+
+##### N3: one `ui-quality`-labelled issue the findings ledger does not know wedges filing permanently, and the only signal is on an unmerged branch
+
+- **Where:**
+  - `scripts/ui-quality/findings-plan.mjs:70` (`unknownLabelledIssues`)
+  - `scripts/ui-quality/findings.mjs:117`
+  - routine step (6f)
+- **Scenario:**
+  1. Fire N files #A (6d) and records it locally (6e).
+  2. Its checkpoint push is rejected (6f). A transient network error or a pre-push hook failure is enough, since `.husky/pre-push` runs the antipattern ratchet, the regen gate and `regen --check` on these pushes.
+  3. Step (7c)'s push fails the same way, and the sandbox is discarded.
+  4. From fire N+1 on, #A is labelled `ui-quality` but absent from the ledger, so `plan` exits 2 **on every fire forever**.
+
+  A human adding the `ui-quality` label to any issue by hand has the same effect.
+
+- **Why major:** the guard fails in the safe direction, so there are no duplicates. But nothing resolves the refusal:
+  - There is no documented recovery. Closing #A does not help, because the search covers all states. Only removing the label, or hand-editing `metrics/ui-quality-findings.json` on the branch, does.
+  - The evidence (the unknown numbers) is written only to `.claude/improvement-loop/log.md` on `ui-quality/ledger`, which nobody reads until the PR merges.
+  - Liveness stays `alive`, because (7c) still commits. The loop silently stops filing.
+- **Fix direction:** either
+  - **(a) Surface it.** On a plan exit 2 that names unknown labelled issues, the fire comments on (or opens) one de-duplicated `ui-quality` escalation issue naming the numbers and the recovery step. Or:
+  - **(b) Self-heal.** Adopt an unknown labelled issue into the ledger when its title/body carries a finding key the plan can recompute (the routine's own issue bodies do). This turns a lost checkpoint into a one-fire gap, not a permanent one.
+
+  Either way, document the recovery in `.claude/rules/ui-quality.md`.
+
+##### N4: in a `--single-branch` or shallow sandbox clone, `state.mjs` silently falls back to `main` while the branch exists (conditional on the clone mode)
+
+- **Where:** `scripts/ui-quality/state.mjs:142-143`: a bare `git fetch origin`, then `rev-parse refs/remotes/origin/ui-quality/ledger`.
+- **Scenario:** a single-branch clone, including any `--depth` clone, has the fetch refspec `+refs/heads/main:refs/remotes/origin/main`. `git fetch origin` then never creates the ledger's remote-tracking ref, so `hasBranch` is false and the fire reports `source: "main"`. This is C1's original failure, minus dedupe:
+  - The labelled-issue guard refuses filing.
+  - The calibration store on `main` lacks fire N−1's `failed` record, so the gate re-calibrates. That is the retry-until-pass C1 forbade.
+  - Coverage re-plans the same routes.
+  - The (7c) push of a branch recreated from `main` is rejected as non-fast-forward, so liveness goes `late`/`dark`.
+
+  In a shallow full-refspec clone, the `origin/main` merge can fail for lack of a merge base. That fails closed (exit 2).
+
+- **Unknown:** the two-fire test only uses full clones, and the sandbox's clone mode was never measured.
+- **Fix:**
+  - Fetch the ref explicitly: `git fetch origin +refs/heads/ui-quality/ledger:refs/remotes/origin/ui-quality/ledger`, treating "couldn't find remote ref" as absent and any other error as `state-unavailable`.
+  - Run `git fetch --unshallow` (or `--deepen`) when `rev-parse --is-shallow-repository` is true.
+  - Add a single-branch-clone arm to the two-fire test.
+  - At minimum, Ship's first-week check must confirm `source: "branch"` on fire 2.
+
+##### N5: marketing's re-measured `maxDiffPixels: 23679` makes the marketing VR floor blind to small regressions, and the noise behind it looks fixable
+
+- **Where:**
+  - `apps/marketing/playwright.visual.config.ts:35`
+  - `packages/test-fixtures/src/ui-quality-capture.ts:116-133` (`REVEAL_SCRIPT` / `SETTLED_SCRIPT`)
+- **What changed:** the pre-fix measurement had 0 px of run-to-run noise on every marketing snapshot. The post-fix run 36764144910 has noise on exactly three snapshots:
+  - `home-375x812`: 6226 px
+  - `status-1280x720`: 1724 px
+  - `status-375x812`: 1687 px
+
+  The budget is one global number, so 23679 px now applies to all 12 snapshots, including the nine that measured 0.
+
+- **Consequence:** any marketing regression under about 23.7k px passes. That covers a status-chip colour, a dropped nav item, a missing icon or a changed CTA label. Only layout shifts and whole-section losses still fail. SC-4's floor is meaningful for marketing only at section scale.
+- **What the noise looks like** (replica-a vs replica-b, byte diff):
+  - It is not in the revealed sections. Deltas are small (mostly 4–15 per channel, max 63–71) and spread over every text row of the page, starting at the nav (y = 24) down to the footer.
+  - `status` has no scroll-revealed content, and it went from 0 to about 1.7k px. The only harness change on that route is `revealLazyContent`'s scroll to the bottom and back.
+  - So the scroll itself likely leaves a run-dependent render state:
+    - a JS-driven (framer-motion) opacity or colour that Playwright's `animations: "disabled"` does not finish and `SETTLED_SCRIPT` does not see, since it checks only inline `opacity` below 1
+    - or re-rasterised text after the scroll
+    - on `home`, possibly also the "By the numbers" count-up, which starts on `revealed`
+- **Recommendation: fix the harness, not the budget.**
+  1. Call `revealLazyContent` only on routes that have scroll-revealed content, or never on `status`.
+  2. After the return to the top, wait for `document.getAnimations().length === 0` and `document.fonts.ready`, plus two frames.
+  3. Settle the count-up, for example by emulating the fallback timeout with the clock.
+  4. Re-dispatch `visual-noise-floor.yml` for marketing, aiming to bring the budget back toward the pre-fix hundreds.
+
+  If some noise is irreducible, the alternative is a per-snapshot budget: a `maxDiffPixels` override on only the `home`@375 and `status` calls, each with its own provenance line so the guard test keeps pinning it.
+
+- **Why major, not critical:** `apps-visual` is advisory and never gates CI Gate. Shipping with 23679 still catches section-scale regressions, and M2's empty-section baseline would have been worse. If Matt accepts it, record the deferral explicitly.
+
+#### Minor
+
+- **n1: a squash-merge of the ledger PR during a fire re-creates the deleted branch.** Because of `delete_branch_on_merge: true`, the fire's (7c) push re-creates the branch, carrying commits `main` already has in squashed form. The next `state.mjs checkout` then merges `main` against those. Every conflicted path is rule-resolved (branch side, or union for `docs/backlog.md`), so this should converge, but it is untested. Add a "merged-then-recreated" arm to the two-fire test, or accept it.
+- **n2: `core.hooksPath=/dev/null` in `state.mjs` is legitimately scoped. No change needed** (details under Recommendations).
+
+### Recommendations
+
+- **`core.hooksPath=/dev/null`: keep as is.** It applies only to `state.mjs`'s own git calls: fetch, rev-parse, `checkout -B`, merge, `checkout --ours`, add, and the merge-concluding commit.
+  - **Those calls never push,** and the only commit they create is the merge of `origin/main` (already gated on `main`) with rule-resolved state files.
+  - **Every commit and push the routine itself makes still runs the hooks:** `git commit` at (6f) and (7c), and `git push` of the ledger and fix branches. That means lint-staged, check-adr, gitleaks and semgrep on commit, and the ratchet, regen gate and `regen --check` on push. CI Gate still runs on the ledger PR and on any fix PR.
+  - **Running the hooks inside `state.mjs` would be actively wrong:**
+    - `post-checkout` and `post-commit` run `pack-changed` and dirty llms files on a tree `state.mjs` must leave clean.
+    - `pre-commit`'s lint-staged on a merge commit would lint and `--fix` all of main's incoming files, making the ledger branch differ from `main` outside its state files.
+  - **Optional hardening:** a test asserting that `createGit`'s hooks-off flag never accompanies a `push` argument vector, so a future edit cannot quietly extend the bypass to a push.
+- **Marketing tolerance:** see N5. Root-cause and remove the scroll-induced noise, then re-measure. Fall back to per-snapshot budgets only if some noise is irreducible. Hospitality's 90 px is sound.
+
+### Updated verdict
+
+**Fix first.** C1, M1, M2, M3, M4 and M5 are closed, and the merge with `main` preserved #5817. But the C1 fix introduced a new critical:
+
+- **N1:** the new liveness query crashes the fleet-wide Routine Liveness job on its first run after merge. It is measured against the real API, not predicted. This blocks Ship.
+- **N2 (major):** fixed by the same change as N1. Pin it with a >100-commit fixture.
+- **N3 and N4 (major):** fix before Ship, or Matt defers them explicitly. For N4, the minimum is a first-week Operate check that fire 2 reports `source: "branch"`.
+- **N5 (major):** fix before Ship commits marketing baselines, or Matt explicitly accepts the 23679 px floor.
+
+Route N1 and N2 (plus N3 and N4 if not deferred) to Implement. Re-verify N1 with a real `gh`/REST call against the repo, not a fake `pr.list`. Then Ship.
