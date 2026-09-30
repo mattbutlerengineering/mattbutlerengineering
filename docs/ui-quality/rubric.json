@@ -1,0 +1,171 @@
+{
+  "rubric_version": 1,
+  "tells_hash": "274549b11b68eb8797872ce39ce76d59e04c2bf9574a55399f0a8419b32616f1",
+  "tells": [
+    {
+      "id": "agent-built/unrequested-dark-theme",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/gradient-background",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/icon-card-grid",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/inter-headline",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/gray-card-border",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/three-feature-card-row",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "agent-built/generic-hero-copy",
+      "face": "agent-built",
+      "detection": "judged",
+      "default_severity": "P2"
+    },
+    {
+      "id": "accessibility/non-descriptive-alt",
+      "face": "accessibility",
+      "detection": "judged",
+      "default_severity": "P2",
+      "axe_rules": ["image-alt"]
+    },
+    {
+      "id": "accessibility/vague-link-purpose",
+      "face": "accessibility",
+      "detection": "judged",
+      "default_severity": "P2",
+      "axe_rules": ["link-name"]
+    },
+    {
+      "id": "accessibility/heading-content-mismatch",
+      "face": "accessibility",
+      "detection": "judged",
+      "default_severity": "P2",
+      "axe_rules": ["empty-heading"]
+    },
+    {
+      "id": "bugs/blank-render",
+      "face": "bugs",
+      "detection": "mechanical",
+      "default_severity": "P1"
+    },
+    {
+      "id": "bugs/unhandled-error",
+      "face": "bugs",
+      "detection": "mechanical",
+      "default_severity": "P1"
+    },
+    {
+      "id": "bugs/dead-in-app-link",
+      "face": "bugs",
+      "detection": "mechanical",
+      "default_severity": "P1"
+    },
+    {
+      "id": "bugs/failed-request",
+      "face": "bugs",
+      "detection": "mechanical",
+      "default_severity": "P2"
+    },
+    {
+      "id": "accessibility/axe-critical",
+      "face": "accessibility",
+      "detection": "mechanical",
+      "default_severity": "P1"
+    },
+    {
+      "id": "accessibility/axe-serious",
+      "face": "accessibility",
+      "detection": "mechanical",
+      "default_severity": "P2"
+    },
+    {
+      "id": "accessibility/axe-moderate",
+      "face": "accessibility",
+      "detection": "mechanical",
+      "default_severity": "P2"
+    },
+    {
+      "id": "accessibility/axe-minor",
+      "face": "accessibility",
+      "detection": "mechanical",
+      "default_severity": "P2"
+    }
+  ],
+  "references": [],
+  "route_categories": [
+    {
+      "app": "marketing",
+      "pattern": "*",
+      "category": "marketing-site"
+    },
+    {
+      "app": "hospitality",
+      "pattern": "book/*",
+      "category": "booking-checkout"
+    },
+    {
+      "app": "hospitality",
+      "pattern": "reservations/manage",
+      "category": "booking-checkout"
+    },
+    {
+      "app": "hospitality",
+      "pattern": "*",
+      "category": "product-dashboard"
+    },
+    {
+      "app": "rialto-web",
+      "pattern": "visual-test",
+      "category": "harness"
+    },
+    {
+      "app": "rialto-web",
+      "pattern": "demos/visual-test",
+      "category": "harness"
+    },
+    {
+      "app": "rialto-web",
+      "pattern": "demos/*",
+      "category": "product-dashboard"
+    },
+    {
+      "app": "rialto-web",
+      "pattern": "examples/*",
+      "category": "product-dashboard"
+    },
+    {
+      "app": "rialto-web",
+      "pattern": "*",
+      "category": "component-docs"
+    }
+  ],
+  "calibration": {
+    "pass_mark": {
+      "agreement": 0.8,
+      "inversions": 0
+    }
+  }
+}
