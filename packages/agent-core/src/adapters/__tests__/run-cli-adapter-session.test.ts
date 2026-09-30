@@ -392,6 +392,53 @@ describe("runCliAdapterSession", () => {
     expect("worktreePath" in removed).toBe(false);
   });
 
+  // runCliAdapterSession(...) result contract (amendment 2026-09-29): a throw
+  // after WorktreePhase becomes a failed result that keeps the adapter's usage.
+  describe("outer catch", () => {
+    it.each([
+      { createPr: false, keepsWorktree: true },
+      { createPr: true, keepsWorktree: false },
+    ])(
+      "a post-dispatch commit rejection resolves as failed with the adapter's usage (createPr: $createPr)",
+      async ({ createPr, keepsWorktree }) => {
+        const adapter = makeCliAdapter("claude-cli", {
+          success: true,
+          costUsd: 0.6,
+          numTurns: 15,
+        });
+        vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+        vi.mocked(deps.worktreeManager.commitChanges).mockRejectedValue(
+          new Error("git commit -m feat: Fix the login bug failed: hook exited 1")
+        );
+
+        const result = await runCliAdapterSession(
+          adapter,
+          makeSessionConfig({ createPr }),
+          undefined,
+          deps
+        );
+
+        expect(result.status).toBe("failed");
+        expect(result.numTurns).toBe(15);
+        expect(result.costUsd).toBe(0.6);
+        expect(result.errors).toContain(
+          "git commit -m feat: Fix the login bug failed: hook exited 1"
+        );
+        expect(result.failureCategory).toBeDefined();
+        expect(recordSpend).toHaveBeenCalledTimes(1);
+        expect(recordSpend).toHaveBeenCalledWith(
+          "/repo",
+          expect.objectContaining({ costUsd: 0.6, numTurns: 15, status: "failed" })
+        );
+        if (keepsWorktree) {
+          expect(result.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
+        } else {
+          expect("worktreePath" in result).toBe(false);
+        }
+      }
+    );
+  });
+
   it("reports durationMs from the adapter's own reported duration", async () => {
     const adapter = makeCliAdapter("gemini", { durationMs: 12_345 });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);

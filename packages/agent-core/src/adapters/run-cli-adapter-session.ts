@@ -87,107 +87,117 @@ export async function runCliAdapterSession(
 
   let aborted = worktree ? checkAborted(signal, errors) : true;
 
-  if (worktree && !aborted) {
-    adapterResult = await cliAdapter.dispatch({
-      taskDescription: config.taskDescription,
-      worktreePath: worktree.path,
-      repoPath: config.repoPath,
-      baseBranch: config.baseBranch,
-      model: config.model,
-      maxTurns: config.maxTurns,
-      timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
-    });
-    if (adapterResult.error) errors.push(adapterResult.error);
-
-    resultSummary = {
-      success: adapterResult.success,
-      sessionId: cliAdapter.name,
-      costUsd: adapterResult.costUsd ?? 0,
-      // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
-      // for how each adapter derives it); 0 only when genuinely absent. 0 is
-      // deliberate here, not a fabricated guess: paired with $0 cost it is
-      // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
-      // detect a run that never happened, which is the correct classification
-      // for "the CLI produced no usable signal at all".
-      numTurns: adapterResult.numTurns ?? 0,
-    };
-
-    const breach = shouldHaltForBudget(
-      buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
-      config.maxBudgetUsd
-    );
-    if (breach.exceeded) {
-      emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
-      if (config.enforceBudget) {
-        errors.push(
-          `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
-        );
-        budgetEnforced = true;
-      }
-    }
-
-    aborted = checkAborted(signal, errors);
-  }
-
+  let threw = false;
   let hasChanges = false;
   let gatewayVerdict: GatewayVerdict | undefined;
 
-  if (worktree && !aborted && !budgetEnforced) {
-    const verifyExec = await verificationPhase.run(
-      { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
-      deps
-    );
-    errors.push(...verifyExec.result.errors);
-    hasChanges = verifyExec.output?.hasChanges ?? false;
-    gatewayVerdict = verifyExec.output?.gatewayVerdict;
+  // A throw anywhere after WorktreePhase (dispatch, verification, publish,
+  // feedback) lands in errors[] and falls through to the retention →
+  // recordSpend → return tail below, so a session that ran keeps the
+  // adapter's parsed usage. Mirrors session-runner.ts's outer catch.
+  try {
+    if (worktree && !aborted) {
+      adapterResult = await cliAdapter.dispatch({
+        taskDescription: config.taskDescription,
+        worktreePath: worktree.path,
+        repoPath: config.repoPath,
+        baseBranch: config.baseBranch,
+        model: config.model,
+        maxTurns: config.maxTurns,
+        timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+      });
+      if (adapterResult.error) errors.push(adapterResult.error);
 
-    // A failed CLI dispatch that still wrote changes must always publish via
-    // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
-    // skips the gateway entirely on failure (isSuccess false), leaving
-    // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
-    // branch otherwise treats identically to "gates passed, ship a normal
-    // PR" (resultSummary is always a truthy object, even on failure).
-    // Forcing "create-draft-pr" here routes PublishPhase into its
-    // unconditional buildFailurePrBody branch. Mirrors the deleted
-    // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
-    // failure branch.
-    if (adapterResult?.success === false) {
-      gatewayVerdict = {
-        outcome: "create-draft-pr",
-        passed: false,
-        gateFailures: ["cli-dispatch"],
-        errors: [],
+      resultSummary = {
+        success: adapterResult.success,
+        sessionId: cliAdapter.name,
+        costUsd: adapterResult.costUsd ?? 0,
+        // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+        // for how each adapter derives it); 0 only when genuinely absent. 0 is
+        // deliberate here, not a fabricated guess: paired with $0 cost it is
+        // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+        // detect a run that never happened, which is the correct classification
+        // for "the CLI produced no usable signal at all".
+        numTurns: adapterResult.numTurns ?? 0,
       };
+
+      const breach = shouldHaltForBudget(
+        buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
+        config.maxBudgetUsd
+      );
+      if (breach.exceeded) {
+        emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
+        if (config.enforceBudget) {
+          errors.push(
+            `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
+          );
+          budgetEnforced = true;
+        }
+      }
+
+      aborted = checkAborted(signal, errors);
     }
 
-    aborted = checkAborted(signal, errors);
-  }
-
-  if (worktree && !aborted && !budgetEnforced) {
-    const publishExec = await publishPhase.run(
-      {
-        config,
-        onEvent,
-        worktree,
-        hasChanges,
-        resultMessage: resultSummary,
-        stuckReason: undefined,
-        gatewayVerdict,
-        errors,
-      },
-      deps
-    );
-    prUrl = publishExec.output?.prUrl ?? null;
-    const prNumber = publishExec.output?.prNumber;
-
-    aborted = checkAborted(signal, errors);
-
-    if (!aborted) {
-      await feedbackPhase.run(
-        { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+    if (worktree && !aborted && !budgetEnforced) {
+      const verifyExec = await verificationPhase.run(
+        { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
         deps
       );
+      errors.push(...verifyExec.result.errors);
+      hasChanges = verifyExec.output?.hasChanges ?? false;
+      gatewayVerdict = verifyExec.output?.gatewayVerdict;
+
+      // A failed CLI dispatch that still wrote changes must always publish via
+      // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
+      // skips the gateway entirely on failure (isSuccess false), leaving
+      // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
+      // branch otherwise treats identically to "gates passed, ship a normal
+      // PR" (resultSummary is always a truthy object, even on failure).
+      // Forcing "create-draft-pr" here routes PublishPhase into its
+      // unconditional buildFailurePrBody branch. Mirrors the deleted
+      // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
+      // failure branch.
+      if (adapterResult?.success === false) {
+        gatewayVerdict = {
+          outcome: "create-draft-pr",
+          passed: false,
+          gateFailures: ["cli-dispatch"],
+          errors: [],
+        };
+      }
+
+      aborted = checkAborted(signal, errors);
     }
+
+    if (worktree && !aborted && !budgetEnforced) {
+      const publishExec = await publishPhase.run(
+        {
+          config,
+          onEvent,
+          worktree,
+          hasChanges,
+          resultMessage: resultSummary,
+          stuckReason: undefined,
+          gatewayVerdict,
+          errors,
+        },
+        deps
+      );
+      prUrl = publishExec.output?.prUrl ?? null;
+      const prNumber = publishExec.output?.prNumber;
+
+      aborted = checkAborted(signal, errors);
+
+      if (!aborted) {
+        await feedbackPhase.run(
+          { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+          deps
+        );
+      }
+    }
+  } catch (error) {
+    threw = true;
+    errors.push(error instanceof Error ? error.message : String(error));
   }
 
   if (worktree && config.createPr) {
@@ -199,7 +209,7 @@ export async function runCliAdapterSession(
   // thrown "Session aborted" always lands in the outer catch's failure
   // result, even after a fully successful query/verification/publish.
   const status: SessionStatus =
-    aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
+    threw || aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
   emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
 
   const failureCategory: FailureCategory | undefined =
@@ -258,7 +268,9 @@ export async function runCliAdapterSession(
  * Checks `signal` at a phase boundary; records the abort message once and
  * returns whether the pipeline should stop. Mirrors session-runner.ts's
  * `throwIfAborted`, but as a boolean predicate instead of a throw — this
- * module has no outer try/catch to unwind through.
+ * module's outer try/catch exists for unexpected throws (a failed commit, a
+ * gateway crash) so their usage survives, not for control flow; an abort is
+ * an expected stop and stays a predicate.
  */
 function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean {
   if (!signal?.aborted) return false;
