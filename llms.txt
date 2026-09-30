@@ -1474,7 +1474,7 @@
       function emitReport(report: EvalReport, json: boolean, costBasis: CostBasis): void { /* ... */ }
     </item>
     <item priority="medium">
-      function noRunMessage(adapterType: AdapterType): string { /* ... */ }
+      function noRunMessage(adapterType: AdapterType, report: EvalReport): string { /* ... */ }
     </item>
     <item priority="medium">
       function findLogFile(): string { /* ... */ }
@@ -1493,13 +1493,33 @@
         costBasis: CostBasis
       ): TaskRunner { /* ... */ }
     </item>
+    <item priority="high">
+      type FixtureScript = "test" | "typecheck" | "lint";
+    </item>
     <item priority="low">
-      async function verify(
-        repoPath: string,
-        branch: string,
-        fixtureRef: string,
-        script: "test" | "typecheck" | "lint"
+      async function verifyInWorktree(
+        task: Task,
+        session: SessionResult
+      ): Promise<Omit<DeterministicChecks, "withinBudget">> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runStep(
+        taskId: string,
+        step: string,
+        worktreePath: string,
+        args: readonly string[],
+        timeout: number
       ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function outputTail(err: unknown): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function releaseWorktree(
+        repoPath: string,
+        taskId: string,
+        session: SessionResult
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
       function printCalibration(summary: CalibrationSummary): void { /* ... */ }
@@ -11704,7 +11724,11 @@
       export async function cleanupWorktrees(repoPath: string): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export async function commitChanges(worktreePath: string, message: string): Promise<string> { /* ... */ }
+      export async function commitChanges(
+        worktreePath: string,
+        message: string,
+        options: { readonly noVerify?: boolean } = {}
+      ): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
       export async function pushBranch(worktreePath: string, branchName: string): Promise<void> { /* ... */ }

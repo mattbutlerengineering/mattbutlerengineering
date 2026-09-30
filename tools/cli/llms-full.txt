@@ -1336,7 +1336,7 @@
     
           if (suiteDidNotRun(report)) {
             emitReport(report, options.json, costBasis);
-            console.error(`\n${noRunMessage(adapterType)}`);
+            console.error(`\n${noRunMessage(adapterType, report)}`);
             process.exitCode = NO_RUN_EXIT_CODE;
             return;
           }
@@ -1378,14 +1378,21 @@
         printReport(report, costBasis);
       }
     }
-    function noRunMessage(adapterType: AdapterType): string {
+    function noRunMessage(adapterType: AdapterType, report: EvalReport): string {
       if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
-        return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
+        return `No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. ${NEVER_RAN}`;
       }
+      const reported = report.tasks
+        .filter((t) => t.sessionErrors !== undefined && t.sessionErrors.length > 0)
+        .map((t) => `${t.taskId}: ${t.sessionErrors!.join("; ")}`);
       if (adapterType === "claude-cli") {
-        return 'No task executed via the claude-cli adapter: the "claude" CLI is missing from PATH, has no subscription login, or refused to start (0 turns / $0.00). This is not a scored regression — the suite never ran.';
+        const prefix = "No task produced any usage via the claude-cli adapter (0 turns / $0.00)";
+        return reported.length > 0
+          ? `${prefix}. The sessions reported — ${reported.join("; ")}. ${NEVER_RAN}`
+          : `${prefix} and no session reported an error: most likely the "claude" CLI is not on PATH or has no subscription login. ${NEVER_RAN}`;
       }
-      return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
+      const base = `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. ${NEVER_RAN}`;
+      return reported.length > 0 ? `${base} The sessions reported — ${reported.join("; ")}` : base;
     }
     function findLogFile(): string {
       const root = findMonorepoRoot(process.cwd());
@@ -1459,35 +1466,103 @@
     
         const checks: DeterministicChecks = {
           withinBudget: isWithinBudget(session, task.budget, costBasis),
-          testsPass: task.rubric.testsMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-            : true,
-          typecheckPass: task.rubric.typecheckMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-            : true,
-          lintPass: task.rubric.lintMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-            : true,
+          ...(await verifyInWorktree(task, session)),
         };
+    
+        await releaseWorktree(repoPath, task.id, session);
     
         return { task, session, checks };
       };
     }
-    async function verify(
-      repoPath: string,
-      branch: string,
-      fixtureRef: string,
-      script: "test" | "typecheck" | "lint"
+    type FixtureScript = "test" | "typecheck" | "lint";
+    async function verifyInWorktree(
+      task: Task,
+      session: SessionResult
+    ): Promise<Omit<DeterministicChecks, "withinBudget">> {
+      const { rubric, fixtureRef } = task;
+      const required: Readonly<Record<FixtureScript, boolean>> = {
+        test: rubric.testsMustPass,
+        typecheck: rubric.typecheckMustPass,
+        lint: rubric.lintMustPass,
+      };
+      const anyRequired = Object.values(required).some(Boolean);
+      const worktreePath = session.worktreePath;
+    
+      if (anyRequired && worktreePath === undefined) {
+        const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";
+        console.error(
+          `${task.id}: no worktree to verify in (session ${session.status}; errors: ${errors}) — every rubric check scored false`
+        );
+      }
+    
+      const installed =
+        anyRequired && worktreePath !== undefined
+          ? await runStep(
+              task.id,
+              "install",
+              worktreePath,
+              ["install", "--frozen-lockfile"],
+              INSTALL_TIMEOUT_MS
+            )
+          : false;
+    
+      const check = async (script: FixtureScript): Promise<boolean> => {
+        if (!required[script]) return true;
+        if (!installed || worktreePath === undefined) return false;
+        return runStep(
+          task.id,
+          script,
+          worktreePath,
+          ["turbo", "run", script, `--filter=./${fixtureRef}`, "--output-logs=errors-only"],
+          SCRIPT_TIMEOUT_MS
+        );
+      };
+    
+      return {
+        testsPass: await check("test"),
+        typecheckPass: await check("typecheck"),
+        lintPass: await check("lint"),
+      };
+    }
+    async function runStep(
+      taskId: string,
+      step: string,
+      worktreePath: string,
+      args: readonly string[],
+      timeout: number
     ): Promise<boolean> {
       try {
-        await execFileAsync("git", ["-C", repoPath, "checkout", branch], { timeout: 30_000 });
-        await execFileAsync("pnpm", ["--filter", `./${fixtureRef}`, script], {
-          cwd: repoPath,
-          timeout: 300_000,
-        });
+        await execFileAsync("pnpm", [...args], { cwd: worktreePath, timeout });
         return true;
-      } catch {
+      } catch (err) {
+        console.error(`${taskId}: ${step} failed in ${worktreePath} — ${outputTail(err)}`);
         return false;
+      }
+    }
+    function outputTail(err: unknown): string {
+      const e = err as { stdout?: unknown; stderr?: unknown; message?: unknown };
+      const output = [e.stdout, e.stderr]
+        .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+        .join("\n");
+      const text = output !== "" ? output : String(e.message ?? err);
+      return text.trimEnd().split("\n").slice(-OUTPUT_TAIL_LINES).join("\n");
+    }
+    async function releaseWorktree(
+      repoPath: string,
+      taskId: string,
+      session: SessionResult
+    ): Promise<void> {
+      const worktreePath = session.worktreePath;
+      if (worktreePath === undefined) return;
+      if (session.status !== "succeeded") {
+        console.error(`${taskId}: worktree kept for inspection at ${worktreePath}`);
+        return;
+      }
+      try {
+        // Bounded at 60 s by agent-core's own git timeout.
+        await removeWorktree(repoPath, worktreePath);
+      } catch {
+        // Best-effort: a leftover worktree is litter, not a scoring error.
       }
     }
     function printCalibration(summary: CalibrationSummary): void {
@@ -1523,6 +1598,9 @@
         console.log(
           `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
         );
+        if (t.sessionErrors && t.sessionErrors.length > 0) {
+          console.log(`    session errors: ${t.sessionErrors.join("; ")}`);
+        }
       }
       console.log("");
       console.log(`Tasks:       ${a.total}`);

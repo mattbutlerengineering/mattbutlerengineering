@@ -2853,7 +2853,11 @@
       export async function cleanupWorktrees(repoPath: string): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export async function commitChanges(worktreePath: string, message: string): Promise<string> { /* ... */ }
+      export async function commitChanges(
+        worktreePath: string,
+        message: string,
+        options: { readonly noVerify?: boolean } = {}
+      ): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
       export async function pushBranch(worktreePath: string, branchName: string): Promise<void> { /* ... */ }
