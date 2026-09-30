@@ -97,6 +97,9 @@ export const METRICS = {
   // (identity from source, audit state from the routine). `-merge` in
   // .gitattributes, not union: a union merge of a rewritten file duplicates rows.
   "ui-quality-ledger": { file: "ui-quality-ledger.jsonl", format: "jsonl", durable: true },
+  // One row per ui-quality routine fire, appended by `ledger.mjs record`; the
+  // first row anchors coverage.mjs's 30-day clock. Union merge via the glob.
+  "ui-quality-runs": { file: "ui-quality-runs.jsonl", format: "jsonl", durable: true },
 };
 
 /**

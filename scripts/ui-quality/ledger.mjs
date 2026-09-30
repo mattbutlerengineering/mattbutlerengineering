@@ -17,24 +17,42 @@
  * Subcommands:
  *   generate  rewrite the ledger: identity from the inventory, audit columns preserved
  *   check     exit 1 when the regenerated identity set ≠ committed; never rewrites
+ *   refresh   recompute `last_changed_at` for every row (unchanged where git is unavailable)
+ *   due       write .ui-quality/plan.json (capture's input, `{ app → [{ route, path,
+ *             viewports }] }`) and .ui-quality/due.json (record's input: the whole due
+ *             set incl. no-fixture rows, plus the auth0 rows); mark auth0 rows
+ *             `unreachable:auth` in the same ledger write
+ *   record    --rubric-version N: apply .ui-quality/captures/<app>/manifest.jsonl +
+ *             .ui-quality/judge-status.json to every due row, append the runs row
  *
  * Pure core (`buildLedger`, `diffIdentity`, `parseLedger`, `renderLedger`) plus a
  * `main(argv, deps)` whose deps (`inventory`, `lastChangedAt`, `gitDepth`, fs
  * root) default to the real repo. Exit codes: 0 ok, 1 check failed, 2 bad input.
  *
- * Usage: node scripts/ui-quality/ledger.mjs <generate|check> [--root <dir>]
+ * Usage: node scripts/ui-quality/ledger.mjs <generate|check|refresh|due|record> [--root <dir>]
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolvePath } from "../metrics-store.mjs";
+import { append, resolvePath } from "../metrics-store.mjs";
+import { AUDIT_TTL_DAYS, MAX_ROUTES_PER_FIRE, VIEWPORTS } from "./config.mjs";
+import { applyRecord, buildPlan, markUnreachableAuth, selectDue } from "./ledger-audit.mjs";
 import { createRepoIo, extractAll } from "./routes.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const LEDGER_METRIC = "ui-quality-ledger";
+export const RUNS_METRIC = "ui-quality-runs";
+
+/** The gitignored per-fire work dir and the files in it this module reads or writes. */
+export const WORK_DIR = ".ui-quality";
+const PLAN_FILE = "plan.json";
+const DUE_FILE = "due.json";
+const JUDGE_STATUS_FILE = "judge-status.json";
+const CAPTURES_DIR = "captures";
+const FIXTURES_FILE = "scripts/ui-quality/route-fixtures.json";
 
 export const IDENTITY_COLUMNS = ["route", "app", "kind", "auth", "source_files"];
 export const AUDIT_COLUMNS = [
@@ -159,29 +177,46 @@ export function createLastChangedAt(root, gitDepth = createGitDepth(root)) {
 }
 
 // ---------------------------------------------------------------------------
-// CLI body
+// CLI body — each command gets `ctx`: deps + root + argv + ledgerPath
 // ---------------------------------------------------------------------------
 
 function readCommitted(path) {
   return existsSync(path) ? parseLedger(readFileSync(path, "utf8")) : null;
 }
 
-function generate(deps, path) {
-  const routes = deps.inventory();
-  const committed = readCommitted(path) ?? [];
-  const rows = buildLedger(routes, committed, { lastChangedAt: deps.lastChangedAt });
-  writeFileSync(path, renderLedger(rows));
-  deps.stderr(`ledger.mjs generate: ${rows.length} rows (git_depth: ${deps.gitDepth()})\n`);
+function readJsonIfPresent(path) {
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+}
+
+function writeJson(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
+}
+
+function requireLedger(ctx) {
+  const rows = readCommitted(ctx.ledgerPath);
+  if (rows === null) throw new Error(`${ctx.ledgerPath} is missing — run generate first`);
+  return rows;
+}
+
+function generate(ctx) {
+  const routes = ctx.inventory();
+  const committed = readCommitted(ctx.ledgerPath) ?? [];
+  const rows = buildLedger(routes, committed, { lastChangedAt: ctx.lastChangedAt });
+  writeFileSync(ctx.ledgerPath, renderLedger(rows));
+  ctx.stderr(`ledger.mjs generate: ${rows.length} rows (git_depth: ${ctx.gitDepth()})\n`);
   return 0;
 }
 
-function check(deps, path) {
-  const committed = readCommitted(path);
+function check(ctx) {
+  const committed = readCommitted(ctx.ledgerPath);
   if (committed === null) {
-    deps.stdout(`FAIL: ${path} is missing — run: node scripts/ui-quality/ledger.mjs generate\n`);
+    ctx.stdout(
+      `FAIL: ${ctx.ledgerPath} is missing — run: node scripts/ui-quality/ledger.mjs generate\n`
+    );
     return 1;
   }
-  const routes = deps.inventory();
+  const routes = ctx.inventory();
   const { added, removed, changed } = diffIdentity(routes, committed);
   const lines = [
     ...added.map((r) => `  added:   ${r.app} ${r.route}`),
@@ -189,47 +224,132 @@ function check(deps, path) {
     ...changed.map((r) => `  changed: ${r.app} ${r.route}`),
   ];
   const rerendered = renderLedger(buildLedger(routes, committed, { lastChangedAt: () => null }));
-  if (lines.length === 0 && rerendered !== readFileSync(path, "utf8")) {
+  if (lines.length === 0 && rerendered !== readFileSync(ctx.ledgerPath, "utf8")) {
     lines.push("  order/format differs from a regenerated ledger");
   }
   if (lines.length === 0) {
-    deps.stdout(`PASS: ui-quality ledger matches the route inventory (${committed.length} rows)\n`);
+    ctx.stdout(`PASS: ui-quality ledger matches the route inventory (${committed.length} rows)\n`);
     return 0;
   }
-  deps.stdout(
+  ctx.stdout(
     `FAIL: ui-quality ledger is stale — run: node scripts/ui-quality/ledger.mjs generate\n${lines.join("\n")}\n`
   );
   return 1;
 }
 
-const COMMANDS = { generate, check };
+function refresh(ctx) {
+  const rows = requireLedger(ctx).map((r) => ({
+    ...r,
+    last_changed_at: ctx.lastChangedAt(r.source_files) ?? r.last_changed_at,
+  }));
+  writeFileSync(ctx.ledgerPath, renderLedger(rows));
+  ctx.stderr(`ledger.mjs refresh: ${rows.length} rows (git_depth: ${ctx.gitDepth()})\n`);
+  return 0;
+}
+
+function due(ctx) {
+  const rows = requireLedger(ctx);
+  const { due: dueRows, unreachableAuth } = selectDue(rows, {
+    now: ctx.now(),
+    ttlDays: AUDIT_TTL_DAYS,
+    maxRoutes: MAX_ROUTES_PER_FIRE,
+    fixtures: ctx.fixtures ?? readJsonIfPresent(join(ctx.root, FIXTURES_FILE)) ?? {},
+  });
+  const work = join(ctx.root, WORK_DIR);
+  writeJson(join(work, PLAN_FILE), buildPlan(dueRows, VIEWPORTS));
+  writeJson(join(work, DUE_FILE), {
+    at: ctx.now(),
+    git_depth: ctx.gitDepth(),
+    due: dueRows,
+    unreachable_auth: unreachableAuth,
+  });
+  writeFileSync(ctx.ledgerPath, renderLedger(markUnreachableAuth(rows, unreachableAuth)));
+  for (const d of dueRows.filter((r) => r.detail === "no-fixture")) {
+    ctx.stderr(`ledger.mjs due: no-fixture — ${d.app} ${d.route} planned unreachable:build\n`);
+  }
+  ctx.stderr(`ledger.mjs due: ${dueRows.length} due, ${unreachableAuth.length} unreachable:auth\n`);
+  return 0;
+}
+
+/** app → manifest rows, from every .ui-quality/captures/<app>/manifest.jsonl present. */
+function readManifests(work) {
+  const dir = join(work, CAPTURES_DIR);
+  if (!existsSync(dir)) return {};
+  const manifests = {};
+  for (const app of readdirSync(dir).sort()) {
+    const file = join(dir, app, "manifest.jsonl");
+    if (existsSync(file)) manifests[app] = parseLedger(readFileSync(file, "utf8"));
+  }
+  return manifests;
+}
+
+function record(ctx) {
+  const flag = ctx.argv.indexOf("--rubric-version");
+  const rubricVersion = flag === -1 ? NaN : Number(ctx.argv[flag + 1]);
+  if (!Number.isInteger(rubricVersion) || rubricVersion < 1) {
+    throw new Error("--rubric-version <positive integer> is required");
+  }
+  const work = join(ctx.root, WORK_DIR);
+  const dueFile = readJsonIfPresent(join(work, DUE_FILE));
+  if (dueFile === null) throw new Error(`${WORK_DIR}/${DUE_FILE} is missing — run due first`);
+  const judgeStatus = readJsonIfPresent(join(work, JUDGE_STATUS_FILE));
+  if (judgeStatus === null) {
+    ctx.stderr(
+      `ledger.mjs record: ${WORK_DIR}/${JUDGE_STATUS_FILE} is missing — every captured row is unjudged:missing, none audited\n`
+    );
+  }
+  const now = ctx.now();
+  const { rows, counts } = applyRecord(requireLedger(ctx), {
+    dueFile,
+    manifests: readManifests(work),
+    judgeStatus,
+    now,
+    rubricVersion,
+  });
+  writeFileSync(ctx.ledgerPath, renderLedger(rows));
+  append(
+    RUNS_METRIC,
+    { ts: now, ...counts, git_depth: dueFile.git_depth, rubric_version: rubricVersion },
+    { root: ctx.root }
+  );
+  ctx.stderr(`ledger.mjs record: ${JSON.stringify(counts)}\n`);
+  return 0;
+}
+
+const COMMANDS = { generate, check, refresh, due, record };
+
+const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
 /**
  * @param {string[]} argv
- * @param {object} [deps] root, inventory, lastChangedAt, gitDepth, stdout, stderr
+ * @param {object} [deps] root, inventory, lastChangedAt, gitDepth, now, fixtures, stdout, stderr
  * @returns {number} exit code
  */
 export function main(argv, deps = {}) {
   const rootFlag = argv.indexOf("--root");
   const root = rootFlag !== -1 ? resolve(argv[rootFlag + 1]) : (deps.root ?? DEFAULT_ROOT);
   const gitDepth = deps.gitDepth ?? createGitDepth(root);
-  const resolved = {
+  const ctx = {
     inventory: () => extractAll(createRepoIo(root)),
     lastChangedAt: createLastChangedAt(root, gitDepth),
+    now: isoNow,
     stdout: (s) => process.stdout.write(s),
     stderr: (s) => process.stderr.write(s),
     ...deps,
     gitDepth,
+    root,
+    argv,
+    ledgerPath: resolvePath(LEDGER_METRIC, { root }),
   };
   const command = COMMANDS[argv[0]];
   if (!command) {
-    resolved.stderr(`Usage: ledger.mjs <${Object.keys(COMMANDS).join("|")}> [--root <dir>]\n`);
+    ctx.stderr(`Usage: ledger.mjs <${Object.keys(COMMANDS).join("|")}> [--root <dir>]\n`);
     return 2;
   }
   try {
-    return command(resolved, resolvePath(LEDGER_METRIC, { root }));
+    return command(ctx);
   } catch (err) {
-    resolved.stderr(`ledger.mjs ${argv[0]}: ${err.message}\n`);
+    ctx.stderr(`ledger.mjs ${argv[0]}: ${err.message}\n`);
     return 2;
   }
 }
