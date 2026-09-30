@@ -207,9 +207,9 @@ Every CLI takes `--root` for tests, reads/writes only under `metrics/`, `docs/ui
 
 ### `findings.mjs plan | record | migrate | seeds`
 
-- Input: `Finding[]` from `detect.mjs mechanical` and `detect.mjs judged` (`--findings`, repeatable — never from the model directly); `--issue-states` JSON `{ issueNumber → open|closed|missing }` covering every key already in the ledger; `--labelled-issues` JSON, the issue numbers of every issue labelled `ui-quality` in any state (the routine's `search_issues` result, reduced to numbers); the rubric.
+- Input: `Finding[]` from `detect.mjs mechanical` and `detect.mjs judged` (`--findings`, repeatable — never from the model directly); `--issue-states` JSON `{ issueNumber → open|closed|missing }` covering every key already in the ledger; `--labelled-issues` JSON, one `{ number, title, state }` per issue labelled `ui-quality` in any state (the routine's `search_issues` result, reduced to those three fields); the rubric.
 - Output: `plan` → `{ actions: [{ key, action: skip|create|reopen|comment, title, body, labels, carrier }], seeds: [...], fix_pr_candidate }`; `record` → the updated `metrics/ui-quality-findings.json`.
-- Failure modes: `--labelled-issues` absent or unreadable, or naming any number the findings ledger does not reference, exits 2 before any action is planned and names the unknown numbers (incomplete state: filing now would refile; the next fire that reads complete state files normally, and a number that stays unknown — a human labelling a foreign issue `ui-quality` — keeps the loop from filing until it is unlabelled, logged every fire); a ledgered key whose state is absent from `--issue-states` is treated as `skip` and reported (never re-created on a partial fetch — the dedupe search-failure rule from `routine-liveness.mjs`); an unknown tell id exits 2 — its inputs are validated upstream, so one here is a pipeline bug, not a model quirk (the unknown-tell rule under Judge); `migrate` refuses when `--to` ≠ the rubric's current version; `plan` exits 2 while any open ledgered key carries a version below the rubric's current one and a tell the current rubric still has (run `migrate` first; retired-tell keys are the routine's to comment-and-close, not a block — planning against unmigrated keys would re-create every surviving finding under its new key, the SC-6 refile the key exists to prevent).
+- Failure modes: `--labelled-issues` absent or unreadable exits 2 before any action is planned; an issue it names that the findings ledger does not reference is adopted under its key (an `adopt` action `record` writes) when its title is a finding title at the current rubric version, with a tell the rubric has, for a key no other issue carries; any other unknown issue exits 2, names the numbers, and writes `.ui-quality/findings.escalation.json` — one `needs-review` escalation issue for the routine to open — unless an open escalation issue is already among the labelled issues (incomplete state: filing now would refile; the recovery, retitle or unlabel, is the escalation issue's body); a ledgered key whose state is absent from `--issue-states` is treated as `skip` and reported (never re-created on a partial fetch — the dedupe search-failure rule from `routine-liveness.mjs`); an unknown tell id exits 2 — its inputs are validated upstream, so one here is a pipeline bug, not a model quirk (the unknown-tell rule under Judge); `migrate` refuses when `--to` ≠ the rubric's current version; `plan` exits 2 while any open ledgered key carries a version below the rubric's current one and a tell the current rubric still has (run `migrate` first; retired-tell keys are the routine's to comment-and-close, not a block — planning against unmigrated keys would re-create every surviving finding under its new key, the SC-6 refile the key exists to prevent).
 
 ### `state.mjs checkout`
 
@@ -219,7 +219,7 @@ Every CLI takes `--root` for tests, reads/writes only under `metrics/`, `docs/ui
 
 ### Liveness signature `observe: "latest-matching-commit"` (`routine-manifest.mjs` → `routine-liveness.mjs`)
 
-- Input: an optional `observe` on a `pr-title` signature; for entries that set it, `fetchObservedArtifactsViaGhClient` also requests `commits` in its `gh pr list --json`.
+- Input: an optional `observe` on a `pr-title` signature; for entries that set it, `fetchObservedArtifactsViaGhClient` lists PRs without `commits` (the GraphQL field breaks the node limit) and, for each title-matching PR only, reads commits over REST via `gh api`: an open PR's head branch newest first (at most `MAX_BRANCH_COMMIT_PAGES` pages), a closed PR's own commit list. An observation that throws reads that routine `unobserved` (`action: observe-failed`), files and closes nothing for it, and fails the job after every other routine is classified.
 - Output: each matching PR's `observedAt` = the newest `committedDate` among its commits whose `messageHeadline` matches the signature `pattern`; with no such commit, `createdAt`. `mergedAt` is not used in this mode.
 - Failure modes: an unparseable commit date is ignored, never read as fresh; without `observe` the rule is unchanged (`mergedAt ?? createdAt`); the `activatedAt` grace and `main`'s `late` tier apply exactly as to every other entry.
 
@@ -452,3 +452,13 @@ Next stage: **Decompose**.
   (`findings.mjs`, `state.mjs` new, liveness `observe` new, MCP), §
   Decisions (one bullet rewritten, two added), § Traceability (SC-5, SC-6),
   frontmatter `assumptions:` (one entry). Nothing here needs Matt.
+- **Review re-entry, 2026-09-30 — doc drift from the N1–N4 fixes (Review,
+  doc-only):** the final re-review found this document still describing
+  `--labelled-issues` as a list of issue numbers and the unknown-issue case
+  as a permanent refusal, and the liveness `observe` contract as requesting
+  `commits` in the `gh pr list --json` call that N1 measured over GitHub's
+  GraphQL node limit. The code had already moved (N3: `{ number, title,
+state }` objects, adopt or escalate once; N1/N2: REST commit reads per
+  title-matching PR, `observe-failed` per routine). Reflected, no decision
+  changed: § Interfaces `findings.mjs` (Input, Failure modes) and liveness
+  `observe` (Input). Nothing here needs Matt.

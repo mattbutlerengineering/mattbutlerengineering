@@ -430,3 +430,134 @@ Everything within a single fire is sound: fail-closed calibration, prompt guardr
 - **N5 (major):** fix before Ship commits marketing baselines, or Matt explicitly accepts the 23679 px floor.
 
 Route N1 and N2 (plus N3 and N4 if not deferred) to Implement. Re-verify N1 with a real `gh`/REST call against the repo, not a fake `pr.list`. Then Ship.
+
+## Final re-review 2026-09-30
+
+- **Scope:** `3eba0dbeb..56d4baeb2`, the fixes for the re-review's N1–N5 and n1: `58afabde0` (N1 and N2), `3bf75ada3` (N3), `7433fdd42` (N4), `e781f63d3` (n1), `9847a8f0f` (N5), plus the llms regen and breakdown notes.
+- **Read in full:**
+  - the diffs of `routine-liveness.mjs`, `findings-plan.mjs`, `findings.mjs`, `state.mjs`, `ui-quality-capture.ts` and routine step (6)
+  - every `gh` call on the liveness job's path: `pr list` (both field sets), `issue list` (label signatures and the `ci-fix` search), `issue view`, `issue create`, `issue close`, and the new `gh api` commit reads
+  - `.github/workflows/routine-liveness.yml`
+  - the `capturePage` path
+- **Tests run, all green:**
+  - the liveness, findings, state, two-fire and routine-prompt suites: 5 files, 197 tests
+  - `ui-quality-capture.test.ts`: 17 tests
+- **Live probes (read-only; nothing filed or closed):**
+  - The real `fetchObservedArtifactsViaGhClient(createGhClient(), entry)` for **every** in-scope manifest entry. `routine-liveness.mjs` has no `--help` or dry-run mode, so a throwaway script called the exported function directly, then was deleted.
+  - The REST commit path against real refs.
+  - A depth-1 single-branch clone of the repo, to measure unshallow cost and git's message for a missing ref.
+
+### Per-finding status
+
+- **N1 (critical): CLOSED.**
+  - **The list query no longer asks for commits.** It now requests `title,createdAt,mergedAt,number,state,headRefName`, with no nested connection. Every other liveness query is flat or small:
+    - label signatures: `title,labels,createdAt`, limit 50
+    - the `ci-fix` search: `number,title`, limit 200
+    - `issue view --json state`
+
+    No query on the job's path is anywhere near the 500,000-node limit.
+
+  - **Measured against the real API, all 12 in-scope routines observe without a throw:**
+
+    ```
+    mbe-evening: OK 50 artifacts, newest=2026-09-30T06:47:29Z (985ms)
+    mbe-night: OK 0 artifacts, newest=- (0ms)
+    mbe-auditor: OK 50 artifacts, newest=2026-09-30T09:42:01Z (758ms)
+    mbe-daily-issue: OK 50 artifacts, newest=2026-09-30T15:01:21Z (689ms)
+    mbe-morning: OK 50 artifacts, newest=2026-09-30T15:01:21Z (633ms)
+    mbe-learning-loop: OK 50 artifacts, newest=2026-09-30T20:54:39Z (586ms)
+    mbe-midday: OK 0 artifacts, newest=- (0ms)
+    mbe-weekly-improve: OK 37 artifacts, newest=2026-09-30T06:56:56Z (926ms)
+    mbe-doc-rot: OK 14 artifacts, newest=2026-09-27T00:15:59Z (723ms)
+    mbe-weekly-retro: OK 16 artifacts, newest=2026-09-28T22:00:37Z (1234ms)
+    mbe-monthly-meta-audit: OK 0 artifacts, newest=- (0ms)
+    mbe-ui-quality: OK 5 artifacts, newest=2026-07-13T18:12:07Z (532ms)
+    ```
+
+    `mbe-ui-quality`'s 5 are older PRs whose titles do not match the ledger pattern. They are dated by `createdAt`, and no commit call is made for them.
+
+  - **Both REST branches work against real refs.** A fake list pointing at real refs, with the real `gh api`:
+    - Open-branch path, `commits?sha=feat/ui-quality-loop`: dated `2026-09-30T20:25:32Z`, exactly `3bf75ada3`'s committer date, in 603 ms.
+    - Closed-PR path, `pulls/5354/commits`: dated in 478 ms.
+
+    The token scopes cover both. `routine-liveness.yml` grants `contents: read` (the commits endpoint) and `pull-requests: read` (the pulls endpoint).
+
+  - **A per-routine throw is contained.**
+    - `fetchObservedArtifacts` runs in a try/catch per entry, and a throwing routine returns `{ status: "unobserved", action: "observe-failed" }` before `getCandidates()` or `decideIssueTransition()` is reached. So it never files an issue and never closes one.
+    - An already-open dark issue for that routine stays open until the next successful observation. That is correct: nothing was learned about it.
+    - A failed routine counts as "0 observed" toward the blackout guard, which is the right direction.
+    - The `observe-failed` results survive the blackout branch too.
+  - **`main()` exiting 1 on `observe-failed` is acceptable, and better than silent.**
+    - It sets `process.exitCode` after every other routine has been classified and its issues filed or closed, so fleet coverage is not lost.
+    - A red daily run is exactly the signal `scheduled-workflow-health` watches for failing streaks.
+    - The only routine that can hit it through `gh api` is an opted-in one. Without a `gh` binary, that routine alone reads `unobserved`, as the header now says.
+- **N2 (major): CLOSED.**
+  - An open ledger PR is dated from its head branch over REST, newest first, stopping at the first page that carries a match (at most 10 × 100 commits).
+  - A closed PR reads every page of its own commits (GitHub caps that list at 250).
+  - Tests pin both a match past the first 100 branch commits and a 240-commit closed PR.
+- **N3 (major): CLOSED.**
+  - **Adoption needs a strict title match.** The anchored `FINDING_TITLE`/`AGGREGATE_TITLE` regexes must match exactly: em dash, `(rubric vN)` at the **current** `rubric_version`, and a tell id the rubric has.
+  - **Only a free key is adopted.** Adoption is refused if the key is already carried by another ledgered issue, or by a lower-numbered unknown issue in the same fire. Such an issue blocks instead.
+  - **Adoption can't swallow a human-filed issue that only resembles a finding.** "Resembles" is not enough: the title must be byte-for-byte the loop's format. It is not limited to a finding _detected this fire_. See n4 below, accepted.
+  - **Escalation dedupe:**
+    - An open issue titled exactly `ESCALATION_TITLE` suppresses the escalation file.
+    - Escalation issues are excluded from the unknown set in any state, so a closed one never blocks.
+    - Their labels are `ui-quality` + `needs-review`, never `ready`, so implement-queue cannot pick them up.
+    - The routine step says to open exactly the file's issue and never search for another. Search-index lag is irrelevant at a 24-hour cadence.
+  - **Stale plan deletion:** `plan` removes both `findings.plan.json` and `findings.escalation.json` first, before any validation, so a refused plan can never leave an earlier plan or escalation to be executed.
+  - Adopted records take `state: "open"` like every ledgered record (the ledger never writes `closed`), and a closed adopted issue whose finding recurs is reopened, as for any ledgered key. Both are consistent with the existing m5 semantics.
+- **N4 (major): CLOSED.**
+  - **Explicit refspec is correct.** `+refs/heads/ui-quality/ledger:refs/remotes/origin/ui-quality/ledger` creates the tracking ref even under `--single-branch` (measured: that clone's refspec is `+refs/heads/main:refs/remotes/origin/main` only, and the explicit fetch of a real branch created `origin/feat/ui-quality-loop`).
+  - **A missing ref is told apart from other failures.** A missing branch prints `fatal: couldn't find remote ref refs/heads/ui-quality/ledger`, exit 128 (measured). That text matches `REMOTE_MISSING` and reads as absent. Any other failure, including a failed unshallow or a failed bare fetch, is `state-unavailable`, never a silent fall back to `main`.
+  - **Unshallow cost is small.** On a depth-1 clone: 3 s to clone, 7 s to `fetch --unshallow` (3,986 commits, `.git` 62 MB). That is negligible against the routine's install and build.
+  - A deleted-on-origin branch with a stale tracking ref reads absent (tested). The n1 arm, merged-then-recreated, converges (`e781f63d3`).
+- **N5 (major): CLOSED as a harness defect; the budget re-measure is carried to Ship.**
+  - **Root cause:** marketing's `html { scroll-behavior: smooth }` made every `scrollTo` animate, so the shot landed mid-scroll. That was measured, and it explains `status`'s noise with nothing to reveal. The fix:
+    - `HIDDEN_SCRIPT` gates the scroll.
+    - Every scroll is `behavior: "instant"`.
+    - `SETTLED_SCRIPT` also requires `scrollY === 0`, no running animations and loaded fonts, then two frames.
+  - **Determinism evidence:**
+    - local triple capture: 0 px on all 12 snapshots
+    - same-image CI legs of runs 36775007179 and 36775829085: 0 px A-vs-B and run-vs-run
+  - **The `maxDiffPixels` re-measure is blocked by GitHub's mid-rollout runner images** (`20260920.314.1` vs `20260927.320.1`, which the analyzer correctly refuses to combine).
+  - **This is not a review blocker:** the harness is shown deterministic, and Ship must re-measure both apps on a single image before committing any baseline anyway (M4's standing caveat).
+  - **Until then:** marketing stays at 23679 with its honest provenance line. **Ship must not commit marketing baselines against 23679.** Re-measure first, and set the value from the analyzer's verdict.
+  - **No capture regression for hospitality or rialto-web in the `capturePage` path:**
+    - `capturePage` emulates `reducedMotion: "reduce"`, under which `useScrollReveal` renders revealed at mount. `HIDDEN_SCRIPT` is therefore false and nothing scrolls, where before the fix it scrolled pointlessly.
+    - Hospitality scrolls an inner `main`, so `window.scrollY` was always 0 there.
+    - Hospitality's visual spec does not import the helper, so its 90 px measurement stands.
+    - The only new cost is n5.
+- **n1 (minor): CLOSED** by the merged-then-recreated two-fire arm.
+- **Doc drift (`--labelled-issues`): FIXED in this pass.**
+  - `architecture.md` § Interfaces `findings.mjs` (Input, Failure modes) described a JSON array of numbers and a permanent refusal. The same pass fixed the liveness `observe` Input, which still said `commits` rides in the `gh pr list --json`, the exact query N1 measured over the limit.
+  - Both are reflected, with a note under "Review re-entry, 2026-09-30" in § Resolutions. No decision changed.
+- **Earlier findings:** m1, m2 and m5–m9 stay deferred as recorded. m4 (`triggerId` and `activatedAt` in the merging PR) and M4 (re-measure on one image) stay Ship preconditions.
+
+### New findings
+
+No critical or major findings.
+
+- **n3 (minor): `state.mjs` reads git's English error text, with no locale pinned.**
+  - **Where:** `scripts/ui-quality/state.mjs:134` (`REMOTE_MISSING`) and `:228` (`createGit` spawns `git` without `LC_ALL=C`).
+  - **Scenario:** in a sandbox whose git runs under a translated locale, "couldn't find remote ref" never matches. Before the ledger branch first exists, every fire reads `state-unavailable` and never bootstraps it.
+  - **Direction:** this fails closed (no filing, no calibration), and liveness then reads the routine as `dark`, so it is visible.
+  - **Fix:** one line, `env: { ...process.env, LC_ALL: "C" }` in `createGit`.
+  - **Decision:** deferred to an Operate seed. The Ship first-week check (`source: "branch"` on fire 2) would expose it anyway.
+- **n4 (minor): adoption keys on the title format, not on a finding the loop has seen.**
+  - **Where:** `scripts/ui-quality/findings-plan.mjs:84-111`. `app` and `route` are free `\S+`, and are not checked against the coverage ledger.
+  - **Scenario:** a human hand-files an issue in the exact loop title format for a real tell, at the current version, and labels it `ui-quality`. It is adopted, so a later detection comments on it or reopens it.
+  - **Why accepted:** that is what the escalation recovery ("retitle to the finding title") asks for. Accidental resemblance is ruled out by the anchored em-dash and `(rubric vN)` format, and a nonexistent app/route key is inert.
+- **n5 (minor): the settle wait now costs up to 3 s on pages with an unguarded infinite animation.**
+  - **Where:** `packages/test-fixtures/src/ui-quality-capture.ts:145` (`getAnimations().length === 0`) with `REVEAL_SETTLE_MS = 3_000`.
+  - **Which pages:** `apps/hospitality/src/components/OfflineBanner.module.css:22` and `floor-plan/FloorPlanCanvas.module.css:70` pulse `infinite` with no `prefers-reduced-motion` guard. Every other `infinite` in hospitality, rialto-web and rialto is guarded.
+  - **Effect:** on routes rendering those two elements, each capture waits the full 3 s, then shoots as before. Pixels are unchanged, and the cost is bounded at 3 s per affected route per fire.
+  - **Decision:** accepted. The two unguarded animations are themselves a reduced-motion product defect worth an Operate seed.
+
+### Verdict
+
+**Ship.** No criticals remain. N1 through N5 and n1 are closed, and n3–n5 are minor and deferred or accepted. Ship's standing preconditions are unchanged:
+
+- Merge `origin/main` and confirm `merge-tree` is clean.
+- m4: write `triggerId` and `activatedAt` in the merging PR.
+- M4/N5: re-measure `maxDiffPixels` for **both** apps on a single runner image once the rollout settles, and take baselines only from that run's `visual-actuals-replica-a`.
+- The first-week check: fire 2 reports `source: "branch"`, and the routine reads `alive`.
