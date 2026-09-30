@@ -8,14 +8,32 @@ import { readToleranceDirectives } from "../visual-tolerance.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 
-const CONFIG_PATH = "apps/rialto-web/playwright.config.ts";
-const SPEC_PATH = "apps/rialto-web/e2e/visual.spec.ts";
-
-const CONFIG = readFileSync(resolve(ROOT, CONFIG_PATH), "utf8");
-const SPEC = readFileSync(resolve(ROOT, SPEC_PATH), "utf8");
+/**
+ * Every visual suite whose tolerance is guarded: rialto-web's production
+ * config, and the VR floor's two visual configs (docs/features/ui-quality-loop
+ * breakdown M5). Each one is held to the same contract.
+ */
+const SUITES = [
+  {
+    app: "rialto-web",
+    configPath: "apps/rialto-web/playwright.config.ts",
+    specPath: "apps/rialto-web/e2e/visual.spec.ts",
+  },
+  {
+    app: "marketing",
+    configPath: "apps/marketing/playwright.visual.config.ts",
+    specPath: "apps/marketing/e2e/visual.spec.ts",
+  },
+  {
+    app: "hospitality",
+    configPath: "apps/hospitality/playwright.visual.config.ts",
+    specPath: "apps/hospitality/e2e/visual.spec.ts",
+  },
+];
 
 /**
- * The rialto-web visual suite's sensitivity can never again change in silence.
+ * No visual suite's sensitivity can ever again change in silence — rialto-web's
+ * first, where the incident below happened, and every suite added since.
  *
  * #4450 -> #4496 is the incident this guard exists for: a budget key changed
  * form, nothing went red, and `main` stayed red for 41h14m once the mismatch
@@ -56,9 +74,12 @@ const PROVENANCE_RUN =
 const PROVENANCE_VALUES =
   /^\s*\/\/\s*noise-floor-values:\s*threshold=(\d[\d_]*(?:\.[\d_]+)?)\s+maxDiffPixels=(\d[\d_]*(?:\.[\d_]+)?)\s*$/m;
 
-const directives = readToleranceDirectives(CONFIG);
+describe.each(SUITES)("$app visual tolerance — the drift guard", ({ configPath, specPath }) => {
+  const CONFIG_PATH = configPath;
+  const CONFIG = readFileSync(resolve(ROOT, configPath), "utf8");
+  const SPEC = readFileSync(resolve(ROOT, specPath), "utf8");
+  const directives = readToleranceDirectives(CONFIG);
 
-describe("rialto-web visual tolerance — the drift guard", () => {
   it("declares `threshold` explicitly instead of inheriting Playwright's default", () => {
     // The defect, exactly: `threshold` was never set, so the suite ran at
     // Playwright's 0.2 for ~6 months and could not see a whole-image change.

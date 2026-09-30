@@ -23,11 +23,16 @@ export default defineConfig({
   snapshotPathTemplate: "{testDir}/screenshots/{arg}{ext}",
   expect: {
     toHaveScreenshot: {
-      // PROVISIONAL until measured: replaced by scripts/visual-tolerance-rule.mjs's
-      // verdict over a visual-noise-floor.yml run with app=marketing, with its
-      // provenance lines (the rialto-web playwright.config.ts pattern).
+      // MEASURED, not chosen: scripts/visual-tolerance-rule.mjs's verdict `ok`
+      // over the three-leg Linux capture named below (visual-noise-floor.yml,
+      // app=marketing). An absolute pixel budget, never a ratio; `threshold` is
+      // explicit so Playwright's 0.2 default cannot hide a whole-page shift.
+      // scripts/__tests__/visual-tolerance-guard.test.mjs reds if either value
+      // moves without its provenance line; re-measure to re-tune.
+      // noise-floor: run 36684428015 · ubuntu24 20260920.314.1 · playwright 1.63.0
+      // noise-floor-values: threshold=0 maxDiffPixels=300
       threshold: 0,
-      maxDiffPixels: 0,
+      maxDiffPixels: 300,
     },
   },
   use: {
