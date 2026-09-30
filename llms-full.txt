@@ -54915,6 +54915,8 @@
       links: string[];
       blank: { text_chars: number; painted_ratio: number };
       ms: number;
+      /** Viewport-only shot at the first viewport; absent when it failed — never an `error`. */
+      fold?: { viewport: string; file: string; sha256: string };
       error?: string;
     }
     export type CapturePageLike = Pick<
@@ -55057,6 +55059,21 @@
       }
       return shots;
     }
+    export function foldName(route: string, viewport: Viewport): string {
+      return screenshotName(route, viewport).replace(/\.png$/, ".fold.png");
+    }
+    async function screenshotFold(page: CapturePageLike, route: string, opts: CaptureOptions) {
+      const [viewport] = opts.viewports;
+      if (!viewport) return undefined;
+      try {
+        await page.setViewportSize(viewport);
+        const file = foldName(route, viewport);
+        const bytes = await page.screenshot({ path: join(opts.outDir, file), fullPage: false });
+        return { viewport: `${viewport.width}x${viewport.height}`, file, sha256: sha256(bytes) };
+      } catch {
+        return undefined;
+      }
+    }
     export async function capturePage(
       page: CapturePageLike,
       route: string,
@@ -55092,6 +55109,8 @@
         row.blank = { text_chars: probe.text_chars, painted_ratio: probe.painted_ratio };
         row.axe = trimAxe(await (opts.analyzeAxe ?? defaultAnalyzeAxe)(page));
         row.screenshots = await screenshotAll(page, route, opts);
+        const fold = await screenshotFold(page, route, opts);
+        if (fold) row.fold = fold;
       } catch (err) {
         row.error = message(err);
       } finally {
