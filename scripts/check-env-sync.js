@@ -47,6 +47,7 @@ const PLATFORM_VARS = new Set([
 const BUILD_TIME_VARS = new Set([
   "OUTPUT_FILE", // packages/rialto-catalog/scripts/generate-catalog.ts
   "CATALOG_OUTPUT_FILE", // packages/rialto-catalog/scripts/generate-catalog.ts
+  "UI_QUALITY_CHROMIUM", // apps/*/playwright.ui-quality.config.ts — set by the mbe-ui-quality routine from browser.mjs resolve, never read by the app
 ]);
 
 const SOURCE_EXT_RE = /\.(ts|tsx|js|jsx)$/;
