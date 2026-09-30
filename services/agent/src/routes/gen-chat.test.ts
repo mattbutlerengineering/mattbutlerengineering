@@ -189,4 +189,33 @@ describe("POST /api/gen/chat", () => {
       })
     );
   });
+
+  it("caps repeated calls with a 429 (max: 50/hour)", async () => {
+    // Per-user cap declared in gen-route-factory.ts's config.rateLimit —
+    // regression coverage so the limiter can't silently stop enforcing.
+    vi.mocked(streamText).mockImplementation(
+      () =>
+        ({
+          fullStream: (async function* () {})(),
+          usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+          providerMetadata: Promise.resolve({}),
+        }) as never
+    );
+
+    const post = () =>
+      app.inject({
+        method: "POST",
+        url: "/api/gen/chat",
+        payload: { messages: [{ role: "user", content: "make a form" }] },
+      });
+
+    const GEN_CHAT_RATE_LIMIT_MAX = 50;
+    const codes: number[] = [];
+    for (let i = 0; i < GEN_CHAT_RATE_LIMIT_MAX + 1; i++) {
+      codes.push((await post()).statusCode);
+    }
+
+    expect(codes.slice(0, GEN_CHAT_RATE_LIMIT_MAX)).not.toContain(429);
+    expect(codes.at(-1)).toBe(429);
+  });
 });

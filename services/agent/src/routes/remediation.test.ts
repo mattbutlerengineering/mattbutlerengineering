@@ -201,4 +201,34 @@ describe("Remediation Webhook Routes", () => {
 
     expect(response.statusCode).toBe(503);
   });
+
+  it("caps repeated remediation webhook calls with a 429 (max: 5/minute)", async () => {
+    // github[js/missing-rate-limiting] regression coverage — this route's
+    // rate limit exists specifically "to prevent alert storms" (see
+    // remediation.ts). Use the info-severity fast path so every request
+    // resolves the same way without extra mocking.
+    const infoPayload = { ...validPayload, severity: "info" };
+    const payloadStr = JSON.stringify(infoPayload);
+    const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
+
+    const post = () =>
+      app.inject({
+        method: "POST",
+        url: "/v1/webhooks/remediation",
+        headers: {
+          "x-remediation-signature": signature,
+          "content-type": "application/json",
+        },
+        payload: payloadStr,
+      });
+
+    const REMEDIATION_RATE_LIMIT_MAX = 5;
+    const codes: number[] = [];
+    for (let i = 0; i < REMEDIATION_RATE_LIMIT_MAX + 1; i++) {
+      codes.push((await post()).statusCode);
+    }
+
+    expect(codes.slice(0, REMEDIATION_RATE_LIMIT_MAX)).not.toContain(429);
+    expect(codes.at(-1)).toBe(429);
+  });
 });

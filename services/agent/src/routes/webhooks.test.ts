@@ -864,5 +864,35 @@ describe("Webhook Routes", () => {
       expect(response.statusCode).toBe(200);
       expect(JSON.parse(response.body)).toEqual({ received: true });
     });
+
+    it("caps repeated github webhook calls with a 429 (max: 20/minute)", async () => {
+      // github[js/missing-rate-limiting] regression coverage — restrictive
+      // limit for a high-impact webhook (see webhooks.ts). Use an unhandled
+      // event type so every request resolves the same way (200) without
+      // extra mocking.
+      const payload = { action: "created" };
+      const payloadStr = JSON.stringify(payload);
+      const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+      const post = () =>
+        app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "push",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+      const GITHUB_WEBHOOK_RATE_LIMIT_MAX = 20;
+      const codes: number[] = [];
+      for (let i = 0; i < GITHUB_WEBHOOK_RATE_LIMIT_MAX + 1; i++) {
+        codes.push((await post()).statusCode);
+      }
+
+      expect(codes.slice(0, GITHUB_WEBHOOK_RATE_LIMIT_MAX)).not.toContain(429);
+      expect(codes.at(-1)).toBe(429);
+    });
   });
 });
