@@ -17,14 +17,17 @@
  *   record  validate the model's verdicts (`[{ pair_id, verdict: "A"|"B"|"tie",
  *           tells, note }]`) against the plan and append one row per app to
  *           `metrics/ui-quality-ratings.jsonl`, stamped `calibration.status`
- *           pass | failed | stale from the latest calibration record for its model_id.
+ *           pass | failed | stale from the latest calibration record whose
+ *           (model_id, rubric_version, set_sha256) equals the fire's.
  *           `--model-id` is required — the judging session's own exact model id; a
  *           mismatch with the routine doc's `model:` is one stderr line, never an
  *           exit, and the literal `unknown` always stamps `stale`.
- *   calibrate  score verdicts on the calibration plan against `pass_mark`, print
- *           `{ agreement, inversions, disagreements[] }`, append a record to
+ *   calibrate  --verdicts <file> --model-id <id> (both required; `unknown` refused):
+ *           score verdicts on the calibration plan against `pass_mark`, print
+ *           `{ agreement, inversions, disagreements[], human_prefers }`, append a
+ *           record keyed (model_id, rubric_version, set_sha256) to
  *           `metrics/ui-quality-calibrations.jsonl`; exit 0 pass, 1 fail, 2 on an
- *           empty or malformed set (never passes on no data).
+ *           empty, malformed or under-composed set (never passes on no data).
  *
  * The model seam degrades past a bad part, never past a bad unit: a tell id the
  * rubric lacks, or whose `detection` is not `judged`, is dropped, logged and
@@ -47,11 +50,13 @@ import {
   CALIBRATION_FILE,
   calibrationPairs,
   calibrationStamp,
+  humanPrefersSplit,
   scoreCalibration,
+  sha256OfBytes,
   validateCalibrationSet,
 } from "./calibration.mjs";
 import { TASTE_REFERENCES_PER_ROUTE, TASTE_SAMPLE_ROUTES } from "./config.mjs";
-import { outcomeOf, positionOf, sha256, sides, VERDICTS } from "./pairing.mjs";
+import { FOLD_VIEWPORT, outcomeOf, positionOf, sha256, sides, VERDICTS } from "./pairing.mjs";
 import { pngSizeOfFile } from "./png.mjs";
 import { categoryOf, loadRubric, tellsById } from "./rubric.mjs";
 
@@ -66,8 +71,6 @@ export const CALIBRATION_PLAN_FILE = "calibration-plan.json";
 export const CALIBRATIONS_METRIC = "ui-quality-calibrations";
 export const ROUTINE_DOC = "docs/routines/mbe-ui-quality.md";
 const CAPTURES_DIR = "captures";
-/** The fold size pairs are judged at — the one the references were captured at. */
-export const PAIR_VIEWPORT = "1280x720";
 /** A model id that is not one: never calibrated, so always `stale`. */
 export const UNKNOWN_MODEL_ID = "unknown";
 const OUTCOME_VALUE = { ours: 1, tie: 0.5, reference: 0 };
@@ -92,7 +95,7 @@ function sampleBy(items, n, keyOf) {
 }
 
 function pairFor(app, row, shot, ref) {
-  const key = `${app}|${row.route}|${PAIR_VIEWPORT}|${ref.id}`;
+  const key = `${app}|${row.route}|${FOLD_VIEWPORT}|${ref.id}`;
   const ours = {
     route: row.route,
     viewport: shot.viewport,
@@ -245,6 +248,11 @@ function readJsonl(name, root) {
     .map((l) => JSON.parse(l));
 }
 
+/** sha256 of calibration.json's bytes — the set half of a calibration key. */
+function calibrationSetSha(root) {
+  return sha256OfBytes(readFileSync(join(root, CALIBRATION_FILE)));
+}
+
 /** calibration.json, validated; throws VERIFY_HINT or every schema error. */
 function loadCalibrationSet(root, rubric) {
   const doc = JSON.parse(readFileSync(join(root, CALIBRATION_FILE), "utf8"));
@@ -269,11 +277,11 @@ function assertReferenceSizes(root, rubric) {
   const wrong = rubric.references.flatMap((ref) => {
     const { width, height } = pngSizeOfFile(join(root, ref.file));
     const size = `${width}x${height}`;
-    return size === PAIR_VIEWPORT ? [] : [`${ref.id} (${ref.file}) is ${size}`];
+    return size === FOLD_VIEWPORT ? [] : [`${ref.id} (${ref.file}) is ${size}`];
   });
   if (wrong.length > 0) {
     throw new Error(
-      `every reference must be ${PAIR_VIEWPORT} by its PNG header — no plan written:\n  ${wrong.join("\n  ")}`
+      `every reference must be ${FOLD_VIEWPORT} by its PNG header — no plan written:\n  ${wrong.join("\n  ")}`
     );
   }
 }
@@ -313,7 +321,7 @@ function recordCommand(ctx) {
   }
   const calibration = calibrationStamp(
     modelId === UNKNOWN_MODEL_ID ? [] : readJsonl(CALIBRATIONS_METRIC, ctx.root),
-    modelId,
+    { modelId, rubricVersion: rubric.rubric_version, setSha256: calibrationSetSha(ctx.root) },
     rubric.calibration.pass_mark
   );
   const rows = ratingRows(plan, byId, dropped, { ts: ctx.now(), modelId, calibration });
@@ -341,23 +349,25 @@ function requireModelId(ctx) {
   return modelId;
 }
 
-function modelIdOf(ctx) {
-  const modelId = flag(ctx.argv, "--model-id") ?? routineModelId(ctx.root);
-  if (!modelId) throw new Error(`no model_id: pass --model-id or set model: in ${ROUTINE_DOC}`);
-  return modelId;
-}
-
 /**
  * Score the rater's verdicts on the labelled set against the pass mark, print
- * `{ agreement, inversions, disagreements[] }`, append a calibration record.
- * Exit 0 on pass, 1 on fail, 2 on an empty/malformed set or verdict file.
+ * `{ agreement, inversions, disagreements[], human_prefers }`, append a
+ * calibration record keyed (model_id, rubric_version, set_sha256). Exit 0 on
+ * pass, 1 on fail, 2 on a missing flag, `unknown`, or an empty, malformed or
+ * under-composed set or verdict file.
  */
 function calibrateCommand(ctx) {
   const verdictsPath = flag(ctx.argv, "--verdicts");
   const rubric = loadRubric(ctx.root);
   const doc = loadCalibrationSet(ctx.root, rubric);
   if (!verdictsPath) throw new Error("--verdicts <file> is required");
-  const modelId = modelIdOf(ctx);
+  const modelId = requireModelId(ctx);
+  if (modelId === UNKNOWN_MODEL_ID) {
+    throw new Error(
+      `--model-id ${UNKNOWN_MODEL_ID} cannot be calibrated — pass the exact model id`
+    );
+  }
+  const setSha256 = calibrationSetSha(ctx.root);
   const verdicts = JSON.parse(readFileSync(resolve(ctx.root, verdictsPath), "utf8"));
   const { errors, byId } = validateVerdicts({ pairs: calibrationPairs(doc) }, verdicts, rubric);
   if (errors.length > 0) {
@@ -372,6 +382,7 @@ function calibrateCommand(ctx) {
       ts: ctx.now(),
       model_id: modelId,
       rubric_version: rubric.rubric_version,
+      set_sha256: setSha256,
       labelled_at: doc.labelled_at,
       pairs: doc.pairs.length,
       agreement,
@@ -381,7 +392,10 @@ function calibrateCommand(ctx) {
     },
     { root: ctx.root }
   );
-  ctx.stdout(JSON.stringify({ agreement, inversions, disagreements }, null, 2) + "\n");
+  const human_prefers = humanPrefersSplit(doc);
+  ctx.stdout(
+    JSON.stringify({ agreement, inversions, disagreements, human_prefers }, null, 2) + "\n"
+  );
   ctx.stderr(`rate.mjs calibrate: ${pass ? "PASS" : "FAIL"} for ${modelId}\n`);
   return pass ? 0 : 1;
 }

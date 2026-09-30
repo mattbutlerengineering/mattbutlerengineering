@@ -40,3 +40,9 @@ export const BLANK_MIN_PAINTED_RATIO = 0.05;
 
 /** A labelled calibration set smaller than this never passes (`rate.mjs calibrate` exits 2). */
 export const CALIBRATION_MIN_PAIRS = 10;
+
+/** Distinct `ours` images a labelled calibration set must span. */
+export const CALIBRATION_MIN_OURS = 5;
+
+/** Distinct reference ids a labelled calibration set must span. */
+export const CALIBRATION_MIN_REFERENCES = 5;

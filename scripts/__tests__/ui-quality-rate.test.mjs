@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -76,6 +77,10 @@ function makeRoot({ routineModel = "claude-opus-5" } = {}) {
       rows.map((r) => JSON.stringify(r)).join("\n") + "\n"
     );
   }
+  writeFileSync(
+    join(root, "docs/ui-quality/calibration.json"),
+    JSON.stringify({ labelled_at: null, labelled_by: null, pairs: [] })
+  );
   mkdirSync(join(root, "metrics"), { recursive: true });
   writeFileSync(join(root, "metrics/ui-quality-ratings.jsonl"), "");
   if (routineModel) {
@@ -353,14 +358,29 @@ describe("rate.mjs pairs + record", () => {
 
 const REFS = RUBRIC.references.map((r) => r.id);
 
-/** Ten labelled pairs over committed-style PNGs in the temp root. */
-function labelled(root, prefers = () => "reference") {
+const hashOf = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * Ten labelled pairs over committed-style 1280×720 fold PNGs in the temp root:
+ * `ours` index `oursOf(i)`, reference `REFS[refOf(i)]`, each with its ours_sha256.
+ */
+function labelled(
+  root,
+  prefers = () => "reference",
+  { oursOf = (i) => i % 5, refOf = (i) => i % REFS.length, size = [1280, 720] } = {}
+) {
   const dir = join(root, "docs/ui-quality/calibration");
   mkdirSync(dir, { recursive: true });
   const pairs = Array.from({ length: 10 }, (_, i) => {
-    const ours = `docs/ui-quality/calibration/ours-${i % 5}.png`;
-    writeFileSync(join(root, ours), `png-${i % 5}`);
-    return { ours, reference: REFS[i % REFS.length], human_prefers: prefers(i) };
+    const ours = `docs/ui-quality/calibration/ours-${oursOf(i)}.png`;
+    const bytes = png(size[0], size[1], `ours-${oursOf(i)}`);
+    writeFileSync(join(root, ours), bytes);
+    return {
+      ours,
+      ours_sha256: hashOf(bytes),
+      reference: REFS[refOf(i)],
+      human_prefers: prefers(i),
+    };
   });
   const set = { labelled_at: "2026-10-01", labelled_by: "Matt", pairs };
   writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(set));
@@ -381,10 +401,12 @@ function raterVerdicts(set, { agree, inversions }) {
   });
 }
 
-function calibrate(root, verdicts, extra = []) {
+function calibrate(root, verdicts, extra = ["--model-id", "claude-opus-5"]) {
   writeFileSync(join(root, "cv.json"), JSON.stringify(verdicts));
   return run(root, ["calibrate", "--verdicts", join(root, "cv.json"), ...extra]);
 }
+
+const setSha = (root) => hashOf(readFileSync(join(root, "docs/ui-quality/calibration.json")));
 
 const calibrations = (root) => {
   const file = join(root, "metrics/ui-quality-calibrations.jsonl");
@@ -432,6 +454,71 @@ describe("rate.mjs calibrate", () => {
     expect(calibrations(root)).toEqual([expect.objectContaining({ pass: false })]);
   });
 
+  it("the appended record carries set_sha256 = sha256 of calibration.json's bytes, model_id and rubric_version", () => {
+    calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
+    expect(calibrations(root)).toEqual([
+      expect.objectContaining({
+        model_id: "claude-opus-5",
+        rubric_version: 1,
+        set_sha256: setSha(root),
+        pass: true,
+      }),
+    ]);
+  });
+
+  it("prints Matt's human_prefers split (never gated)", () => {
+    const skewed = labelled(root, (i) => (i < 7 ? "ours" : "reference"));
+    const res = calibrate(root, raterVerdicts(skewed, { agree: 10, inversions: 0 }));
+    expect(res.code).toBe(0);
+    expect(JSON.parse(res.out).human_prefers).toEqual({ ours: 7, reference: 3 });
+  });
+
+  it("composition: 10 pairs over 4 distinct ours → exit 2, nothing recorded", () => {
+    const bad = labelled(root, undefined, { oursOf: (i) => i % 4, refOf: (i) => i % 5 });
+    const res = calibrate(root, raterVerdicts(bad, { agree: 10, inversions: 0 }));
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/distinct ours/);
+    expect(calibrations(root)).toEqual([]);
+  });
+
+  it("composition: 10 pairs over 4 distinct references → exit 2", () => {
+    const bad = labelled(root, undefined, { oursOf: (i) => i % 5, refOf: (i) => i % 4 });
+    const res = calibrate(root, raterVerdicts(bad, { agree: 10, inversions: 0 }));
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/distinct reference/);
+  });
+
+  it("an ours of 1280×4529 → exit 2 (both pairs --calibration and calibrate)", () => {
+    const bad = labelled(root, undefined, { size: [1280, 4529] });
+    expect(calibrate(root, raterVerdicts(bad, { agree: 10, inversions: 0 })).code).toBe(2);
+    const res = run(root, ["pairs", "--calibration"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/1280x4529/);
+    expect(existsSync(join(root, ".ui-quality/calibration-plan.json"))).toBe(false);
+  });
+
+  it("an ours whose bytes do not hash to its ours_sha256 → exit 2", () => {
+    writeFileSync(join(root, set.pairs[0].ours), png(1280, 720, "relabelled pixels"));
+    const res = calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
+    expect(res.code).toBe(2);
+    expect(res.err).toMatch(/ours_sha256/);
+  });
+
+  it("calibrate without --model-id, or with unknown, exits 2 and leaves the calibrations file unchanged", () => {
+    const verdicts = raterVerdicts(set, { agree: 10, inversions: 0 });
+    const none = calibrate(root, verdicts, []);
+    expect(none.code).toBe(2);
+    expect(none.err).toMatch(/--model-id/);
+    const unknown = calibrate(root, verdicts, ["--model-id", "unknown"]);
+    expect(unknown.code).toBe(2);
+    expect(unknown.err).toMatch(/unknown/);
+    expect(existsSync(join(root, "metrics/ui-quality-calibrations.jsonl"))).toBe(false);
+  });
+
+  it("calibrate without --verdicts exits 2", () => {
+    expect(run(root, ["calibrate", "--model-id", "claude-opus-5"]).code).toBe(2);
+  });
+
   it("an empty labelled set exits 2 and records nothing — never passes on no data", () => {
     writeFileSync(
       join(root, "docs/ui-quality/calibration.json"),
@@ -468,7 +555,7 @@ describe("rate.mjs calibrate", () => {
   });
 });
 
-describe("record stamps calibration status from the last calibration record for its model_id", () => {
+describe("record stamps calibration status from the latest record with the fire's (model_id, rubric_version, set_sha256)", () => {
   let root;
   beforeEach(() => {
     root = makeRoot();
@@ -481,6 +568,53 @@ describe("record stamps calibration status from the last calibration record for 
     );
   });
   const stamped = () => JSON.parse(readRatings(root).split("\n")[0]).calibration;
+
+  it("rubric bump → stale: a pass record at v1, then record under a v2 rubric", () => {
+    const set = labelled(root);
+    calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
+    writeFileSync(
+      join(root, "docs/ui-quality/rubric.json"),
+      JSON.stringify({ ...RUBRIC, rubric_version: 2 })
+    );
+    record(root, "v.json");
+    expect(stamped()).toMatchObject({ status: "stale" });
+  });
+
+  it("set edit → stale: one byte of calibration.json changed after a pass record", () => {
+    const set = labelled(root);
+    calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }));
+    const file = join(root, "docs/ui-quality/calibration.json");
+    writeFileSync(file, readFileSync(file, "utf8") + " ");
+    record(root, "v.json");
+    expect(stamped()).toMatchObject({ status: "stale" });
+  });
+
+  it("failed stays failed: a later record with the same key stamps failed, never pass or stale", () => {
+    const set = labelled(root);
+    calibrate(root, raterVerdicts(set, { agree: 9, inversions: 1 }));
+    record(root, "v.json");
+    record(root, "v.json");
+    const rows = readRatings(root)
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l).calibration.status);
+    expect(new Set(rows)).toEqual(new Set(["failed"]));
+  });
+
+  it("a model switch A → B → A re-uses A's record", () => {
+    const set = labelled(root);
+    calibrate(root, raterVerdicts(set, { agree: 10, inversions: 0 }), ["--model-id", "model-a"]);
+    calibrate(root, raterVerdicts(set, { agree: 7, inversions: 0 }), ["--model-id", "model-b"]);
+    record(root, "v.json", "model-b");
+    record(root, "v.json", "model-a");
+    const [b, a] = readRatings(root)
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l))
+      .filter((r) => r.app === "marketing")
+      .map((r) => r.calibration.status);
+    expect([b, a]).toEqual(["failed", "pass"]);
+  });
 
   it("stale when no calibration record exists for this model_id", () => {
     writeFileSync(
@@ -500,8 +634,15 @@ describe("record stamps calibration status from the last calibration record for 
   it("--model-id unknown always stamps stale, even with a passing record under unknown", () => {
     writeFileSync(
       join(root, "metrics/ui-quality-calibrations.jsonl"),
-      JSON.stringify({ ts: "t", model_id: "unknown", pass: true, agreement: 1, inversions: 0 }) +
-        "\n"
+      JSON.stringify({
+        ts: "t",
+        model_id: "unknown",
+        rubric_version: 1,
+        set_sha256: setSha(root),
+        pass: true,
+        agreement: 1,
+        inversions: 0,
+      }) + "\n"
     );
     record(root, "v.json", "unknown");
     expect(stamped()).toMatchObject({ status: "stale" });

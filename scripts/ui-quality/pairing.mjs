@@ -8,6 +8,9 @@ import { createHash } from "node:crypto";
 
 export const VERDICTS = ["A", "B", "tie"];
 
+/** Both sides of every rated or calibration pair are a viewport-only image of exactly this size. */
+export const FOLD_VIEWPORT = "1280x720";
+
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /** "AB" (ours is A) when sha256(key)'s first byte is even, else "BA". */
