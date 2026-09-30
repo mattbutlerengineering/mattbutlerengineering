@@ -368,6 +368,30 @@ describe("runCliAdapterSession", () => {
     expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
   });
 
+  // SessionResult.worktreePath (amendment 2026-09-29): present iff kept.
+  it("reports worktreePath on a successful session only when createPr is false", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const kept = await runCliAdapterSession(
+      adapter,
+      makeSessionConfig({ createPr: false }),
+      undefined,
+      deps
+    );
+    expect(kept.status).toBe("succeeded");
+    expect(kept.worktreePath).toBe("/repo/.agent-worktrees/agent-fix-bug-abc123");
+
+    const removed = await runCliAdapterSession(
+      adapter,
+      makeSessionConfig({ createPr: true }),
+      undefined,
+      deps
+    );
+    expect(removed.status).toBe("succeeded");
+    expect("worktreePath" in removed).toBe(false);
+  });
+
   it("reports durationMs from the adapter's own reported duration", async () => {
     const adapter = makeCliAdapter("gemini", { durationMs: 12_345 });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);

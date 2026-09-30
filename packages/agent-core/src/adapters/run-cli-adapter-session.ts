@@ -247,6 +247,8 @@ export async function runCliAdapterSession(
     resultText: "",
     errors,
     ...(failureCategory ? { failureCategory } : {}),
+    // Present iff the worktree is kept — see SessionResult.worktreePath.
+    ...(!config.createPr && worktree ? { worktreePath: worktree.path } : {}),
   };
 }
 
