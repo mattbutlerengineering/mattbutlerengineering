@@ -192,3 +192,138 @@ describe("findings.mjs plan — unmigrated keys after a rubric bump", () => {
     expect(code).toBe(0);
   });
 });
+
+describe("findings.mjs plan — carrier rules", () => {
+  const PASS = ["--calibration-status", "pass"];
+  const routes = (n) => Array.from({ length: n }, (_, i) => `r${i}`);
+
+  it("6 P1s on one tell in one app become exactly one aggregate action", () => {
+    const dead = routes(6).map((r) => finding("marketing", r, "bugs/dead-in-app-link", "P1"));
+    const { plan: p } = plan([dead], {}, PASS);
+    expect(p.actions).toHaveLength(1);
+    const agg = p.actions[0];
+    expect(agg).toMatchObject({
+      action: "create",
+      carrier: "aggregate",
+      title: "ui-quality: marketing — bugs/dead-in-app-link on multiple routes (rubric v1)",
+      labels: ["ui-quality", "ui-quality:p1", "ready"],
+    });
+    expect(agg.members).toEqual(dead.map((f) => findingKey(f, 1)).sort());
+    for (const r of routes(6)) expect(agg.body).toContain(`\`${r}\``);
+  });
+
+  it("5 P1s on one tell stay individual issues", () => {
+    const dead = routes(5).map((r) => finding("marketing", r, "bugs/dead-in-app-link", "P1"));
+    const { plan: p } = plan([dead], {}, PASS);
+    expect(byAction(p, "create")).toHaveLength(5);
+    expect(p.actions.every((a) => a.carrier === "issue")).toBe(true);
+  });
+
+  it("5 new P2s → 3 issues + 2 seeds, and the seeds stay seeds on the next fire", () => {
+    const axe = routes(5).map((r) => finding("marketing", r, "accessibility/axe-moderate"));
+    const { plan: p } = plan([axe], {}, PASS);
+    expect(byAction(p, "create")).toHaveLength(3);
+    expect(p.seeds.map((s) => s.key)).toEqual(axe.slice(3).map((f) => findingKey(f, 1)));
+    expect(p.seeds[0].title).toBe(
+      "ui-quality: marketing r3 — accessibility/axe-moderate (rubric v1)"
+    );
+
+    writeJson(LEDGER, {
+      ...Object.fromEntries(axe.slice(0, 3).map((f, i) => [findingKey(f, 1), record(200 + i)])),
+      ...Object.fromEntries(
+        axe.slice(3).map((f) => [findingKey(f, 1), record(null, { carrier: "seed" })])
+      ),
+    });
+    const next = plan([axe], { 200: "open", 201: "open", 202: "open" }, PASS).plan;
+    expect(next.actions.filter((a) => a.action !== "skip")).toEqual([]);
+    expect(next.seeds).toEqual([]);
+  });
+
+  it("marks one non-visual single-file finding as the fix-PR candidate, never a CSS tell", () => {
+    const css = finding("marketing", "/", "agent-built/gray-card-border", "P2", {
+      evidence: { message: "grey border", file: "apps/marketing/src/pages/Home.module.css" },
+    });
+    const alt = finding("marketing", "acmm", "accessibility/non-descriptive-alt", "P2", {
+      evidence: { message: 'alt="image"', file: "apps/marketing/src/pages/AcmmPage.tsx" },
+    });
+    const { plan: p } = plan([[css, alt]], {}, PASS);
+    expect(p.fix_pr_candidate).toBe(findingKey(alt, 1));
+    expect(p.actions.filter((a) => a.fix_pr_candidate).map((a) => a.key)).toEqual([
+      findingKey(alt, 1),
+    ]);
+  });
+
+  it("never marks a finding with no file or a rialto/.github file", () => {
+    const alt = (route, file) =>
+      finding("marketing", route, "accessibility/non-descriptive-alt", "P2", {
+        evidence: { message: "x", ...(file === undefined ? {} : { file }) },
+      });
+    const { plan: p } = plan(
+      [
+        [
+          alt("a"),
+          alt("b", "packages/rialto/src/components/Card/Card.tsx"),
+          alt("c", ".github/workflows/ci.yml"),
+        ],
+      ],
+      {},
+      PASS
+    );
+    expect(p.fix_pr_candidate).toBeNull();
+  });
+
+  it("calibration failed removes agent-built findings only; pass keeps them", () => {
+    const grad = finding("marketing", "/", "agent-built/gradient-background");
+    const all = [grad, ALT, DEAD];
+    const failed = plan([all], {}, ["--calibration-status", "failed"]).plan;
+    expect(failed.actions.map((a) => a.key).sort()).toEqual(
+      [findingKey(ALT, 1), findingKey(DEAD, 1)].sort()
+    );
+    expect(failed.dropped).toEqual([findingKey(grad, 1)]);
+    const passed = plan([all], {}, PASS).plan;
+    expect(passed.actions).toHaveLength(3);
+  });
+
+  it("no --calibration-status is treated as stale — agent-built findings drop", () => {
+    const grad = finding("marketing", "/", "agent-built/gradient-background");
+    const { plan: p, err } = plan([[grad, DEAD]]);
+    expect(p.actions.map((a) => a.key)).toEqual([findingKey(DEAD, 1)]);
+    expect(err).toContain("stale");
+  });
+
+  it("rejects an unknown --calibration-status", () => {
+    expect(plan([[DEAD]], {}, ["--calibration-status", "maybe"]).code).toBe(2);
+  });
+
+  it("a finding carrying legacy: 5271 links the legacy issue instead of creating", () => {
+    const legacy = { ...AXE, legacy: 5271 };
+    const { plan: p } = plan([[legacy]], { 5271: "open" }, PASS);
+    expect(byAction(p, "create")).toHaveLength(0);
+    expect(p.actions).toEqual([
+      expect.objectContaining({ key: findingKey(AXE, 1), action: "comment", issue: 5271 }),
+    ]);
+    expect(p.actions[0].body).toContain("#5271");
+    expect(p.actions[0].legacy).toBe(5271);
+  });
+
+  it("a closed legacy issue is reopened, and a legacy issue with no state is skipped", () => {
+    const legacy = { ...AXE, legacy: 5271 };
+    expect(plan([[legacy]], { 5271: "closed" }, PASS).plan.actions[0]).toMatchObject({
+      action: "reopen",
+      issue: 5271,
+    });
+    const partial = plan([[legacy]], {}, PASS).plan;
+    expect(partial.actions[0]).toMatchObject({ action: "skip", issue: 5271 });
+    expect(partial.reports).toHaveLength(1);
+  });
+
+  it("cites a backlog seed whose text names the finding", () => {
+    mkdirSync(join(root, "docs"), { recursive: true });
+    const seedLine =
+      "- ui-quality: hospitality book/:venueSlug — accessibility/axe-moderate (rubric v1) (from: session:2026-10-01)";
+    writeFileSync(join(root, "docs/backlog.md"), `# Seed backlog\n\n- unrelated\n${seedLine}\n`);
+    const { plan: p } = plan([[AXE]], {}, PASS);
+    expect(p.actions[0].body).toContain(seedLine.slice(2));
+    expect(p.actions[0].body).not.toContain("unrelated");
+  });
+});

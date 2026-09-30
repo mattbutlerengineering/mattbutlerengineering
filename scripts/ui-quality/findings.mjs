@@ -14,143 +14,27 @@
  *
  * Subcommands:
  *   plan  --findings <json> [--findings <json>…] --issue-states <json>
+ *         [--calibration-status pass|failed|stale]
  *         → .ui-quality/findings.plan.json; exit 2 (nothing written) on an
- *         unknown tell or while an open key predates the rubric's version
+ *         unknown tell or while an open key predates the rubric's version.
+ *         No --calibration-status is `stale`: agent-built findings drop.
  *
  * Usage: node scripts/ui-quality/findings.mjs <plan> [flags] [--root <dir>]
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fileIssue } from "../lib/issue-filing.mjs";
 import { read as readMetric } from "../metrics-store.mjs";
-import { RUBRIC_URL } from "./config.mjs";
-import { LABEL } from "./labels.mjs";
-import { loadRubric, tellsById } from "./rubric.mjs";
+import { CALIBRATION_STATUSES, planFindings, unmigratedKeys } from "./findings-plan.mjs";
+import { WORK_DIR } from "./ledger.mjs";
+import { loadRubric } from "./rubric.mjs";
+
+export { findingKey, parseKey } from "./findings-plan.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const WORK_DIR = ".ui-quality";
 export const FINDINGS_METRIC = "ui-quality-findings";
 export const PLAN_FILE = "findings.plan.json";
-
-// ---------------------------------------------------------------------------
-// Pure core
-// ---------------------------------------------------------------------------
-
-/** @returns {string} `<app>|<route>|r<version>|<tell-id>` */
-export function findingKey(finding, version) {
-  return `${finding.app}|${finding.route}|r${version}|${finding.tell}`;
-}
-
-/** @returns {{ app: string, route: string, version: number, tell: string } | null} */
-export function parseKey(key) {
-  const parts = key.split("|");
-  const version = /^r(\d+)$/.exec(parts[2] ?? "");
-  if (parts.length !== 4 || !version) return null;
-  return { app: parts[0], route: parts[1], version: Number(version[1]), tell: parts[3] };
-}
-
-/** Open ledgered keys below the rubric's version whose tell the rubric still has. */
-export function unmigratedKeys(ledger, rubric) {
-  const tells = tellsById(rubric);
-  return Object.keys(ledger)
-    .filter((key) => {
-      const k = parseKey(key);
-      return (
-        k !== null &&
-        ledger[key].state === "open" &&
-        k.version < rubric.rubric_version &&
-        tells.has(k.tell)
-      );
-    })
-    .sort();
-}
-
-export function titleFor(finding, version) {
-  return `ui-quality: ${finding.app} ${finding.route} — ${finding.tell} (rubric v${version})`;
-}
-
-/** GitHub's heading anchor for `### <tell-id>` in rubric.md. */
-const anchorOf = (tell) => tell.toLowerCase().replace(/[^a-z0-9 -]/g, "");
-
-export function bodyFor(finding, severity, key) {
-  const ev = finding.evidence ?? {};
-  const lines = [
-    `**${finding.tell}** (${severity}) on \`${finding.app}\` route \`${finding.route}\`.`,
-    "",
-    "Evidence:",
-    ...[
-      ["message", ev.message],
-      ["selector", ev.selector],
-      ["href", ev.href],
-      ["screenshot sha256", ev.screenshot_sha256],
-    ]
-      .filter(([, v]) => v !== undefined && v !== null && v !== "")
-      .map(([k, v]) => `- ${k}: ${v}`),
-    "",
-    `Rubric: ${RUBRIC_URL}#${anchorOf(finding.tell)}`,
-    `Finding key: \`${key}\``,
-  ];
-  return lines.join("\n");
-}
-
-const labelsFor = (severity) => [LABEL.base, severity === "P1" ? LABEL.p1 : LABEL.p2, "ready"];
-
-/** Concatenate every source, refuse unknown tells, one finding per key, sorted by key. */
-export function normaliseFindings(sources, rubric) {
-  const tells = tellsById(rubric);
-  const all = sources.flat();
-  const unknown = [...new Set(all.map((f) => f?.tell).filter((t) => !tells.has(t)))];
-  if (unknown.length > 0) {
-    throw new Error(
-      `unknown tell id(s) ${unknown.map((t) => JSON.stringify(t)).join(", ")} — plan only reads detect.mjs output validated against the rubric; this is a pipeline bug`
-    );
-  }
-  const byKey = new Map();
-  for (const f of all) {
-    const key = findingKey(f, rubric.rubric_version);
-    if (!byKey.has(key)) byKey.set(key, { ...f, severity: tells.get(f.tell).default_severity });
-  }
-  return [...byKey.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-}
-
-/**
- * Run each finding through fileIssue(); side effects become pending actions.
- * @returns {{ actions: object[], reports: string[] }}
- */
-export function planFindings({ sources, ledger, states, rubric }) {
-  const version = rubric.rubric_version;
-  const issueLedger = Object.fromEntries(
-    Object.entries(ledger)
-      .filter(([, rec]) => Number.isInteger(rec.issue))
-      .map(([key, rec]) => [key, rec.issue])
-  );
-  const actions = [];
-  const reports = [];
-  for (const [key, finding] of normaliseFindings(sources, rubric)) {
-    const base = {
-      key,
-      title: titleFor(finding, version),
-      body: bodyFor(finding, finding.severity, key),
-      labels: labelsFor(finding.severity),
-      severity: finding.severity,
-    };
-    const prior = issueLedger[key];
-    if (prior !== undefined && states[prior] === undefined) {
-      reports.push(`${key}: issue #${prior} has no state — skipped`);
-      actions.push({ ...base, action: "skip", issue: prior });
-      continue;
-    }
-    const result = fileIssue({ ...base, dedupeKey: key }, issueLedger, {
-      getIssueState: (n) => states[n],
-      createIssue: () => null,
-      reopenIssue: () => {},
-    });
-    actions.push({ ...base, action: result.action, issue: result.issueNumber });
-  }
-  return { actions, reports };
-}
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -169,6 +53,13 @@ const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 
 function readLedger(root) {
   return readMetric(FINDINGS_METRIC, { root }) ?? {};
+}
+
+const BACKLOG_FILE = "docs/backlog.md";
+
+function readBacklogLines(root) {
+  const path = join(root, BACKLOG_FILE);
+  return existsSync(path) ? readFileSync(path, "utf8").split("\n") : [];
 }
 
 function writeWork(root, file, value) {
@@ -197,7 +88,26 @@ function plan(ctx, argv) {
     if (!Array.isArray(value)) throw new Error(`${f} is not a Finding[] array`);
     return value;
   });
-  const result = planFindings({ sources, ledger, states: readJson(statesFile), rubric });
+  const calibrationStatus = flagValue(argv, "--calibration-status") ?? "stale";
+  if (!CALIBRATION_STATUSES.includes(calibrationStatus)) {
+    throw new Error(`--calibration-status must be one of ${CALIBRATION_STATUSES.join("|")}`);
+  }
+  if (flagValue(argv, "--calibration-status") === undefined) {
+    ctx.stderr("findings.mjs plan: no --calibration-status — treated as stale\n");
+  }
+  const result = planFindings({
+    sources,
+    ledger,
+    states: readJson(statesFile),
+    rubric,
+    calibrationStatus,
+    backlogLines: readBacklogLines(ctx.root),
+  });
+  if (result.dropped.length > 0) {
+    ctx.stderr(
+      `findings.mjs plan: calibration ${calibrationStatus} — ${result.dropped.length} agent-built finding(s) dropped\n`
+    );
+  }
   for (const line of result.reports) ctx.stderr(`findings.mjs plan: ${line}\n`);
   writeWork(ctx.root, PLAN_FILE, result);
   const counts = Object.entries(
@@ -205,7 +115,9 @@ function plan(ctx, argv) {
   )
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
-  ctx.stderr(`findings.mjs plan: ${counts || "no actions"} → ${WORK_DIR}/${PLAN_FILE}\n`);
+  ctx.stderr(
+    `findings.mjs plan: ${counts || "no actions"}, ${result.seeds.length} seed(s) → ${WORK_DIR}/${PLAN_FILE}\n`
+  );
   return 0;
 }
 

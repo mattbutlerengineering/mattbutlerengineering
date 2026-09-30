@@ -50,3 +50,20 @@ export const CALIBRATION_MIN_REFERENCES = 5;
 /** Where an issue body links the rubric; rubric.md carries one `### <tell-id>` per tell. */
 export const RUBRIC_URL =
   "https://github.com/mattbutlerengineering/mattbutlerengineering/blob/main/docs/ui-quality/rubric.md";
+
+/**
+ * Tells a fix PR may address: non-visual only (alt text, link purpose, heading
+ * copy, dead links, hero copy, unhandled errors). Never CSS/layout/colour/type —
+ * a visual fix red-lines the VR floor on its own PR.
+ */
+export const FIX_PR_TELLS = Object.freeze([
+  "accessibility/non-descriptive-alt",
+  "accessibility/vague-link-purpose",
+  "accessibility/heading-content-mismatch",
+  "agent-built/generic-hero-copy",
+  "bugs/dead-in-app-link",
+  "bugs/unhandled-error",
+]);
+
+/** A fix PR never touches a file under one of these prefixes. */
+export const FIX_PR_EXCLUDED_PREFIXES = Object.freeze(["packages/rialto/src/", ".github/"]);
