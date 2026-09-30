@@ -10,7 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { main, matchesTemplate, mechanicalFindings } from "../ui-quality/detect.mjs";
+import {
+  main,
+  matchesTemplate,
+  mechanicalFindings,
+  readStaticAssets,
+} from "../ui-quality/detect.mjs";
 import { judgedFindings } from "../ui-quality/detect-judged.mjs";
 import { joinEdgeTopology, readEdgeTopology } from "../ui-quality/edge-topology.mjs";
 
@@ -375,6 +380,97 @@ describe("dead-link ownership via the edge topology", () => {
     expect(topology.mounts.filter((m) => !m.app)).toEqual([
       expect.objectContaining({ prefix: "/gen", dir: "gen", app: null }),
     ]);
+  });
+});
+
+describe("dead links: static assets + the page's own url", () => {
+  const RAW_JSON = ["/acmm-report.json", "/sensor-report.json", "/metrics.json"];
+  const dead = (manifests, staticAssets) =>
+    mechanicalFindings({
+      manifests,
+      ledger: LEDGER,
+      rubric: RUBRIC,
+      topology: TOPOLOGY,
+      staticAssets,
+    }).filter((f) => f.tell === "bugs/dead-in-app-link");
+
+  it("marketing links to files in its public/ dir (the 'View raw JSON' hrefs) yield no finding", () => {
+    const manifests = { marketing: [row("/", { links: RAW_JSON })] };
+    expect(dead(manifests, { marketing: RAW_JSON })).toEqual([]);
+  });
+
+  it("a genuinely missing /nope.json and a sibling /rialto/examples/nope stay P1", () => {
+    const manifests = { marketing: [row("/", { links: [...RAW_JSON, "/nope.json"] })] };
+    const [nope] = dead(manifests, { marketing: RAW_JSON });
+    expect(nope).toMatchObject({ app: "marketing", route: "/", severity: "P1" });
+    expect(nope.evidence.message).toBe("1 dead in-app link: /nope.json");
+    const sibling = { marketing: [row("/", { links: ["/rialto/examples/nope"] })] };
+    expect(dead(sibling, { marketing: RAW_JSON })).toHaveLength(1);
+  });
+
+  it("an asset of one app does not resolve a link another app owns", () => {
+    const manifests = { marketing: [row("/", { links: ["/rialto/metrics.json"] })] };
+    expect(dead(manifests, { marketing: RAW_JSON })).toHaveLength(1);
+  });
+
+  it("a page's own url is never a dead link to itself (the * capture at /ui-quality-not-found)", () => {
+    const manifests = {
+      marketing: [
+        row("*", { path: "/ui-quality-not-found", links: ["/ui-quality-not-found", "/gone"] }),
+      ],
+    };
+    const [finding] = dead(manifests, {});
+    expect(finding.evidence.message).toBe("1 dead in-app link: /gone");
+  });
+
+  it("the CLI reads the owning app's public/ dir from disk (nested files too)", () => {
+    const root = mkdtempSync(join(tmpdir(), "uiq-assets-"));
+    mkdirSync(join(root, "metrics"));
+    mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
+    copyFileSync(
+      join(REPO, "docs/ui-quality/rubric.json"),
+      join(root, "docs/ui-quality/rubric.json")
+    );
+    writeFileSync(
+      join(root, "metrics/ui-quality-ledger.jsonl"),
+      LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
+    );
+    writeTopology(root);
+    mkdirSync(join(root, "apps/marketing/public/data"), { recursive: true });
+    writeFileSync(join(root, "apps/marketing/public/metrics.json"), "{}");
+    writeFileSync(join(root, "apps/marketing/public/data/x.json"), "{}");
+    mkdirSync(join(root, ".ui-quality/captures/marketing"), { recursive: true });
+    writeFileSync(
+      join(root, ".ui-quality/captures/marketing/manifest.jsonl"),
+      JSON.stringify(row("/", { links: ["/metrics.json", "/data/x.json", "/nope.json"] })) + "\n"
+    );
+    expect(main(["mechanical", "--root", root], { stdout: () => {}, stderr: () => {} })).toBe(0);
+    const findings = JSON.parse(
+      readFileSync(join(root, ".ui-quality/findings.mechanical.json"), "utf8")
+    ).filter((f) => f.tell === "bugs/dead-in-app-link");
+    expect(findings).toHaveLength(1);
+    expect(findings[0].evidence.message).toBe("1 dead in-app link: /nope.json");
+  });
+
+  it("REAL repo: each ledger app's public/ is read through the edge topology and the marketing raw-JSON hrefs resolve", () => {
+    const ledger = readFileSync(join(REPO, "metrics/ui-quality-ledger.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    const ledgerApps = [...new Set(ledger.map((r) => r.app))].sort();
+    const topology = joinEdgeTopology(readEdgeTopology(REPO), ledgerApps);
+    const staticAssets = readStaticAssets(REPO, topology);
+    expect(Object.keys(staticAssets).sort()).toEqual(ledgerApps);
+    for (const app of ledgerApps) expect(staticAssets[app]).toContain("/robots.txt");
+    expect(staticAssets.marketing).toEqual(expect.arrayContaining(RAW_JSON));
+    const findings = mechanicalFindings({
+      manifests: { marketing: [row("/", { links: [...RAW_JSON, "/nope.json"] })] },
+      ledger,
+      rubric: RUBRIC,
+      topology,
+      staticAssets,
+    }).filter((f) => f.tell === "bugs/dead-in-app-link");
+    expect(findings.map((f) => f.evidence.message)).toEqual(["1 dead in-app link: /nope.json"]);
   });
 });
 
