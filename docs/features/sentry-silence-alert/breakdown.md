@@ -86,7 +86,7 @@ Demonstrable: a verdict file drives exactly the right issue actions.
 
 Demonstrable: `/sentry-triage` skips heartbeat issues and says so.
 
-- [ ] **11. Triage filter** — `.claude/skills/sentry-triage/scripts/triage.mjs` drops issues where `isHeartbeatIssue` is true before the actionability step and reports them as `heartbeat=N` in the existing skip tally.
+- [x] **11. Triage filter** — `.claude/skills/sentry-triage/scripts/triage.mjs` drops issues where `isHeartbeatIssue` is true before the actionability step and reports them as `heartbeat=N` in the existing skip tally.
   - Accept: new `scripts/__tests__/sentry-triage-heartbeat.test.mjs` passes, showing a heartbeat-titled issue with count above threshold is not filed and is counted as `heartbeat=1`, and a non-heartbeat issue is unaffected; existing `sentry-triage-*.test.mjs` files still pass (SC-9).
   - Blocked by: 5
 
