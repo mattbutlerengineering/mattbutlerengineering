@@ -1,20 +1,13 @@
 # @mbe/mutation-testing
 
-Isolated devDependency host for the repo's Stryker mutation-testing tooling. This package has no source code and nothing imports it — its sole purpose is to pin a `vitest` version for `@stryker-mutator/vitest-runner` that differs from the workspace's `vitest` catalog version, without affecting any other package's test runner.
+Isolated devDependency host for the repo's Stryker mutation-testing tooling. This package has no source code and nothing imports it — it exists so `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` live in their own pnpm workspace importer, separate from the root `devDependencies`.
 
-## Why this package exists
+## History: the `vitest` pin that used to live here
 
-`@stryker-mutator/vitest-runner@10.0.0` (latest, as of writing) is only tested against `vitest@4.1.10` (see its own `devDependencies`) — its peer range (`vitest: ">=2.0.0"`) is misleadingly permissive. Running it against `vitest@5.x` (this workspace's catalog version, `pnpm-workspace.yaml`) hits two confirmed, still-open upstream bugs:
+Until #5826, this package hardcoded `vitest@4.1.11` instead of the workspace catalog's `^5.0.1`, because `@stryker-mutator/vitest-runner@10.0.0`'s own `devDependencies` test against `vitest@4.1.10` and an earlier run against `vitest@5.x` had hit two apparent upstream bugs (every mutant misclassified `Survived` with `testsCompleted: 0`; a `VitestTestRunner.init()` crash under `--logLevel debug`) — see `mattbutlerengineering/mattbutlerengineering#5614`.
 
-- Every mutant run reports `testsCompleted: 0` and is misclassified `Survived` (regardless of the mutation actually being caught) — [stryker-js#6213](https://github.com/stryker-mutator/stryker-js/issues/6213).
-- With `--logLevel debug`, `VitestTestRunner.init()` crashes serializing vitest's resolved config (`TypeError: Converting circular structure to JSON`) before a single mutant runs.
-
-Both surface as `mutation-testing.yml`'s scheduled run reporting a **0% score with a report that "succeeded"** — an infra failure, not a real quality regression (see the issue that prompted this fix).
-
-pnpm resolves a peer dependency from the _same importer's_ already-resolved version whenever it's compatible, so neither `pnpm.overrides` (doesn't retarget peer edges) nor `pnpm.packageExtensions` (can't override an _already-declared_ dependency/peerDependency key, only add new ones) can give `@stryker-mutator/vitest-runner` a different `vitest` while it lives alongside the workspace root's own `vitest` devDependency. The only mechanism that actually works is a separate pnpm workspace importer — this package — with its own non-catalog `vitest` pin, so `@stryker-mutator/vitest-runner`'s peer resolves independently of every other package's `vitest@5.x`.
+#5826 re-verified this against the current `@stryker-mutator/vitest-runner@10.0.0` + workspace `vitest@5.0.1`: both a scoped run (`services/users/src/routes/health.ts`) and the full configured `mutate` set scored cleanly (101 mutants, 100 killed / 1 survived, 99.01%, classified `scored` by `scripts/classify-mutation-run.mjs` — not `harness-broken`). Neither bug reproduced, so `vitest` here is now `"catalog:"` like every other package. If a future dependency bump reintroduces the `testsCompleted: 0` symptom, re-pin here and update this section with the version pair that broke.
 
 ## Usage
 
-Not invoked directly. The root `pnpm test:mutations` script runs the Stryker CLI installed here (`tools/mutation-testing/node_modules/.bin/stryker run`) with the repo root as the working directory, so `stryker.config.mjs`'s `mutate` globs and `vitest.dir: "services/users"` still resolve against the repo root as before. Node's module resolution finds `@stryker-mutator/vitest-runner` (and the `vitest@4.1.10` it actually uses) relative to where `@stryker-mutator/core` itself lives — this package's `node_modules` — regardless of the invoking CWD.
-
-Upgrade path: once a `@stryker-mutator/vitest-runner` release supports `vitest@5.x` (see the linked upstream issue for status), bump `vitest` here to match the workspace catalog and this package can likely be collapsed back into the root `devDependencies`.
+Not invoked directly. The root `pnpm test:mutations` script runs the Stryker CLI installed here (`tools/mutation-testing/node_modules/.bin/stryker run`) with the repo root as the working directory, so `stryker.config.mjs`'s `mutate` globs and `vitest.dir: "services/users"` still resolve against the repo root as before. Node's module resolution finds `@stryker-mutator/vitest-runner` (and its `vitest` peer) relative to where `@stryker-mutator/core` itself lives — this package's `node_modules` — regardless of the invoking CWD.
