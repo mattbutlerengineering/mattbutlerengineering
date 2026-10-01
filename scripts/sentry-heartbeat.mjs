@@ -15,7 +15,12 @@
  * See docs/features/sentry-silence-alert/architecture.md.
  */
 
-import { eventMatchesMarker } from "./sentry-round-trip.mjs";
+import {
+  buildRoundTripMarker,
+  eventMatchesMarker,
+  nextPollDelayMs,
+  shouldKeepPolling,
+} from "./sentry-round-trip.mjs";
 
 /** @param {unknown} event @returns {Array<{ key?: string, value?: string }>} */
 function tagsOf(event) {
@@ -242,4 +247,171 @@ export async function triggerBrowserTarget(target, marker, { chromium }) {
   } finally {
     await browser.close();
   }
+}
+
+/** Default wait for a marker to show up in Sentry. */
+export const DEFAULT_TIMEOUT_MS = 180_000;
+
+const realSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** @param {unknown} error */
+const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+
+/**
+ * The origin evidence recorded for a confirmed event (SC-4): its `app` tag
+ * for a browser bundle, its `server_name` tag for a service.
+ *
+ * @param {unknown} event
+ * @param {{ kind: string }} target
+ */
+function originEvidence(event, target) {
+  const key = target.kind === "browser" ? "app" : "server_name";
+  const value = tagValue(event, key);
+  return value === undefined ? undefined : `${key}:${value}`;
+}
+
+/**
+ * A browser heartbeat must have been sent by a browser SDK. A matched event
+ * reporting any other platform means something other than the bundle sent it.
+ * An event with no `platform` field is not rejected on that alone — the
+ * marker + `app` match already pins it to the bundle.
+ *
+ * @param {unknown} event
+ * @param {{ kind: string }} target
+ * @returns {string | undefined} why the origin is wrong, if it is
+ */
+function originMismatch(event, target) {
+  if (target.kind !== "browser" || event?.platform === undefined) return undefined;
+  return event.platform === "javascript"
+    ? undefined
+    : `matched event has platform ${event.platform}, expected javascript (not sent by the bundle)`;
+}
+
+/**
+ * Poll the expected project until the marker shows up, the window closes, or
+ * the lookup fails.
+ */
+async function pollExpectedProject({ target, marker, lookup, now, sleep, timeoutMs }) {
+  const startedAt = now();
+  for (
+    let attempt = 1;
+    shouldKeepPolling({ elapsedMs: now() - startedAt, timeoutMs });
+    attempt += 1
+  ) {
+    await sleep(nextPollDelayMs(attempt));
+    try {
+      const found = await lookup(target.project, marker, target);
+      if (found) return { found };
+    } catch (error) {
+      return { lookupError: error };
+    }
+  }
+  return {};
+}
+
+/** One look in every other in-scope project, to tell "misrouted" from "lost". */
+async function sweepOtherProjects({ target, marker, lookup, projects }) {
+  const sweepErrors = [];
+  for (const project of projects.filter((candidate) => candidate !== target.project)) {
+    try {
+      const event = await lookup(project, marker, target);
+      if (event) return { sweepHit: { project, event }, sweepErrors };
+    } catch (error) {
+      sweepErrors.push(`sweep of ${project} failed: ${messageOf(error)}`);
+    }
+  }
+  return { sweepErrors };
+}
+
+/** Fire one target's trigger and turn everything that follows into an outcome. */
+async function runTarget({ target, marker, trigger, lookup, now, sleep, timeoutMs, projects }) {
+  const base = { targetId: target.id, project: target.project, marker };
+  let triggerResult;
+  try {
+    triggerResult = await trigger(target, marker);
+  } catch (error) {
+    triggerResult = { triggered: false, reason: `trigger threw: ${messageOf(error)}` };
+  }
+  if (triggerResult?.triggered !== true) {
+    return {
+      ...base,
+      ...classifyTargetOutcome({ triggerResult }),
+      detail: triggerResult?.reason ?? "trigger did not fire",
+    };
+  }
+
+  const { found, lookupError } = await pollExpectedProject({
+    target,
+    marker,
+    lookup,
+    now,
+    sleep,
+    timeoutMs,
+  });
+  const { sweepHit, sweepErrors = [] } =
+    found || lookupError ? {} : await sweepOtherProjects({ target, marker, lookup, projects });
+
+  const classified = classifyTargetOutcome({ triggerResult, found, sweepHit, lookupError });
+  const event = found ?? sweepHit?.event;
+  const mismatch = found ? originMismatch(found, target) : undefined;
+  const detail = [
+    lookupError ? `lookup failed: ${messageOf(lookupError)}` : undefined,
+    mismatch,
+    triggerResult.detail || undefined,
+    ...sweepErrors,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    ...base,
+    ...classified,
+    ...(mismatch ? { outcome: "error" } : {}),
+    ...(event?.id ? { eventId: event.id } : {}),
+    ...(event?.platform ? { platform: event.platform } : {}),
+    ...(event && originEvidence(event, target) ? { evidence: originEvidence(event, target) } : {}),
+    detail,
+  };
+}
+
+/**
+ * Orchestrate one heartbeat run: a fresh marker per target, every trigger
+ * concurrently, a poll of each expected project, and one misroute sweep on a
+ * miss. Never throws for a single target's failure — every target comes back
+ * with an outcome.
+ *
+ * @param {{
+ *   registry: ReadonlyArray<{ id: string, kind: string, project: string, url: string, app?: string }>,
+ *   trigger: (target: object, marker: string) => Promise<{ triggered: boolean, reason?: string, detail?: string }>,
+ *   lookup: (project: string, marker: string, target: object) => Promise<unknown>,
+ *   now?: () => number,
+ *   sleep?: (ms: number) => Promise<void>,
+ *   timeoutMs?: number,
+ * }} args
+ */
+export async function runHeartbeat({
+  registry,
+  trigger,
+  lookup,
+  now = Date.now,
+  sleep = realSleep,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+}) {
+  const projects = [...new Set(registry.map((target) => target.project))];
+  const runStamp = new Date(now()).toISOString();
+  const runNonce = Math.random().toString(36).slice(2, 8);
+  return Promise.all(
+    registry.map((target) =>
+      runTarget({
+        target,
+        marker: buildRoundTripMarker(runStamp, `${runNonce}-${target.id}`),
+        trigger,
+        lookup,
+        now,
+        sleep,
+        timeoutMs,
+        projects,
+      })
+    )
+  );
 }

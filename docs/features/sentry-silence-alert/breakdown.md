@@ -66,7 +66,7 @@ writes `heartbeat-verdicts.json` plus a summary with a verdict per project.
   - Accept: unit test with a fake `chromium`/`page` object asserts the launch options never set `bypassCSP`, the `evaluate` payload contains `replaceState` and the marker, a navigation timeout yields `{ triggered: false }`, and a missed envelope wait still yields `{ triggered: true }`. Plus SC-4 static check: `grep -nE "/envelope/|/store/|ingest\.(us\.)?sentry\.io/api|@sentry/" scripts/sentry-heartbeat*.mjs` prints nothing (the ingest host may appear only as a request-filter hostname string, with no path).
   - Blocked by: 1
 
-- [ ] **8. Runner orchestration** — exported `runHeartbeat({ registry, trigger, lookup, now, timeoutMs })`: one marker per target, all triggers concurrent, poll each expected project until found or timeout (default 180 s, reusing `shouldKeepPolling` / `nextPollDelayMs`), one misroute sweep over the other in-scope projects on a miss, returns target outcomes with `platform` and `app`/`server_name` evidence.
+- [x] **8. Runner orchestration** — exported `runHeartbeat({ registry, trigger, lookup, now, timeoutMs })`: one marker per target, all triggers concurrent, poll each expected project until found or timeout (default 180 s, reusing `shouldKeepPolling` / `nextPollDelayMs`), one misroute sweep over the other in-scope projects on a miss, returns target outcomes with `platform` and `app`/`server_name` evidence.
   - Accept: tests with fake `trigger`/`lookup` and a fake clock show: six distinct markers; a target found only in another project → `misrouted`; a lookup that throws → `error` and the sweep is not run for it; a browser match with `platform: "node"` is not `confirmed` (SC-4 origin evidence); the call resolves within the fake timeout.
   - Blocked by: 4, 6, 7
 
@@ -201,6 +201,28 @@ tag; the title/message path is the one that works today. Also, browser
 heartbeats group into one Sentry issue (stable grouping by stack), so its
 event count will exceed triage's threshold within days — item 11's filter is
 load-bearing.
+
+### 2026-10-01 — Deviations logged during items 3–8
+
+- **Browser navigation failure → `provoke-failed`, not `error`.** The
+  architecture's trigger contract says a browser navigation error/timeout is
+  `error`; item 3's accept says "trigger failure → `provoke-failed`", and
+  item 7 says a navigation timeout yields `{ triggered: false }`. Implemented
+  the breakdown's rule: any non-firing trigger (including a thrown one) is
+  `provoke-failed`, with the reason in `detail`. Both are project failures;
+  only the label differs.
+- **Origin check tolerates an absent `platform`.** A browser match whose
+  event reports a platform other than `javascript` becomes `error` with the
+  mismatch in `detail` (item 8's SC-4 case). An event with no `platform`
+  field is not rejected on that alone, because the shape of the project
+  events list response was not measured here (MCP reads Discover, not that
+  endpoint); the marker + `app` tag already pin the event to the bundle.
+  Verify should confirm the field is present on a real run.
+- **New tests sit in new files** (`sentry-round-trip-io`,
+  `sentry-heartbeat-browser`, `sentry-heartbeat-runner`) so
+  `sentry-round-trip.test.mjs` stays byte-for-byte unchanged, as item 6 asks.
+- **Markers include the target id** (`mbe-round-trip-<stamp>-<nonce>-<target>`),
+  so a stray event in Sentry names its own target.
 
 ### Open item for Review (not designed around)
 
