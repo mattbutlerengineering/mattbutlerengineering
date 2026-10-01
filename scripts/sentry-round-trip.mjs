@@ -185,7 +185,12 @@ export async function findMarkedEvent(
     }
   );
   if (!response.ok) {
-    throw new Error(`Sentry API returned ${response.status} ${response.statusText}`);
+    // A 429 is Sentry's API rate limit (this endpoint allows 60/min per org),
+    // not an answer — the caller may ask again inside its poll window.
+    throw Object.assign(
+      new Error(`Sentry API returned ${response.status} ${response.statusText}`),
+      { retryable: response.status === 429 }
+    );
   }
   const events = await response.json();
   return (Array.isArray(events) ? events : []).find((event) => matcher(event, marker));

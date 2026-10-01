@@ -45,6 +45,26 @@ describe("findMarkedEvent", () => {
     ).rejects.toThrow(/500/);
   });
 
+  it("marks a Sentry 429 as retryable, and any other non-2xx as not", async () => {
+    const limited = await findMarkedEvent(
+      "org",
+      "users-api",
+      MARKER,
+      "token",
+      fetchWithStatuses([429])
+    ).catch((error) => error);
+    expect(limited).toBeInstanceOf(Error);
+    expect(limited.retryable).toBe(true);
+    const broken = await findMarkedEvent(
+      "org",
+      "users-api",
+      MARKER,
+      "token",
+      fetchWithStatuses([403])
+    ).catch((error) => error);
+    expect(broken.retryable).not.toBe(true);
+  });
+
   it("returns undefined for an empty result", async () => {
     expect(
       await findMarkedEvent("org", "users-api", MARKER, "token", fetchWithStatuses([200], []))

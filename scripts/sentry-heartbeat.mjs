@@ -302,10 +302,13 @@ function originMismatch(event, target) {
 
 /**
  * Poll the expected project until the marker shows up, the window closes, or
- * the lookup fails.
+ * the lookup fails. A retryable failure (Sentry's API rate limit) is polled
+ * through; if the window closes while the last lookup was still failing, the
+ * target is `error` — "couldn't ask" never reads as "nothing there".
  */
 async function pollExpectedProject({ target, marker, lookup, now, sleep, timeoutMs }) {
   const startedAt = now();
+  let pendingError;
   for (
     let attempt = 1;
     shouldKeepPolling({ elapsedMs: now() - startedAt, timeoutMs });
@@ -315,11 +318,32 @@ async function pollExpectedProject({ target, marker, lookup, now, sleep, timeout
     try {
       const found = await lookup(target.project, marker, target);
       if (found) return { found };
+      pendingError = undefined;
     } catch (error) {
-      return { lookupError: error };
+      if (error?.retryable !== true) return { lookupError: error };
+      pendingError = error;
     }
   }
-  return {};
+  return pendingError ? { lookupError: pendingError } : {};
+}
+
+/**
+ * Wrap an async function so calls run one at a time, in call order. The
+ * runner polls six targets concurrently, and Sentry's events endpoint caps
+ * concurrency per token and org; serialising keeps every lookup inside it.
+ * A rejected call never blocks the ones queued behind it.
+ *
+ * @template {unknown[]} A, R
+ * @param {(...args: A) => Promise<R>} fn
+ * @returns {(...args: A) => Promise<R>}
+ */
+export function serializeCalls(fn) {
+  let tail = Promise.resolve();
+  return (...args) => {
+    const result = tail.then(() => fn(...args));
+    tail = result.catch(() => undefined);
+    return result;
+  };
 }
 
 /** One look in every other in-scope project, to tell "misrouted" from "lost". */
@@ -473,12 +497,12 @@ async function runAndWrite(outPath) {
     chromium ??= (await import("@playwright/test")).chromium;
     return triggerBrowserTarget(target, marker, { chromium });
   };
-  const lookup = (project, marker, target) => {
+  const lookup = serializeCalls((project, marker, target) => {
     log(`Looking up ${marker} in sentry:${SENTRY_ORG}/${project}`);
     return findMarkedEvent(SENTRY_ORG, project, marker, token, fetch, (event, candidate) =>
       eventMatchesTarget(event, target, candidate)
     );
-  };
+  });
 
   const outcomes = await runHeartbeat({ registry: TARGETS, trigger, lookup });
   const verdicts = projectVerdicts(outcomes, TARGETS);

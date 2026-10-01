@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { runHeartbeat } from "../sentry-heartbeat.mjs";
+import { runHeartbeat, serializeCalls } from "../sentry-heartbeat.mjs";
 import { TARGETS } from "../sentry-heartbeat-targets.mjs";
 
 /** A fake clock whose sleep advances time instantly. */
@@ -106,6 +106,40 @@ describe("runHeartbeat", () => {
     expect(agentLookups).toHaveLength(1);
   });
 
+  it("keeps polling through a rate-limited (retryable) lookup and still confirms", async () => {
+    let limited = 2;
+    const lookup = vi.fn(async (project, marker, target) => {
+      if (limited > 0) {
+        limited -= 1;
+        throw Object.assign(new Error("Sentry API returned 429"), { retryable: true });
+      }
+      return project === target.project ? matchingEvent(target, marker) : undefined;
+    });
+    const outcomes = await runHeartbeat({
+      registry: TARGETS.slice(0, 1),
+      trigger: okTrigger,
+      lookup,
+      ...fakeClock(),
+      timeoutMs: 30_000,
+    });
+    expect(outcomes[0].outcome).toBe("confirmed");
+  });
+
+  it("is error, not not-found, when every lookup in the window was rate-limited", async () => {
+    const lookup = vi.fn(async () => {
+      throw Object.assign(new Error("Sentry API returned 429"), { retryable: true });
+    });
+    const outcomes = await runHeartbeat({
+      registry: TARGETS.slice(0, 1),
+      trigger: okTrigger,
+      lookup,
+      ...fakeClock(),
+      timeoutMs: 20_000,
+    });
+    expect(outcomes[0].outcome).toBe("error");
+    expect(outcomes[0].detail).toMatch(/429/);
+  });
+
   it("does not confirm a browser match whose event platform is node (SC-4 origin evidence)", async () => {
     const outcomes = await runHeartbeat({
       registry: TARGETS,
@@ -184,5 +218,26 @@ describe("runHeartbeat", () => {
       "mattbutlerengineering",
       "reservations-api",
     ]);
+  });
+});
+
+describe("serializeCalls", () => {
+  it("never lets two calls overlap, and a rejection does not block later calls", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const work = async (value) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Promise.resolve();
+      await Promise.resolve();
+      inFlight -= 1;
+      if (value === "bad") throw new Error("bad");
+      return value;
+    };
+    const serial = serializeCalls(work);
+    const results = await Promise.allSettled(["a", "bad", "c"].map((value) => serial(value)));
+    expect(maxInFlight).toBe(1);
+    expect(results.map((result) => result.status)).toEqual(["fulfilled", "rejected", "fulfilled"]);
+    expect(results[2].value).toBe("c");
   });
 });
