@@ -37,7 +37,7 @@ Architect before anything is built on that assumption.
 Demonstrable: given fake events and outcomes, the modules produce the
 per-project verdicts, exit code, job summary and heartbeat classification.
 
-- [ ] **2. Target registry** — `scripts/sentry-heartbeat-targets.mjs` exports the frozen six-row `TARGETS` table from the architecture and a derived `IN_SCOPE_PROJECTS`.
+- [x] **2. Target registry** — `scripts/sentry-heartbeat-targets.mjs` exports the frozen six-row `TARGETS` table from the architecture and a derived `IN_SCOPE_PROJECTS`.
   - Accept: `scripts/__tests__/sentry-heartbeat-targets.test.mjs` passes and asserts `IN_SCOPE_PROJECTS` deep-equals `["users-api","reservations-api","agent-api","hospitality","mattbutlerengineering"]` (SC-2), contains no `eat-sheet`, every browser row has an `app`, every backend row has none, and the table is frozen (mutation throws in strict mode).
   - Blocked by: 1 (the hospitality URL in the table is the one item 1 proved loads unauthenticated)
 
