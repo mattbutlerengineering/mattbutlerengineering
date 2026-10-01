@@ -70,3 +70,82 @@ export function classifyTargetOutcome({ triggerResult, found, sweepHit, lookupEr
   if (sweepHit?.project) return { outcome: "misrouted", foundInProject: sweepHit.project };
   return { outcome: "not-found" };
 }
+
+/**
+ * Per-project verdicts. A project passes only when EVERY target expecting it
+ * is `confirmed`. Every project in the registry appears exactly once, even
+ * when its outcomes are missing — a missing outcome is synthesised as
+ * `error`, so a crashed trigger can never drop a project from the report.
+ *
+ * @param {Array<{ targetId: string, outcome: string }>} outcomes
+ * @param {ReadonlyArray<{ id: string, project: string }>} registry
+ * @returns {Array<{ project: string, pass: boolean, targets: Array<object> }>}
+ */
+export function projectVerdicts(outcomes, registry) {
+  const byTarget = new Map(
+    (Array.isArray(outcomes) ? outcomes : []).map((outcome) => [outcome?.targetId, outcome])
+  );
+  const projects = [...new Set(registry.map((target) => target.project))];
+  return projects.map((project) => {
+    const targets = registry
+      .filter((target) => target.project === project)
+      .map(
+        (target) =>
+          byTarget.get(target.id) ?? {
+            targetId: target.id,
+            project,
+            outcome: "error",
+            detail: "no outcome was recorded for this target",
+          }
+      );
+    return { project, pass: targets.every((target) => target.outcome === "confirmed"), targets };
+  });
+}
+
+/**
+ * 0 all pass, 1 any fail, 2 unreadable. Anything this function cannot
+ * positively read as a verdict list is 2 — the same fail-closed rule as
+ * `roundTripExitCode`.
+ *
+ * @param {unknown} verdicts
+ * @returns {0 | 1 | 2}
+ */
+export function aggregateExitCode(verdicts) {
+  if (!Array.isArray(verdicts) || verdicts.length === 0) return 2;
+  const wellFormed = verdicts.every(
+    (verdict) => verdict && typeof verdict.project === "string" && typeof verdict.pass === "boolean"
+  );
+  if (!wellFormed) return 2;
+  return verdicts.every((verdict) => verdict.pass) ? 0 : 1;
+}
+
+/** @param {{ targetId: string, outcome: string, foundInProject?: string }} target */
+export function describeTargetOutcome(target) {
+  const base = `${target.targetId}: ${target.outcome}`;
+  return target.outcome === "misrouted" && target.foundInProject
+    ? `${base} → ${target.foundInProject}`
+    : base;
+}
+
+/**
+ * Markdown for `$GITHUB_STEP_SUMMARY`: one row per project.
+ *
+ * @param {Array<{ project: string, pass: boolean, targets: Array<object> }>} verdicts
+ * @returns {string}
+ */
+export function renderJobSummary(verdicts) {
+  const rows = verdicts.map(
+    (verdict) =>
+      `| ${verdict.project} | ${verdict.pass ? "PASS" : "FAIL"} | ${verdict.targets
+        .map(describeTargetOutcome)
+        .join("; ")} |`
+  );
+  return [
+    "## Sentry heartbeat",
+    "",
+    "| Project | Verdict | Targets |",
+    "| --- | --- | --- |",
+    ...rows,
+    "",
+  ].join("\n");
+}

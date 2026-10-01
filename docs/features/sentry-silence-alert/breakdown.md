@@ -45,7 +45,7 @@ per-project verdicts, exit code, job summary and heartbeat classification.
   - Accept: `scripts/__tests__/sentry-heartbeat.test.mjs` passes with cases for: browser event with right marker but wrong `app` → no match; marker only in title → match; a lookup error → `error` (never `not-found`); miss in expected project + sweep hit → `misrouted` with `foundInProject`; trigger failure → `provoke-failed` (SC-5).
   - Blocked by: 2
 
-- [ ] **4. Project verdicts, aggregate exit, job summary** — `projectVerdicts(outcomes, registry)`, `aggregateExitCode(verdictsOrUndefined)`, `renderJobSummary(verdicts)`.
+- [x] **4. Project verdicts, aggregate exit, job summary** — `projectVerdicts(outcomes, registry)`, `aggregateExitCode(verdictsOrUndefined)`, `renderJobSummary(verdicts)`.
   - Accept: tests in `sentry-heartbeat.test.mjs` show: every in-scope project appears exactly once even when all its targets errored (SC-2); `mattbutlerengineering` fails if either marketing or rialto-web is not `confirmed`; exit 0 all-pass, 1 any-fail, 2 for `undefined` / non-array / malformed input (SC-6); the summary is a markdown table with one row per project and each target's outcome.
   - Blocked by: 3
 
