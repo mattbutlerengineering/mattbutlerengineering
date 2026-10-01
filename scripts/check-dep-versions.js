@@ -36,13 +36,12 @@ const SYNCED_DEPS = [
 const WORKSPACE_DIRS = ["packages", "services", "apps", "tools"];
 
 // Deliberate, documented exceptions to the "one version per dependency"
-// rule, keyed as "packagePath:depName". @mbe/mutation-testing pins vitest to
-// 4.1.10 (not the workspace's ^5.x) because @stryker-mutator/vitest-runner
-// only supports that major — see tools/mutation-testing/README.md and issue
-// mattbutlerengineering/mattbutlerengineering#5614. Mirrors the same
-// allowlist in tools/cli/src/commands/check-deps.ts (a separate, independent
-// checker over the same dependency set).
-const INTENTIONAL_MISMATCHES = ["tools/mutation-testing/package.json:vitest"];
+// rule, keyed as "packagePath:depName". Empty as of #5826 — @mbe/mutation-testing
+// moved its vitest pin to "catalog:" (no longer a mismatch at all, so this list
+// no longer needs an entry for it). Mirrors the same allowlist in
+// tools/cli/src/commands/check-deps.ts (a separate, independent checker over
+// the same dependency set).
+const INTENTIONAL_MISMATCHES = [];
 
 /** Pure discovery of every workspace package.json's merged deps. */
 export function discoverPackageJsons(root = DEFAULT_ROOT) {
