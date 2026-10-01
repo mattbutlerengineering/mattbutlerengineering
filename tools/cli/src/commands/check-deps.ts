@@ -7,11 +7,11 @@ import { findMonorepoRoot } from "../monorepo-root.js";
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 // Deliberate, documented exceptions to the "one version per dependency"
-// rule, keyed as "packageName:depName". @mbe/mutation-testing pins vitest to
-// 4.1.10 (not the workspace catalog's 5.x) because @stryker-mutator/vitest-runner
-// only supports that major — see tools/mutation-testing/README.md and issue
-// mattbutlerengineering/mattbutlerengineering#5614.
-const INTENTIONAL_MISMATCHES = new Set<string>(["@mbe/mutation-testing:vitest"]);
+// rule, keyed as "packageName:depName". Empty as of #5826 — @mbe/mutation-testing
+// moved its vitest pin to "catalog:" (no longer a mismatch at all, so this set
+// no longer needs an entry for it). Kept as a mechanism for the next genuine
+// exception.
+const INTENTIONAL_MISMATCHES = new Set<string>([]);
 
 // ── Command ───────────────────────────────────────────────────────────────
 
