@@ -41,7 +41,7 @@ per-project verdicts, exit code, job summary and heartbeat classification.
   - Accept: `scripts/__tests__/sentry-heartbeat-targets.test.mjs` passes and asserts `IN_SCOPE_PROJECTS` deep-equals `["users-api","reservations-api","agent-api","hospitality","mattbutlerengineering"]` (SC-2), contains no `eat-sheet`, every browser row has an `app`, every backend row has none, and the table is frozen (mutation throws in strict mode).
   - Blocked by: 1 (the hospitality URL in the table is the one item 1 proved loads unauthenticated)
 
-- [ ] **3. Event matching and target outcome** — in `scripts/sentry-heartbeat.mjs`: `eventMatchesTarget(event, target, marker)` (backend: reuses `eventMatchesMarker`; browser: `url` tag or `title`/`message` contains the marker AND `app` tag equals the target's `app`) and `classifyTargetOutcome({ triggerResult, found, sweepHit, lookupError })` → `confirmed | misrouted | not-found | provoke-failed | error`.
+- [x] **3. Event matching and target outcome** — in `scripts/sentry-heartbeat.mjs`: `eventMatchesTarget(event, target, marker)` (backend: reuses `eventMatchesMarker`; browser: `url` tag or `title`/`message` contains the marker AND `app` tag equals the target's `app`) and `classifyTargetOutcome({ triggerResult, found, sweepHit, lookupError })` → `confirmed | misrouted | not-found | provoke-failed | error`.
   - Accept: `scripts/__tests__/sentry-heartbeat.test.mjs` passes with cases for: browser event with right marker but wrong `app` → no match; marker only in title → match; a lookup error → `error` (never `not-found`); miss in expected project + sweep hit → `misrouted` with `foundInProject`; trigger failure → `provoke-failed` (SC-5).
   - Blocked by: 2
 
