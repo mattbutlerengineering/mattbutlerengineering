@@ -11,7 +11,7 @@ const target = {
 };
 
 /** A fake Playwright chromium whose page behaviour each test can override. */
-function fakeChromium({ goto, waitForRequest, consoleMessages = [] } = {}) {
+function fakeChromium({ goto, waitForResponse, consoleMessages = [], cspViolations = [] } = {}) {
   const listeners = {};
   const page = {
     on: vi.fn((event, handler) => {
@@ -23,8 +23,10 @@ function fakeChromium({ goto, waitForRequest, consoleMessages = [] } = {}) {
           for (const message of consoleMessages) listeners.console?.(message);
         })
     ),
-    waitForRequest: vi.fn(waitForRequest ?? (async () => ({}))),
-    evaluate: vi.fn(async () => undefined),
+    waitForResponse: vi.fn(waitForResponse ?? (async () => ({ status: () => 200 }))),
+    addInitScript: vi.fn(async () => undefined),
+    // first evaluate throws the heartbeat; the second reads recorded CSP violations
+    evaluate: vi.fn(async (_fn, argument) => (argument === undefined ? cspViolations : undefined)),
   };
   const context = { newPage: vi.fn(async () => page) };
   const browser = {
@@ -71,7 +73,7 @@ describe("triggerBrowserTarget", () => {
 
   it("is still triggered when the envelope wait misses — the poll decides", async () => {
     const { chromium } = fakeChromium({
-      waitForRequest: async () => {
+      waitForResponse: async () => {
         throw new Error("Timeout 15000ms exceeded");
       },
     });
@@ -79,10 +81,28 @@ describe("triggerBrowserTarget", () => {
     expect(result).toMatchObject({ triggered: true, envelopeSeen: false });
   });
 
-  it("waits only for requests to the Sentry ingest host", async () => {
+  it("waits for the envelope RESPONSE before closing — closing on the request aborts the POST", async () => {
+    // Measured 2026-10-01: waiting only for the request to start, then closing
+    // the browser, saw the envelope request yet no event ever reached Sentry.
+    const order = [];
+    const { chromium, browser } = fakeChromium({
+      waitForResponse: async () => {
+        order.push("response");
+        return { status: () => 200 };
+      },
+    });
+    browser.close.mockImplementation(async () => {
+      order.push("close");
+    });
+    const result = await triggerBrowserTarget(target, MARKER, { chromium });
+    expect(order).toEqual(["response", "close"]);
+    expect(result).toMatchObject({ envelopeSeen: true, envelopeStatus: 200 });
+  });
+
+  it("waits only for responses from the Sentry ingest host", async () => {
     const { chromium, page } = fakeChromium();
     await triggerBrowserTarget(target, MARKER, { chromium });
-    const [predicate, options] = page.waitForRequest.mock.calls[0];
+    const [predicate, options] = page.waitForResponse.mock.calls[0];
     expect(options).toEqual({ timeout: 15_000 });
     expect(predicate({ url: () => `https://${SENTRY_INGEST_HOST}/api/1/x` })).toBe(true);
     expect(predicate({ url: () => "https://example.test/assets/app.js" })).toBe(false);
@@ -101,5 +121,14 @@ describe("triggerBrowserTarget", () => {
     const result = await triggerBrowserTarget(target, MARKER, { chromium });
     expect(result.detail).toContain("Refused to connect");
     expect(result.detail).not.toContain("hello");
+  });
+
+  it("records securitypolicyviolation events the page saw as detail", async () => {
+    const { chromium, page } = fakeChromium({
+      cspViolations: ["script-src blocked eval from https://example.test/assets/vendor.js"],
+    });
+    const result = await triggerBrowserTarget(target, MARKER, { chromium });
+    expect(page.addInitScript).toHaveBeenCalled();
+    expect(result.detail).toContain("CSP violation: script-src blocked eval");
   });
 });

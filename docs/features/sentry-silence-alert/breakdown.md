@@ -70,7 +70,7 @@ writes `heartbeat-verdicts.json` plus a summary with a verdict per project.
   - Accept: tests with fake `trigger`/`lookup` and a fake clock show: six distinct markers; a target found only in another project → `misrouted`; a lookup that throws → `error` and the sweep is not run for it; a browser match with `platform: "node"` is not `confirmed` (SC-4 origin evidence); the call resolves within the fake timeout.
   - Blocked by: 4, 6, 7
 
-- [ ] **9. Runner CLI and local smoke run** — argv wrapper (c8-ignored): `--out <file>` writes verdicts + appends `renderJobSummary` to `$GITHUB_STEP_SUMMARY` when set, always exits 0; `--exit-from <file>` exits with `aggregateExitCode` (missing/unparseable file → 2).
+- [x] **9. Runner CLI and local smoke run** — argv wrapper (c8-ignored): `--out <file>` writes verdicts + appends `renderJobSummary` to `$GITHUB_STEP_SUMMARY` when set, always exits 0; `--exit-from <file>` exits with `aggregateExitCode` (missing/unparseable file → 2).
   - Accept: `node scripts/sentry-heartbeat.mjs --exit-from /nonexistent; echo $?` prints `2`; a tests-only case writes a fixture verdict file and asserts `--exit-from` returns 0/1. Smoke: with `SENTRY_AUTH_TOKEN` set, `node scripts/sentry-heartbeat.mjs --out "$SCRATCH/verdicts.json"` exits 0 and the file holds exactly five project verdicts (expected today: four pass, `mattbutlerengineering` fails with marketing/rialto-web `misrouted → hospitality`). The resulting summary is pasted into Notes as the pre-merge proxy for SC-3.
   - Blocked by: 8
 
@@ -223,6 +223,65 @@ load-bearing.
   `sentry-round-trip.test.mjs` stays byte-for-byte unchanged, as item 6 asks.
 - **Markers include the target id** (`mbe-round-trip-<stamp>-<nonce>-<target>`),
   so a stray event in Sentry names its own target.
+
+### 2026-10-01 — Item 9 smoke run (substituted lookup, measured)
+
+No local `SENTRY_AUTH_TOKEN`, so the literal accept ("with the token set, the
+CLI writes five verdicts") could not be run. What was run instead:
+
+- `node scripts/sentry-heartbeat.mjs --exit-from /nonexistent; echo $?` → `2`.
+- `node scripts/sentry-heartbeat.mjs --out <scratch>/verdicts.json` with no
+  token → prints `::error::SENTRY_AUTH_TOKEN is not set; no heartbeat verdicts
+were written.`, exits `0`, writes no file (so `--exit-from` fails closed with 2).
+- **Real triggers, real production, lookup substituted.** A scratch script
+  imported the committed `runHeartbeat`, `provokeCapturedError` and
+  `triggerBrowserTarget`, fired all six targets against production with a
+  no-op lookup, and the markers were then looked up with the Sentry MCP
+  `search_events` tool (org `mattbutlerengineering`, region us, dataset
+  `errors`, free-text marker query).
+
+**Run 1 (04:19:32Z, marker stem `mbe-round-trip-20261001T041932683Z-dlmhwj`).**
+Backend triggers fired: users-api 429 after 19 requests, reservations-api
+after 21, agent-api after 16. All three events arrived in their own project
+(`platform: node`, `server_name` = project, `tags[url]` carries the marker).
+The three browser triggers reported `triggered: true, envelopeSeen: true` —
+and **none of the three browser events ever reached Sentry**.
+
+**Defect found and fixed (in item 9's commit).** `triggerBrowserTarget`
+waited only for the envelope _request_ to start, then closed the browser,
+aborting the POST in flight. The spike had waited 2 s more, which hid it. Now
+it waits for the envelope _response_ (`page.waitForResponse`, ingest host
+only) before closing, and records `envelopeStatus`; a new unit test pins the
+response-then-close order. While there, CSP refusals are now captured via a
+`securitypolicyviolation` listener (`addInitScript`): the hospitality
+`eval` violation from item 1 did NOT appear among console errors, so the
+console-only capture missed it.
+
+**Run 2 (04:20:32Z, browser targets only, stem
+`mbe-round-trip-20261001T042032347Z-lzm92r`).** All three reported
+`envelopeStatus: 200`, and all three events arrived — `hospitality`
+(`app:hospitality`), `marketing` (`app:marketing`) and `rialto-web`
+(`app:rialto-web`), every one `platform: javascript`, every one in the
+**`hospitality`** project. The marketing/rialto-web events took about a
+minute longer than hospitality's to appear in search (ingest/index lag,
+inside the 180 s poll window).
+
+Verdicts, reconstructed by hand from those MCP results and rendered by the
+committed `projectVerdicts` + `renderJobSummary` (pre-merge proxy for SC-3;
+`aggregateExitCode` = 1):
+
+| Project               | Verdict | Targets                                                                 |
+| --------------------- | ------- | ----------------------------------------------------------------------- |
+| users-api             | PASS    | users-api: confirmed                                                    |
+| reservations-api      | PASS    | reservations-api: confirmed                                             |
+| agent-api             | PASS    | agent-api: confirmed                                                    |
+| hospitality           | PASS    | hospitality: confirmed                                                  |
+| mattbutlerengineering | FAIL    | marketing: misrouted → hospitality; rialto-web: misrouted → hospitality |
+
+Not exercised locally: `findMarkedEvent` against the real REST events
+endpoint (needs the token). Verify/Ship's dispatched run is its first real
+execution; it should confirm that the list response carries `title`/`tags`
+/`platform` as the matcher assumes.
 
 ### Open item for Review (not designed around)
 

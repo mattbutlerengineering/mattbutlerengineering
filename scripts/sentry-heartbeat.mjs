@@ -15,8 +15,13 @@
  * See docs/features/sentry-silence-alert/architecture.md.
  */
 
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { TARGETS } from "./sentry-heartbeat-targets.mjs";
 import {
   buildRoundTripMarker,
+  findMarkedEvent,
+  provokeCapturedError,
   eventMatchesMarker,
   nextPollDelayMs,
   shouldKeepPolling,
@@ -34,6 +39,9 @@ function tagValue(event, key) {
 
 /** @param {unknown} value @param {string} marker */
 const contains = (value, marker) => typeof value === "string" && value.includes(marker);
+
+/** @param {unknown} error */
+const messageOf = (error) => (error instanceof Error ? error.message : String(error));
 
 /**
  * Does this Sentry event belong to this run's heartbeat for this target?
@@ -199,17 +207,44 @@ function throwHeartbeatInPage(marker) {
   });
 }
 
+/** Runs INSIDE the page before any bundle code: records CSP refusals as text. */
+function recordCspViolations() {
+  globalThis.__mbeHeartbeatCsp = [];
+  globalThis.document.addEventListener("securitypolicyviolation", (event) => {
+    globalThis.__mbeHeartbeatCsp.push(
+      `${event.violatedDirective} blocked ${event.blockedURI} from ${event.sourceFile || "(inline)"}`
+    );
+  });
+}
+
+/** Runs INSIDE the page: the CSP refusals recorded so far. */
+function readCspViolations() {
+  return globalThis.__mbeHeartbeatCsp ?? [];
+}
+
+/** @param {{ url: () => string }} message */
+function isIngestTraffic(message) {
+  try {
+    return new URL(message.url()).hostname === SENTRY_INGEST_HOST;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Make one deployed static bundle capture a marked error.
  *
  * Launches Chromium WITHOUT `bypassCSP`, so the bundle's envelope faces the
- * live CSP exactly as a visitor's would. A missed envelope wait does not fail
- * the target — the request listener can miss it — the Sentry poll decides.
+ * live CSP exactly as a visitor's would. It waits for the envelope's
+ * RESPONSE, not just the request: closing the browser as soon as the request
+ * starts aborts the POST (measured 2026-10-01 — the request was observed and
+ * no event ever reached Sentry). A missed wait still does not fail the
+ * target; the Sentry poll decides.
  *
  * @param {{ url: string }} target
  * @param {string} marker
  * @param {{ chromium: { launch: (options?: object) => Promise<any> } }} deps
- * @returns {Promise<{ triggered: boolean, envelopeSeen?: boolean, reason?: string, detail: string }>}
+ * @returns {Promise<{ triggered: boolean, envelopeSeen?: boolean, envelopeStatus?: number, reason?: string, detail: string }>}
  */
 export async function triggerBrowserTarget(target, marker, { chromium }) {
   const browser = await chromium.launch({ headless: true });
@@ -220,30 +255,27 @@ export async function triggerBrowserTarget(target, marker, { chromium }) {
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
+    await page.addInitScript(recordCspViolations);
     try {
       await page.goto(target.url, { waitUntil: "load", timeout: NAVIGATION_TIMEOUT_MS });
     } catch (error) {
-      const reason = `navigation failed: ${error instanceof Error ? error.message : error}`;
+      const reason = `navigation failed: ${messageOf(error)}`;
       return { triggered: false, reason, detail: [reason, ...consoleErrors].join("\n") };
     }
-    const envelope = page
-      .waitForRequest(
-        (request) => {
-          try {
-            return new URL(request.url()).hostname === SENTRY_INGEST_HOST;
-          } catch {
-            return false;
-          }
-        },
-        { timeout: ENVELOPE_WAIT_MS }
-      )
-      .then(
-        () => true,
-        () => false
-      );
+    const envelope = page.waitForResponse(isIngestTraffic, { timeout: ENVELOPE_WAIT_MS }).then(
+      (response) => ({ envelopeSeen: true, envelopeStatus: response.status() }),
+      () => ({ envelopeSeen: false })
+    );
     await page.evaluate(throwHeartbeatInPage, marker);
-    const envelopeSeen = await envelope;
-    return { triggered: true, envelopeSeen, detail: consoleErrors.join("\n") };
+    const envelopeResult = await envelope;
+    const cspViolations = (await page.evaluate(readCspViolations)).map(
+      (violation) => `CSP violation: ${violation}`
+    );
+    return {
+      triggered: true,
+      ...envelopeResult,
+      detail: [...cspViolations, ...consoleErrors].join("\n"),
+    };
   } finally {
     await browser.close();
   }
@@ -253,9 +285,6 @@ export async function triggerBrowserTarget(target, marker, { chromium }) {
 export const DEFAULT_TIMEOUT_MS = 180_000;
 
 const realSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** @param {unknown} error */
-const messageOf = (error) => (error instanceof Error ? error.message : String(error));
 
 /**
  * The origin evidence recorded for a confirmed event (SC-4): its `app` tag
@@ -415,3 +444,89 @@ export async function runHeartbeat({
     )
   );
 }
+
+/**
+ * The exit code a verdict file implies. A missing or unparseable file is 2,
+ * so a runner that crashed before writing can never read as green.
+ *
+ * @param {string | undefined} path
+ * @param {(path: string, encoding: "utf8") => string} [readFile]
+ * @returns {0 | 1 | 2}
+ */
+export function exitCodeFromFile(path, readFile = readFileSync) {
+  if (!path) return 2;
+  try {
+    return aggregateExitCode(JSON.parse(readFile(path, "utf8")));
+  } catch {
+    return 2;
+  }
+}
+
+const SENTRY_ORG = "mattbutlerengineering";
+
+/** @param {string[]} argv @param {string} flag */
+function readFlag(argv, flag) {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv[index + 1];
+}
+
+/* c8 ignore start -- CLI entrypoint: it fires real triggers against PRODUCTION and polls the real Sentry API, so it runs in .github/workflows/sentry-heartbeat.yml, never in unit tests. Every decision it makes (runHeartbeat, projectVerdicts, renderJobSummary, exitCodeFromFile, triggerBrowserTarget) is unit-tested with fakes. */
+async function runAndWrite(outPath) {
+  const token = process.env.SENTRY_AUTH_TOKEN;
+  if (!token) {
+    // No file is written, so the issues step and the --exit-from step both
+    // fail closed (exit 2) instead of reading a missing check as green.
+    console.error("::error::SENTRY_AUTH_TOKEN is not set; no heartbeat verdicts were written.");
+    return;
+  }
+  let chromium;
+  const trigger = async (target, marker) => {
+    console.log(`Triggering ${target.id} (${target.kind}) with marker ${marker}`);
+    if (target.kind === "backend") return provokeCapturedError(target, marker);
+    chromium ??= (await import("@playwright/test")).chromium;
+    return triggerBrowserTarget(target, marker, { chromium });
+  };
+  const lookup = (project, marker, target) => {
+    console.log(`Looking up ${marker} in sentry:${SENTRY_ORG}/${project}`);
+    return findMarkedEvent(SENTRY_ORG, project, marker, token, fetch, (event, candidate) =>
+      eventMatchesTarget(event, target, candidate)
+    );
+  };
+
+  const outcomes = await runHeartbeat({ registry: TARGETS, trigger, lookup });
+  const verdicts = projectVerdicts(outcomes, TARGETS);
+  writeFileSync(outPath, `${JSON.stringify(verdicts, null, 2)}\n`);
+
+  const summary = renderJobSummary(verdicts);
+  console.log(summary);
+  for (const outcome of outcomes.filter((candidate) => candidate.detail)) {
+    console.log(`${outcome.targetId} detail:\n${outcome.detail}`);
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+}
+
+async function main(argv) {
+  if (argv.includes("--exit-from")) {
+    process.exit(exitCodeFromFile(readFlag(argv, "--exit-from")));
+  }
+  const outPath = readFlag(argv, "--out");
+  if (!outPath) {
+    console.error(
+      "Usage: sentry-heartbeat.mjs --out <verdicts.json>  |  sentry-heartbeat.mjs --exit-from <verdicts.json>"
+    );
+    process.exit(2);
+  }
+  // Exit 0 whatever the verdicts say: the file carries the result, so the
+  // issue-reconciliation step always has input (see the workflow).
+  try {
+    await runAndWrite(outPath);
+  } catch (error) {
+    console.error(`::error::Heartbeat runner failed: ${messageOf(error)}`);
+  }
+  process.exit(0);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await main(process.argv.slice(2));
+}
+/* c8 ignore stop */
