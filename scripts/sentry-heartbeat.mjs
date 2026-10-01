@@ -168,3 +168,78 @@ export function isHeartbeatIssue(issue) {
     contains(issue?.metadata?.value, HEARTBEAT_MARKER_PREFIX)
   );
 }
+
+/**
+ * The browser bundles' Sentry ingest host. Used ONLY as a request filter to
+ * observe the bundle's own envelope POST — nothing in this script sends to it.
+ */
+export const SENTRY_INGEST_HOST = "o4510650299842560.ingest.us.sentry.io";
+
+const NAVIGATION_TIMEOUT_MS = 30_000;
+const ENVELOPE_WAIT_MS = 15_000;
+
+/**
+ * Runs INSIDE the deployed page. Puts the marker into the page URL (no
+ * navigation, no router event), then throws it uncaught on a fresh task so
+ * only the handlers `Sentry.init` installed can capture it.
+ *
+ * @param {string} marker
+ */
+function throwHeartbeatInPage(marker) {
+  const url = new URL(globalThis.location.href);
+  url.searchParams.set("mbe-heartbeat", marker);
+  globalThis.history.replaceState(globalThis.history.state, "", url.toString());
+  setTimeout(() => {
+    throw new Error(`${marker} sentry heartbeat`);
+  });
+}
+
+/**
+ * Make one deployed static bundle capture a marked error.
+ *
+ * Launches Chromium WITHOUT `bypassCSP`, so the bundle's envelope faces the
+ * live CSP exactly as a visitor's would. A missed envelope wait does not fail
+ * the target — the request listener can miss it — the Sentry poll decides.
+ *
+ * @param {{ url: string }} target
+ * @param {string} marker
+ * @param {{ chromium: { launch: (options?: object) => Promise<any> } }} deps
+ * @returns {Promise<{ triggered: boolean, envelopeSeen?: boolean, reason?: string, detail: string }>}
+ */
+export async function triggerBrowserTarget(target, marker, { chromium }) {
+  const browser = await chromium.launch({ headless: true });
+  const consoleErrors = [];
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    try {
+      await page.goto(target.url, { waitUntil: "load", timeout: NAVIGATION_TIMEOUT_MS });
+    } catch (error) {
+      const reason = `navigation failed: ${error instanceof Error ? error.message : error}`;
+      return { triggered: false, reason, detail: [reason, ...consoleErrors].join("\n") };
+    }
+    const envelope = page
+      .waitForRequest(
+        (request) => {
+          try {
+            return new URL(request.url()).hostname === SENTRY_INGEST_HOST;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: ENVELOPE_WAIT_MS }
+      )
+      .then(
+        () => true,
+        () => false
+      );
+    await page.evaluate(throwHeartbeatInPage, marker);
+    const envelopeSeen = await envelope;
+    return { triggered: true, envelopeSeen, detail: consoleErrors.join("\n") };
+  } finally {
+    await browser.close();
+  }
+}

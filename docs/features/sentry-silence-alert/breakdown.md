@@ -62,7 +62,7 @@ writes `heartbeat-verdicts.json` plus a summary with a verdict per project.
   - Accept: `scripts/__tests__/sentry-round-trip.test.mjs` still passes unchanged, plus new tests with a fake `fetchImpl`: a 500 from Sentry throws (not `undefined`), an empty result returns `undefined`, a 429 within the request budget returns `{ triggered: true }`, no 429 in 150 requests returns `{ triggered: false, reason }` (SC-5).
   - Blocked by: —
 
-- [ ] **7. Browser trigger** — `triggerBrowserTarget(target, marker, { chromium })` in `scripts/sentry-heartbeat.mjs` implementing the item-1 sequence (30 s navigation timeout, 15 s envelope wait that does not fail the target, CSP violations and console errors captured as `detail`).
+- [x] **7. Browser trigger** — `triggerBrowserTarget(target, marker, { chromium })` in `scripts/sentry-heartbeat.mjs` implementing the item-1 sequence (30 s navigation timeout, 15 s envelope wait that does not fail the target, CSP violations and console errors captured as `detail`).
   - Accept: unit test with a fake `chromium`/`page` object asserts the launch options never set `bypassCSP`, the `evaluate` payload contains `replaceState` and the marker, a navigation timeout yields `{ triggered: false }`, and a missed envelope wait still yields `{ triggered: true }`. Plus SC-4 static check: `grep -nE "/envelope/|/store/|ingest\.(us\.)?sentry\.io/api|@sentry/" scripts/sentry-heartbeat*.mjs` prints nothing (the ingest host may appear only as a request-filter hostname string, with no path).
   - Blocked by: 1
 
