@@ -1,1 +1,146 @@
-{}
+{
+  "hospitality|book/:venueSlug|r1|accessibility/axe-moderate": {
+    "issue": 5943,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "hospitality|reservations/manage|r1|accessibility/axe-moderate": {
+    "issue": 5944,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "hospitality|reservations/manage|r1|accessibility/axe-serious": {
+    "issue": 5945,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "marketing|/|r1|accessibility/vague-link-purpose": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "marketing|acmm|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "marketing|ai-health|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "marketing|metrics|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "marketing|status|r1|bugs/failed-request": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/aspect-ratio|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/avatar|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/breadcrumb|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/data-list|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/dialog|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/divider|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/drawer|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/dropdown-menu|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-01",
+    "last_seen": "2026-10-01",
+    "escalated_at": null
+  }
+}

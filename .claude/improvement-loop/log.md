@@ -2530,3 +2530,27 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GitHub REST-fallback 403 as the `issues`/`issueFeedback`/`queueEfficiency` sensors above — budgets carried over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it anyway.
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` threshold 1.03 → 1.06 (headroom). Over the 30d verification window (143 entries, 11 non-skip): fix-effectiveness rate 100% (11/11 verified, 0 reopened), false-positive rate not computed this run (requires GitHub issue-close-reason queries, blocked by the same REST-fallback 403) — moot since no issues were filed or reopened this run either way.
+
+## 2026-10-01 — mbe-ui-quality
+
+**State:** `state.mjs checkout` exit 0, `source: main` — first fire on `ui-quality/ledger`, branch created fresh from `origin/main` at `3f299c32` (`merged_main: null`, `resolved: []`). All three app builds succeeded; no `unreachable:build` rows.
+
+**Routes:** 40 due / 40 captured / 40 audited (marketing 7, rialto-web 31, hospitality 2). 18 hospitality rows marked `unreachable:auth` and never captured, as designed. Unjudged: 0. Dropped tells: 0. All 80 screenshots (2 viewports × 40 routes) were opened and judged against rubric v1's judged tells only.
+
+**Coverage before this fire:** 0% (0/132, provisional — `first_run_at: null`, no prior fire).
+
+**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3 (`stale`); `rate.mjs pairs --calibration` then exited 2 — `docs/ui-quality/calibration.json` has no labelled pairs yet (the placeholder set; Matt labels ≥ 10 pairs once at the Verify stage). Logged, not retried. Re-queried `calibration-status`: still exit 3. Per the stale-that-calibration-could-not-clear branch, rating proceeded: 16 pairs over 3 apps rated against the reference set → `rate.mjs record` scored hospitality 1.88, marketing 1.67, rialto-web 3.75. Because the stamp is `stale`, agent-built judged findings stay suppressed by the plan — intended.
+
+**Findings:** 15 mechanical (all P2 — 13 axe serious/moderate, 1 `bugs/failed-request` on marketing `status`, which is a local-preview artifact of the API services not running) + 1 judged (`accessibility/vague-link-purpose` on marketing `/` — three identical "View live" links pointing at three different projects). Plan: create 3, seed 13, drop 0.
+
+**Issues:** 3 created, 0 reopened, 0 commented — #5943 (hospitality `book/:venueSlug`, axe-moderate), #5944 (hospitality `reservations/manage`, axe-moderate), #5945 (hospitality `reservations/manage`, axe-serious). First created issue came back carrying `ui-quality`, so filing continued for the fire. `findings.mjs record`: 16 keys in the findings ledger.
+
+**Seeds:** 13 P2 overflow seeds appended to `docs/backlog.md` (marketing `/`, `acmm`, `ai-health`, `metrics`, `status`; rialto-web `aspect-ratio`, `avatar`, `breadcrumb`, `data-list`, `dialog`, `divider`, `drawer`, `dropdown-menu`).
+
+**Fix PR:** none — no plan action carried `fix_pr_candidate: true` (`fix_pr_candidate: null`).
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+
+**Blockers / pipeline bugs:** none. Browser resolved (`/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`), all three capture runs passed, checkpoint commit pushed to `ui-quality/ledger` before the fix-PR step.
+
+**Observed but not filable (no rubric v1 tell covers them)** — recorded here so a future rubric bump has evidence, not filed as findings: horizontal overflow on marketing `weekly` at 375 px (capture came back 415 px wide); breadcrumb label/separator collision on rialto-web `components/breadcrumb` at 375 px; colour swatches rendering as transparency checkerboard rather than the token colour on rialto-web `components/color`; several rialto-web component pages reporting roughly double their content height, leaving a large blank region below the fold.
