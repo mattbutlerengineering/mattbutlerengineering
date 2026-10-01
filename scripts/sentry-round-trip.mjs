@@ -124,33 +124,79 @@ function readFlag(argv, flag) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Requests the backend trigger may send before giving up on a 429. */
+const MAX_PROVOKE_REQUESTS = 150;
+
+/** Per-request ceiling for Sentry API calls, so one hung request can't stall a run. */
+const SENTRY_REQUEST_TIMEOUT_MS = 10_000;
+
 /**
- * Send requests until the global limiter answers 429, which is the captured
- * status. Every request carries the marker in both the header and the URL.
+ * Send requests until the limiter answers 429, which is a captured status.
+ * Every request carries the marker in both the header and the URL.
+ *
+ * @param {{ url: string }} target
+ * @param {string} marker
+ * @param {typeof fetch} [fetchImpl]
+ * @param {number} [maxRequests]
+ * @returns {Promise<{ triggered: true, sent: number } | { triggered: false, sent: number, reason: string }>}
  */
-async function provokeCapturedError(baseUrl, path, marker, maxRequests) {
-  const url = `${baseUrl}${path}?rt=${marker}`;
+export async function provokeCapturedError(
+  target,
+  marker,
+  fetchImpl = fetch,
+  maxRequests = MAX_PROVOKE_REQUESTS
+) {
+  const url = `${target.url}?rt=${marker}`;
   for (let sent = 1; sent <= maxRequests; sent += 1) {
-    const response = await fetch(url, { headers: { "x-request-id": marker } });
-    if (response.status === 429) return { provoked: true, sent };
+    const response = await fetchImpl(url, { headers: { "x-request-id": marker } });
+    if (response.status === 429) return { triggered: true, sent };
   }
-  return { provoked: false, sent: maxRequests };
+  return {
+    triggered: false,
+    sent: maxRequests,
+    reason: `sent ${maxRequests} requests without provoking a 429, so nothing was captured`,
+  };
 }
 
-/** Ask Sentry whether an event carrying the marker has landed yet. */
-async function findMarkedEvent(org, project, marker, token) {
-  const response = await fetch(
+/**
+ * Ask Sentry whether an event carrying the marker has landed yet. A non-2xx
+ * response throws — "couldn't ask" must never read as "nothing there".
+ *
+ * @param {string} org
+ * @param {string} project
+ * @param {string} marker
+ * @param {string} token
+ * @param {typeof fetch} [fetchImpl]
+ * @param {(event: unknown, marker: string) => boolean} [matcher]
+ */
+export async function findMarkedEvent(
+  org,
+  project,
+  marker,
+  token,
+  fetchImpl = fetch,
+  matcher = eventMatchesMarker
+) {
+  const response = await fetchImpl(
     `https://sentry.io/api/0/projects/${org}/${project}/events/?query=${encodeURIComponent(marker)}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(SENTRY_REQUEST_TIMEOUT_MS),
+    }
   );
   if (!response.ok) {
-    throw new Error(`Sentry API returned ${response.status} ${response.statusText}`);
+    // A 429 is Sentry's API rate limit (this endpoint allows 60/min per org),
+    // not an answer — the caller may ask again inside its poll window.
+    throw Object.assign(
+      new Error(`Sentry API returned ${response.status} ${response.statusText}`),
+      { retryable: response.status === 429 }
+    );
   }
   const events = await response.json();
-  return (Array.isArray(events) ? events : []).find((event) => eventMatchesMarker(event, marker));
+  return (Array.isArray(events) ? events : []).find((event) => matcher(event, marker));
 }
 
-/* c8 ignore start -- CLI entrypoint: it provokes a real error inside a DEPLOYED service and polls Sentry, so it is exercised at Verify against production, never by unit tests. The decision logic it calls (buildRoundTripMarker, eventMatchesMarker, roundTripExitCode, shouldKeepPolling, nextPollDelayMs) is unit-tested above. */
+/* c8 ignore start -- CLI entrypoint: it provokes a real error inside a DEPLOYED service and polls Sentry, so it is exercised at Verify against production, never by unit tests. The decision logic it calls (buildRoundTripMarker, eventMatchesMarker, roundTripExitCode, shouldKeepPolling, nextPollDelayMs) and the injectable provokeCapturedError/findMarkedEvent are unit-tested. */
 async function main() {
   const argv = process.argv.slice(2);
   const baseUrl = readFlag(argv, "--base-url");
@@ -174,8 +220,8 @@ async function main() {
   );
   console.log(`Marker: ${marker}`);
 
-  const { provoked, sent } = await provokeCapturedError(baseUrl, path, marker, 150);
-  if (!provoked) {
+  const { triggered, sent } = await provokeCapturedError({ url: `${baseUrl}${path}` }, marker);
+  if (!triggered) {
     console.error(
       `::error::Sent ${sent} requests without provoking a 429. The rate limiter did not ` +
         `engage, so nothing was captured and this check cannot conclude anything.`

@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import { classifySentryIssueActionability } from "../../../../scripts/sentry-triage-recency.mjs";
+import {
+  classifyTriageIssues,
+  renderSkipTally,
+} from "../../../../scripts/sentry-triage-heartbeat.mjs";
 import { decideSentryDedup } from "../../../../scripts/sentry-triage-dedup.mjs";
 
 const SENTRY_TOKEN = process.env.SENTRY_ACCESS_TOKEN;
@@ -107,27 +110,19 @@ async function triage() {
   // long-dead issue keeps its lifetime total forever, which is how two
   // already-fixed errors were re-filed as #5534 and #5535 — 17 and 18 days
   // after their last event.
-  const classified = allIssues.map((issue) => ({
-    ...issue,
-    ...classifySentryIssueActionability(issue, {
-      severityThreshold: SEVERITY_THRESHOLD,
-      period: STATS_PERIOD,
-    }),
-  }));
+  // The daily Sentry heartbeat's synthetic issues are dropped first and
+  // counted as `heartbeat=N` (sentry-triage-heartbeat.mjs).
+  const classified = classifyTriageIssues(allIssues, {
+    severityThreshold: SEVERITY_THRESHOLD,
+    period: STATS_PERIOD,
+  });
 
   const filtered = classified.filter((i) => i.actionable);
 
-  const skipCounts = {};
-  for (const i of classified) {
-    if (!i.actionable) skipCounts[i.reason] = (skipCounts[i.reason] || 0) + 1;
-  }
-  const skipSummary = Object.entries(skipCounts)
-    .map(([reason, n]) => `${reason}=${n}`)
-    .join(", ");
   // Printed even when empty: a silent skip tally is how a payload-shape
   // change (everything -> `window-unknown`) would look identical to a
   // genuinely quiet day.
-  console.log(`Not actionable: ${skipSummary || "none"}`);
+  console.log(`Not actionable: ${renderSkipTally(classified)}`);
   console.log(
     `Actionable (>=${SEVERITY_THRESHOLD} events in last ${STATS_PERIOD}): ${filtered.length}\n`
   );
