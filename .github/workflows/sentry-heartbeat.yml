@@ -1,0 +1,64 @@
+name: Sentry Heartbeat
+
+# Daily proof that every in-scope Sentry project still ingests events raised
+# INSIDE the deployed artifacts (backend: a deliberate captured 429; static
+# sites: an uncaught throw in the live page, captured by the bundle's own SDK).
+# Silence in Sentry looks exactly like health, so this check makes silence
+# loud: a failing project goes red and opens (or updates) one `sentry` alert
+# issue, which the next green run closes.
+# See docs/features/sentry-silence-alert/architecture.md.
+
+on:
+  schedule:
+    # 13:23 UTC daily: off the hour, 37 minutes before sentry-triage.yml.
+    - cron: "23 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sentry-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    name: Round-trip a marked event through every Sentry project
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Install Chromium
+        run: |
+          set -o pipefail
+          pnpm exec playwright install --with-deps chromium
+
+      # Always exits 0: the verdict file carries the result, so the issue step
+      # below always has input.
+      - name: Run heartbeat
+        run: |
+          set -o pipefail
+          node scripts/sentry-heartbeat.mjs --out heartbeat-verdicts.json
+
+      - name: Reconcile alert issues
+        if: always()
+        run: |
+          set -o pipefail
+          node scripts/sentry-heartbeat-issues.mjs heartbeat-verdicts.json
+
+      # Last step: red when any project failed (1) or no verdicts exist (2).
+      - name: Fail on any failing project
+        if: always()
+        run: |
+          set -o pipefail
+          node scripts/sentry-heartbeat.mjs --exit-from heartbeat-verdicts.json

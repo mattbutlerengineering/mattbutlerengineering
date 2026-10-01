@@ -9,8 +9,27 @@
  * in the skip tally, so the filter is visible rather than silent.
  */
 
-import { isHeartbeatIssue } from "./sentry-heartbeat.mjs";
 import { classifySentryIssueActionability } from "./sentry-triage-recency.mjs";
+
+/** Every heartbeat marker starts with this (see `buildRoundTripMarker`). */
+export const HEARTBEAT_MARKER_PREFIX = "mbe-round-trip";
+
+/** @param {unknown} value */
+const includesMarker = (value) =>
+  typeof value === "string" && value.includes(HEARTBEAT_MARKER_PREFIX);
+
+/**
+ * Is this Sentry ISSUE a heartbeat? Triage reads issues, not events, so this
+ * is an issue-level rule over `title` and `metadata.value` — both shapes carry
+ * the marker: backend `HTTP 429: GET …/health?rt=mbe-round-trip-…`, browser
+ * `Error: mbe-round-trip-… sentry heartbeat`.
+ *
+ * @param {unknown} issue
+ * @returns {boolean}
+ */
+export function isHeartbeatIssue(issue) {
+  return includesMarker(issue?.title) || includesMarker(issue?.metadata?.value);
+}
 
 /**
  * @param {Array<object>} issues Sentry issues (project-issues endpoint shape)

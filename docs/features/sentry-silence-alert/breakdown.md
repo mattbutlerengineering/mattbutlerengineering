@@ -95,7 +95,7 @@ Demonstrable: `/sentry-triage` skips heartbeat issues and says so.
 Demonstrable: the workflow file is present, its shape is pinned by a test, and
 the PR's CI runs every new test.
 
-- [ ] **12. `sentry-heartbeat.yml` workflow + shape test** — `.github/workflows/sentry-heartbeat.yml` exactly as the architecture specifies (cron `23 13 * * *`, input-less `workflow_dispatch`, `permissions: { contents: read, issues: write }`, concurrency group, `timeout-minutes: 15`, pinned checkout SHA matching siblings, setup-workspace, `pnpm exec playwright install --with-deps chromium`, runner step, then two `if: always()` steps for issues and exit; `SENTRY_AUTH_TOKEN` and `GH_TOKEN: ${{ github.token }}` env).
+- [x] **12. `sentry-heartbeat.yml` workflow + shape test** — `.github/workflows/sentry-heartbeat.yml` exactly as the architecture specifies (cron `23 13 * * *`, input-less `workflow_dispatch`, `permissions: { contents: read, issues: write }`, concurrency group, `timeout-minutes: 15`, pinned checkout SHA matching siblings, setup-workspace, `pnpm exec playwright install --with-deps chromium`, runner step, then two `if: always()` steps for issues and exit; `SENTRY_AUTH_TOKEN` and `GH_TOKEN: ${{ github.token }}` env).
   - Accept: `scripts/__tests__/sentry-heartbeat-workflow.test.mjs` passes, parsing the real YAML and asserting: both triggers present (SC-1); every `run:` block begins with `set -o pipefail` and none assigns `status=` (SC-12); the issues and exit steps carry `if: always()` and the exit step is last (SC-6); every `uses:` is pinned to a 40-char SHA; no `paths:` filter. `pnpm check:workflow-paths-coverage` and `pnpm exec vitest run --config scripts/vitest.config.mjs scripts/__tests__/scheduled-workflow-health.test.mjs scripts/__tests__/workflow-deps.test.mjs` still pass.
   - Blocked by: 9, 10
 
@@ -293,6 +293,19 @@ lines, all files 92.07%. `sentry-heartbeat-targets.mjs` does not appear in
 v8's table (frozen data, no reported statements); its 6 tests pass. The
 issues adapter also fails closed when the open-`sentry` list returns a full
 100-row page (possible truncation → an unseen alert would be re-filed).
+
+### 2026-10-01 — Item 12: `isHeartbeatIssue` moved to keep triage dependency-free
+
+`workflow-deps.test.mjs` ("no workflow runs a node script without the deps
+that script needs") went red once the workflow landed: `triage.mjs` →
+`sentry-triage-heartbeat.mjs` → `sentry-heartbeat.mjs` reaches the runner's
+lazy `import("@playwright/test")`, and `sentry-triage.yml` installs no
+dependencies. `isHeartbeatIssue` and `HEARTBEAT_MARKER_PREFIX` now live in
+`scripts/sentry-triage-heartbeat.mjs` (whose only import is
+`sentry-triage-recency.mjs`), and `sentry-heartbeat.mjs` re-exports them, so
+item 5's tests are unchanged. All 232 tests across `sentry-*`,
+`workflow-deps` and `scheduled-workflow-health` pass;
+`pnpm check:workflow-paths-coverage` → `PASS`.
 
 ### Open item for Review (not designed around)
 
