@@ -2149,6 +2149,22 @@
       }
     </item>
     <item priority="low">
+      interface PrCategoryStats {
+        merged: number;
+        closed_without_merge: number;
+        acceptance_rate: number;
+      }
+    </item>
+    <item priority="low">
+      interface PrCategoryMetrics {
+        available: boolean;
+        total_prs?: number;
+        total_merged?: number;
+        total_closed_without_merge?: number;
+        by_category?: Record<string, PrCategoryStats>;
+      }
+    </item>
+    <item priority="low">
       interface AcmmFailingGate {
         name: string;
         description: string;
@@ -2198,6 +2214,22 @@
       }
     </item>
     <item priority="low">
+      interface PrCategoryBreakdownStats {
+        merged: number | null;
+        closedWithoutMerge: number | null;
+        acceptanceRate: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface PrCategoryBreakdownMetrics {
+        available: boolean;
+        totalPrs: number | null;
+        totalMerged: number | null;
+        totalClosedWithoutMerge: number | null;
+        byCategory: ReadonlyArray<readonly [string, PrCategoryBreakdownStats]>;
+      }
+    </item>
+    <item priority="low">
       interface AcmmMetrics {
         available: boolean;
         level: number | null;
@@ -2232,6 +2264,12 @@
     </item>
     <item priority="medium">
       function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizePrCategoryStats(stats: unknown): PrCategoryBreakdownStats { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizePrCategoryMetrics(sensors: Record<string, unknown>): PrCategoryBreakdownMetrics { /* ... */ }
     </item>
     <item priority="medium">
       function normalizeFailingGate(gate: unknown): AcmmFailingGate { /* ... */ }
