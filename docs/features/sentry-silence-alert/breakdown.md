@@ -58,7 +58,7 @@ per-project verdicts, exit code, job summary and heartbeat classification.
 Demonstrable: one local command fires all six triggers against production and
 writes `heartbeat-verdicts.json` plus a summary with a verdict per project.
 
-- [ ] **6. Refactor `sentry-round-trip.mjs` into injectable pieces** — extract and export `provokeCapturedError(target, marker, fetchImpl)` and `findMarkedEvent(org, project, marker, token, fetchImpl, matcher?)` (10 s `AbortSignal` timeout per request; non-2xx throws). The existing CLI `main()` keeps its behaviour by calling them.
+- [x] **6. Refactor `sentry-round-trip.mjs` into injectable pieces** — extract and export `provokeCapturedError(target, marker, fetchImpl)` and `findMarkedEvent(org, project, marker, token, fetchImpl, matcher?)` (10 s `AbortSignal` timeout per request; non-2xx throws). The existing CLI `main()` keeps its behaviour by calling them.
   - Accept: `scripts/__tests__/sentry-round-trip.test.mjs` still passes unchanged, plus new tests with a fake `fetchImpl`: a 500 from Sentry throws (not `undefined`), an empty result returns `undefined`, a 429 within the request budget returns `{ triggered: true }`, no 429 in 150 requests returns `{ triggered: false, reason }` (SC-5).
   - Blocked by: —
 
