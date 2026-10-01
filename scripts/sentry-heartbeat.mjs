@@ -149,3 +149,22 @@ export function renderJobSummary(verdicts) {
     "",
   ].join("\n");
 }
+
+/** Every heartbeat marker starts with this (see `buildRoundTripMarker`). */
+export const HEARTBEAT_MARKER_PREFIX = "mbe-round-trip";
+
+/**
+ * Is this Sentry ISSUE a heartbeat? Triage reads issues, not events, so this
+ * is an issue-level rule over `title` and `metadata.value` — both shapes carry
+ * the marker: backend `HTTP 429: GET …/health?rt=mbe-round-trip-…`, browser
+ * `Error: mbe-round-trip-… sentry heartbeat`.
+ *
+ * @param {unknown} issue
+ * @returns {boolean}
+ */
+export function isHeartbeatIssue(issue) {
+  return (
+    contains(issue?.title, HEARTBEAT_MARKER_PREFIX) ||
+    contains(issue?.metadata?.value, HEARTBEAT_MARKER_PREFIX)
+  );
+}

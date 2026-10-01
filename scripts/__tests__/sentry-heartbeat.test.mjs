@@ -5,6 +5,7 @@ import {
   projectVerdicts,
   aggregateExitCode,
   renderJobSummary,
+  isHeartbeatIssue,
 } from "../sentry-heartbeat.mjs";
 import { TARGETS, IN_SCOPE_PROJECTS } from "../sentry-heartbeat-targets.mjs";
 
@@ -211,5 +212,44 @@ describe("renderJobSummary", () => {
     expect(summary).toContain("users-api: confirmed");
     expect(summary).toMatch(/mattbutlerengineering \| FAIL/);
     expect(summary).toMatch(/users-api \| PASS/);
+  });
+});
+
+describe("isHeartbeatIssue", () => {
+  it("recognises the backend 429 heartbeat title", () => {
+    expect(
+      isHeartbeatIssue({
+        title: `HTTP 429: GET /api/v1/users/health?rt=mbe-round-trip-20261001T041130897Z-abc`,
+      })
+    ).toBe(true);
+  });
+
+  it("recognises the browser heartbeat title", () => {
+    expect(
+      isHeartbeatIssue({
+        title: "Error: mbe-round-trip-20261001T041130897Z-spikehosp sentry heartbeat",
+      })
+    ).toBe(true);
+  });
+
+  it("recognises the marker when it is only in metadata.value", () => {
+    expect(
+      isHeartbeatIssue({ title: "Error", metadata: { value: "mbe-round-trip-x sentry heartbeat" } })
+    ).toBe(true);
+  });
+
+  it("is false for a real issue", () => {
+    expect(
+      isHeartbeatIssue({
+        title: "TypeError: Cannot read properties of undefined (reading 'venueId')",
+        metadata: { value: "Cannot read properties of undefined (reading 'venueId')" },
+      })
+    ).toBe(false);
+  });
+
+  it("does not throw on missing fields", () => {
+    expect(isHeartbeatIssue(undefined)).toBe(false);
+    expect(isHeartbeatIssue({})).toBe(false);
+    expect(isHeartbeatIssue({ metadata: null })).toBe(false);
   });
 });

@@ -49,7 +49,7 @@ per-project verdicts, exit code, job summary and heartbeat classification.
   - Accept: tests in `sentry-heartbeat.test.mjs` show: every in-scope project appears exactly once even when all its targets errored (SC-2); `mattbutlerengineering` fails if either marketing or rialto-web is not `confirmed`; exit 0 all-pass, 1 any-fail, 2 for `undefined` / non-array / malformed input (SC-6); the summary is a markdown table with one row per project and each target's outcome.
   - Blocked by: 3
 
-- [ ] **5. `isHeartbeatIssue`** — pure predicate, true when an issue's `title` or `metadata.value` contains `mbe-round-trip`.
+- [x] **5. `isHeartbeatIssue`** — pure predicate, true when an issue's `title` or `metadata.value` contains `mbe-round-trip`.
   - Accept: tests cover the backend title shape (`HTTP 429: GET …/health?rt=mbe-round-trip-…`), the browser shape (`Error: mbe-round-trip-… sentry heartbeat`), the marker only in `metadata.value`, and a real-looking non-heartbeat issue → false; missing fields don't throw (SC-9).
   - Blocked by: —
 
