@@ -455,6 +455,9 @@ function readFlag(argv, flag) {
 }
 
 /* c8 ignore start -- CLI entrypoint: it fires real triggers against PRODUCTION and polls the real Sentry API, so it runs in .github/workflows/sentry-heartbeat.yml, never in unit tests. Every decision it makes (runHeartbeat, projectVerdicts, renderJobSummary, exitCodeFromFile, triggerBrowserTarget) is unit-tested with fakes. */
+/** CLI progress output; the job log is how SC-5's per-project lookups are audited. */
+const log = (line) => process.stdout.write(`${line}\n`);
+
 async function runAndWrite(outPath) {
   const token = process.env.SENTRY_AUTH_TOKEN;
   if (!token) {
@@ -465,13 +468,13 @@ async function runAndWrite(outPath) {
   }
   let chromium;
   const trigger = async (target, marker) => {
-    console.log(`Triggering ${target.id} (${target.kind}) with marker ${marker}`);
+    log(`Triggering ${target.id} (${target.kind}) with marker ${marker}`);
     if (target.kind === "backend") return provokeCapturedError(target, marker);
     chromium ??= (await import("@playwright/test")).chromium;
     return triggerBrowserTarget(target, marker, { chromium });
   };
   const lookup = (project, marker, target) => {
-    console.log(`Looking up ${marker} in sentry:${SENTRY_ORG}/${project}`);
+    log(`Looking up ${marker} in sentry:${SENTRY_ORG}/${project}`);
     return findMarkedEvent(SENTRY_ORG, project, marker, token, fetch, (event, candidate) =>
       eventMatchesTarget(event, target, candidate)
     );
@@ -482,9 +485,9 @@ async function runAndWrite(outPath) {
   writeFileSync(outPath, `${JSON.stringify(verdicts, null, 2)}\n`);
 
   const summary = renderJobSummary(verdicts);
-  console.log(summary);
+  log(summary);
   for (const outcome of outcomes.filter((candidate) => candidate.detail)) {
-    console.log(`${outcome.targetId} detail:\n${outcome.detail}`);
+    log(`${outcome.targetId} detail:\n${outcome.detail}`);
   }
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 }

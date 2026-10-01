@@ -26,7 +26,7 @@ const marketing = Object.freeze({
 
 describe("eventMatchesTarget", () => {
   it("matches a backend event on the url tag, reusing eventMatchesMarker", () => {
-    const event = { tags: [{ key: "url", value: `/api/v1/users/health?rt=${MARKER}` }] };
+    const event = { tags: [{ key: "url", value: `/v1/users/health?rt=${MARKER}` }] };
     expect(eventMatchesTarget(event, backend, MARKER)).toBe(true);
   });
 
