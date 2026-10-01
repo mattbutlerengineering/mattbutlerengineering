@@ -301,3 +301,111 @@ describe("normalizeSensorReport — reviewBurden", () => {
     expect(metrics.reviewBurden.totalReviews).toBeNull();
   });
 });
+
+describe("normalizeSensorReport — prCategoryBreakdown", () => {
+  // Matches scripts/sensors-registry.mjs's prCategoryMetrics registry entry,
+  // which reads scripts/collect-pr-metrics.mjs's computePrCategoryMetrics().
+  const PR_CATEGORY_REPORT = {
+    generated_at: "2026-09-30T12:00:00.000Z",
+    sensors: {
+      prCategoryMetrics: {
+        available: true,
+        total_prs: 95,
+        total_merged: 95,
+        total_closed_without_merge: 0,
+        by_category: {
+          "tier:trivial": { merged: 55, closed_without_merge: 0, acceptance_rate: 1 },
+          "tier:sensitive": { merged: 18, closed_without_merge: 0, acceptance_rate: 1 },
+          dependencies: { merged: 1, closed_without_merge: 0, acceptance_rate: 1 },
+        },
+      },
+    },
+    regressions: [],
+    summary: { sensors_available: 1, sensors_total: 1, regressions_detected: 0 },
+  };
+
+  it("extracts totals and per-category breakdown when available", () => {
+    const metrics = normalizeSensorReport(PR_CATEGORY_REPORT);
+
+    expect(metrics.prCategoryBreakdown.available).toBe(true);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBe(95);
+    expect(metrics.prCategoryBreakdown.totalMerged).toBe(95);
+    expect(metrics.prCategoryBreakdown.totalClosedWithoutMerge).toBe(0);
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      ["tier:trivial", { merged: 55, closedWithoutMerge: 0, acceptanceRate: 1 }],
+      ["tier:sensitive", { merged: 18, closedWithoutMerge: 0, acceptanceRate: 1 }],
+      ["dependencies", { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1 }],
+    ]);
+  });
+
+  it("degrades to unavailable without throwing when the sensor key is absent", () => {
+    const metrics = normalizeSensorReport({ sensors: {} });
+    expect(metrics.prCategoryBreakdown.available).toBe(false);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBeNull();
+    expect(metrics.prCategoryBreakdown.totalMerged).toBeNull();
+    expect(metrics.prCategoryBreakdown.totalClosedWithoutMerge).toBeNull();
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("degrades to unavailable when the collector reports available: false", () => {
+    const metrics = normalizeSensorReport({
+      sensors: { prCategoryMetrics: { available: false } },
+    });
+    expect(metrics.prCategoryBreakdown.available).toBe(false);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBeNull();
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("tolerates an empty by_category map without throwing", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          total_prs: 0,
+          total_merged: 0,
+          total_closed_without_merge: 0,
+          by_category: {},
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.available).toBe(true);
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("passes unknown/future category keys through untouched without dropping others", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          total_prs: 3,
+          total_merged: 2,
+          total_closed_without_merge: 1,
+          by_category: {
+            "priority:critical": { merged: 1, closed_without_merge: 0, acceptance_rate: 1 },
+            "some-future-category": { merged: 1, closed_without_merge: 1, acceptance_rate: 0.5 },
+          },
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      ["priority:critical", { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1 }],
+      ["some-future-category", { merged: 1, closedWithoutMerge: 1, acceptanceRate: 0.5 }],
+    ]);
+  });
+
+  it("does not invent numbers from a malformed category entry", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:trivial": { merged: "fifty-five", closed_without_merge: null },
+          },
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      ["tier:trivial", { merged: null, closedWithoutMerge: null, acceptanceRate: null }],
+    ]);
+  });
+});

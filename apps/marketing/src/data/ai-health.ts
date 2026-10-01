@@ -60,6 +60,28 @@ export interface ReviewBurdenSensor {
   readonly no_formal_review_stage?: boolean;
 }
 
+/** Per-category merge/close counts, per `prCategoryMetrics.by_category[key]`. */
+export interface PrCategoryStats {
+  readonly merged: number;
+  readonly closed_without_merge: number;
+  readonly acceptance_rate: number;
+}
+
+/**
+ * `prCategoryMetrics` sensor entry shape — see `scripts/sensors-registry.mjs`'s
+ * `prCategoryMetrics` registry entry `collect()`, which calls
+ * `scripts/collect-pr-metrics.mjs`'s `computePrCategoryMetrics()`. The
+ * `by_category` key set (`tier:sensitive`, `tier:trivial`, `priority:critical`,
+ * `dependencies`, etc.) is sensor-defined and can shift — never hardcode it.
+ */
+export interface PrCategoryMetrics {
+  readonly available: boolean;
+  readonly total_prs?: number;
+  readonly total_merged?: number;
+  readonly total_closed_without_merge?: number;
+  readonly by_category?: Record<string, PrCategoryStats>;
+}
+
 /** A single failing ACMM behavioral gate, per `state.computation.behavioralGates`. */
 export interface AcmmFailingGate {
   readonly name: string;
@@ -102,6 +124,7 @@ export interface SensorReport {
     readonly queueEfficiency?: QueueEfficiencySensor;
     readonly reviewBurden?: ReviewBurdenSensor;
     readonly acmm?: AcmmSensor;
+    readonly prCategoryMetrics?: PrCategoryMetrics;
   };
   readonly thresholds?: Record<string, number>;
   readonly regressions: readonly unknown[];
@@ -161,6 +184,22 @@ export interface ReviewBurdenMetrics {
   readonly noFormalReviewStage: boolean;
 }
 
+/** Safe per-category view-model entry for the prCategoryBreakdown panel. */
+export interface PrCategoryBreakdownStats {
+  readonly merged: number | null;
+  readonly closedWithoutMerge: number | null;
+  readonly acceptanceRate: number | null;
+}
+
+/** Safe view model for the prCategoryBreakdown panel — null/empty fields when unavailable. */
+export interface PrCategoryBreakdownMetrics {
+  readonly available: boolean;
+  readonly totalPrs: number | null;
+  readonly totalMerged: number | null;
+  readonly totalClosedWithoutMerge: number | null;
+  readonly byCategory: ReadonlyArray<readonly [string, PrCategoryBreakdownStats]>;
+}
+
 /** Safe view model for the acmm panel — null/empty fields when unavailable. */
 export interface AcmmMetrics {
   readonly available: boolean;
@@ -188,6 +227,7 @@ export interface HealthMetrics {
   readonly queueEfficiency: QueueEfficiencyMetrics;
   readonly reviewBurden: ReviewBurdenMetrics;
   readonly acmm: AcmmMetrics;
+  readonly prCategoryBreakdown: PrCategoryBreakdownMetrics;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -245,6 +285,32 @@ function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMe
   };
 }
 
+/** Extracts the safe view model for a single by_category entry from the raw sensor entry. */
+function normalizePrCategoryStats(stats: unknown): PrCategoryBreakdownStats {
+  const s = asRecord(stats);
+  return {
+    merged: readNumber(s.merged),
+    closedWithoutMerge: readNumber(s.closed_without_merge),
+    acceptanceRate: readNumber(s.acceptance_rate),
+  };
+}
+
+/** Extracts the safe view model for the prCategoryBreakdown panel from the raw sensor entry. */
+function normalizePrCategoryMetrics(sensors: Record<string, unknown>): PrCategoryBreakdownMetrics {
+  const prCategoryMetrics = asRecord(sensors.prCategoryMetrics);
+  const byCategory = asRecord(prCategoryMetrics.by_category);
+
+  return {
+    available: prCategoryMetrics.available === true,
+    totalPrs: readNumber(prCategoryMetrics.total_prs),
+    totalMerged: readNumber(prCategoryMetrics.total_merged),
+    totalClosedWithoutMerge: readNumber(prCategoryMetrics.total_closed_without_merge),
+    byCategory: Object.entries(byCategory).map(
+      ([category, stats]) => [category, normalizePrCategoryStats(stats)] as const
+    ),
+  };
+}
+
 function normalizeFailingGate(gate: unknown): AcmmFailingGate {
   const g = asRecord(gate);
   return {
@@ -299,5 +365,6 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
     queueEfficiency: normalizeQueueEfficiency(sensors),
     reviewBurden: normalizeReviewBurden(sensors),
     acmm: normalizeAcmm(sensors),
+    prCategoryBreakdown: normalizePrCategoryMetrics(sensors),
   };
 }
