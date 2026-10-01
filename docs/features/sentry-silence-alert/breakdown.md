@@ -78,7 +78,7 @@ writes `heartbeat-verdicts.json` plus a summary with a verdict per project.
 
 Demonstrable: a verdict file drives exactly the right issue actions.
 
-- [ ] **10. Issue reconciler** — `scripts/sentry-heartbeat-issues.mjs`: pure `decideIssueActions(verdicts, openAlertIssues, runUrl)` implementing the 4-row table, plus a thin `gh api` adapter that lists `GET /repos/{repo}/issues?labels=sentry&state=open&per_page=100`, matches the hidden `<!-- sentry-heartbeat project=<slug> -->` body marker, and applies actions independently.
+- [x] **10. Issue reconciler** — `scripts/sentry-heartbeat-issues.mjs`: pure `decideIssueActions(verdicts, openAlertIssues, runUrl)` implementing the 4-row table, plus a thin `gh api` adapter that lists `GET /repos/{repo}/issues?labels=sentry&state=open&per_page=100`, matches the hidden `<!-- sentry-heartbeat project=<slug> -->` body marker, and applies actions independently.
   - Accept: `scripts/__tests__/sentry-heartbeat-issues.test.mjs` passes covering: fail+none → `open` with label `sentry` only (never `ready`), body naming the project, each failing target outcome (incl. `misrouted → hospitality`), the run URL and the hidden marker (SC-7); fail+open → `comment`, no `open` (SC-7); pass+open → `close` with a comment linking the run (SC-8); pass+none → `none` (SC-8); no body ever matches `sentry\.io/.*/issues/\d+` (so `decideSentryDedup` is never fooled); adapter with a failing list call takes no action and exits non-zero; one failed action does not stop the others. `pnpm exec vitest run --config scripts/vitest.config.mjs --coverage --coverage.include='scripts/sentry-heartbeat*.mjs' scripts/__tests__/sentry-heartbeat*.test.mjs` reports ≥ 80% lines on the three new modules (SC-11).
   - Blocked by: 4
 
@@ -282,6 +282,17 @@ Not exercised locally: `findMarkedEvent` against the real REST events
 endpoint (needs the token). Verify/Ship's dispatched run is its first real
 execution; it should confirm that the list response carries `title`/`tags`
 /`platform` as the matcher assumes.
+
+### 2026-10-01 — Item 10 coverage (SC-11)
+
+`pnpm exec vitest run --config scripts/vitest.config.mjs --coverage
+--coverage.include='scripts/sentry-heartbeat*.mjs' --coverage.reporter=text
+scripts/__tests__/sentry-heartbeat*.test.mjs` → 64 tests pass;
+`sentry-heartbeat-issues.mjs` 100% lines, `sentry-heartbeat.mjs` 88.88%
+lines, all files 92.07%. `sentry-heartbeat-targets.mjs` does not appear in
+v8's table (frozen data, no reported statements); its 6 tests pass. The
+issues adapter also fails closed when the open-`sentry` list returns a full
+100-row page (possible truncation → an unseen alert would be re-filed).
 
 ### Open item for Review (not designed around)
 
