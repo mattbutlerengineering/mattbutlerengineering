@@ -104,8 +104,28 @@ describe("triggerBrowserTarget", () => {
     await triggerBrowserTarget(target, MARKER, { chromium });
     const [predicate, options] = page.waitForResponse.mock.calls[0];
     expect(options).toEqual({ timeout: 15_000 });
-    expect(predicate({ url: () => `https://${SENTRY_INGEST_HOST}/api/1/x` })).toBe(true);
-    expect(predicate({ url: () => "https://example.test/assets/app.js" })).toBe(false);
+    const response = (url, body) => ({ url: () => url, request: () => ({ postData: () => body }) });
+    expect(predicate(response(`https://${SENTRY_INGEST_HOST}/api/1/x`, `{"m":"${MARKER}"}`))).toBe(
+      true
+    );
+    expect(predicate(response("https://example.test/assets/app.js", MARKER))).toBe(false);
+  });
+
+  it("does not stop waiting on the SDK's session envelope — only the one carrying the marker", async () => {
+    // @sentry/core sends the session update BEFORE the error event
+    // (client.js _processEvent), so the first ingest response on a throw is
+    // usually the session; closing on it can abort the error POST.
+    const { chromium, page } = fakeChromium();
+    await triggerBrowserTarget(target, MARKER, { chromium });
+    const [predicate] = page.waitForResponse.mock.calls[0];
+    const ingest = `https://${SENTRY_INGEST_HOST}/api/1/envelope/`;
+    const session = {
+      url: () => ingest,
+      request: () => ({ postData: () => '{"type":"session"}' }),
+    };
+    const noBody = { url: () => ingest, request: () => ({ postData: () => null }) };
+    expect(predicate(session)).toBe(false);
+    expect(predicate(noBody)).toBe(false);
   });
 
   it("records console errors (where Chromium reports CSP refusals) as detail", async () => {

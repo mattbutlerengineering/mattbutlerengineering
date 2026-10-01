@@ -216,6 +216,18 @@ function isIngestTraffic(message) {
 }
 
 /**
+ * Is this the ingest response for the envelope carrying `marker`? The SDK
+ * sends a session update BEFORE the error event, so "any ingest response"
+ * usually resolves on the session and closing then can abort the error POST.
+ *
+ * @param {{ url: () => string, request: () => { postData: () => string | null } }} response
+ * @param {string} marker
+ */
+function isMarkedEnvelope(response, marker) {
+  return isIngestTraffic(response) && (response.request().postData() ?? "").includes(marker);
+}
+
+/**
  * Make one deployed static bundle capture a marked error.
  *
  * Launches Chromium WITHOUT `bypassCSP`, so the bundle's envelope faces the
@@ -246,10 +258,14 @@ export async function triggerBrowserTarget(target, marker, { chromium }) {
       const reason = `navigation failed: ${messageOf(error)}`;
       return { triggered: false, reason, detail: [reason, ...consoleErrors].join("\n") };
     }
-    const envelope = page.waitForResponse(isIngestTraffic, { timeout: ENVELOPE_WAIT_MS }).then(
-      (response) => ({ envelopeSeen: true, envelopeStatus: response.status() }),
-      () => ({ envelopeSeen: false })
-    );
+    const envelope = page
+      .waitForResponse((response) => isMarkedEnvelope(response, marker), {
+        timeout: ENVELOPE_WAIT_MS,
+      })
+      .then(
+        (response) => ({ envelopeSeen: true, envelopeStatus: response.status() }),
+        () => ({ envelopeSeen: false })
+      );
     await page.evaluate(throwHeartbeatInPage, marker);
     const envelopeResult = await envelope;
     const cspViolations = (await page.evaluate(readCspViolations)).map(
