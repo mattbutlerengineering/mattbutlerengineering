@@ -142,5 +142,41 @@
     "first_seen": "2026-10-01",
     "last_seen": "2026-10-01",
     "escalated_at": null
+  },
+  "rialto-web|components/flip-dot|r1|accessibility/axe-critical": {
+    "issue": 5973,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/footer|r1|accessibility/axe-moderate": {
+    "issue": 5974,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/hover-card|r1|accessibility/axe-serious": {
+    "issue": 5975,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/navigation-menu|r1|accessibility/axe-moderate": {
+    "issue": 5976,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
   }
 }
