@@ -2593,3 +2593,67 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-10-02 (mbe-weekly-improve)
+
+**Skills:** `/improve` and `/improve-codebase-architecture` are user-level-only (retired from `.claude/skills/` by #3323, per CLAUDE.md § Skills), so this run did the equivalent analysis directly rather than reporting them as missing.
+
+**Environment note:** `gh` **is** present in this session (`/usr/local/bin/gh`) and its REST calls authenticate as `mattbutlerengineering`, contrary to gotchas.md § Claude Code Remote. Two caveats measured: `gh auth status` reports `The token in GH_TOKEN is invalid` while `gh api` works anyway, and every **GraphQL**-backed subcommand (`gh issue list`, `gh pr list`) returns `403 GitHub GraphQL is not available from Claude Code sessions`. `search/issues` is also refused (`sessions are bound to their configured repositories`). So the working path is repo-scoped REST only — `gh api repos/{owner}/{repo}/...` — and duplicate-checking had to be done by listing all 68 open issues and grepping locally rather than by search query. Worth a gotchas amendment: the entry's "no `gh` binary, nothing runs at all" framing did not hold here.
+
+### PR opened (step 2)
+
+**#5982 — `test(ci): weekly improve 2026-10-02 — verify ALLOWLIST compensating-guard claims`.** Branch `fix/weekly-improve-allowlist-guard-claims`, 3 files, scripts-only.
+
+`scripts/check-workflow-paths-coverage.mjs` ALLOWLISTs six exercised paths whose own workflow's `paths:` filter can never fire on a change to them, and the module's docblock calls each entry "a debt with paperwork, not a silent pass". The paperwork was prose nobody checked. One entry (`require-deploy-secrets.mjs`) justified itself by naming a specific compensating control — a test that reads the real `deploy-services.yml` — and that claim is load-bearing, because it is the entire reason the gap is accepted. Nothing verified the named test existed, still read that workflow, or still mentioned the guarded script. An unchecked claim of protection is the same decorative-gate shape the module exists to catch, one level up.
+
+Measured all six: four genuinely covered (`deploy-ci-precondition`, `require-deploy-secrets`, `collect-repo-stats` via the differently-named `deploy-static-repo-stats.test.mjs`, `publish-visual-diffs`), two not. `preview-deploy.yml` had **no test reading it anywhere in the repo** — the three tests that mention it pin wrangler's version pin, dependabot secretless jobs, and production-deploy classification, none the sticky comment.
+
+Fix: `ALLOWLIST` entries became `{ reason, guardedBy }`; `verifyAllowlistGuards()` (pure, injected io) fails any entry whose `guardedBy` test is missing, does not read the workflow it vouches for, or does not mention the guarded path, wired into `runAudit` and the exit code; `main()` now prints the control beside the gap it excuses so the one remaining `UNWATCHED` entry is visible instead of buried in prose. New `scripts/__tests__/preview-deploy-sticky-comment.test.mjs` pins the four preconditions `preview-comment.mjs` documents.
+
+**Deliberately did NOT widen any workflow trigger.** The `require-deploy-secrets` entry already records why: adding a deploy helper to the deploy filter makes editing a script trigger a production deploy. Zero CI minutes added.
+
+**Guard proven to fail** (the `docs/backlog.md` seed, honoured rather than cited): each of the four new assertions was mutated against the exact regression it claims to catch — author-blind jq-only `contains()` lookup (3 failed/1 passed), dropped `login` projection (1/3), removed `set -euo pipefail` (1/3), `GH_TOKEN` swapped to a PAT (1/3) — then `preview-deploy.yml` restored byte-identically (`git diff` empty). The TDD arc was real RED: the new suite failed `verifyAllowlistGuards is not a function` (6 failed/20 passed) before implementation, and after it 25/26 passed with the one remaining failure being the actual gap (`guardedBy ... does not exist`), which is what drove writing the test.
+
+Gates: scripts suite **247 files / 4757 tests passed**; `pnpm typecheck` **52/52 tasks** (2m15s, exit 0); `pnpm repo-audit` exit 0; `check-workflow-paths-coverage` exit 0; prettier clean. 28 check runs fired on the `pull_request` event — not the `GITHUB_TOKEN` anti-recursion trap.
+
+### Weekly eval checkpoint (step 4) — **first scored run in the metric's history**
+
+`pnpm build --filter @mbe/cli... && node tools/cli/dist/index.js agent eval --adapter claude-cli` → **exit 0**.
+
+```
+✓ example-bugfix [test-writing] — score 100% (8 turns, $0.65)
+Tasks: 1 / Pass rate: 100.0% / Mean score: 100.0% / Failed to complete: 0
+Cost basis: api-equivalent — CLI-reported, not billed; budget cost arm not applied
+```
+
+`metrics/eval-reports.jsonl` went from **0 bytes to 566** — the first row it has ever held, after being empty since #4116. A genuine pass, not a scored-failure row: `passed: true`, all four deterministic gates true (`testsPass`, `typecheckPass`, `lintPass`, `withinBudget`), no `sessionErrors`, `nonRunCount: 0`, `stuckCount: 0`. No `session errors:` line to quote.
+
+This retires the top `docs/backlog.md` seed's premise. That seed said no caller could ever reach the scored path and listed three candidate fixes needing a human decision; the `--adapter claude-cli` arm now in the routine prompt **is** one of them (a CLI-subprocess adapter), and it works on the sandbox's subscription login. The seed should be rewritten to the remaining question (suite breadth, #5981) rather than re-asserting that nothing can score.
+
+Committed as **#5984** (`chore(metrics): eval baseline 2026-10-02`), `metrics/eval-reports.jsonl` only and unedited — the run also dirtied `.claude/agent-spend/sessions.jsonl`, deliberately left out. Committed because this checkout is ephemeral: unpushed, the first baseline dies with the container.
+
+**This fire was the designated first real test of that adapter in this sandbox**, and it lands on the "Expected pass" branch of `docs/fixes/agent-eval-claude-cli-caller/release.md`'s post-release checks (that run shipped the adapter as #5914 on 2026-09-30 and wrote "the first row is the Friday routine's to write"; its own release notes list `claude`-on-PATH and a subscription login in the sandbox as **unmeasured**). All four of its stated pass conditions are met: step 4 exited 0; a PR titled exactly `chore(metrics): eval baseline 2026-10-02` exists (#5984) carrying one `metrics/eval-reports.jsonl` row; the row shows `"adapter":"claude-cli"` and `"costBasis":"api-equivalent"`; `turns` is 8 (> 0) and `withinBudget` was judged on turns only. So the two open environment questions are now answered empirically: `claude` **is** on PATH at `/opt/node22/bin/claude`, and it **does** have a working subscription login. Nothing here hit that file's "Actual failure" branch — exit 2 was not logged as fine, the baseline PR carries a scored row rather than an exit-2 row, and step 4 was not skipped.
+
+Caveat recorded for future readers: `withinBudget: true` coexists with `costUsd` 0.649 against the task's `maxCostUsd` 0.5. That is not a budget breach that slipped through — under a non-`billed` cost basis only the `maxTurns` arm is enforced, documented in `packages/agent-core/eval-suite/README.md`. Do not read `costUsd` as billed or plan spend.
+
+### Issues filed (step 3)
+
+- **#5979** `test(ci): instruction-regression.yml never runs when the ACMM eval harness it invokes changes` (`ready`, `test-coverage`, `area:infra`, `size:s`) — the one genuinely `UNWATCHED` ALLOWLIST entry this run's PR surfaces. The workflow runs `plugins/acmm/scripts/evals/index.js` with `--dry-run` and `--report`, its `paths:` filter covers only `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, and no test anywhere reads that workflow — so a harness change ships unexercised and a break surfaces on the next unrelated instruction-file edit with the wrong PR blamed. Corroborated by #5858's record that the evals "have not really run since 2026-05-10". Criteria offer both fixes (wiring test, as four siblings have, or widening `paths:`) and require proving the guard fails.
+- **#5981** `test(agent-core): the weekly eval checkpoint scores one task, so it cannot detect drift` (`ready`, `test-coverage`, `area:agent`, `size:m`) — newly actionable _because_ step 4 now scores. The default suite is a single file, `example-bugfix.json`, which is the authoring example the README tells authors to copy, and whose `category` (`test-writing`) disagrees with its `id` (`bugfix`) — a sample, not chosen coverage. Pass rate is a 1-bit signal, and `exit 1` (the routine's "regressed" branch) fires on one task failing. Four of the five schema categories have zero default-suite coverage. Lineage matters for review: this is **not** a duplicate of the in-flight work that shipped the adapter. `docs/fixes/agent-eval-claude-cli-caller/architecture.md:235` deliberately declined to add a `--threshold` this run precisely because "zero rows exist and the default suite has one task, so any value is a coin-flip policy", and kept it as an **Operate seed**. #5981 is the promotion of that deferred seed, now that a row exists and the premise can be tested. Criteria require ≥4 tasks over ≥3 categories with budgets set from measured runs.
+
+### Negative results (measured, deliberately NOT filed)
+
+Recording so next week does not re-derive them:
+
+- **`preview-deploy.yml`'s pipefail is present and correct.** `preview-comment.mjs`'s `parseCommentLines` docblock claims its throw is loud "under `set -euo pipefail` in the workflow step"; that claim was checked, not assumed — line 178 sets it, with an explanatory comment, above the pipe. gotchas.md § CI names this workflow as the in-repo pipefail reference and that remains accurate. The gap was the _absence of a pin_, not a missing pipefail.
+- **`collect-repo-stats.mjs` is already guarded**, by `scripts/__tests__/deploy-static-repo-stats.test.mjs` — which asserts `deploy-static.yml` still runs it _and_ that its job grants `pull-requests: read`. Found only by grepping for tests that read the workflow rather than for tests named after the script; a per-script name grep reports it as unguarded, which is how this nearly became a false finding.
+- **The allowlist meta-class is contained.** Swept every other exception list in `scripts/` (`check-orphaned-tests`, `check-hook-wiring`, `check-issue-filing-seam`, `check-ai-antipatterns`, `audit-markdown`, `secret-scan`, `stale-human-blocked`, `check-dep-versions`). `check-orphaned-tests`'s `ALLOWLIST` is `[]` and `check-hook-wiring`'s is `{}` — both empty, so no unverified claims; `check-issue-filing-seam`'s `EXEMPT_FILES` is a plain path set asserting no compensating control elsewhere. Only `check-workflow-paths-coverage` had entries vouching for protection, so the fix is scoped correctly rather than under-generalised.
+- **No orphaned check scripts.** All 39 `scripts/check-*.{mjs,js}` are referenced by `run-repo-audit.mjs`, a workflow, `package.json`, or `.husky/`. That discipline holds.
+- **`cost/` is not orphaned coverage.** Its 3 tasks are a deliberately registered separate suite (`src/eval/cost-suite.ts`, `--suite cost`), and the eval-suite README explicitly warns about the unregistered-subdirectory trap. Counting them as default-suite breadth in #5981 would have been wrong.
+- **`metrics-freshness` passes** and `pnpm repo-audit` was green both before and after the change, so the baseline was clean rather than assumed clean.
+
+### Notes
+
+- Baseline discipline paid off differently from last week: a fresh `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/cli...` was enough for the whole scripts suite to go 4757/4757 green, so there was no 31-file pre-existing-failure baseline to diff against this time.
+- The pre-push hook's `pnpm regen --check` arm takes several minutes per push (28 packages, each via `tsx`), which read as a hung push twice. `verify-push-sha.sh` fires **before** the push finishes in that window and reports `branch not found on origin after push` — a false alarm both times; both pushes exited 0 and both branches landed. Worth a gotchas line: do not re-push on that hook's say-so, confirm with `git ls-remote` first.
+- Did not merge anything, per the routine. #5982 and #5984 are both left for review.
