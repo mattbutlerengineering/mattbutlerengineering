@@ -2593,3 +2593,20 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-10-02 — mbe-ui-quality
+
+State: `source: branch` (`ui-quality/ledger` @ `023942f9`, merged `origin/main` `1a6082f4`, 0 conflicts resolved).
+
+- **Routes:** 40 due / 40 captured / 40 audited. 18 hospitality rows `unreachable:auth` (never captured); 0 `unreachable:build` — all three app builds succeeded. Only `rialto-web` was due this fire; marketing and hospitality had no planned routes, so their capture runs skipped as designed.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration stamp: `stale`.** `calibration-status` returned exit 3 (the one calibration trigger), but `rate.mjs pairs --calibration` exited 2: `docs/ui-quality/calibration.json` has **zero labelled pairs** (`pairs: []`) — Matt must label ≥ 10 pairs once at the Verify stage before the rater can be calibrated. Logged and not retried, per the never-retry rule; the re-query still returned `stale`. Consequence: agent-built findings stay suppressed in the plan. **This is the one human-blocking item in the loop** — it has now been `stale` since the loop began and nothing the routine can do will clear it.
+- **Rating:** ran anyway (an exit 3 calibration could not clear). 6 pairs over 1 app vs. the Mantine/Chakra references → `rialto-web 4.58`.
+- **Issues:** 4 created (all came back correctly labelled `ui-quality`, so filing continued) — #5973 `components/flip-dot` axe-critical (P1), #5974 `components/footer` axe-moderate, #5975 `components/hover-card` axe-serious, #5976 `components/navigation-menu` axe-moderate. 0 reopened, 0 commented, 0 adopted. Pre-existing ledger issues #5943/#5944/#5945 all still open.
+- **Seeds:** 9 P2 overflow seeds appended to `docs/backlog.md` (navigation-menu, neon-sign, page-header, pagination ×2, popover, scroll-area ×2, segmented-control).
+- **Fix PR: none** — the plan carried no action with `fix_pr_candidate: true` (0 candidates), so there was nothing to open one for. Not a gate failure.
+- **P1 breaches escalated:** 0. One open `ui-quality:p1` (#5973, filed today); 0 of 1 older than the 7-day SLA.
+- **Coverage before this fire:** 30.3% (provisional, 40/132 covered, first run 2026-10-01).
+- **Blockers:** none — browser resolved (`chromium_headless_shell-1194`), no `blocker: no-browser`, no stopped filing, no pipeline bug. Every script exited 0 except the two expected non-zero reads (`calibration-status` 3, `pairs --calibration` 2), both handled by rule.
+
+Note: all 40 judged routes came back clean on the judged tells — the rialto-web component docs are token-consistent, use a distinctive display face, and show real component demos rather than the agent-built face. Every finding this fire is mechanical (axe).
