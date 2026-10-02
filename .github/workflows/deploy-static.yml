@@ -142,12 +142,16 @@ jobs:
           # nothing — silently. The three SENTRY_* vars drive
           # sentryVitePlugin's source-map upload (it self-disables without
           # SENTRY_AUTH_TOKEN), so without them any report that does arrive
-          # has a minified stack trace. Kept in step with the hospitality
-          # build below; scripts/__tests__/deploy-static-sentry-env.test.mjs
-          # fails if any static app's build step drifts out of step again.
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # has a minified stack trace. All four are required here just as
+          # for hospitality, but the DSN and project differ: marketing and
+          # rialto-web report to the `mattbutlerengineering` Sentry project
+          # (where scripts/sentry-heartbeat-targets.mjs expects them), while
+          # the shared VITE_SENTRY_DSN / SENTRY_PROJECT secrets belong to
+          # `hospitality`. scripts/__tests__/deploy-static-sentry-env.test.mjs
+          # pins both the presence and the per-app routing.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN_MBE }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
@@ -227,11 +231,12 @@ jobs:
       - run: pnpm build --filter=@mbe/rialto-web
         env:
           # See the marketing build step above for why all four are required
-          # together; rialto-web had no build env at all, so its Sentry SDK
-          # has shipped inert since 2026-04-02.
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # together and why this app reports to `mattbutlerengineering`, not
+          # `hospitality`; rialto-web had no build env at all, so its Sentry
+          # SDK shipped inert from 2026-04-02 until the shared DSN was wired.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN_MBE }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets

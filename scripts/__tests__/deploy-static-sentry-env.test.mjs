@@ -113,3 +113,67 @@ describe("deploy-static.yml passes the Sentry build environment to every static 
     expect(absent, `${app} build step is missing: ${absent.join(", ")}`).toEqual([]);
   });
 });
+
+/**
+ * The value `step` assigns to `key`, trimmed, or null when it assigns none.
+ *
+ * Same parsing contract as `assignsEnv` — comment lines skipped, key compared
+ * by exact equality, never interpolated into a regex (CodeQL
+ * js/incomplete-sanitization) — but returns the right-hand side so a test can
+ * pin *which* secret or literal an app gets, not merely that it gets one.
+ */
+function envValue(step, key) {
+  const match = step
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .map((line) => /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(\S.*)$/.exec(line))
+    .find((parsed) => parsed?.[1] === key);
+  return match ? match[2].trim() : null;
+}
+
+/**
+ * Which Sentry project each static app reports to, and uploads source maps to.
+ *
+ * Presence alone is not enough: the presence checks above passed for months
+ * while marketing and rialto-web inlined the hospitality project's DSN from the
+ * shared `VITE_SENTRY_DSN` secret, so their errors were triaged under
+ * `hospitality` and the `mattbutlerengineering` project (where
+ * scripts/sentry-heartbeat-targets.mjs expects them) saw zero events
+ * (maintenance:static-sentry-dsn-routing, alert #5941). One `SENTRY_PROJECT`
+ * value also cannot be right for two different projects' source maps.
+ *
+ * The project slug is a literal, not a secret: a slug is not a credential, and
+ * the org slug is already a literal in scripts/sentry-heartbeat.mjs.
+ */
+const EXPECTED_SENTRY_ROUTING = {
+  marketing: {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN_MBE }}",
+    SENTRY_PROJECT: "mattbutlerengineering",
+  },
+  "rialto-web": {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN_MBE }}",
+    SENTRY_PROJECT: "mattbutlerengineering",
+  },
+  hospitality: {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN }}",
+    SENTRY_PROJECT: "${{ secrets.SENTRY_PROJECT }}",
+  },
+};
+
+describe("deploy-static.yml routes each static app to its own Sentry project", () => {
+  it("pins routing for exactly the apps in STATIC_APPS", () => {
+    expect(Object.keys(EXPECTED_SENTRY_ROUTING).sort()).toEqual([...STATIC_APPS].sort());
+  });
+
+  it.each(STATIC_APPS)("routes the %s build to its expected DSN and project", (app) => {
+    const step = buildStepFor(WORKFLOW, app);
+    expect(step).not.toBeNull();
+
+    const wrong = Object.entries(EXPECTED_SENTRY_ROUTING[app])
+      .map(([key, expected]) => ({ key, expected, actual: envValue(step, key) }))
+      .filter(({ expected, actual }) => actual !== expected)
+      .map(({ key, expected, actual }) => `${key} is ${actual ?? "(unset)"}, expected ${expected}`);
+
+    expect(wrong, `${app} build step: ${wrong.join("; ")}`).toEqual([]);
+  });
+});
