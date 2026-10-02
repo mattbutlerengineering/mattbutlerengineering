@@ -129,7 +129,7 @@ so it passes on the misrouted shape and must be tightened.
       step comments: they currently say the steps are "kept in step with the hospitality
       build", which is no longer true for the DSN or project.
   - Accept: item 1's test passes. `git diff` shows no change to the hospitality job.
-- [ ] **3. Fail closed when the new secret is absent.** Add a step before the build in
+- [x] **3. Fail closed when the new secret is absent.** Add a step before the build in
       the marketing and rialto-web jobs:
       `node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE`, with the secret in
       that step's `env:`. Put `set -o pipefail` in front if the step pipes anything.
@@ -194,3 +194,15 @@ expected mattbutlerengineering`, and the same for `rialto-web`. The four presenc
   env in `deploy-static.yml` (plus their comments). Same test file: `Tests 8 passed (8)`.
   `git diff -U0` hunks sit at lines 145–154 (marketing) and 230–239 (rialto-web); the
   `deploy-hospitality` job has no hunk.
+- **Item 3 — RED then GREEN, measured.** Added `jobBlock()`, `runsSecretGuard()` and a
+  per-job assertion (guard step in `deploy-marketing` and `deploy-rialto-web`, with
+  `VITE_SENTRY_DSN_MBE: ${{ secrets.VITE_SENTRY_DSN_MBE }}` in its env, at a lower step
+  index than the build). Against the item-2 workflow: `Tests 2 failed | 8 passed (10)`,
+  `deploy-marketing has no VITE_SENTRY_DSN_MBE guard step` and the same for rialto-web.
+  Added a `Require deploy secrets` step right after checkout in both jobs (the
+  `deploy-services.yml` placement, before setup-node; the script imports only
+  `node:url`), with `set -euo pipefail`. Then `Tests 10 passed (10)`. Local guard run:
+  unset → `exit 1` (`is not defined in the step's env block`), empty → `exit 1`
+  (`defined but empty`), set → `exit 0`.
+  - Deviation (2026-10-02): the guard sits before install, not merely "before the
+    build", following the deploy-services precedent of failing before any work.

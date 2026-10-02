@@ -116,6 +116,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      # Fail closed before any install/build work. An absent or empty secret
+      # interpolates as "", and packages/sentry enables itself on DSN length
+      # alone, so the build would ship a Sentry SDK that reports nothing with
+      # no error. Presence only: scripts/require-deploy-secrets.mjs never
+      # echoes the value. Same guard as deploy-services.yml.
+      - name: Require deploy secrets
+        env:
+          VITE_SENTRY_DSN_MBE: ${{ secrets.VITE_SENTRY_DSN_MBE }}
+        run: |
+          set -euo pipefail
+          node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE
+
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -218,6 +230,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      # Fail closed before any install/build work. An absent or empty secret
+      # interpolates as "", and packages/sentry enables itself on DSN length
+      # alone, so the build would ship a Sentry SDK that reports nothing with
+      # no error. Presence only: scripts/require-deploy-secrets.mjs never
+      # echoes the value. Same guard as deploy-services.yml.
+      - name: Require deploy secrets
+        env:
+          VITE_SENTRY_DSN_MBE: ${{ secrets.VITE_SENTRY_DSN_MBE }}
+        run: |
+          set -euo pipefail
+          node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
