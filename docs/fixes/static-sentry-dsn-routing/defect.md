@@ -138,7 +138,7 @@ so it passes on the misrouted shape and must be tightened.
     step.
   - Accept: a local run of `node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE`
     with the variable unset exits non-zero. With it set, it exits 0.
-- [ ] **4. Gates.** Run the following in the worktree and confirm they pass:
+- [x] **4. Gates.** Run the following in the worktree and confirm they pass:
   - `pnpm install --frozen-lockfile`
   - the scripts test suite, including `deploy-static-sentry-env.test.mjs` and
     `require-deploy-secrets.test.mjs`
@@ -206,3 +206,25 @@ expected mattbutlerengineering`, and the same for `rialto-web`. The four presenc
   (`defined but empty`), set → `exit 0`.
   - Deviation (2026-10-02): the guard sits before install, not merely "before the
     build", following the deploy-services precedent of failing before any work.
+- **Item 4 — gates, measured.** `pnpm install --frozen-lockfile` → `Done in 14.1s`.
+  First full `pnpm --dir scripts test` → `1 failed | 4752 passed`: the real-tree case in
+  `check-workflow-paths-coverage.test.mjs` flagged
+  `deploy-static.yml: scripts/require-deploy-secrets.mjs`, and
+  `node scripts/check-workflow-paths-coverage.mjs` exited 1 with the same finding. Item
+  3 made deploy-static exercise the guard script, which its push `paths:` filter does
+  not list.
+  - Deviation (2026-10-02): resolved with an `ALLOWLIST` entry under
+    `deploy-static.yml`, mirroring the existing `deploy-services.yml` entry for the
+    same script. Adding the script to the filter would make editing a script trigger a
+    production deploy of all three apps. The surface stays watched on every PR by
+    `deploy-static-sentry-env.test.mjs` and `require-deploy-secrets.test.mjs`. The
+    test was not weakened; this is the check's documented "or ALLOWLIST it with a
+    reason" path.
+  - After the entry: `check-workflow-paths-coverage.mjs` → exit 0; full
+    `pnpm --dir scripts test` → `Test Files 246 passed (246)`, `Tests 4753 passed
+(4753)`, including `deploy-static-sentry-env.test.mjs` (10) and
+    `require-deploy-secrets.test.mjs` (16). `pnpm lint` → exit 0 (`52 successful`).
+    `pnpm typecheck` → exit 0 (`52 successful`).
+  - Environment note: the first commit attempt failed the pre-commit `check-adr` hook
+    with `ERR_MODULE_NOT_FOUND` for `@mbe/gh-client/dist`. That is the known
+    fresh-worktree gotcha, not this change. `pnpm build --filter @mbe/cli...` fixed it.
