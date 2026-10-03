@@ -178,5 +178,50 @@
     "first_seen": "2026-10-02",
     "last_seen": "2026-10-02",
     "escalated_at": null
+  },
+  "rialto-web|components/table|r1|accessibility/axe-serious": {
+    "issue": 6002,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|components/tag|r1|accessibility/axe-serious": {
+    "issue": 6003,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|components/tape-chart|r1|accessibility/axe-moderate": {
+    "issue": 6004,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|demos/drivers|r1|accessibility/axe-critical": {
+    "issue": 6005,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|demos/visual-test|r1|accessibility/axe-critical": {
+    "issue": 6006,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
   }
 }
