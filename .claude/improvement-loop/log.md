@@ -2555,6 +2555,10 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 
 **Observed but not filable (no rubric v1 tell covers them)** — recorded here so a future rubric bump has evidence, not filed as findings: horizontal overflow on marketing `weekly` at 375 px (capture came back 415 px wide); breadcrumb label/separator collision on rialto-web `components/breadcrumb` at 375 px; colour swatches rendering as transparency checkerboard rather than the token colour on rialto-web `components/color`; several rialto-web component pages reporting roughly double their content height, leaving a large blank region below the fold.
 
+## 2026-10-02
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
 ## 2026-10-02 (mbe-evening)
 
 ### Metrics
