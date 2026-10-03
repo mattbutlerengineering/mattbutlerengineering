@@ -10,8 +10,8 @@ assumptions:
 
 # Release: marketing and rialto-web report to their own Sentry project
 
-**Status: PRE-FLIGHT.** Written before any release step ran. The release log below is
-filled in as each step happens.
+**Status: HALTED, waiting on #5966.** Steps 1 and 2 are done. Nothing is merged or
+deployed. The defect is still live. The remaining steps are listed below, in order.
 
 ## Pre-flight
 
@@ -24,8 +24,8 @@ filled in as each step happens.
       step 1 below. Minor 3 (source-map upload) is checked in the deploy log.
 - [x] **No secrets in the diff.** The DSN is passed as `${{ secrets.VITE_SENTRY_DSN_MBE }}`.
       The project slug `mattbutlerengineering` is a literal, and it is not a credential.
-- [ ] **Target config present.** `VITE_SENTRY_DSN_MBE` does not exist yet. Step 1
-      creates it.
+- [x] **Target config present.** `VITE_SENTRY_DSN_MBE` was created on
+      2026-10-02T23:42:42Z (release log step 2).
 - [x] **Migrations / data changes.** None.
 - [x] **Rollback plan concrete.** See below.
 
@@ -69,12 +69,46 @@ That is the known pre-release state, not an outage.
 
 ## Release log
 
-_(pending)_
+1. Committed and pushed the pre-flight `release.md` as `71424f89d`. Then
+   `git ls-remote origin fix/static-sentry-dsn-routing` returned
+   `71424f89df7198ce2168121f42c11271c76e26e8`. **Done.**
+2. Ran `gh secret set VITE_SENTRY_DSN_MBE --body "https://3eb05100…@o4510650299842560.ingest.us.sentry.io/4511154257526784"`.
+   It exited 0. `gh secret list` then showed `VITE_SENTRY_DSN_MBE 2026-10-02T23:42:42Z`. **Done.**
+3. Polled `gh pr view 5966 --json state` every 2 minutes from 23:43Z to 00:29:01Z
+   (45 minutes). It stayed `OPEN` the whole time. **Not merged, so Ship halted here as
+   authorized.**
+   - At 00:29Z, #5966 is not a draft. Its `mergeStateStatus` is `CLEAN`, and its
+     `CI Gate` is green (run `36907600636`). It is waiting only on Matt's merge.
+   - Ship did not touch #5966.
+   - #5990 is still a draft with a red `CI Gate`, and it was not merged.
+
+## Remaining steps (exact, in order)
+
+1. Matt merges #5966.
+2. `gh pr update-branch 5990`, then `gh pr ready 5990`.
+3. Wait for a check named `CI Gate` to conclude `SUCCESS` on the **new** head SHA
+   (`gh pr view 5990 --json headRefOid`). A `fail=0` read is not enough.
+4. `gh pr merge 5990 --squash --delete-branch --match-head-commit <new-head-sha> --subject "fix(deploy-static): route marketing and rialto-web Sentry to their own project (#5990)"`
+5. `gh workflow run deploy-static.yml --ref main`. Find the run by `--branch main` and
+   its headSha. Require the `deploy-marketing` and `deploy-rialto-web` **jobs** to
+   succeed. Read the marketing build step log for sentryVitePlugin upload or error lines
+   (review Minor 3).
+6. Curl `/`, `/rialto/` and `/hospitality/` → their entry JS chunk → grep the DSN key.
+   Expect `3eb05100` for the first two and `7faccca5` for hospitality.
+7. `gh workflow run sentry-heartbeat.yml --ref main` once. Expect all 5 projects PASS
+   and #5941 to close itself. Never close #5941 by hand.
+
+**Deadline:** the third red scheduled heartbeat makes `scheduled-workflow-health` file
+a `ci-fix` + `ready` issue at **2026-10-04 08:00Z**. Release before about 07:00Z that
+day.
 
 ## Post-release checks
 
-_(pending)_
+None ran, because nothing was released. The "before" baseline is in
+`verification.md`: all three live bundles carry `7faccca5…`, and #5941 is OPEN.
 
 ## Outcome
 
-_(pending)_
+**Not shipped yet. Halted at the authorized blocker.** The secret exists. That is
+harmless before the merge, since no build on `main` reads it yet. #5990 waits for #5966
+and a green `CI Gate` on its updated head.
