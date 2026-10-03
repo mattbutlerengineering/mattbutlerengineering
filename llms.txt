@@ -2213,11 +2213,16 @@
         totalReviewers: number | null;
       }
     </item>
+    <item priority="high">
+      export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD: unknown;
+    </item>
     <item priority="low">
       interface PrCategoryBreakdownStats {
         merged: number | null;
         closedWithoutMerge: number | null;
         acceptanceRate: number | null;
+        totalDecided: number | null;
+        lowSample: boolean;
       }
     </item>
     <item priority="low">

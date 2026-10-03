@@ -8073,10 +8073,19 @@
        */
       readonly noFormalReviewStage: boolean;
     }
+    export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
     export interface PrCategoryBreakdownStats {
       readonly merged: number | null;
       readonly closedWithoutMerge: number | null;
       readonly acceptanceRate: number | null;
+      /** `merged + closedWithoutMerge`. Null when either input isn't a valid number. */
+      readonly totalDecided: number | null;
+      /**
+       * True when `totalDecided` is below `PR_CATEGORY_LOW_SAMPLE_THRESHOLD`, OR
+       * when `totalDecided` itself couldn't be determined — an unknown sample
+       * size is never presented as reliable either (#5901).
+       */
+      readonly lowSample: boolean;
     }
     export interface PrCategoryBreakdownMetrics {
       readonly available: boolean;
@@ -8160,10 +8169,17 @@
     }
     function normalizePrCategoryStats(stats: unknown): PrCategoryBreakdownStats {
       const s = asRecord(stats);
+      const merged = readNumber(s.merged);
+      const closedWithoutMerge = readNumber(s.closed_without_merge);
+      const totalDecided =
+        merged !== null && closedWithoutMerge !== null ? merged + closedWithoutMerge : null;
+    
       return {
-        merged: readNumber(s.merged),
-        closedWithoutMerge: readNumber(s.closed_without_merge),
+        merged,
+        closedWithoutMerge,
         acceptanceRate: readNumber(s.acceptance_rate),
+        totalDecided,
+        lowSample: totalDecided === null || totalDecided < PR_CATEGORY_LOW_SAMPLE_THRESHOLD,
       };
     }
     function normalizePrCategoryMetrics(sensors: Record<string, unknown>): PrCategoryBreakdownMetrics {
