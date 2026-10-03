@@ -2564,3 +2564,41 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL 403 (see above) — budgets carried over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Self-tuning computed from `metrics/verifications.jsonl` directly (30d window, 138 entries, 11 non-skip/scored): fix-effectiveness rate 100% (11/11 verified, 0 reopened) — above the 50% floor, no action. False-positive rate not computed — requires issue close-reason (`wontfix`/`invalid`) data via `gh issue list`, blocked by the same #5958 constraint; moot since 0 issues were created or reopened this run either way.
+## 2026-10-02 (mbe-evening)
+
+### Metrics
+
+| Metric                               | Value                                                                                                                                                                 |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)           | 7 audit (open) + 13 ci-fix (since 09-25) = 20                                                                                                                         |
+| Closed (7d, ci-fix)                  | 7/13 ci-fix closed (5933, 5929, 5844, 5815, 5609, 5605, 5603)                                                                                                         |
+| Closure Rate (ci-fix, 7d)            | 54% — yellow (target >80%)                                                                                                                                            |
+| Agent Success                        | n/a this run — 0 issues claimed (see Patterns)                                                                                                                        |
+| CI Pass (main)                       | Red at Phase 0 pre-flight (commit 962ba3a/#5949, run 36883537666, job "Test (Node 22)" failed) — fixed this iteration, see Patterns                                   |
+| Queue (ready)                        | 40 — red (target <5)                                                                                                                                                  |
+| In-progress                          | 0                                                                                                                                                                     |
+| has-pr                               | 3 (#5895, #5608, #5604)                                                                                                                                               |
+| Stale (ready>7d)                     | #5369 (created 09-14, ADR-owner block, correctly not auto-claimed) among others in the 40 — not individually re-audited this run given Phase 0 consumed the iteration |
+| Blocked (agent-failed)               | 0                                                                                                                                                                     |
+| Skipped (agent-skip)                 | 0                                                                                                                                                                     |
+| Daily/7d Spend                       | not measured this run (no worker sessions ran; `.claude/agent-spend/sessions.jsonl` not queried)                                                                      |
+| Reverts (7d, local checkout git log) | 2 (`git log --grep="Revert" --since="7 days ago"` — includes tonight's #5960)                                                                                         |
+
+### Patterns
+
+- **Phase 0 pre-flight found main red**, not green: commit `962ba3a1a` (#5949, "pin vitest via workspace catalog instead of a stale hardcoded version") broke `Test (Node 22)` on CI run 36883537666, failing `CI Gate`. Per the implement-queue skill's green-main policy, fixing this **was** the iteration — no issue batch was claimed, no worker was dispatched (Phase 1/2 skipped as directed).
+- An automated Revert Watchdog PR (**#5960**, `revert: #5949`) already existed, opened 2026-10-01T15:48Z in response to tracking issue #5959. Its CI Gate was already green. Read the full diff before acting: it is a correct, minimal, symmetric revert of #5949 (restores `tools/mutation-testing`'s hardcoded `vitest@4.1.11` pin, reverts the two paired `INTENTIONAL_MISMATCHES` allowlist changes and their tests, restores the README's prior rationale) — no scope creep, no unrelated changes. Squash-merged it directly (sha `2ff41db9`) rather than re-deriving the same fix from scratch.
+- New CI run (36945050307) on the revert commit was in-progress, not yet resolved, at the time of this recording — follow up next iteration to confirm green.
+- Two pre-existing tracking issues (#5959 "Broken Main", #5968 "System health degraded: CI: unhealthy") were left untouched — out of scope for progress-tracker (read-only code; issue lifecycle on these belongs to the revert-watchdog/routine-liveness automation that opened them, which should self-close on the next green observation).
+- **Queue is deep red: 40 `ready` issues**, up from 24 two nights ago — driven by continuing `/decompose` chains (gen-template-batch-6, deposit-exposure-dashboard, rialto a11y iteration 2, marketing PR-category breakdown, queue-telemetry-freshness [5 parts]) plus new standalone findings (ui-quality a11y issues, dependency/meta findings from the claude-md-improver and claude-automation-recommender monthly audits). Not re-triaged in depth this run since Phase 0 consumed the implement-queue iteration.
+- ci-fix closure rate (54%, yellow) is pulled down by a cluster of routine-liveness "no declared liveness signature (unverifiable)" issues that have sat open since 09-21 (#5612, #5608, #5604) — these look like a configuration gap (missing liveness signatures) rather than one-off CI flakes; worth a dedicated pass rather than per-night retry.
+
+### Recommendations
+
+- Queue depth (40 ready, red) now clearly warrants a `/loop 15m /implement-queue` or a larger batch size per the Queue Adjust rule (>10 ready + agent success has historically been >70%) — tonight's run couldn't act on this since the whole iteration went to the red-main fix.
+- #5612/#5608/#5604 (routine liveness "unverifiable signature", open since 09-21, 11 days) look like the kind of 3+-day-consistent pattern this skill's Improvement Issues section exists for — but a `meta-improvement` issue for this already likely exists upstream (declared-liveness-signature work is visible in recent merged PRs, e.g. #5919). Not duplicating; flagging for next night's check instead of filing blind.
+- Re-verify CI run 36945050307 (or its successor) is green on the next iteration before assuming main is stable again.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to review.
