@@ -75,6 +75,29 @@
         // boot and the container exits non-zero. Filtering by name rather than
         // replacing the list wholesale keeps future Sentry defaults arriving.
         integrations: (defaults) => defaults.filter((integration) => integration.name !== "Fastify"),
+        // Sentry v11 flipped every `dataCollection` category from opt-in (gated
+        // on the now-removed `sendDefaultPii`, which defaulted to not collecting)
+        // to on-by-default. Measured directly from both versions'
+        // resolveDataCollectionOptions.js: v10 with `sendDefaultPii` unset
+        // resolved to nothing collected (userInfo/cookies/httpHeaders/
+        // urlQueryParams/httpBodies/databaseQueryData all off); v11's unset
+        // defaults are all "collect everything". Pinning this reproduces the
+        // pre-bump posture instead of silently inheriting the SDK's new default.
+        // This package's model is explicit capture (setSentryContext's
+        // setUser/setTag, scope.setTag("requestId", ...)) plus the shared
+        // redaction policy below, not "collect everything, filter known-bad
+        // keys" -- redactSignal only recognizes credential-shaped values, not
+        // arbitrary PII inside a generic request/response body.
+        dataCollection: {
+          userInfo: false,
+          cookies: false,
+          httpHeaders: false,
+          httpBodies: [],
+          urlQueryParams: false,
+          databaseQueryData: false,
+          queues: false,
+          genAI: { inputs: false, outputs: false },
+        },
         // Every event is walked by the shared redaction policy before it leaves the
         // process, so a credential can never reach Sentry.io. The policy is owned by
         // @mbe/observability so one rule governs every outbound signal — no exporter

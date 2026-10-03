@@ -130,6 +130,41 @@ describe("initSentry (node)", () => {
     expect("skipOpenTelemetrySetup" in callArg).toBe(false);
   });
 
+  it("pins dataCollection to the pre-v11 restrictive baseline", () => {
+    // Sentry v11 flipped every `dataCollection` category from opt-in (gated on
+    // the now-removed `sendDefaultPii`, which defaulted to not collecting) to
+    // on-by-default -- confirmed by reading both versions'
+    // resolveDataCollectionOptions.js directly: v10 with `sendDefaultPii`
+    // unset resolved userInfo/cookies/httpHeaders/urlQueryParams/httpBodies/
+    // databaseQueryData all to "nothing collected"; v11 resolves the same
+    // unset options to "collect everything" (`DEFAULTS` is all `true`/full
+    // category lists). Left unset, this would make the SDK start
+    // auto-attaching cookies, request/response bodies, and query params to
+    // every captured event -- data this package's own model never asked for.
+    // This package's model is explicit capture (setSentryContext's
+    // setUser/setTag, scope.setTag("requestId", ...)) plus the shared
+    // redaction policy in beforeSend, not "collect everything, filter known-
+    // bad keys" -- redactSignal only knows credential-shaped values, not
+    // arbitrary PII inside a generic request/response body. Pinning this
+    // keeps the pre-bump behavior instead of inheriting whatever the next
+    // Sentry release decides "collect everything" means.
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const callArg = mockSentryInit.mock.calls[0]?.[0];
+    expect(callArg.dataCollection).toEqual({
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      queues: false,
+      genAI: { inputs: false, outputs: false },
+    });
+  });
+
   it("leaves tracing unconfigured so Sentry loads no auto-performance instrumentation", () => {
     // This asserts an ABSENCE, and the absence is the fix. `tracesSampleRate: 0`
     // reads to Sentry as "tracing is configured" and pulls in
