@@ -25,7 +25,7 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.2.0",
-    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger": "^9.9.0",
     "@fastify/swagger-ui": "^6.1.1",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
@@ -36,7 +36,7 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@prisma/client-runtime-utils": "^7.10.0",
-    "@scalar/fastify-api-reference": "^1.69.0",
+    "@scalar/fastify-api-reference": "^1.72.2",
     "fastify": "catalog:",
     "jose": "^6.2.12",
     "pg": "^8.23.0",
@@ -52,7 +52,7 @@
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.10.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

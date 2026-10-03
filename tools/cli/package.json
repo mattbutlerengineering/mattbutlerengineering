@@ -29,7 +29,7 @@
     "@mbe/config": "workspace:*",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "catalog:",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
