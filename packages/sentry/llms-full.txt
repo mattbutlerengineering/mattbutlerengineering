@@ -58,14 +58,22 @@
         environment: config.environment,
         release: config.release,
         serverName: options.serviceName,
-        skipOpenTelemetrySetup: true,
-        // Belt-and-braces against the decorator collision explained on
-        // `tracesSampleRate` below. With tracing left
-        // unconfigured this filter matches nothing today (Fastify is an
-        // auto-performance integration, not a default one), but the M2/M3 follow-up
-        // run adds real tracing, and the moment `tracesSampleRate` comes back so does
-        // the Fastify instrumentation. Filtering by name rather than replacing the
-        // list wholesale keeps future Sentry defaults arriving.
+        // Sentry v11 removed `skipOpenTelemetrySetup` and replaced it with
+        // `enableOpenTelemetrySetup`, which defaults to `false` -- the SDK already
+        // does not register its own tracer provider (SentrySpanProcessor,
+        // SentryPropagator, SentryContextManager, SentrySampler) unless opted in.
+        // Omitting the option now gets the same behavior the old `true` value did.
+        //
+        // Load-bearing, not belt-and-braces, as of v11: Sentry's Fastify integration
+        // moved out of the tracing-only integration set into the always-on base
+        // defaults, so it is present even with no `tracesSampleRate` configured.
+        // Measured against the installed SDK: `getDefaultIntegrations({})` -> 24
+        // integrations, Fastify present (v10: 17, Fastify absent). Without this
+        // filter, Sentry's Fastify integration decorates the request with
+        // `opentelemetry`, which @mbe/observability's FastifyOtelInstrumentation has
+        // already decorated, so Fastify throws FST_ERR_DEC_ALREADY_PRESENT during
+        // boot and the container exits non-zero. Filtering by name rather than
+        // replacing the list wholesale keeps future Sentry defaults arriving.
         integrations: (defaults) => defaults.filter((integration) => integration.name !== "Fastify"),
         // Every event is walked by the shared redaction policy before it leaves the
         // process, so a credential can never reach Sentry.io. The policy is owned by
@@ -73,17 +81,14 @@
         // re-implements it locally.
         beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
         // Deliberately NOT `tracesSampleRate: 0`. To Sentry, a DEFINED rate means
-        // "tracing is configured", which pulls in getAutoPerformanceIntegrations() --
-        // 17 default integrations become 44, among them Fastify, Prisma, Postgres,
-        // Redis and Kafka. The Fastify one registers an OTel plugin that decorates the
-        // request with `opentelemetry`, which @mbe/observability's
-        // FastifyOtelInstrumentation has already decorated, so Fastify throws
-        // FST_ERR_DEC_ALREADY_PRESENT during boot and the container exits non-zero.
-        // Measured against the installed SDK: {} -> 17 integrations, Fastify absent;
-        // { tracesSampleRate: 0 } -> 44, Fastify present. Omitting the key is what
-        // actually disables tracing; `0` only sampled none of it while still loading
-        // every instrumentation. Tracing is owned by @mbe/observability's own OTel SDK
-        // and is out of scope for this run (M2/M3, deferred).
+        // "tracing is configured", which pulls in tracing-only integrations on top
+        // of the base defaults -- 24 become 54, among them Prisma, Postgres, Redis
+        // and Kafka (Fastify is already present either way, see above). Measured
+        // against the installed SDK: { tracesSampleRate: 0 } -> 54 integrations.
+        // Omitting the key is what actually disables tracing; `0` only sampled none
+        // of it while still loading every instrumentation. Tracing is owned by
+        // @mbe/observability's own OTel SDK and is out of scope for this run
+        // (M2/M3, deferred).
       });
     }
     function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {

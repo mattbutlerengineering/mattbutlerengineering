@@ -112,7 +112,22 @@ describe("initSentry (node)", () => {
     expect(callArg.dsn).toBe("https://key@sentry.io/123");
     expect(callArg.serverName).toBe("my-service");
     expect(callArg.environment).toBe("production");
-    expect(callArg.skipOpenTelemetrySetup).toBe(true);
+  });
+
+  it("does not opt in to Sentry's own OpenTelemetry tracer provider setup", () => {
+    // v11 renamed `skipOpenTelemetrySetup` to `enableOpenTelemetrySetup`, which
+    // defaults to `false` -- the SDK already skips registering its own tracer
+    // provider (SentrySpanProcessor/SentryPropagator/SentryContextManager/
+    // SentrySampler) unless explicitly opted in. Asserting the absence is the
+    // fix: omitting the option now gets the same behavior the old `true` value
+    // did under v10.
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const callArg = mockSentryInit.mock.calls[0]?.[0];
+    expect(callArg.enableOpenTelemetrySetup).toBeUndefined();
+    expect("skipOpenTelemetrySetup" in callArg).toBe(false);
   });
 
   it("leaves tracing unconfigured so Sentry loads no auto-performance instrumentation", () => {
