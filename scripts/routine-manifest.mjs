@@ -30,6 +30,17 @@
  *     no signature defined" rule — silently passing it is how
  *     `mbe-weekly-improve` went two retros unverified.
  *
+ * #5748's "known limitation" question — should mbe-night/mbe-midday/
+ * mbe-daily-issue also log a line on a no-op (empty-backlog) fire, the way
+ * mbe-weekly-improve step 5 does, so a healthy no-op run doesn't read as
+ * `dark` — is deliberately left unresolved here rather than decided by
+ * editing the three live RemoteTrigger prompts in this PR. That edit is a
+ * separate, riskier change (it touches production automation prompts, not
+ * this file) and isn't needed to flip the one signature #5748 could
+ * actually confirm (mbe-monthly-meta-audit, via PR #5950); mbe-night and
+ * mbe-midday stay paused and `unverifiable` regardless. Tracked as its own
+ * follow-up rather than bundled into this mechanical flip.
+ *
  * @module routine-manifest
  */
 
@@ -198,9 +209,16 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-monthly-meta-audit",
     triggerId: "trig_01SoWm7jxBGnJHxiyTMEKX1i",
     periodDays: 31,
-    unverifiable: true,
-    unverifiableReason:
-      'docs/routines/mbe-monthly-meta-audit.md:25 now specifies a distinct `chore(meta): monthly meta-audit <YYYY-MM-DD>` PR title (#5612 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine opens its PR under no enforced convention, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. The PR is the signature target rather than the `ready` issues this routine also files: those are conditional ("for the rest") and carry no distinct label. Flip to a real signature (`searchTerm: "monthly meta-audit"`) in a follow-up PR once a PR carrying the new title is observed, proving the live trigger was updated.',
+    // Confirmed live 2026-10-01 by PR #5950, titled "chore(meta): monthly
+    // meta-audit 2026-10-01 — guard unreachable mbe CLI commands" (#5748).
+    // The PR is the signature target rather than the `ready` issues this
+    // routine also files: those are conditional ("for the rest") and carry
+    // no distinct label.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`chore\(meta\): monthly meta-audit \d{4}-\d{2}-\d{2}`,
+      searchTerm: "monthly meta-audit",
+    },
   },
   {
     name: "mbe-ui-quality",
