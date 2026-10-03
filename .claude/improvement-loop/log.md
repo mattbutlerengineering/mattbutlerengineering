@@ -2564,6 +2564,7 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL 403 (see above) — budgets carried over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
 **Skill proposals:** 0 (not Friday — skill-extraction step skipped)
 **Threshold notes:** Self-tuning computed from `metrics/verifications.jsonl` directly (30d window, 138 entries, 11 non-skip/scored): fix-effectiveness rate 100% (11/11 verified, 0 reopened) — above the 50% floor, no action. False-positive rate not computed — requires issue close-reason (`wontfix`/`invalid`) data via `gh issue list`, blocked by the same #5958 constraint; moot since 0 issues were created or reopened this run either way.
+
 ## 2026-10-02 (mbe-evening)
 
 ### Metrics
