@@ -1,20 +1,20 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-09-28T20:05:08.820Z",
+  "generatedAt": "2026-10-03T09:45:32.763Z",
   "repo": {
     "currentLevel": 6,
     "levelName": "Fully Autonomous",
     "role": "Strategist",
-    "lastRun": "2026-09-28T16:07:00.403Z",
+    "lastRun": "2026-10-03T09:45:31.234Z",
     "summary": {
-      "detected": 97,
-      "total": 114,
-      "coverage": 0.8508771929824561
+      "detected": 77,
+      "total": 84,
+      "coverage": 0.9166666666666666
     },
     "behavioral": {
-      "ciFlakeRate": 0,
-      "agentPrAcceptanceRate": 0.9841269841269841,
-      "agentPrRevertRate": 0,
+      "ciFlakeRate": 0.0029411764705882353,
+      "agentPrAcceptanceRate": 0.9943181818181818,
+      "agentPrRevertRate": 0.011428571428571429,
       "evalPassRate": null,
       "evalsStale": true,
       "evalsLastRun": "2026-05-10T21:42:57.095Z"
@@ -83,12 +83,6 @@
       "acmm:ci-matrix": {
         "passed": true
       },
-      "acmm:layered-safety": {
-        "passed": true
-      },
-      "acmm:mechanical-enforcement": {
-        "passed": true
-      },
       "acmm:context-budget": {
         "passed": true
       },
@@ -111,7 +105,7 @@
         "passed": true
       },
       "acmm:nightly-compliance": {
-        "passed": false
+        "passed": true
       },
       "acmm:copilot-review-apply": {
         "passed": false
@@ -128,18 +122,6 @@
       "acmm:security-ai-md": {
         "passed": true
       },
-      "acmm:structured-workflows": {
-        "passed": true
-      },
-      "acmm:router-skills": {
-        "passed": true
-      },
-      "acmm:tdd-workflows": {
-        "passed": true
-      },
-      "acmm:structured-rca": {
-        "passed": true
-      },
       "acmm:multi-perspective-review": {
         "passed": true
       },
@@ -149,47 +131,17 @@
       "acmm:session-continuity": {
         "passed": true
       },
-      "acmm:cross-session-knowledge": {
-        "passed": true
-      },
-      "acmm:cross-repo-skills": {
-        "passed": true
-      },
-      "acmm:github-coordination": {
-        "passed": true
-      },
       "acmm:instruction-sync-gate": {
-        "passed": false
-      },
-      "acmm:component-registry-integrity": {
-        "passed": false
+        "passed": true
       },
       "acmm:instruction-rot-detection": {
-        "passed": false
+        "passed": true
       },
       "acmm:feedback-loops": {
         "passed": true
       },
       "acmm:claude-md-auto-sync": {
         "passed": false
-      },
-      "acmm:preference-index": {
-        "passed": true
-      },
-      "acmm:task-ledger": {
-        "passed": true
-      },
-      "acmm:mcp-server-config": {
-        "passed": true
-      },
-      "acmm:code-graph": {
-        "passed": true
-      },
-      "acmm:onboarding-benchmark": {
-        "passed": true
-      },
-      "acmm:repo-bench": {
-        "passed": true
       },
       "acmm:github-actions-ai": {
         "passed": true
@@ -207,43 +159,13 @@
         "passed": true
       },
       "acmm:periodic-reflection": {
-        "passed": false
+        "passed": true
       },
       "acmm:audit-trail": {
         "passed": true
       },
-      "acmm:explanation-standards": {
-        "passed": true
-      },
-      "acmm:self-correction-metric": {
-        "passed": true
-      },
-      "acmm:state-backup": {
-        "passed": true
-      },
-      "acmm:ai-health-dashboard": {
-        "passed": true
-      },
-      "acmm:prompt-injection-sandbox": {
-        "passed": true
-      },
-      "acmm:agent-attestation": {
-        "passed": true
-      },
-      "acmm:ai-service-fallback": {
-        "passed": true
-      },
-      "acmm:override-analytics": {
-        "passed": true
-      },
-      "acmm:ai-compliance-doc": {
-        "passed": true
-      },
-      "acmm:review-burden": {
-        "passed": true
-      },
       "acmm:auto-issue-gen": {
-        "passed": false
+        "passed": true
       },
       "acmm:multi-agent-orchestration": {
         "passed": true
@@ -258,7 +180,7 @@
         "passed": true
       },
       "acmm:production-feedback": {
-        "passed": false
+        "passed": true
       },
       "acmm:observability-runbook": {
         "passed": true
@@ -266,92 +188,80 @@
       "acmm:rollback-drill": {
         "passed": true
       },
-      "acmm:feedback-loop-inventory": {
-        "passed": true
-      },
-      "acmm:budget-policy": {
-        "passed": true
-      },
-      "acmm:token-tracking": {
-        "passed": true
-      },
       "acmm:accessibility-ai-check": {
-        "passed": false
+        "passed": true
       },
       "acmm:auto-rollback": {
-        "passed": false
-      },
-      "acmm:multi-repo-orchestration": {
-        "passed": true
-      },
-      "fullsend:test-coverage": {
-        "passed": true
-      },
-      "fullsend:ci-cd-maturity": {
         "passed": true
       },
       "fullsend:auto-merge-policy": {
         "passed": true
       },
       "fullsend:branch-protection-doc": {
-        "passed": true
-      },
-      "fullsend:production-feedback": {
-        "passed": true
-      },
-      "fullsend:observability-runbook": {
-        "passed": true
-      },
-      "fullsend:risk-assessment": {
-        "passed": true
-      },
-      "fullsend:rollback-drill": {
-        "passed": true
-      },
-      "aef:task-traceability": {
-        "passed": true
+        "passed": false
       },
       "aef:structural-gates": {
         "passed": true
       },
-      "aef:session-continuity": {
+      "aef:component-fabric": {
+        "passed": false
+      },
+      "local:budget-policy": {
         "passed": true
       },
-      "aef:audit-trail": {
+      "local:code-graph": {
         "passed": true
       },
-      "aef:cross-tool-config": {
+      "local:mcp-server-config": {
         "passed": true
       },
-      "aef:change-classification": {
+      "local:explanation-standards": {
         "passed": true
       },
-      "claude-reflect:correction-capture": {
+      "local:feedback-loop-inventory": {
         "passed": true
       },
-      "claude-reflect:positive-reinforcement": {
+      "local:repo-bench": {
         "passed": true
       },
-      "claude-reflect:claude-md-sync": {
+      "local:onboarding-benchmark": {
         "passed": true
       },
-      "claude-reflect:preference-index": {
+      "local:agent-attestation": {
         "passed": true
       },
-      "claude-reflect:reflection-review": {
+      "local:ai-compliance-doc": {
         "passed": true
       },
-      "claude-reflect:session-summary": {
+      "local:ai-health-dashboard": {
+        "passed": true
+      },
+      "local:ai-service-fallback": {
+        "passed": true
+      },
+      "local:override-analytics": {
+        "passed": true
+      },
+      "local:prompt-injection-sandbox": {
+        "passed": true
+      },
+      "local:review-burden": {
+        "passed": true
+      },
+      "local:self-correction-metric": {
+        "passed": true
+      },
+      "local:multi-repo-orchestration": {
         "passed": true
       },
       "meta:threshold-tuning": {
-        "passed": false
+        "passed": true
       },
       "meta:instruction-evolution": {
         "passed": false
       },
       "meta:process-metrics": {
-        "passed": false
+        "passed": true
       },
       "meta:fp-rate-healthy": {
         "passed": false
@@ -360,7 +270,7 @@
         "passed": false
       },
       "meta:audit-freshness": {
-        "passed": false
+        "passed": true
       }
     },
     "behavioralGates": [
@@ -368,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0,
+        "value": 0.0029411764705882353,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -376,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9841269841269841,
+        "value": 0.9943181818181818,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -384,7 +294,7 @@
         "level": 5,
         "name": "auto-qa-tuning-history",
         "passed": true,
-        "value": 19,
+        "value": 21,
         "threshold": 1,
         "unverifiable": false
       },
@@ -392,7 +302,7 @@
         "level": 6,
         "name": "agent-pr-revert-rate",
         "passed": true,
-        "value": 0,
+        "value": 0.011428571428571429,
         "threshold": 0.1,
         "unverifiable": false
       },
@@ -400,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0,
+        "value": 0.017142857142857144,
         "threshold": 0.5,
         "unverifiable": false
       }

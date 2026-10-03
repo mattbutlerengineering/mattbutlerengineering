@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-09-28T16:07:00.403Z",
+  "lastRun": "2026-10-03T09:45:31.234Z",
   "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -55,7 +55,7 @@
       "passed": true,
       "evidence": "detected at: .coverage-thresholds.json",
       "verdict": "pass",
-      "substantive": null,
+      "substantive": true,
       "substanceEvidence": null
     },
     "acmm:claude-md": {
@@ -149,44 +149,30 @@
       "substantive": null,
       "substanceEvidence": null
     },
-    "acmm:layered-safety": {
-      "passed": true,
-      "evidence": "detected at: .claude/settings.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:mechanical-enforcement": {
-      "passed": true,
-      "evidence": "detected at: .claude/settings.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
     "acmm:context-budget": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": ".claude/rules/gotchas.md contains: Large MCP results land on disk, not in context",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:model-tiering": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": "AGENTS.md contains: model tiering strategy",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:verify-before-reporting": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": "AGENTS.md contains: Verified verification",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": "96 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -200,7 +186,7 @@
     },
     "acmm:structural-gates": {
       "passed": true,
-      "evidence": "detected at: .claude/settings.json",
+      "evidence": ".claude/settings.json contains: PreToolUse",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -213,16 +199,16 @@
       "substanceEvidence": null
     },
     "acmm:nightly-compliance": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/nightly-compliance.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:copilot-review-apply": {
       "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "evidence": "file not found: .github/workflows/copilot-review-apply.yml, .github/workflows/ai-fix.yml",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -254,44 +240,16 @@
       "substantive": null,
       "substanceEvidence": null
     },
-    "acmm:structured-workflows": {
-      "passed": true,
-      "evidence": "detected at: .claude/skills/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:router-skills": {
-      "passed": true,
-      "evidence": "detected at: .claude/skills/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:tdd-workflows": {
-      "passed": true,
-      "evidence": "detected at: .claude/skills/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:structured-rca": {
-      "passed": true,
-      "evidence": "detected at: .claude/skills/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
     "acmm:multi-perspective-review": {
       "passed": true,
-      "evidence": "detected at: .claude/skills/",
+      "evidence": "7 dedicated reviewer subagents found",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:idempotent-workflows": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": "CLAUDE.md contains: re-run source-of-truth checks",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -303,45 +261,17 @@
       "substantive": true,
       "substanceEvidence": null
     },
-    "acmm:cross-session-knowledge": {
-      "passed": true,
-      "evidence": "detected at: docs/reflections/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:cross-repo-skills": {
-      "passed": true,
-      "evidence": "detected at: .claude/settings.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:github-coordination": {
-      "passed": true,
-      "evidence": "detected at: .github/workflows/",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
     "acmm:instruction-sync-gate": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:component-registry-integrity": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml contains \"pnpm regen --check\" and recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:instruction-rot-detection": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml contains \"detect-instruction-rot.mjs\" and recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -354,50 +284,8 @@
     },
     "acmm:claude-md-auto-sync": {
       "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:preference-index": {
-      "passed": true,
-      "evidence": ".claude/preferences.json contains: \"priority\":\\s*\"(critical|high|medium|low)\"",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:task-ledger": {
-      "passed": true,
-      "evidence": ".claude/task-log.jsonl contains: ^\\{\"timestamp\"",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:mcp-server-config": {
-      "passed": true,
-      "evidence": "detected at: .mcp.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:code-graph": {
-      "passed": true,
-      "evidence": "detected at: llms.txt",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:onboarding-benchmark": {
-      "passed": true,
-      "evidence": ".claude/acmm/onboarding-benchmark.json contains: \"results\"",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:repo-bench": {
-      "passed": true,
-      "evidence": ".claude/acmm/repo-bench-results.json contains: \"results\"",
-      "verdict": "pass",
+      "evidence": "last success 2026-09-14T14:20:01Z exceeds 14d window",
+      "verdict": "stale",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -417,7 +305,7 @@
     },
     "acmm:public-metrics": {
       "passed": true,
-      "evidence": ".github/workflows/pr-metrics.yml contains: pages",
+      "evidence": "detected at: apps/marketing/public/metrics.json",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -437,9 +325,9 @@
       "substanceEvidence": null
     },
     "acmm:periodic-reflection": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/reflection-review.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -450,80 +338,10 @@
       "substantive": null,
       "substanceEvidence": null
     },
-    "acmm:explanation-standards": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/explanation-standards.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:self-correction-metric": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/explanation-standards.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:state-backup": {
-      "passed": true,
-      "evidence": "detected at: .github/workflows/acmm-state-backup.yml",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:ai-health-dashboard": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/ai-health-monitoring.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:prompt-injection-sandbox": {
-      "passed": true,
-      "evidence": "detected at: docs/security/ai-prompt-injection.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:agent-attestation": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/agent-attestation.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:ai-service-fallback": {
-      "passed": true,
-      "evidence": "infrastructure/worker/circuit-breaker.js contains: CIRCUIT_BREAKER_KEY",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:override-analytics": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/override-analytics.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:ai-compliance-doc": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/ai-compliance-doc.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:review-burden": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/review-burden.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
     "acmm:auto-issue-gen": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": "186 automation-labeled issue(s) created in the last 30 days",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -556,9 +374,9 @@
       "substanceEvidence": null
     },
     "acmm:production-feedback": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": ".github/workflows/production-feedback.yml: recent successful run found",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -566,7 +384,7 @@
       "passed": true,
       "evidence": "detected at: docs/ai-ops-runbook.md",
       "verdict": "pass",
-      "substantive": null,
+      "substantive": true,
       "substanceEvidence": null
     },
     "acmm:rollback-drill": {
@@ -576,58 +394,16 @@
       "substantive": null,
       "substanceEvidence": null
     },
-    "acmm:feedback-loop-inventory": {
-      "passed": true,
-      "evidence": "detected at: docs/acmm/feedback-loop-inventory.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:budget-policy": {
-      "passed": true,
-      "evidence": "detected at: .claude/budget-policy.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:token-tracking": {
-      "passed": true,
-      "evidence": "detected at: .claude/budget-policy.json",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
     "acmm:accessibility-ai-check": {
-      "passed": false,
-      "evidence": ".github/workflows/ci.yml does not contain: pnpm --dir packages/rialto vitest .* accessibility",
-      "verdict": "not-found",
+      "passed": true,
+      "evidence": ".github/workflows/ci.yml contains: pnpm --filter @mattbutlerengineering/rialto exec vitest run .* src/test/accessibility",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:auto-rollback": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "acmm:multi-repo-orchestration": {
       "passed": true,
-      "evidence": "docs/acmm/multi-repo-orchestration.md contains: Executed: \\d{4}-\\d{2}-\\d{2}",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "fullsend:test-coverage": {
-      "passed": true,
-      "evidence": "detected at: codecov.yml",
-      "verdict": "pass",
-      "substantive": true,
-      "substanceEvidence": null
-    },
-    "fullsend:ci-cd-maturity": {
-      "passed": true,
-      "evidence": "detected at: .github/workflows/",
+      "evidence": ".github/workflows/auto-rollback.yml: recent successful run found",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -640,44 +416,9 @@
       "substanceEvidence": null
     },
     "fullsend:branch-protection-doc": {
-      "passed": true,
-      "evidence": "detected at: docs/governance.md",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "fullsend:production-feedback": {
-      "passed": true,
-      "evidence": "detected at: .github/workflows/post-deploy-check.yml",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "fullsend:observability-runbook": {
-      "passed": true,
-      "evidence": "detected at: docs/runbooks/",
-      "verdict": "pass",
-      "substantive": true,
-      "substanceEvidence": null
-    },
-    "fullsend:risk-assessment": {
-      "passed": true,
-      "evidence": "detected at: .github/workflows/tier-classifier.yml",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "fullsend:rollback-drill": {
-      "passed": true,
-      "evidence": "docs/rollback.md contains: Last drill:",
-      "verdict": "pass",
-      "substantive": null,
-      "substanceEvidence": null
-    },
-    "aef:task-traceability": {
-      "passed": true,
-      "evidence": "detected at: docs/agent-tasks/",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "gh CLI unavailable or error querying branch protection",
+      "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -688,115 +429,164 @@
       "substantive": null,
       "substanceEvidence": null
     },
-    "aef:session-continuity": {
+    "aef:component-fabric": {
+      "passed": false,
+      "evidence": "none of: .fabric/subsystems.yaml, .fabric/components/, .fabric/watch-patterns.yaml, agents/fabric/",
+      "verdict": "not-found",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:budget-policy": {
       "passed": true,
-      "evidence": "detected at: CLAUDE.md",
+      "evidence": "detected at: .claude/budget-policy.json",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "aef:audit-trail": {
+    "local:code-graph": {
       "passed": true,
-      "evidence": "detected at: .github/workflows/ai-audit.yml",
+      "evidence": "detected at: llms.txt",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "aef:cross-tool-config": {
+    "local:mcp-server-config": {
       "passed": true,
-      "evidence": "detected at: AGENTS.md",
+      "evidence": "detected at: .mcp.json",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "aef:change-classification": {
+    "local:explanation-standards": {
       "passed": true,
-      "evidence": "detected at: docs/change-classification.md",
+      "evidence": "detected at: docs/acmm/explanation-standards.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:correction-capture": {
+    "local:feedback-loop-inventory": {
       "passed": true,
-      "evidence": "detected at: .claude/reflections/",
+      "evidence": "detected at: docs/acmm/feedback-loop-inventory.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:positive-reinforcement": {
+    "local:repo-bench": {
       "passed": true,
-      "evidence": "detected at: .claude/reflections/",
+      "evidence": ".claude/acmm/repo-bench-results.json contains: \"results\"",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:claude-md-sync": {
+    "local:onboarding-benchmark": {
       "passed": true,
-      "evidence": "detected at: .github/workflows/claude-md-sync.yml",
+      "evidence": ".claude/acmm/onboarding-benchmark.json contains: \"results\"",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:preference-index": {
+    "local:agent-attestation": {
       "passed": true,
-      "evidence": "detected at: .claude/preferences.json",
+      "evidence": "detected at: docs/acmm/agent-attestation.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:reflection-review": {
+    "local:ai-compliance-doc": {
       "passed": true,
-      "evidence": "detected at: .github/workflows/reflection-review.yml",
+      "evidence": "detected at: docs/acmm/ai-compliance-doc.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
-    "claude-reflect:session-summary": {
+    "local:ai-health-dashboard": {
       "passed": true,
-      "evidence": "detected at: .claude/sessions/",
+      "evidence": "detected at: docs/acmm/ai-health-monitoring.md",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:ai-service-fallback": {
+      "passed": true,
+      "evidence": "infrastructure/worker/circuit-breaker.js contains: CIRCUIT_BREAKER_KEY",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:override-analytics": {
+      "passed": true,
+      "evidence": "detected at: docs/acmm/override-analytics.md",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:prompt-injection-sandbox": {
+      "passed": true,
+      "evidence": "detected at: docs/security/ai-prompt-injection.md",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:review-burden": {
+      "passed": true,
+      "evidence": "detected at: docs/acmm/review-burden.md",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:self-correction-metric": {
+      "passed": true,
+      "evidence": "detected at: docs/acmm/explanation-standards.md",
+      "verdict": "pass",
+      "substantive": null,
+      "substanceEvidence": null
+    },
+    "local:multi-repo-orchestration": {
+      "passed": true,
+      "evidence": "docs/acmm/multi-repo-orchestration.md contains: Executed: \\d{4}-\\d{2}-\\d{2}",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:threshold-tuning": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": "8 threshold adjustment(s) in last 30 days",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:instruction-evolution": {
       "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "evidence": "221 entries but none in last 30 days",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:process-metrics": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": "process metrics collected within last 7 days",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:fp-rate-healthy": {
       "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "evidence": "latest FP rate is null",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:product-improvements": {
       "passed": false,
-      "evidence": "gh CLI unavailable or error querying improvement issues",
+      "evidence": "3 improvement issue(s) found but none in last 30 days",
       "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:audit-freshness": {
-      "passed": false,
-      "evidence": "gh CLI unavailable or error",
-      "verdict": "unverifiable",
+      "passed": true,
+      "evidence": "last audit was 4 day(s) ago (within 7-day window)",
+      "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     }
@@ -1239,6 +1029,12 @@
       "level": 6,
       "detected": 97,
       "total": 99
+    },
+    {
+      "date": "2026-10-03",
+      "level": 6,
+      "detected": 77,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1272,8 +1068,6 @@
     "acmm:pr-review-rubric",
     "acmm:quality-dashboard",
     "acmm:ci-matrix",
-    "acmm:layered-safety",
-    "acmm:mechanical-enforcement",
     "acmm:context-budget",
     "acmm:model-tiering",
     "acmm:verify-before-reporting",
@@ -1281,73 +1075,55 @@
     "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
+    "acmm:nightly-compliance",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
     "acmm:security-ai-md",
-    "acmm:structured-workflows",
-    "acmm:router-skills",
-    "acmm:tdd-workflows",
-    "acmm:structured-rca",
     "acmm:multi-perspective-review",
     "acmm:idempotent-workflows",
     "acmm:session-continuity",
-    "acmm:cross-session-knowledge",
-    "acmm:cross-repo-skills",
-    "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
-    "acmm:preference-index",
-    "acmm:task-ledger",
-    "acmm:mcp-server-config",
-    "acmm:code-graph",
-    "acmm:onboarding-benchmark",
-    "acmm:repo-bench",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
     "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
+    "acmm:periodic-reflection",
     "acmm:audit-trail",
-    "acmm:explanation-standards",
-    "acmm:self-correction-metric",
-    "acmm:state-backup",
-    "acmm:ai-health-dashboard",
-    "acmm:prompt-injection-sandbox",
-    "acmm:agent-attestation",
-    "acmm:ai-service-fallback",
-    "acmm:override-analytics",
-    "acmm:ai-compliance-doc",
-    "acmm:review-burden",
+    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
+    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
-    "acmm:feedback-loop-inventory",
-    "acmm:budget-policy",
-    "acmm:token-tracking",
-    "acmm:multi-repo-orchestration",
-    "fullsend:test-coverage",
-    "fullsend:ci-cd-maturity",
+    "acmm:accessibility-ai-check",
+    "acmm:auto-rollback",
     "fullsend:auto-merge-policy",
-    "fullsend:branch-protection-doc",
-    "fullsend:production-feedback",
-    "fullsend:observability-runbook",
-    "fullsend:risk-assessment",
-    "fullsend:rollback-drill",
-    "aef:task-traceability",
     "aef:structural-gates",
-    "aef:session-continuity",
-    "aef:audit-trail",
-    "aef:cross-tool-config",
-    "aef:change-classification",
-    "claude-reflect:correction-capture",
-    "claude-reflect:positive-reinforcement",
-    "claude-reflect:claude-md-sync",
-    "claude-reflect:preference-index",
-    "claude-reflect:reflection-review",
-    "claude-reflect:session-summary"
+    "local:budget-policy",
+    "local:code-graph",
+    "local:mcp-server-config",
+    "local:explanation-standards",
+    "local:feedback-loop-inventory",
+    "local:repo-bench",
+    "local:onboarding-benchmark",
+    "local:agent-attestation",
+    "local:ai-compliance-doc",
+    "local:ai-health-dashboard",
+    "local:ai-service-fallback",
+    "local:override-analytics",
+    "local:prompt-injection-sandbox",
+    "local:review-burden",
+    "local:self-correction-metric",
+    "local:multi-repo-orchestration",
+    "meta:threshold-tuning",
+    "meta:process-metrics",
+    "meta:audit-freshness"
   ],
   "computation": {
     "level": 6,
@@ -1358,16 +1134,23 @@
     "detectedByLevel": {
       "2": 3,
       "3": 5,
-      "4": 12,
-      "5": 15,
-      "6": 6
+      "4": 7,
+      "5": 7,
+      "6": 7
     },
     "requiredByLevel": {
       "2": 3,
-      "3": 6,
-      "4": 16,
-      "5": 16,
-      "6": 8
+      "3": 5,
+      "4": 8,
+      "5": 7,
+      "6": 7
+    },
+    "marginByLevel": {
+      "2": 2,
+      "3": 1,
+      "4": 1,
+      "5": 2,
+      "6": 2
     },
     "missingForNextLevel": [],
     "nextTransitionTrigger": null,
@@ -1392,204 +1175,213 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0,
+        "value": 0.0029411764705882353,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
-        "unverifiable": false
+        "unverifiable": false,
+        "sampleSize": 340
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9841269841269841,
+        "value": 0.9943181818181818,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
-        "unverifiable": false
+        "unverifiable": false,
+        "sampleSize": 179
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 19,
+        "value": 21,
         "threshold": 1,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
-        "unverifiable": false
+        "unverifiable": false,
+        "sampleSize": null
       },
       {
         "level": 6,
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0,
+        "value": 0.011428571428571429,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
-        "unverifiable": false
+        "unverifiable": false,
+        "sampleSize": 179
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0,
+        "value": 0.017142857142857144,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
-        "unverifiable": false
+        "unverifiable": false,
+        "sampleSize": 179
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0,
-      "sample_size": 99,
-      "flaky_shas": [],
-      "measured_at": "2026-09-22T17:47:55.373Z"
+      "rate_30d": 0.0029411764705882353,
+      "sample_size": 340,
+      "flaky_shas": ["fe04834dcb1ad16eb303458caada749accc63f01"],
+      "insufficient_data": false,
+      "oldest_record_at": "2026-09-03T00:12:17.000Z",
+      "measured_at": "2026-10-03T09:45:31.233Z"
     },
     "agent_pr": {
-      "sample_size": 63,
-      "merged_count": 62,
+      "sample_size": 179,
+      "merged_count": 175,
       "closed_unmerged_count": 1,
-      "open_count": 0,
-      "acceptance_rate_30d": 0.9841269841269841,
-      "revert_rate_30d": 0,
-      "median_time_to_merge_hours": 0.3038888888888889,
-      "human_touch_ratio": 0,
+      "open_count": 3,
+      "acceptance_rate_30d": 0.9943181818181818,
+      "revert_rate_30d": 0.011428571428571429,
+      "revert_detection_unavailable_reason": null,
+      "median_time_to_merge_hours": 0.3819444444444444,
+      "human_touch_ratio": 0.017142857142857144,
       "insufficient_data": false,
+      "oldest_record_at": "2026-08-27T01:07:44.000Z",
       "recent_changes": [
         {
-          "number": 5679,
-          "title": "test(agent): cover verified-webhook's fail-closed branches",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5679",
-          "mergedAt": "2026-09-22T17:26:26Z"
+          "number": 5994,
+          "title": "feat(marketing): flag low-sample-size PR categories in ai-health normalizer",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5994",
+          "mergedAt": "2026-10-03T01:52:51Z"
         },
         {
-          "number": 5668,
-          "title": "fix(reservations): scope reminder job-worker handlers to their venue context",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5668",
-          "mergedAt": "2026-09-22T04:39:49Z"
+          "number": 5991,
+          "title": "fix(deps): widen basic-ftp pnpm override to cover GHSA-c475-qrg2-pj4r",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5991",
+          "mergedAt": "2026-10-03T01:03:10Z"
         },
         {
-          "number": 5658,
-          "title": "chore(metrics): optimize-implement-queue 2026-09-22",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5658",
-          "mergedAt": "2026-09-22T01:36:43Z"
+          "number": 5949,
+          "title": "chore(mutation-testing): pin vitest via workspace catalog instead of a stale hardcoded version (mbe-daily-issue #5826)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5949",
+          "mergedAt": "2026-10-01T15:20:52Z"
         },
         {
-          "number": 5657,
-          "title": "chore(metrics): progress-tracker 2026-09-22",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5657",
-          "mergedAt": "2026-09-22T00:49:10Z"
+          "number": 5936,
+          "title": "feat(marketing): add prCategoryMetrics parsing to ai-health.ts",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5936",
+          "mergedAt": "2026-10-01T01:14:14Z"
         },
         {
-          "number": 5654,
-          "title": "chore(metrics): queue telemetry 2026-09-21 (issue #5614)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5654",
-          "mergedAt": "2026-09-21T22:45:50Z"
+          "number": 5919,
+          "title": "fix(routines): close routine-liveness tracking issues on dark→alive recovery (mbe-daily-issue #5817)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5919",
+          "mergedAt": "2026-09-30T15:01:21Z"
         },
         {
-          "number": 5643,
-          "title": "fix: repair mutation-testing infra failure (0% score)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5643",
-          "mergedAt": "2026-09-21T22:20:19Z"
+          "number": 5914,
+          "title": "fix(eval): run the weekly eval checkpoint through the claude-cli adapter and score what it ran",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5914",
+          "mergedAt": "2026-09-30T06:47:29Z"
         },
         {
-          "number": 5641,
-          "title": "chore(metrics): queue telemetry 2026-09-21",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5641",
-          "mergedAt": "2026-09-21T21:22:50Z"
+          "number": 5909,
+          "title": "test(agent): assert 429 on all 5 rate-limited routes",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5909",
+          "mergedAt": "2026-09-30T01:09:54Z"
         },
         {
-          "number": 5639,
-          "title": "fix(routines): give mbe-night and mbe-midday distinct PR-title signatures",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5639",
-          "mergedAt": "2026-09-21T21:02:57Z"
+          "number": 5908,
+          "title": "feat(api-client): add listByVenueAndDate to DepositsClient",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5908",
+          "mergedAt": "2026-09-30T01:05:19Z"
         },
         {
-          "number": 5633,
-          "title": "chore(metrics): learning-loop 2026-09-21",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5633",
-          "mergedAt": "2026-09-21T18:35:38Z"
+          "number": 5893,
+          "title": "fix(metrics): gate stale-human-blocked candidates on human touch, not updatedAt (mbe-daily-issue #5816)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5893",
+          "mergedAt": "2026-09-29T15:34:21Z"
         },
         {
-          "number": 5583,
-          "title": "fix(reservations): close ADR-026's two cross-venue reads so the RLS FORCE flip becomes decidable",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5583",
-          "mergedAt": "2026-09-21T13:20:26Z"
+          "number": 5884,
+          "title": "feat(reservations): add GET /api/v1/deposits?venueId=&date= list endpoint",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5884",
+          "mergedAt": "2026-09-29T01:22:07Z"
         },
         {
-          "number": 5582,
-          "title": "feat(marketing): chart ACMM level and queue-efficiency trends on the AI-health page",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5582",
-          "mergedAt": "2026-09-21T07:04:10Z"
+          "number": 5883,
+          "title": "docs(gen): regenerate template-coverage-audit against current state",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5883",
+          "mergedAt": "2026-09-29T00:43:49Z"
         },
         {
-          "number": 5560,
-          "title": "fix(sentry-triage): deduplicate on the Sentry issue ID, across every issue state",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5560",
-          "mergedAt": "2026-09-21T01:47:48Z"
+          "number": 5876,
+          "title": "fix(acmm): upstream-parity gating set, non-gating local source, detection that checks the mechanism",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5876",
+          "mergedAt": "2026-09-28T21:48:07Z"
         },
         {
-          "number": 5548,
-          "title": "feat(gen): fifth Template Gallery batch — three templates closing ranks 1-3",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5548",
-          "mergedAt": "2026-09-21T00:56:13Z"
+          "number": 5830,
+          "title": "security(reservations): cap guest self-service partySize and enforce table capacity (mbe-daily-issue #5807)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5830",
+          "mergedAt": "2026-09-28T15:07:09Z"
         },
         {
-          "number": 5550,
-          "title": "fix(metrics): give the two silent collectors a home, and a self-check that can fail",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5550",
-          "mergedAt": "2026-09-21T00:22:30Z"
+          "number": 5821,
+          "title": "fix(security): explicitly register ajv-formats instead of relying on an undocumented Fastify default",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5821",
+          "mergedAt": "2026-09-28T01:24:54Z"
         },
         {
-          "number": 5549,
-          "title": "fix(hospitality-e2e): scope volatile locators, emit RFC 7807 error mocks, re-date the mock clock",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5549",
-          "mergedAt": "2026-09-21T00:21:30Z"
+          "number": 5820,
+          "title": "fix(security): stop leaking raw exception messages via classifyError's generic fallback",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5820",
+          "mergedAt": "2026-09-28T01:04:21Z"
         },
         {
-          "number": 5544,
-          "title": "docs(fixes): design note for reviving the two silent metrics collectors",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5544",
-          "mergedAt": "2026-09-20T20:55:41Z"
+          "number": 5819,
+          "title": "fix(ci): detect scheduled workflows that never ran, not just failure streaks",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5819",
+          "mergedAt": "2026-09-28T01:01:09Z"
         },
         {
-          "number": 5540,
-          "title": "chore(metrics): learning-loop 2026-09-20",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5540",
-          "mergedAt": "2026-09-20T19:53:55Z"
+          "number": 5809,
+          "title": "fix(infra): close check:boundaries coverage gap for 3 workspace packages (mbe-daily-issue #5790)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5809",
+          "mergedAt": "2026-09-27T14:51:57Z"
         },
         {
-          "number": 5511,
-          "title": "fix(hospitality): restore focus to captured opener on WalkInDialog dismissal",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5511",
-          "mergedAt": "2026-09-20T05:35:53Z"
+          "number": 5800,
+          "title": "fix(ci): pin .claude/**/*.md explicitly in check:prettier",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5800",
+          "mergedAt": "2026-09-27T01:10:25Z"
         },
         {
-          "number": 5510,
-          "title": "fix(rialto-web): raise vitest testTimeout to stop recurring nightly-compliance flake",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5510",
-          "mergedAt": "2026-09-20T05:27:12Z"
+          "number": 5799,
+          "title": "fix(routines): document #5603 mbe-evening dark-alert investigation",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5799",
+          "mergedAt": "2026-09-27T01:01:25Z"
         },
         {
-          "number": 5508,
-          "title": "chore(metrics): optimize-implement-queue 2026-09-20",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5508",
-          "mergedAt": "2026-09-20T03:23:15Z"
+          "number": 5781,
+          "title": "fix(reservations): scope the public booking funnel and token-addressed routes under RLS (#5369 PR 8)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5781",
+          "mergedAt": "2026-09-27T00:41:11Z"
         }
       ],
-      "measured_at": "2026-09-22T17:47:55.373Z"
+      "measured_at": "2026-10-03T09:45:31.233Z"
     },
     "evals": {
       "n": 37,
@@ -1610,8 +1402,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 19,
-      "measured_at": "2026-09-28T16:07:00.400Z"
+      "history_count": 21,
+      "measured_at": "2026-10-03T09:45:31.233Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
