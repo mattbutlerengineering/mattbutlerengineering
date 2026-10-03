@@ -2613,6 +2613,7 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — budgets carry over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
 **Skill proposals:** 0 — today is the configured Friday extraction day, but `.claude/session-logs/` has 0 files (matches the `sessionLogs` sensor's `0 sessions (7d)`), so there is nothing to mine a pattern from.
 **Threshold notes:** False-positive rate computed by hand via `gh api repos/.../issues?labels=<sensor-label>&since=2026-09-02` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 196 closed in the last 30 days, 168 `completed` / 16 `duplicate` / 12 `not_planned` → 14.3% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (excluding `skip` rows, per above) is 100% (11/11) but on a thin, ACMM-only sample — Lighthouse/Sentry/mutation/flaky/e2e sensors have been unavailable in this cloud checkout for multiple consecutive runs now, so effectiveness here isn't yet a reliable signal across sensor categories. No threshold changes applied this run.
+
 ## 2026-10-02 — mbe-ui-quality
 
 State: `source: branch` (`ui-quality/ledger` @ `023942f9`, merged `origin/main` `1a6082f4`, 0 conflicts resolved).
