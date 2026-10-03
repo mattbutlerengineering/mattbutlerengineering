@@ -113,3 +113,130 @@ describe("deploy-static.yml passes the Sentry build environment to every static 
     expect(absent, `${app} build step is missing: ${absent.join(", ")}`).toEqual([]);
   });
 });
+
+/**
+ * The value `step` assigns to `key`, trimmed, or null when it assigns none.
+ *
+ * Same parsing contract as `assignsEnv` — comment lines skipped, key compared
+ * by exact equality, never interpolated into a regex (CodeQL
+ * js/incomplete-sanitization) — but returns the right-hand side so a test can
+ * pin *which* secret or literal an app gets, not merely that it gets one.
+ */
+function envValue(step, key) {
+  const match = step
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .map((line) => /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(\S.*)$/.exec(line))
+    .find((parsed) => parsed?.[1] === key);
+  return match ? match[2].trim() : null;
+}
+
+/**
+ * Which Sentry project each static app reports to, and uploads source maps to.
+ *
+ * Presence alone is not enough: the presence checks above passed for months
+ * while marketing and rialto-web inlined the hospitality project's DSN from the
+ * shared `VITE_SENTRY_DSN` secret, so their errors were triaged under
+ * `hospitality` and the `mattbutlerengineering` project (where
+ * scripts/sentry-heartbeat-targets.mjs expects them) saw zero events
+ * (maintenance:static-sentry-dsn-routing, alert #5941). One `SENTRY_PROJECT`
+ * value also cannot be right for two different projects' source maps.
+ *
+ * The project slug is a literal, not a secret: a slug is not a credential, and
+ * the org slug is already a literal in scripts/sentry-heartbeat.mjs.
+ */
+const EXPECTED_SENTRY_ROUTING = {
+  marketing: {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN_MBE }}",
+    SENTRY_PROJECT: "mattbutlerengineering",
+  },
+  "rialto-web": {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN_MBE }}",
+    SENTRY_PROJECT: "mattbutlerengineering",
+  },
+  hospitality: {
+    VITE_SENTRY_DSN: "${{ secrets.VITE_SENTRY_DSN }}",
+    SENTRY_PROJECT: "${{ secrets.SENTRY_PROJECT }}",
+  },
+};
+
+describe("deploy-static.yml routes each static app to its own Sentry project", () => {
+  it("pins routing for exactly the apps in STATIC_APPS", () => {
+    expect(Object.keys(EXPECTED_SENTRY_ROUTING).sort()).toEqual([...STATIC_APPS].sort());
+  });
+
+  it.each(STATIC_APPS)("routes the %s build to its expected DSN and project", (app) => {
+    const step = buildStepFor(WORKFLOW, app);
+    expect(step).not.toBeNull();
+
+    const wrong = Object.entries(EXPECTED_SENTRY_ROUTING[app])
+      .map(([key, expected]) => ({ key, expected, actual: envValue(step, key) }))
+      .filter(({ expected, actual }) => actual !== expected)
+      .map(({ key, expected, actual }) => `${key} is ${actual ?? "(unset)"}, expected ${expected}`);
+
+    expect(wrong, `${app} build step: ${wrong.join("; ")}`).toEqual([]);
+  });
+});
+
+/**
+ * The text of one top-level job (`  <jobId>:` under `jobs:`), or null.
+ *
+ * Needed so the guard assertion below is scoped per job: a guard step in the
+ * marketing job does nothing for the rialto-web build, and a whole-file search
+ * would pass on the strength of the wrong job's step.
+ */
+function jobBlock(yaml, jobId) {
+  const lines = yaml.split("\n");
+  const start = lines.findIndex((line) => line === `  ${jobId}:`);
+  if (start === -1) return null;
+  const rest = lines.slice(start + 1).findIndex((line) => /^ {2}[A-Za-z0-9_-]+:/.test(line));
+  const end = rest === -1 ? lines.length : start + 1 + rest;
+  return lines.slice(start, end).join("\n");
+}
+
+/**
+ * Does this step run `require-deploy-secrets.mjs` against `secret`, with the
+ * secret actually supplied in the step's env?
+ *
+ * Token comparison on non-comment lines, so a comment that merely mentions the
+ * guard cannot satisfy it.
+ */
+function runsSecretGuard(step, secret) {
+  const invokes = step
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .some((line) => {
+      const tokens = line.trim().split(/\s+/);
+      return tokens.includes("scripts/require-deploy-secrets.mjs") && tokens.includes(secret);
+    });
+  return invokes && envValue(step, secret) === `\${{ secrets.${secret} }}`;
+}
+
+/**
+ * Apps whose build depends on a secret that does not exist until someone
+ * creates it. An absent secret interpolates as "", which builds an SDK that
+ * reports nothing with no error — the silent failure
+ * maintenance:backend-observability-blackout was about. The guard makes that
+ * deploy fail loudly instead.
+ */
+const SECRET_GUARDED_APPS = ["marketing", "rialto-web"];
+
+describe("deploy-static.yml fails closed when VITE_SENTRY_DSN_MBE is absent", () => {
+  it.each(SECRET_GUARDED_APPS)(
+    "deploy-%s runs require-deploy-secrets.mjs ahead of its build",
+    (app) => {
+      const job = jobBlock(WORKFLOW, `deploy-${app}`);
+      expect(job, `job deploy-${app} not found`).not.toBeNull();
+
+      const steps = stepBlocks(job);
+      const guardIndex = steps.findIndex((step) => runsSecretGuard(step, "VITE_SENTRY_DSN_MBE"));
+      const buildIndex = steps.findIndex((step) =>
+        step.includes(`pnpm build --filter=@mbe/${app}`)
+      );
+
+      expect(guardIndex, `deploy-${app} has no VITE_SENTRY_DSN_MBE guard step`).not.toBe(-1);
+      expect(buildIndex, `deploy-${app} has no build step`).not.toBe(-1);
+      expect(guardIndex, `deploy-${app} guard runs after its build`).toBeLessThan(buildIndex);
+    }
+  );
+});
