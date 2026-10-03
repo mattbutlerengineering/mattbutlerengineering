@@ -1560,11 +1560,6 @@
       export const cleanupWorktreesCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/compound.ts">
-    <item priority="high">
-      export const compoundCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/generate.ts">
     <item priority="medium">
       function writeFile(filePath: string, content: string): void { /* ... */ }
