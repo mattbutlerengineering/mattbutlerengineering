@@ -3744,10 +3744,15 @@
       }
     </item>
     <item priority="high">
-      type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+      type ReservationStats = Omit<
+        DashboardStats,
+        "waitlistCount" | "longestWaitM...;
     </item>
     <item priority="high">
       type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="high">
+      type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposu...;
     </item>
     <item priority="medium">
       function getTodayString(): string { /* ... */ }
@@ -3762,6 +3767,9 @@
     </item>
     <item priority="high">
       export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeDepositStats(deposits: readonly Deposit[]): DepositStats { /* ... */ }
     </item>
     <item priority="high">
       export function useDashboardStatsQuery(): UseDashboardStatsQueryResult { /* ... */ }
