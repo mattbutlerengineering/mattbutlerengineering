@@ -84,6 +84,11 @@ export default defineConfig({
       authToken: process.env.SENTRY_AUTH_TOKEN,
       disable: !process.env.SENTRY_AUTH_TOKEN,
       sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.map"] },
+      // Without this the plugin only logs a failed upload and the build passes,
+      // shipping unsymbolicated bundles silently. Only runs when enabled (token set).
+      errorHandler: (err) => {
+        throw err;
+      },
     }),
   ],
   build: {
