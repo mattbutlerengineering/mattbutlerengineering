@@ -2441,6 +2441,8 @@
       cancellationTrend: "up" | "down" | "neutral";
       waitlistCount: number;
       longestWaitMinutes: number;
+      depositAtRiskCount: number;
+      noShowExposureCents: number;
     }
     export interface UseDashboardStatsQueryResult {
       reservations: readonly Reservation[];
@@ -2449,8 +2451,12 @@
       error: Error | null;
       refetch: () => void;
     }
-    type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    type ReservationStats = Omit<
+      DashboardStats,
+      "waitlistCount" | "longestWaitMinutes" | "depositAtRiskCount" | "noShowExposureCents"
+    >;
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
       return toDateString(new Date());
     }
@@ -2490,6 +2496,17 @@
         longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
       };
     }
+    export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
+      if (deposits.length === 0) return FALLBACK_DEPOSIT_STATS;
+    
+      return {
+        depositAtRiskCount: deposits.filter((d) => d.status === "pending" || d.status === "held")
+          .length,
+        noShowExposureCents: deposits
+          .filter((d) => d.status === "forfeited")
+          .reduce((sum, d) => sum + d.amountCents, 0),
+      };
+    }
     export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
       const { selectedVenueId } = useVenue();
       const api = useApiClient();
@@ -2513,12 +2530,20 @@
         enabled: Boolean(selectedVenueId),
       });
     
+      const depositsQuery = useQuery({
+        queryKey: [DEPOSITS_QUERY_KEY, { date: today, venueId: selectedVenueId }],
+        queryFn: () => api.deposits.listByVenueAndDate(selectedVenueId ?? "", today),
+        enabled: Boolean(selectedVenueId),
+      });
+    
       const reservations = reservationsQuery.data ?? [];
       const waitlistEntries = waitlistQuery.data ?? [];
+      const deposits = depositsQuery.data ?? [];
     
       const stats: DashboardStats = {
         ...computeStatsFromReservations(reservations),
         ...computeWaitlistStats(waitlistEntries),
+        ...computeDepositStats(deposits),
       };
     
       return {
