@@ -93,3 +93,10 @@ Repo gotchas apply:
 
 Use Sentry MCP (org `mattbutlerengineering`, region `https://us.sentry.io`) for read-only
 measurement. There is no local `SENTRY_AUTH_TOKEN`.
+
+## Decision (Matt, 2026-10-04, after Verify)
+
+Upload failure policy: **fail the deploy** (keep the rethrowing `errorHandler`). Matt accepted
+the cost explicitly: a Sentry SaaS outage or expired/under-scoped token blocks all three static
+deploys, hotfixes included, until fixed or the `errorHandler` line is reverted. No bypass input.
+Review should treat this as decided, not as an open finding.
