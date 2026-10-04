@@ -11,6 +11,298 @@ no retro.
 
 ---
 
+## 2026-10-04
+
+Window: **2026-09-27 → 2026-10-04**. Sources: `routine-liveness.yml` run
+`37207272410` (2026-10-04T13:54Z) and its job log, GitHub REST via `gh api`
+(PR/issue/workflow-run endpoints — GraphQL is 403 here, see Throughput), the
+GitHub MCP tool surface, `scripts/routine-manifest.mjs`,
+`scripts/scheduled-workflow-health.mjs`, `scripts/collect-queue-efficiency.mjs`,
+`packages/gh-client/src/transport.ts`, `.github/workflows/revert-watchdog.yml`,
+`metrics/process-metrics.jsonl`, `metrics/queue-telemetry.jsonl`,
+`.claude/improvement-loop/log.md`, and the working tree at `d5196d3`.
+
+**This was not a quiet week.** 106 PRs merged (211 last week). **117 issues
+filed, 50 closed — net +67**, against net −59 last week. The `ready` queue went
+from **6 to 60**. Median PR open→merge was **13.2 min** (faster than last week's
+23.4), so the factory's _merge_ path is healthy; what broke is the _claim_ path.
+`/implement-queue` claimed **zero** issues on both 2026-10-02 and 2026-10-04
+because Phase 0 found `main` red — and the numeric detector that exists to catch
+exactly this had been blind since 2026-09-24.
+
+The week's findings are causally linked, not three separate stories: a GraphQL
+block silently disabled the queue sensor, so a four-measurement queue explosion
+raised no alarm, while two CI defects — one of them a one-line revert bug — kept
+main red long enough to stop the queue twice.
+
+### Routine liveness
+
+`routine-liveness.yml` ran every day in the window (run numbers 5–12: 09-27,
+09-28, 09-29, 09-30, 10-01, 10-02, 10-03, 10-04), all `success`, no gaps.
+Verdicts are read from run `37207272410`, not re-derived:
+
+| Verdict              | Routines                                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **alive (8)**        | `mbe-evening`, `mbe-auditor`, `mbe-daily-issue`, `mbe-learning-loop`, `mbe-weekly-improve`, `mbe-doc-rot`, `mbe-weekly-retro`, `mbe-ui-quality` |
+| **unverifiable (3)** | `mbe-night` (#5604), `mbe-midday` (#5608), `mbe-monthly-meta-audit` (#5612)                                                                     |
+| **dark (1)**         | `mbe-morning` (#5955)                                                                                                                           |
+
+The GitHub Actions half is entirely green: `drift-fix` 8/8, `audit-sweep` 1/1,
+`metrics-collectors` 8/8, `scheduled-workflow-health` 8/8,
+`automation-pr-rescue` 38/38, `routine-liveness` 9/9.
+
+**`mbe-morning`'s `dark` verdict is a false positive, and the fix already exists
+in the manifest.** #5857 (merged 09-28T22:00:37Z) converted the ACMM daily audit
+from one-PR-per-day to a single long-lived PR — #5881, open since
+09-28T22:07:37Z — whose one commit is amended on every fire. That commit is
+`6dff1e94 chore(acmm): daily audit 2026-10-04`, authored
+**2026-10-04T10:28:53Z**: the routine fired today. `mbe-morning`'s manifest
+signature dates artifacts by `mergedAt ?? createdAt`, so a still-open PR reads as
+2026-09-28 forever and ages past the 2-day dark threshold. `ROUTINE_MANIFEST`
+already carries the exact remedy — `observe: "latest-matching-commit"`, added for
+`mbe-ui-quality`, which has the identical shape. Diagnosis posted to #5955 rather
+than filed again. The general lesson is worth more than the fix: **changing a
+routine's artifact shape silently invalidates its liveness signature, and the
+detector reports that as `dark` — indistinguishable from the routine being dead.**
+
+**`mbe-monthly-meta-audit` is alive in fact and `unverifiable` only by
+convention.** It fired on 10-01 and opened PR #5950 (`tier:critical`, still
+unreviewed 3 days later). Its signature-flip PR #5980 has sat `needs-review`
+since 10-02. Two of the three `unverifiable` verdicts clear the moment #5980
+merges — no code is missing, only a review.
+
+**#5954 is a confirmed false positive and should not have reached the queue.** It
+claims `Auto-Rollback on Agent Regression` "missed its scheduled run", citing a
+last run of 2026-09-07T15:53:10Z (575.39h). Measured: `event=schedule` runs exist
+on **09-14, 09-21 and 09-28**, all `success` — 15 consecutive Mondays with no gap
+— and the next is not due until 10-05. `estimateCronPeriodDays` resolves
+`17 10 * * 1` to 7 correctly (the body says "~7-day"), so the defect is in
+`lastRunAt`, not the period, and `getScheduledRuns` does pass `--event schedule`
+server-side. The mechanism that made it skip three newer runs is **not**
+established from this evidence. Worth noting for whoever picks it up that
+`auto-rollback.yml` is the only scheduled workflow in the fleet that also takes a
+high-volume `workflow_run` trigger (its last 10 runs are all
+`workflow_run`/`skipped`), which would explain why it alone is affected — a
+hypothesis, not a conclusion. Two findings from this detector family were false
+positives this week (#5954, #5955); each burns a worker.
+
+### Blockers
+
+`agent-failed`, `agent-skip` and `stealable` are all **0**. The human-blocked set
+is small but old, and one item is an unflipped label rather than a real decision.
+
+| Issue        | Label(s)                   | Untouched                      | The one thing a human must do                                                                           |
+| ------------ | -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| #4670        | `ready-for-human`          | bot write 10-03; created 08-29 | Authorize the preview-Worker reclamation sweep — now **226** leaked Workers, up from 199                |
+| #5369        | `needs-review`, `security` | **9 days** (since 09-25)       | Pick the Postgres RLS venue-backstop approach (separate owner role vs. app-level scoping)               |
+| #5873, #5874 | `blocked`                  | **6 days** (since 09-28)       | Flip `remembered-on-arrival` M5.1/M5.2 `blocked`→`ready`, or state the blocker — M1–M4 all closed 09-28 |
+| #5879        | PR, "needs Matt"           | **6 days** (since 09-28)       | Approve or reject classifying ACMM daily-audit data as `tier:trivial`                                   |
+
+**Human review is the throughput ceiling, measurably.** Of 17 open PRs, **11
+carry a tier label that blocks auto-merge** (4 `tier:critical`, 2
+`tier:sensitive`, 5 `tier:standard`). The oldest are #5845 and #5848 (both 09-28,
+6 days). #5848 is the chaos-agent's deliberately-seeded synthetic bug — the audit
+loop was meant to catch it and the PR then be closed; it is still open after 6
+days, which means the drill never completed.
+
+### Friction
+
+- **106 merged**; median open→merge **13.2 min**, mean 221.9 min; **76.4%**
+  (81/106) merged inside an hour; **8** took over 24h.
+- **Slowest: #5964 `chore: record review-burden metrics`, 45.9h**
+  (10-01T17:26 → 10-03T15:22). Nothing was wrong with the PR. It is a
+  `tier:trivial`/`auto-merge` automation PR whose life spanned two red-main
+  incidents (#5949 red from 10-01T15:20 until the #5960 revert merged
+  10-02T00:15; the dep-audit break 10-03T01:03→01:36). It merged 16 minutes
+  before the third break. **Red main — not review latency, not CI duration — is
+  what made the slowest PR slow**, the same cause that stopped the queue twice.
+- **No `update-branch` churn observed**, consistent with `main` not being
+  `strict`. `automation-pr-rescue` ran 38/38 green with nothing to rescue; the N²
+  stacking tax ADR-016/ADR-023 worried about did not materialise this week.
+- **18 CI runs parked at `action_required`** — the #3684 approval trap, still live
+  because `AUTOMATION_PAT` is unset.
+- **3 revert PRs**: #5934 (reverted #5931, merged), #5960 (reverted #5949,
+  merged), #6012 (reverted #6009 — **closed unmerged because it reverted the
+  wrong commit**, cause E below). Closing it rather than merging it was correct.
+- Two dependency fixes were opened twice with the duplicate left open: #5966
+  (superseded by merged #5991) and #5999 (superseded by merged #5996).
+
+### Recurring causes
+
+`ci.yml` on `main`: **5 failures in 39 non-cancelled runs — 87.2% pass**, down
+from 98.8% last week. Grouped by cause, not count:
+
+- **A. Lockfile cold-cache tipping a 5s-default test suite — real, documented
+  class, undocumented location.** Run `37133983642` (#6009, Sentry v11,
+  10-03T15:38): `Test (Node 22)` timed out in
+  `scripts/__tests__/visual-defect-reproduction.test.mjs`, a visual-diff test
+  with no relationship to Sentry. Lint, Typecheck, Build, Integrity and
+  Architecture Audit all passed and 4752/4753 other tests passed. #6009 touches
+  `pnpm-lock.yaml`, a turbo `globalDependencies` entry, so the run was cold and
+  fully parallel — exactly the class gotchas § Build/pnpm/turbo describes. Its
+  prescribed fix (`testTimeout: 15000`) is applied to `tools/cli` and the service
+  configs, but the **root `vitest.config.ts` declares no `testTimeout` at all**,
+  so every `scripts/__tests__/` file runs at vitest's 5s default. Main was red
+  10-03T15:38 → 10-04T05:09 (**13.5h**) and the 10-04 queue iteration claimed
+  nothing. Third recorded instance of this class on a third suite (#3588
+  `tools/cli`, the `buildApp()` route tests, now `scripts/__tests__/`).
+- **B. Live advisory-DB churn — documented, handled correctly, not a defect.** Run
+  `37084582285` (10-03T01:03): `pnpm audit` surfaced GHSA-ch52-4w7c-c8xp
+  (http-cache-semantics) — 10 vulnerabilities, 1 high — reddening Build with zero
+  code change. #5996 landed an `ignoreGhsas` entry at 01:36, 33 minutes later.
+  Textbook.
+- **C. #5949 mutation-testing vitest pin — real defect, reverted.** Red
+  10-01T15:20; revert #5960 merged 10-02T00:15 (its own run `36945050307` was
+  also red); RCA issue #5969 filed and still `ready`.
+- **D. ui-quality loop feature PR** — run `36790124693` (09-30), reverted by
+  #5934, re-landed cleanly.
+- **E. The revert watchdog reverts the wrong commit — new, undocumented,
+  proven.** `.github/workflows/revert-watchdog.yml` (~lines 150-156) names the
+  branch for the culprit (`revert-broken-main-$SHA`) and titles the PR
+  `revert: #$PR`, then runs **`git revert --no-edit HEAD`**. The checkout step
+  passes no `ref:`, so `HEAD` is main's tip when the workflow runs, not the
+  culprit. #6012 is the proof: branch `revert-broken-main-163e72421…`, title
+  "revert: #6009", and a diff of **1 changed file, 1 deletion** — a heartbeat row
+  in `metrics/production-health/2026-10-03.jsonl`. #5934 and #5960 looked correct
+  only because the culprit still happened to be `HEAD`. The exposure window is
+  the full CI duration, and the production-health heartbeat alone pushes to main
+  several times a day. `fetch-depth: 0` is already set, so
+  `git revert --no-edit "$SHA"` is a one-line fix. It fails in the most dangerous
+  direction: a plausible `priority:critical` revert PR that does nothing.
+- **F. 38% of PR-branch CI failures are self-inflicted phantoms — undocumented
+  variant.** Of 60 failed `pull_request` ci.yml runs, **23 are on one branch**,
+  `automation/production-feedback` (29 runs in the window, every one `failure`
+  with **0 jobs**). The head SHA carries 29 green check runs including
+  `CI Gate: success`, and the PRs merge normally: the producer opens the PR,
+  dispatches CI, auto-merges, then the next fire re-pushes the branch, orphaning
+  the still-initialising `pull_request` run. Same orphaned-run mechanism gotchas
+  records for #4512, but no entry covers the long-lived-automation-branch
+  variant. `ciHealth` is immune (scoped to `--branch main` since #4538); a human
+  or agent eyeballing PR CI health is not.
+- **G. GraphQL 403 degraded the whole measurement layer** — see Throughput.
+
+**Cross-check against `.claude/rules/gotchas.md`:** B and C are documented and
+were handled by the book. **A, E and F are not documented**, and each has bitten
+more than once — A is a known class at an unlisted location, E has mis-targeted
+one revert and will mis-target every future one where main moved on, F recurred
+29 times in 7 days. These three are `/gotcha-harvest` material.
+
+### Throughput
+
+**The backlog is growing, decisively.** 117 filed vs 50 closed is **net +67**,
+against **net −59** last week. The `ready` queue read **60** at the time of
+writing versus **6** at the last retro, and `.claude/improvement-loop/log.md`
+records four consecutive same-source measurements of growth: **24 → 40 (10-02) →
+56 (10-04) → 60**. This is not a trend manufactured from two points.
+
+Filing rate is not the problem; the drain stopped. `/implement-queue` claimed
+**0** issues on 10-02 and **0** on 10-04 — Phase 0 pre-flight found `main` red
+and correctly declined to dispatch workers. The 10-04 iteration ended _without_
+main fixed, because the session's token lacks `actions:write`
+(`rerun_failed_jobs` and `run_workflow` both 403) and it could not re-run the
+timed-out job to confirm the flake. `metrics/queue-telemetry.jsonl` corroborates
+independently: its newest rows carry `claimed_at` of **2026-09-30**.
+
+**The detector built to catch this was blind for the entire window, and the root
+cause is one line of transport selection.** `metrics/process-metrics.jsonl` last
+recorded `queueEfficiency` as `available: true` on **2026-09-24**. Every run
+since reports `available: false` — `credential_rejected` on 09-27, 09-28, 09-29
+and 09-30, then `query_error` on 10-04, with no row at all for 10-01, 10-02 or
+10-03.
+
+Measured in this session, end to end:
+
+1. `packages/gh-client/src/transport.ts` selects its transport on **`gh` binary
+   presence alone**, once per client, with no fallback:
+   `return probe() ? createExecRunner(opts) : createRestRunner(opts);`
+2. `gh` **is** present in cloud sessions (`/usr/local/bin/gh`), so the exec path
+   always wins and the REST path is never reached.
+3. `scripts/collect-queue-efficiency.mjs` calls `ghClient.pr.list([...])` and
+   `ghClient.pr.view(prNumber, ["--json", "commits"])`. Both `gh pr list --json`
+   and `gh pr view --json` go through GraphQL, which answers **`HTTP 403: GitHub
+GraphQL is not available from Claude Code sessions; use the REST API`** —
+   reproduced directly this run.
+4. `gh api repos/mattbutlerengineering/mattbutlerengineering/...` succeeds in the
+   same session; every PR and workflow-run figure in this retro was gathered that
+   way. gh-client already ships a complete REST layer (`rest-pr-ops.ts`,
+   `rest-search.ts`, `rest-paginate.ts`) that nothing can currently reach.
+5. `classifyUnavailableReason` maps the 403 to **`credential_rejected`**, which
+   reads as a transient "token needs refreshing" problem. That mislabel is why a
+   permanent environmental constraint sat ten days without diagnosis. A
+   wrong-but-plausible label is worse than `unknown`.
+
+The same cause took out the `issues`, `issueFeedback` and `prCategoryMetrics`
+sensors, plus `verify-fixes.mjs` and `collect-ai-issue-feedback.mjs`, in the
+10-04 learning-loop run (9 of 17 sensors available), and it is the mechanism
+behind the `mbe issue transition` label-machine failures gotchas § Claude Code
+Remote records. #5958 already tracks correcting the _documentation_; the code fix
+is separate and is this week's highest-leverage change.
+
+_Data honesty:_ `process-metrics.jsonl` holds 46 rows and `queueEfficiency` is
+unavailable in 29 of its 44 readings, so no composite-efficiency trend is drawn
+from it here. The queue-depth trend rests on four same-source measurements plus a
+live count; the filed/closed and PR-duration figures come from GitHub.
+
+### Top 3 changes
+
+1. **Make `gh-client` fall back to REST when the exec path hits a GraphQL 403,
+   instead of choosing transport on binary presence.** One function, and it
+   restores `queueEfficiency`, `issues`, `issueFeedback`, `prCategoryMetrics`,
+   `verify-fixes.mjs`, `collect-ai-issue-feedback.mjs` and the
+   `ready`→`in-progress`→`has-pr` label machine at once. Without it the factory
+   cannot see its own queue — which is precisely how a 6→60 backlog went
+   un-alerted. Filed as **#6039**.
+2. **Revert the culprit SHA, not `HEAD`, in `revert-watchdog.yml`.** A one-line
+   change to the most time-critical automation in the repo, which today reverts
+   the wrong commit whenever main has moved on — i.e. exactly when a revert
+   matters. Filed as **#6040**.
+3. **Give `scripts/__tests__/` a non-default `testTimeout`.** The 10-03 break cost
+   13.5 hours of red main and two zero-claim queue iterations, from a documented
+   failure class whose documented fix had simply never been applied to this
+   directory. Filed as **#6041**.
+
+Deliberately _not_ in the top 3 and deliberately not re-filed: the `mbe-morning`
+signature fix (diagnosis posted to the existing #5955), #5954's false positive,
+and the `automation/production-feedback` phantom runs — the last two belong in a
+`/gotcha-harvest` pass alongside cause F.
+
+### Escalations
+
+Only a human can do these. None is filed as `ready`.
+
+1. **Grant cloud sessions `actions:write`, or decide against it.** The 10-04 queue
+   iteration ended with main still red purely because it got 403 on
+   `rerun_failed_jobs`/`run_workflow` and could not re-run one timed-out job.
+   This is the difference between a self-healing loop and one that waits for you.
+2. **Set `AUTOMATION_PAT` as a repo secret** (`docs/SECRETS.md`). 18 runs parked
+   at `action_required` this week; standing since #3684.
+3. **#4670 — authorize the orphaned-resource sweep.** 226 leaked preview Workers,
+   up from 199. The sweep is `workflow_dispatch` and dry-run by default.
+4. **#5369 — choose the Postgres RLS venue-backstop approach.** Security,
+   untouched 9 days.
+5. **#5873/#5874 — flip `remembered-on-arrival` M5.1/M5.2 to `ready`, or say what
+   still blocks them.** M1–M4 all closed 09-28; M5 has waited 6 days on a label,
+   not a decision.
+6. **Review three stuck routine PRs: #5950, #5980, #5879.** Merging #5980 alone
+   clears two of the three `unverifiable` liveness verdicts.
+7. **Update the live RemoteTrigger prompts at claude.ai** for `mbe-night`,
+   `mbe-midday` and `mbe-monthly-meta-audit` so their PR titles match
+   `docs/routines/*.md` (#5604/#5608/#5612). Carried from last week.
+8. **Label ≥10 pairs in `docs/ui-quality/calibration.json`.** The calibration
+   stamp has read `stale` since the loop began, so every agent-built taste finding
+   stays suppressed.
+9. **Decide the grouped `production-deps` bump.** Dependabot has re-cut it five
+   times in seven days — #5846 (32 updates) → #5935 (34) → #5961 (35) → #6000
+   (42) → #6013 (41) — each closed unmerged, each re-cut deferring the question
+   again. #5947 (`ready`, filed 10-01: the hospitality JSON Render Vendor chunk is
+   back at 98% of budget 12 days after #5480 restored headroom) is the blocking
+   precondition and is unworked. gotchas § Dependencies called this at "3rd
+   occurrence"; it is now the fifth.
+10. **Close #5999** (duplicate of merged #5996) and **#5848** (the chaos-agent's
+    synthetic-bug PR, open 6 days past its purpose).
+
+---
+
 ## 2026-09-27
 
 Window: **2026-09-20 → 2026-09-27**. Sources: GitHub MCP tool surface (PR/issue
