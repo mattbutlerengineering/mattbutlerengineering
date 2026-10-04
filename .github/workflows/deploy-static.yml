@@ -166,6 +166,15 @@ jobs:
           SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/marketing/dist
+
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/marketing/wrangler.toml
         env:
@@ -217,6 +226,15 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/hospitality/dist
+
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/hospitality/wrangler.toml
         env:
@@ -262,6 +280,15 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/rialto-web/dist
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/rialto-web/wrangler.toml

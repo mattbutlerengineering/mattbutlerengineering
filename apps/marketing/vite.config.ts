@@ -46,6 +46,10 @@ export default defineConfig({
         // to avoid serving old bundles after a deploy.
         globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
         navigateFallback: null,
+        // workbox writes sw.js after sentryVitePlugin has uploaded and deleted
+        // the bundle's maps, so its map would ship and fail
+        // scripts/verify-sentry-sourcemaps.mjs in deploy-static.yml.
+        sourcemap: false,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
