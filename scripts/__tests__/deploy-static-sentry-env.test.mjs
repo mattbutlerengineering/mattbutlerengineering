@@ -240,3 +240,34 @@ describe("deploy-static.yml fails closed when VITE_SENTRY_DSN_MBE is absent", ()
     }
   );
 });
+
+/**
+ * The SENTRY_* variables sentryVitePlugin reads at build time.
+ *
+ * Setting them on the workflow step (asserted above) is not enough. Each build
+ * runs `pnpm build` -> `turbo run build`, and turbo 2 runs in strict env mode:
+ * a variable reaches the task's process only if turbo.json allowlists it. The
+ * build task allowlisted `VITE_*` and `PUBLIC_*` only, so the DSN arrived and
+ * these three were stripped, `disable: !process.env.SENTRY_AUTH_TOKEN` was
+ * true, and the plugin ran as a no-op on every deploy: no debug IDs, no upload,
+ * `.map` files shipped (maintenance:static-sourcemaps-confirm, E1-E4).
+ *
+ * `passThroughEnv`, not `env`: these change a side effect (the upload), not the
+ * bytes in dist/, and `env` would fold the auth token into the task hash.
+ */
+const SENTRY_PLUGIN_ENV = ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"];
+
+describe("turbo.json lets the Sentry plugin env reach the build task", () => {
+  const turbo = JSON.parse(readFileSync(resolve(ROOT, "turbo.json"), "utf8"));
+  const build = turbo.tasks?.build ?? {};
+
+  it.each(SENTRY_PLUGIN_ENV)("passes %s through to the build task", (key) => {
+    const reachable = [...(build.passThroughEnv ?? []), ...(turbo.globalPassThroughEnv ?? [])];
+    expect(reachable, `${key} is filtered out of turbo run build`).toContain(key);
+  });
+
+  it.each(SENTRY_PLUGIN_ENV)("keeps %s out of the build task hash", (key) => {
+    const hashed = [...(build.env ?? []), ...(turbo.globalEnv ?? [])];
+    expect(hashed).not.toContain(key);
+  });
+});
