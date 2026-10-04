@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T00:24:52.544Z",
+  "generated_at": "2026-10-04T18:04:02.698Z",
   "period": {
     "start": "2026-09-27",
     "end": "2026-10-04"
@@ -42,17 +42,17 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.39,
-          "latest": "2026-10-03T15:10:13.799Z",
+          "age_days": 0.09,
+          "latest": "2026-10-04T15:53:03.183Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-03T15:10:13.799Z",
+      "collected_at": "2026-10-04T15:53:03.183Z",
       "window_days": 7,
-      "total_closed_prs": 94,
+      "total_closed_prs": 92,
       "total_reviewers": 1,
       "total_reviews": 1,
       "overall_rubber_stamp_ratio": 0,
@@ -73,32 +73,32 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 13020447,
-      "output_tokens": 38023,
-      "cache_creation_tokens": 248044,
-      "cache_hit_rate": 0.9813,
+      "cache_read_tokens": 931011,
+      "output_tokens": 1348,
+      "cache_creation_tokens": 82419,
+      "cache_hit_rate": 0.9187,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 114,
-          "output_tokens": 38023,
-          "cache_read_tokens": 13020447,
-          "cache_creation_tokens": 248044
+          "input_tokens": 16,
+          "output_tokens": 1348,
+          "cache_read_tokens": 931011,
+          "cache_creation_tokens": 82419
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 22,
+      "completed": 30,
+      "passed": 21,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "conclusion": "",
-        "createdAt": "2026-10-04T00:24:56Z",
-        "name": "Auto-Merge Policy",
-        "status": "in_progress"
+        "conclusion": "success",
+        "createdAt": "2026-10-04T17:59:03Z",
+        "name": "Sentry Triage",
+        "status": "completed"
       }
     },
     "lighthouse": {
@@ -116,17 +116,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 1,
-      "logs_7d": 1,
-      "total_commits_7d": 7,
-      "unique_branches_7d": 1,
-      "branches_7d": ["metrics/progress-tracker-2026-10-04"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.002,
-      "total_lines_added_7d": 686953,
-      "lines_churned_7d": 1169,
+      "total_lines_added_7d": 688959,
+      "lines_churned_7d": 1120,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -138,8 +138,8 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 1064938,
-      "window_shas": 49
+      "total_runs": 968900,
+      "window_shas": 45
     },
     "e2eStability": {
       "available": false
