@@ -2664,3 +2664,41 @@ Observation (not filed — no rubric v1 tell covers it): on mobile (375×812) th
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+## 2026-10-04 (mbe-evening)
+
+### Metrics
+
+| Metric                               | Value                                                                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d-touched, audit+ci-fix)   | 15 audit + 16 ci-fix = 31 (via `since` on `updated_at`, not `created_at` — GraphQL-403 blocks the exact `--json createdAt` form; see note below)                  |
+| Closed (same window, audit+ci-fix)   | 8/15 audit + 7/16 ci-fix = 15/31                                                                                                                                  |
+| Closure Rate                         | ~48% — red (target >80%, same GraphQL-403 caveat)                                                                                                                 |
+| Agent Success                        | n/a this run — 0 issues claimed (Phase 0 consumed the iteration, see Patterns)                                                                                    |
+| CI Pass (main)                       | Red at Phase 0 pre-flight (commit 163e724/#6009, run 37133983642, job "Test (Node 22)" timeout) — **not fixed this iteration**, see Patterns                      |
+| Queue (ready)                        | 56 — deep red (target <5), up from 40 two nights ago (2026-10-02)                                                                                                 |
+| In-progress                          | 0                                                                                                                                                                 |
+| has-pr                               | 0                                                                                                                                                                 |
+| Blocked (agent-failed)               | 0                                                                                                                                                                 |
+| Skipped (agent-skip)                 | 4 (#5895, #5748, #5608, #5604) — not individually reviewed this run, carried over                                                                                 |
+| Daily/7d Spend                       | not measured — `.claude/agent-spend/sessions.jsonl` is empty (0 lines); matches the standing #5885 defect ("still empty N days after #5696 closed"), not re-filed |
+| Reverts (7d, local checkout git log) | 1 merged (`revert: #5949`, #5960, merged 2026-10-02) — tonight's #6012 is open, unmerged, and per Patterns should not be merged as-is                             |
+
+### Patterns
+
+- **Phase 0 pre-flight found main red, and — unlike the 2026-10-02 precedent — did not get fixed this iteration.** Commit `163e72421` (#6009, "bump @sentry/node and @sentry/react to v11") is the named culprit on CI run `37133983642`, but the actual failing job (`Test (Node 22)`) timed out in `scripts/__tests__/visual-defect-reproduction.test.mjs`, a visual-diff test with no relationship to Sentry code. Lint/Typecheck/Build/Architecture-Audit/Integrity/RLS/Migrations all passed on that run; 4752/4753 other tests passed. #6009 does touch `pnpm-lock.yaml` (Sentry version bump), which per the existing gotchas.md § CI entry forces a cold, fully-parallel CI run that has previously tipped marginal-timeout suites — this reads as that same class of flake, not a real regression from the Sentry bump.
+- Could not confirm the flake theory by re-running: this session's GitHub token lacks `actions:write` (`rerun_failed_jobs` and `run_workflow` both returned 403 "Resource not accessible by integration"). Unlike 2026-10-02, this session cannot self-resolve the red-main state.
+- **The auto-opened revert PR (#6012, `revert: #6009`) is broken — its diff does not revert #6009 at all.** It deletes only the last line of `metrics/production-health/2026-10-03.jsonl` (a health-check heartbeat row); none of #6009's Sentry/package.json/pnpm-lock.yaml changes are touched. This is a meaningful contrast with the 2026-10-02 precedent, where the equivalent auto-revert PR (#5960) was verified correct and merged directly. Posted findings on issue #6011 and PR #6012 recommending #6012 be closed without merging (merging it would not fix CI and would destroy a metrics data point for nothing); left both for human resolution rather than guessing at a hand-authored revert or merging a no-op.
+- No issue batch was claimed, no worker was dispatched (Phase 1/2/3 skipped, same posture as 2026-10-02's red-main iteration) — but this time the iteration ends without main having been fixed.
+- Two commits merged onto `main` after the break (`89d5927`, `81da6b0`) with **no CI run at all** — consistent with the documented `GITHUB_TOKEN`-authored-push anti-recursion gap, not a second break. Main's last real CI signal remains the `163e724` failure.
+- **Queue is deeper red: 56 `ready` issues**, up from 40 on 2026-10-02 and 24 before that — three consecutive nights of growth with no corresponding implement-queue throughput (0 claimed tonight, red-main also blocked 2026-10-02's early phase). The backlog is outpacing the queue's drain rate.
+- `agent-skip` sits at 4 (#5895, #5748, #5608, #5604), unchanged composition from recent nights — these are the same routine-liveness "unverifiable signature" issues flagged on 2026-10-02 as a configuration gap rather than one-off flakes.
+
+### Recommendations
+
+- **#6011/#6012 need a human (or a session with `actions:write`) before the next implement-queue iteration can proceed** — re-run `Test (Node 22)` on main's current head to confirm the flake, or hand-author a real revert of #6009 if the v11 bump turns out to be suspect. Until main goes green, Phase 0 will keep blocking new queue work.
+- Queue depth (56 ready, red, third consecutive night of growth) now clearly warrants the Queue Adjust rule's `/loop 15m /implement-queue` escalation — but only once main is confirmed green again; running it against a red main would just accumulate more blocked iterations.
+- Consider whether tonight's and 2026-10-02's back-to-back red-main incidents (both landing via automated `mbe-daily-issue` PRs, both flagged only after merge) warrant a `meta-improvement` issue on pre-merge flake detection for lockfile-touching PRs — not filed tonight pending confirmation of the flake theory itself.
+
+### Skipped Issues
+
+4 `agent-skip` issues open (#5895, #5748, #5608, #5604) — same set as 2026-10-02, not re-triaged this run; routine-liveness signature gap, candidate for a dedicated pass rather than per-night retry.
