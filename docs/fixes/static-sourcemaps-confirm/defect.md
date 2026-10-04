@@ -192,7 +192,7 @@ Review and Ship can stay light.
   - Accept: the unit tests cover the injected/clean, missing-injection and leftover-map
     cases. A `deploy-static.yml` test asserts that the step precedes the deploy step in
     all three jobs.
-- [ ] **Prove it end to end after merge (Ship).** Dispatch `deploy-static.yml` on main
+- [x] **Prove it end to end after merge (Ship).** Dispatch `deploy-static.yml` on main
       and check each of these:
   - (a) The build log shows the plugin's upload success line, and nothing fails.
   - (b) Live chunks on `/`, `/rialto/` and `/hospitality/` carry `sentry-dbid-`, and
@@ -205,6 +205,12 @@ Review and Ship can stay light.
     change). Do not touch `SENTRY_AUTH_TOKEN` or run `gh secret set`.
   - Accept: `release.md` records (a), (b) and (c), each with the command it came from,
     or records the credential stop.
+  - **Ship result (2026-10-04):** (a) PROVEN and (b) PROVEN, on deploy-static runs
+    `37179071034` (push) and `37179075898` (dispatch) at `4402db761`. (c) is recorded
+    as PENDING, as its own wording allows: no frame-bearing error event exists yet, so
+    symbolication of a real frame is **not** proven. A Sentry release named
+    `4402db761…` now exists for `mattbutlerengineering` and `hospitality`. See
+    `release.md`.
 
 ## Notes
 
