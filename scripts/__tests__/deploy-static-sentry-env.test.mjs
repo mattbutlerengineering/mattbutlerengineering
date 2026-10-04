@@ -271,3 +271,44 @@ describe("turbo.json lets the Sentry plugin env reach the build task", () => {
     expect(hashed).not.toContain(key);
   });
 });
+
+/**
+ * The secrets sentryVitePlugin needs to upload, per app, checked for presence
+ * before the build.
+ *
+ * An empty SENTRY_AUTH_TOKEN disables the plugin outright, and
+ * verify-sentry-sourcemaps.mjs catches that (no debug IDs). An empty org or
+ * project does not: canUploadSourceMaps() and createRelease() in
+ * @sentry/bundler-plugins only `logger.warn` and return, never reaching
+ * `errorHandler`, while debug-ID injection and `filesToDeleteAfterUpload` still
+ * run. The dist then passes the post-build guard and deploys with nothing
+ * uploaded (maintenance:static-sourcemaps-confirm, Review). Hospitality's
+ * project slug comes from a secret; the other two apps use a literal, so only
+ * hospitality guards SENTRY_PROJECT.
+ */
+const UPLOAD_SECRETS = {
+  marketing: ["SENTRY_AUTH_TOKEN", "SENTRY_ORG"],
+  "rialto-web": ["SENTRY_AUTH_TOKEN", "SENTRY_ORG"],
+  hospitality: ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"],
+};
+
+describe("deploy-static.yml fails closed when a Sentry upload secret is absent", () => {
+  it("covers exactly the apps in STATIC_APPS", () => {
+    expect(Object.keys(UPLOAD_SECRETS).sort()).toEqual([...STATIC_APPS].sort());
+  });
+
+  it.each(STATIC_APPS)("deploy-%s presence-checks its upload secrets ahead of its build", (app) => {
+    const job = jobBlock(WORKFLOW, `deploy-${app}`);
+    expect(job, `job deploy-${app} not found`).not.toBeNull();
+
+    const steps = stepBlocks(job);
+    const buildIndex = steps.findIndex((step) => step.includes(`pnpm build --filter=@mbe/${app}`));
+    expect(buildIndex, `deploy-${app} has no build step`).not.toBe(-1);
+
+    const unguarded = UPLOAD_SECRETS[app].filter((secret) => {
+      const guardIndex = steps.findIndex((step) => runsSecretGuard(step, secret));
+      return guardIndex === -1 || guardIndex > buildIndex;
+    });
+    expect(unguarded, `deploy-${app} does not require: ${unguarded.join(", ")}`).toEqual([]);
+  });
+});
