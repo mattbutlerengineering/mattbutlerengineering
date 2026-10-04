@@ -109,6 +109,40 @@ describe("initSentry (react)", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
     expect(mockSentryInit.mock.calls[0]?.[0].release).toBe("v2.0.0");
   });
+
+  describe("in a browser bundle (no process.env values)", () => {
+    const savedVersion = process.env.npm_package_version;
+
+    beforeEach(() => {
+      delete process.env.npm_package_version;
+    });
+
+    afterEach(() => {
+      if (savedVersion === undefined) delete process.env.npm_package_version;
+      else process.env.npm_package_version = savedVersion;
+    });
+
+    it("uses the caller-supplied environment", () => {
+      initSentry({
+        appName: "my-app",
+        dsn: "https://key@sentry.io/456",
+        environment: "production",
+      });
+      expect(mockSentryInit.mock.calls[0]?.[0].environment).toBe("production");
+    });
+
+    it("omits the release key so the SDK falls back to the plugin-injected SENTRY_RELEASE", () => {
+      initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+      const arg = mockSentryInit.mock.calls[0]?.[0];
+      expect(Object.hasOwn(arg, "release")).toBe(false);
+    });
+
+    it("still passes release through when SENTRY_RELEASE is set", () => {
+      process.env.SENTRY_RELEASE = "abc123";
+      initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+      expect(mockSentryInit.mock.calls[0]?.[0].release).toBe("abc123");
+    });
+  });
 });
 
 describe("handleErrorBoundary", () => {

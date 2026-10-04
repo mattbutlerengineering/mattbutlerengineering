@@ -12,6 +12,7 @@ import { App, CallbackRedirect } from "./App";
 initSentry({
   appName: "gen",
   dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
 });
 
 // Lazy-loaded route components — each becomes its own chunk

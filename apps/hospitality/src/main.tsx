@@ -18,6 +18,7 @@ import { validateAuthConfig } from "./constants/auth";
 initSentry({
   appName: "hospitality",
   dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
 });
 
 // Lazy-loaded route components — each becomes its own chunk
