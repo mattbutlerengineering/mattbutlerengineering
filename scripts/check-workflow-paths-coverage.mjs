@@ -88,6 +88,8 @@ export const ALLOWLIST = {
       "always-exit-0 stats refresh; a change to it does not redeploy marketing — accepted, seeded in docs/backlog.md (session:2026-08-28)",
     "scripts/require-deploy-secrets.mjs":
       "deploy gate helper, same reasoning as the deploy-services.yml entry above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. The guarded surface is NOT unwatched: scripts/__tests__/deploy-static-sentry-env.test.mjs reads the real deploy-static.yml and asserts the VITE_SENTRY_DSN_MBE guard's env and invocation ahead of the marketing and rialto-web builds, and scripts/__tests__/require-deploy-secrets.test.mjs covers the script itself, both on every PR. Recorded in docs/fixes/static-sentry-dsn-routing/defect.md (maintenance:static-sentry-dsn-routing)",
+    "scripts/verify-sentry-sourcemaps.mjs":
+      "post-build deploy gate, same reasoning as require-deploy-secrets.mjs above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. The guarded surface is NOT unwatched: scripts/__tests__/verify-sentry-sourcemaps.test.mjs unit-tests the script against fixture dist trees and reads the real deploy-static.yml to assert the step runs between each app's build and its wrangler deploy, on every PR. Recorded in docs/fixes/static-sourcemaps-confirm/defect.md (maintenance:static-sourcemaps-confirm)",
   },
   "instruction-regression.yml": {
     "plugins/acmm/scripts/evals/index.js":
