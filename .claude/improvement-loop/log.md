@@ -2703,3 +2703,25 @@ Observation (not filed — no rubric v1 tell covers it): on mobile (375×812) th
 ### Skipped Issues
 
 4 `agent-skip` issues open (#5895, #5748, #5608, #5604) — same set as 2026-10-02, not re-triaged this run; routine-liveness signature gap, candidate for a dedicated pass rather than per-night retry.
+
+## 2026-10-04 — mbe-ui-quality
+
+State: `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ f48155cb, merged `origin/main` 18353b4a, 0 conflicts resolved). All four builds green (`@mbe/cli...`, rialto, and the three apps) — no `unreachable:build` rows.
+
+**Routes** — 12 due, 12 captured, 12 audited, 0 unjudged, 0 dropped tells. All 12 were `rialto-web` (`examples/guest-checkin`, `examples/guest-profile`, `examples/invoice`, `examples/notification-center`, `examples/onboarding`, `examples/pricing-table`, `examples/reservation-kanban`, `examples/reservation-timeline`, `examples/reservations`, `examples/settings`, `privacy`, `visual-test`); the marketing and hospitality capture runs both reported "no routes planned" and wrote no manifest. 18 hospitality rows stayed `unreachable:auth`.
+
+**Coverage before this fire:** 90.9% (120/132, provisional, first run 2026-10-01). The 12 uncovered rows were exactly this fire's due set.
+
+**Browser:** resolved to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell` — no `blocker: no-browser`.
+
+**Judging:** 17 mechanical findings; 1 judged finding — `agent-built/inter-headline` on `rialto-web privacy`, where the `h1`/`h2`s render in the body sans with no display voice (`PrivacyPage.tsx` hand-rolls raw headings inline and pins the wrapper to `--rialto-font-sans` instead of using rialto's `Heading`). It was dropped at plan time by the calibration gate, as intended.
+
+**Calibration stamp: `stale`.** `rate.mjs calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` then exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`, so the stamp stands and agent-built findings stay suppressed. Rating proceeded under the "exit 3 that calibration could not clear" branch: 6 pairs rated, `rate.mjs record` → rialto-web 0.42.
+
+**Filing:** 4 issues created, 0 reopened, 0 commented, 0 adopted — #6022 (`examples/guest-checkin` axe-moderate, P2), #6023 (`examples/guest-profile` axe-moderate, P2), #6024 (`examples/invoice` axe-moderate, P2), #6025 (`visual-test` axe-critical, P1). All came back carrying `ui-quality`, so filing continued. 13 P2 overflow seeds appended to `docs/backlog.md`. Checkpoint `7101f1de` pushed to `ui-quality/ledger` before anything else.
+
+**Fix PR: none** — no planned action carried `fix_pr_candidate: true`.
+
+**P1 SLA:** 0 of 4 open P1 issues older than 7 days (#6025, #6006, #6005, #5973 — oldest 2 days). No escalations.
+
+No pipeline bugs, no stopped filing, no blockers this fire.
