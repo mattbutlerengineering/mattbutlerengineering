@@ -2660,6 +2660,11 @@ Observation (not filed — no rubric v1 tell covers it): on mobile (375×812) th
 **Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day; step skipped per schedule.
 **Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&since=2026-09-03` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 204 closed in the last 30 days (one paginated page lost to an unrelated proxy restriction on numeric-ID follow-up links, dropping 1 malformed row), 170 `completed` / 15 `duplicate` / 12 `not_planned` / 7 other → 13.2% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (excluding `skip` rows, per above) is 100% (11/11), same thin ACMM-only sample as prior runs — Lighthouse/Sentry/mutation/flaky/e2e sensors remain unavailable in this cloud checkout. No threshold changes applied this run.
 
+## 2026-10-04
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
 ## 2026-10-04 (mbe-evening)
 
 ### Metrics
