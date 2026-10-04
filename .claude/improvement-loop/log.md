@@ -2664,6 +2664,7 @@ Observation (not filed — no rubric v1 tell covers it): on mobile (375×812) th
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+
 ## 2026-10-04 (mbe-evening)
 
 ### Metrics
