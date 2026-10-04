@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-01T18:06:19.280Z",
+  "generated_at": "2026-10-04T00:24:52.544Z",
   "period": {
-    "start": "2026-09-24",
-    "end": "2026-10-01"
+    "start": "2026-09-27",
+    "end": "2026-10-04"
   },
   "sensors": {
     "acmm": {
@@ -42,24 +42,24 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 1.05,
-          "latest": "2026-09-30T16:53:34.786Z",
+          "age_days": 0.39,
+          "latest": "2026-10-03T15:10:13.799Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-30T16:53:34.786Z",
+      "collected_at": "2026-10-03T15:10:13.799Z",
       "window_days": 7,
-      "total_closed_prs": 100,
-      "total_reviewers": 0,
-      "total_reviews": 0,
+      "total_closed_prs": 94,
+      "total_reviewers": 1,
+      "total_reviews": 1,
       "overall_rubber_stamp_ratio": 0,
       "overall_approvals": 0,
       "overall_rubber_stamps": 0,
-      "review_coverage": "no-formal-review-stage",
-      "no_formal_review_stage": true
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
     },
     "prCategoryMetrics": {
       "available": false,
@@ -73,32 +73,32 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1054273,
-      "output_tokens": 1748,
-      "cache_creation_tokens": 84766,
-      "cache_hit_rate": 0.9256,
+      "cache_read_tokens": 13020447,
+      "output_tokens": 38023,
+      "cache_creation_tokens": 248044,
+      "cache_hit_rate": 0.9813,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1748,
-          "cache_read_tokens": 1054273,
-          "cache_creation_tokens": 84766
+          "input_tokens": 114,
+          "output_tokens": 38023,
+          "cache_read_tokens": 13020447,
+          "cache_creation_tokens": 248044
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 19,
+      "completed": 29,
+      "passed": 22,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "conclusion": "skipped",
-        "createdAt": "2026-09-22T14:44:21Z",
-        "name": "claude",
-        "status": "completed"
+        "conclusion": "",
+        "createdAt": "2026-10-04T00:24:56Z",
+        "name": "Auto-Merge Policy",
+        "status": "in_progress"
       }
     },
     "lighthouse": {
@@ -106,27 +106,27 @@
     },
     "issues": {
       "available": false,
-      "error": "Command failed: gh issue list --state all --search created:>=2026-09-24 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh issue list --state all --search created:>=2026-09-27 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     },
     "issueFeedback": {
       "available": false,
-      "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-30T18:07:34.976Z",
+      "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
+      "collected_at": "2026-10-03T18:06:45.155Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 1,
+      "logs_7d": 1,
+      "total_commits_7d": 7,
+      "unique_branches_7d": 1,
+      "branches_7d": ["metrics/progress-tracker-2026-10-04"]
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.03,
-      "total_lines_added_7d": 705161,
-      "lines_churned_7d": 20871,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 686953,
+      "lines_churned_7d": 1169,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -135,8 +135,11 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 1064938,
+      "window_shas": 49
     },
     "e2eStability": {
       "available": false
@@ -144,7 +147,7 @@
     "queueEfficiency": {
       "available": false,
       "reason": "query_error",
-      "error": "Command failed: gh pr list --search merged:>=2026-09-23 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh pr list --search merged:>=2026-09-26 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     }
   },
   "thresholds": {
@@ -159,7 +162,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 8,
+    "sensors_available": 9,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
