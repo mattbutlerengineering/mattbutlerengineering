@@ -174,3 +174,4 @@ Evidence for each checked box, from real command output in the worktree (`fix/br
   - App tests: hospitality `2523 passed (2523)`, marketing `365 passed (365)`, rialto-web `770 passed (770)`.
   - `pnpm regen` exit 0, which regenerated `llms.txt`, `llms-full.txt` and `packages/sentry/llms{,-full}.txt` (the `environment?: string` field). These are staged by explicit path.
   - No changeset was added (`@mbe/sentry` is private).
+  - After commit `074a30c39`, `pnpm regen --check` printed "All generated artifacts are up to date." Before the commit it had flagged the then-uncommitted llms output (`committed output differs`), which is expected.
