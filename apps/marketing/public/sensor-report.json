@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-03T18:04:22.150Z",
+  "generated_at": "2026-10-04T00:24:52.544Z",
   "period": {
-    "start": "2026-09-26",
-    "end": "2026-10-03"
+    "start": "2026-09-27",
+    "end": "2026-10-04"
   },
   "sensors": {
     "acmm": {
@@ -42,7 +42,7 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.12,
+          "age_days": 0.39,
           "latest": "2026-10-03T15:10:13.799Z",
           "max_age_days": 3
         }
@@ -73,17 +73,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1581304,
-      "output_tokens": 1869,
-      "cache_creation_tokens": 85210,
-      "cache_hit_rate": 0.9489,
+      "cache_read_tokens": 13020447,
+      "output_tokens": 38023,
+      "cache_creation_tokens": 248044,
+      "cache_hit_rate": 0.9813,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 26,
-          "output_tokens": 1869,
-          "cache_read_tokens": 1581304,
-          "cache_creation_tokens": 85210
+          "input_tokens": 114,
+          "output_tokens": 38023,
+          "cache_read_tokens": 13020447,
+          "cache_creation_tokens": 248044
         }
       }
     },
@@ -91,13 +91,13 @@
       "available": true,
       "total_runs": 30,
       "completed": 29,
-      "passed": 21,
-      "failed": 1,
-      "pass_rate_pct": 95,
+      "passed": 22,
+      "failed": 0,
+      "pass_rate_pct": 100,
       "most_recent": {
         "conclusion": "",
-        "createdAt": "2026-10-03T18:04:16Z",
-        "name": "Merge Queue",
+        "createdAt": "2026-10-04T00:24:56Z",
+        "name": "Auto-Merge Policy",
         "status": "in_progress"
       }
     },
@@ -106,27 +106,27 @@
     },
     "issues": {
       "available": false,
-      "error": "Command failed: gh issue list --state all --search created:>=2026-09-26 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh issue list --state all --search created:>=2026-09-27 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     },
     "issueFeedback": {
       "available": false,
       "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
-      "collected_at": "2026-10-03T03:31:37.843Z",
+      "collected_at": "2026-10-03T18:06:45.155Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
       "total_logs": 1,
       "logs_7d": 1,
-      "total_commits_7d": 6,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_commits_7d": 7,
+      "unique_branches_7d": 1,
+      "branches_7d": ["metrics/progress-tracker-2026-10-04"]
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.002,
-      "total_lines_added_7d": 686935,
-      "lines_churned_7d": 1166,
+      "total_lines_added_7d": 686953,
+      "lines_churned_7d": 1169,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -135,8 +135,11 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 1064938,
+      "window_shas": 49
     },
     "e2eStability": {
       "available": false
@@ -144,7 +147,7 @@
     "queueEfficiency": {
       "available": false,
       "reason": "query_error",
-      "error": "Command failed: gh pr list --search merged:>=2026-09-25 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh pr list --search merged:>=2026-09-26 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     }
   },
   "thresholds": {
@@ -159,7 +162,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 8,
+    "sensors_available": 9,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
