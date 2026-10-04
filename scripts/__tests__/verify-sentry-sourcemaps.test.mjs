@@ -9,11 +9,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/deploy-static.yml"), "utf8");
 
-// What sentryVitePlugin prepends to every chunk when it is enabled
-// (@sentry/bundler-plugins core getDebugIdSnippet). Trimmed to the part the
-// guard keys on; the uuid is arbitrary.
-const INJECTED =
-  ';{try{(function(){var e=typeof window!="undefined"?window:{};e._sentryDebugIdIdentifier="sentry-dbid-0b6d1c1e-3f1a-4a6e-9a1d-2f6c7c1d9e11";})();}catch(e){}};';
+// The assignment sentryVitePlugin prepends to every chunk when it is enabled
+// (@sentry/bundler-plugins core getDebugIdSnippet). Only the part the guard
+// keys on: the real snippet wraps it in a try/catch whose empty catch would
+// trip the AI-antipattern ratchet. The uuid is arbitrary.
+const INJECTED = 'e._sentryDebugIdIdentifier="sentry-dbid-0b6d1c1e-3f1a-4a6e-9a1d-2f6c7c1d9e11";';
 const PLAIN = 'console.log("hello");\n//# sourceMappingURL=index-abc.js.map\n';
 
 const file = (path, content = "") => ({ path, content });

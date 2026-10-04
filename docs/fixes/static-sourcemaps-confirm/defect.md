@@ -354,3 +354,17 @@ unchecked. Local turbo was 2.11.0, the same version as CI.
 **Neither `turbo.json` nor the scripts trigger a deploy.** `deploy-static.yml`'s push filter
 does not include `turbo.json` or `scripts/**`, so merging this deploys nothing. Ship must
 dispatch `deploy-static.yml`, as the brief authorizes.
+
+### Pre-push ratchet (flagged for Review)
+
+The first `git push` was rejected by the AI-antipattern ratchet with
+`emptyCatch: 79 → 80 (+1)` and `consoleLogs: 717 → 718 (+1)`.
+
+- **`emptyCatch`.** The extra hit came from the test fixture, which quoted the plugin's
+  real snippet including its `catch(e){}`. The fixture now keeps only the
+  `e._sentryDebugIdIdentifier="sentry-dbid-…"` assignment, and the count is back to 79.
+- **`consoleLogs`.** The extra hit is the guard script's one success line. It is
+  deliberate CLI output, the same shape as `require-deploy-secrets.mjs`. The baseline was
+  raised to 718 with `node scripts/check-ai-antipatterns.mjs --update` rather than routing
+  the line around the detector (`process.stdout.write`). Review may prefer to drop the
+  success line instead.
