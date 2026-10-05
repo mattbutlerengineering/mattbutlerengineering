@@ -81,7 +81,7 @@ Demonstrable at the boundary: `entry-points.test.ts` runs green on main; every m
   - Blocked by: —
   - Dies here: none.
 
-- [ ] **1.7 PR 1 open → reviewed → merged** — open PR 1 from fresh `origin/main`.
+- [x] **1.7 PR 1 open → reviewed → merged** — open PR 1 from fresh `origin/main`.
   - Accept: PR description lists every `it.fails` case and the row/D it will flip under; `reviewer` PASS and `stripe-flow-reviewer` PASS (the suite pins deposit ops per door); `CI Gate` green; zero non-test, non-docs files in the diff; squash-merged with an explicit `--subject`.
   - Blocked by: 1.2, 1.3, 1.4, 1.5, 1.6
 
@@ -89,70 +89,70 @@ Demonstrable at the boundary: `entry-points.test.ts` runs green on main; every m
 
 Demonstrable at the boundary: every route in the effects table calls one `fastify.transitions` verb; every PR-1 `it.fails` is now `it` and green; `BookingNotifier` and the dead emitter singleton are gone; deposits still on the singleton. Starts from fresh `origin/main` after PR 1 merged.
 
-- [ ] **2.1 Boolean `JobScheduler.cancel`** — `packages/jobs` cancel returns `Promise<boolean>`.
+- [x] **2.1 Boolean `JobScheduler.cancel`** — `packages/jobs` cancel returns `Promise<boolean>`.
   - Accept (architecture `JobsPort`; prerequisite for D8 replace-if-present): returns `true` when `queue.remove(id)` returns 1, `false` when 0, and `false` (not a throw) when removal fails; every existing caller still compiles; no changeset (package is private).
   - Test-first: add the three cases to `packages/jobs/src/scheduler.test.ts` first; they fail against today's `Promise<void>`.
   - Files: `packages/jobs/src/scheduler.ts`, `scheduler.test.ts`.
   - Blocked by: PR 1 merged
   - Dies here: none.
 
-- [ ] **2.2 Ports, venue policy source, in-memory adapters** — `transitions/ports.ts`, `transitions/venue-policy.ts`, `transitions/in-memory.ts`.
+- [x] **2.2 Ports, venue policy source, in-memory adapters** — `transitions/ports.ts`, `transitions/venue-policy.ts`, `transitions/in-memory.ts`.
   - Accept (architecture `MessagingPort`, `JobsPort`, `EventsPort`, `VenueEffectPolicySource`; target state "venue policy expressible in one place"): types exactly as specified; `allOutboundLive` resolves `{ outbound: "live" }` for any venueId; in-memory messaging records `sent` and supports `failNext(kind)`; in-memory jobs is a `Map` whose `cancel` reports existence; in-memory events records `published`. No Fastify/Prisma/BullMQ import in these files.
   - Test-first: in-memory adapter contract tests first.
   - Files: `services/reservations/src/transitions/{ports,venue-policy,in-memory}.ts` + tests.
   - Blocked by: 2.1
   - Dies here: none.
 
-- [ ] **2.3 `planEffects` — the effects table** — `transitions/plan.ts` + `plan.test.ts`.
+- [x] **2.3 `planEffects` — the effects table** — `transitions/plan.ts` + `plan.test.ts`.
   - Accept (every Row of the effects table; D1, D3, D5, D6, D7, D8; ruling "messaging unchanged"): one test per table row asserting effects, order, timing (`await`/`background`) and `onFailure`; reminder timing (24h, 2h, past-start skip) and job ids `${jobType}:${reservationId}`; staff time change yields `replace-if-present` ×2 (never `schedule`); status+time union yields one `reservation:updated`; `outbound: "suppressed"` drops every messaging and jobs effect but keeps events; no payments effect ever appears. Pure: imports only `@mbe/types` and port types.
   - Test-first: `plan.test.ts` written row by row before the implementation.
   - Files: `transitions/plan.ts`, `plan.test.ts`.
   - Blocked by: 2.2
   - Dies here: none.
 
-- [ ] **2.4 Executor** — `transitions/run.ts`.
+- [x] **2.4 Executor** — `transitions/run.ts`.
   - Accept (architecture executor rules): `await` effects run in sequence before return; `background` effects run as one detached chain that stops at first failure and logs once; `propagate` failures reach the caller, `log` failures do not; `replace-if-present` schedules only when `cancel` returned `true`; a rejecting policy source runs no effects and logs.
   - Test-first: executor tests against in-memory ports first.
   - Files: `transitions/run.ts`, `run.test.ts`.
   - Blocked by: 2.2
   - Dies here: none.
 
-- [ ] **2.5 Production adapters** — `adapters/dispatcher-messaging.ts`, `adapters/emitter-events.ts`, jobs = `notifierRuntime.scheduler`.
+- [x] **2.5 Production adapters** — `adapters/dispatcher-messaging.ts`, `adapters/emitter-events.ts`, jobs = `notifierRuntime.scheduler`.
   - Accept (ruling "messaging unchanged"): the send halves of `booking-notifications.ts` (confirmation, cancelled), `notifyModification` (modified) and the inline post-visit block (`reservations.ts:681-701`) move **verbatim**, each keeping its venue lookup, `resolveChannel` and try/catch; adapter test asserts identical payloads and the same skip when guest email or venue is missing; cancelled-email venue lookup still rejects (the one `propagate` row). Emitter adapter stamps `timestamp` and calls `emitChange` on the single live emitter so `routes/events.ts` table-status derivation sees it.
   - Test-first: adapter tests first (payload equality vs. today's functions captured before the move).
   - Files: `transitions/adapters/*.ts` + tests; reads from `services/booking-notifications.ts`, `reservation-modification.ts`, `routes/reservations.ts`.
   - Blocked by: 2.2
   - Dies here: none.
 
-- [ ] **2.6 Verbs + composition root** — `transitions/index.ts` `createReservationTransitions`; `buildApp` constructs adapters once and decorates `fastify.transitions`.
+- [x] **2.6 Verbs + composition root** — `transitions/index.ts` `createReservationTransitions`; `buildApp` constructs adapters once and decorates `fastify.transitions`.
   - Accept (target state "constructed exactly once in buildApp"; architecture `ReservationTransitions`): eight verbs, each calling today's domain write unchanged and returning that function's existing result type; domain `{ success: false }` runs no effects; `ReservationTransitionError` propagates unchanged; `options.jobs` is accepted (the runtime scheduler becomes injectable); `bookingNotifier` / `postVisitNotifier` options and decorations removed; `cancelReservationWithDeposit` loses only its final `cancelBookingNotifications` line (`reservation-cancellation.ts:474` at architecture time) with the cancel verb applying the same effects at the same position (success path, after status write, awaited); `recordNoShow` deposit logic byte-identical. `stripe-flow-reviewer` checkpoint: ordering of deposit resolution → CAS → effects is unchanged in cancel and no-show.
   - Test-first: harness (1.1) swapped to in-memory ports + `options.jobs` first; suite should still be green on `it` rows before routes move.
   - Files: `transitions/index.ts`, `app.ts`, `services/reservation-cancellation.ts`, `src/test/effects-harness.ts`.
   - Blocked by: 2.3, 2.4, 2.5
   - Dies here: none.
 
-- [ ] **2.7 Move reservation entry points onto verbs** — routes `reservations.ts` (PATCH cancel/no-show/update/COMPLETED, DELETE, walk-in, POST), `cancel-reservation.ts`, `modify-reservation.ts`, `public-reservations.ts`, `holds.ts`, `public-holds.ts`, `confirm-attendance.ts`; services `confirm-hold.ts` stops emitting.
+- [x] **2.7 Move reservation entry points onto verbs** — routes `reservations.ts` (PATCH cancel/no-show/update/COMPLETED, DELETE, walk-in, POST), `cancel-reservation.ts`, `modify-reservation.ts`, `public-reservations.ts`, `holds.ts`, `public-holds.ts`, `confirm-attendance.ts`; services `confirm-hold.ts` stops emitting.
   - Accept (all Rows; D1, D3, D5, D6, D7, D8; ruling "money/messaging unchanged"): each route makes one verb call inside its existing venue context; route HTTP mapping unchanged; every `it.fails` in the cancel, no-show, staff-update, guest-modify, hold, create and confirm-attendance groups flipped to `it` and green; every money and messaging `it` from PR 1 still green with unchanged bodies. Venue-context/authz lines byte-identical (run #4).
   - Test-first: the flips are the RED → GREEN — flip one `it.fails` to `it`, watch it fail, move the route, watch it pass.
   - Files: listed routes; `services/confirm-hold.ts`.
   - Blocked by: 2.6
   - Dies here: none (kills in 2.10).
 
-- [ ] **2.8 Reroute floor-plan and lapsing emits; delete the dead singleton** — events port used directly.
+- [x] **2.8 Reroute floor-plan and lapsing emits; delete the dead singleton** — events port used directly.
   - Accept (D5, D9; target state "dead singleton gone"): `floorPlanService.clone` no longer emits and `routes/floor-plans.ts` publishes `floor-plan:created` after success; `scanLapsedGuests(venueId, publish)` takes the publisher (one-line change in `routes/guests.ts` — run #3 coordination); `createLapsedGuestMonitor({ prisma, events })` wired in `app.ts`; `services/events.ts` singleton + free helpers deleted, type declarations `:11-28` untouched (run #2); `grep -rn "from \"./events.js\"\|from \"../services/events.js\"" src` shows only type imports. Floor-plan and lapsing `it.fails` flipped to `it`.
   - Test-first: flip the two 1.5 cases first.
   - Files: `services/floor-plan.ts`, `routes/floor-plans.ts`, `services/guest.ts`, `routes/guests.ts` (one line), `services/lapsed-guest-cron.ts`, `services/events.ts`, `app.ts`.
   - Blocked by: 2.6
   - Dies here: none (kills in 2.10).
 
-- [ ] **2.9 Delete `BookingNotifier`** — remove `services/booking-notifications.ts` once nothing imports it.
+- [x] **2.9 Delete `BookingNotifier`** — remove `services/booking-notifications.ts` once nothing imports it.
   - Accept (target state; architecture "Removed from here"): zero importers; reminder timing now lives only in `plan.ts`; typecheck green.
   - Test-first: covered by 2.3 and the suite; no new test.
   - Files: `services/booking-notifications.ts` (deleted), any residual import sites.
   - Blocked by: 2.7
   - Dies here: see 2.10.
 
-- [ ] **2.10 PR-2 kill list (LAST)** — delete the shallow tests orphaned by 2.1–2.9.
+- [x] **2.10 PR-2 kill list (LAST)** — delete the shallow tests orphaned by 2.1–2.9.
   - Accept (Kill rows, PR 2): deleted, and the PR description states where each moved:
     - `services/events.test.ts` `describe("emit helper functions")` → emitter-events adapter test + entry-point suite
     - `services/confirm-hold.test.ts` `vi.mock("./events.js")` + `emitHoldConfirmed` assertions → entry-point suite (3 hold doors)
@@ -237,3 +237,16 @@ None that block. One clarification resolved here rather than routed back (see `a
   - **Deviation (2026-10-04):** the pre-push / CI AI-antipattern ratchet counts `/api/...` literals in test files too (`hardcodedRoutes`, `scripts/check-ai-antipatterns.mjs:252`). The suite's nine route literals were collapsed into one `API_V1 = "/api/v1"` constant (repo precedent: `DEPOSITS_URL`, `HOLDS_URL` in sibling tests), and `metrics/ai-antipattern-baselines.json` moves `hardcodedRoutes` 851 → 852 for that one unavoidable literal. So PR 1's diff carries one non-test, non-docs file: a metrics baseline, not production code. Every other pattern count is unchanged.
   - **Review round 1 (PR #6051):** `reviewer` PASS 9/10, no issues. `stripe-flow-reviewer` PASS with three medium gaps (M1 admin cancel rows could not tell staff from guest fee policy; M2 no-show evaluated-at-max(now,start) unpinned; M3 no no-show / partial-refund abort rows). All three added as plain `it` (entry-points suite 25 passed + 16 expected fail → 30 + 16), each mutation-checked: forcing `initiator: "guest"` in `routes/reservations.ts` fails both M1 rows; evaluating no-show at bare `now` fails M2; both mutations reverted.
   - Production diff: `git diff origin/main --stat -- 'services/reservations/src/**' ':!**/*.test.ts' ':!**/test/**'` is empty.
+- **2026-10-04 — PR 1 merged:** #6051 squash-merged as `569598866` on `origin/main` after `CI Gate` SUCCESS on head `ad8c417f6`, `reviewer` PASS 9/10 (round 1 and final head) and `stripe-flow-reviewer` PASS (final head, after M1–M3). Item 1.7 checked.
+- **2026-10-04 — PR 2 (effects)** on branch `refactor/transition-effects-pr2`, rebased onto `origin/main` `93b318192` (run #3's #6052 had merged — no overlap with this PR's files; run #2's #6050 still OPEN, so `events.ts` type lines are untouched and whichever lands second rebases).
+  - RED → GREEN: 2.1 three new `scheduler.test.ts` cases failed `expected undefined to be true/false`, then 29/29; 2.2–2.6 new test files failed on the missing module (`Cannot find module './plan.js'` etc.), then green (in-memory 4, plan/run/adapters 45, verbs 8). The 16 PR-1 `it.fails` were RED on pre-refactor code (PR 1 probe); after the routes moved, all 16 bodies passed (vitest reported each `it.fails` as failing) while all 30 money/messaging `it` rows stayed green with unchanged bodies; flipped to `it` → `entry-points.test.ts` 46/46.
+  - Gates after rebase: `pnpm lint` / `pnpm typecheck` → `Tasks: 52 successful, 52 total` each; `pnpm --dir packages/jobs test` → `Tests 29 passed (29)`; `pnpm --dir packages/notifications test` → `Tests 119 passed (119)`; `pnpm --dir services/reservations test` → `Test Files 114 passed | 4 skipped (118)`, `Tests 1764 passed | 150 skipped (1914)`.
+  - Money: `recordNoShow` not edited. `cancelReservationWithDeposit` lost only its final `cancelBookingNotifications` call (its unused `manageToken` parameter is kept as `_manageToken` for call-site stability); deposit resolution → CAS → effects ordering unchanged (effects run in the verb only on `success`). Deposits stay on the singleton.
+  - Deviations from architecture.md, none money or guest-messaging outcome changes:
+    - `cancelled` fact carries both `reservation` (pre-cancel, what the email describes — today's behaviour) and `updated` (the committed row the SSE event carries — today's PATCH behaviour).
+    - `staff-updated` fact carries the `patch`: post-visit fires on `patch.status === "COMPLETED"` (today's exact condition); D8 triggers when the patch sets `date`/`startTime`/`endTime` (the same rule as the guest path's `isTimeChange`). For a reminder whose new moment has already passed, `replace-if-present` becomes a plain `cancel` (removes a stale reminder, never creates one).
+    - Background chain: a `log` failure is logged and the chain continues; a `propagate` failure is logged once and stops it. This is what reproduces today's guest-modify chain (reminder cancels were `allSettled`; confirmation/schedule failures stopped the chain).
+    - Failure-path deltas taken from architecture.md's table (pathological DB/listener failures only): the COMPLETED post-visit venue read now runs in the background (a venue-read failure after the committed COMPLETED write logs instead of 500ing); the guest-modify `booking-modified` venue read is `await`/`log` (was a 500); live-event publish is `await`/`log` (an SSE listener throwing after a committed write no longer 500s). Reminder cancels on cancel run in sequence and a rejection is now logged (was silently settled). Messaging failures log on the app logger (was the request logger for modify).
+    - Floor-plan and lapsing emits call the single live emitter's typed helpers (`emitFloorPlanCreated`, `emitLapsingGuests`) rather than an `EventsPort` — same instance the port wraps, no new decoration. `app.ts` keeps a value import of the `ReservationEventEmitter` class (it constructs the one emitter); every other `events.js` import is type-only.
+    - `modifyByGuest` takes no logger (the domain write no longer logs). The rejecting-policy-source case is tested on the verbs (`transitions/index.test.ts`), where the policy is resolved, not on the executor.
+    - Two tests outside the kill list changed because they referenced removed code: `routes/events.integration.test.ts` (emitted on the deleted singleton — now `app.reservationEvents`) and `services/lapsed-guest-cron.test.ts` (new required `emitLapsingGuests` dep).
