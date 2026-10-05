@@ -58073,6 +58073,11 @@
       readonly paths?: Record<string, Record<string, OpenApiOperation>>;
       readonly components?: { readonly schemas?: unknown };
     }
+    function trimSlash(path: string): string {
+      let end = path.length;
+      while (end > 1 && path[end - 1] === "/") end -= 1;
+      return path.slice(0, end);
+    }
     export function findOperation(
       doc: OpenApiDocument,
       method: string,
