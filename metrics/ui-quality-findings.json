@@ -5,7 +5,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "hospitality|reservations/manage|r1|accessibility/axe-moderate": {
@@ -14,7 +14,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "hospitality|reservations/manage|r1|accessibility/axe-serious": {
@@ -23,7 +23,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "marketing|/|r1|accessibility/vague-link-purpose": {
