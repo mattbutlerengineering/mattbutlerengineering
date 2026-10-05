@@ -110,3 +110,23 @@ describe("known blind spots", () => {
     expect(inventory.pairs.some((pair) => pair.producedBy.includes("streamNDJSON"))).toBe(false);
   });
 });
+
+describe("schema captures (the client side of schema parity)", () => {
+  it("captures the response schema a driven guests.list call validates with", () => {
+    const capture = inventory.schemaCaptures.find((c) => c.clientMethod === "guests.list");
+    expect(capture?.method).toBe("GET");
+    expect(capture?.path).toBe("/api/v1/guests");
+    expect(capture?.response).toBeDefined();
+  });
+
+  it("records a call path that passes no response schema as such, not as a missing capture", () => {
+    const capture = inventory.schemaCaptures.find((c) => c.clientMethod === "guests.getLapsing");
+    expect(capture).toBeDefined();
+    expect(capture?.response).toBeUndefined();
+  });
+
+  it("captures one entry per issued request", () => {
+    const issued = inventory.invocations.reduce((sum, i) => sum + i.requestCount, 0);
+    expect(inventory.schemaCaptures).toHaveLength(issued);
+  });
+});

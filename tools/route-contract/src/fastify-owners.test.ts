@@ -141,6 +141,11 @@ describe("bootFastifyOwners", () => {
     }
   });
 
+  it("exposes the test boot's OpenAPI document (the route side of schema parity)", () => {
+    const doc = owners.openApiDocument("reservations") as { paths?: Record<string, unknown> };
+    expect(doc.paths).toHaveProperty("/api/v1/guests/lapsing");
+  });
+
   it("matches by runtime path, not by pattern spelling", () => {
     // The measurement that made findRoute the choice: this concrete URL
     // resolves against the registered `/api/v1/users/:id`, which `hasRoute`
