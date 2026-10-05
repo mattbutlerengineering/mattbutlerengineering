@@ -12,18 +12,17 @@ import {
 } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
-import type { BookingNotifier, CancelInitiator } from "./booking-notifications.js";
+import type { CancelInitiator } from "../transitions/ports.js";
 
 export interface CancelReservationDeps {
-  bookingNotifier: BookingNotifier;
   logger: FastifyBaseLogger;
 }
 
 /**
- * Who initiated the cancellation — drives deposit fee policy. Re-exported from
- * the notifier, which now owns the cancellation-notification seam.
+ * Who initiated the cancellation — drives deposit fee policy. Owned by the
+ * reservation-transitions ports, which carry it to the cancellation email.
  */
-export type { CancelInitiator } from "./booking-notifications.js";
+export type { CancelInitiator } from "../transitions/ports.js";
 
 export interface CancelReservationOptions {
   /**
@@ -393,14 +392,16 @@ async function resolveDeposit(
  * Domain-level cancel: validates the status transition BEFORE any money
  * moves (a stale-status cancel — e.g. staff re-cancelling an already
  * CANCELLED reservation — must never touch the deposit), then owns deposit
- * resolution ordering, the `partial_refunded` retry guard,
- * abort-on-money-failure, and the winning cancel's notification teardown
- * (reminder jobs + guest dispatch), delegated to BookingNotifier via one seam.
- * Callers (routes) are thin adapters that translate the result into HTTP.
+ * resolution ordering, the `partial_refunded` retry guard and
+ * abort-on-money-failure. What the winning cancel sets off afterwards
+ * (reminder teardown, the guest's cancellation email, the live event) is
+ * applied by the reservation-transitions `cancel` verb, on success only.
  */
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
-  manageToken: string,
+  // Kept for call-site stability; the guest's manage link is now carried to the
+  // cancellation email by the transitions `cancel` verb, not used here.
+  _manageToken: string,
   deps: CancelReservationDeps,
   options: CancelReservationOptions = {}
 ): Promise<CancelReservationResult> {
@@ -469,8 +470,6 @@ export async function cancelReservationWithDeposit(
       detail: "Reservation was already cancelled by a concurrent request",
     };
   }
-
-  await deps.bookingNotifier.cancelBookingNotifications(reservation, manageToken, initiator);
 
   return { success: true, reservation: updated };
 }

@@ -6,13 +6,14 @@
  * events, guest messages, reminder jobs and deposit money operations — via
  * the effects harness (`src/test/effects-harness.ts`).
  *
- * Written FIRST, against today's code. Every money and guest-messaging row
- * pins today's behaviour exactly (plain `it`). The deltas Matt ruled on
- * 2026-10-04 (defect.md "Divergence ruling": live updates everywhere, one
- * fix D8) fail on today's code and are written as `it.fails`; each flips to
- * `it` in the PR that implements it. Guards for behaviour the ruling keeps
- * (D2/D4 absences, no new reminders for staff-created bookings, the guest
- * modify double email) pass today and are plain `it`.
+ * Written FIRST (PR 1, #6051), against the pre-refactor code. Every money and
+ * guest-messaging row pinned that behaviour exactly and still does, with
+ * unchanged bodies. The deltas Matt ruled on 2026-10-04 (defect.md
+ * "Divergence ruling": live updates everywhere, one fix D8) were `it.fails`
+ * there and flipped to `it` in PR 2, when the transitions module made them
+ * pass. Guards for behaviour the ruling keeps (D2/D4 absences, no new
+ * reminders for staff-created bookings, the guest modify double email) are
+ * plain `it`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance, InjectOptions } from "fastify";
@@ -305,13 +306,13 @@ describe("reservation transitions — effects per entry point", () => {
       expect(eventTypes()).toEqual(["reservation:cancelled"]);
     });
 
-    it.fails("staff-delete emits reservation:cancelled (D1)", async () => {
+    it("staff-delete emits reservation:cancelled (D1)", async () => {
       arrangeCancel();
       await send(doors["staff-delete"]());
       expect(eventTypes()).toEqual(["reservation:cancelled"]);
     });
 
-    it.fails("guest-manage emits reservation:cancelled (D1)", async () => {
+    it("guest-manage emits reservation:cancelled (D1)", async () => {
       arrangeCancel();
       await send(doors["guest-manage"]());
       expect(eventTypes()).toEqual(["reservation:cancelled"]);
@@ -419,7 +420,7 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.events).toEqual([]);
     });
 
-    it.fails("emits reservation:updated (D6)", async () => {
+    it("emits reservation:updated (D6)", async () => {
       arrangeNoShow();
       await send(noShow());
       expect(eventTypes()).toEqual(["reservation:updated"]);
@@ -466,24 +467,21 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.messages).toEqual([]);
     });
 
-    it.fails("COMPLETED emits reservation:updated (D7)", async () => {
+    it("COMPLETED emits reservation:updated (D7)", async () => {
       arrangeUpdate({ status: "COMPLETED" });
       await send(patch({ status: "COMPLETED" }));
       expect(eventTypes()).toEqual(["reservation:updated"]);
     });
 
-    it.fails(
-      "time change on a publicly booked reservation replaces its reminders at the new time (D8)",
-      async () => {
-        rec.seedReminders(RES_ID, "venue-1");
-        arrangeUpdate(newTime);
-        await send(patch(newTime));
-        expect(Object.fromEntries(rec.scheduledJobs)).toEqual({
-          [`booking-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 24) * HOUR }),
-          [`day-of-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 2) * HOUR }),
-        });
-      }
-    );
+    it("time change on a publicly booked reservation replaces its reminders at the new time (D8)", async () => {
+      rec.seedReminders(RES_ID, "venue-1");
+      arrangeUpdate(newTime);
+      await send(patch(newTime));
+      expect(Object.fromEntries(rec.scheduledJobs)).toEqual({
+        [`booking-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 24) * HOUR }),
+        [`day-of-reminder:${RES_ID}`]: expect.objectContaining({ delayMs: (96 - 2) * HOUR }),
+      });
+    });
 
     it("time change on a staff-created reservation (no reminders) creates none", async () => {
       arrangeUpdate(newTime);
@@ -500,19 +498,19 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.depositOps).toEqual([]);
     });
 
-    it.fails("time change emits reservation:updated (D8)", async () => {
+    it("time change emits reservation:updated (D8)", async () => {
       arrangeUpdate(newTime);
       await send(patch(newTime));
       expect(eventTypes()).toEqual(["reservation:updated"]);
     });
 
-    it.fails("any other field change emits reservation:updated", async () => {
+    it("any other field change emits reservation:updated", async () => {
       arrangeUpdate({ notes: "window seat" });
       await send(patch({ notes: "window seat" }));
       expect(eventTypes()).toEqual(["reservation:updated"]);
     });
 
-    it.fails("status and time changed together emit exactly one reservation:updated", async () => {
+    it("status and time changed together emit exactly one reservation:updated", async () => {
       arrangeUpdate({ status: "COMPLETED", ...newTime });
       await send(patch({ status: "COMPLETED", ...newTime }));
       expect(eventTypes()).toEqual(["reservation:updated"]);
@@ -570,7 +568,7 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.jobs).toEqual([]);
     });
 
-    it.fails("emits reservation:updated", async () => {
+    it("emits reservation:updated", async () => {
       arrangeModify(newTime);
       await send(modify(newTime));
       expect(eventTypes()).toEqual(["reservation:updated"]);
@@ -664,19 +662,19 @@ describe("reservation transitions — effects per entry point", () => {
       }
     );
 
-    it.fails("public-booking delivers hold:confirmed to live subscribers (D5)", async () => {
+    it("public-booking delivers hold:confirmed to live subscribers (D5)", async () => {
       arrangeConfirm();
       await send(doors["public-booking"]());
       expect(eventTypes()).toEqual(["hold:confirmed"]);
     });
 
-    it.fails("staff-hold delivers hold:confirmed to live subscribers (D5)", async () => {
+    it("staff-hold delivers hold:confirmed to live subscribers (D5)", async () => {
       arrangeConfirm();
       await send(doors["staff-hold"]());
       expect(eventTypes()).toEqual(["hold:confirmed"]);
     });
 
-    it.fails("public-hold delivers hold:confirmed to live subscribers (D5)", async () => {
+    it("public-hold delivers hold:confirmed to live subscribers (D5)", async () => {
       arrangeConfirm();
       await send(doors["public-hold"]());
       expect(eventTypes()).toEqual(["hold:confirmed"]);
@@ -739,7 +737,7 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.jobs).toEqual([]);
     });
 
-    it.fails("staff create emits reservation:created", async () => {
+    it("staff create emits reservation:created", async () => {
       arrangeStaffCreate();
       await send(staffCreate());
       expect(eventTypes()).toEqual(["reservation:created"]);
@@ -755,7 +753,7 @@ describe("reservation transitions — effects per entry point", () => {
       headers: manageAuth(),
     });
 
-    it.fails("PENDING → CONFIRMED emits reservation:updated", async () => {
+    it("PENDING → CONFIRMED emits reservation:updated", async () => {
       vi.mocked(reservationService.getById).mockResolvedValue(
         makeReservation({ status: "PENDING" })
       );
@@ -777,67 +775,61 @@ describe("reservation transitions — effects per entry point", () => {
   // ─── Non-transition emit sites (D9) ────────────────────────────────────────
 
   describe("non-transition live events", () => {
-    it.fails(
-      "cloning a floor plan delivers floor-plan:created to live subscribers (D9)",
-      async () => {
-        const source = {
-          id: "fp-1",
-          venueId: "venue-1",
-          name: "Main",
-          isActive: true,
-          layoutJson: null,
-          createdAt: NOW,
-          updatedAt: NOW,
-          tables: [],
-        };
-        const clone = { ...source, id: "fp-2", name: "Copy of Main", isActive: false };
-        h.prisma.floorPlan.findUnique.mockResolvedValue(source);
-        h.prisma.floorPlan.findMany.mockResolvedValue([]);
-        h.prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-          fn({
-            $executeRaw: vi.fn().mockResolvedValue(0),
-            floorPlan: {
-              create: vi.fn().mockResolvedValue({ id: "fp-2" }),
-              findUnique: vi.fn().mockResolvedValue(clone),
-            },
-            table: { createMany: vi.fn() },
-          })
-        );
-        const response = await send({
-          method: "POST",
-          url: `${API_V1}/floor-plans/fp-1/clone`,
-          headers: staffAuth,
-        });
-        expect(response.statusCode).toBe(201);
-        expect(rec.effects.events).toEqual([{ type: "floor-plan:created", id: "fp-2" }]);
-      }
-    );
-
-    it.fails(
-      "the on-demand lapsing scan delivers guest:lapsing to live subscribers (D9)",
-      async () => {
-        const visit = (daysAgo: number) => ({
-          startTime: new Date(NOW.getTime() - daysAgo * 24 * HOUR),
-        });
-        h.prisma.guest.findMany.mockResolvedValue([
-          {
-            id: "guest-1",
-            name: "Regular Rita",
-            email: "rita@example.com",
-            phone: null,
-            communicationPreference: "all",
-            reservations: [visit(130), visit(120), visit(110), visit(100)],
+    it("cloning a floor plan delivers floor-plan:created to live subscribers (D9)", async () => {
+      const source = {
+        id: "fp-1",
+        venueId: "venue-1",
+        name: "Main",
+        isActive: true,
+        layoutJson: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+        tables: [],
+      };
+      const clone = { ...source, id: "fp-2", name: "Copy of Main", isActive: false };
+      h.prisma.floorPlan.findUnique.mockResolvedValue(source);
+      h.prisma.floorPlan.findMany.mockResolvedValue([]);
+      h.prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          floorPlan: {
+            create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+            findUnique: vi.fn().mockResolvedValue(clone),
           },
-        ]);
-        const response = await send({
-          method: "GET",
-          url: `${API_V1}/guests/lapsing?venueId=venue-1`,
-          headers: staffAuth,
-        });
-        expect(response.statusCode).toBe(200);
-        expect(JSON.parse(response.body).data).toHaveLength(1);
-        expect(eventTypes()).toEqual(["guest:lapsing"]);
-      }
-    );
+          table: { createMany: vi.fn() },
+        })
+      );
+      const response = await send({
+        method: "POST",
+        url: `${API_V1}/floor-plans/fp-1/clone`,
+        headers: staffAuth,
+      });
+      expect(response.statusCode).toBe(201);
+      expect(rec.effects.events).toEqual([{ type: "floor-plan:created", id: "fp-2" }]);
+    });
+
+    it("the on-demand lapsing scan delivers guest:lapsing to live subscribers (D9)", async () => {
+      const visit = (daysAgo: number) => ({
+        startTime: new Date(NOW.getTime() - daysAgo * 24 * HOUR),
+      });
+      h.prisma.guest.findMany.mockResolvedValue([
+        {
+          id: "guest-1",
+          name: "Regular Rita",
+          email: "rita@example.com",
+          phone: null,
+          communicationPreference: "all",
+          reservations: [visit(130), visit(120), visit(110), visit(100)],
+        },
+      ]);
+      const response = await send({
+        method: "GET",
+        url: `${API_V1}/guests/lapsing?venueId=venue-1`,
+        headers: staffAuth,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).data).toHaveLength(1);
+      expect(eventTypes()).toEqual(["guest:lapsing"]);
+    });
   });
 });

@@ -7,7 +7,6 @@ import {
 } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
-import { confirmHold } from "../services/confirm-hold.js";
 import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -257,12 +256,15 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // would let an anonymous caller smuggle a `guestId` and attach its
         // reservation to someone else's guest record.
         const { guestName, guestEmail, guestPhone, notes } = request.body;
-        const result = await confirmHold({
-          holdId,
-          sessionId,
-          venueId,
-          guestDetails: { guestName, guestEmail, guestPhone, notes },
-        });
+        const result = await fastify.transitions.confirmHold(
+          {
+            holdId,
+            sessionId,
+            venueId,
+            guestDetails: { guestName, guestEmail, guestPhone, notes },
+          },
+          { door: "public-hold" }
+        );
 
         if (!result.success) {
           const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;

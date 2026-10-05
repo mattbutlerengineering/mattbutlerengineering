@@ -31,17 +31,10 @@ import { briefingRoutes } from "./routes/briefing.js";
 import { bookingMetricsRoutes } from "./routes/booking-metrics.js";
 import { createNotificationPort } from "./notifications.js";
 import {
-  createDefaultBookingNotifier,
-  type BookingNotifier,
-} from "./services/booking-notifications.js";
-import {
   createDefaultWaitlistNotifier,
   type WaitlistNotifier,
 } from "./services/waitlist-notifier.js";
-import {
-  createDefaultPostVisitNotifier,
-  type PostVisitNotifier,
-} from "./services/post-visit-notifier.js";
+import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
@@ -64,6 +57,11 @@ import { venueContextPreHandler } from "./middleware/venue-context.js";
 import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/venue-access.js";
 import { setRlsTripwireLogger } from "./services/rls-context-mode.js";
 import { setDepositServiceLogger } from "./services/deposit.js";
+import { createReservationTransitions, type ReservationTransitions } from "./transitions/index.js";
+import { createDispatcherMessaging } from "./transitions/adapters/dispatcher-messaging.js";
+import { createEmitterEvents } from "./transitions/adapters/emitter-events.js";
+import { allOutboundLive } from "./transitions/venue-policy.js";
+import type { JobsPort } from "./transitions/ports.js";
 
 /**
  * Best-effort venue-id resolution for the global venue-context preHandler
@@ -87,8 +85,11 @@ const resolveGlobalVenueId: VenueIdResolver = (request) =>
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
-  bookingNotifier?: BookingNotifier;
-  postVisitNotifier?: PostVisitNotifier;
+  /**
+   * Reminder-job scheduler the reservation transitions use. Defaults to the
+   * notifier runtime's lazily connected scheduler; tests inject a recorder.
+   */
+  jobs?: JobsPort;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
@@ -157,23 +158,13 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // buildApp() stays side-effect-free.
   const notifierRuntime = createNotifierRuntime();
 
-  // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-  const bookingNotifier =
-    options.bookingNotifier ??
-    createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
-  fastify.decorate("bookingNotifier", bookingNotifier);
-
-  // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-  const postVisitNotifier =
-    options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
-  fastify.decorate("postVisitNotifier", postVisitNotifier);
-
   // Wire waitlist notifier — injectable for testing, default env-backed for production
   const waitlistNotifier =
     options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
   fastify.decorate("waitlistNotifier", waitlistNotifier);
 
-  // Wire reservation events emitter — injectable for testing, default singleton for production
+  // Wire the live reservation events emitter — the single instance SSE clients
+  // subscribe to (routes/events.ts); injectable for testing
   const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
   fastify.decorate("reservationEvents", reservationEvents);
 
@@ -201,6 +192,30 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // route registration so child route plugins inherit it.
   const services: DomainServices = { ...defaultDomainServices, ...options.services };
   fastify.decorate("services", services);
+
+  // Wire the reservation transitions (maintenance:reservation-transition-effects):
+  // the one module that decides what a transition sets off. Every effect
+  // adapter is constructed exactly once, here — messaging over the single
+  // NotificationDispatcher, jobs over the notifier runtime's scheduler (or an
+  // injected one), events over the single live emitter — and the venue effect
+  // policy source is chosen in this one place. Decorated before route
+  // registration so child route plugins inherit it.
+  const transitions = createReservationTransitions({
+    ports: {
+      messaging: createDispatcherMessaging({
+        dispatcher: notificationPort,
+        postVisitNotifier: createDefaultPostVisitNotifier(notificationPort),
+        getVenue: (venueId) => services.venueService.getById(venueId),
+        logger: fastify.log,
+      }),
+      jobs: options.jobs ?? notifierRuntime.scheduler,
+      events: createEmitterEvents(reservationEvents),
+    },
+    policy: allOutboundLive,
+    reservationService: services.reservationService,
+    logger: fastify.log,
+  });
+  fastify.decorate("transitions", transitions);
 
   // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
   // (#5469). `@mbe/database`'s createDatabase() registers its own
@@ -276,7 +291,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(stripeWebhookRoutes);
 
   // Wire lapsed-guest monitor with lifecycle hooks
-  const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+  const lapsedGuestMonitor = createLapsedGuestMonitor({
+    prisma,
+    emitLapsingGuests: (venueId, guests) => reservationEvents.emitLapsingGuests(venueId, guests),
+  });
 
   if (process.env.NODE_ENV !== "test") {
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
@@ -319,10 +337,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
-    bookingNotifier: BookingNotifier;
     waitlistNotifier: WaitlistNotifier;
-    postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
+    /** Reservation transitions — one verb per transition, effects planned in one table. */
+    transitions: ReservationTransitions;
     venueMembershipLookup: VenueMembershipLookup;
     hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */

@@ -1,7 +1,7 @@
 /**
  * Effects harness for the reservation-transition suite
  * (`src/transitions/entry-points.test.ts`, maintenance run
- * reservation-transition-effects, PR 1).
+ * reservation-transition-effects; written in PR 1, re-backed in PR 2).
  *
  * It records what a reservation transition SETS OFF — live SSE events, guest
  * messages, reminder-job operations and deposit money operations — and
@@ -20,11 +20,12 @@
  *               listed in {@link MESSAGE_KINDS} is recorded as
  *               `unexpected:<sendMethod>` so a new message can never pass
  *               silently.
- *               The post-visit thank-you goes through the real
- *               `createPostVisitNotifier`, so its venue-flag and unsubscribe
- *               gates run unchanged.
- * - jobs:       a recording scheduler behind the REAL `createBookingNotifier`,
- *               so reminder timing and job ids are today's code, not a fake.
+ *               It is passed as `buildApp({ notificationPort })`, so the REAL
+ *               production messaging adapter (and, for the post-visit
+ *               thank-you, the real `PostVisitNotifier` with its venue-flag
+ *               and unsubscribe gates) runs in front of it.
+ * - jobs:       a recording scheduler passed as `buildApp({ jobs })`, so the
+ *               REAL effects table decides reminder timing and job ids.
  *               `scheduledJobs` is the resulting store; `seedReminders` puts a
  *               reservation's two reminders in it, as a public booking would.
  * - depositOps: money-moving calls on {@link recordingDepositService}. The test
@@ -36,11 +37,8 @@ import { JOB_TYPES } from "@mbe/jobs";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { ReminderPayload } from "@mbe/jobs";
 import { ReservationEventEmitter, type ReservationEvent } from "../services/events.js";
-import { createBookingNotifier } from "../services/booking-notifications.js";
-import { createPostVisitNotifier } from "../services/post-visit-notifier.js";
-import type { NotifierScheduler } from "../services/notifier-runtime.js";
-import { venueService } from "../services/venue.js";
 import type { ReservationsAppOptions } from "../app.js";
+import type { JobsPort } from "../transitions/ports.js";
 
 export interface RecordedEvent {
   type: string;
@@ -138,10 +136,7 @@ export interface EffectsRecorder {
   /** Normalized effects recorded so far (live arrays). */
   effects: RecordedEffects;
   /** Spread into `buildApp(...)`; carries every recording seam. */
-  appOptions: Pick<
-    ReservationsAppOptions,
-    "notificationPort" | "bookingNotifier" | "postVisitNotifier" | "reservationEvents"
-  >;
+  appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" | "reservationEvents">;
   /** Reminder jobs currently scheduled, keyed by job id. */
   scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
   /** Put a reservation's two reminders in the store, as a public booking would. */
@@ -181,7 +176,7 @@ function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDis
 function createRecordingScheduler(
   jobs: RecordedJobOp[],
   store: EffectsRecorder["scheduledJobs"]
-): NotifierScheduler {
+): JobsPort {
   return {
     async schedule(jobType, payload, delayMs, jobId) {
       const id = jobId ?? `${jobType}:${store.size}`;
@@ -212,17 +207,6 @@ export function createEffectsRecorder(): EffectsRecorder {
 
   const notificationPort = createRecordingDispatcher(effects.messages);
   const scheduler = createRecordingScheduler(effects.jobs, scheduledJobs);
-  const bookingNotifier = createBookingNotifier({
-    notificationAdapter: notificationPort,
-    scheduler,
-    getVenue: (venueId) => venueService.getById(venueId),
-  });
-  const postVisitNotifier = createPostVisitNotifier({
-    sendThankYouEmail: (input) => notificationPort.sendThankYouEmail(input),
-    updateReservationEmailStatus: async () => undefined,
-    updateGuestUnsubscribed: async () => undefined,
-  });
-
   const depositRecorder: DepositRecorder = {
     ops: effects.depositOps,
     deposit: null,
@@ -232,7 +216,7 @@ export function createEffectsRecorder(): EffectsRecorder {
 
   return {
     effects,
-    appOptions: { notificationPort, bookingNotifier, postVisitNotifier, reservationEvents },
+    appOptions: { notificationPort, jobs: scheduler, reservationEvents },
     scheduledJobs,
     seedReminders(reservationId, venueId) {
       const payload: ReminderPayload = { reservationId, venueId };
