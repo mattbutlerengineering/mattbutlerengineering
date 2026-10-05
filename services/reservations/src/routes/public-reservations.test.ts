@@ -474,6 +474,41 @@ describe("guest link on the public confirm (M5.2)", () => {
   });
 });
 
+describe("confirmation email manage token (public booking)", () => {
+  it("emails the guest the same manage token the 201 body returns", async () => {
+    const notificationPort = {
+      sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
+    };
+    const stubApp = await buildApp({
+      logger: false,
+      notificationPort: notificationPort as never,
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
+      },
+    });
+    await stubApp.ready();
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+
+    const response = await stubApp.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
+      payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
+    });
+    // The confirmation email rides the background chain, after the response.
+    await vi.waitFor(() => expect(notificationPort.sendBookingConfirmation).toHaveBeenCalled());
+
+    expect(response.statusCode).toBe(201);
+    expect(notificationPort.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ manageToken: response.json().data.manageToken })
+    );
+    await stubApp.close();
+  });
+});
+
 describe("manage token", () => {
   it("generates and verifies a valid token", () => {
     const token = generateManageToken("res_123", "jane@example.com");
