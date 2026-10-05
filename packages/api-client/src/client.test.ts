@@ -1059,6 +1059,21 @@ describe("ApiClient.call — execute an endpoint definition", () => {
     expect(mockFetch.mock.calls[0]![1]?.body).toBe("{}");
   });
 
+  it("serializes a declared body on any method, DELETE included (the manage-cancel shape)", async () => {
+    const cancelItem = defineEndpoint({
+      method: "DELETE",
+      path: "/v1/items/:id",
+      params: z.object({ id: z.string() }),
+      body: z.object({ cancellationReason: z.string() }),
+      responses: { 204: { body: null } },
+    });
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await client().call(cancelItem, { params: { id: "g1" }, body: { cancellationReason: "x" } });
+
+    expect(mockFetch.mock.calls[0]![1]?.body).toBe(JSON.stringify({ cancellationReason: "x" }));
+  });
+
   it("returns undefined for a 204", async () => {
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
