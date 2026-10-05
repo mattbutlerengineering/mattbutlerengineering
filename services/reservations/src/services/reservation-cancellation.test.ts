@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Reservation } from "@mbe/types";
-import type { Mock } from "vitest";
 import type * as DepositModule from "./deposit.js";
 
 vi.mock("./reservation.js", () => ({
@@ -81,16 +80,8 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
 
 function makeDeps() {
   return {
-    bookingNotifier: {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    },
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
-  } as unknown as CancelReservationDeps & {
-    bookingNotifier: { cancelBookingReminders: Mock; cancelBookingNotifications: Mock };
-  };
+  } as unknown as CancelReservationDeps;
 }
 
 const venuePolicy: VenuePolicy = {
@@ -555,34 +546,6 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("crosses exactly one notifier seam on success: bookingNotifier.cancelBookingNotifications (was two)", async () => {
-    // The caller used to reach two seams — cancelBookingReminders on the
-    // notifier AND sendBookingCancelled on a separate dispatcher. It now hands
-    // the whole "cancel this booking's notifications" intent to BookingNotifier
-    // in a single call; the dispatcher is a collaborator nested behind it.
-    const reservation = makeReservation();
-    const deps = makeDeps();
-    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
-    vi.mocked(reservationService.update).mockResolvedValueOnce({
-      ...reservation,
-      status: "CANCELLED",
-    } as never);
-
-    const result = await cancelReservationWithDeposit(reservation, "token123", deps, {
-      initiator: "guest",
-    });
-
-    expect(result.success).toBe(true);
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledTimes(1);
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
-      reservation,
-      "token123",
-      "guest"
-    );
-    // The caller no longer crosses the lower-level reminder seam directly.
-    expect(deps.bookingNotifier.cancelBookingReminders).not.toHaveBeenCalled();
-  });
-
   describe("initiator: staff", () => {
     it("refunds a held deposit in full, waiving any cancellation fee policy", async () => {
       // Reservation is well past the free-cancellation window (would be a
@@ -680,12 +643,14 @@ describe("cancelReservationWithDeposit", () => {
     });
   });
 
-  it("fires exactly one notification when two cancels race (CAS dedup, #3109)", async () => {
+  it("lets exactly one of two racing cancels succeed (CAS dedup, #3109)", async () => {
     // Two concurrent cancels of a no-deposit reservation. Before the CAS,
     // both passed validation against the same status snapshot, both flipped
     // the row, and both notified — two guest emails. Now the status-guarded
     // updateMany matches for exactly one caller; the loser's update() returns
-    // null (count 0), so it short-circuits with a 409 and never notifies.
+    // null (count 0), so it short-circuits with a 409. Only a success sets off
+    // the guest notification (the transitions `cancel` verb), so the loser
+    // never notifies — see transitions/index.test.ts.
     const reservation = makeReservation();
     const deps = makeDeps();
 
@@ -705,9 +670,6 @@ describe("cancelReservationWithDeposit", () => {
     if (loser && !loser.success) {
       expect(loser.status).toBe(409);
     }
-    // The single-seam notification path fires exactly once: only the winning
-    // cancel reaches it; the loser short-circuits on the CAS miss.
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledTimes(1);
   });
 
   it("logs and returns a distinct non-409 result when the final update throws ReservationTransitionError after the deposit is already resolved (ghost-state guard, #3278)", async () => {
@@ -750,7 +712,6 @@ describe("cancelReservationWithDeposit", () => {
     // (c) this is the post-resolution transition-error path: the deposit
     // money-move DID run, and no re-notification fires on the failed cancel.
     expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "cancellation");
-    expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
 
   it("returns a harmless 409 (no error log, no 500) when the final update throws ReservationTransitionError but no deposit was resolved (concurrent loser, #3278)", async () => {
@@ -777,7 +738,6 @@ describe("cancelReservationWithDeposit", () => {
     expect(deps.logger.error).not.toHaveBeenCalled();
     expect(depositService.refund).not.toHaveBeenCalled();
     expect(depositService.forfeit).not.toHaveBeenCalled();
-    expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
 
   it("returns a harmless 409 (not the manual-reconciliation 500) when the status write fails after a stuck deposit was confirmed already succeeded — nothing moved THIS call (#5722 R5 LOW-3)", async () => {
