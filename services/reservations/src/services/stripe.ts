@@ -77,6 +77,19 @@ export interface CustomerResult {
 }
 
 /**
+ * Verifies a Stripe webhook's signature and returns the parsed event. Pure
+ * local HMAC over the raw body — needs no API key or client, so it is not on
+ * `PaymentsPort`. Throws on a missing or invalid signature.
+ */
+export function verifyStripeWebhookSignature(
+  rawBody: Buffer,
+  signature: string,
+  webhookSecret: string
+): Stripe.Event {
+  return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+}
+
+/**
  * Adapter around the Stripe SDK.
  * All Stripe API calls go through this class so tests can mock it cleanly.
  */

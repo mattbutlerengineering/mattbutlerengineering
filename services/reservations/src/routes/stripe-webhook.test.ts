@@ -56,6 +56,8 @@ vi.mock("stripe", () => {
     refunds = { list: mockStripeRefundsList };
     customers = { create: vi.fn() };
     webhooks = mockWebhooks;
+    // verifyStripeWebhookSignature uses the static Stripe.webhooks (3.2).
+    static webhooks = mockWebhooks;
     constructor(_key: string) {}
   }
   return { default: MockStripe };

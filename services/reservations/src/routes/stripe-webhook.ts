@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type Stripe from "stripe";
 import { createProblemDetails } from "@mbe/types";
-import { stripeService } from "../services/stripe.js";
+import { stripeService, verifyStripeWebhookSignature } from "../services/stripe.js";
 import { depositService } from "../services/deposit.js";
 import { createRawBodyCaptureHook } from "../middleware/raw-body-capture.js";
 import { WebhookEventRouter } from "./webhook-event-router.js";
@@ -263,7 +263,7 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
 
     let event: Stripe.Event;
     try {
-      event = stripeService.constructWebhookEvent(rawBody, signature, webhookSecret);
+      event = verifyStripeWebhookSignature(rawBody, signature, webhookSecret);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid webhook signature";
       return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
