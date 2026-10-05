@@ -119,7 +119,7 @@ const DEPOSITS_URL = "/api/v1/deposits";
 const depositUrl = (id: string, action?: string): string =>
   action ? `${DEPOSITS_URL}/${id}/${action}` : `${DEPOSITS_URL}/${id}`;
 
-/** In-memory payments injected as `buildApp({ payments })` — no `vi.mock("stripe")`. */
+/** In-memory payments injected as `buildApp({ payments })` — the Stripe SDK module is not mocked. */
 let payments: InMemoryPayments;
 const opCalls = (op: PaymentsOp) => payments.calls.filter((call) => call.op === op);
 

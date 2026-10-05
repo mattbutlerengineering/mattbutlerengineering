@@ -3,8 +3,8 @@ import Stripe from "stripe";
 import { verifyStripeWebhookSignature } from "./stripe.js";
 
 /**
- * Real HMAC signatures, generated with Stripe's own test helper — no
- * `vi.mock("stripe")`. (services/stripe.test.ts mocks the SDK module for the
+ * Real HMAC signatures, generated with Stripe's own test helper — the SDK
+ * module is not mocked here. (services/stripe.test.ts mocks the SDK module for the
  * network calls, which is why these live in their own file.)
  */
 const SECRET = "whsec_test_signature_secret";

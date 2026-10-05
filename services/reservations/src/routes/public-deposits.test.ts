@@ -122,7 +122,7 @@ const mockDeposit: Deposit = {
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
-/** In-memory payments injected as `buildApp({ payments })` — no `vi.mock("stripe")`. */
+/** In-memory payments injected as `buildApp({ payments })` — the Stripe SDK module is not mocked. */
 let payments: InMemoryPayments;
 const opCalls = (op: string) => payments.calls.filter((call) => call.op === op);
 /** The first `createPaymentIntent` / `createCustomer` call's options (idempotency key included). */

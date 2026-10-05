@@ -7,7 +7,7 @@ import { StripeService } from "./services/stripe.js";
 const { mockGuestDb } = vi.hoisted(() => ({
   mockGuestDb: {
     findUnique: vi.fn().mockResolvedValue(null),
-    update: vi.fn().mockResolvedValue({}),
+    update: vi.fn().mockResolvedValue({ id: "guest-1", stripeCustomerId: "cus_mem_1" }),
   },
 }));
 

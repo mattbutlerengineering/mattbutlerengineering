@@ -304,12 +304,4 @@ export class StripeService {
       wrapStripeError(err);
     }
   }
-
-  /**
-   * Validates and parses an incoming Stripe webhook payload.
-   * Throws if the signature is invalid.
-   */
-  constructWebhookEvent(payload: Buffer, signature: string, webhookSecret: string): Stripe.Event {
-    return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  }
 }
