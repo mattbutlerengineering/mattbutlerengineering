@@ -176,7 +176,12 @@ export interface OpenApiDocument {
   readonly components?: { readonly schemas?: unknown };
 }
 
-const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path);
+/** Drops trailing slashes (never the root's). A loop, not `/\/+$/` — CodeQL flags that as polynomial. */
+function trimSlash(path: string): string {
+  let end = path.length;
+  while (end > 1 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
+}
 
 /**
  * The swagger operation documenting a concrete client path. Templates are
