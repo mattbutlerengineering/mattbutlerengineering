@@ -189,11 +189,9 @@ function createRecordingScheduler(
       store.set(id, { jobType, delayMs, payload });
       return id;
     },
-    // Reports whether a job was removed — a `Promise<boolean>` is assignable to
-    // today's `Promise<void>` signature, and is what PR 2's JobsPort needs.
     async cancel(jobId: string) {
       jobs.push({ op: "cancel", jobId });
-      return store.delete(jobId) as unknown as void;
+      return store.delete(jobId);
     },
   };
 }

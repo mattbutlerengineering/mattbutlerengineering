@@ -166,6 +166,24 @@ describe("JobScheduler", () => {
     expect(mocks.remove).toHaveBeenCalledWith(knownId);
   });
 
+  it("cancel() reports true when the queue removed a job", async () => {
+    mocks.remove.mockResolvedValueOnce(1);
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(true);
+  });
+
+  it("cancel() reports false when there was no job to remove", async () => {
+    mocks.remove.mockResolvedValueOnce(0);
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(false);
+  });
+
+  it("cancel() reports false instead of throwing when removal fails", async () => {
+    mocks.remove.mockRejectedValueOnce(new Error("job is locked"));
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(false);
+  });
+
   it("DEFAULT_QUEUE_NAME is exported from job-types and equals 'mbe-notifications'", () => {
     expect(DEFAULT_QUEUE_NAME).toBe("mbe-notifications");
   });
