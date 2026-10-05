@@ -144,7 +144,7 @@ preHandlers.
   - Test first: before deleting, temporarily break one facade method (e.g. wrong body key) and confirm route-contract parity fails — proving the moved coverage actually catches what the deleted tests caught; revert.
   - Files: `packages/api-client/src/guests.test.ts` (deleted).
   - Blocked by: 3.6
-- [ ] **3.8 PR 3 gates, open, merge** — ship the migration.
+- [x] **3.8 PR 3 gates, open, merge** — ship the migration.
   - Accept: rebased on `origin/main` (coordination note above honored: `LapsingGuest` name/shape preserved, preHandlers match origin/main); full gates green; llms artifacts for `packages/types`, `packages/api-client`, `services/reservations`, root staged by explicit path; PR description carries the decision-2 reviewer checkpoint and the behaviour-change list; `reviewer` PASS; `CI Gate` green; squash-merged with explicit `--subject`. Deploy workflows run on merge (dispatch through CI if a paths filter skips `packages/types` / `packages/api-client`).
   - Test first: n/a (gate item).
   - Files: none new.
@@ -152,7 +152,7 @@ preHandlers.
 
 ## Milestone 4: measured cost recorded for the remaining domains
 
-- [ ] **4.1 Record the measured per-endpoint migration cost in `release.md`** — fill architecture.md § Measured-cost template and price the remaining domains.
+- [x] **4.1 Record the measured per-endpoint migration cost in `release.md`** — fill architecture.md § Measured-cost template and price the remaining domains.
   - Accept: `release.md` contains the filled table (endpoints 11; parity gaps found = measured length of `KNOWN_PARITY_GAPS` from 2.4; route LOC 597 → after; client LOC 126 → after; inline `type: "object"` 15 → after; hand interfaces replaced; new Zod schemas 2; OpenAPI snapshot deltas; tests deleted/added per file; behaviour decisions with each named; PR 3 worker wall-clock + tokens) and a per-domain estimate for the 12 remaining domains (venues 12, reservations 11, availability 10, floor-plans 8, tables 7, users 7 — second service needs `registerEndpoint` adoption, waitlist 7, deposits 5, public-venue 4, agent-sessions 4 — agent service `/v1` prefix, briefing 1, health 1) derived from pilot per-endpoint figures. No cell left as a placeholder; anything unmeasurable is marked "not measured" with the reason.
   - Test first: n/a — measurement item; every number cites its command (`wc -l`, `grep -c`, snapshot diff line count).
   - Files: `docs/fixes/endpoint-definitions-pilot/release.md` (written at Ship).
@@ -233,3 +233,8 @@ Deviations discovered during Implement, dated. Measured `KNOWN_PARITY_GAPS` (2.4
 | Agent effort, PR 3                            | ~32 min wall-clock for 3.1–3.7 incl. gates (04:57:54Z → 05:29:48Z; interleaved with PR 2 review/CI); tokens not separately measurable inside a shared session          | timestamps                                         |
 
 One-time machinery cost (PR 1 + PR 2, not repeated per domain): `defineEndpoint` + types, `toResponseJsonSchema`, `registerEndpoint`, `ApiClient.call`, schema-parity guard. Per later domain the work is PR 3's shape only: add the domain to `PARITY_DOMAINS` (measure its gaps), write its definitions, migrate routes and facade, delete its shallow client test.
+
+### 2026-10-05 — Ship (3.8, 4.1)
+
+- **3.8 done:** origin/main had moved to `b50540242` (#6055 reservation-transition-effects, #6059); merged into `refactor/endpoint-defs-pr3` as `21e56cee5`. Git auto-resolved `routes/guests.ts`: #6055's `scanLapsedGuests(venueId, (vid, guests) => fastify.reservationEvents.emitLapsingGuests(vid, guests))` landed inside the migrated `registerEndpoint` handler, so both intents are kept. Gates re-run after a forced rebuild of `@mbe/types`/`@mbe/api-client`/`@mbe/service-bootstrap`/`@mbe/cli`. `CI Gate` success on `21e56cee5` (run 37274190657). Squash-merged as **`17b1edceb`** `refactor(guests): declare each guests endpoint once (#6060)`. Evidence is in `release.md`.
+- **4.1 done:** the measured-cost table and the per-domain estimates are in `release.md` § Measured cost.
