@@ -216,3 +216,12 @@ confirmed history — Architect should not rely on the attribution.
   non-additive Prisma migration; any divergence ruling above not yet made.
 - Next stage: **Architect** (`re-entry: architect`). Consider the deepen skill's
   design-it-twice pattern for the transitions interface.
+
+## Divergence ruling (Matt, 2026-10-04)
+
+One policy for D1–D9, chosen over full unification, pure refactor, and per-item rulings:
+
+- **Live updates everywhere.** Every state change emits SSE through the live emitter: D1 (DELETE and guest cancel), D3 (walk-in, already), D5/D9 (dead singleton removed, emits rerouted), D6 (no-show), D7 (complete), D8 (staff modify).
+- **Guest messaging unchanged.** No new emails or SMS on any path. D2 (staff-created booking sends nothing) and D4 (hold confirm via `holds.ts` / `public-holds.ts` sends no confirmation or reminders) stay as they are, and each becomes a `docs/backlog.md` seed for a later decision.
+- **Money unchanged.** Deposit capture, forfeit and refund behaviour is preserved exactly on every path.
+- **One fix: D8.** When a staff PATCH changes a reservation's time, reminders are rescheduled to the new time (today they stay at the old time).
