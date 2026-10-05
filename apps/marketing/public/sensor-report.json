@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-04T18:04:02.698Z",
+  "generated_at": "2026-10-05T01:47:40.910Z",
   "period": {
-    "start": "2026-09-27",
-    "end": "2026-10-04"
+    "start": "2026-09-28",
+    "end": "2026-10-05"
   },
   "sensors": {
     "acmm": {
@@ -42,7 +42,7 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.09,
+          "age_days": 0.41,
           "latest": "2026-10-04T15:53:03.183Z",
           "max_age_days": 3
         }
@@ -73,32 +73,39 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 931011,
-      "output_tokens": 1348,
-      "cache_creation_tokens": 82419,
-      "cache_hit_rate": 0.9187,
+      "cache_read_tokens": 105842339,
+      "output_tokens": 162524,
+      "cache_creation_tokens": 1526034,
+      "cache_hit_rate": 0.9858,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 16,
-          "output_tokens": 1348,
-          "cache_read_tokens": 931011,
-          "cache_creation_tokens": 82419
+          "input_tokens": 1031,
+          "output_tokens": 161881,
+          "cache_read_tokens": 105661546,
+          "cache_creation_tokens": 1479563
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 44,
+          "output_tokens": 643,
+          "cache_read_tokens": 180793,
+          "cache_creation_tokens": 46471
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
+      "completed": 29,
       "passed": 21,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "conclusion": "success",
-        "createdAt": "2026-10-04T17:59:03Z",
-        "name": "Sentry Triage",
-        "status": "completed"
+        "conclusion": "",
+        "createdAt": "2026-10-05T01:47:06Z",
+        "name": "Push on main",
+        "status": "in_progress"
       }
     },
     "lighthouse": {
@@ -106,27 +113,31 @@
     },
     "issues": {
       "available": false,
-      "error": "Command failed: gh issue list --state all --search created:>=2026-09-27 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh issue list --state all --search created:>=2026-09-28 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     },
     "issueFeedback": {
       "available": false,
       "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
-      "collected_at": "2026-10-03T18:06:45.155Z",
+      "collected_at": "2026-10-04T18:06:46.992Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 13,
+      "logs_7d": 13,
+      "total_commits_7d": 158,
+      "unique_branches_7d": 3,
+      "branches_7d": [
+        "metrics/queue-telemetry-2026-10-05",
+        "main",
+        "metrics/progress-tracker-2026-10-05"
+      ]
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.002,
-      "total_lines_added_7d": 688959,
-      "lines_churned_7d": 1120,
+      "churn_rate": 0.449,
+      "total_lines_added_7d": 47477,
+      "lines_churned_7d": 21317,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -138,16 +149,20 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 968900,
-      "window_shas": 45
+      "total_runs": 913548,
+      "window_shas": 48
     },
     "e2eStability": {
-      "available": false
+      "available": true,
+      "consecutive_failures": 8,
+      "total_runs": 12,
+      "total_non_frontend_runs": 11,
+      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
     },
     "queueEfficiency": {
       "available": false,
       "reason": "query_error",
-      "error": "Command failed: gh pr list --search merged:>=2026-09-26 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh pr list --search merged:>=2026-09-27 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     }
   },
   "thresholds": {
@@ -160,11 +175,20 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [],
+  "regressions": [
+    {
+      "sensor": "codeChurn",
+      "metric": "churn_rate",
+      "current": 0.449,
+      "previous": 0.002,
+      "delta": 0.447,
+      "severity": "medium"
+    }
+  ],
   "summary": {
-    "sensors_available": 9,
+    "sensors_available": 10,
     "sensors_total": 17,
-    "regressions_detected": 0,
-    "status": "healthy"
+    "regressions_detected": 1,
+    "status": "regressions_detected"
   }
 }
