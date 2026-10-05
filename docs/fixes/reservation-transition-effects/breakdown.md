@@ -12,6 +12,10 @@ assumptions:
   - "Implement (2026-10-04): the harness records messages at the `NotificationDispatcher` seam and jobs at the scheduler seam (behind the REAL `createBookingNotifier`/`createPostVisitNotifier`), not at the `bookingNotifier`/`postVisitNotifier` objects. Lowest outbound seam = strongest pin of 'guest messaging unchanged'; in PR 2 the harness keeps recording at the dispatcher (production messaging adapter over it) so venue-flag gating stays inside the pin."
   - "Implement (2026-10-04): the D9 floor-plan-clone and lapsing-scan cases run the REAL `floorPlanService.clone` / `guestService.scanLapsedGuests` over a mocked Prisma client, so today's emit into the dead singleton is exercised (not stubbed out)."
   - "Implement (2026-10-04): item 1.6's three backlog seeds already landed on the run branch at Architect (commit 3776e5217); verified present and well-formed, so 1.6 is checked without a new edit."
+  - 'Implement PR 3 (2026-10-04): `StripePort` is `Omit<PaymentsPort, "createPaymentIntent">` rather than a bare alias of `PaymentsPort`. The architecture''s stated purpose for the alias is that DepositService''s signature stays unchanged; the Omit keeps exactly today''s six methods (DepositService never calls createPaymentIntent), so the full port is assignable and `services/deposit.test.ts` stays byte-identical, which 3.6 requires.'
+  - "Implement PR 3 (2026-10-04): the real-signature tests for `verifyStripeWebhookSignature` live in a new `services/stripe-webhook-signature.test.ts`, not `services/stripe.test.ts`, because that file mocks the whole `stripe` module (kept deliberately for its network-call cases) and a hoisted vi.mock would replace the static `Stripe.webhooks` the helper uses."
+  - "Implement PR 3 (2026-10-04): money writes take the injected service as a `deposits` parameter (`recordNoShow(r, logger, deposits)`, `modifyReservation(r, changes, deposits)`, `isPartySizeDepositBlocked(r, n, deposits)`) and `CancelReservationDeps.deposits`; inner helpers gain a trailing `deposits` parameter. Inside, `depositService.` became `deposits.` — the architecture's `deps.deposits.` rename, threaded as a parameter where the function had no deps object."
+  - "Implement PR 3 (2026-10-04): an injected `options.services.depositService` wins over the DepositService buildApp builds (it is only constructed when no override is passed). Route tests use that seam for their DepositService fakes."
   - "Each PR runs the repo's pre-PR gates (`pnpm install --frozen-lockfile`, `pnpm build --filter @mbe/cli...`, lint, typecheck, test, `/local-ci-precheck`) — repo policy, not a work item, so it is not checkboxed."
 ---
 
@@ -163,7 +167,7 @@ Demonstrable at the boundary: every route in the effects table calls one `fastif
   - No `it.fails` remains in `entry-points.test.ts`; full reservations suite, lint, typecheck green.
   - Blocked by: 2.7, 2.8, 2.9
 
-- [ ] **2.11 PR 2 open → reviewed → merged**
+- [x] **2.11 PR 2 open → reviewed → merged**
   - Accept: `reviewer` PASS, `stripe-flow-reviewer` PASS (cancellation/no-show callers and ordering), `CI Gate` green, deposits still on the singleton (no `stripe.ts`/`deposit.ts` singleton change), squash-merged with explicit `--subject`.
   - Blocked by: 2.10
 
@@ -171,21 +175,21 @@ Demonstrable at the boundary: every route in the effects table calls one `fastif
 
 Demonstrable at the boundary: one `StripeService` and one `DepositService` constructed in `buildApp`; `public-deposits.ts` and `stripe-webhook.ts` use `fastify.payments`; webhook tests verify real signatures; no `vi.mock("stripe")` outside `services/stripe.test.ts`. Starts from fresh `origin/main` after PR 2 merged.
 
-- [ ] **3.1 `PaymentsPort` + in-memory payments** — type alias over `StripeService`; `createInMemoryPayments`.
+- [x] **3.1 `PaymentsPort` + in-memory payments** — type alias over `StripeService`; `createInMemoryPayments`.
   - Accept (architecture `PaymentsPort`; ruling "money unchanged"): `PaymentsPort` = the seven-method `Pick`; `deposit.ts` keeps `export type StripePort = PaymentsPort` so `DepositService`'s signature is unchanged; in-memory adapter records `calls`, returns deterministic ids, scripts any result or Stripe error `type` per op so `StripeOperationError` (incl. `isRetriable`) paths are reachable; idempotency keys passed through and recorded.
   - Test-first: in-memory payments contract tests first.
   - Files: `transitions/ports.ts` (or `services/payments-port.ts`), `transitions/in-memory.ts`, `services/deposit.ts` (alias only).
   - Blocked by: PR 2 merged
   - Dies here: none.
 
-- [ ] **3.2 `verifyStripeWebhookSignature` pure helper**
+- [x] **3.2 `verifyStripeWebhookSignature` pure helper**
   - Accept (architecture contract): `(rawBody: Buffer, signature, secret) → Stripe.Event` over static `Stripe.webhooks.constructEvent`; throws on bad signature; tests sign real payloads with `Stripe.webhooks.generateTestHeaderString` (valid, tampered body, wrong secret, missing header); `stripe-webhook.ts` maps throw → 400 exactly as today.
   - Test-first: signature tests first, failing until the helper exists.
   - Files: `services/stripe.ts`, `services/stripe.test.ts`, `routes/stripe-webhook.ts` (signature call site only).
   - Blocked by: PR 2 merged
   - Dies here: `services/stripe.test.ts` `constructWebhookEvent` case — deleted in 3.6.
 
-- [ ] **3.3 Composition root builds payments once** — `buildApp` constructs one `StripeService` (unless `options.payments`), `new DepositService(payments)` merged into `services`, decorates `fastify.payments`.
+- [x] **3.3 Composition root builds payments once** — `buildApp` constructs one `StripeService` (unless `options.payments`), `new DepositService(payments)` merged into `services`, decorates `fastify.payments`.
   - Accept (target state "constructed exactly once"; architecture composition root steps 1–2): `options.payments` accepted; `STRIPE_SECRET_KEY ?? "sk_test_placeholder"` evaluated in `buildApp`.
   - **Reviewer checkpoint (flag on the PR):** the `STRIPE_SECRET_KEY` read moves from module scope (`stripe.ts:310`, `deposit.ts:1215`) into `buildApp`, with no provisioning change. `reviewer` and `stripe-flow-reviewer` must explicitly confirm the env var name, the `"sk_test_placeholder"` fallback, and `getStripeConfig` validation are identical to today, and that no new secret, env name or deploy config is introduced. If any of the three differs, STOP (brief: credentials/secrets).
   - Test-first: `buildApp({ payments })` test asserting the injected fake receives deposit ops, written first.
@@ -193,21 +197,21 @@ Demonstrable at the boundary: one `StripeService` and one `DepositService` const
   - Blocked by: 3.1
   - Dies here: none.
 
-- [ ] **3.4 Inject `DepositService` everywhere; delete singletons** — mechanical `depositService.` → `deps.deposits.` in cancellation, no-show, modification; routes take `fastify.services.depositService`; `isPartySizeDepositBlocked` takes `deposits`; delete `stripe.ts:310` and `deposit.ts:1215` singletons.
+- [x] **3.4 Inject `DepositService` everywhere; delete singletons** — mechanical `depositService.` → `deps.deposits.` in cancellation, no-show, modification; routes take `fastify.services.depositService`; `isPartySizeDepositBlocked` takes `deposits`; delete `stripe.ts:310` and `deposit.ts:1215` singletons.
   - Accept (ruling "money unchanged"; target state "Stripe injectable everywhere"): every importer listed in architecture (`routes/deposits.ts`, `deposit-transition-handler.ts`, `public-deposits.ts`, `stripe-webhook.ts`, `reservation-modification.ts`, `reservation-cancellation.ts`, `reservation-no-show.ts`, `domain-services.ts`) uses injection; `public-deposits.ts:128,172` → `fastify.payments.createCustomer` / `createPaymentIntent`; `stripe-webhook.ts:189` → `fastify.payments.retrievePaymentIntent`; deposit logic otherwise byte-identical (diff shows only the rename); `grep -rn "stripeService\b\|export const depositService" src` finds no singleton; all PR-1 money assertions still green with unchanged bodies. Run #4 lines untouched.
   - Test-first: harness swaps its temporary `vi.mock("../services/deposit.js")` for an injected `DepositService` fake first; suite must stay green.
   - Files: the importers above; `services/stripe.ts`, `services/deposit.ts`; `src/test/effects-harness.ts`.
   - Blocked by: 3.3
   - Dies here: see 3.6.
 
-- [ ] **3.5 Move deposit/stripe route tests onto injection** — rewrite `routes/stripe-webhook.test.ts`, `routes/deposits.test.ts`, `routes/public-deposits.test.ts` to `buildApp({ payments })` + real signed webhook payloads; move the `vi.mock("…/deposit.js")` files to a `DepositService` fake via `deps` / `services`.
+- [x] **3.5 Move deposit/stripe route tests onto injection** — rewrite `routes/stripe-webhook.test.ts`, `routes/deposits.test.ts`, `routes/public-deposits.test.ts` to `buildApp({ payments })` + real signed webhook payloads; move the `vi.mock("…/deposit.js")` files to a `DepositService` fake via `deps` / `services`.
   - Accept: every behaviour those files asserted before still asserted (same cases, new seam); webhook tests use real signatures.
   - Test-first: new injected cases written alongside the old mocked ones and green before 3.6 deletes the old seams.
   - Files: the listed test files.
   - Blocked by: 3.2, 3.4
   - Dies here: see 3.6.
 
-- [ ] **3.6 PR-3 kill list (LAST)**
+- [x] **3.6 PR-3 kill list (LAST)**
   - Accept (Kill rows, PR 3): deleted, and the PR description states where each moved:
     - `vi.mock("stripe")` in `routes/stripe-webhook.test.ts`, `routes/deposits.test.ts`, `routes/public-deposits.test.ts` → in-memory payments via `buildApp({ payments })`; real signed payloads
     - `vi.mock("../services/deposit.js")` / `vi.mock("./deposit.js")` in `routes/cancel-reservation.test.ts`, `routes/modify-reservation.test.ts`, `routes/reservations.test.ts`, `routes/public-deposits.test.ts`, `routes/deposit-transition-handler.test.ts`, `services/reservation-cancellation.test.ts`, `services/reservation-no-show.test.ts`, `services/reservation-modification.test.ts` → same tests with an injected `DepositService` fake
@@ -250,3 +254,12 @@ None that block. One clarification resolved here rather than routed back (see `a
     - Floor-plan and lapsing emits call the single live emitter's typed helpers (`emitFloorPlanCreated`, `emitLapsingGuests`) rather than an `EventsPort` — same instance the port wraps, no new decoration. `app.ts` keeps a value import of the `ReservationEventEmitter` class (it constructs the one emitter); every other `events.js` import is type-only.
     - `modifyByGuest` takes no logger (the domain write no longer logs). The rejecting-policy-source case is tested on the verbs (`transitions/index.test.ts`), where the policy is resolved, not on the executor.
     - Two tests outside the kill list changed because they referenced removed code: `routes/events.integration.test.ts` (emitted on the deleted singleton — now `app.reservationEvents`) and `services/lapsed-guest-cron.test.ts` (new required `emitLapsingGuests` dep).
+- **2026-10-04 — PR 2 merged:** #6055 squash-merged as `b50540242` on `origin/main` after `CI Gate` SUCCESS on final head `3f73ebb6c` (rebased onto run #2's #6050 `6f518fa35` with zero conflicts; `git range-diff` showed every commit identical; full gates re-run green after the rebase). `reviewer` PASS 9/10 (L1 manage-token pin restored with a mutation-checked test; L2 D8 nuance stated in the PR body); `stripe-flow-reviewer` PASS on the final pre-rebase head (three lows, no change requested). Item 2.11 checked.
+- **2026-10-04 — PR 3 (payments)** on branch `refactor/transition-effects-pr3`, off `origin/main` `b50540242`.
+  - RED → GREEN: 3.1 the three new `createInMemoryPayments` cases failed `createInMemoryPayments is not a function`, then `in-memory.test.ts` 10/10; 3.2 the valid-signature case failed `verifyStripeWebhookSignature is not a function` (the three throw cases passed vacuously until the helper existed), then 4/4; 3.3 `app.payments.test.ts` failed 2/3 (`app.payments` undefined, default not a `StripeService`), then 3/3. 3.4 is a pure re-seam: the harness's deposit `vi.mock` was removed and the recording service injected, and all 46 entry-point rows (every money pin) passed with unchanged bodies.
+  - **STRIPE_SECRET_KEY checkpoint (3.3):** the read moved from module scope (`stripe.ts`, `deposit.ts` singletons, both deleted) into `buildApp` as the identical expression `process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"`. `getStripeConfig` (its call and `config/stripe.ts`) is unchanged — `git diff origin/main -- services/reservations/src/config/stripe.ts` is empty. No new env name, secret or deploy config: the diff touches nothing under `infrastructure/`, `.github/`, any `.env*` or Dockerfile.
+  - Money: the diff in `reservation-cancellation.ts`, `reservation-no-show.ts` and `reservation-modification.ts` is only `depositService.` → `deposits.` (8 + 8 + 1 call sites) plus parameter threading. `services/deposit.test.ts` is byte-identical to main.
+  - Run #4 lines: `git diff origin/main` of non-test source has zero added/removed lines touching `resolveVenueId`, `runWithVenueContext`, `loadInVenueContext`, `requireVenueAccess`, `isVenueMember`, `createProblemDetails` or `reply.code/status`.
+  - Gates: `pnpm lint` / `pnpm typecheck` → `Tasks: 52 successful, 52 total` each; `pnpm --dir packages/jobs test` → `Tests 29 passed (29)`; `pnpm --dir packages/notifications test` → `Tests 119 passed (119)`; `pnpm --dir services/reservations test` → `Test Files 117 passed | 4 skipped (121)`, `Tests 1779 passed | 150 skipped (1929)` (main's 1767, plus 6 in-memory payments cases (two plus a four-row `failNext` table), 4 signature, 3 composition and 1 verbs case, minus the 2 deleted `constructWebhookEvent` cases). AI-antipattern ratchet: no regressions (`hardcodedRoutes` 851 < 852 baseline).
+  - Kill-list grep: `grep -rln 'vi.mock("stripe"' services/reservations/src` → `services/stripe.test.ts` (the real SDK mock, kept) and `services/deposit.test.ts` (a pre-existing prose comment in a file kept byte-identical). No `vi.mock` of `deposit.js` remains anywhere in `services/reservations/src`.
+  - Deviation (2026-10-04): `routes/stripe-webhook.test.ts` briefly gained a static `webhooks` on its SDK mock in 3.2 so every commit stayed green; 3.5 deleted that mock outright.

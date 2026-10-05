@@ -3,7 +3,7 @@ import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import {
-  depositService,
+  type DepositService,
   DepositConcurrentUpdateError,
   DepositTransitionError,
   DepositRefundLegIncompleteError,
@@ -199,7 +199,8 @@ async function reconcileCaptureLegFailure(
   targetStatus: "forfeited" | "partial_refunded",
   reservation: Reservation,
   logger: FastifyBaseLogger,
-  err: unknown
+  err: unknown,
+  deposits: DepositService
 ): Promise<ForfeitOutcome> {
   if (err instanceof DepositCaptureAmbiguousError) {
     logger.error(
@@ -209,7 +210,7 @@ async function reconcileCaptureLegFailure(
     return { outcome: "failed" };
   }
 
-  const current = await depositService.getById(depositId);
+  const current = await deposits.getById(depositId);
 
   if (current?.status === "uncollectable") {
     logger.warn(
@@ -285,16 +286,17 @@ async function reconcileCaptureLegFailure(
 async function forfeitHeldDeposit(
   deposit: Deposit,
   reservation: Reservation,
-  logger: FastifyBaseLogger
+  logger: FastifyBaseLogger,
+  deposits: DepositService
 ): Promise<ForfeitOutcome> {
   const depositId = deposit.id;
   const action = await resolveNoShowDepositAction(deposit, reservation);
   try {
     if (action.op === "forfeit") {
-      await depositService.forfeit(depositId, "no_show");
+      await deposits.forfeit(depositId, "no_show");
       return { outcome: "resolved" };
     } else if (action.op === "refund_partial") {
-      await depositService.refundPartial(depositId, action.refundAmountCents);
+      await deposits.refundPartial(depositId, action.refundAmountCents);
       return {
         outcome: "resolved",
         // The policy resolved to less than a full forfeit (#5719 item 6) —
@@ -304,7 +306,7 @@ async function forfeitHeldDeposit(
           "Only part of the deposit was charged as a no-show fee; the remainder was refunded.",
       };
     } else {
-      await depositService.refund(depositId);
+      await deposits.refund(depositId);
       return {
         outcome: "resolved",
         warning: "The deposit was fully refunded — the no-show policy applied no fee.",
@@ -337,7 +339,14 @@ async function forfeitHeldDeposit(
     }
     if (action.op !== "refund_full") {
       const targetStatus = action.op === "forfeit" ? "forfeited" : "partial_refunded";
-      return reconcileCaptureLegFailure(depositId, targetStatus, reservation, logger, err);
+      return reconcileCaptureLegFailure(
+        depositId,
+        targetStatus,
+        reservation,
+        logger,
+        err,
+        deposits
+      );
     }
     logger.error(
       { err, reservationId: reservation.id, depositId },
@@ -399,7 +408,8 @@ function applyForfeitOutcome(
  */
 export async function recordNoShow(
   reservation: Reservation,
-  logger: FastifyBaseLogger
+  logger: FastifyBaseLogger,
+  deposits: DepositService
 ): Promise<RecordNoShowResult> {
   try {
     transitionReservation(reservation.status, "NO_SHOW");
@@ -410,7 +420,7 @@ export async function recordNoShow(
     throw err;
   }
 
-  const deposit = await depositService.getByReservationId(reservation.id);
+  const deposit = await deposits.getByReservationId(reservation.id);
   let depositWarning: string | undefined;
   let forfeitedDepositId: string | null = null;
 
@@ -425,7 +435,7 @@ export async function recordNoShow(
       "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
     );
   } else if (deposit?.status === "held") {
-    const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
+    const outcome = await forfeitHeldDeposit(deposit, reservation, logger, deposits);
     const applied = applyForfeitOutcome(outcome, deposit.id);
     if (applied.done) return applied.result;
     depositWarning = applied.depositWarning;
@@ -449,7 +459,7 @@ export async function recordNoShow(
       return DEPOSIT_FAILURE_RESULT;
     }
     try {
-      await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+      await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
       forfeitedDepositId = deposit.id;
     } catch (err) {
       if (err instanceof DepositWrittenOffUncollectableError) {
@@ -501,7 +511,7 @@ export async function recordNoShow(
     // LOW-A) — otherwise a no-show could recapture the full deposit even
     // when its own policy calls for a lower (or zero) fee.
     const allowRecapture = isForfeited && deposit.forfeitOrigin === "no_show";
-    const verification = await depositService.verifyCaptureCompleted(
+    const verification = await deposits.verifyCaptureCompleted(
       deposit.id,
       deposit.status,
       timestampField,
@@ -535,13 +545,13 @@ export async function recordNoShow(
       // Nothing was ever charged, and this wasn't the operation that set the
       // status — re-fetch the now-held row and re-run normal policy
       // evaluation fresh, exactly as if it started `held` (#5722 R5 MED-1).
-      const rolledBack = await depositService.getById(deposit.id);
+      const rolledBack = await deposits.getById(deposit.id);
       if (rolledBack?.status !== "held") {
         // A concurrent transition beat this rollback to the row — an
         // ordinary retryable conflict, not a failure.
         return DEPOSIT_CONCURRENT_RETRY_RESULT;
       }
-      const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger);
+      const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger, deposits);
       const applied = applyForfeitOutcome(outcome, deposit.id);
       if (applied.done) return applied.result;
       depositWarning = applied.depositWarning;

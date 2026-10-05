@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails, publicDepositBodyJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
-import { depositService, calculateDepositAmount } from "../services/deposit.js";
-import { stripeService, StripeOperationError } from "../services/stripe.js";
+import { calculateDepositAmount } from "../services/deposit.js";
+import { StripeOperationError } from "../services/stripe.js";
 import { reservationService } from "../services/reservation.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
@@ -32,6 +32,8 @@ interface PublicPaymentIntentResponse {
  * 5. Returns the client_secret for Stripe.js to confirm on the frontend.
  */
 export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
+  const { depositService } = fastify.services;
+
   fastify.post<{
     Params: { slug: string };
     Body: CreatePublicPaymentIntentBody;
@@ -125,7 +127,7 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
         let stripeCustomerId: string | undefined;
         if (guestEmail || guestName) {
           try {
-            const customer = await stripeService.createCustomer({
+            const customer = await fastify.payments.createCustomer({
               email: guestEmail,
               name: guestName,
               // Stable key so a lost-response retry reuses the same customer
@@ -169,7 +171,7 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
         // used by the capture/cancel/refund flows.
         let paymentIntent;
         try {
-          paymentIntent = await stripeService.createPaymentIntent({
+          paymentIntent = await fastify.payments.createPaymentIntent({
             amountCents: depositAmountCents,
             currency,
             customerId: stripeCustomerId,

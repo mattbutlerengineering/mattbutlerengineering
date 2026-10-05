@@ -13,6 +13,7 @@ import { ReservationTransitionError } from "../services/reservation-state-machin
 import { createReservationTransitions } from "./index.js";
 import { createInMemoryEvents, createInMemoryJobs, createInMemoryMessaging } from "./in-memory.js";
 import type { VenueEffectPolicySource } from "./venue-policy.js";
+import type { DepositService } from "../services/deposit.js";
 
 const NOW = new Date("2030-06-01T12:00:00.000Z");
 const reservation = {
@@ -24,6 +25,8 @@ const reservation = {
 } as Reservation;
 const cancelled = { ...reservation, status: "CANCELLED" } as Reservation;
 const log = { error: vi.fn(), warn: vi.fn(), info: vi.fn() } as never;
+/** The one injected DepositService — the verbs hand it to the money writes. */
+const deposits = { marker: "injected-deposit-service" } as unknown as DepositService;
 
 function setup(policy: VenueEffectPolicySource = async () => ({ outbound: "live" })) {
   const messaging = createInMemoryMessaging();
@@ -40,6 +43,7 @@ function setup(policy: VenueEffectPolicySource = async () => ({ outbound: "live"
     ports: { messaging, jobs, events },
     policy,
     reservationService,
+    deposits,
     logger,
     now: () => NOW,
   });
@@ -71,9 +75,20 @@ describe("reservation transitions — verbs", () => {
     expect(cancelReservationWithDeposit).toHaveBeenCalledWith(
       reservation,
       "tok",
-      { logger: log },
+      { logger: log, deposits },
       { initiator: "staff", cancellationReason: "r", cancellationNote: "n" }
     );
+  });
+
+  it("noShow: hands the injected DepositService to the money write", async () => {
+    const { transitions } = setup();
+    vi.mocked(recordNoShow).mockResolvedValue({
+      success: false,
+      status: 409,
+      detail: "x",
+    } as never);
+    await transitions.noShow(reservation, log);
+    expect(recordNoShow).toHaveBeenCalledWith(reservation, log, deposits);
   });
 
   it("cancel: a committed cancel sets off its planned effects", async () => {

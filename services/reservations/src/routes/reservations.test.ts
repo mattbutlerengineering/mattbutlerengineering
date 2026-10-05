@@ -26,17 +26,6 @@ vi.mock("../services/reservation.js", () => ({
 }));
 
 // Mock the deposit service (needed by the staff cancel paths' domain cancel)
-vi.mock("../services/deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-    getById: vi.fn(),
-    refund: vi.fn(),
-    refundPartial: vi.fn(),
-    forfeit: vi.fn(),
-  },
-  setDepositServiceLogger: vi.fn(),
-}));
-
 // Mock the table service (needed for app registration)
 vi.mock("../services/table.js", () => ({
   tableService: {
@@ -128,12 +117,22 @@ vi.mock("jose", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
-import { depositService } from "../services/deposit.js";
+import type { DepositService } from "../services/deposit.js";
 import { venueService } from "../services/venue.js";
 import type { VenuePolicy } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+
+/** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
+const depositService = {
+  getByReservationId: vi.fn(),
+  getById: vi.fn(),
+  refund: vi.fn(),
+  refundPartial: vi.fn(),
+  forfeit: vi.fn(),
+};
+const injectedDeposits = depositService as unknown as DepositService;
 
 function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   return {
@@ -185,6 +184,7 @@ describe("Reservation Routes", () => {
     // reconnect loop (no Redis in CI) whose console output can race vitest's
     // worker teardown after the file's tests finish (issue #2956).
     app = await buildApp({
+      services: { depositService: injectedDeposits },
       logger: false,
       reservationEvents: stubEvents,
       jobs: {
@@ -1877,7 +1877,11 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      venueMembershipLookup: lookup,
+    });
     await built.ready();
     return built;
   }
@@ -1991,7 +1995,11 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      venueMembershipLookup: lookup,
+    });
     await built.ready();
     return built;
   }

@@ -40,6 +40,7 @@ import {
   type ConfirmHoldResult,
 } from "../services/confirm-hold.js";
 import { planEffects, type CancelDoor, type HoldDoor, type TransitionFact } from "./plan.js";
+import type { DepositService } from "../services/deposit.js";
 import { runEffects, type EffectLogger } from "./run.js";
 import type { CancelInitiator, EffectPorts } from "./ports.js";
 import type { VenueEffectPolicySource } from "./venue-policy.js";
@@ -56,6 +57,8 @@ export interface ReservationTransitionsDeps {
   ports: EffectPorts;
   policy: VenueEffectPolicySource;
   reservationService: ReservationWrites;
+  /** The one DepositService (built over the payments port in buildApp). */
+  deposits: DepositService;
   logger: EffectLogger;
   now?: () => Date;
 }
@@ -97,7 +100,7 @@ export interface ReservationTransitions {
 export function createReservationTransitions(
   deps: ReservationTransitionsDeps
 ): ReservationTransitions {
-  const { ports, policy, reservationService, logger, now = () => new Date() } = deps;
+  const { ports, policy, reservationService, deposits, logger, now = () => new Date() } = deps;
 
   /** Plans and runs a committed transition's effects. */
   async function settle(fact: TransitionFact, venueId: string | null | undefined): Promise<void> {
@@ -117,7 +120,7 @@ export function createReservationTransitions(
       const result = await cancelReservationWithDeposit(
         reservation,
         options.manageToken,
-        { logger: options.log },
+        { logger: options.log, deposits },
         {
           initiator: options.initiator,
           cancellationReason: options.reason,
@@ -141,7 +144,7 @@ export function createReservationTransitions(
     },
 
     async noShow(reservation, log) {
-      const result = await recordNoShow(reservation, log);
+      const result = await recordNoShow(reservation, log, deposits);
       if (result.success) {
         await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
       }
@@ -160,7 +163,7 @@ export function createReservationTransitions(
     },
 
     async modifyByGuest(reservation, changes, manageToken) {
-      const result = await modifyReservation(reservation, changes);
+      const result = await modifyReservation(reservation, changes, deposits);
       if (result.success) {
         await settle(
           {

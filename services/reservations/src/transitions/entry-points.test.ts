@@ -61,18 +61,6 @@ vi.mock("../services/database.js", async () => {
   return createMockDatabaseService({ prisma: h.prisma });
 });
 
-// The ONE temporary deposit seam (architecture.md test plan): routes and the
-// cancellation / no-show / modification services import the `depositService`
-// singleton, so it is pointed at the harness's recorder here. PR 3 replaces
-// this with an injected DepositService fake.
-vi.mock("../services/deposit.js", async (importOriginal) => {
-  const { recordingDepositService } = await import("../test/effects-harness.js");
-  return {
-    ...(await importOriginal<Record<string, unknown>>()),
-    depositService: recordingDepositService,
-  };
-});
-
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn(),

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Reservation } from "@mbe/types";
 import { runEffects } from "./run.js";
+import { planEffects } from "./plan.js";
 import { createInMemoryEvents, createInMemoryJobs, createInMemoryMessaging } from "./in-memory.js";
 import type { EffectPorts, PlannedEffect } from "./ports.js";
 
@@ -144,5 +145,44 @@ describe("runEffects — executor", () => {
     await jobs.schedule("booking-reminder", payload, 1, "booking-reminder:res-1");
     await runEffects([replace], ports, logger);
     expect(jobs.jobs.get("booking-reminder:res-1")?.delayMs).toBe(9);
+  });
+});
+
+describe("D8 staff time-change chain (Review ruling 2026-10-05)", () => {
+  it("a failed day-before replacement does not suppress the day-of replacement", async () => {
+    const HOUR = 60 * 60 * 1000;
+    const now = new Date("2030-06-01T12:00:00.000Z");
+    const at = (hours: number) => new Date(now.getTime() + hours * HOUR).toISOString();
+    const before = {
+      id: "res-1",
+      venueId: "venue-1",
+      status: "CONFIRMED",
+      date: at(72).slice(0, 10),
+      startTime: at(72),
+      endTime: at(74),
+    } as Reservation;
+    const after = { ...before, startTime: at(96), endTime: at(98) } as Reservation;
+    const planned = planEffects(
+      { kind: "staff-updated", before, after, patch: { startTime: at(96) } },
+      { outbound: "live" },
+      now
+    );
+
+    const { ports, logger, jobs } = setup();
+    await jobs.schedule("booking-reminder", payload, 1, "booking-reminder:res-1");
+    await jobs.schedule("day-of-reminder", payload, 1, "day-of-reminder:res-1");
+    const flakyJobs: EffectPorts["jobs"] = {
+      schedule: (...args) => jobs.schedule(...args),
+      cancel: async (jobId) => {
+        if (jobId === "booking-reminder:res-1") throw new Error("redis down");
+        return jobs.cancel(jobId);
+      },
+    };
+
+    await runEffects(planned, { ...ports, jobs: flakyJobs }, logger);
+    await flush();
+
+    expect(jobs.jobs.get("day-of-reminder:res-1")?.delayMs).toBe(94 * HOUR);
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 });

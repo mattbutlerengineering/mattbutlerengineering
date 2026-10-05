@@ -24,13 +24,6 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 
-vi.mock("../services/deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-  },
-  setDepositServiceLogger: vi.fn(),
-}));
-
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -48,7 +41,13 @@ vi.mock("../services/resolve-venue.js", () => ({
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import type { VenuePolicy } from "../services/venue.js";
-import { depositService } from "../services/deposit.js";
+import type { DepositService } from "../services/deposit.js";
+
+/** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
+const depositService = {
+  getByReservationId: vi.fn(),
+};
+const injectedDeposits = depositService as unknown as DepositService;
 
 function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   return {
@@ -130,6 +129,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     // connection on the first time-change modify, which (with no Redis in CI)
     // leaks a retry-forever ECONNREFUSED loop that races vitest worker teardown.
     app = await buildApp({
+      services: { depositService: injectedDeposits },
       logger: false,
       notificationPort: stubNotifications as never,
       jobs: {
@@ -366,6 +366,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       validationApp = await buildApp({
+        services: { depositService: injectedDeposits },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
         jobs: {
@@ -441,6 +442,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       transportApp = await buildApp({
+        services: { depositService: injectedDeposits },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
         jobs: {
@@ -501,7 +503,10 @@ describe("PATCH /public/v1/reservations/manage", () => {
 describe("PATCH /public/v1/reservations/manage — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+    });
     await freshApp.ready();
 
     // Send 11 requests — the 11th should be rate-limited
