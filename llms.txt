@@ -15919,6 +15919,94 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="services/reservations/src/test/effects-harness.ts">
+    <item priority="low">
+      interface RecordedEvent {
+        type: string;
+        id?: string;
+      }
+    </item>
+    <item priority="low">
+      interface RecordedMessage {
+        kind: string;
+        reservationId?: string;
+        guestEmail?: string;
+      }
+    </item>
+    <item priority="low">
+      type RecordedJobOp = { op: "schedule"; jobType: str | { op: "cancel"; jobId: string ;
+    </item>
+    <item priority="low">
+      interface RecordedDepositOp {
+        op: string;
+        args: unknown[];
+      }
+    </item>
+    <item priority="low">
+      interface RecordedEffects {
+        events: RecordedEvent[];
+        messages: RecordedMessage[];
+        jobs: RecordedJobOp[];
+        depositOps: RecordedDepositOp[];
+      }
+    </item>
+    <item priority="high">
+      type DepositMoneyOp = "refund" | "refundPartial" | "forfeit" | "apply" | "verifyCaptureCompleted";
+    </item>
+    <item priority="high">
+      interface ScriptedDeposit {
+        id: string;
+        status: string;
+      }
+    </item>
+    <item priority="high">
+      interface DepositRecorder {
+        ops: RecordedDepositOp[];
+        deposit: ScriptedDeposit | null;
+        results: Map<string, () => Promise<unknown>>;
+      }
+    </item>
+    <item priority="medium">
+      function activeDeposits(): DepositRecorder { /* ... */ }
+    </item>
+    <item priority="medium">
+      function recordDepositOp(op: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      type DepositMethod = (...args: unknown[]) => Promise<unknown>;
+    </item>
+    <item priority="high">
+      export const recordingDepositService: Record<
+        "getByReservationId" | "getById" | DepositMoney...;
+    </item>
+    <item priority="low">
+      interface EffectsRecorder {
+        effects: RecordedEffects;
+        appOptions: Pick<
+          ReservationsAppOptions,
+          "notificationPort" ...;
+        scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: ...;
+        deposits: {
+          service: typeof recordingDepositService;
+          /** Th...;
+      }
+    </item>
+    <item priority="medium">
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createRecordingScheduler(
+        jobs: RecordedJobOp[],
+        store: EffectsRecorder["scheduledJobs"]
+      ): NotifierScheduler { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
+    </item>
+  </file>
   <file path="services/users/src/test/fixtures.ts">
     <item priority="high">
       export const MOCK_USER: unknown;
