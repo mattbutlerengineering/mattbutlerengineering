@@ -197,57 +197,6 @@ export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown>
   return rest;
 }
 
-/** Recursively drop object-level `required` arrays (property maps are untouched). */
-function stripRequired(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (key === "required" && Array.isArray(value)) continue;
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      result[key] = stripRequired(value as Record<string, unknown>);
-    } else if (Array.isArray(value)) {
-      result[key] = value.map((item) =>
-        item !== null && typeof item === "object" && !Array.isArray(item)
-          ? stripRequired(item as Record<string, unknown>)
-          : item
-      );
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-/**
- * Derive a Fastify route *response* JSON Schema from an endpoint
- * definition's Zod body (server side of `registerEndpoint`).
- *
- * - Target `openapi-3.0`, so a nullable field is `{ type, nullable: true }` —
- *   the spelling the hand-written route schemas use.
- * - Shared entities listed in {@link SHARED_RESPONSE_REFS} become
- *   `$ref: "<Id>#"`, so routes keep pointing at the registered `Guest#` etc.
- *   A schema that is only a *copy* of an entity (e.g. `GuestSchema.extend()`)
- *   is a different Zod object and inlines.
- * - No `required` and no `additionalProperties`: the hand-written response
- *   schemas declare neither, and emitting `required` would make
- *   fast-json-stringify throw (500) on any omitted field.
- */
-export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> {
-  const raw = toJSONSchema(zodSchema, {
-    target: "openapi-3.0",
-    unrepresentable: "any",
-    override: (ctx) => {
-      const ref = SHARED_RESPONSE_REFS.get(ctx.zodSchema);
-      if (!ref) return;
-      // Zod's override hook is mutate-in-place by contract.
-      for (const key of Object.keys(ctx.jsonSchema)) delete ctx.jsonSchema[key];
-      ctx.jsonSchema.$ref = ref;
-    },
-  });
-  const cleaned = stripRequired(stripAdditionalProperties(raw as Record<string, unknown>));
-  const { $schema: _schema, ...rest } = cleaned;
-  return rest;
-}
-
 // ── User schemas ──────────────────────────────────────────────
 export const userPreferencesJsonSchema = toFastifyJsonSchema(
   "UserPreferences",
@@ -282,16 +231,6 @@ export const publicVenueConfigJsonSchema = toFastifyJsonSchema(
 export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);
 
 export const guestSegmentJsonSchema = toFastifyJsonSchema("GuestSegment", GuestSegmentSchema);
-
-/**
- * Zod entity → registered Fastify schema `$id` reference, for
- * {@link toResponseJsonSchema}. Kept beside the `toFastifyJsonSchema` calls
- * that assign those `$id`s so the two are edited together.
- */
-export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string> = new Map<unknown, string>([
-  [GuestSchema, `${guestJsonSchema.$id}#`],
-  [GuestSegmentSchema, `${guestSegmentJsonSchema.$id}#`],
-]);
 
 export const guestRiskResultJsonSchema = toFastifyJsonSchema(
   "GuestRiskResult",

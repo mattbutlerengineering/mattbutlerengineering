@@ -137,6 +137,3 @@ export { toDateString } from "./date.js";
 
 // Zod Schemas
 export * from "./schemas/index.js";
-
-// Endpoint definitions (one statement per endpoint's wire contract)
-export * from "./endpoints/index.js";

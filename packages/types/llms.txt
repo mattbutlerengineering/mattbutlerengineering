@@ -1,124 +1,4 @@
 <codebase path="packages/types">
-  <section priority="medium" role="endpoints">
-  <file path="src/endpoints/define.ts">
-    <item priority="low">
-      type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-    </item>
-    <item priority="low">
-      interface ProblemResponse {
-        kind: "problem";
-        description?: string;
-      }
-    </item>
-    <item priority="low">
-      interface BodyResponse {
-        description?: string;
-        body: z.ZodType | null;
-      }
-    </item>
-    <item priority="low">
-      type EndpointResponse = BodyResponse | ProblemResponse;
-    </item>
-    <item priority="low">
-      type EndpointResponses = { readonly [status: number]: EndpointResponse };
-    </item>
-    <item priority="low">
-      interface EndpointDefinition {
-        method: M;
-        path: P;
-        params?: Params;
-        query?: Query;
-        body?: Body;
-      }
-    </item>
-    <item priority="low">
-      type AnyEndpointDefinition = EndpointDefinition;
-    </item>
-    <item priority="high">
-      type SuccessStatus = (typeof SUCCESS_STATUSES)[number];
-    </item>
-    <item priority="low">
-      type PathParamNames = P extends `${string}:${infer Param}/${infer Rest}`
-        ? Pa...;
-    </item>
-    <item priority="high">
-      type IsUnion = T extends unknown ? ([U] extends [T] ? false : true) : never;
-    </item>
-    <item priority="high">
-      type SuccessKey = Extract<keyof R, SuccessStatus>;
-    </item>
-    <item priority="high">
-      type SameKeys = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-    </item>
-    <item priority="high">
-      type ParamsSchemaOf = D extends { readonly params: infer X extends z.ZodObject ...;
-    </item>
-    <item priority="high">
-      type ResponsesOf = D extends { readonly responses: infer X } ? X : never;
-    </item>
-    <item priority="high">
-      type DefinitionCheck = [PathParamNames<D["path"]>] extends [never]
-        ? ParamsSch...;
-    </item>
-    <item priority="high">
-      type SuccessCheck = [SuccessKey<R>] extends [never]
-        ? [exactly_one_2xx_resp...;
-    </item>
-    <item priority="high">
-      export function defineEndpoint<const D extends AnyEndpointDefinition>(
-        def: D,
-        ..._contractCheck: DefinitionCheck<D>
-      ): D { /* ... */ }
-    </item>
-    <item priority="high">
-      export function problem(description?: string): ProblemResponse { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isProblemResponse(response: EndpointResponse): response is ProblemResponse { /* ... */ }
-    </item>
-    <item priority="high">
-      export function successResponse(def: AnyEndpointDefinition): {
-        status: number;
-        response: BodyResponse;
-      } { /* ... */ }
-    </item>
-    <item priority="high">
-      type ParamsOf = ParamsSchemaOf<D>;
-    </item>
-    <item priority="high">
-      type QueryOf = D extends { readonly query: infer X extends z.ZodObject }...;
-    </item>
-    <item priority="high">
-      type BodyOf = D extends { readonly body: infer X extends z.ZodType } ? ...;
-    </item>
-    <item priority="high">
-      type Simplify = { [K in keyof T]: T[K] } & {};
-    </item>
-    <item priority="high">
-      type Declared = S extends z.ZodType ? { [P in K]: T } : unknown;
-    </item>
-    <item priority="low">
-      type EndpointInput = Simplify<
-        Declared<"params", ParamsOf<D>, z.input<NonNu...;
-    </item>
-    <item priority="high">
-      type BodyOutput = Resp extends { body: infer B }
-        ? B extends z.ZodType
-        ...;
-    </item>
-    <item priority="low">
-      type EndpointSuccess = BodyOutput<
-        ResponsesOf<D>[SuccessKey<ResponsesOf<D>> &...;
-    </item>
-    <item priority="high">
-      type ReplyOf = { [K in keyof R]: R[K] extends | ProblemDetails;
-    </item>
-    <item priority="low">
-      type EndpointRouteGeneric = Simplify<
-        Declared<"Params", ParamsOf<D>, z.output<NonN...;
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     <item priority="high">
@@ -244,12 +124,6 @@
     <item priority="high">
       export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
     </item>
-    <item priority="medium">
-      function stripRequired(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
-    </item>
     <item priority="high">
       export const userPreferencesJsonSchema: unknown;
     </item>
@@ -282,9 +156,6 @@
     </item>
     <item priority="high">
       export const guestSegmentJsonSchema: unknown;
-    </item>
-    <item priority="high">
-      export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string>;
     </item>
     <item priority="high">
       export const guestRiskResultJsonSchema: unknown;
