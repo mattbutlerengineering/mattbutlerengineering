@@ -11,6 +11,9 @@ assumptions:
   - "guest:lapsing gains invalidation of LAPSING_GUESTS_QUERY_KEY. The brief names the missing invalidation as part of the condition and 'derived invalidation' as in scope; recorded here as the one deliberate client behaviour change besides floor-plan:created."
   - "Every other event keeps its CURRENT invalidation set exactly (reservation:created/updated/cancelled + hold:confirmed -> reservations; table:updated -> tables; hold:created, hold:released, table-status:changed -> none). The refactor must not silently change these."
   - "Catalog rows carry invalidation keys as string literals equal to the client's existing `as const` *_QUERY_KEY values ('reservations', 'tables', 'floorPlans', 'floorPlan', 'lapsingGuests'); a client test pins the equality. @mbe/types does not import from apps/hospitality. Implementer may choose a different mechanism if it keeps drift a type error and the dependency direction intact — log it in Notes."
+  - "(Implement) 'Handled' client-side means: subscribed (in the SseClient eventTypes list) AND forwarded to feed listeners, uniformly for every catalog name. floor-plan:created therefore now reaches the activity feed, so ActivityFeed's EVENT_LABELS gains 'Floor plan created' (otherwise the raw type string would render). Taken under the brief's named default 'handle names the server emits'."
+  - "(Implement) The query-key pin lives in a new module apps/hospitality/src/hooks/sse-query-keys.ts (SSE_INVALIDATION_QUERY_KEYS ... satisfies readonly SseQueryKey[]) rather than in useSSESync.tsx, because exporting a constant from the component file adds a react-refresh/only-export-components lint warning. useSSESync invalidates by the catalog's strings; the pin is a compile-time check plus a set-equality test. Defect frontmatter explicitly allowed implementer choice of mechanism."
+  - "(Implement) The server and client keep their exported names ReservationEventType / ReservationEvent as type aliases of @mbe/types SseEventName / SseEvent, so existing importers (routes/events.ts, sse-connection.ts, ActivityFeed, tests) are untouched. SseEvent keeps the loose envelope shape (data: union of all payloads) rather than a discriminated union, to avoid changing the casts in services/reservations/src/routes/events.ts (run #1's territory)."
 ---
 
 # Condition: SSE event vocabulary is declared on both sides of the seam and has drifted
@@ -146,7 +149,7 @@ last, in the same change, stating in the diff which coverage moved where.
 Setup in a fresh worktree: `pnpm install --frozen-lockfile` and
 `pnpm build --filter @mbe/cli...`.
 
-- [ ] **1. RED: catalog coverage test** — in `packages/types`, add a test
+- [x] **1. RED: catalog coverage test** — in `packages/types`, add a test
       for the (not-yet-existing) catalog export asserting it contains exactly
       the server's 10 declared names and NOT `venue:updated`; in
       `apps/hospitality`, add a test that drives `useSSESync` with every
@@ -155,7 +158,7 @@ Setup in a fresh worktree: `pnpm install --frozen-lockfile` and
   - Accept: both tests exist and fail on current code for the right reason
     (missing export / `floor-plan:created` not subscribed); failure output
     recorded in the commit or Notes.
-- [ ] **2. RED: invalidation contract test** — in `useSSESync.test.tsx`,
+- [x] **2. RED: invalidation contract test** — in `useSSESync.test.tsx`,
       a table-driven test asserting, per event name, the exact set of query
       keys invalidated: `floor-plan:created` → floor-plan keys;
       `guest:lapsing` → `lapsingGuests`; every other name → its current set
@@ -163,14 +166,14 @@ Setup in a fresh worktree: `pnpm install --frozen-lockfile` and
   - Accept: test fails on current code only for `floor-plan:created` and
     `guest:lapsing` rows; all other rows pass against today's code (proves
     the refactor preserves them).
-- [ ] **3. GREEN: add the catalog to `@mbe/types`** — one module (e.g.
+- [x] **3. GREEN: add the catalog to `@mbe/types`** — one module (e.g.
       `packages/types/src/sse-events.ts`, exported from the index) defining
       each event's name, payload type, and invalidation keys; export the
       derived name union, payload map, and `ReservationEvent` shape.
   - Accept: item 1's types test passes; `pnpm --dir packages/types
 typecheck` and `test` green; llms artifacts regenerated
     (`pnpm regen`).
-- [ ] **4. GREEN: server consumes the catalog types** — replace the
+- [x] **4. GREEN: server consumes the catalog types** — replace the
       hand-written union and `ReservationEvent` in
       `services/reservations/src/services/events.ts:11-28` with imports /
       re-exports from `@mbe/types`. No change to emitter methods, singleton,
@@ -178,7 +181,7 @@ typecheck` and `test` green; llms artifacts regenerated
   - Accept: diff to that file is type declarations only; reservations
     `typecheck` + `test` green; `RESERVATION_TRANSITION_EVENT_TYPES` still
     compiles unchanged.
-- [ ] **5. GREEN: client derives subscription + invalidation** —
+- [x] **5. GREEN: client derives subscription + invalidation** —
       `useSSESync.tsx` imports the name union and payload types; the
       subscription list is derived from the catalog; query invalidation runs
       from the catalog row (generic, before the per-type switch); the switch
@@ -191,14 +194,14 @@ typecheck` and `test` green; llms artifacts regenerated
   - Accept: items 1 and 2 pass; hospitality `typecheck`, `lint`, `test`
     green; deleting a name from the catalog produces a type error in
     `useSSESync.tsx` (demonstrate once, note in Notes).
-- [ ] **6. Delete superseded shallow tests** — remove the old per-event
+- [x] **6. Delete superseded shallow tests** — remove the old per-event
       invalidation tests (incl. `useSSESync.test.tsx:318` "invalidates venues
       query on venue:updated") now covered by item 2's table; state in the
       commit message which old test moved to which new row.
   - Accept: no coverage regression on `useSSESync.tsx` (compare
     `test:coverage` before/after for that file); commit message lists the
     moves.
-- [ ] **7. Gates** — `pnpm typecheck`, `pnpm lint`, `pnpm test` for the
+- [x] **7. Gates** — `pnpm typecheck`, `pnpm lint`, `pnpm test` for the
       three touched packages; `pnpm regen --check` clean; `/local-ci-precheck`.
   - Accept: all green locally before PR.
 
@@ -211,3 +214,81 @@ typecheck` and `test` green; llms artifacts regenerated
   Both touch `services/reservations/src/services/events.ts` (this run: types
   at the top; #1: emitter wiring). Rebase on `origin/main` before the PR and
   expect a small textual conflict there if #1 lands first.
+
+### Implement notes (2026-10-04)
+
+Setup: `pnpm install --frozen-lockfile` (exit 0), `pnpm build --filter @mbe/cli...`
+(6/6 tasks), plus `pnpm build --filter @mbe/hospitality^...` — hospitality's
+vitest resolves `@mattbutlerengineering/rialto` and `@mbe/types` runtime exports
+from `dist/`, so a fresh worktree must build them before the hook tests can load.
+
+**Items 1–2 RED** (commit `test(sse): RED catalog coverage …`), against
+unmodified source:
+
+```
+packages/types:  Error: Cannot find module './sse-events.js' imported from …/sse-events.test.ts
+hospitality:     × forwards every SSE_EVENT_NAMES entry to feed listeners
+                   TypeError: SSE_EVENT_NAMES is not iterable
+                 × floor-plan:created invalidates exactly ["floorPlan","floorPlans"]
+                   AssertionError: expected [] to deeply equal [ 'floorPlan', 'floorPlans' ]
+                 × guest:lapsing invalidates exactly ["lapsingGuests"]
+                   AssertionError: expected [] to deeply equal [ 'lapsingGuests' ]
+                 ✓ the other 8 invalidation rows (reservation:*, hold:*, table:updated, table-status:changed)
+                 Tests  3 failed | 39 passed (42)
+```
+
+The other eight rows passing on today's code is the proof the refactor
+preserves their invalidation sets.
+
+**Item 3 GREEN:** `packages/types/src/sse-events.ts` (`SsePayloadMap`,
+`SseEventName`, `SseQueryKey`, `SSE_EVENT_CATALOG … satisfies { readonly [K in
+SseEventName]: SseEventDefinition }`, `SSE_EVENT_NAMES`, `SseEvent`), exported
+from the index. `sse-events.test.ts` 5/5; `pnpm --dir packages/types test` →
+`Test Files 12 passed (12) / Tests 287 passed (287)`; typecheck clean.
+
+**Item 4 GREEN:** `services/reservations/src/services/events.ts` diff is the
+import list plus two aliases (`ReservationEventType = SseEventName`,
+`ReservationEvent = SseEvent`) replacing the hand-written union/interface; no
+emitter, singleton, or call-site change. `RESERVATION_TRANSITION_EVENT_TYPES`
+compiles unchanged. `pnpm --dir services/reservations test` → `Test Files 107
+passed | 4 skipped (111) / Tests 1702 passed | 150 skipped (1852)`.
+
+**Item 5 GREEN:** `useSSESync.tsx` subscribes `SSE_EVENT_NAMES`, invalidates
+from `SSE_EVENT_CATALOG[type].invalidates`, forwards every event to the feed,
+and keeps a toast-only switch ending in `const unhandled: never = eventType`.
+Drift demonstrated, then reverted (file restored byte-identical):
+
+- deleting `hold:released` from the catalog →
+  `ActivityFeed.tsx(23,3): error TS2353 … '"hold:released"' does not exist in type 'Partial<Record<keyof SsePayloadMap, string>>'`
+  and `useSSESync.tsx(258,14): error TS2678: Type '"hold:released"' is not comparable to type 'keyof SsePayloadMap'`
+- adding a probe name `probe:added` with no case →
+  `useSSESync.tsx(267,17): error TS2322: Type '"probe:added"' is not assignable to type 'never'`
+
+**Item 6:** deleted the `"useSSESync — connect → event → invalidate flow"`
+describe (3 tests), moves listed in the commit message.
+`useSSESync.tsx` coverage (`vitest --coverage` scoped to the file):
+
+| State                                 | % Stmts | % Branch | % Funcs | % Lines |
+| ------------------------------------- | ------- | -------- | ------- | ------- |
+| pre-refactor base (`8c9703c8c`)       | 82.81   | 63.33    | 90.69   | 85.08   |
+| refactored, old tests still present   | 91.61   | 73.77    | 93.02   | 94.87   |
+| refactored, old tests deleted (final) | 91.61   | 73.77    | 93.02   | 94.87   |
+
+**Item 7 gates** (worktree, rebased check: `origin/main` == base `2653312ff`, nothing to rebase):
+
+- `pnpm typecheck` → `Tasks: 52 successful, 52 total`
+- `pnpm lint` → `Tasks: 52 successful, 52 total` (0 errors; touched files carry
+  only pre-existing warnings — the pin constant was moved to
+  `sse-query-keys.ts` specifically to avoid adding a
+  `react-refresh/only-export-components` warning)
+- `pnpm --dir packages/types test` → 287 passed; `pnpm --dir apps/hospitality
+test` → `Test Files 181 passed (181) / Tests 2532 passed (2532)`;
+  `pnpm --dir services/reservations test` → 1702 passed, 150 skipped
+- `check-adr` → `✅ No architectural violations detected.`; `check-deps` →
+  `✅ All external dependencies are consistent across the monorepo.`
+- `pnpm regen` → `Done. All artifacts regenerated.`; `pnpm regen --check`
+  after committing them → `All generated artifacts are up to date.` (exit 0).
+- `/local-ci-precheck` is `disable-model-invocation: true`, so it could not be
+  invoked by the agent; its lanes were run individually above (install, lint,
+  typecheck, check-adr + check-deps, regen drift). Dep-graph lane not
+  applicable (no `package.json` change).

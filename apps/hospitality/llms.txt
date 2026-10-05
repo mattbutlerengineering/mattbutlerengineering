@@ -464,6 +464,11 @@
       ): TParams | undefined { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/sse-query-keys.ts">
+    <item priority="high">
+      export const SSE_INVALIDATION_QUERY_KEYS: unknown;
+    </item>
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
