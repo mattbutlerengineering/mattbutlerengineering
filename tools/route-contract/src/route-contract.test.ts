@@ -26,7 +26,6 @@ import {
   parityVacuityFailures,
   formatParityFailures,
 } from "./route-contract.js";
-import { KNOWN_PARITY_GAPS } from "./known-parity-gaps.js";
 import { PLACEHOLDER } from "./types.js";
 
 let report: RouteContractReport;
@@ -86,10 +85,10 @@ describe("schema parity — client-declared vs route-registered body, query and 
     expect(parityVacuityFailures(parity, PARITY_DOMAINS)).toEqual([]);
   });
 
-  it("finds exactly the pinned known gaps — a new drift and an accidental fix both fail", () => {
+  it("has client↔route parity on every compared body, query and response", () => {
     const parity = schemaParityReport(report, PARITY_DOMAINS);
-    const measured = parity.failures.map((f) => `${f.clientMethod} ${f.facet}`).sort();
+    const measured = parity.failures.map((f) => `${f.clientMethod} ${f.facet}`);
 
-    expect(measured, formatParityFailures(parity.failures)).toEqual([...KNOWN_PARITY_GAPS].sort());
+    expect(measured, formatParityFailures(parity.failures)).toEqual([]);
   });
 });

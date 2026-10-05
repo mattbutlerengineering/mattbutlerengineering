@@ -1,5 +1,11 @@
 import type { Venue } from "./venue.js";
 import type { Reservation } from "./reservation.js";
+import type { z } from "zod";
+import type { LapsingGuestSchema } from "./schemas/guest.js";
+import type {
+  CreateGuestBodySchema,
+  UpdateGuestBodySchema,
+} from "./schemas/reservation-requests.js";
 
 export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
 
@@ -44,35 +50,14 @@ export interface Guest {
   updatedAt: string;
 }
 
-export interface LapsingGuest {
-  guestId: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  communicationPreference: CommunicationPreference;
-  avgFrequencyDays: number;
-  daysSinceLastVisit: number;
-  daysOverdue: number;
-}
+/** z.infer of LapsingGuestSchema — one statement of the shape (endpoint-definitions pilot). */
+export type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
 
-export interface CreateGuestRequest {
-  venueId: string;
-  email?: string;
-  phone?: string;
-  name: string;
-  notes?: string;
-  tags?: string[];
-  dietaryRestrictions?: string[];
-}
+/** z.input of the route's body schema — what a caller may send. */
+export type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
 
-export interface UpdateGuestRequest {
-  email?: string | null;
-  phone?: string | null;
-  name?: string;
-  notes?: string | null;
-  tags?: string[] | null;
-  dietaryRestrictions?: string[] | null;
-}
+/** z.input of the route's body schema — what a caller may send. */
+export type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
 
 export interface GuestSearchParams {
   venueId: string;

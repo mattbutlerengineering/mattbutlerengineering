@@ -216,13 +216,7 @@
   </file>
   <file path="src/guests.ts">
     <item priority="low">
-      interface FindOrCreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        dietaryRestrictions?: string[];
-      }
+      type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     </item>
     <item priority="low">
       interface ListGuestsParams {
