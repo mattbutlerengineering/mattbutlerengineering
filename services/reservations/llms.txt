@@ -427,6 +427,13 @@
     </item>
   </file>
   <file path="src/routes/reservations.ts">
+    <item priority="low">
+      async function isVenueMember(
+        user: AuthUser | undefined,
+        venueId: string | undefined,
+        lookup: VenueMembershipLookup
+      ): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>

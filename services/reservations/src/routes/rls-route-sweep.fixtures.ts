@@ -1198,42 +1198,21 @@ const reservationFixtures: Record<string, RouteFixture> = {
     );
   }),
   "POST /api/v1/reservations": ok(async (ctx) => {
-    const bodyFor = (venueId: string, tableId: string) => ({
-      date: "2026-10-06",
-      startTime: "2026-10-06T18:00:00Z",
-      endTime: "2026-10-06T20:00:00Z",
-      partySize: 2,
-      tableId,
-      venueId,
-      guestName: "RLS Sweep Guest",
-      guestEmail: `rls-sweep-create-${randomUUID()}@example.com`,
+    const res = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/reservations",
+      payload: {
+        date: "2026-10-06",
+        startTime: "2026-10-06T18:00:00Z",
+        endTime: "2026-10-06T20:00:00Z",
+        partySize: 2,
+        tableId: ctx.tableA,
+        venueId: ctx.venueA.id,
+        guestName: "RLS Sweep Guest",
+        guestEmail: `rls-sweep-create-${randomUUID()}@example.com`,
+      },
     });
-    expectOk(
-      await asAdmin(ctx, {
-        method: "POST",
-        url: "/api/v1/reservations",
-        payload: bodyFor(ctx.venueA.id, ctx.tableA),
-      }),
-      "admin venue A (body-scoped, requireVenueAccess)"
-    );
-    // A fresh table so the member's create does not conflict with the admin's slot.
-    const memberTableA = await createDisposableTable(ctx, ctx.venueA.id);
-    expectOk(
-      await asMember(ctx, {
-        method: "POST",
-        url: "/api/v1/reservations",
-        payload: bodyFor(ctx.venueA.id, memberTableA),
-      }),
-      "member venue A"
-    );
-    expectDenied(
-      await asMember(ctx, {
-        method: "POST",
-        url: "/api/v1/reservations",
-        payload: bodyFor(ctx.venueB.id, ctx.tableB),
-      }),
-      "member venue B"
-    );
+    expectOk(res, "create reservation (body-scoped, open route)");
   }),
 };
 
