@@ -15,3 +15,4 @@ export {
   type EndpointSuccess,
   type EndpointRouteGeneric,
 } from "./define.js";
+export { guestsEndpoints, GUESTS_PREFIX } from "./guests.js";
