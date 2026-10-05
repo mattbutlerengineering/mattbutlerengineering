@@ -168,12 +168,13 @@ type ReplyOf<R> =
 /**
  * Fastify route generic for a handler of this endpoint. Uses `z.output`
  * because AJV `useDefaults` applies querystring defaults before the handler
- * runs (e.g. `page: "1"`).
+ * runs (e.g. `page: "1"`). `Reply` is the union of every declared body plus
+ * `ProblemDetails`; it is omitted for a body-less (204) success so
+ * `reply.code(204).send()` type-checks, as today's hand-written routes do.
  */
 export type EndpointRouteGeneric<D extends AnyEndpointDefinition> = Simplify<
   Declared<"Params", ParamsOf<D>, z.output<NonNullable<ParamsOf<D>>>> &
     Declared<"Querystring", QueryOf<D>, z.output<NonNullable<QueryOf<D>>>> &
-    Declared<"Body", BodyOf<D>, z.output<NonNullable<BodyOf<D>>>> & {
-      Reply: Exclude<ReplyOf<ResponsesOf<D>>, undefined> | ProblemDetails;
-    }
+    Declared<"Body", BodyOf<D>, z.output<NonNullable<BodyOf<D>>>> &
+    (EndpointSuccess<D> extends undefined ? unknown : { Reply: ReplyOf<ResponsesOf<D>> })
 >;

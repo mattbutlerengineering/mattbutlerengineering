@@ -113,6 +113,10 @@ describe("derived types (enforced by `pnpm typecheck`, not by vitest)", () => {
     >();
     type P = EndpointRouteGeneric<typeof getThing>;
     expectTypeOf<P["Params"]>().toEqualTypeOf<{ id: string }>();
+    // A body-less 204 declares no Reply, so `reply.code(204).send()` type-checks.
+    expectTypeOf<EndpointRouteGeneric<typeof deleteThing>>().toEqualTypeOf<{
+      Params: { id: string };
+    }>();
   });
 
   it("rejects a :param with no matching params key, and params keys with no :segment", () => {
