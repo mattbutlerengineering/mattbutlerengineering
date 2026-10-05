@@ -1,0 +1,173 @@
+---
+stage: decompose
+run: maintenance:endpoint-definitions-pilot
+date: 2026-10-04
+assumptions:
+  - "Review-the-cut step answered by the autorun brief rather than live: milestones are the three PRs of architecture.md § PR plan (binding per the autorun dispatch), so the milestone boundaries are not re-litigated here. Skill default (draft is the cut) taken."
+  - "Tracker import/export: none — autorun-brief.md § Run says 'Tracker: none. No GitHub issue interaction.' No `(tracker: #N)` references."
+  - "Each milestone = one PR, independently mergeable with main green: M1 additive (nothing calls the machinery), M2 green by construction (KNOWN_PARITY_GAPS pins today's measured failures), M3 deletes the gaps list and must reach parity `[]`. Items inside a milestone are commits on that PR, not separate PRs."
+  - "M2 and M3 depend on M1 being merged to origin/main first (M2's client-side capture spies on `ApiClient.prototype.call`, which M1 adds; M3 consumes every M1 export). No stacking: each PR is cut from a fresh rebase on origin/main after its predecessor merges."
+  - "Architecture decision 2 (LapsingGuest `communicationPreference` as enum, one documentation-only OpenAPI delta) is carried as an explicit reviewer checkpoint on item 3.1 / 3.6, with the `z.string()` fallback pre-specified — not re-decided here."
+  - "The measured-cost recording is a final work item (4.1) whose output is the release.md table; it is checked off at Ship, since release.md is Ship's artifact. Implement fills the measured cells into this breakdown's Notes as each PR lands so Ship only transcribes."
+---
+
+# Breakdown: declare an endpoint once — guests-domain pilot
+
+Progress lives in the checkboxes below — Implement checks items off as their
+acceptance criteria are met.
+
+Every item lists: **Accept** (checkable criterion), **Test first** (what fails
+first and why), **Files**, **Blocked by**. Gates for every PR: `pnpm install
+--frozen-lockfile` and `pnpm build --filter @mbe/cli...` in a fresh worktree;
+`pnpm typecheck` (Vitest does not typecheck — `defineEndpoint`'s compile-time
+failure modes are only caught here); `pnpm lint`; `pnpm test` in each touched
+package; `/local-ci-precheck`; rebase on `origin/main` immediately before
+opening the PR; stage generated `llms.txt` / `llms-full.txt` by explicit path.
+
+## Milestone 1 (PR 1): endpoint-definition machinery — additive, nothing uses it yet
+
+Demonstrable: a fixture definition registers a Fastify route whose schema is
+asserted, and `ApiClient.call` executes it end to end in unit tests. No route
+or client method changes. PR title:
+`feat(types,api-client,service-bootstrap): endpoint definition machinery`.
+
+- [ ] **1.1 `defineEndpoint` + derived types + `problem()`** — the contract object and its type helpers in `@mbe/types`.
+  - Accept: `packages/types/src/endpoints/define.ts` exports `defineEndpoint`, `problem`, `EndpointDefinition`, `EndpointInput<D>`, `EndpointSuccess<D>`, `EndpointRouteGeneric<D>`; re-exported from the package entry. Type tests (`expectTypeOf` / `@ts-expect-error`) prove: a `:param` with no matching `params` key fails `tsc`; zero or two 2xx responses fail `tsc`; `EndpointInput` contains only the declared keys; `EndpointSuccess` is the `z.output` of the single 2xx body (and `undefined` for a `body: null` 204). `pnpm --dir packages/types typecheck` green.
+  - Test first: `define.test.ts` with the type assertions and `@ts-expect-error` lines fails because the module does not exist; after the stub exists, the `@ts-expect-error` lines fail ("unused directive") until the param/2xx constraints are implemented.
+  - Files: `packages/types/src/endpoints/define.ts`, `packages/types/src/endpoints/define.test.ts`, `packages/types/src/endpoints/index.ts`, `packages/types/src/index.ts`, possibly `packages/types/src/exports.test.ts` (if it pins the export list).
+  - Blocked by: —
+- [ ] **1.2 `toResponseJsonSchema` + `SHARED_RESPONSE_REFS`** — server-side response derivation that keeps shared entities as `$ref`.
+  - Accept: in `packages/types/src/schemas/json-schema.ts`, `toResponseJsonSchema(zod)` emits OpenAPI-3.0 JSON Schema (`nullable: true` for nullable fields), no `required`, no `additionalProperties`; `GuestSchema` → `{ $ref: "Guest#" }` and `GuestSegmentSchema` → `{ $ref: "GuestSegment#" }` via `override` against `SHARED_RESPONSE_REFS`, placed beside the `toFastifyJsonSchema` `$id` assignments. Unit tests: `{ data: GuestSchema }` envelope → `$ref` inside `properties.data`; `paginatedResponseSchema(GuestSchema)` matches the shape `createListResponseSchema("Guest#")` produces today (`list-utils.ts:60-70`) up to `required`; a nullable string field → `{ type: "string", nullable: true }`; `GuestSchema.extend(...)` inlines (documented failure mode). Entity baselines `services/reservations/src/schemas/schema-baseline.json` and `schemas.test.ts.snap` zero diff.
+  - Test first: `json-schema.test.ts` new `describe("toResponseJsonSchema")` fails on the missing export; the nullable case is the first behavioural failure if the target is not `openapi-3.0` (Zod default emits `anyOf: [X, {type:"null"}]`). Fallback per architecture assumption: an override rewriting `anyOf` → `nullable`.
+  - Files: `packages/types/src/schemas/json-schema.ts`, `packages/types/src/json-schema.test.ts`.
+  - Blocked by: —
+- [ ] **1.3 `registerEndpoint` in `@mbe/service-bootstrap`** — register one Fastify route from one definition.
+  - Accept: `packages/service-bootstrap/src/register-endpoint.ts` exported from the package index. Tests boot a bare Fastify instance with a plugin at prefix `/api/v1/things` and a fixture definition set covering: a `$ref` envelope response, a paginated list with query, a 204 (`type: "null"` + description), a nullable inline body, and a `problem()` → `{ $ref: "Error#" }`; assert the registered route's swagger output equals a hand-written expected schema; handler receives typed params/query/body. Throws synchronously at registration when `def.path` is not under `fastify.prefix`, when not exactly one 2xx, or when a `params` key has no `:segment`. Docs metadata (`summary`, `operationId`, `description`, `tags`, `security`) merges from the route options, never from the definition.
+  - Test first: `register-endpoint.test.ts` fails on the missing module; the prefix-mismatch throw test is the first behavioural failure (proves the relative-URL computation is real, not a passthrough).
+  - Files: `packages/service-bootstrap/src/register-endpoint.ts`, `packages/service-bootstrap/src/register-endpoint.test.ts`, `packages/service-bootstrap/src/index.ts`.
+  - Blocked by: 1.1, 1.2
+- [ ] **1.4 `ApiClient.call(def, input, override?)`** — one generic client method executing a definition.
+  - Accept: in `packages/api-client/src/client.ts`, `call` interpolates `:param` segments with `encodeURIComponent`, appends `query` via the existing `buildQueryString`, serializes `body`, takes the method from the definition (retry policy unchanged: POST/PATCH not retried unless `idempotentRetry`), passes the single 2xx body schema to the existing `request` for validation, returns the full wire body (no unwrap), returns `undefined` for 204. Unit tests: URL bytes for a cuid id are identical to today's raw interpolation; an id containing `/` is encoded (recorded behaviour change for non-URL-safe input); schema mismatch → `ApiValidationError` through `onError`; non-2xx → `ApiClientError` with RFC 7807 `ProblemDetails`; a POST definition is not retried on 503. Existing `get`/`getOne`/`postOne`/`patchOne` untouched. `pnpm --dir packages/api-client size` within budget (record the delta in Notes).
+  - Test first: `client.test.ts` new `describe("call")` fails on the missing method; the POST-not-retried case guards the "method comes from the definition" claim. These tests are where the 3 "schema validation" tests of `guests.test.ts` (lines 220-241) later land (see 3.7).
+  - Files: `packages/api-client/src/client.ts`, `packages/api-client/src/client.test.ts`.
+  - Blocked by: 1.1
+- [ ] **1.5 PR 1 gates, open, merge** — ship M1 under the release authorization.
+  - Accept: rebased on `origin/main`; full gates green; generated llms artifacts for `packages/types`, `packages/api-client`, `packages/service-bootstrap`, root staged by explicit path; `reviewer` PASS; `CI Gate` green on final head; squash-merged with explicit `--subject`. No route file and no domain client file appears in the diff.
+  - Test first: n/a (gate item) — the diff-scope check (`git diff --name-only origin/main...HEAD` contains no `routes/` or `api-client/src/<domain>.ts`) is the assertion.
+  - Files: none new.
+  - Blocked by: 1.1, 1.2, 1.3, 1.4
+
+## Milestone 2 (PR 2): guard first — guests OpenAPI baseline + schema parity, green by construction
+
+Demonstrable: route-contract now reports body / query / response parity for
+the guests domain, and today's real mismatches are pinned by name. Main stays
+green; any new drift _or_ accidental fix fails the build. PR title:
+`test(route-contract,reservations): guests schema parity + OpenAPI baseline`.
+No production code changes in this PR other than route-contract tooling and a
+swagger accessor.
+
+- [ ] **2.1 Guests route-level OpenAPI snapshot** — the baseline the "OpenAPI unchanged" constraint is measured against.
+  - Accept: `services/reservations/src/routes/guests-openapi.test.ts` boots `buildApp`, snapshots `app.swagger().paths` filtered to `/api/v1/guests*` (11 operations) into `__snapshots__/guests-openapi.test.ts.snap`; passes on today's code; snapshot committed. Determinism: run twice locally, zero diff (key ordering stable — no locale-sensitive sort).
+  - Test first: written against today's code, so it is a baseline, not a red test — the "fails first" proof is to run once with an empty snapshot file and confirm Vitest writes it, then hand-edit one byte in the snapshot and confirm the test fails, then revert.
+  - Files: `services/reservations/src/routes/guests-openapi.test.ts`, `services/reservations/src/routes/__snapshots__/guests-openapi.test.ts.snap`.
+  - Blocked by: — (does not need M1; ordered here per the PR plan)
+- [ ] **2.2 `schema-parity.ts` normalizer + unit tests** — pure comparison of client-declared vs route-registered schemas.
+  - Accept: `tools/route-contract/src/schema-parity.ts` exports a pure `normalize` that resolves `Guest#`-style and `#/components/schemas/…` `$ref`s, rebuilds querystring objects from swagger `parameters`, drops `description`/`$id`/`title`/`examples`, drops `required` on the response side only, unifies `nullable: true` vs `anyOf [X, null]`; and a `compareFacet` returning the first differing JSON pointer. `schema-parity.test.ts` covers each rule plus one deliberately drifted fixture per facet (`body`, `query`, `response`) that must report a mismatch with the right pointer.
+  - Test first: the drifted fixtures fail first (module missing, then "expected a mismatch, got none" until each normalization rule is real) — a normalizer that erases everything would pass the equal cases, so the drifted cases are the meaningful red.
+  - Files: `tools/route-contract/src/schema-parity.ts`, `tools/route-contract/src/schema-parity.test.ts`.
+  - Blocked by: —
+- [ ] **2.3 Capture points + swagger accessor** — wire both sides of parity into the existing driver.
+  - Accept: `client-inventory.ts` spies `ApiClient.prototype.call` (definition → body/query schemas) and `ApiClient.prototype.request` (response schema for any call path, so today's 8 schema-passing guests methods are compared); `fastify-owners.ts` exposes the reservations test boot's `app.swagger()` document. Existing route-contract, vacuity and driver-completeness tests still pass unchanged.
+  - Test first: `client-inventory.test.ts` new case asserting a driven guests `list` call yields a captured response schema fails until the `request` spy exists; `fastify-owners.test.ts` new case asserting the swagger document contains `/api/v1/guests/lapsing` fails until the accessor exists.
+  - Files: `tools/route-contract/src/client-inventory.ts`, `client-inventory.test.ts`, `fastify-owners.ts`, `fastify-owners.test.ts`, `types.ts`.
+  - Blocked by: M1 merged (1.5 — `ApiClient.prototype.call` must exist on origin/main)
+- [ ] **2.4 Parity verdict + `PARITY_DOMAINS` + `KNOWN_PARITY_GAPS`** — the live guard, pinned to today's measured mismatches.
+  - Accept: `route-contract.test.ts` gains a `describe` asserting guests parity failures **equal** `KNOWN_PARITY_GAPS` (exact set, so a new drift or an accidental fix both fail); `PARITY_DOMAINS = ["guests"]`; anti-vacuity: a listed domain producing zero captures fails. The pinned list is the **measured** one, recorded verbatim in Notes alongside architecture's prediction (body 4: create, findOrCreate, update, addNote; query 4: list, search, getSegments, getLapsing; response 2: getLapsing, sendWinBack). Any measured gap outside the prediction is a behaviour finding: record it in Notes and, if it implies a wire change rather than a missing client declaration, STOP and surface (brief § Constraints).
+  - Test first: the equality assertion is written with an empty `KNOWN_PARITY_GAPS` first and run — it fails, listing today's real gaps (this is the "fails today on inline schemas" proof the brief requires); the measured list is then pinned.
+  - Files: `tools/route-contract/src/route-contract.test.ts`, `tools/route-contract/src/route-contract.ts` (or a new `known-parity-gaps.ts`), `tools/route-contract/src/vacuity.ts` if the anti-vacuity check reuses it.
+  - Blocked by: 2.2, 2.3
+- [ ] **2.5 PR 2 gates, open, merge** — ship the guard.
+  - Accept: rebased on `origin/main` (after M1 merged); full gates green; `generated-artifact-determinism-reviewer` consulted if llms artifacts change; `reviewer` PASS; `CI Gate` green; squash-merged with explicit `--subject`. Diff touches no route handler, no client method, no `@mbe/types` schema.
+  - Test first: n/a (gate item).
+  - Files: none new.
+  - Blocked by: 2.1, 2.4
+
+## Milestone 3 (PR 3): migrate guests — declare each endpoint once, delete the gaps list, delete the shallow tests last
+
+Demonstrable: all 11 guests endpoints are stated once in `@mbe/types`;
+route-contract guests parity is `[]`; the OpenAPI snapshot is unchanged except
+the one named decision-2 line. PR title:
+`refactor(guests): declare each guests endpoint once`.
+
+**Coordination (must do before opening):** rebase on `origin/main`. Run #2
+`sse-event-catalog` touches `LapsingGuest` consumers (`useSSESync.tsx:50`) and
+run #4 `venue-scoped-routes` will later edit the guests route preHandlers.
+PR 3 must preserve `LapsingGuest`'s exported **name and shape** from
+`@mbe/types` and must not alter preHandler arrays beyond moving them into
+`registerEndpoint` options verbatim. If either run has merged, re-run 3.1–3.6
+gates on the rebased head; if a preHandler conflict appears, keep origin/main's
+preHandlers.
+
+- [ ] **3.1 `LapsingGuestSchema`, `WinBackResultSchema`, type aliases** — the two missing entity schemas; hand interfaces become `z.infer`/`z.input`.
+  - Accept: `schemas/guest.ts` gains `LapsingGuestSchema` (8 fields, `email`/`phone` nullable, `communicationPreference` = the `GuestSchema` enum) and `WinBackResultSchema` (`{ sent: boolean }`). In `packages/types/src/guest.ts`, `LapsingGuest`, `CreateGuestRequest`, `UpdateGuestRequest` become aliases with the same names and exports; `LapsingGuestsWidget.tsx`, `useSSESync.tsx`, `services/guest.ts` compile unchanged (`pnpm typecheck` repo-wide). Entity baselines zero diff (these schemas are not registered as shared `$id`s).
+  - **Reviewer checkpoint (architecture decision 2):** aligning `communicationPreference` on the enum adds exactly one documentation-only OpenAPI line (`enum: [email_only, sms_only, both, transactional_only]` under `getLapsingGuests` → 200 → `data.items.communicationPreference`); wire bytes unchanged. The PR description must call this out for the `reviewer` and Matt. **Fallback if rejected:** `communicationPreference: z.string()` and `LapsingGuest` stays a hand interface — OpenAPI then byte-identical, and the snapshot in 3.6 must show zero diff.
+  - Test first: an `expectTypeOf<LapsingGuest>().toEqualTypeOf<z.infer<typeof LapsingGuestSchema>>()` assertion plus a parse test of a recorded lapsing payload fail on the missing schema.
+  - Files: `packages/types/src/schemas/guest.ts`, `packages/types/src/guest.ts`, `packages/types/src/schemas.test.ts` (or a guest schema test).
+  - Blocked by: M2 merged (2.5)
+- [ ] **3.2 `guestsEndpoints` definitions** — the 11 entries, one per defect.md pilot-table row.
+  - Accept: `packages/types/src/endpoints/guests.ts` exports `guestsEndpoints` with 11 `defineEndpoint` entries (absolute `/api/v1/guests…` paths, existing request schemas from `reservation-requests.ts` reused unchanged, responses: `paginatedResponseSchema(GuestSchema)` for list/search, `{ data: … }` envelopes, `LapsingGuestSchema` list, `WinBackResultSchema`, 204 `null`, and every route's existing `problem()` statuses with their descriptions). Imports Zod only (no JSON Schema, no Fastify, no prose docs — checked by a test that the module graph has no `fastify` / `json-schema` import). Re-exported from the package entry.
+  - Test first: a test iterating defect.md's 11 (method, path) pairs and asserting each has exactly one definition fails on the missing module.
+  - Files: `packages/types/src/endpoints/guests.ts`, `packages/types/src/endpoints/guests.test.ts`, `packages/types/src/endpoints/index.ts`.
+  - Blocked by: 3.1
+- [ ] **3.3 Guests routes via `registerEndpoint`** — each `fastify.<verb><{…}>(path, { schema })` becomes `registerEndpoint(fastify, guestsEndpoints.<name>, { docs, preHandler, handler })`.
+  - Accept: route generics, inline response objects and the `createListResponseSchema` import removed from `services/reservations/src/routes/guests.ts`; handler bodies and preHandlers moved verbatim. `guests.test.ts` (25 behaviour tests incl. 400/401/403/404, #3101 authz) and `guests-dietary.test.ts` pass **unmodified**. `guests-openapi` snapshot: zero diff except the decision-2 line (or zero diff under the fallback). Entity baselines zero diff.
+  - Test first: the PR 2 snapshot is the red — migrate one route, run `guests-openapi.test.ts`, and any derivation difference fails it before the next route is touched; migrate route by route.
+  - Files: `services/reservations/src/routes/guests.ts`, `services/reservations/src/routes/__snapshots__/guests-openapi.test.ts.snap` (decision-2 line only).
+  - Blocked by: 3.2
+- [ ] **3.4 `GuestsClient` facade via `call`** — keep the positional public API; each method is one `call` plus `.data` where enveloped.
+  - Accept: `packages/api-client/src/guests.ts` holds no URL literal, no method string and no hand-picked schema; `ListGuestsParams`, `SearchGuestsParams`, `FindOrCreateGuestRequest` (now `z.input<typeof FindOrCreateGuestBodySchema>`) stay exported; `getLapsing` and `sendWinBack` now validate responses (decision 1 — mismatch → `ApiValidationError` via `onError`). `apps/hospitality` hook tests (`useGuests`, `useGuestDirectory`, `LapsingGuestsWidget`) pass unmodified; hospitality typecheck green. `pnpm --dir packages/api-client size` within budget.
+  - Test first: route-contract parity — with `KNOWN_PARITY_GAPS` still present, migrating a facade method makes its pinned gap disappear and the exact-equality assertion fails ("accidental fix"), which is the signal to remove that entry; proceed method by method.
+  - Files: `packages/api-client/src/guests.ts`.
+  - Blocked by: 3.2
+- [ ] **3.5 Delete `KNOWN_PARITY_GAPS`** — the guard now demands parity.
+  - Accept: the gaps list and its import are deleted; the guests parity assertion is `toEqual([])`; route-contract method+path join, vacuity and driver-completeness tests green.
+  - Test first: emptied incrementally in 3.4; final deletion turns the equality into `[]` and passes only if all 10 pinned gaps are closed.
+  - Files: `tools/route-contract/src/route-contract.test.ts` (and `known-parity-gaps.ts` if created).
+  - Blocked by: 3.3, 3.4
+- [ ] **3.6 Snapshot + behaviour record** — prove the "must keep identical" constraints.
+  - Accept: PR 3's diff to `guests-openapi.test.ts.snap` is exactly the decision-2 `enum` line (or empty under fallback); `schema-baseline.json` / `schemas.test.ts.snap` unchanged; ADR-002 `Error#` refs present on every guests operation in the snapshot; `/api/v1` prefix unchanged. Behaviour changes recorded in Notes: decision 1 (runtime validation on 2 methods), decision 2 (one OpenAPI doc line — **reviewer checkpoint**), `encodeURIComponent`/`buildQueryString` for non-URL-safe input.
+  - Test first: n/a — this is the evidence assembly over 3.3's snapshot and the entity baselines.
+  - Files: none beyond 3.3.
+  - Blocked by: 3.5
+- [ ] **3.7 Last commit: delete `packages/api-client/src/guests.test.ts`** — remove the shallow-module tests, stating where coverage moved.
+  - Accept: file deleted in full (17 tests) in the final commit of PR 3; commit message states: 12 request-shape/unwrap assertions (lines 55-202) → route-contract method+path join + body/query parity; 3 "schema validation" tests (220-241) → `ApiClient.call` unit tests (1.4) + response parity; 2 "error handling" tests (204-218) → existing `client.test.ts` (404 categorization, network retry). Coverage for `packages/api-client` stays ≥ 80%.
+  - Test first: before deleting, temporarily break one facade method (e.g. wrong body key) and confirm route-contract parity fails — proving the moved coverage actually catches what the deleted tests caught; revert.
+  - Files: `packages/api-client/src/guests.test.ts` (deleted).
+  - Blocked by: 3.6
+- [ ] **3.8 PR 3 gates, open, merge** — ship the migration.
+  - Accept: rebased on `origin/main` (coordination note above honored: `LapsingGuest` name/shape preserved, preHandlers match origin/main); full gates green; llms artifacts for `packages/types`, `packages/api-client`, `services/reservations`, root staged by explicit path; PR description carries the decision-2 reviewer checkpoint and the behaviour-change list; `reviewer` PASS; `CI Gate` green; squash-merged with explicit `--subject`. Deploy workflows run on merge (dispatch through CI if a paths filter skips `packages/types` / `packages/api-client`).
+  - Test first: n/a (gate item).
+  - Files: none new.
+  - Blocked by: 3.7
+
+## Milestone 4: measured cost recorded for the remaining domains
+
+- [ ] **4.1 Record the measured per-endpoint migration cost in `release.md`** — fill architecture.md § Measured-cost template and price the remaining domains.
+  - Accept: `release.md` contains the filled table (endpoints 11; parity gaps found = measured length of `KNOWN_PARITY_GAPS` from 2.4; route LOC 597 → after; client LOC 126 → after; inline `type: "object"` 15 → after; hand interfaces replaced; new Zod schemas 2; OpenAPI snapshot deltas; tests deleted/added per file; behaviour decisions with each named; PR 3 worker wall-clock + tokens) and a per-domain estimate for the 12 remaining domains (venues 12, reservations 11, availability 10, floor-plans 8, tables 7, users 7 — second service needs `registerEndpoint` adoption, waitlist 7, deposits 5, public-venue 4, agent-sessions 4 — agent service `/v1` prefix, briefing 1, health 1) derived from pilot per-endpoint figures. No cell left as a placeholder; anything unmeasurable is marked "not measured" with the reason.
+  - Test first: n/a — measurement item; every number cites its command (`wc -l`, `grep -c`, snapshot diff line count).
+  - Files: `docs/fixes/endpoint-definitions-pilot/release.md` (written at Ship).
+  - Blocked by: 3.8
+
+## Design gaps found
+
+None. Every architecture component maps to an item: `defineEndpoint` (1.1),
+`toResponseJsonSchema` + `SHARED_RESPONSE_REFS` (1.2), `registerEndpoint`
+(1.3), `ApiClient.call` (1.4), schema parity + swagger accessor (2.2–2.4),
+OpenAPI baseline (2.1), guests definitions and entity schemas (3.1–3.2),
+routes (3.3), facade (3.4). Condition-brief target state: (1) → M1 + 3.2;
+(2) → 3.3–3.4; (3) → M2 (written first, fails today per 2.4's empty-list run);
+(4) → 4.1; (5) → 2.1 + 3.3 + 3.6.
+
+## Notes
+
+<Deviations discovered during Implement get logged here, dated. Record the measured `KNOWN_PARITY_GAPS` (2.4), size-limit deltas (1.4, 3.4), and measured-cost cells as each PR lands.>
