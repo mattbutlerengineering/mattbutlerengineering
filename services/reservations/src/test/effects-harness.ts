@@ -41,6 +41,7 @@ import { ReservationEventEmitter, type ReservationEvent } from "../services/even
 import type { DepositService } from "../services/deposit.js";
 import type { ReservationsAppOptions } from "../app.js";
 import type { JobsPort } from "../transitions/ports.js";
+import { createInMemoryPayments } from "../transitions/in-memory.js";
 
 export interface RecordedEvent {
   type: string;
@@ -139,7 +140,7 @@ export interface EffectsRecorder {
   /** Spread into `buildApp(...)`; carries every recording seam. */
   appOptions: Pick<
     ReservationsAppOptions,
-    "notificationPort" | "jobs" | "reservationEvents" | "services"
+    "notificationPort" | "jobs" | "reservationEvents" | "services" | "payments"
   >;
   /** Reminder jobs currently scheduled, keyed by job id. */
   scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
@@ -224,6 +225,9 @@ export function createEffectsRecorder(): EffectsRecorder {
       notificationPort,
       jobs: scheduler,
       reservationEvents,
+      // Inject payments alongside the deposit fake so no harness-built app
+      // can fall through to a real StripeService on the placeholder key.
+      payments: createInMemoryPayments(),
       services: { depositService: recordingDepositService as unknown as DepositService },
     },
     scheduledJobs,
