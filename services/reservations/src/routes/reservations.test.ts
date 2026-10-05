@@ -385,6 +385,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -404,6 +405,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations",
         headers: {
+          authorization: "Bearer valid-token",
           "x-feature-flags": '{"enhanced-validation":{"enabled":true,"percentage":100}}',
         },
         payload: {
@@ -431,6 +433,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -443,12 +446,7 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(201);
     });
 
-    it("creates a guest reservation without auth", async () => {
-      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
-        success: true,
-        reservation: createMockReservation({ guestName: "John Doe" }),
-      });
-
+    it("rejects an anonymous create with a 401 problem and writes nothing", async () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/reservations",
@@ -458,26 +456,20 @@ describe("Reservation Routes", () => {
           endTime: "2026-02-15T20:00:00.000Z",
           partySize: 4,
           tableId: "table-123",
+          venueId: "venue-123",
           guestName: "John Doe",
           guestEmail: "john@example.com",
         },
       });
 
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.data.guestName).toBe("John Doe");
-      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
-        expect.objectContaining({
-          guestName: "John Doe",
-        }),
-        undefined
-      );
-      // Anonymous callers get today's behaviour exactly: no CRM linking of any
-      // kind, and no guestId key is invented (booking-guest-reuse M1.7 (g)).
-      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
-        expect.not.objectContaining({ guestId: expect.anything() }),
-        undefined
-      );
+      expect(body.status).toBe(401);
+      expect(body.title).toBe(ERROR_UNAUTHORIZED);
+      // The route-level limiter runs at onRequest, before requireAuth's 401,
+      // so the anonymous surface stays bounded (gotchas § Fastify / rate limiting).
+      expect(response.headers["x-ratelimit-limit"]).toBe("20");
+      expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
       expect(guestService.create).not.toHaveBeenCalled();
       expect(guestService.findByEmail).not.toHaveBeenCalled();
     });
@@ -529,6 +521,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -549,7 +542,7 @@ describe("Reservation Routes", () => {
           occasion: "birthday",
           seatingPreference: "patio",
         }),
-        undefined
+        "auth0|user-123"
       );
     });
 
@@ -589,6 +582,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -1961,10 +1955,10 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
   });
 });
 
-// booking-guest-reuse M1.7: the staff create route (optionalAuth, no venue
-// guard) decides membership the way requireVenueAccess does and only then
-// links or creates a guest. Built with an injected membership lookup, as the
-// #4865 suite above does.
+// booking-guest-reuse M1.7 + venue-access fix: the staff create route is
+// guarded by requireAuth + requireVenueAccess on the body's venueId, and only a
+// member (or platform admin) ever reaches guest linking. Built with an
+// injected membership lookup, as the #4865 suite above does.
 describe("POST /v1/reservations — member gate and guest linking (booking-guest-reuse M1.7)", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
@@ -2014,8 +2008,9 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
   const memberOf = (venueId: string) =>
     vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, id) => id === venueId);
 
-  it("(a) anonymous caller supplying guestId → 403, nothing created", async () => {
-    app = await buildAppWithMembership(memberOf("venue-123"));
+  it("(a) anonymous caller → 401 problem, nothing created, still rate-limited", async () => {
+    const lookup = memberOf("venue-123");
+    app = await buildAppWithMembership(lookup);
 
     const response = await app.inject({
       method: "POST",
@@ -2023,13 +2018,27 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       payload: { ...validBody, guestId: "gst_1" },
     });
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.status).toBe(403);
-    expect(body.title).toBe("Forbidden");
-    expect(body.detail).toBe("You do not have access to this venue");
+    expect(body.status).toBe(401);
+    expect(body.title).toBe("Unauthorized");
+    expect(response.headers["x-ratelimit-limit"]).toBe("20");
+    expect(lookup).not.toHaveBeenCalled();
     expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
     expect(guestService.getById).not.toHaveBeenCalled();
+  });
+
+  it("anonymous caller without guestId → 401, nothing created", async () => {
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      payload: { ...validBody, guestName: "Ada", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
   });
 
   it("(b) authenticated non-member supplying guestId → 403", async () => {
@@ -2169,13 +2178,9 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
     );
   });
 
-  it("non-member without guestId gets today's call exactly — no lookup, no link", async () => {
+  it("authenticated non-member without guestId → 403, nothing created", async () => {
     signInAsStaff();
     const lookup = memberOf("venue-elsewhere");
-    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: createMockReservation(),
-    });
     app = await buildAppWithMembership(lookup);
 
     const response = await app.inject({
@@ -2185,12 +2190,59 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       payload: { ...validBody, guestName: "Ada", guestEmail: "ada@example.com" },
     });
 
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
+    expect(body.status).toBe(403);
+    expect(body.title).toBe("Forbidden");
+    expect(body.detail).toBe("You do not have access to this venue");
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-123");
     expect(guestService.findByEmail).not.toHaveBeenCalled();
     expect(guestService.create).not.toHaveBeenCalled();
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("authenticated non-admin with no venueId in the body → 403, nothing created", async () => {
+    signInAsStaff();
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    app = await buildAppWithMembership(lookup);
+
+    const { venueId: _omitted, ...bodyWithoutVenue } = validBody;
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: bodyWithoutVenue,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("platform admin who is not a member → 201 without a membership lookup (matches requireVenueAccess)", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|admin-1", permissions: ["admin"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation(),
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer admin-token" },
+      payload: validBody,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(lookup).not.toHaveBeenCalled();
     expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
-      expect.not.objectContaining({ guestId: expect.anything() }),
-      "auth0|operator-A"
+      expect.objectContaining({ venueId: "venue-123" }),
+      "auth0|admin-1"
     );
   });
 });

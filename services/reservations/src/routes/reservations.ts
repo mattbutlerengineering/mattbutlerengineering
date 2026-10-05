@@ -19,13 +19,9 @@ import {
 } from "@mbe/types";
 import {
   requireAuth,
-  optionalAuth,
   requireOwnershipOrAdmin,
   requireVenueAccess,
-  hasPermission,
-  type AuthUser,
   type VenueIdResolver,
-  type VenueMembershipLookup,
 } from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
@@ -73,22 +69,6 @@ const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   ),
   resolveCurrentUserEmail
 );
-
-/**
- * Membership decision for the optionalAuth create route, mirroring
- * `requireVenueAccess`: anonymous → no; platform admin → yes; otherwise the
- * injected membership lookup. Without a venue there is nothing to be a member
- * of, so a body with no `venueId` is treated as non-member.
- */
-async function isVenueMember(
-  user: AuthUser | undefined,
-  venueId: string | undefined,
-  lookup: VenueMembershipLookup
-): Promise<boolean> {
-  if (!user || !venueId) return false;
-  if (hasPermission(user, "admin")) return true;
-  return lookup(user.raw.sub, venueId);
-}
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -359,7 +339,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: optionalAuth,
+      // Staff-only: guests book through `/public/v1/venues/:slug/*`. The
+      // route-level limiter keeps the default `onRequest` hook, so it runs
+      // before requireAuth and the 401 surface stays bounded
+      // (gotchas § Fastify / rate limiting).
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       config: {
         rateLimit: {
           max: 20,
@@ -370,7 +354,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         summary: "Create a new reservation",
         operationId: "createReservation",
         description:
-          "Create a new reservation. Authentication is optional - guest info can be provided instead.",
+          "Create a new reservation (staff). Requires authentication and membership of the body's venueId (platform admins are exempt). Guests book through the public booking routes instead.",
         tags: ["Reservations"],
         body: createReservationBodyJsonSchema,
         response: {
@@ -386,8 +370,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
             $ref: "Error#",
           },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
           403: {
-            description: "guestId supplied by a caller who is not a member of the venue",
+            description: "Caller is not a member of the body's venueId (or no venueId was given)",
             $ref: "Error#",
           },
           409: {
@@ -418,22 +406,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      // CRM linking of any kind runs only for a venue member (the same decision
-      // requireVenueAccess makes); everyone else gets today's call exactly, and
-      // a guestId from anyone else is refused rather than silently dropped.
-      const isMember = await isVenueMember(
-        request.user,
-        request.body.venueId,
-        fastify.venueMembershipLookup
-      );
-      if (!isMember && request.body.guestId) {
-        return reply
-          .code(403)
-          .send(createProblemDetails(403, "Forbidden", "You do not have access to this venue"));
-      }
-
+      // requireVenueAccess has already admitted only a member of the body's
+      // venueId (or a platform admin), so CRM linking runs whenever a venue
+      // is named.
       let body = request.body;
-      if (isMember && request.body.venueId) {
+      if (request.body.venueId) {
         const link = await linkOrCreateGuest({
           venueId: request.body.venueId,
           guestId: request.body.guestId,
