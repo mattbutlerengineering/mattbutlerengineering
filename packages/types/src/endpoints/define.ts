@@ -39,7 +39,7 @@ export interface EndpointDefinition<
   R extends EndpointResponses = EndpointResponses,
 > {
   readonly method: M;
-  /** Absolute path in Fastify syntax, e.g. `/api/v1/guests/:id`. */
+  /** Absolute path in Fastify syntax, e.g. /api/v1/guests/:id (prefix included). */
   readonly path: P;
   readonly params?: Params;
   readonly query?: Query;

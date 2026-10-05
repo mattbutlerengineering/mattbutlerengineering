@@ -14,7 +14,7 @@ import { registerEndpoint } from "./register-endpoint.js";
 
 const getThing = defineEndpoint({
   method: "GET",
-  path: "/api/v1/things/:id",
+  path: "/v1/things/:id",
   params: z.object({ id: z.string().describe("Thing ID") }),
   responses: {
     200: { description: "Thing found", body: z.object({ data: GuestSchema }) },
@@ -24,7 +24,7 @@ const getThing = defineEndpoint({
 
 const listThings = defineEndpoint({
   method: "GET",
-  path: "/api/v1/things",
+  path: "/v1/things",
   query: z.object({ venueId: z.string(), page: z.string().default("1") }),
   responses: {
     200: { description: "Paginated things", body: paginatedResponseSchema(GuestSchema) },
@@ -34,14 +34,14 @@ const listThings = defineEndpoint({
 
 const deleteThing = defineEndpoint({
   method: "DELETE",
-  path: "/api/v1/things/:id",
+  path: "/v1/things/:id",
   params: z.object({ id: z.string() }),
   responses: { 204: { description: "Thing deleted", body: null }, 409: problem() },
 });
 
 const lapsingThings = defineEndpoint({
   method: "POST",
-  path: "/api/v1/things/:id/notes",
+  path: "/v1/things/:id/notes",
   params: z.object({ id: z.string() }),
   body: z.object({ text: z.string() }),
   responses: {
@@ -66,7 +66,7 @@ afterEach(async () => {
 /** Boot a bare Fastify with the shared schemas, capturing every registered route. */
 async function boot(
   register: (instance: FastifyInstance) => void,
-  prefix = "/api/v1/things"
+  prefix = "/v1/things"
 ): Promise<{ app: FastifyInstance; routes: RouteOptions[] }> {
   const routes: RouteOptions[] = [];
   const instance = Fastify();
@@ -94,7 +94,7 @@ describe("registerEndpoint", () => {
       registerEndpoint(f, getThing, { docs, handler: async () => ({ data: {} as never }) })
     );
     const route = routes.find((r) => r.method === "GET")!;
-    expect(route.url).toBe("/api/v1/things/:id");
+    expect(route.url).toBe("/v1/things/:id");
     expect(route.schema).toEqual({
       ...docs,
       params: {
@@ -215,18 +215,18 @@ describe("registerEndpoint", () => {
         },
       });
     });
-    const list = await instance.inject({ method: "GET", url: "/api/v1/things?venueId=v1" });
+    const list = await instance.inject({ method: "GET", url: "/v1/things?venueId=v1" });
     expect(list.statusCode).toBe(200);
     const note = await instance.inject({
       method: "POST",
-      url: "/api/v1/things/t1/notes",
+      url: "/v1/things/t1/notes",
       payload: { text: "hi" },
     });
     expect(note.statusCode).toBe(201);
     expect(note.json()).toEqual({ data: { email: null } });
     const invalid = await instance.inject({
       method: "POST",
-      url: "/api/v1/things/t1/notes",
+      url: "/v1/things/t1/notes",
       payload: {},
     });
     expect(invalid.statusCode).toBe(400);
@@ -238,14 +238,14 @@ describe("registerEndpoint", () => {
       boot(
         (f) =>
           registerEndpoint(f, getThing, { docs, handler: async () => ({ data: {} as never }) }),
-        "/api/v1/guests"
+        "/v1/guests"
       )
-    ).rejects.toThrow(/not under the plugin prefix "\/api\/v1\/guests"/);
+    ).rejects.toThrow(/not under the plugin prefix "\/v1\/guests"/);
     await expect(
       boot(
         (f) =>
           registerEndpoint(f, getThing, { docs, handler: async () => ({ data: {} as never }) }),
-        "/api/v1/thing"
+        "/v1/thing"
       )
     ).rejects.toThrow(/not under the plugin prefix/);
   });
@@ -253,7 +253,7 @@ describe("registerEndpoint", () => {
   it("throws at registration when there is not exactly one 2xx response", async () => {
     const twoSuccesses = {
       method: "GET",
-      path: "/api/v1/things",
+      path: "/v1/things",
       responses: { 200: { body: null }, 201: { body: null } },
     } as unknown as AnyEndpointDefinition;
     await expect(
@@ -266,7 +266,7 @@ describe("registerEndpoint", () => {
   it("throws at registration when a params key has no :segment in the path", async () => {
     const mismatched = {
       method: "GET",
-      path: "/api/v1/things/:id",
+      path: "/v1/things/:id",
       params: z.object({ thingId: z.string() }),
       responses: { 200: { body: null } },
     } as unknown as AnyEndpointDefinition;

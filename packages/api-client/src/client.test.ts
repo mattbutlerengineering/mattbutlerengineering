@@ -961,14 +961,14 @@ describe("ApiClient.call — execute an endpoint definition", () => {
 
   const getItem = defineEndpoint({
     method: "GET",
-    path: "/api/v1/items/:id",
+    path: "/v1/items/:id",
     params: z.object({ id: z.string() }),
     responses: { 200: { body: z.object({ data: Item }) }, 404: problem("Not found") },
   });
 
   const listItems = defineEndpoint({
     method: "GET",
-    path: "/api/v1/items",
+    path: "/v1/items",
     query: z.object({
       venueId: z.string(),
       page: z.string().default("1"),
@@ -979,21 +979,21 @@ describe("ApiClient.call — execute an endpoint definition", () => {
 
   const createItem = defineEndpoint({
     method: "POST",
-    path: "/api/v1/items",
+    path: "/v1/items",
     body: z.object({ name: z.string() }),
     responses: { 201: { body: z.object({ data: Item }) } },
   });
 
   const pingItem = defineEndpoint({
     method: "POST",
-    path: "/api/v1/items/:id/ping",
+    path: "/v1/items/:id/ping",
     params: z.object({ id: z.string() }),
     responses: { 200: { body: z.object({ data: z.object({ sent: z.boolean() }) }) } },
   });
 
   const deleteItem = defineEndpoint({
     method: "DELETE",
-    path: "/api/v1/items/:id",
+    path: "/v1/items/:id",
     params: z.object({ id: z.string() }),
     responses: { 204: { body: null } },
   });
@@ -1018,7 +1018,7 @@ describe("ApiClient.call — execute an endpoint definition", () => {
     const result = await client().call(getItem, { params: { id: item.id } });
 
     const [url, options] = mockFetch.mock.calls[0]!;
-    expect(url).toBe(`https://api.test.com/api/v1/items/${item.id}`);
+    expect(url).toBe(`https://api.test.com/v1/items/${item.id}`);
     expect(options?.method).toBe("GET");
     expect(options?.body).toBeUndefined();
     expect(result).toEqual({ data: item }); // full wire body, no unwrap
@@ -1029,7 +1029,7 @@ describe("ApiClient.call — execute an endpoint definition", () => {
 
     await client().call(getItem, { params: { id: "a/b c" } });
 
-    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/api/v1/items/a%2Fb%20c");
+    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/v1/items/a%2Fb%20c");
   });
 
   it("appends the query through buildQueryString, omitting undefined keys", async () => {
@@ -1037,7 +1037,7 @@ describe("ApiClient.call — execute an endpoint definition", () => {
 
     await client().call(listItems, { query: { venueId: "v1", page: "2", q: undefined } });
 
-    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/api/v1/items?venueId=v1&page=2");
+    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/v1/items?venueId=v1&page=2");
   });
 
   it("serializes the declared body and takes the method from the definition", async () => {
