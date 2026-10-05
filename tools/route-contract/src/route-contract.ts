@@ -22,6 +22,9 @@ import { driveClient } from "./client-inventory.js";
 import type { ClientInventory } from "./client-inventory.js";
 import type { ClientPair, EdgeDisposition, Owner } from "./types.js";
 import type { VacuityInput } from "./vacuity.js";
+import { toRequestJsonSchema, toResponseJsonSchema } from "@mbe/types";
+import { compareFacet, refTableFromOpenApi, routeFacets } from "./schema-parity.js";
+import type { Facet, JsonSchema, OpenApiOperation } from "./schema-parity.js";
 
 export interface Verdict {
   readonly pair: ClientPair;
@@ -37,6 +40,8 @@ export interface RouteContractReport {
   readonly fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
   /** Paths the edge terminates itself — the same signal for the fourth owner. */
   readonly edgeTerminalPathCount: number;
+  /** Each Fastify owner's `app.swagger()` document, read before the apps close. */
+  readonly openApiDocuments: Readonly<Record<FastifyOwner, unknown>>;
 }
 
 /**
@@ -67,11 +72,16 @@ export async function buildRouteContractReport(): Promise<RouteContractReport> {
       FASTIFY_OWNERS.map((owner) => [owner, fastify.routeCount(owner)])
     ) as Record<FastifyOwner, number>;
 
+    const openApiDocuments = Object.fromEntries(
+      FASTIFY_OWNERS.map((owner) => [owner, fastify.openApiDocument(owner)])
+    ) as Record<FastifyOwner, unknown>;
+
     return {
       verdicts,
       inventory,
       fastifyRouteCounts,
       edgeTerminalPathCount: EDGE_TERMINAL_PATHS.length,
+      openApiDocuments,
     };
   } finally {
     await fastify.close();
@@ -132,4 +142,131 @@ export function vacuityInputFromReport(report: RouteContractReport): VacuityInpu
       .map((invocation) => invocation.clientMethod),
     ownerTableSizes: { ...report.fastifyRouteCounts, edge: report.edgeTerminalPathCount },
   };
+}
+
+// ── Schema parity ─────────────────────────────────────────────
+
+/**
+ * Sub-client domains whose body / query / response schemas are compared with
+ * the owning route's. This is the coexistence seam of the endpoint-definition
+ * migration (docs/fixes/endpoint-definitions-pilot): a domain joins this list
+ * when it is guarded, and the list only grows. Every listed domain is owned by
+ * the reservations service today.
+ */
+export const PARITY_DOMAINS = ["guests"] as const;
+
+const PARITY_OWNER: FastifyOwner = "reservations";
+
+export interface ParityFailure {
+  readonly clientMethod: string;
+  readonly method: string;
+  readonly path: string;
+  readonly facet: Facet | "route";
+  readonly detail: string;
+}
+
+export interface SchemaParityReport {
+  readonly failures: readonly ParityFailure[];
+  /** Compared captures per domain — the anti-vacuity signal. */
+  readonly comparedPerDomain: Readonly<Record<string, number>>;
+}
+
+export interface OpenApiDocument {
+  readonly paths?: Record<string, Record<string, OpenApiOperation>>;
+  readonly components?: { readonly schemas?: unknown };
+}
+
+const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path);
+
+/**
+ * The swagger operation documenting a concrete client path. Templates are
+ * matched segment-wise (`{id}` matches any one segment) and a static template
+ * wins over a parameterised one — `/guests/lapsing` over `/guests/{id}`, the
+ * same precedence find-my-way applies. Trailing slashes are ignored: Fastify
+ * documents a prefixed `"/"` route with a trailing slash (the guests list).
+ */
+export function findOperation(
+  doc: OpenApiDocument,
+  method: string,
+  path: string
+): OpenApiOperation | undefined {
+  const wanted = trimSlash(path).split("/");
+  const candidates = Object.entries(doc.paths ?? {})
+    .map(([template, item]) => ({ segments: trimSlash(template).split("/"), item }))
+    .filter(
+      ({ segments }) =>
+        segments.length === wanted.length &&
+        segments.every((seg, i) => /^\{.+\}$/.test(seg) || seg === wanted[i])
+    )
+    .sort(
+      (a, b) =>
+        a.segments.filter((seg) => seg.startsWith("{")).length -
+        b.segments.filter((seg) => seg.startsWith("{")).length
+    );
+  for (const { item } of candidates) {
+    const operation = item[method.toLowerCase()];
+    if (operation) return operation;
+  }
+  return undefined;
+}
+
+/**
+ * Compares every captured request in `domains` with its owning route. Client
+ * Zod is converted with the same helpers the server derives route schemas
+ * with, so a difference is a real contract difference, not a translation one.
+ */
+export function schemaParityReport(
+  report: RouteContractReport,
+  domains: readonly string[]
+): SchemaParityReport {
+  const doc = (report.openApiDocuments[PARITY_OWNER] ?? {}) as OpenApiDocument;
+  const refs = refTableFromOpenApi(doc);
+  const failures: ParityFailure[] = [];
+  const comparedPerDomain: Record<string, number> = Object.fromEntries(domains.map((d) => [d, 0]));
+
+  for (const capture of report.inventory.schemaCaptures) {
+    if (!domains.includes(capture.subClient)) continue;
+    comparedPerDomain[capture.subClient] = (comparedPerDomain[capture.subClient] ?? 0) + 1;
+    const where = {
+      clientMethod: capture.clientMethod,
+      method: capture.method,
+      path: capture.path,
+    };
+
+    const operation = findOperation(doc, capture.method, capture.path);
+    if (!operation) {
+      failures.push({ ...where, facet: "route", detail: "no OpenAPI operation documents it" });
+      continue;
+    }
+    const route = routeFacets(operation);
+    const def = capture.definition;
+    const client: Partial<Record<Facet, JsonSchema>> = {
+      body: def?.body ? toRequestJsonSchema(def.body) : undefined,
+      query: def?.query ? toRequestJsonSchema(def.query) : undefined,
+      response: capture.response ? toResponseJsonSchema(capture.response) : undefined,
+    };
+    for (const facet of ["body", "query", "response"] as const) {
+      const mismatch = compareFacet(facet, client[facet], route[facet], refs);
+      if (mismatch) failures.push({ ...where, ...mismatch });
+    }
+  }
+
+  return { failures, comparedPerDomain };
+}
+
+/** A parity domain that compared nothing would pass vacuously — that is a failure. */
+export function parityVacuityFailures(
+  parity: SchemaParityReport,
+  domains: readonly string[]
+): string[] {
+  return domains
+    .filter((domain) => (parity.comparedPerDomain[domain] ?? 0) === 0)
+    .map((domain) => `parity domain "${domain}" produced no schema captures`);
+}
+
+/** The failure message: one line per mismatch, naming method, path, facet and pointer. */
+export function formatParityFailures(failures: readonly ParityFailure[]): string {
+  return failures
+    .map((f) => `${f.clientMethod}  ${f.method} ${f.path}  [${f.facet}] ${f.detail}`)
+    .join("\n");
 }

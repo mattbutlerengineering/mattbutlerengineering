@@ -15,6 +15,7 @@ import {
   routeFacets,
   compareFacet,
 } from "./schema-parity.js";
+import { findOperation } from "./route-contract.js";
 
 const refs = refTableFromOpenApi({
   components: {
@@ -218,5 +219,34 @@ describe("compareFacet — one deliberately drifted fixture per facet", () => {
       detail: "route registers no schema; the client declares one",
     });
     expect(compareFacet("query", undefined, undefined, refs)).toBeNull();
+  });
+});
+
+describe("findOperation", () => {
+  const doc = {
+    paths: {
+      "/v1/things/": { get: { operationId: "list" } },
+      "/v1/things/{id}": { get: { operationId: "byId" }, delete: { operationId: "del" } },
+      "/v1/things/lapsing": { get: { operationId: "lapsing" } },
+    },
+  };
+  const op = (method: string, path: string) =>
+    (
+      findOperation(doc as Parameters<typeof findOperation>[0], method, path) as
+        { operationId?: string } | undefined
+    )?.operationId;
+
+  it("prefers a static template over a parameterised one, as find-my-way does", () => {
+    expect(op("GET", "/v1/things/lapsing")).toBe("lapsing");
+    expect(op("GET", "/v1/things/abc")).toBe("byId");
+  });
+
+  it("ignores the trailing slash Fastify documents a prefixed '/' route with", () => {
+    expect(op("GET", "/v1/things")).toBe("list");
+  });
+
+  it("falls through to the parameterised template when the static one lacks the method", () => {
+    expect(op("DELETE", "/v1/things/lapsing")).toBe("del");
+    expect(op("POST", "/v1/things/abc")).toBeUndefined();
   });
 });
