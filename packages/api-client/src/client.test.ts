@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ApiClient, ApiClientError, buildQueryString } from "./client.js";
+import { z } from "zod";
+import { defineEndpoint, problem } from "@mbe/types";
+import { ApiClient, ApiClientError, ApiValidationError, buildQueryString } from "./client.js";
 
 // Mock global fetch
 const mockFetch = vi.fn<typeof fetch>();
@@ -951,5 +953,176 @@ describe("ApiClientError — single ProblemDetails shape (ADR-008)", () => {
       });
       expect(apiError.category).toBe("notFound");
     }
+  });
+});
+
+describe("ApiClient.call — execute an endpoint definition", () => {
+  const Item = z.object({ id: z.string(), name: z.string() });
+
+  const getItem = defineEndpoint({
+    method: "GET",
+    path: "/api/v1/items/:id",
+    params: z.object({ id: z.string() }),
+    responses: { 200: { body: z.object({ data: Item }) }, 404: problem("Not found") },
+  });
+
+  const listItems = defineEndpoint({
+    method: "GET",
+    path: "/api/v1/items",
+    query: z.object({
+      venueId: z.string(),
+      page: z.string().default("1"),
+      q: z.string().optional(),
+    }),
+    responses: { 200: { body: z.object({ data: z.array(Item) }) } },
+  });
+
+  const createItem = defineEndpoint({
+    method: "POST",
+    path: "/api/v1/items",
+    body: z.object({ name: z.string() }),
+    responses: { 201: { body: z.object({ data: Item }) } },
+  });
+
+  const pingItem = defineEndpoint({
+    method: "POST",
+    path: "/api/v1/items/:id/ping",
+    params: z.object({ id: z.string() }),
+    responses: { 200: { body: z.object({ data: z.object({ sent: z.boolean() }) }) } },
+  });
+
+  const deleteItem = defineEndpoint({
+    method: "DELETE",
+    path: "/api/v1/items/:id",
+    params: z.object({ id: z.string() }),
+    responses: { 204: { body: null } },
+  });
+
+  const item = { id: "clx1a2b3c4d5e6f7g8h9", name: "Widget" };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const client = (onError?: (e: ApiClientError) => void) =>
+    new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3, ...(onError && { onError }) });
+
+  it("interpolates :params — URL bytes for a cuid are identical to raw interpolation", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: item }));
+
+    const result = await client().call(getItem, { params: { id: item.id } });
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(url).toBe(`https://api.test.com/api/v1/items/${item.id}`);
+    expect(options?.method).toBe("GET");
+    expect(options?.body).toBeUndefined();
+    expect(result).toEqual({ data: item }); // full wire body, no unwrap
+  });
+
+  it("encodes a non-URL-safe param (recorded behaviour change: raw interpolation did not)", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: item }));
+
+    await client().call(getItem, { params: { id: "a/b c" } });
+
+    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/api/v1/items/a%2Fb%20c");
+  });
+
+  it("appends the query through buildQueryString, omitting undefined keys", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [item] }));
+
+    await client().call(listItems, { query: { venueId: "v1", page: "2", q: undefined } });
+
+    expect(mockFetch.mock.calls[0]![0]).toBe("https://api.test.com/api/v1/items?venueId=v1&page=2");
+  });
+
+  it("serializes the declared body and takes the method from the definition", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: item }, 201));
+
+    const result = await client().call(createItem, { body: { name: "Widget" } });
+
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect(options?.method).toBe("POST");
+    expect(options?.body).toBe(JSON.stringify({ name: "Widget" }));
+    expect(result.data.name).toBe("Widget");
+  });
+
+  it("sends {} for a POST with no declared body — Fastify rejects an empty JSON body (#4826)", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { sent: true } }));
+
+    await client().call(pingItem, { params: { id: "g1" } });
+
+    expect(mockFetch.mock.calls[0]![1]?.body).toBe("{}");
+  });
+
+  it("returns undefined for a 204", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await client().call(deleteItem, { params: { id: "g1" } });
+
+    expect(result).toBeUndefined();
+    expect(mockFetch.mock.calls[0]![1]?.method).toBe("DELETE");
+  });
+
+  it("validates the success body with the definition's schema — a mismatch reaches onError as ApiValidationError", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: 7 } }));
+    const onError = vi.fn();
+
+    await expect(client(onError).call(getItem, { params: { id: "g1" } })).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0]![0]).toBeInstanceOf(ApiValidationError);
+  });
+
+  it("surfaces a non-2xx as ApiClientError carrying RFC 7807 ProblemDetails", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        { type: "about:blank", title: "Not Found", status: 404, detail: "Item not found" },
+        404
+      )
+    );
+
+    const error = await client()
+      .call(getItem, { params: { id: "missing" } })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect((error as ApiClientError).problemDetails).toMatchObject({
+      status: 404,
+      detail: "Item not found",
+    });
+    expect((error as ApiClientError).category).toBe("notFound");
+  });
+
+  it("does not retry a POST definition on 503 (method comes from the definition)", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ type: "about:blank", title: "Unavailable", status: 503, detail: "down" }, 503)
+    );
+
+    await expect(client().call(createItem, { body: { name: "x" } })).rejects.toThrow(
+      ApiClientError
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("still retries a GET definition on 503", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { type: "about:blank", title: "Unavailable", status: 503, detail: "down" },
+          503
+        )
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: item }));
+
+    const result = await client().call(getItem, { params: { id: "g1" } }, { maxRetries: 1 });
+
+    expect(result).toEqual({ data: item });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
