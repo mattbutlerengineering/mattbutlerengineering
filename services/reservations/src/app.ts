@@ -61,7 +61,9 @@ import { createReservationTransitions, type ReservationTransitions } from "./tra
 import { createDispatcherMessaging } from "./transitions/adapters/dispatcher-messaging.js";
 import { createEmitterEvents } from "./transitions/adapters/emitter-events.js";
 import { allOutboundLive } from "./transitions/venue-policy.js";
-import type { JobsPort } from "./transitions/ports.js";
+import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
+import { StripeService } from "./services/stripe.js";
+import { DepositService } from "./services/deposit.js";
 
 /**
  * Best-effort venue-id resolution for the global venue-context preHandler
@@ -90,6 +92,11 @@ export interface ReservationsAppOptions extends AppOptions {
    * notifier runtime's lazily connected scheduler; tests inject a recorder.
    */
   jobs?: JobsPort;
+  /**
+   * Stripe operations. Defaults to one `StripeService` built here from
+   * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
+   */
+  payments?: PaymentsPort;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
@@ -190,7 +197,19 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // decorate them so route plugins resolve dependencies from `fastify.services`
   // instead of importing the sibling singleton at module scope. Decorated before
   // route registration so child route plugins inherit it.
-  const services: DomainServices = { ...defaultDomainServices, ...options.services };
+  //
+  // Payments are constructed exactly once, here: one StripeService (same env
+  // name and placeholder fallback as before; getStripeConfig above still
+  // validates it) unless a test injects `options.payments`, and one
+  // DepositService over it.
+  const payments: PaymentsPort =
+    options.payments ?? new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder");
+  fastify.decorate("payments", payments);
+  const services: DomainServices = {
+    ...defaultDomainServices,
+    ...options.services,
+    depositService: options.services?.depositService ?? new DepositService(payments),
+  };
   fastify.decorate("services", services);
 
   // Wire the reservation transitions (maintenance:reservation-transition-effects):
@@ -339,6 +358,8 @@ declare module "fastify" {
     notificationPort: NotificationDispatcher;
     waitlistNotifier: WaitlistNotifier;
     reservationEvents: ReservationEventEmitter;
+    /** Stripe operations — the one StripeService (or an injected fake). */
+    payments: PaymentsPort;
     /** Reservation transitions — one verb per transition, effects planned in one table. */
     transitions: ReservationTransitions;
     venueMembershipLookup: VenueMembershipLookup;

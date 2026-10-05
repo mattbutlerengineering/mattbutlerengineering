@@ -130,6 +130,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     // connection on the first time-change modify, which (with no Redis in CI)
     // leaks a retry-forever ECONNREFUSED loop that races vitest worker teardown.
     app = await buildApp({
+      services: { depositService },
       logger: false,
       notificationPort: stubNotifications as never,
       jobs: {
@@ -366,6 +367,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       validationApp = await buildApp({
+        services: { depositService },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
         jobs: {
@@ -441,6 +443,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       transportApp = await buildApp({
+        services: { depositService },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
         jobs: {
@@ -501,7 +504,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 describe("PATCH /public/v1/reservations/manage — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({ services: { depositService }, logger: false });
     await freshApp.ready();
 
     // Send 11 requests — the 11th should be rate-limited

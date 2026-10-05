@@ -185,6 +185,7 @@ describe("Reservation Routes", () => {
     // reconnect loop (no Redis in CI) whose console output can race vitest's
     // worker teardown after the file's tests finish (issue #2956).
     app = await buildApp({
+      services: { depositService },
       logger: false,
       reservationEvents: stubEvents,
       jobs: {
@@ -1877,7 +1878,11 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      services: { depositService },
+      logger: false,
+      venueMembershipLookup: lookup,
+    });
     await built.ready();
     return built;
   }
@@ -1991,7 +1996,11 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
-    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    const built = await buildApp({
+      services: { depositService },
+      logger: false,
+      venueMembershipLookup: lookup,
+    });
     await built.ready();
     return built;
   }

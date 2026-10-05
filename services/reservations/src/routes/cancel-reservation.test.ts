@@ -141,6 +141,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     stubNotifications = createStubNotificationDispatcher();
     app = await buildApp({
+      services: { depositService },
       logger: false,
       notificationPort: stubNotifications as never,
       jobs: createStubJobs(),
@@ -347,6 +348,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       depositApp = await buildApp({
+        services: { depositService },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
         jobs: createStubJobs(),
@@ -628,7 +630,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
 describe("DELETE /public/v1/reservations/manage — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    const freshApp = await buildApp({ logger: false });
+    const freshApp = await buildApp({ services: { depositService }, logger: false });
     await freshApp.ready();
 
     // Send 11 requests — the 11th should be rate-limited
