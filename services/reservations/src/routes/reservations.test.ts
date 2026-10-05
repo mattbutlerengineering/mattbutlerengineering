@@ -153,6 +153,12 @@ function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
 describe("Reservation Routes", () => {
   let app: FastifyInstance;
   let stubEvents: ReservationEventEmitter;
+  /** The data of every live event of `type` published on the injected emitter. */
+  const emittedData = (type: string) =>
+    vi
+      .mocked(stubEvents.emitChange)
+      .mock.calls.filter(([event]) => event.type === type)
+      .map(([event]) => event.data);
   const originalEnv = process.env;
 
   // Fresh fixtures per test — factories return frozen objects,
@@ -172,23 +178,18 @@ describe("Reservation Routes", () => {
       protectedHeader: { alg: "RS256" },
     } as never);
     stubEvents = new ReservationEventEmitter();
-    vi.spyOn(stubEvents, "emitReservationCreated");
-    vi.spyOn(stubEvents, "emitReservationCancelled");
-    vi.spyOn(stubEvents, "emitTableUpdated");
-    // Stub bookingNotifier — cancellation routes fire cancelBookingNotifications()
-    // (see reservation-cancellation.ts). The default
-    // notifier lazily builds a real JobScheduler backed by Redis; without
-    // this stub, every cancel test here opens an unbounded ioredis reconnect
-    // loop (no Redis in CI) whose console output can race vitest's worker
-    // teardown after the file's tests finish (issue #2956).
+    vi.spyOn(stubEvents, "emitChange");
+    // Stub the reminder-jobs scheduler — cancellations tear down reminder jobs.
+    // The default scheduler lazily builds a real JobScheduler backed by Redis;
+    // without this stub, every cancel test here opens an unbounded ioredis
+    // reconnect loop (no Redis in CI) whose console output can race vitest's
+    // worker teardown after the file's tests finish (issue #2956).
     app = await buildApp({
       logger: false,
       reservationEvents: stubEvents,
-      bookingNotifier: {
-        scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-        cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-        rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-        cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
       },
     });
     await app.ready();
@@ -1128,67 +1129,6 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(403);
     });
-
-    describe("PATCH /v1/reservations/:id — post-visit email on COMPLETED", () => {
-      it("triggers post-visit email when status transitions to COMPLETED", async () => {
-        const { venueService } = await import("../services/venue.js");
-
-        const completedReservation = createMockReservation({
-          id: "res-completed",
-          status: "COMPLETED",
-          venueId: "venue-1",
-          guestEmail: "jane@example.com",
-          guestName: "Jane Doe",
-          guestId: "guest-1",
-        });
-
-        // getById is called first to check ownership
-        vi.mocked(reservationService.getById).mockResolvedValueOnce(completedReservation);
-        vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-          success: true,
-          reservation: completedReservation,
-        });
-
-        vi.mocked(venueService.getById).mockResolvedValueOnce({
-          id: "venue-1",
-          name: "The Oak Table",
-          slug: "the-oak-table",
-          ianaTimezone: "America/New_York",
-          settings: { postVisitEmailEnabled: true, feedbackUrl: null },
-        } as never);
-
-        const postVisitSpy = vi.fn().mockResolvedValue(undefined);
-        const appWithNotifier = await buildApp({
-          logger: false,
-          reservationEvents: stubEvents,
-          postVisitNotifier: { sendPostVisitEmail: postVisitSpy },
-        });
-        await appWithNotifier.ready();
-
-        await appWithNotifier.inject({
-          method: "PATCH",
-          url: "/api/v1/reservations/res-completed",
-          headers: { authorization: "Bearer valid-token" },
-          payload: { status: "COMPLETED" },
-        });
-
-        // Allow the fire-and-forget promise to settle
-        const FIRE_AND_FORGET_TICK_MS = 20;
-        await new Promise((r) => setTimeout(r, FIRE_AND_FORGET_TICK_MS));
-
-        expect(postVisitSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            reservationId: "res-completed",
-            guestEmail: "jane@example.com",
-            venuePostVisitEmailEnabled: true,
-          })
-        );
-
-        await appWithNotifier.close();
-        // Builds a fresh Fastify app (buildApp + ready), which can exceed the
-        // 5s default on a loaded CI runner — give it generous headroom.
-      }, 15000);
-    });
   });
 
   describe("POST /v1/reservations/walk-in", () => {
@@ -1245,10 +1185,10 @@ describe("Reservation Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data.id).toBe("res-walkin");
       // The route no longer issues a separate table status update; the service
-      // flips the table inside the same transaction and returns it. The route
-      // emits both SSE events only after that committed result comes back.
-      expect(stubEvents.emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
-      expect(stubEvents.emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
+      // flips the table inside the same transaction and returns it. Both live
+      // events are set off only after that committed result comes back.
+      expect(emittedData("reservation:created")).toEqual([walkInReservation]);
+      expect(emittedData("table:updated")).toEqual([occupiedTable]);
     });
 
     it("does not emit SSE events when createWalkIn fails (rolled back)", async () => {
@@ -1278,8 +1218,8 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(500);
-      expect(stubEvents.emitReservationCreated).not.toHaveBeenCalled();
-      expect(stubEvents.emitTableUpdated).not.toHaveBeenCalled();
+      expect(emittedData("reservation:created")).toEqual([]);
+      expect(emittedData("table:updated")).toEqual([]);
     });
 
     it("creates walk-in with custom guest name and duration", async () => {
@@ -1390,8 +1330,8 @@ describe("Reservation Routes", () => {
       expect(body.detail).toBe("Unknown guest for this venue");
       expect(guestService.getById).toHaveBeenCalledWith("gst_1");
       expect(reservationService.createWalkIn).not.toHaveBeenCalled();
-      expect(stubEvents.emitReservationCreated).not.toHaveBeenCalled();
-      expect(stubEvents.emitTableUpdated).not.toHaveBeenCalled();
+      expect(emittedData("reservation:created")).toEqual([]);
+      expect(emittedData("table:updated")).toEqual([]);
     });
 
     it("(b) persists an in-venue guestId and returns reservation.guest on the 201 body", async () => {
@@ -1431,7 +1371,7 @@ describe("Reservation Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data.guestId).toBe("gst_1");
       expect(body.data.guest.visitCount).toBe(12);
-      expect(stubEvents.emitReservationCreated).toHaveBeenCalledWith(linked);
+      expect(emittedData("reservation:created")).toEqual([linked]);
     });
 
     it("(c) never looks a guest up when no guestId is supplied", async () => {

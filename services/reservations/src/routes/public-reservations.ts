@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
 import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
-import { confirmHold } from "../services/confirm-hold.js";
 import { resolveGuestLink } from "../services/guest-link.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -143,17 +142,27 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         // branch only keeps the union honest.
         const link = await resolveGuestLink({ venueId, guestEmail, guestPhone });
 
-        const result = await confirmHold({
-          holdId,
-          sessionId,
-          guestDetails: {
-            guestName,
-            guestEmail,
-            guestPhone,
-            notes: specialRequests,
-            guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+        // The manage token is minted once, for the confirmed reservation, and
+        // used both in the confirmation email and in this response.
+        let manageToken = "";
+        const result = await fastify.transitions.confirmHold(
+          {
+            holdId,
+            sessionId,
+            guestDetails: {
+              guestName,
+              guestEmail,
+              guestPhone,
+              notes: specialRequests,
+              guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+            },
           },
-        });
+          {
+            door: "public-booking",
+            manageToken: (reservation) =>
+              (manageToken = generateManageToken(reservation.id, guestEmail)),
+          }
+        );
 
         if (!result.success) {
           // A hold the caller does not own answers exactly as a hold that does not
@@ -173,14 +182,8 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
         decrementHoldCount(ip);
 
-        const manageToken = generateManageToken(result.reservation.id, guestEmail);
-
-        // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
-        fastify.bookingNotifier
-          .scheduleBookingNotifications(result.reservation, manageToken)
-          .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
-
-        // The notifier above gets the linked reservation; the caller never learns of the link.
+        // The confirmation email (sent in the background by the transition)
+        // gets the linked reservation; the caller never learns of the link.
         return reply.status(201).send({
           data: {
             reservation: withoutGuestLink(result.reservation),

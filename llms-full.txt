@@ -3081,6 +3081,154 @@
       ];
     }
   </file>
+  <file path="services/reservations/src/transitions/adapters/dispatcher-messaging.ts">
+    export interface DispatcherMessagingDeps {
+      dispatcher: NotificationDispatcher;
+      postVisitNotifier: PostVisitNotifier;
+      getVenue: (venueId: string) => Promise<Venue | null>;
+      logger?: EffectLogger;
+    }
+    export function createDispatcherMessaging(deps: DispatcherMessagingDeps): MessagingPort {
+      const { dispatcher, postVisitNotifier, getVenue, logger } = deps;
+    
+      async function sendBookingConfirmation(
+        reservation: Reservation,
+        manageToken: string
+      ): Promise<void> {
+        const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
+        if (!guestEmail || !venueId) return;
+        const venue = await getVenue(venueId);
+        if (!venue) return;
+        await dispatcher.sendBookingConfirmation({
+          reservationId: id,
+          date: reservation.date,
+          startTime,
+          endTime: reservation.endTime,
+          partySize: reservation.partySize,
+          guestName: reservation.guestName,
+          guestEmail,
+          guestPhone: guestPhone ?? null,
+          specialRequests: reservation.notes ?? null,
+          venueName: venue.name,
+          venueTimezone: venue.ianaTimezone,
+          venueAddress: null,
+          manageToken,
+        });
+      }
+    
+      async function sendBookingCancelled(
+        reservation: Reservation,
+        manageToken: string,
+        initiator: CancelInitiator
+      ): Promise<void> {
+        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
+        if (!reservation.guestEmail || !venue) return;
+    
+        const preference = resolveChannel(
+          reservation.guest?.communicationPreference as CommunicationPreference | null
+        );
+        try {
+          await dispatcher.sendBookingCancelled(
+            {
+              reservationId: reservation.id,
+              date: reservation.date,
+              startTime: reservation.startTime,
+              endTime: reservation.endTime,
+              partySize: reservation.partySize,
+              guestName: reservation.guestName,
+              guestEmail: reservation.guestEmail,
+              guestPhone: reservation.guestPhone ?? null,
+              specialRequests: reservation.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken,
+            },
+            preference
+          );
+        } catch (err) {
+          logger?.error(
+            { err, reservationId: reservation.id, initiator },
+            "Failed to send booking cancelled notification"
+          );
+        }
+      }
+    
+      async function sendBookingModified(updated: Reservation, manageToken: string): Promise<void> {
+        const venue = updated.venueId ? await getVenue(updated.venueId) : null;
+        if (!updated.guestEmail || !venue) return;
+    
+        const preference = resolveChannel(
+          updated.guest?.communicationPreference as CommunicationPreference | null
+        );
+        try {
+          await dispatcher.sendBookingModified(
+            {
+              reservationId: updated.id,
+              date: updated.date,
+              startTime: updated.startTime,
+              endTime: updated.endTime,
+              partySize: updated.partySize,
+              guestName: updated.guestName,
+              guestEmail: updated.guestEmail,
+              guestPhone: updated.guestPhone ?? null,
+              specialRequests: updated.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken,
+              sequence: 2,
+            },
+            preference
+          );
+        } catch {
+          logger?.error({}, "Failed to send booking modified notification");
+        }
+      }
+    
+      async function sendPostVisitThankYou(reservation: Reservation): Promise<void> {
+        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
+        const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+        const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+    
+        await postVisitNotifier.sendPostVisitEmail({
+          reservationId: reservation.id,
+          guestId: reservation.guestId ?? null,
+          guestEmail: reservation.guestEmail ?? null,
+          guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+          unsubscribed: Boolean(reservation.guest?.unsubscribed),
+          venueName: venue?.name ?? "",
+          venuePostVisitEmailEnabled: postVisitEmailEnabled,
+          visitDate: reservation.date,
+          feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+        });
+      }
+    
+      return {
+        async send(message) {
+          switch (message.kind) {
+            case "booking-confirmation":
+              return sendBookingConfirmation(message.reservation, message.manageToken);
+            case "booking-cancelled":
+              return sendBookingCancelled(message.reservation, message.manageToken, message.initiator);
+            case "booking-modified":
+              return sendBookingModified(message.reservation, message.manageToken);
+            case "post-visit-thank-you":
+              return sendPostVisitThankYou(message.reservation);
+          }
+        },
+      };
+    }
+  </file>
+  <file path="services/reservations/src/transitions/adapters/emitter-events.ts">
+    export function createEmitterEvents(emitter: ReservationEventEmitter): EventsPort {
+      return {
+        publish(event) {
+          emitter.emitChange({ ...event, timestamp: new Date().toISOString() });
+        },
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="agent">
   <file path="tools/cli/src/commands/agent/check-model.ts">
@@ -20896,15 +21044,14 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
             }
     
-            const result = await cancelReservationWithDeposit(
-              preamble.reservation,
-              request.manageToken,
-              { bookingNotifier: fastify.bookingNotifier, logger: request.log },
-              {
-                cancellationReason: request.body?.cancellationReason,
-                cancellationNote: request.body?.cancellationNote,
-              }
-            );
+            const result = await fastify.transitions.cancel(preamble.reservation, {
+              door: "guest-manage",
+              initiator: "guest",
+              manageToken: request.manageToken,
+              reason: request.body?.cancellationReason,
+              note: request.body?.cancellationNote,
+              log: request.log,
+            });
     
             if (!result.success) {
               return reply
@@ -20945,9 +21092,7 @@
               return reply.status(401).type("text/html").send(invalidHtml);
             }
     
-            if (reservation.status === "PENDING") {
-              await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
-            }
+            await fastify.transitions.confirmAttendance(reservation);
     
             return reply.status(200).type("text/html").send(successHtml);
           });
@@ -21593,6 +21738,7 @@
           if (!cloned) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
+          fastify.reservationEvents.emitFloorPlanCreated(cloned);
           return reply.code(201).send({ data: cloned });
         }
       );
@@ -22295,7 +22441,9 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const lapsing = await guestService.scanLapsedGuests(venueId);
+          const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
+            fastify.reservationEvents.emitLapsingGuests(vid, guests)
+          );
           return { data: lapsing };
         }
       );
@@ -22677,11 +22825,14 @@
               .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
-          const result = await confirmHold({
-            holdId: request.params.id,
-            sessionId,
-            guestDetails: request.body,
-          });
+          const result = await fastify.transitions.confirmHold(
+            {
+              holdId: request.params.id,
+              sessionId,
+              guestDetails: request.body,
+            },
+            { door: "staff-hold" }
+          );
     
           if (!result.success) {
             const statusMap: Record<string, number> = {
@@ -22847,15 +22998,10 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
     
-            const result = await modifyReservationWithNotifications(
+            const result = await fastify.transitions.modifyByGuest(
               preamble.reservation,
               request.body ?? {},
-              request.manageToken,
-              {
-                bookingNotifier: fastify.bookingNotifier,
-                notificationPort: fastify.notificationPort,
-                logger: request.log,
-              }
+              request.manageToken
             );
     
             if (!result.success) {
@@ -23500,12 +23646,15 @@
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
             const { guestName, guestEmail, guestPhone, notes } = request.body;
-            const result = await confirmHold({
-              holdId,
-              sessionId,
-              venueId,
-              guestDetails: { guestName, guestEmail, guestPhone, notes },
-            });
+            const result = await fastify.transitions.confirmHold(
+              {
+                holdId,
+                sessionId,
+                venueId,
+                guestDetails: { guestName, guestEmail, guestPhone, notes },
+              },
+              { door: "public-hold" }
+            );
     
             if (!result.success) {
               const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
@@ -23643,17 +23792,27 @@
             // branch only keeps the union honest.
             const link = await resolveGuestLink({ venueId, guestEmail, guestPhone });
     
-            const result = await confirmHold({
-              holdId,
-              sessionId,
-              guestDetails: {
-                guestName,
-                guestEmail,
-                guestPhone,
-                notes: specialRequests,
-                guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+            // The manage token is minted once, for the confirmed reservation, and
+            // used both in the confirmation email and in this response.
+            let manageToken = "";
+            const result = await fastify.transitions.confirmHold(
+              {
+                holdId,
+                sessionId,
+                guestDetails: {
+                  guestName,
+                  guestEmail,
+                  guestPhone,
+                  notes: specialRequests,
+                  guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+                },
               },
-            });
+              {
+                door: "public-booking",
+                manageToken: (reservation) =>
+                  (manageToken = generateManageToken(reservation.id, guestEmail)),
+              }
+            );
     
             if (!result.success) {
               // A hold the caller does not own answers exactly as a hold that does not
@@ -23673,14 +23832,8 @@
     
             decrementHoldCount(ip);
     
-            const manageToken = generateManageToken(result.reservation.id, guestEmail);
-    
-            // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
-            fastify.bookingNotifier
-              .scheduleBookingNotifications(result.reservation, manageToken)
-              .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
-    
-            // The notifier above gets the linked reservation; the caller never learns of the link.
+            // The confirmation email (sent in the background by the transition)
+            // gets the linked reservation; the caller never learns of the link.
             return reply.status(201).send({
               data: {
                 reservation: withoutGuestLink(result.reservation),
@@ -23989,7 +24142,7 @@
        * staff refund on their own cancellation. Admins get staff semantics
        * (waived fee, deposit refunded in full); a non-admin owner gets guest
        * semantics (the venue's cancellation-fee policy applies) — see
-       * {@link cancelReservationWithDeposit}. A manage token is generated (not
+       * `cancelReservationWithDeposit`. A manage token is generated (not
        * faked) so the guest cancellation email still carries a working manage
        * link when the reservation has a guest email on file.
        */
@@ -23997,20 +24150,20 @@
         reservation: Reservation,
         logger: FastifyBaseLogger,
         isAdmin: boolean,
+        door: "staff-patch" | "staff-delete",
         options: { cancellationReason?: string; cancellationNote?: string } = {}
       ) {
         const manageToken = reservation.guestEmail
           ? generateManageToken(reservation.id, reservation.guestEmail)
           : "";
-        return cancelReservationWithDeposit(
-          reservation,
+        return fastify.transitions.cancel(reservation, {
+          door,
+          initiator: isAdmin ? "staff" : "guest",
           manageToken,
-          {
-            bookingNotifier: fastify.bookingNotifier,
-            logger,
-          },
-          { ...options, initiator: isAdmin ? "staff" : "guest" }
-        );
+          reason: options.cancellationReason,
+          note: options.cancellationNote,
+          log: logger,
+        });
       }
     
       // List reservations
@@ -24169,18 +24322,13 @@
           }
           // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
           // a single transaction. If the table update fails the whole thing rolls
-          // back and rejects, so we only reach the SSE emits below after a
+          // back and rejects, so its live events are set off only after a
           // committed, consistent state.
-          const result = await reservationService.createWalkIn(request.body, userId);
+          const result = await fastify.transitions.createWalkIn(request.body, userId);
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
-          }
-          // Emit only after the transaction has committed.
-          fastify.reservationEvents.emitReservationCreated(result.reservation);
-          if (result.table) {
-            fastify.reservationEvents.emitTableUpdated(result.table);
           }
           return reply.code(201).send({ data: result.reservation });
         }
@@ -24344,7 +24492,7 @@
             }
           }
     
-          const result = await reservationService.createWithConflictCheck(body, userId);
+          const result = await fastify.transitions.createByStaff(body, userId);
     
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
@@ -24459,6 +24607,7 @@
                   reservation,
                   request.log,
                   request.authorization?.isAdmin === true,
+                  "staff-patch",
                   {
                     cancellationReason: request.body.cancellationReason,
                     cancellationNote: request.body.cancellationNote,
@@ -24471,7 +24620,6 @@
                     .send(createProblemDetails(result.status, result.title, result.detail));
                 }
     
-                fastify.reservationEvents.emitReservationCancelled(result.reservation);
                 return { data: result.reservation };
               } catch (err) {
                 if (err instanceof ReservationTransitionError) {
@@ -24483,7 +24631,7 @@
     
             if (request.body.status === "NO_SHOW") {
               try {
-                const result = await recordNoShow(reservation, request.log);
+                const result = await fastify.transitions.noShow(reservation, request.log);
     
                 if (!result.success) {
                   return reply
@@ -24530,10 +24678,7 @@
             }
     
             try {
-              const result = await reservationService.updateWithConflictCheck(
-                request.params.id,
-                request.body
-              );
+              const result = await fastify.transitions.updateByStaff(reservation, request.body);
     
               if (!result.success) {
                 if (result.error === "Reservation not found") {
@@ -24558,32 +24703,6 @@
                       "Bad Request",
                       result.error ?? "Failed to update reservation"
                     )
-                  );
-              }
-    
-              // Fire post-visit thank-you email when status transitions to COMPLETED
-              if (request.body.status === "COMPLETED" && result.reservation) {
-                const reservation = result.reservation;
-                const venue = reservation.venueId
-                  ? await venueService.getById(reservation.venueId)
-                  : null;
-                const settings = (venue?.settings ?? {}) as Record<string, unknown>;
-                const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
-    
-                fastify.postVisitNotifier
-                  .sendPostVisitEmail({
-                    reservationId: reservation.id,
-                    guestId: reservation.guestId ?? null,
-                    guestEmail: reservation.guestEmail ?? null,
-                    guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-                    unsubscribed: Boolean(reservation.guest?.unsubscribed),
-                    venueName: venue?.name ?? "",
-                    venuePostVisitEmailEnabled: postVisitEmailEnabled,
-                    visitDate: reservation.date,
-                    feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
-                  })
-                  .catch((err) =>
-                    fastify.log.error({ err }, "Failed to send post-visit thank-you email")
                   );
               }
     
@@ -24661,7 +24780,8 @@
               const result = await cancelReservationForRequest(
                 reservation,
                 request.log,
-                request.authorization?.isAdmin === true
+                request.authorization?.isAdmin === true,
+                "staff-delete"
               );
               if (!result.success) {
                 return reply
@@ -31885,177 +32005,6 @@
     }
     export const bookingMetricsService = { getDailyBookingMetrics };
   </file>
-  <file path="services/reservations/src/services/booking-notifications.ts">
-    function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
-    }
-    export type CancelInitiator = "guest" | "staff";
-    export interface BookingNotifierDeps {
-      notificationAdapter: NotificationDispatcher;
-      scheduler: NotifierScheduler;
-      getVenue: (venueId: string) => Promise<Venue | null>;
-      logger?: FastifyBaseLogger;
-    }
-    export interface BookingNotifier {
-      scheduleBookingNotifications(reservation: Reservation, manageToken: string): Promise<void>;
-      cancelBookingReminders(reservationId: string): Promise<void>;
-      rescheduleBookingReminders(reservation: Reservation, manageToken: string): Promise<void>;
-      cancelBookingNotifications(
-        reservation: Reservation,
-        manageToken: string,
-        initiator: CancelInitiator
-      ): Promise<void>;
-    }
-    export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier {
-      const { notificationAdapter, scheduler, getVenue, logger } = deps;
-    
-      async function scheduleBookingNotifications(
-        reservation: Reservation,
-        manageToken: string
-      ): Promise<void> {
-        const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
-    
-        if (guestEmail && venueId) {
-          const venue = await getVenue(venueId);
-          if (venue) {
-            await notificationAdapter.sendBookingConfirmation({
-              reservationId: id,
-              date: reservation.date,
-              startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail,
-              guestPhone: guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken,
-            });
-          }
-        }
-    
-        if (!venueId) return;
-    
-        const startMs = new Date(startTime).getTime();
-        const now = Date.now();
-    
-        if (startMs <= now) return;
-    
-        // Channel routing is decided at delivery time from fresh guest state
-        // (see deliverReminder in job-worker.ts) — the payload carries only the
-        // lookup keys, not a snapshot that could go stale between scheduling and
-        // delivery.
-        const reminderPayload: ReminderPayload = {
-          reservationId: id,
-          venueId,
-        };
-    
-        const dayBeforeDelay = startMs - now - DAY_MS;
-        if (dayBeforeDelay > 0) {
-          await scheduler.schedule(
-            JOB_TYPES.BOOKING_REMINDER,
-            reminderPayload,
-            dayBeforeDelay,
-            reminderJobId(JOB_TYPES.BOOKING_REMINDER, id)
-          );
-        }
-    
-        const dayOfDelay = startMs - now - TWO_HOURS_MS;
-        if (dayOfDelay > 0) {
-          await scheduler.schedule(
-            JOB_TYPES.DAY_OF_REMINDER,
-            reminderPayload,
-            dayOfDelay,
-            reminderJobId(JOB_TYPES.DAY_OF_REMINDER, id)
-          );
-        }
-      }
-    
-      async function cancelBookingReminders(reservationId: string): Promise<void> {
-        await Promise.allSettled([
-          scheduler.cancel(reminderJobId(JOB_TYPES.BOOKING_REMINDER, reservationId)),
-          scheduler.cancel(reminderJobId(JOB_TYPES.DAY_OF_REMINDER, reservationId)),
-        ]);
-      }
-    
-      async function rescheduleBookingReminders(
-        reservation: Reservation,
-        manageToken: string
-      ): Promise<void> {
-        await cancelBookingReminders(reservation.id);
-        await scheduleBookingNotifications(reservation, manageToken);
-      }
-    
-      /**
-       * Owns the full "cancel this booking's notifications" intent: tears down the
-       * scheduled reminder jobs AND dispatches the guest-facing cancellation
-       * email/SMS. The dispatcher is a collaborator nested behind the notifier, so
-       * cancellation callers cross a single seam. Best-effort on dispatch — a
-       * failed send is logged but never rethrown, because the reservation cancel
-       * that triggered this has already committed.
-       */
-      async function cancelBookingNotifications(
-        reservation: Reservation,
-        manageToken: string,
-        initiator: CancelInitiator
-      ): Promise<void> {
-        await cancelBookingReminders(reservation.id);
-    
-        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
-        if (!reservation.guestEmail || !venue) return;
-    
-        const preference = resolveChannel(
-          reservation.guest?.communicationPreference as CommunicationPreference | null
-        );
-        try {
-          await notificationAdapter.sendBookingCancelled(
-            {
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken,
-            },
-            preference
-          );
-        } catch (err) {
-          logger?.error(
-            { err, reservationId: reservation.id, initiator },
-            "Failed to send booking cancelled notification"
-          );
-        }
-      }
-    
-      return {
-        scheduleBookingNotifications,
-        cancelBookingReminders,
-        rescheduleBookingReminders,
-        cancelBookingNotifications,
-      };
-    }
-    export function createDefaultBookingNotifier(
-      notificationAdapter: NotificationDispatcher,
-      runtime: NotifierRuntime,
-      logger?: FastifyBaseLogger
-    ): BookingNotifier {
-      return createBookingNotifier({
-        notificationAdapter,
-        scheduler: runtime.scheduler,
-        getVenue: (venueId) => venueService.getById(venueId),
-        logger,
-      });
-    }
-  </file>
   <file path="services/reservations/src/services/briefing.ts">
     export interface BriefingEntry extends Omit<Reservation, "guestEmail" | "guestPhone"> {
       guest: BriefingGuest | null;
@@ -32305,12 +32254,7 @@
       }
     
       // Step 4: Map to domain type
-      const reservation = toReservation(result.value);
-    
-      // Step 5: Emit event
-      emitHoldConfirmed(reservation);
-    
-      return { success: true, reservation };
+      return { success: true, reservation: toReservation(result.value) };
     }
   </file>
   <file path="services/reservations/src/services/contact-policy.ts">
@@ -33619,37 +33563,6 @@
         });
       }
     }
-    export const reservationEvents = new ReservationEventEmitter();
-    export function emitReservationCreated(reservation: Reservation): void {
-      reservationEvents.emitReservationCreated(reservation);
-    }
-    export function emitReservationUpdated(reservation: Reservation): void {
-      reservationEvents.emitReservationUpdated(reservation);
-    }
-    export function emitReservationCancelled(reservation: Reservation): void {
-      reservationEvents.emitReservationCancelled(reservation);
-    }
-    export function emitHoldCreated(hold: ReservationHold): void {
-      reservationEvents.emitHoldCreated(hold);
-    }
-    export function emitHoldReleased(hold: ReservationHold): void {
-      reservationEvents.emitHoldReleased(hold);
-    }
-    export function emitHoldConfirmed(reservation: Reservation): void {
-      reservationEvents.emitHoldConfirmed(reservation);
-    }
-    export function emitTableUpdated(table: Table): void {
-      reservationEvents.emitTableUpdated(table);
-    }
-    export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
-      reservationEvents.emitFloorPlanCreated(floorPlan);
-    }
-    export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
-      reservationEvents.emitLapsingGuests(venueId, guests);
-    }
-    export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void {
-      reservationEvents.emitTableStatusChanged(venueId, changes);
-    }
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
     type PrismaFloorPlan = {
@@ -33863,9 +33776,7 @@
     
         if (!cloned) return null;
     
-        const mapped = mapPrismaFloorPlan(cloned);
-        emitFloorPlanCreated(mapped);
-        return mapped;
+        return mapPrismaFloorPlan(cloned);
       },
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {
@@ -34662,7 +34573,11 @@
         });
       },
     
-      async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
+      /** `emitLapsingGuests` publishes the result to live SSE clients (the caller's live emitter). */
+      async scanLapsedGuests(
+        venueId: string,
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
+      ): Promise<LapsingGuest[]> {
         return runLapsedGuestScan(venueId, {
           findGuestsForScan: (vid) =>
             prisma.guest.findMany({
@@ -35055,6 +34970,8 @@
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
     export interface LapsedGuestMonitorPrismaConfig {
       prisma: PrismaClient;
+      /** Publishes a venue's lapsing guests to live SSE clients (the app's live emitter). */
+      emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"];
       startupDelayMs?: number;
       intervalMs?: number;
     }
@@ -35107,7 +35024,8 @@
       return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
-      prisma: PrismaClient
+      prisma: PrismaClient,
+      emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
     ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
       return {
         getVenueIds: () => getAllVenueIds(prisma),
@@ -35122,7 +35040,7 @@
       const { startupDelayMs = DEFAULT_STARTUP_DELAY_MS, intervalMs = DEFAULT_INTERVAL_MS } = config;
     
       const { getVenueIds, runScan } = isPrismaConfig(config)
-        ? buildPrismaCallbacks(config.prisma)
+        ? buildPrismaCallbacks(config.prisma, config.emitLapsingGuests)
         : config;
     
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -35309,7 +35227,7 @@
         ): Promise<string> {
           return connect().schedule(jobType, payload, delayMs, jobId);
         },
-        async cancel(jobId: string): Promise<void> {
+        async cancel(jobId: string): Promise<boolean> {
           return connect().cancel(jobId);
         },
       };
@@ -35432,7 +35350,6 @@
   </file>
   <file path="services/reservations/src/services/reservation-cancellation.ts">
     export interface CancelReservationDeps {
-      bookingNotifier: BookingNotifier;
       logger: FastifyBaseLogger;
     }
     export interface CancelReservationOptions {
@@ -35677,7 +35594,9 @@
     }
     export async function cancelReservationWithDeposit(
       reservation: Reservation,
-      manageToken: string,
+      // Kept for call-site stability; the guest's manage link is now carried to the
+      // cancellation email by the transitions `cancel` verb, not used here.
+      _manageToken: string,
       deps: CancelReservationDeps,
       options: CancelReservationOptions = {}
     ): Promise<CancelReservationResult> {
@@ -35747,17 +35666,10 @@
         };
       }
     
-      await deps.bookingNotifier.cancelBookingNotifications(reservation, manageToken, initiator);
-    
       return { success: true, reservation: updated };
     }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
-    export interface ModifyReservationDeps {
-      bookingNotifier: BookingNotifier;
-      notificationPort: NotificationDispatcher;
-      logger: FastifyBaseLogger;
-    }
     export interface ReservationChanges {
       date?: string;
       startTime?: string;
@@ -35777,7 +35689,7 @@
         changes.specialRequests !== undefined
       );
     }
-    function isTimeChange(changes: ReservationChanges): boolean {
+    export function isTimeChange(changes: ReservationChanges): boolean {
       return (
         changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
       );
@@ -35807,55 +35719,9 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function notifyModification(
-      updated: Reservation,
-      manageToken: string,
-      timeChanged: boolean,
-      deps: ModifyReservationDeps
-    ): Promise<void> {
-      const { bookingNotifier, notificationPort, logger } = deps;
-    
-      if (timeChanged) {
-        bookingNotifier
-          .rescheduleBookingReminders(updated, manageToken)
-          .catch((err) => logger.error({ err }, "Failed to reschedule booking reminders"));
-      }
-    
-      const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-      if (!updated.guestEmail || !venue) return;
-    
-      const preference = resolveChannel(
-        updated.guest?.communicationPreference as CommunicationPreference | null
-      );
-      try {
-        await notificationPort.sendBookingModified(
-          {
-            reservationId: updated.id,
-            date: updated.date,
-            startTime: updated.startTime,
-            endTime: updated.endTime,
-            partySize: updated.partySize,
-            guestName: updated.guestName,
-            guestEmail: updated.guestEmail,
-            guestPhone: updated.guestPhone ?? null,
-            specialRequests: updated.notes ?? null,
-            venueName: venue.name,
-            venueTimezone: venue.ianaTimezone,
-            venueAddress: null,
-            manageToken,
-            sequence: 2,
-          },
-          preference
-        );
-      } catch {
-        logger.error("Failed to send booking modified notification");
-      }
-    }
-    export async function modifyReservationWithNotifications(
+    export async function modifyReservation(
       reservation: Reservation,
-      changes: ReservationChanges,
-      manageToken: string,
-      deps: ModifyReservationDeps
+      changes: ReservationChanges
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes)) {
         return NO_CHANGES_RESULT;
@@ -35905,10 +35771,7 @@
         };
       }
     
-      const updated = updateResult.reservation!;
-      await notifyModification(updated, manageToken, isTimeChange(changes), deps);
-    
-      return { success: true, reservation: updated };
+      return { success: true, reservation: updateResult.reservation! };
     }
   </file>
   <file path="services/reservations/src/services/reservation-no-show.ts">
@@ -52106,14 +51969,16 @@
     
       /**
        * Cancel a scheduled job by its job ID.
-       * Silently succeeds if the job does not exist.
+       * Never throws: resolves `true` when a job was removed, `false` when there
+       * was none (or it could not be removed, e.g. it is locked while running).
        * @param jobId The job ID to cancel.
        */
-      async cancel(jobId: string): Promise<void> {
+      async cancel(jobId: string): Promise<boolean> {
         try {
-          await this.queue.remove(jobId);
+          return (await this.queue.remove(jobId)) === 1;
         } catch {
-          // Job may already be processed or not exist — treat as success
+          // Job may already be processed or not exist — nothing was removed
+          return false;
         }
       }
     
@@ -56800,8 +56665,11 @@
   <file path="services/reservations/src/app.ts">
     export interface ReservationsAppOptions extends AppOptions {
       notificationPort?: NotificationDispatcher;
-      bookingNotifier?: BookingNotifier;
-      postVisitNotifier?: PostVisitNotifier;
+      /**
+       * Reminder-job scheduler the reservation transitions use. Defaults to the
+       * notifier runtime's lazily connected scheduler; tests inject a recorder.
+       */
+      jobs?: JobsPort;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
@@ -56866,23 +56734,13 @@
       // buildApp() stays side-effect-free.
       const notifierRuntime = createNotifierRuntime();
     
-      // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-      const bookingNotifier =
-        options.bookingNotifier ??
-        createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
-      fastify.decorate("bookingNotifier", bookingNotifier);
-    
-      // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-      const postVisitNotifier =
-        options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
-      fastify.decorate("postVisitNotifier", postVisitNotifier);
-    
       // Wire waitlist notifier — injectable for testing, default env-backed for production
       const waitlistNotifier =
         options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
       fastify.decorate("waitlistNotifier", waitlistNotifier);
     
-      // Wire reservation events emitter — injectable for testing, default singleton for production
+      // Wire the live reservation events emitter — the single instance SSE clients
+      // subscribe to (routes/events.ts); injectable for testing
       const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
       fastify.decorate("reservationEvents", reservationEvents);
     
@@ -56910,6 +56768,30 @@
       // route registration so child route plugins inherit it.
       const services: DomainServices = { ...defaultDomainServices, ...options.services };
       fastify.decorate("services", services);
+    
+      // Wire the reservation transitions (maintenance:reservation-transition-effects):
+      // the one module that decides what a transition sets off. Every effect
+      // adapter is constructed exactly once, here — messaging over the single
+      // NotificationDispatcher, jobs over the notifier runtime's scheduler (or an
+      // injected one), events over the single live emitter — and the venue effect
+      // policy source is chosen in this one place. Decorated before route
+      // registration so child route plugins inherit it.
+      const transitions = createReservationTransitions({
+        ports: {
+          messaging: createDispatcherMessaging({
+            dispatcher: notificationPort,
+            postVisitNotifier: createDefaultPostVisitNotifier(notificationPort),
+            getVenue: (venueId) => services.venueService.getById(venueId),
+            logger: fastify.log,
+          }),
+          jobs: options.jobs ?? notifierRuntime.scheduler,
+          events: createEmitterEvents(reservationEvents),
+        },
+        policy: allOutboundLive,
+        reservationService: services.reservationService,
+        logger: fastify.log,
+      });
+      fastify.decorate("transitions", transitions);
     
       // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
       // (#5469). `@mbe/database`'s createDatabase() registers its own
@@ -56985,7 +56867,10 @@
       await fastify.register(stripeWebhookRoutes);
     
       // Wire lapsed-guest monitor with lifecycle hooks
-      const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+      const lapsedGuestMonitor = createLapsedGuestMonitor({
+        prisma,
+        emitLapsingGuests: (venueId, guests) => reservationEvents.emitLapsingGuests(venueId, guests),
+      });
     
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
@@ -58686,10 +58571,7 @@
       /** Normalized effects recorded so far (live arrays). */
       effects: RecordedEffects;
       /** Spread into `buildApp(...)`; carries every recording seam. */
-      appOptions: Pick<
-        ReservationsAppOptions,
-        "notificationPort" | "bookingNotifier" | "postVisitNotifier" | "reservationEvents"
-      >;
+      appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" | "reservationEvents">;
       /** Reminder jobs currently scheduled, keyed by job id. */
       scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
       /** Put a reservation's two reminders in the store, as a public booking would. */
@@ -58726,7 +58608,7 @@
     function createRecordingScheduler(
       jobs: RecordedJobOp[],
       store: EffectsRecorder["scheduledJobs"]
-    ): NotifierScheduler {
+    ): JobsPort {
       return {
         async schedule(jobType, payload, delayMs, jobId) {
           const id = jobId ?? `${jobType}:${store.size}`;
@@ -58734,11 +58616,9 @@
           store.set(id, { jobType, delayMs, payload });
           return id;
         },
-        // Reports whether a job was removed — a `Promise<boolean>` is assignable to
-        // today's `Promise<void>` signature, and is what PR 2's JobsPort needs.
         async cancel(jobId: string) {
           jobs.push({ op: "cancel", jobId });
-          return store.delete(jobId) as unknown as void;
+          return store.delete(jobId);
         },
       };
     }
@@ -58758,17 +58638,6 @@
     
       const notificationPort = createRecordingDispatcher(effects.messages);
       const scheduler = createRecordingScheduler(effects.jobs, scheduledJobs);
-      const bookingNotifier = createBookingNotifier({
-        notificationAdapter: notificationPort,
-        scheduler,
-        getVenue: (venueId) => venueService.getById(venueId),
-      });
-      const postVisitNotifier = createPostVisitNotifier({
-        sendThankYouEmail: (input) => notificationPort.sendThankYouEmail(input),
-        updateReservationEmailStatus: async () => undefined,
-        updateGuestUnsubscribed: async () => undefined,
-      });
-    
       const depositRecorder: DepositRecorder = {
         ops: effects.depositOps,
         deposit: null,
@@ -58778,7 +58647,7 @@
     
       return {
         effects,
-        appOptions: { notificationPort, bookingNotifier, postVisitNotifier, reservationEvents },
+        appOptions: { notificationPort, jobs: scheduler, reservationEvents },
         scheduledJobs,
         seedReminders(reservationId, venueId) {
           const payload: ReminderPayload = { reservationId, venueId };
@@ -59863,6 +59732,580 @@
     export async function pulumiStackOutputs(run = pulumiJson): Promise<string> {
       return run(["stack", "output", "--json"]);
     }
+  </file>
+  </section>
+  <section priority="medium" role="transitions">
+  <file path="services/reservations/src/transitions/in-memory.ts">
+    export interface InMemoryMessaging extends MessagingPort {
+      readonly sent: readonly GuestMessage[];
+      /** Make the next send of `kind` reject (once). */
+      failNext(kind: GuestMessageKind, error?: Error): void;
+    }
+    export function createInMemoryMessaging(): InMemoryMessaging {
+      const sent: GuestMessage[] = [];
+      const failures = new Map<GuestMessageKind, Error>();
+      return {
+        sent,
+        failNext(kind, error = new Error(`scripted ${kind} failure`)) {
+          failures.set(kind, error);
+        },
+        async send(message) {
+          const failure = failures.get(message.kind);
+          if (failure) {
+            failures.delete(message.kind);
+            throw failure;
+          }
+          sent.push(message);
+        },
+      };
+    }
+    export interface InMemoryJob {
+      jobType: string;
+      delayMs: number;
+      payload: unknown;
+    }
+    export interface InMemoryJobs extends JobsPort {
+      readonly jobs: ReadonlyMap<string, InMemoryJob>;
+    }
+    export function createInMemoryJobs(): InMemoryJobs {
+      const jobs = new Map<string, InMemoryJob>();
+      return {
+        jobs,
+        async schedule(jobType, payload, delayMs, jobId) {
+          const id = jobId ?? `${jobType}:${jobs.size}`;
+          jobs.set(id, { jobType, delayMs, payload });
+          return id;
+        },
+        async cancel(jobId) {
+          return jobs.delete(jobId);
+        },
+      };
+    }
+    export interface InMemoryEvents extends EventsPort {
+      readonly published: readonly LiveEvent[];
+    }
+    export function createInMemoryEvents(): InMemoryEvents {
+      const published: LiveEvent[] = [];
+      return {
+        published,
+        publish(event) {
+          published.push(event);
+        },
+      };
+    }
+  </file>
+  <file path="services/reservations/src/transitions/index.ts">
+    type ReservationWrites = Pick<
+      typeof ReservationServiceSingleton,
+      "update" | "updateWithConflictCheck" | "createWalkIn" | "createWithConflictCheck"
+    >;
+    type DomainLogger = Parameters<typeof recordNoShow>[1];
+    export interface ReservationTransitionsDeps {
+      ports: EffectPorts;
+      policy: VenueEffectPolicySource;
+      reservationService: ReservationWrites;
+      logger: EffectLogger;
+      now?: () => Date;
+    }
+    export interface CancelOptions {
+      door: CancelDoor;
+      initiator: CancelInitiator;
+      manageToken: string;
+      reason?: string;
+      note?: string;
+      log: DomainLogger;
+    }
+    export interface ConfirmHoldOptions {
+      door: HoldDoor;
+      /** Mints the guest's manage token for the confirmed reservation (public booking only). */
+      manageToken?: (reservation: Reservation) => string | undefined;
+    }
+    export interface ReservationTransitions {
+      cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
+      noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+      updateByStaff(
+        before: Reservation,
+        patch: UpdateReservationRequest
+      ): Promise<UpdateReservationResult>;
+      modifyByGuest(
+        reservation: Reservation,
+        changes: ReservationChanges,
+        manageToken: string
+      ): Promise<ModifyReservationResult>;
+      confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
+      createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
+      createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+      /** No-op unless the reservation is PENDING (the guard moved here from the route). */
+      confirmAttendance(reservation: Reservation): Promise<void>;
+    }
+    export function createReservationTransitions(
+      deps: ReservationTransitionsDeps
+    ): ReservationTransitions {
+      const { ports, policy, reservationService, logger, now = () => new Date() } = deps;
+    
+      /** Plans and runs a committed transition's effects. */
+      async function settle(fact: TransitionFact, venueId: string | null | undefined): Promise<void> {
+        let venuePolicy;
+        try {
+          venuePolicy = await policy(venueId ?? "");
+        } catch (err) {
+          // A policy failure may suppress effects; it can never undo the write.
+          logger.error({ err, venueId, fact: fact.kind }, "Venue effect policy lookup failed");
+          return;
+        }
+        await runEffects(planEffects(fact, venuePolicy, now()), ports, logger);
+      }
+    
+      return {
+        async cancel(reservation, options) {
+          const result = await cancelReservationWithDeposit(
+            reservation,
+            options.manageToken,
+            { logger: options.log },
+            {
+              initiator: options.initiator,
+              cancellationReason: options.reason,
+              cancellationNote: options.note,
+            }
+          );
+          if (result.success) {
+            await settle(
+              {
+                kind: "cancelled",
+                door: options.door,
+                reservation,
+                updated: result.reservation,
+                manageToken: options.manageToken,
+                initiator: options.initiator,
+              },
+              reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async noShow(reservation, log) {
+          const result = await recordNoShow(reservation, log);
+          if (result.success) {
+            await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
+          }
+          return result;
+        },
+    
+        async updateByStaff(before, patch) {
+          const result = await reservationService.updateWithConflictCheck(before.id, patch);
+          if (result.success && result.reservation) {
+            await settle(
+              { kind: "staff-updated", before, after: result.reservation, patch },
+              before.venueId
+            );
+          }
+          return result;
+        },
+    
+        async modifyByGuest(reservation, changes, manageToken) {
+          const result = await modifyReservation(reservation, changes);
+          if (result.success) {
+            await settle(
+              {
+                kind: "guest-modified",
+                before: reservation,
+                after: result.reservation,
+                manageToken,
+                timeChanged: isTimeChange(changes),
+              },
+              reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async confirmHold(input, options) {
+          const result = await confirmHold(input);
+          if (result.success) {
+            await settle(
+              {
+                kind: "hold-confirmed",
+                door: options.door,
+                reservation: result.reservation,
+                manageToken: options.manageToken?.(result.reservation),
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async createWalkIn(body, userId) {
+          const result = await reservationService.createWalkIn(body, userId);
+          if (result.success && result.reservation) {
+            await settle(
+              {
+                kind: "created",
+                door: "walk-in",
+                reservation: result.reservation,
+                table: result.table,
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async createByStaff(body, userId) {
+          const result = await reservationService.createWithConflictCheck(body, userId);
+          if (result.success && result.reservation) {
+            await settle(
+              {
+                kind: "created",
+                door: "staff-create",
+                reservation: result.reservation,
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async confirmAttendance(reservation) {
+          if (reservation.status !== "PENDING") return;
+          const updated = await reservationService.update(reservation.id, {
+            status: "CONFIRMED",
+          });
+          if (updated) {
+            await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
+          }
+        },
+      };
+    }
+  </file>
+  <file path="services/reservations/src/transitions/plan.ts">
+    export type CancelDoor = "staff-patch" | "staff-delete" | "guest-manage";
+    export type HoldDoor = "public-booking" | "staff-hold" | "public-hold";
+    export type TransitionFact =
+      | {
+          kind: "cancelled";
+          door: CancelDoor;
+          /** The reservation as it was before the cancel — what the guest is told about. */
+          reservation: Reservation;
+          /** The committed CANCELLED row — what live clients receive. */
+          updated: Reservation;
+          manageToken: string;
+          initiator: CancelInitiator;
+        }
+      | { kind: "no-show"; reservation: Reservation }
+      | {
+          kind: "staff-updated";
+          before: Reservation;
+          after: Reservation;
+          patch: UpdateReservationRequest;
+        }
+      | {
+          kind: "guest-modified";
+          before: Reservation;
+          after: Reservation;
+          manageToken: string;
+          timeChanged: boolean;
+        }
+      | {
+          kind: "hold-confirmed";
+          door: HoldDoor;
+          reservation: Reservation;
+          manageToken?: string;
+        }
+      | {
+          kind: "created";
+          door: "walk-in" | "staff-create";
+          reservation: Reservation;
+          table?: Table;
+        }
+      | { kind: "attendance-confirmed"; reservation: Reservation };
+    export function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
+    }
+    function reservationEvent(
+      type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
+      reservation: Reservation
+    ): LiveEvent {
+      return { type, venueId: reservation.venueId ?? "", data: reservation };
+    }
+    function cancelReminders(reservationId: string): JobOp[] {
+      return REMINDERS.map(({ jobType }) => ({
+        op: "cancel" as const,
+        jobId: reminderJobId(jobType, reservationId),
+      }));
+    }
+    function reminderOps(
+      reservation: Reservation,
+      now: Date,
+      mode: "schedule" | "replace-if-present"
+    ): JobOp[] {
+      const { id, venueId, startTime } = reservation;
+      if (!venueId) return [];
+      const payload: ReminderPayload = { reservationId: id, venueId };
+      const untilStart = new Date(startTime).getTime() - now.getTime();
+      return REMINDERS.flatMap(({ jobType, leadMs }): JobOp[] => {
+        const jobId = reminderJobId(jobType, id);
+        const delayMs = untilStart - leadMs;
+        if (delayMs > 0) return [{ op: mode, jobType, jobId, delayMs, payload }];
+        return mode === "replace-if-present" ? [{ op: "cancel", jobId }] : [];
+      });
+    }
+    function confirmationChain(
+      reservation: Reservation,
+      manageToken: string,
+      now: Date
+    ): PlannedEffect[] {
+      return [
+        background(message({ kind: "booking-confirmation", reservation, manageToken }), "propagate"),
+        ...reminderOps(reservation, now, "schedule").map((op) => background(job(op), "propagate")),
+      ];
+    }
+    function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
+      return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
+    }
+    function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] {
+      switch (fact.kind) {
+        case "cancelled":
+          return [
+            ...cancelReminders(fact.reservation.id).map((op) => awaited(job(op), "log")),
+            awaited(
+              message({
+                kind: "booking-cancelled",
+                reservation: fact.reservation,
+                manageToken: fact.manageToken,
+                initiator: fact.initiator,
+              }),
+              "propagate"
+            ),
+            live(reservationEvent("reservation:cancelled", fact.updated)),
+          ];
+    
+        case "no-show":
+          return [live(reservationEvent("reservation:updated", fact.reservation))];
+    
+        case "staff-updated":
+          return [
+            ...(fact.patch.status === "COMPLETED"
+              ? [
+                  background(
+                    message({
+                      kind: "post-visit-thank-you",
+                      reservation: fact.after,
+                    }),
+                    "log"
+                  ),
+                ]
+              : []),
+            ...(isStaffTimeChange(fact.patch)
+              ? reminderOps(fact.after, now, "replace-if-present").map((op) =>
+                  background(job(op), "log")
+                )
+              : []),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
+    
+        case "guest-modified":
+          return [
+            ...(fact.timeChanged
+              ? [
+                  ...cancelReminders(fact.after.id).map((op) => background(job(op), "log")),
+                  ...confirmationChain(fact.after, fact.manageToken, now),
+                ]
+              : []),
+            awaited(
+              message({
+                kind: "booking-modified",
+                reservation: fact.after,
+                manageToken: fact.manageToken,
+              }),
+              "log"
+            ),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
+    
+        case "hold-confirmed":
+          return [
+            ...(fact.door === "public-booking" && fact.manageToken !== undefined
+              ? confirmationChain(fact.reservation, fact.manageToken, now)
+              : []),
+            live(reservationEvent("hold:confirmed", fact.reservation)),
+          ];
+    
+        case "created":
+          return [
+            live(reservationEvent("reservation:created", fact.reservation)),
+            ...(fact.door === "walk-in" && fact.table
+              ? [
+                  live({
+                    type: "table:updated",
+                    venueId: fact.table.venueId ?? "",
+                    data: fact.table,
+                  }),
+                ]
+              : []),
+          ];
+    
+        case "attendance-confirmed":
+          return [live(reservationEvent("reservation:updated", fact.reservation))];
+      }
+    }
+    export function planEffects(
+      fact: TransitionFact,
+      policy: VenueEffectPolicy,
+      now: Date
+    ): PlannedEffect[] {
+      const planned = planForFact(fact, now);
+      if (policy.outbound === "live") return planned;
+      return planned.filter(({ effect }) => effect.port === "events");
+    }
+  </file>
+  <file path="services/reservations/src/transitions/ports.ts">
+    export type CancelInitiator = "guest" | "staff";
+    export type GuestMessage =
+      | {
+          kind: "booking-confirmation";
+          reservation: Reservation;
+          manageToken: string;
+        }
+      | { kind: "booking-modified"; reservation: Reservation; manageToken: string }
+      | {
+          kind: "booking-cancelled";
+          reservation: Reservation;
+          manageToken: string;
+          initiator: CancelInitiator;
+        }
+      | { kind: "post-visit-thank-you"; reservation: Reservation };
+    export type GuestMessageKind = GuestMessage["kind"];
+    export interface MessagingPort {
+      send(message: GuestMessage): Promise<void>;
+    }
+    export type JobsPort = Pick<JobScheduler, "schedule" | "cancel">;
+    export type ReminderJobType = typeof JOB_TYPES.BOOKING_REMINDER | typeof JOB_TYPES.DAY_OF_REMINDER;
+    export type JobOp =
+      | {
+          op: "schedule";
+          jobType: ReminderJobType;
+          jobId: string;
+          delayMs: number;
+          payload: ReminderPayload;
+        }
+      | { op: "cancel"; jobId: string }
+      | {
+          op: "replace-if-present";
+          jobType: ReminderJobType;
+          jobId: string;
+          delayMs: number;
+          payload: ReminderPayload;
+        };
+    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export interface EventsPort {
+      publish(event: LiveEvent): void;
+    }
+    export type Effect =
+      | { port: "events"; event: LiveEvent }
+      | { port: "messaging"; message: GuestMessage }
+      | { port: "jobs"; op: JobOp };
+    export interface PlannedEffect {
+      effect: Effect;
+      timing: "await" | "background";
+      onFailure: "log" | "propagate";
+    }
+    export interface EffectPorts {
+      messaging: MessagingPort;
+      jobs: JobsPort;
+      events: EventsPort;
+    }
+  </file>
+  <file path="services/reservations/src/transitions/run.ts">
+    export interface EffectLogger {
+      error(details: object, msg: string): void;
+    }
+    function describe(effect: Effect): Record<string, unknown> {
+      switch (effect.port) {
+        case "events":
+          return { port: "events", type: effect.event.type };
+        case "messaging":
+          return {
+            port: "messaging",
+            kind: effect.message.kind,
+            reservationId: effect.message.reservation.id,
+          };
+        case "jobs":
+          return { port: "jobs", op: effect.op.op, jobId: effect.op.jobId };
+      }
+    }
+    async function runJob(op: JobOp, ports: EffectPorts): Promise<void> {
+      switch (op.op) {
+        case "schedule":
+          await ports.jobs.schedule(op.jobType, op.payload, op.delayMs, op.jobId);
+          return;
+        case "cancel":
+          await ports.jobs.cancel(op.jobId);
+          return;
+        case "replace-if-present":
+          if (await ports.jobs.cancel(op.jobId)) {
+            await ports.jobs.schedule(op.jobType, op.payload, op.delayMs, op.jobId);
+          }
+          return;
+      }
+    }
+    async function applyEffect(effect: Effect, ports: EffectPorts): Promise<void> {
+      switch (effect.port) {
+        case "events":
+          ports.events.publish(effect.event);
+          return;
+        case "messaging":
+          await ports.messaging.send(effect.message);
+          return;
+        case "jobs":
+          await runJob(effect.op, ports);
+          return;
+      }
+    }
+    async function runBackgroundChain(
+      chain: PlannedEffect[],
+      ports: EffectPorts,
+      logger: EffectLogger
+    ): Promise<void> {
+      for (const planned of chain) {
+        try {
+          await applyEffect(planned.effect, ports);
+        } catch (err) {
+          logger.error({ err, ...describe(planned.effect) }, "Background transition effect failed");
+          if (planned.onFailure === "propagate") return;
+        }
+      }
+    }
+    export async function runEffects(
+      planned: PlannedEffect[],
+      ports: EffectPorts,
+      logger: EffectLogger
+    ): Promise<void> {
+      const chain = planned.filter((p) => p.timing === "background");
+      if (chain.length > 0) {
+        // Detached by design: background effects settle after the response.
+        // runBackgroundChain never rejects — every failure is caught and logged.
+        void runBackgroundChain(chain, ports, logger);
+      }
+    
+      for (const step of planned) {
+        if (step.timing !== "await") continue;
+        try {
+          await applyEffect(step.effect, ports);
+        } catch (err) {
+          if (step.onFailure === "propagate") throw err;
+          logger.error({ err, ...describe(step.effect) }, "Transition effect failed");
+        }
+      }
+    }
+  </file>
+  <file path="services/reservations/src/transitions/venue-policy.ts">
+    export interface VenueEffectPolicy {
+      outbound: "live" | "suppressed";
+    }
+    export type VenueEffectPolicySource = (venueId: string) => Promise<VenueEffectPolicy>;
+    export const allOutboundLive: VenueEffectPolicySource = async () => LIVE;
   </file>
   </section>
   <section priority="medium" role="types">

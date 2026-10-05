@@ -6,7 +6,6 @@ import {
   manageProblemDetails,
   reservationNotFoundProblem,
 } from "./load-reservation-for-manage.js";
-import { modifyReservationWithNotifications } from "../services/reservation-modification.js";
 import { serializeManagedReservation } from "../services/serializers.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
@@ -46,15 +45,10 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
         }
 
-        const result = await modifyReservationWithNotifications(
+        const result = await fastify.transitions.modifyByGuest(
           preamble.reservation,
           request.body ?? {},
-          request.manageToken,
-          {
-            bookingNotifier: fastify.bookingNotifier,
-            notificationPort: fastify.notificationPort,
-            logger: request.log,
-          }
+          request.manageToken
         );
 
         if (!result.success) {
