@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { Reservation } from "@mbe/types";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
-import { reservationEvents } from "../services/events.js";
 
 /**
  * Integration tests for the SSE event stream endpoint.
@@ -92,7 +91,7 @@ describe("SSE Event Stream Integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Emit a reservation event
-    reservationEvents.emitChange({
+    app.reservationEvents.emitChange({
       type: "reservation:created",
       venueId: "venue-1",
       timestamp: new Date().toISOString(),
@@ -122,7 +121,7 @@ describe("SSE Event Stream Integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Emit event for different venue — should be filtered out
-    reservationEvents.emitChange({
+    app.reservationEvents.emitChange({
       type: "reservation:created",
       venueId: "venue-2",
       timestamp: new Date().toISOString(),

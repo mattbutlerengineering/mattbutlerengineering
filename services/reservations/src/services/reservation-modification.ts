@@ -1,17 +1,7 @@
-import type { FastifyBaseLogger } from "fastify";
-import type { NotificationDispatcher } from "@mbe/notifications";
-import type { CommunicationPreference, Reservation } from "@mbe/types";
+import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
-import type { BookingNotifier } from "./booking-notifications.js";
-import { resolveChannel } from "./contact-policy.js";
-
-export interface ModifyReservationDeps {
-  bookingNotifier: BookingNotifier;
-  notificationPort: NotificationDispatcher;
-  logger: FastifyBaseLogger;
-}
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
 export interface ReservationChanges {
@@ -44,7 +34,8 @@ function hasAnyChange(changes: ReservationChanges): boolean {
   );
 }
 
-function isTimeChange(changes: ReservationChanges): boolean {
+/** Whether a guest change moves the reservation in time (date, start or end). */
+export function isTimeChange(changes: ReservationChanges): boolean {
   return (
     changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
   );
@@ -106,67 +97,15 @@ async function checkPartySizeDepositGuard(
 }
 
 /**
- * Reschedules reminder jobs iff the time changed, then dispatches the
- * guest-facing "modified" notification. Both are best-effort: neither
- * failure should undo the update, which has already committed.
- */
-async function notifyModification(
-  updated: Reservation,
-  manageToken: string,
-  timeChanged: boolean,
-  deps: ModifyReservationDeps
-): Promise<void> {
-  const { bookingNotifier, notificationPort, logger } = deps;
-
-  if (timeChanged) {
-    bookingNotifier
-      .rescheduleBookingReminders(updated, manageToken)
-      .catch((err) => logger.error({ err }, "Failed to reschedule booking reminders"));
-  }
-
-  const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-  if (!updated.guestEmail || !venue) return;
-
-  const preference = resolveChannel(
-    updated.guest?.communicationPreference as CommunicationPreference | null
-  );
-  try {
-    await notificationPort.sendBookingModified(
-      {
-        reservationId: updated.id,
-        date: updated.date,
-        startTime: updated.startTime,
-        endTime: updated.endTime,
-        partySize: updated.partySize,
-        guestName: updated.guestName,
-        guestEmail: updated.guestEmail,
-        guestPhone: updated.guestPhone ?? null,
-        specialRequests: updated.notes ?? null,
-        venueName: venue.name,
-        venueTimezone: venue.ianaTimezone,
-        venueAddress: null,
-        manageToken,
-        sequence: 2,
-      },
-      preference
-    );
-  } catch {
-    logger.error("Failed to send booking modified notification");
-  }
-}
-
-/**
  * Domain-level modify: validates that at least one field was provided,
- * builds the update payload, dispatches the conflict-checked update,
- * reschedules reminder jobs iff the time changed, and dispatches the
- * guest-facing "modified" notification. Callers (routes) are thin adapters
- * that translate the result into an HTTP response.
+ * builds the update payload and dispatches the conflict-checked update.
+ * What a committed modify sets off (reminder reschedule, guest emails, live
+ * events) is decided by the reservation-transitions effects table
+ * (`transitions/plan.ts`), whose `modifyByGuest` verb wraps this function.
  */
-export async function modifyReservationWithNotifications(
+export async function modifyReservation(
   reservation: Reservation,
-  changes: ReservationChanges,
-  manageToken: string,
-  deps: ModifyReservationDeps
+  changes: ReservationChanges
 ): Promise<ModifyReservationResult> {
   if (!hasAnyChange(changes)) {
     return NO_CHANGES_RESULT;
@@ -216,8 +155,5 @@ export async function modifyReservationWithNotifications(
     };
   }
 
-  const updated = updateResult.reservation!;
-  await notifyModification(updated, manageToken, isTimeChange(changes), deps);
-
-  return { success: true, reservation: updated };
+  return { success: true, reservation: updateResult.reservation! };
 }

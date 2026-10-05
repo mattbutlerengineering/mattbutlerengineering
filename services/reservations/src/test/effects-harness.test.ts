@@ -1,19 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    getById: vi.fn().mockResolvedValue({
-      id: "venue-1",
-      name: "The Oak Table",
-      ianaTimezone: "America/Los_Angeles",
-      settings: {},
-    }),
-  },
-}));
-
+import { describe, it, expect } from "vitest";
 import { createEffectsRecorder } from "./effects-harness.js";
 import { createMockReservation } from "./mocks.js";
 import type { Reservation } from "@mbe/types";
+
+const payload = { reservationId: "res-1", venueId: "venue-1" };
 
 const reservation = createMockReservation({
   id: "res-1",
@@ -31,48 +21,38 @@ describe("effects harness (smoke)", () => {
     expect(rec.effects.events).toEqual([{ type: "reservation:created", id: "res-1" }]);
   });
 
-  it("records an outbound guest message at the dispatcher seam", async () => {
+  it("records outbound guest messages at the dispatcher seam, flagging unknown sends", async () => {
     const rec = createEffectsRecorder();
-    await rec.appOptions.bookingNotifier!.scheduleBookingNotifications(reservation, "tok");
+    const port = rec.appOptions.notificationPort!;
+    await port.sendBookingConfirmation({
+      reservationId: "res-1",
+      guestEmail: "john@example.com",
+    } as never);
+    await port.sendThankYouEmail({ guestEmail: "john@example.com" } as never);
+    await (port as unknown as Record<string, (i: unknown) => Promise<void>>).sendSurprise!({});
     expect(rec.effects.messages).toEqual([
       { kind: "booking-confirmation", reservationId: "res-1", guestEmail: "john@example.com" },
+      { kind: "post-visit-thank-you", guestEmail: "john@example.com" },
+      { kind: "unexpected:sendSurprise" },
     ]);
   });
 
-  it("records reminder job operations and keeps the scheduled-job store", async () => {
+  it("records reminder job operations, keeps the store, and reports removals", async () => {
     const rec = createEffectsRecorder();
-    await rec.appOptions.bookingNotifier!.scheduleBookingNotifications(reservation, "tok");
-    expect(rec.effects.jobs.map((j) => j.op)).toEqual(["schedule", "schedule"]);
+    const jobs = rec.appOptions.jobs!;
+    await jobs.schedule("booking-reminder", payload, 5, "booking-reminder:res-1");
+    expect(rec.scheduledJobs.get("booking-reminder:res-1")).toEqual({
+      jobType: "booking-reminder",
+      delayMs: 5,
+      payload,
+    });
+    expect(await jobs.cancel("booking-reminder:res-1")).toBe(true);
+    expect(await jobs.cancel("booking-reminder:res-1")).toBe(false);
+    expect(rec.effects.jobs.map((j) => j.op)).toEqual(["schedule", "cancel", "cancel"]);
+    rec.seedReminders("res-1", "venue-1");
     expect([...rec.scheduledJobs.keys()].sort()).toEqual([
       "booking-reminder:res-1",
       "day-of-reminder:res-1",
-    ]);
-    await rec.appOptions.bookingNotifier!.cancelBookingReminders("res-1");
-    expect(rec.scheduledJobs.size).toBe(0);
-  });
-
-  it("records a post-visit thank-you only when the notifier's own gates pass", async () => {
-    const rec = createEffectsRecorder();
-    const base = {
-      reservationId: "res-1",
-      guestId: null,
-      guestEmail: "john@example.com",
-      guestFirstName: "John",
-      unsubscribed: false,
-      venueName: "The Oak Table",
-      visitDate: "2099-01-01",
-      feedbackUrl: null,
-    };
-    await rec.appOptions.postVisitNotifier!.sendPostVisitEmail({
-      ...base,
-      venuePostVisitEmailEnabled: false,
-    });
-    await rec.appOptions.postVisitNotifier!.sendPostVisitEmail({
-      ...base,
-      venuePostVisitEmailEnabled: true,
-    });
-    expect(rec.effects.messages).toEqual([
-      { kind: "post-visit-thank-you", guestEmail: "john@example.com" },
     ]);
   });
 

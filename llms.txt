@@ -1043,6 +1043,24 @@
       function buildSyntheticTurnMetrics(costUsd: number, modelId: string): readonly TurnMetrics[] { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/transitions/adapters/dispatcher-messaging.ts">
+    <item priority="low">
+      interface DispatcherMessagingDeps {
+        dispatcher: NotificationDispatcher;
+        postVisitNotifier: PostVisitNotifier;
+        getVenue: (venueId: string) => Promise<Venue | null>;
+        logger?: EffectLogger;
+      }
+    </item>
+    <item priority="high">
+      export function createDispatcherMessaging(deps: DispatcherMessagingDeps): MessagingPort { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/adapters/emitter-events.ts">
+    <item priority="high">
+      export function createEmitterEvents(emitter: ReservationEventEmitter): EventsPort { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="agent">
   <file path="tools/cli/src/commands/agent/check-model.ts">
@@ -8043,37 +8061,6 @@
       export const bookingMetricsService: unknown;
     </item>
   </file>
-  <file path="services/reservations/src/services/booking-notifications.ts">
-    <item priority="medium">
-      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
-    </item>
-    <item priority="low">
-      type CancelInitiator = "guest" | "staff";
-    </item>
-    <item priority="low">
-      interface BookingNotifierDeps {
-        notificationAdapter: NotificationDispatcher;
-        scheduler: NotifierScheduler;
-        getVenue: (venueId: string) => Promise<Venue | null>;
-        logger?: FastifyBaseLogger;
-      }
-    </item>
-    <item priority="low">
-      interface BookingNotifier {
-        
-      }
-    </item>
-    <item priority="high">
-      export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createDefaultBookingNotifier(
-        notificationAdapter: NotificationDispatcher,
-        runtime: NotifierRuntime,
-        logger?: FastifyBaseLogger
-      ): BookingNotifier { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/services/briefing.ts">
     <item priority="low">
       interface BriefingEntry {
@@ -8274,39 +8261,6 @@
         async emitChange(): Promise<unknown>;
         async onChange(): Promise<unknown>;
       }
-    </item>
-    <item priority="high">
-      export const reservationEvents: unknown;
-    </item>
-    <item priority="high">
-      export function emitReservationCreated(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitReservationUpdated(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitReservationCancelled(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldCreated(hold: ReservationHold): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldReleased(hold: ReservationHold): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldConfirmed(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitTableUpdated(table: Table): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitFloorPlanCreated(floorPlan: FloorPlan): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
@@ -8534,6 +8488,7 @@
     <item priority="low">
       interface LapsedGuestMonitorPrismaConfig {
         prisma: PrismaClient;
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"];
         startupDelayMs?: number;
         intervalMs?: number;
       }
@@ -8570,7 +8525,8 @@
     </item>
     <item priority="medium">
       function buildPrismaCallbacks(
-        prisma: PrismaClient
+        prisma: PrismaClient,
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
       ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> { /* ... */ }
     </item>
     <item priority="high">
@@ -8664,7 +8620,6 @@
   <file path="services/reservations/src/services/reservation-cancellation.ts">
     <item priority="low">
       interface CancelReservationDeps {
-        bookingNotifier: BookingNotifier;
         logger: FastifyBaseLogger;
       }
     </item>
@@ -8714,20 +8669,15 @@
     <item priority="high">
       export async function cancelReservationWithDeposit(
         reservation: Reservation,
-        manageToken: string,
+        // Kept for call-site stability; the guest's manage link is now carried to the
+        // cancellation email by the transitions `cancel` verb, not used here.
+        _manageToken: string,
         deps: CancelReservationDeps,
         options: CancelReservationOptions = {}
       ): Promise<CancelReservationResult> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
-    <item priority="low">
-      interface ModifyReservationDeps {
-        bookingNotifier: BookingNotifier;
-        notificationPort: NotificationDispatcher;
-        logger: FastifyBaseLogger;
-      }
-    </item>
     <item priority="low">
       interface ReservationChanges {
         date?: string;
@@ -8743,8 +8693,8 @@
     <item priority="medium">
       function hasAnyChange(changes: ReservationChanges): boolean { /* ... */ }
     </item>
-    <item priority="medium">
-      function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
+    <item priority="high">
+      export function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
     </item>
     <item priority="high">
       export async function isPartySizeDepositBlocked(
@@ -8758,20 +8708,10 @@
         changes: ReservationChanges
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
-    <item priority="low">
-      async function notifyModification(
-        updated: Reservation,
-        manageToken: string,
-        timeChanged: boolean,
-        deps: ModifyReservationDeps
-      ): Promise<void> { /* ... */ }
-    </item>
     <item priority="high">
-      export async function modifyReservationWithNotifications(
+      export async function modifyReservation(
         reservation: Reservation,
-        changes: ReservationChanges,
-        manageToken: string,
-        deps: ModifyReservationDeps
+        changes: ReservationChanges
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -15593,10 +15533,10 @@
     <item priority="low">
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
-        bookingNotifier?: BookingNotifier;
-        postVisitNotifier?: PostVisitNotifier;
+        jobs?: JobsPort;
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
+        venueMembershipLookup?: VenueMembershipLookup;
       }
     </item>
     <item priority="high">
@@ -16277,9 +16217,7 @@
     <item priority="low">
       interface EffectsRecorder {
         effects: RecordedEffects;
-        appOptions: Pick<
-          ReservationsAppOptions,
-          "notificationPort" ...;
+        appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" ...;
         scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: ...;
         deposits: {
           service: typeof recordingDepositService;
@@ -16296,7 +16234,7 @@
       function createRecordingScheduler(
         jobs: RecordedJobOp[],
         store: EffectsRecorder["scheduledJobs"]
-      ): NotifierScheduler { /* ... */ }
+      ): JobsPort { /* ... */ }
     </item>
     <item priority="high">
       export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
@@ -16615,6 +16553,240 @@
   <file path="packages/mcp-server/src/tools/pulumi.ts">
     <item priority="high">
       export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="transitions">
+  <file path="services/reservations/src/transitions/in-memory.ts">
+    <item priority="low">
+      interface InMemoryMessaging {
+        sent: readonly GuestMessage[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryMessaging(): InMemoryMessaging { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InMemoryJob {
+        jobType: string;
+        delayMs: number;
+        payload: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface InMemoryJobs {
+        jobs: ReadonlyMap<string, InMemoryJob>;
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryJobs(): InMemoryJobs { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InMemoryEvents {
+        published: readonly LiveEvent[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryEvents(): InMemoryEvents { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/index.ts">
+    <item priority="high">
+      type ReservationWrites = Pick<
+        typeof ReservationServiceSingleton,
+        "update" | ...;
+    </item>
+    <item priority="high">
+      type DomainLogger = Parameters<typeof recordNoShow>[1];
+    </item>
+    <item priority="low">
+      interface ReservationTransitionsDeps {
+        ports: EffectPorts;
+        policy: VenueEffectPolicySource;
+        reservationService: ReservationWrites;
+        logger: EffectLogger;
+        now?: () => Date;
+      }
+    </item>
+    <item priority="low">
+      interface CancelOptions {
+        door: CancelDoor;
+        initiator: CancelInitiator;
+        manageToken: string;
+        reason?: string;
+        note?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ConfirmHoldOptions {
+        door: HoldDoor;
+        manageToken?: (reservation: Reservation) => string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationTransitions {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createReservationTransitions(
+        deps: ReservationTransitionsDeps
+      ): ReservationTransitions { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/plan.ts">
+    <item priority="low">
+      type CancelDoor = "staff-patch" | "staff-delete" | "guest-manage";
+    </item>
+    <item priority="low">
+      type HoldDoor = "public-booking" | "staff-hold" | "public-hold";
+    </item>
+    <item priority="low">
+      type TransitionFact = {
+            kind: "cancelled";
+          | { kind: "no-show"; reservation | {
+            kind: "staff-updated"; | {
+            kind: "guest-modified" | {
+            kind: "hold-confirmed" | {
+            kind: "created";
+            | { kind: "attendance-confirmed";
+    </item>
+    <item priority="high">
+      export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reservationEvent(
+        type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
+        reservation: Reservation
+      ): LiveEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cancelReminders(reservationId: string): JobOp[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reminderOps(
+        reservation: Reservation,
+        now: Date,
+        mode: "schedule" | "replace-if-present"
+      ): JobOp[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function confirmationChain(
+        reservation: Reservation,
+        manageToken: string,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isStaffTimeChange(patch: UpdateReservationRequest): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planEffects(
+        fact: TransitionFact,
+        policy: VenueEffectPolicy,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/ports.ts">
+    <item priority="low">
+      type CancelInitiator = "guest" | "staff";
+    </item>
+    <item priority="low">
+      type GuestMessage = {
+            kind: "booking-confirm | { kind: "booking-modified"; re | {
+            kind: "booking-cancell | { kind: "post-visit-thank-you";
+    </item>
+    <item priority="low">
+      type GuestMessageKind = GuestMessage["kind"];
+    </item>
+    <item priority="low">
+      interface MessagingPort {
+        
+      }
+    </item>
+    <item priority="low">
+      type JobsPort = Pick<JobScheduler, "schedule" | "cancel">;
+    </item>
+    <item priority="low">
+      type ReminderJobType = typeof JOB_TYPES.BOOKING_REMIN | typeof JOB_TYPES.DAY_OF_REMIND;
+    </item>
+    <item priority="low">
+      type JobOp = {
+            op: "schedule";
+             | { op: "cancel"; jobId: string  | {
+            op: "replace-if-presen;
+    </item>
+    <item priority="low">
+      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    </item>
+    <item priority="low">
+      interface EventsPort {
+        
+      }
+    </item>
+    <item priority="low">
+      type Effect = { port: "events"; event: LiveE | { port: "messaging"; message:  | { port: "jobs"; op: JobOp };
+    </item>
+    <item priority="low">
+      interface PlannedEffect {
+        effect: Effect;
+        timing: "await" | "background";
+        onFailure: "log" | "propagate";
+      }
+    </item>
+    <item priority="low">
+      interface EffectPorts {
+        messaging: MessagingPort;
+        jobs: JobsPort;
+        events: EventsPort;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/run.ts">
+    <item priority="low">
+      interface EffectLogger {
+        
+      }
+    </item>
+    <item priority="medium">
+      function describe(effect: Effect): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runJob(op: JobOp, ports: EffectPorts): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function applyEffect(effect: Effect, ports: EffectPorts): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runBackgroundChain(
+        chain: PlannedEffect[],
+        ports: EffectPorts,
+        logger: EffectLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runEffects(
+        planned: PlannedEffect[],
+        ports: EffectPorts,
+        logger: EffectLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/venue-policy.ts">
+    <item priority="low">
+      interface VenueEffectPolicy {
+        outbound: "live" | "suppressed";
+      }
+    </item>
+    <item priority="low">
+      type VenueEffectPolicySource = (venueId: string) => Promise<VenueEffectPolicy>;
+    </item>
+    <item priority="high">
+      export const allOutboundLive: VenueEffectPolicySource;
     </item>
   </file>
   </section>

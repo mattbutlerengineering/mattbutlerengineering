@@ -190,6 +190,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       if (!cloned) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
+      fastify.reservationEvents.emitFloorPlanCreated(cloned);
       return reply.code(201).send({ data: cloned });
     }
   );

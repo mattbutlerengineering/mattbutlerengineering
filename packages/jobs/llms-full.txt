@@ -169,14 +169,16 @@
     
       /**
        * Cancel a scheduled job by its job ID.
-       * Silently succeeds if the job does not exist.
+       * Never throws: resolves `true` when a job was removed, `false` when there
+       * was none (or it could not be removed, e.g. it is locked while running).
        * @param jobId The job ID to cancel.
        */
-      async cancel(jobId: string): Promise<void> {
+      async cancel(jobId: string): Promise<boolean> {
         try {
-          await this.queue.remove(jobId);
+          return (await this.queue.remove(jobId)) === 1;
         } catch {
-          // Job may already be processed or not exist — treat as success
+          // Job may already be processed or not exist — nothing was removed
+          return false;
         }
       }
     

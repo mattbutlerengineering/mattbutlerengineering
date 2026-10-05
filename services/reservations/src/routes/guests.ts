@@ -259,7 +259,9 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           .code(400)
           .send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
-      const lapsing = await guestService.scanLapsedGuests(venueId);
+      const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
+        fastify.reservationEvents.emitLapsingGuests(vid, guests)
+      );
       return { data: lapsing };
     },
   });

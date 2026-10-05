@@ -15,7 +15,6 @@ import {
 import { randomUUID } from "crypto";
 import { requireAuth } from "@mbe/auth/fastify";
 import { holdService } from "../services/hold.js";
-import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
 
@@ -337,11 +336,14 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
-      const result = await confirmHold({
-        holdId: request.params.id,
-        sessionId,
-        guestDetails: request.body,
-      });
+      const result = await fastify.transitions.confirmHold(
+        {
+          holdId: request.params.id,
+          sessionId,
+          guestDetails: request.body,
+        },
+        { door: "staff-hold" }
+      );
 
       if (!result.success) {
         const statusMap: Record<string, number> = {
