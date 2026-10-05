@@ -2773,6 +2773,14 @@
         Declared<"Params", ParamsOf<D>, z.output<NonN...;
     </item>
   </file>
+  <file path="packages/types/src/endpoints/guests.ts">
+    <item priority="high">
+      export const GUESTS_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const guestsEndpoints: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="eval">
   <file path="packages/agent-core/src/eval/calibrate.ts">
@@ -6667,6 +6675,9 @@
       export const StaffNoteSchema: unknown;
     </item>
     <item priority="high">
+      export const CommunicationPreferenceSchema: unknown;
+    </item>
+    <item priority="high">
       export const GuestSchema: unknown;
     </item>
     <item priority="high">
@@ -6677,6 +6688,12 @@
     </item>
     <item priority="high">
       export const GuestRecognitionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const LapsingGuestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WinBackResultSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/health-system.ts">
@@ -12521,13 +12538,7 @@
   </file>
   <file path="packages/api-client/src/guests.ts">
     <item priority="low">
-      interface FindOrCreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        dietaryRestrictions?: string[];
-      }
+      type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     </item>
     <item priority="low">
       interface ListGuestsParams {
@@ -15099,31 +15110,13 @@
       }
     </item>
     <item priority="low">
-      interface LapsingGuest {
-        guestId: string;
-        name: string;
-        email: string | null;
-        phone: string | null;
-        communicationPreference: CommunicationPreference;
-      }
+      type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
     </item>
     <item priority="low">
-      interface CreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        notes?: string;
-      }
+      type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
     </item>
     <item priority="low">
-      interface UpdateGuestRequest {
-        email?: string | null;
-        phone?: string | null;
-        name?: string;
-        notes?: string | null;
-        tags?: string[] | null;
-      }
+      type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
     </item>
     <item priority="low">
       interface GuestSearchParams {
@@ -15933,11 +15926,6 @@
     </item>
     <item priority="high">
       export async function bootFastifyOwners(): Promise<FastifyOwnerTables> { /* ... */ }
-    </item>
-  </file>
-  <file path="tools/route-contract/src/known-parity-gaps.ts">
-    <item priority="high">
-      export const KNOWN_PARITY_GAPS: readonly string[];
     </item>
   </file>
   <file path="tools/route-contract/src/module-scope-env.fixture.ts">

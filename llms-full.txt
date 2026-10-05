@@ -10007,6 +10007,125 @@
         (EndpointSuccess<D> extends undefined ? unknown : { Reply: ReplyOf<ResponsesOf<D>> })
     >;
   </file>
+  <file path="packages/types/src/endpoints/guests.ts">
+    export const GUESTS_PREFIX = "/api/v1/guests";
+    export const guestsEndpoints = {
+      list: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}`,
+        query: ListGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Successful response with paginated guest list",
+            body: paginatedResponseSchema(GuestSchema),
+          },
+          401: authRequired,
+        },
+      }),
+      search: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/search`,
+        query: SearchGuestsQuerySchema,
+        responses: {
+          200: { description: "Search results", body: paginatedResponseSchema(GuestSchema) },
+          401: authRequired,
+        },
+      }),
+      getSegments: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/segments`,
+        query: GuestSegmentsQuerySchema,
+        responses: {
+          200: { description: "Guest segments", body: z.object({ data: z.array(GuestSegmentSchema) }) },
+          401: authRequired,
+        },
+      }),
+      get: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Guest found", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      create: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}`,
+        body: CreateGuestBodySchema,
+        responses: {
+          201: { description: "Guest created", body: guestEnvelope },
+          400: problem("Invalid request or duplicate email/phone"),
+          401: authRequired,
+        },
+      }),
+      findOrCreate: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/find-or-create`,
+        body: FindOrCreateGuestBodySchema,
+        responses: {
+          200: { description: "Guest found or created", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+        },
+      }),
+      update: defineEndpoint({
+        method: "PATCH",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        body: UpdateGuestBodySchema,
+        responses: {
+          200: { description: "Guest updated", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      addNote: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/notes`,
+        params: GuestIdParamsSchema,
+        body: AddGuestNoteBodySchema,
+        responses: {
+          201: { description: "Note appended; returns updated guest", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+          404: guestNotFound,
+        },
+      }),
+      getLapsing: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/lapsing`,
+        query: LapsingGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Lapsing guests list",
+            body: z.object({ data: z.array(LapsingGuestSchema) }),
+          },
+          400: problem(),
+          401: problem(),
+        },
+      }),
+      sendWinBack: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/win-back`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
+          401: problem(),
+          404: problem(),
+        },
+      }),
+      delete: defineEndpoint({
+        method: "DELETE",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          204: { description: "Guest deleted", body: null },
+          404: guestNotFound,
+          409: problem("Guest has reservations"),
+        },
+      }),
+    };
+  </file>
   </section>
   <section priority="medium" role="eval">
   <file path="packages/agent-core/src/eval/calibrate.ts">
@@ -21854,34 +21973,17 @@
   <file path="services/reservations/src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       // List guests for a venue
-      fastify.get<{
-        Querystring: { venueId: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<Guest> | ProblemDetails;
-      }>(
-        "/",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "List guests for a venue",
-            operationId: "listGuests",
-            description:
-              "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: listGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Successful response with paginated guest list",
-                ...createListResponseSchema("Guest#"),
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.list, {
+        docs: {
+          summary: "List guests for a venue",
+          operationId: "listGuests",
+          description:
+            "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
@@ -21890,37 +21992,20 @@
           }
           const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
-        }
-      );
+        },
+      });
     
       // Search guests
-      fastify.get<{
-        Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
-        Reply: PaginatedResponse<Guest> | ProblemDetails;
-      }>(
-        "/search",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Search guests",
-            operationId: "searchGuests",
-            description: "Search guests by name, email, phone, or filter by tags and visit history.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: searchGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Search results",
-                ...createListResponseSchema("Guest#"),
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.search, {
+        docs: {
+          summary: "Search guests",
+          operationId: "searchGuests",
+          description: "Search guests by name, email, phone, or filter by tags and visit history.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId, query, tags, hasNotVisitedInDays } = request.query;
           if (!venueId) {
             return reply
@@ -21933,40 +22018,20 @@
             tags: tags ? tags.split(",") : undefined,
             hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
           });
-        }
-      );
+        },
+      });
     
       // Get guest segments
-      fastify.get<{
-        Querystring: { venueId: string };
-        Reply: ApiResponse<GuestSegment[]> | ProblemDetails;
-      }>(
-        "/segments",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Get guest segments",
-            operationId: "getGuestSegments",
-            description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: guestSegmentsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Guest segments",
-                type: "object",
-                properties: {
-                  data: { type: "array", items: { $ref: "GuestSegment#" } },
-                },
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.getSegments, {
+        docs: {
+          summary: "Get guest segments",
+          operationId: "getGuestSegments",
+          description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
@@ -21975,42 +22040,23 @@
           }
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
-        }
-      );
+        },
+      });
     
       // Get guest by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Get guest by ID",
-            operationId: "getGuestById",
-            description: "Retrieve a single guest by ID.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Guest found",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              404: { description: "Guest not found", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.get, {
+        docs: {
+          summary: "Get guest by ID",
+          operationId: "getGuestById",
+          description: "Retrieve a single guest by ID.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const guest = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -22021,36 +22067,20 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Create guest
-      fastify.post<{
-        Body: CreateGuestRequest;
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/",
-        {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-          schema: {
-            summary: "Create a new guest",
-            operationId: "createGuest",
-            description: "Create a new guest. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            body: createGuestBodyJsonSchema,
-            response: {
-              201: {
-                description: "Guest created",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              400: { description: "Invalid request or duplicate email/phone", $ref: "Error#" },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.create, {
+        docs: {
+          summary: "Create a new guest",
+          operationId: "createGuest",
+          description: "Create a new guest. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+        handler: async (request, reply) => {
           try {
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
@@ -22068,43 +22098,21 @@
             }
             throw error;
           }
-        }
-      );
+        },
+      });
     
       // Find or create guest (identity resolution)
-      fastify.post<{
-        Body: {
-          venueId: string;
-          email?: string;
-          phone?: string;
-          name: string;
-          dietaryRestrictions?: string[];
-        };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/find-or-create",
-        {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-          schema: {
-            summary: "Find or create guest",
-            operationId: "findOrCreateGuest",
-            description:
-              "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            body: findOrCreateGuestBodyJsonSchema,
-            response: {
-              200: {
-                description: "Guest found or created",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              400: { description: "Invalid request", $ref: "Error#" },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.findOrCreate, {
+        docs: {
+          summary: "Find or create guest",
+          operationId: "findOrCreateGuest",
+          description:
+            "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+        handler: async (request, reply) => {
           const { venueId, email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
@@ -22118,44 +22126,23 @@
             dietaryRestrictions,
           });
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Update guest
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateGuestRequest;
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Update a guest",
-            operationId: "updateGuest",
-            description: "Update guest information. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            body: updateGuestBodyJsonSchema,
-            response: {
-              200: {
-                description: "Guest updated",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              404: { description: "Guest not found", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.update, {
+        docs: {
+          summary: "Update a guest",
+          operationId: "updateGuest",
+          description: "Update guest information. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const guest = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -22166,63 +22153,24 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Add staff note to guest
-      fastify.post<{
-        Params: { id: string };
-        Body: { text: string };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id/notes",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Add a staff note to a guest",
-            operationId: "addGuestNote",
-            description:
-              "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
-              required: ["id"],
-            },
-            body: addGuestNoteBodyJsonSchema,
-            response: {
-              201: {
-                description: "Note appended; returns updated guest",
-                type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
-              },
-              400: {
-                description: "Invalid request",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.addNote, {
+        docs: {
+          summary: "Add a staff note to a guest",
+          operationId: "addGuestNote",
+          description:
+            "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const { text } = request.body;
           if (!text || text.trim().length === 0) {
             return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
@@ -22238,57 +22186,21 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return reply.code(201).send({ data: guest });
-        }
-      );
+        },
+      });
     
       // Get lapsing guests for a venue (on-demand scan)
-      fastify.get<{
-        Querystring: { venueId: string };
-        Reply: ApiResponse<LapsingGuest[]> | ProblemDetails;
-      }>(
-        "/lapsing",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Get lapsing guests",
-            operationId: "getLapsingGuests",
-            description:
-              "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: lapsingGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Lapsing guests list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        guestId: { type: "string" },
-                        name: { type: "string" },
-                        email: { type: "string", nullable: true },
-                        phone: { type: "string", nullable: true },
-                        communicationPreference: { type: "string" },
-                        avgFrequencyDays: { type: "number" },
-                        daysSinceLastVisit: { type: "number" },
-                        daysOverdue: { type: "number" },
-                      },
-                    },
-                  },
-                },
-              },
-              400: { $ref: "Error#" },
-              401: { $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.getLapsing, {
+        docs: {
+          summary: "Get lapsing guests",
+          operationId: "getLapsingGuests",
+          description:
+            "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
@@ -22297,53 +22209,24 @@
           }
           const lapsing = await guestService.scanLapsedGuests(venueId);
           return { data: lapsing };
-        }
-      );
+        },
+      });
     
       // Send win-back message to a guest
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<{ sent: boolean }> | ProblemDetails;
-      }>(
-        "/:id/win-back",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Send win-back message",
-            operationId: "sendGuestWinBack",
-            description:
-              "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              required: ["id"],
-              properties: {
-                id: { type: "string", description: "Guest ID" },
-              },
-            },
-            response: {
-              200: {
-                description: "Win-back result",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "object",
-                    properties: {
-                      sent: { type: "boolean" },
-                    },
-                  },
-                },
-              },
-              404: { $ref: "Error#" },
-              401: { $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.sendWinBack, {
+        docs: {
+          summary: "Send win-back message",
+          operationId: "sendGuestWinBack",
+          description:
+            "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const found = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -22360,38 +22243,23 @@
           }
           const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
           return { data: { sent } };
-        }
-      );
+        },
+      });
     
       // Delete guest
-      fastify.delete<{
-        Params: { id: string };
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Delete a guest",
-            operationId: "deleteGuest",
-            description: "Delete a guest. Will fail if guest has reservations.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            response: {
-              204: { description: "Guest deleted", type: "null" },
-              404: { description: "Guest not found", $ref: "Error#" },
-              409: { description: "Guest has reservations", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.delete, {
+        docs: {
+          summary: "Delete a guest",
+          operationId: "deleteGuest",
+          description: "Delete a guest. Will fail if guest has reservations.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const deleted = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -22402,8 +22270,8 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return reply.code(204).send();
-        }
-      );
+        },
+      });
     };
   </file>
   <file path="services/reservations/src/routes/health.ts">
@@ -27572,6 +27440,12 @@
       createdBy: z.string(),
       createdAt: z.string(),
     });
+    export const CommunicationPreferenceSchema = z.enum([
+      "email_only",
+      "sms_only",
+      "both",
+      "transactional_only",
+    ]);
     export const GuestSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -27587,7 +27461,7 @@
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
       dietaryRestrictions: z.array(z.string()).nullable(),
-      communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
+      communicationPreference: CommunicationPreferenceSchema,
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -27607,6 +27481,17 @@
       visitCount: z.number(),
       hasPreferences: z.boolean(),
     });
+    export const LapsingGuestSchema = z.object({
+      guestId: z.string(),
+      name: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      communicationPreference: CommunicationPreferenceSchema,
+      avgFrequencyDays: z.number(),
+      daysSinceLastVisit: z.number(),
+      daysOverdue: z.number(),
+    });
+    export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
   <file path="packages/types/src/schemas/health-system.ts">
     export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
@@ -49409,13 +49294,7 @@
     }
   </file>
   <file path="packages/api-client/src/guests.ts">
-    export interface FindOrCreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      dietaryRestrictions?: string[];
-    }
+    export type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     export interface ListGuestsParams {
       page?: number;
       limit?: number;
@@ -49433,89 +49312,84 @@
        * List guests for a venue
        */
       async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
-        return this.client.get<PaginatedResponse<Guest>>(
-          "/api/v1/guests",
-          params as unknown as QueryParams,
-          guestListSchema
-        );
+        const { venueId, page, limit } = params;
+        return this.client.call(guestsEndpoints.list, {
+          query: { venueId, page: page?.toString(), limit: limit?.toString() },
+        });
       }
     
       /**
        * Search guests
        */
       async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
-        return this.client.get<PaginatedResponse<Guest>>(
-          "/api/v1/guests/search",
-          params as unknown as QueryParams,
-          guestListSchema
-        );
+        const { venueId, query, hasNotVisitedInDays } = params;
+        return this.client.call(guestsEndpoints.search, {
+          query: { venueId, query, hasNotVisitedInDays: hasNotVisitedInDays?.toString() },
+        });
       }
     
       /**
        * Get guest segments for a venue
        */
       async getSegments(venueId: string): Promise<GuestSegment[]> {
-        return this.client.getOne<GuestSegment[]>(
-          `/api/v1/guests/segments?venueId=${venueId}`,
-          undefined,
-          z.array(GuestSegmentSchema)
-        );
+        return (await this.client.call(guestsEndpoints.getSegments, { query: { venueId } })).data;
       }
     
       /**
        * Get a guest by ID
        */
       async get(id: string): Promise<Guest> {
-        return this.client.getOne<Guest>(`/api/v1/guests/${id}`, undefined, GuestSchema);
+        return (await this.client.call(guestsEndpoints.get, { params: { id } })).data;
       }
     
       /**
        * Create a new guest
        */
       async create(data: CreateGuestRequest): Promise<Guest> {
-        return this.client.postOne<Guest>("/api/v1/guests", data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.create, { body: data })).data;
       }
     
       /**
        * Find or create a guest by email/phone
        */
       async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
-        return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.findOrCreate, { body: data })).data;
       }
     
       /**
        * Update a guest
        */
       async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
-        return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.update, { params: { id }, body: data })).data;
       }
     
       /**
        * Delete a guest
        */
       async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/guests/${id}`);
+        await this.client.call(guestsEndpoints.delete, { params: { id } });
       }
     
       /**
        * Add a staff note to a guest
        */
       async addNote(id: string, text: string): Promise<Guest> {
-        return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text }, GuestSchema);
+        return (await this.client.call(guestsEndpoints.addNote, { params: { id }, body: { text } }))
+          .data;
       }
     
       /**
        * Get lapsing guests for a venue (on-demand scan)
        */
       async getLapsing(venueId: string): Promise<LapsingGuest[]> {
-        return this.client.getOne<LapsingGuest[]>(`/api/v1/guests/lapsing?venueId=${venueId}`);
+        return (await this.client.call(guestsEndpoints.getLapsing, { query: { venueId } })).data;
       }
     
       /**
        * Send a win-back message to a guest
        */
       async sendWinBack(id: string): Promise<{ sent: boolean }> {
-        return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
+        return (await this.client.call(guestsEndpoints.sendWinBack, { params: { id } })).data;
       }
     }
   </file>
@@ -56119,33 +55993,9 @@
       createdAt: string;
       updatedAt: string;
     }
-    export interface LapsingGuest {
-      guestId: string;
-      name: string;
-      email: string | null;
-      phone: string | null;
-      communicationPreference: CommunicationPreference;
-      avgFrequencyDays: number;
-      daysSinceLastVisit: number;
-      daysOverdue: number;
-    }
-    export interface CreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      notes?: string;
-      tags?: string[];
-      dietaryRestrictions?: string[];
-    }
-    export interface UpdateGuestRequest {
-      email?: string | null;
-      phone?: string | null;
-      name?: string;
-      notes?: string | null;
-      tags?: string[] | null;
-      dietaryRestrictions?: string[] | null;
-    }
+    export type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
+    export type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
+    export type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
     export interface GuestSearchParams {
       venueId: string;
       query?: string; // Search name, email, or phone
@@ -57580,7 +57430,15 @@
       let pendingDefinition: AnyEndpointDefinition | undefined;
       ApiClient.prototype.call = function (this: ApiClient, ...args: Parameters<typeof realCall>) {
         pendingDefinition = args[0];
-        return realCall.apply(this, args);
+        try {
+          // `request` runs synchronously up to its first await inside this
+          // call, so the capture has already been recorded by the time it
+          // returns; the reset only stops a `call` that threw before reaching
+          // `request` from leaking its definition into the next request.
+          return realCall.apply(this, args);
+        } finally {
+          pendingDefinition = undefined;
+        }
       } as typeof realCall;
       ApiClient.prototype.request = function (
         this: ApiClient,
@@ -57973,26 +57831,6 @@
         },
       };
     }
-  </file>
-  <file path="tools/route-contract/src/known-parity-gaps.ts">
-    export const KNOWN_PARITY_GAPS: readonly string[] = [
-      // body — the client sends a hand-built object with no schema; the route
-      // validates against a Zod-derived body schema.
-      "guests.create body",
-      "guests.findOrCreate body",
-      "guests.update body",
-      "guests.addNote body",
-      // query — the client builds its query string by hand (two of them by
-      // string concatenation); the route validates a Zod-derived querystring.
-      "guests.list query",
-      "guests.search query",
-      "guests.getSegments query",
-      "guests.getLapsing query",
-      // response — the client validates nothing; the route serializes an inline
-      // hand-written schema.
-      "guests.getLapsing response",
-      "guests.sendWinBack response",
-    ];
   </file>
   <file path="tools/route-contract/src/module-scope-env.fixture.ts">
     export const NODE_ENV_AT_EVALUATION = process.env.NODE_ENV;

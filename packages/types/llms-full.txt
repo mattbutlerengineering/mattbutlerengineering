@@ -109,6 +109,125 @@
         (EndpointSuccess<D> extends undefined ? unknown : { Reply: ReplyOf<ResponsesOf<D>> })
     >;
   </file>
+  <file path="src/endpoints/guests.ts">
+    export const GUESTS_PREFIX = "/api/v1/guests";
+    export const guestsEndpoints = {
+      list: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}`,
+        query: ListGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Successful response with paginated guest list",
+            body: paginatedResponseSchema(GuestSchema),
+          },
+          401: authRequired,
+        },
+      }),
+      search: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/search`,
+        query: SearchGuestsQuerySchema,
+        responses: {
+          200: { description: "Search results", body: paginatedResponseSchema(GuestSchema) },
+          401: authRequired,
+        },
+      }),
+      getSegments: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/segments`,
+        query: GuestSegmentsQuerySchema,
+        responses: {
+          200: { description: "Guest segments", body: z.object({ data: z.array(GuestSegmentSchema) }) },
+          401: authRequired,
+        },
+      }),
+      get: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Guest found", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      create: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}`,
+        body: CreateGuestBodySchema,
+        responses: {
+          201: { description: "Guest created", body: guestEnvelope },
+          400: problem("Invalid request or duplicate email/phone"),
+          401: authRequired,
+        },
+      }),
+      findOrCreate: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/find-or-create`,
+        body: FindOrCreateGuestBodySchema,
+        responses: {
+          200: { description: "Guest found or created", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+        },
+      }),
+      update: defineEndpoint({
+        method: "PATCH",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        body: UpdateGuestBodySchema,
+        responses: {
+          200: { description: "Guest updated", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      addNote: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/notes`,
+        params: GuestIdParamsSchema,
+        body: AddGuestNoteBodySchema,
+        responses: {
+          201: { description: "Note appended; returns updated guest", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+          404: guestNotFound,
+        },
+      }),
+      getLapsing: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/lapsing`,
+        query: LapsingGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Lapsing guests list",
+            body: z.object({ data: z.array(LapsingGuestSchema) }),
+          },
+          400: problem(),
+          401: problem(),
+        },
+      }),
+      sendWinBack: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/win-back`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
+          401: problem(),
+          404: problem(),
+        },
+      }),
+      delete: defineEndpoint({
+        method: "DELETE",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          204: { description: "Guest deleted", body: null },
+          404: guestNotFound,
+          409: problem("Guest has reservations"),
+        },
+      }),
+    };
+  </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
@@ -241,6 +360,12 @@
       createdBy: z.string(),
       createdAt: z.string(),
     });
+    export const CommunicationPreferenceSchema = z.enum([
+      "email_only",
+      "sms_only",
+      "both",
+      "transactional_only",
+    ]);
     export const GuestSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -256,7 +381,7 @@
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
       dietaryRestrictions: z.array(z.string()).nullable(),
-      communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
+      communicationPreference: CommunicationPreferenceSchema,
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -276,6 +401,17 @@
       visitCount: z.number(),
       hasPreferences: z.boolean(),
     });
+    export const LapsingGuestSchema = z.object({
+      guestId: z.string(),
+      name: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      communicationPreference: CommunicationPreferenceSchema,
+      avgFrequencyDays: z.number(),
+      daysSinceLastVisit: z.number(),
+      daysOverdue: z.number(),
+    });
+    export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
   <file path="src/schemas/health-system.ts">
     export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
@@ -1380,33 +1516,9 @@
       createdAt: string;
       updatedAt: string;
     }
-    export interface LapsingGuest {
-      guestId: string;
-      name: string;
-      email: string | null;
-      phone: string | null;
-      communicationPreference: CommunicationPreference;
-      avgFrequencyDays: number;
-      daysSinceLastVisit: number;
-      daysOverdue: number;
-    }
-    export interface CreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      notes?: string;
-      tags?: string[];
-      dietaryRestrictions?: string[];
-    }
-    export interface UpdateGuestRequest {
-      email?: string | null;
-      phone?: string | null;
-      name?: string;
-      notes?: string | null;
-      tags?: string[] | null;
-      dietaryRestrictions?: string[] | null;
-    }
+    export type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
+    export type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
+    export type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
     export interface GuestSearchParams {
       venueId: string;
       query?: string; // Search name, email, or phone
