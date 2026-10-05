@@ -58629,7 +58629,7 @@
       /** Spread into `buildApp(...)`; carries every recording seam. */
       appOptions: Pick<
         ReservationsAppOptions,
-        "notificationPort" | "jobs" | "reservationEvents" | "services"
+        "notificationPort" | "jobs" | "reservationEvents" | "services" | "payments"
       >;
       /** Reminder jobs currently scheduled, keyed by job id. */
       scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
@@ -58710,6 +58710,9 @@
           notificationPort,
           jobs: scheduler,
           reservationEvents,
+          // Inject payments alongside the deposit fake so no harness-built app
+          // can fall through to a real StripeService on the placeholder key.
+          payments: createInMemoryPayments(),
           services: { depositService: recordingDepositService as unknown as DepositService },
         },
         scheduledJobs,
