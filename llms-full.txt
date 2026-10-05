@@ -9897,6 +9897,117 @@
     );
   </file>
   </section>
+  <section priority="medium" role="endpoints">
+  <file path="packages/types/src/endpoints/define.ts">
+    export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+    export interface ProblemResponse {
+      readonly kind: "problem";
+      readonly description?: string;
+    }
+    export interface BodyResponse {
+      readonly description?: string;
+      readonly body: z.ZodType | null;
+    }
+    export type EndpointResponse = BodyResponse | ProblemResponse;
+    export type EndpointResponses = { readonly [status: number]: EndpointResponse };
+    export interface EndpointDefinition<
+      M extends HttpMethod = HttpMethod,
+      P extends string = string,
+      Params extends z.ZodObject | undefined = z.ZodObject | undefined,
+      Query extends z.ZodObject | undefined = z.ZodObject | undefined,
+      Body extends z.ZodType | undefined = z.ZodType | undefined,
+      R extends EndpointResponses = EndpointResponses,
+    > {
+      readonly method: M;
+      /** Absolute path in Fastify syntax, e.g. /api/v1/guests/:id (prefix included). */
+      readonly path: P;
+      readonly params?: Params;
+      readonly query?: Query;
+      readonly body?: Body;
+      readonly responses: R;
+    }
+    export type AnyEndpointDefinition = EndpointDefinition;
+    type SuccessStatus = (typeof SUCCESS_STATUSES)[number];
+    export type PathParamNames<P extends string> = P extends `${string}:${infer Param}/${infer Rest}`
+      ? Param | PathParamNames<`/${Rest}`>
+      : P extends `${string}:${infer Param}`
+        ? Param
+        : never;
+    type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+    type SuccessKey<R> = Extract<keyof R, SuccessStatus>;
+    type SameKeys<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    type ParamsSchemaOf<D> = D extends { readonly params: infer X extends z.ZodObject } ? X : undefined;
+    type ResponsesOf<D> = D extends { readonly responses: infer X } ? X : never;
+    type DefinitionCheck<D extends AnyEndpointDefinition> = [PathParamNames<D["path"]>] extends [never]
+      ? ParamsSchemaOf<D> extends z.ZodObject
+        ? [params_declared_but_path_has_no_segment: never]
+        : SuccessCheck<ResponsesOf<D>>
+      : ParamsSchemaOf<D> extends z.ZodObject<infer Shape>
+        ? SameKeys<keyof Shape, PathParamNames<D["path"]>> extends true
+          ? SuccessCheck<ResponsesOf<D>>
+          : [params_keys_must_equal_path_segments: never]
+        : [path_has_segments_but_no_params_schema: never];
+    type SuccessCheck<R> = [SuccessKey<R>] extends [never]
+      ? [exactly_one_2xx_response_required_none_declared: never]
+      : true extends IsUnion<SuccessKey<R>>
+        ? [exactly_one_2xx_response_required_several_declared: never]
+        : [];
+    export function defineEndpoint<const D extends AnyEndpointDefinition>(
+      def: D,
+      ..._contractCheck: DefinitionCheck<D>
+    ): D {
+      return def;
+    }
+    export function problem(description?: string): ProblemResponse {
+      return description === undefined ? { kind: "problem" } : { kind: "problem", description };
+    }
+    export function isProblemResponse(response: EndpointResponse): response is ProblemResponse {
+      return "kind" in response && response.kind === "problem";
+    }
+    export function successResponse(def: AnyEndpointDefinition): {
+      status: number;
+      response: BodyResponse;
+    } {
+      const entries = Object.entries(def.responses).filter(([status]) =>
+        (SUCCESS_STATUSES as readonly number[]).includes(Number(status))
+      );
+      const only = entries.length === 1 ? entries[0] : undefined;
+      if (!only || isProblemResponse(only[1])) {
+        throw new Error(
+          `${def.method} ${def.path}: endpoint definition needs exactly one 2xx body response, found ${entries.length}`
+        );
+      }
+      return { status: Number(only[0]), response: only[1] };
+    }
+    type ParamsOf<D> = ParamsSchemaOf<D>;
+    type QueryOf<D> = D extends { readonly query: infer X extends z.ZodObject } ? X : undefined;
+    type BodyOf<D> = D extends { readonly body: infer X extends z.ZodType } ? X : undefined;
+    type Simplify<T> = { [K in keyof T]: T[K] } & {};
+    type Declared<K extends string, S, T> = S extends z.ZodType ? { [P in K]: T } : unknown;
+    export type EndpointInput<D extends AnyEndpointDefinition> = Simplify<
+      Declared<"params", ParamsOf<D>, z.input<NonNullable<ParamsOf<D>>>> &
+        Declared<"query", QueryOf<D>, z.input<NonNullable<QueryOf<D>>>> &
+        Declared<"body", BodyOf<D>, z.input<NonNullable<BodyOf<D>>>>
+    >;
+    type BodyOutput<Resp> = Resp extends { body: infer B }
+      ? B extends z.ZodType
+        ? z.output<B>
+        : undefined
+      : never;
+    export type EndpointSuccess<D extends AnyEndpointDefinition> = BodyOutput<
+      ResponsesOf<D>[SuccessKey<ResponsesOf<D>> & keyof ResponsesOf<D>]
+    >;
+    type ReplyOf<R> =
+      | { [K in keyof R]: R[K] extends ProblemResponse ? never : BodyOutput<R[K]> }[keyof R]
+      | ProblemDetails;
+    export type EndpointRouteGeneric<D extends AnyEndpointDefinition> = Simplify<
+      Declared<"Params", ParamsOf<D>, z.output<NonNullable<ParamsOf<D>>>> &
+        Declared<"Querystring", QueryOf<D>, z.output<NonNullable<QueryOf<D>>>> &
+        Declared<"Body", BodyOf<D>, z.output<NonNullable<BodyOf<D>>>> &
+        (EndpointSuccess<D> extends undefined ? unknown : { Reply: ReplyOf<ResponsesOf<D>> })
+    >;
+  </file>
+  </section>
   <section priority="medium" role="eval">
   <file path="packages/agent-core/src/eval/calibrate.ts">
     export interface CalibrationBucket {
@@ -27588,6 +27699,40 @@
       const { $schema: _schema, $id: _id, ...rest } = cleaned;
       return rest;
     }
+    function stripRequired(obj: Record<string, unknown>): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === "required" && Array.isArray(value)) continue;
+        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+          result[key] = stripRequired(value as Record<string, unknown>);
+        } else if (Array.isArray(value)) {
+          result[key] = value.map((item) =>
+            item !== null && typeof item === "object" && !Array.isArray(item)
+              ? stripRequired(item as Record<string, unknown>)
+              : item
+          );
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+    export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> {
+      const raw = toJSONSchema(zodSchema, {
+        target: "openapi-3.0",
+        unrepresentable: "any",
+        override: (ctx) => {
+          const ref = SHARED_RESPONSE_REFS.get(ctx.zodSchema);
+          if (!ref) return;
+          // Zod's override hook is mutate-in-place by contract.
+          for (const key of Object.keys(ctx.jsonSchema)) delete ctx.jsonSchema[key];
+          ctx.jsonSchema.$ref = ref;
+        },
+      });
+      const cleaned = stripRequired(stripAdditionalProperties(raw as Record<string, unknown>));
+      const { $schema: _schema, ...rest } = cleaned;
+      return rest;
+    }
     export const userPreferencesJsonSchema = toFastifyJsonSchema(
       "UserPreferences",
       UserPreferencesSchema
@@ -27608,6 +27753,10 @@
     );
     export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);
     export const guestSegmentJsonSchema = toFastifyJsonSchema("GuestSegment", GuestSegmentSchema);
+    export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string> = new Map<unknown, string>([
+      [GuestSchema, `${guestJsonSchema.$id}#`],
+      [GuestSegmentSchema, `${guestSegmentJsonSchema.$id}#`],
+    ]);
     export const guestRiskResultJsonSchema = toFastifyJsonSchema(
       "GuestRiskResult",
       GuestRiskResultSchema
@@ -48698,6 +48847,18 @@
       const s = sp.toString();
       return s ? `?${s}` : "";
     }
+    function interpolatePath(path: string, params: Record<string, unknown> | undefined): string {
+      return path.replace(/:([A-Za-z0-9_]+)/g, (_segment, name: string) =>
+        encodeURIComponent(String(params?.[name]))
+      );
+    }
+    function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
+      for (const [status, response] of Object.entries(def.responses)) {
+        const code = Number(status);
+        if (code >= 200 && code < 300 && "body" in response) return response.body ?? undefined;
+      }
+      return undefined;
+    }
     export interface ClientConfig {
       baseUrl: string;
       getAccessToken?: () => string | null | Promise<string | null>;
@@ -48794,6 +48955,41 @@
         }
     
         return data as T;
+      }
+    
+      /**
+       * Execute one endpoint definition (`@mbe/types` `defineEndpoint`):
+       * interpolates `:params` (URL-encoded), appends `query` via
+       * {@link buildQueryString}, serializes a declared `body` on any method
+       * (`{}` for a body-less POST/PATCH/PUT), takes the method — and therefore the retry policy —
+       * from the definition, and validates the success body with the
+       * definition's own schema. Returns the full wire body (no `.data` unwrap);
+       * `undefined` for a 204.
+       */
+      call<D extends AnyEndpointDefinition>(
+        def: D,
+        input: EndpointInput<D>,
+        override?: PerRequestOptions
+      ): Promise<EndpointSuccess<D>> {
+        const { params, query, body } = input as {
+          params?: Record<string, unknown>;
+          query?: QueryParams;
+          body?: unknown;
+        };
+        const path = `${interpolatePath(def.path, params)}${query ? buildQueryString(query) : ""}`;
+        // A declared body is sent on any method (a DELETE can carry one); a
+        // body-less POST/PATCH/PUT still sends `{}`.
+        const options: RequestOptions = def.body
+          ? { method: def.method, body: JSON.stringify(body) }
+          : BODY_METHODS.has(def.method)
+            ? { method: def.method, body: "{}" }
+            : { method: def.method };
+        return this.request(
+          path,
+          options,
+          successBodySchema(def) as z.ZodSchema<EndpointSuccess<D>> | undefined,
+          override
+        );
       }
     
       get<T>(
@@ -54815,6 +55011,86 @@
       name: "readiness-routes",
       fastify: "5.x",
     });
+  </file>
+  <file path="packages/service-bootstrap/src/register-endpoint.ts">
+    export interface EndpointDocs {
+      readonly summary?: string;
+      readonly operationId?: string;
+      readonly description?: string;
+      readonly tags?: readonly string[];
+      readonly security?: ReadonlyArray<Record<string, readonly string[]>>;
+    }
+    type RouteGenericOf<D extends AnyEndpointDefinition> =
+      EndpointRouteGeneric<D> extends RouteGenericInterface ? EndpointRouteGeneric<D> : never;
+    export interface RegisterEndpointOptions<D extends AnyEndpointDefinition> {
+      readonly docs: EndpointDocs;
+      readonly preHandler?: RouteShorthandOptions<
+        RawServerDefault,
+        RawRequestDefaultExpression,
+        RawReplyDefaultExpression,
+        RouteGenericOf<D>
+      >["preHandler"];
+      readonly handler: RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefaultExpression,
+        RawReplyDefaultExpression,
+        RouteGenericOf<D>
+      >;
+    }
+    function relativeUrl(prefix: string, def: AnyEndpointDefinition): string {
+      const rest = def.path.startsWith(prefix) ? def.path.slice(prefix.length) : undefined;
+      if (rest === undefined || (rest !== "" && !rest.startsWith("/"))) {
+        throw new Error(
+          `${def.method} ${def.path}: endpoint path is not under the plugin prefix "${prefix}"`
+        );
+      }
+      return rest === "" ? "/" : rest;
+    }
+    function assertParamsMatchPath(def: AnyEndpointDefinition): void {
+      const segments = [...def.path.matchAll(/:([A-Za-z0-9_]+)/g)].map((m) => m[1]).sort();
+      const keys = Object.keys(def.params?.shape ?? {}).sort();
+      if (segments.join(",") !== keys.join(",")) {
+        throw new Error(
+          `${def.method} ${def.path}: params keys [${keys.join(", ")}] do not match path segments [${segments.join(", ")}]`
+        );
+      }
+    }
+    function responseSchemas(responses: EndpointResponses): Record<string, Record<string, unknown>> {
+      return Object.fromEntries(
+        Object.entries(responses).map(([status, response]) => {
+          const description =
+            response.description === undefined ? {} : { description: response.description };
+          if (isProblemResponse(response)) return [status, { ...description, $ref: "Error#" }];
+          if (response.body === null) return [status, { ...description, type: "null" }];
+          return [status, { ...description, ...toResponseJsonSchema(response.body) }];
+        })
+      );
+    }
+    export function registerEndpoint<D extends AnyEndpointDefinition>(
+      fastify: FastifyInstance,
+      def: D,
+      options: RegisterEndpointOptions<D>
+    ): void {
+      const url = relativeUrl(fastify.prefix, def);
+      assertParamsMatchPath(def);
+      successResponse(def);
+    
+      const schema: FastifySchema = {
+        ...options.docs,
+        ...(def.params && { params: toRequestJsonSchema(def.params) }),
+        ...(def.query && { querystring: toRequestJsonSchema(def.query) }),
+        ...(def.body && { body: toRequestJsonSchema(def.body) }),
+        response: responseSchemas(def.responses),
+      };
+    
+      fastify.route<RouteGenericOf<D>>({
+        method: def.method,
+        url,
+        schema,
+        ...(options.preHandler && { preHandler: options.preHandler }),
+        handler: options.handler,
+      });
+    }
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     export interface StartServiceServerOptions {
