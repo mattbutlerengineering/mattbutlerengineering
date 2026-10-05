@@ -122,9 +122,10 @@ describe("schema captures (the client side of schema parity)", () => {
     expect(capture?.response).toBeDefined();
   });
 
-  it("records a call path that passes no response schema as such, not as a missing capture", () => {
-    const capture = inventory.schemaCaptures.find((c) => c.clientMethod === "guests.getLapsing");
+  it("records a request with no response schema (a body-less 204) as such, not as a missing capture", () => {
+    const capture = inventory.schemaCaptures.find((c) => c.clientMethod === "guests.delete");
     expect(capture).toBeDefined();
+    expect(capture?.definition).toBeDefined();
     expect(capture?.response).toBeUndefined();
   });
 
