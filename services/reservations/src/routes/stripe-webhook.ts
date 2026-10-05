@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import type Stripe from "stripe";
 import { createProblemDetails } from "@mbe/types";
-import { stripeService, verifyStripeWebhookSignature } from "../services/stripe.js";
-import { depositService } from "../services/deposit.js";
+import { verifyStripeWebhookSignature } from "../services/stripe.js";
+import type { DepositService } from "../services/deposit.js";
+import type { PaymentsPort } from "../transitions/ports.js";
 import { createRawBodyCaptureHook } from "../middleware/raw-body-capture.js";
 import { WebhookEventRouter } from "./webhook-event-router.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
@@ -76,23 +77,33 @@ async function withDepositVenueContext(
  * false) instead of double-transitioning — nothing further to do here either
  * way, so the boolean is intentionally unused.
  */
-async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+/** What the webhook handlers move money through — injected from buildApp. */
+interface WebhookDeps {
+  deposits: DepositService;
+  payments: PaymentsPort;
+}
+
+async function holdIfPending(
+  paymentIntentId: string,
+  eventType: string,
+  deps: WebhookDeps
+): Promise<void> {
   await withDepositVenueContext(paymentIntentId, eventType, async () => {
-    const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) {
       return;
     }
 
     if (deposit.status === "pending") {
-      await depositService.hold(deposit.id, paymentIntentId);
+      await deps.deposits.hold(deposit.id, paymentIntentId);
     }
   });
 }
 
-async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+async function onPaymentIntentSucceeded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  await holdIfPending(paymentIntent.id, event.type);
+  await holdIfPending(paymentIntent.id, event.type, deps);
 }
 
 /**
@@ -101,17 +112,20 @@ async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
  * `payment_intent.succeeded` — that event only fires later, when the hold is
  * captured. Without this handler a deposit never leaves `pending` (#5719).
  */
-async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+async function onPaymentIntentAmountCapturableUpdated(
+  event: Stripe.Event,
+  deps: WebhookDeps
+): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  await holdIfPending(paymentIntent.id, event.type);
+  await holdIfPending(paymentIntent.id, event.type, deps);
 }
 
-async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
+async function onPaymentIntentCanceled(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
   const paymentIntentId = paymentIntent.id;
 
   await withDepositVenueContext(paymentIntentId, event.type, async () => {
-    const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) return;
 
@@ -141,9 +155,9 @@ async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
     // (money NOT collected, NOT returned by us) rather than falsely claiming a
     // refund. No Stripe call is made either way — the intent is already canceled.
     if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
-      await depositService.refund(deposit.id, { skipStripeCancel: true });
+      await deps.deposits.refund(deposit.id, { skipStripeCancel: true });
     } else {
-      await depositService.expireAuthorization(deposit.id);
+      await deps.deposits.expireAuthorization(deposit.id);
     }
   });
 }
@@ -161,7 +175,7 @@ function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReaso
   return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
 }
 
-async function onChargeRefunded(event: Stripe.Event): Promise<void> {
+async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
   const charge = event.data.object as Stripe.Charge;
   // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
   const paymentIntentId =
@@ -170,7 +184,7 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
   if (!paymentIntentId) return;
 
   await withDepositVenueContext(paymentIntentId, event.type, async () => {
-    const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
 
     if (!deposit) return;
 
@@ -186,8 +200,8 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
       // cancelPaymentIntent in either case fails, refund() then rolls back and
       // throws (#5753), and Stripe would retry this webhook forever on the 500
       // (#5719 LOW).
-      const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-      await depositService.refund(deposit.id, {
+      const intent = await deps.payments.retrievePaymentIntent(paymentIntentId);
+      await deps.deposits.refund(deposit.id, {
         skipStripeCancel: intent.status !== "requires_capture",
       });
       return;
@@ -209,16 +223,20 @@ async function onChargeRefunded(event: Stripe.Event): Promise<void> {
         { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
         "charge.refunded received for a captured deposit; reconciling post-capture refund"
       );
-      await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
+      await deps.deposits.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
     }
   });
 }
 
-const webhookRouter = new WebhookEventRouter()
-  .register("payment_intent.succeeded", onPaymentIntentSucceeded)
-  .register("payment_intent.amount_capturable_updated", onPaymentIntentAmountCapturableUpdated)
-  .register("payment_intent.canceled", onPaymentIntentCanceled)
-  .register("charge.refunded", onChargeRefunded);
+function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
+  return new WebhookEventRouter()
+    .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
+    .register("payment_intent.amount_capturable_updated", (event) =>
+      onPaymentIntentAmountCapturableUpdated(event, deps)
+    )
+    .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
+    .register("charge.refunded", (event) => onChargeRefunded(event, deps));
+}
 
 export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -226,6 +244,11 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   // consumes the stream, so signature verification below runs against the exact
   // bytes Stripe sent, not a re-serialization of the parsed body.
   fastify.addHook("preParsing", createRawBodyCaptureHook());
+
+  const webhookRouter = createWebhookRouter({
+    deposits: fastify.services.depositService,
+    payments: fastify.payments,
+  });
 
   fastify.post("/api/v1/stripe/webhook", async (request, reply) => {
     // Fail closed if the signing secret is not configured. An empty secret

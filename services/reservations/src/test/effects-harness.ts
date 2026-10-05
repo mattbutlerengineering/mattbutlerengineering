@@ -28,15 +28,17 @@
  *               REAL effects table decides reminder timing and job ids.
  *               `scheduledJobs` is the resulting store; `seedReminders` puts a
  *               reservation's two reminders in it, as a public booking would.
- * - depositOps: money-moving calls on {@link recordingDepositService}. The test
- *               file routes `depositService` to it with ONE temporary
- *               `vi.mock("../services/deposit.js")` (vi.mock must live in the
- *               test file to be hoisted). Reads are not recorded.
+ * - depositOps: money-moving calls on {@link recordingDepositService}, injected
+ *               as `buildApp({ services: { depositService } })` — the one
+ *               DepositService every route, the transitions verbs and the
+ *               cancellation / no-show / modification services use. Reads are
+ *               not recorded.
  */
 import { JOB_TYPES } from "@mbe/jobs";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { ReminderPayload } from "@mbe/jobs";
 import { ReservationEventEmitter, type ReservationEvent } from "../services/events.js";
+import type { DepositService } from "../services/deposit.js";
 import type { ReservationsAppOptions } from "../app.js";
 import type { JobsPort } from "../transitions/ports.js";
 
@@ -111,9 +113,8 @@ function recordDepositOp(op: string) {
 }
 
 /**
- * Stand-in for the `depositService` singleton. Delegates to whichever recorder
- * {@link createEffectsRecorder} created last, so a module-scope `vi.mock`
- * factory can hand out one stable object.
+ * The injected DepositService fake (`buildApp({ services: { depositService } })`).
+ * Delegates to whichever recorder {@link createEffectsRecorder} created last.
  */
 type DepositMethod = (...args: unknown[]) => Promise<unknown>;
 
@@ -136,7 +137,10 @@ export interface EffectsRecorder {
   /** Normalized effects recorded so far (live arrays). */
   effects: RecordedEffects;
   /** Spread into `buildApp(...)`; carries every recording seam. */
-  appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" | "reservationEvents">;
+  appOptions: Pick<
+    ReservationsAppOptions,
+    "notificationPort" | "jobs" | "reservationEvents" | "services"
+  >;
   /** Reminder jobs currently scheduled, keyed by job id. */
   scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
   /** Put a reservation's two reminders in the store, as a public booking would. */
@@ -216,7 +220,12 @@ export function createEffectsRecorder(): EffectsRecorder {
 
   return {
     effects,
-    appOptions: { notificationPort, jobs: scheduler, reservationEvents },
+    appOptions: {
+      notificationPort,
+      jobs: scheduler,
+      reservationEvents,
+      services: { depositService: recordingDepositService as unknown as DepositService },
+    },
     scheduledJobs,
     seedReminders(reservationId, venueId) {
       const payload: ReminderPayload = { reservationId, venueId };

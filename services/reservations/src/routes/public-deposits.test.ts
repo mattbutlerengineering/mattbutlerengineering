@@ -32,14 +32,6 @@ vi.mock("../services/reservation.js", () => ({
 }));
 
 vi.mock("../services/deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-    create: vi.fn(),
-    getById: vi.fn(),
-    apply: vi.fn(),
-    refund: vi.fn(),
-    forfeit: vi.fn(),
-  },
   calculateDepositAmount: vi.fn(),
   setDepositServiceLogger: vi.fn(),
 }));
@@ -82,9 +74,20 @@ import { venueService } from "../services/venue.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import type { VenuePolicy } from "../services/venue.js";
 import { reservationService } from "../services/reservation.js";
-import { depositService, calculateDepositAmount } from "../services/deposit.js";
+import { calculateDepositAmount, type DepositService } from "../services/deposit.js";
 import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
+
+/** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
+const depositService = {
+  getByReservationId: vi.fn(),
+  create: vi.fn(),
+  getById: vi.fn(),
+  apply: vi.fn(),
+  refund: vi.fn(),
+  forfeit: vi.fn(),
+};
+const injectedDeposits = depositService as unknown as DepositService;
 
 const TEST_URL = "/public/v1/venues/test-venue/deposits/payment-intent";
 
@@ -152,7 +155,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   it("returns 404 when venue is not found", async () => {
     vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -173,7 +176,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       depositEnabled: false,
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -196,7 +199,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       venueId: "other-venue",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -215,7 +218,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -229,7 +232,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("rejects an empty {} payload with 400", async () => {
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -243,7 +246,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("rejects an empty-string reservationId with 400", async () => {
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -261,7 +264,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(mockDeposit);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -291,7 +294,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripePaymentIntentId: "pi_test_abc",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -334,7 +337,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripePaymentIntentId: "pi_test_xyz",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -379,7 +382,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripeCustomerId: "cus_abc",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -416,7 +419,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     });
     vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -460,7 +463,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripeCustomerId: "cus_stable",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const payload = {
@@ -505,7 +508,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     });
     mockPaymentIntents.create.mockRejectedValueOnce(stripeError);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -538,7 +541,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     });
     mockCustomers.create.mockRejectedValueOnce(stripeError);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -578,7 +581,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripePaymentIntentId: "pi_test_noncust",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -624,7 +627,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       stripeCustomerId: "cus_retry",
     });
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const payload = {
@@ -649,7 +652,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 400 when reservationId is missing from body", async () => {
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const response = await app.inject({
@@ -669,7 +672,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // downstream business logic would have returned.
     vi.mocked(resolveVenueId).mockResolvedValue(null);
 
-    const app = await buildApp({ services: { depositService }, logger: false });
+    const app = await buildApp({ services: { depositService: injectedDeposits }, logger: false });
     await app.ready();
 
     const responses = [];

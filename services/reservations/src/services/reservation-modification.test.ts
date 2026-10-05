@@ -14,17 +14,15 @@ vi.mock("./venue.js", () => ({
   },
 }));
 
-vi.mock("./deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-  },
-}));
-
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
-import { depositService } from "./deposit.js";
+import type { DepositService } from "./deposit.js";
 import { modifyReservation } from "./reservation-modification.js";
+
+/** The injected DepositService fake. */
+const depositService = { getByReservationId: vi.fn() };
+const deposits = depositService as unknown as DepositService;
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -76,7 +74,7 @@ describe("modifyReservation", () => {
   it("returns NO_CHANGES_PROVIDED when no fields are provided", async () => {
     const reservation = makeReservation();
 
-    const result = await modifyReservation(reservation, {});
+    const result = await modifyReservation(reservation, {}, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -94,7 +92,7 @@ describe("modifyReservation", () => {
       conflict: { hasConflict: true },
     } as never);
 
-    const result = await modifyReservation(reservation, { startTime: "18:00" });
+    const result = await modifyReservation(reservation, { startTime: "18:00" }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -110,7 +108,7 @@ describe("modifyReservation", () => {
       error: "Database unavailable",
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 2 });
+    const result = await modifyReservation(reservation, { partySize: 2 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -127,7 +125,7 @@ describe("modifyReservation", () => {
       capacityExceeded: true,
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 10 });
+    const result = await modifyReservation(reservation, { partySize: 10 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -144,7 +142,7 @@ describe("modifyReservation", () => {
       reservation: updated,
     } as never);
 
-    await modifyReservation(reservation, { specialRequests: "No peanuts please" });
+    await modifyReservation(reservation, { specialRequests: "No peanuts please" }, deposits);
 
     expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
       notes: "No peanuts please",
@@ -163,7 +161,7 @@ describe("modifyReservation", () => {
       reservation: updated,
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 10 });
+    const result = await modifyReservation(reservation, { partySize: 10 }, deposits);
 
     expect(result.success).toBe(true);
     expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
@@ -186,7 +184,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "held",
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 6 });
+    const result = await modifyReservation(reservation, { partySize: 6 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -206,7 +204,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "held",
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 4 });
+    const result = await modifyReservation(reservation, { partySize: 4 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -225,7 +223,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "pending",
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 8 });
+    const result = await modifyReservation(reservation, { partySize: 8 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -245,7 +243,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       reservation: updated,
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 6 });
+    const result = await modifyReservation(reservation, { partySize: 6 }, deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.getByReservationId).not.toHaveBeenCalled();
@@ -259,7 +257,11 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       reservation: updated,
     } as never);
 
-    const result = await modifyReservation(reservation, { partySize: 4, specialRequests: "new" });
+    const result = await modifyReservation(
+      reservation,
+      { partySize: 4, specialRequests: "new" },
+      deposits
+    );
 
     expect(result.success).toBe(true);
     expect(venueService.getPolicyById).not.toHaveBeenCalled();
@@ -274,7 +276,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       reservation: updated,
     } as never);
 
-    const result = await modifyReservation(reservation, { startTime: "20:00" });
+    const result = await modifyReservation(reservation, { startTime: "20:00" }, deposits);
 
     expect(result.success).toBe(true);
     expect(venueService.getPolicyById).not.toHaveBeenCalled();

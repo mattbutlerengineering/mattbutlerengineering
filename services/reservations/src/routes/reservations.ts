@@ -618,7 +618,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         // deposit first, or cancel and rebook.
         if (
           request.body.partySize !== undefined &&
-          (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+          (await isPartySizeDepositBlocked(
+            reservation,
+            request.body.partySize,
+            fastify.services.depositService
+          ))
         ) {
           return reply
             .code(409)

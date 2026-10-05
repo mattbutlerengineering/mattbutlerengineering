@@ -1,6 +1,6 @@
 import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { StripeService, StripeOperationError } from "./stripe.js";
+import { StripeOperationError } from "./stripe.js";
 import type { PaymentsPort } from "../transitions/ports.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
@@ -1204,12 +1204,6 @@ export class DepositService {
     return deposit;
   }
 }
-
-// Singleton. StripeService construction happens here, at the composition
-// root — DepositService itself only ever depends on the narrower StripePort.
-export const depositService = new DepositService(
-  new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder")
-);
 
 // Re-export error class from state machine for convenience
 export { DepositTransitionError };

@@ -1,7 +1,7 @@
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
-import { depositService } from "./deposit.js";
+import type { DepositService } from "./deposit.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
 export interface ReservationChanges {
@@ -67,7 +67,8 @@ const PARTY_SIZE_DEPOSIT_BLOCKED_RESULT: ModifyReservationResult = {
  */
 export async function isPartySizeDepositBlocked(
   reservation: Reservation,
-  newPartySize: number | undefined
+  newPartySize: number | undefined,
+  deposits: DepositService
 ): Promise<boolean> {
   if (newPartySize === undefined || newPartySize === reservation.partySize) {
     return false;
@@ -80,7 +81,7 @@ export async function isPartySizeDepositBlocked(
     return false;
   }
 
-  const deposit = await depositService.getByReservationId(reservation.id);
+  const deposit = await deposits.getByReservationId(reservation.id);
   return Boolean(deposit && DEPOSIT_HELD_STATUSES.has(deposit.status));
 }
 
@@ -90,9 +91,10 @@ export async function isPartySizeDepositBlocked(
  */
 async function checkPartySizeDepositGuard(
   reservation: Reservation,
-  changes: ReservationChanges
+  changes: ReservationChanges,
+  deposits: DepositService
 ): Promise<ModifyReservationResult | null> {
-  const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize);
+  const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
   return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
 }
 
@@ -105,13 +107,14 @@ async function checkPartySizeDepositGuard(
  */
 export async function modifyReservation(
   reservation: Reservation,
-  changes: ReservationChanges
+  changes: ReservationChanges,
+  deposits: DepositService
 ): Promise<ModifyReservationResult> {
   if (!hasAnyChange(changes)) {
     return NO_CHANGES_RESULT;
   }
 
-  const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes);
+  const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
   if (depositGuardResult) {
     return depositGuardResult;
   }

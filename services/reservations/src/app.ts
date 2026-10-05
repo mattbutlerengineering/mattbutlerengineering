@@ -232,6 +232,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     policy: allOutboundLive,
     reservationService: services.reservationService,
+    deposits: services.depositService,
     logger: fastify.log,
   });
   fastify.decorate("transitions", transitions);
