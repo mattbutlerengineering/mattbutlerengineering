@@ -2745,3 +2745,41 @@ No pipeline bugs, no stopped filing, no blockers this fire.
 - There is exactly one registered workflow with this name/path (`id=269708133`, `state=active`) — ruled out a duplicate/stale workflow-id match.
 - Reproduced the underlying flakiness live during this investigation: `gh api ".../auto-rollback.yml/runs?event=schedule&per_page=5"` returned a list whose newest entry was 2026-09-21 (omitting the already-several-days-old 2026-09-28 run) on one call, then returned the correct, complete list (2026-09-28 first) on every subsequent identical call seconds later — a one-off stale/incomplete read of the GitHub Actions runs-list endpoint, self-correcting on retry. This matches the "GitHub dropped it under load" class already documented in `.claude/rules/gotchas.md` § Metrics / staleness detection, just manifesting as a stale list read rather than a dropped execution.
 - No code or config change made: `scripts/scheduled-workflow-health.mjs`'s `classifyRunRecency`/`estimateCronPeriodDays` logic is correct and already covered by `scripts/__tests__/scheduled-workflow-health.test.mjs`; the workflow's own trigger config is correct and has a clean weekly run history. Manual re-dispatch was judged unnecessary: the real schedule already produced three more runs after the stale read (09-14, 09-21, 09-28), and the next natural run lands today (2026-10-05, 10:17 UTC) — the detector's next daily pass will see fresh data either way. Closing via `Closes #5954` on the documentation PR instead.
+
+## 2026-10-05 (mbe-evening — progress-tracker)
+
+### Metrics
+
+| Metric                                | Value                                                          | Status                 |
+| ------------------------------------- | -------------------------------------------------------------- | ---------------------- |
+| Created (7d, audit+ci-fix)            | 25                                                             | -                      |
+| Closed (7d, same cohort)              | 11                                                             | -                      |
+| Closure Rate                          | 44% (11/25)                                                    | 🔴 Red (<50%)          |
+| Time-to-Close (mean, 11 closed)       | ~37h                                                           | 🟡 Yellow (24-72h)     |
+| Agent Success (this iteration)        | 3/3 PRs merged, 0 failed = 100%                                | 🟢 Green               |
+| CI Pass (main, last 20 `ci.yml` runs) | 80% (16/20)                                                    | 🔴 Red (<85%)          |
+| Queue (open `ready`)                  | 59                                                             | 🔴 Red (>10)           |
+| Stale (ready>7d)                      | not computed this run                                          | -                      |
+| Blocked (`agent-failed`, open)        | 0                                                              | 🟢 Green               |
+| Skipped (`agent-skip`, open)          | 0                                                              | 🟢 Green               |
+| Daily/7d Spend, Cost/Issue            | insufficient data (`.claude/agent-spend/sessions.jsonl` empty) | -                      |
+| Reverts (7d)                          | 3                                                              | at threshold, not over |
+
+This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), #5993 (ci-fix) — zone-spread across root/.github, services/reservations+users, apps/rialto-web. All 3 landed PRs (#6043, #6044, #6046), all CI-first-pass, all merged clean (0 rework cycles). Two went through the low-risk fast path (docs-only / test-only diffs); #5993's visual-baseline regen PR went through the full Reviewer + `e2e-selector-drift-reviewer` gate (both pass, 10/10 from the main Reviewer after independently re-verifying the bisection against live GitHub Actions data).
+
+### Patterns
+
+- **Three `🚨 CRITICAL: Broken Main` issues closed this week** (#5933, #5959, #6011) — the recurring main-breakage class already tracked in `gotchas.md` § CI (cold-cache lockfile-touching PRs tipping marginal-timeout suites, `GITHUB_TOKEN`-authored-push anti-recursion gaps masking the real CI signal). The 80% CI-pass rate on main's last 20 runs is this same pattern showing up in the rollup, not a new regression.
+- **Queue depth (59 `ready`) continues the multi-night growth trend** flagged in the 2026-10-03/04 entries (24 → 40 → 56 → 59) despite tonight's 3 merges — intake (site-audit, ci-fix auto-filing, decompose) is outpacing the batch-of-3-per-iteration drain rate.
+- Two of tonight's three closed issues had sat open well past a day before being picked up (#5954: ~81.5h since filing; #5890: ~135h/5.6 days) — both are lower-priority tiers (ci-fix investigation-only, audit) that waited behind newer/higher-tier arrivals under the documented priority sort. Working as designed, not starvation, but worth watching as queue depth grows further.
+- **Positive shift:** the 4 issues logged as `agent-skip` in both the 2026-10-03 and 2026-10-04 entries (#5895, #5748, #5608, #5604) no longer carry that label — all 4 now carry `has-pr` instead, meaning they were retried and have open PRs. `agent-skip` and `agent-failed` are both at 0 open tonight, a clean state on that front.
+
+### Recommendations
+
+- Queue depth (59, 🔴, 4th consecutive night of growth) now clearly meets the Queue Adjust rule's threshold for `/loop 15m /implement-queue` escalation, and main is green tonight so nothing blocks raising cadence — worth considering for the next scheduling change.
+- Check the 4 `has-pr` issues (#5895, #5748, #5608, #5604) for stuck PRs at the top of the next `/implement-queue` iteration's Phase 0 (open PRs come before new issues) — their having sat in `agent-skip` for multiple nights before this makes it worth confirming they're not now stuck in review/CI instead.
+- No new `meta-improvement` filed this run — the broken-main pattern and CI pass-rate dip are already tracked by the existing CRITICAL issues and `gotchas.md` entries; a duplicate wouldn't add signal.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review (the 4 from the last two entries have since progressed to `has-pr`).
