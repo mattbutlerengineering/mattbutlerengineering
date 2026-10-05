@@ -543,3 +543,35 @@ describe("PATCH /public/v1/reservations/manage", () => {
     await stubApp.close();
   });
 });
+
+describe("PATCH /public/v1/reservations/manage — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "PATCH",
+        url: "/public/v1/reservations/manage?token=garbage-token",
+        payload: { partySize: 2 },
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(401);
+    }
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
+  });
+});

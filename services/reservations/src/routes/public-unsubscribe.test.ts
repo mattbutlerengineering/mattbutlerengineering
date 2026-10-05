@@ -132,3 +132,34 @@ describe("GET /public/v1/guests/unsubscribe", () => {
     expect(response.json().title).toBe("Internal Server Error");
   });
 });
+
+describe("GET /public/v1/guests/unsubscribe — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_AUTHORITY = "https://test.auth0.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "GET",
+        url: "/public/v1/guests/unsubscribe",
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+
+    // First 10 return 400 (missing token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(400);
+    }
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
+  });
+});
