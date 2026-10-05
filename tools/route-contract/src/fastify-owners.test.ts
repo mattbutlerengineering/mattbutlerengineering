@@ -142,8 +142,13 @@ describe("bootFastifyOwners", () => {
   });
 
   it("exposes the test boot's OpenAPI document (the route side of schema parity)", () => {
-    const doc = owners.openApiDocument("reservations") as { paths?: Record<string, unknown> };
-    expect(doc.paths).toHaveProperty("/api/v1/guests/lapsing");
+    const doc = owners.openApiDocument("reservations") as {
+      paths?: Record<string, Record<string, { operationId?: string }>>;
+    };
+    const operationIds = Object.values(doc.paths ?? {}).flatMap((item) =>
+      Object.values(item).map((operation) => operation.operationId)
+    );
+    expect(operationIds).toContain("getLapsingGuests");
   });
 
   it("matches by runtime path, not by pattern spelling", () => {

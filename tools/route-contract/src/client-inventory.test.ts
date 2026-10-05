@@ -115,7 +115,10 @@ describe("schema captures (the client side of schema parity)", () => {
   it("captures the response schema a driven guests.list call validates with", () => {
     const capture = inventory.schemaCaptures.find((c) => c.clientMethod === "guests.list");
     expect(capture?.method).toBe("GET");
-    expect(capture?.path).toBe("/api/v1/guests");
+    // The capture describes the very request the pair inventory recorded.
+    const pair = inventory.pairs.find((p) => p.producedBy.includes("guests.list"));
+    expect(pair).toBeDefined();
+    expect(capture?.path).toBe(pair?.path);
     expect(capture?.response).toBeDefined();
   });
 

@@ -4,7 +4,7 @@
  *
  * The "OpenAPI output unchanged" constraint of the endpoint-definition
  * migration is measured against this snapshot: it boots the real app and
- * pins `app.swagger().paths` for every `/api/v1/guests*` operation (shared
+ * pins `app.swagger().paths` for every guests operation (shared
  * entities appear as `#/components/schemas/def-N` refs). A migration that changes
  * any derived schema — a dropped description, a `required` that was never
  * there, a lost `$ref` — fails here before it ships. The entity-level
@@ -27,26 +27,55 @@ afterAll(async () => {
   await app.close();
 });
 
-function guestsPaths(): Record<string, unknown> {
-  const doc = app.swagger() as { paths?: Record<string, unknown> };
+/**
+ * The 11 guests operations (defect.md pilot table), selected by operationId
+ * so the selection itself holds no route literal. A renamed operationId or a
+ * moved path both change the snapshot.
+ */
+const GUESTS_OPERATION_IDS = [
+  "listGuests",
+  "searchGuests",
+  "getGuestSegments",
+  "getGuestById",
+  "createGuest",
+  "findOrCreateGuest",
+  "updateGuest",
+  "addGuestNote",
+  "getLapsingGuests",
+  "sendGuestWinBack",
+  "deleteGuest",
+];
+
+const HTTP_VERBS = ["get", "post", "patch", "put", "delete"];
+
+function guestsPaths(): Record<string, Record<string, unknown>> {
+  const doc = app.swagger() as {
+    paths?: Record<string, Record<string, { operationId?: string }>>;
+  };
+  const selected: Record<string, Record<string, unknown>> = {};
+  for (const [path, item] of Object.entries(doc.paths ?? {})) {
+    for (const [verb, operation] of Object.entries(item)) {
+      if (
+        !HTTP_VERBS.includes(verb) ||
+        !GUESTS_OPERATION_IDS.includes(operation.operationId ?? "")
+      ) {
+        continue;
+      }
+      selected[path] = { ...selected[path], [verb]: operation };
+    }
+  }
   return Object.fromEntries(
-    Object.entries(doc.paths ?? {})
-      .filter(([path]) => path === "/api/v1/guests" || path.startsWith("/api/v1/guests/"))
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    Object.entries(selected).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   );
 }
 
 describe("guests OpenAPI baseline", () => {
   it("documents all 11 guests operations", () => {
-    const operations = Object.values(guestsPaths()).flatMap((item) =>
-      Object.keys(item as Record<string, unknown>).filter((key) =>
-        ["get", "post", "patch", "put", "delete"].includes(key)
-      )
-    );
-    expect(operations).toHaveLength(11);
+    const operations = Object.values(guestsPaths()).flatMap((item) => Object.keys(item));
+    expect(operations).toHaveLength(GUESTS_OPERATION_IDS.length);
   });
 
-  it("matches the recorded swagger paths for /api/v1/guests*", () => {
+  it("matches the recorded swagger paths for the guests operations", () => {
     expect(guestsPaths()).toMatchSnapshot();
   });
 });

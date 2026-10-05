@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`guests OpenAPI baseline > matches the recorded swagger paths for /api/v1/guests* 1`] = `
+exports[`guests OpenAPI baseline > matches the recorded swagger paths for the guests operations 1`] = `
 {
   "/api/v1/guests/": {
     "get": {
