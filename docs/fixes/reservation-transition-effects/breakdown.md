@@ -221,7 +221,7 @@ Demonstrable at the boundary: one `StripeService` and one `DepositService` const
   - `grep -rln 'vi.mock("stripe")' services/reservations/src` returns only `services/stripe.test.ts`.
   - Blocked by: 3.5
 
-- [ ] **3.7 PR 3 open → reviewed → merged; hand off to run #4**
+- [x] **3.7 PR 3 open → reviewed → merged; hand off to run #4**
   - Accept: `reviewer` PASS and `stripe-flow-reviewer` PASS (capture, refund, deposit, webhook) with the 3.3 `STRIPE_SECRET_KEY` checkpoint explicitly confirmed in both reviews; `CI Gate` green; squash-merged with explicit `--subject`. After merge, run #4 may start Implement.
   - Blocked by: 3.6
 
@@ -263,3 +263,4 @@ None that block. One clarification resolved here rather than routed back (see `a
   - Gates: `pnpm lint` / `pnpm typecheck` → `Tasks: 52 successful, 52 total` each; `pnpm --dir packages/jobs test` → `Tests 29 passed (29)`; `pnpm --dir packages/notifications test` → `Tests 119 passed (119)`; `pnpm --dir services/reservations test` → `Test Files 117 passed | 4 skipped (121)`, `Tests 1779 passed | 150 skipped (1929)` (main's 1767, plus 6 in-memory payments cases (two plus a four-row `failNext` table), 4 signature, 3 composition and 1 verbs case, minus the 2 deleted `constructWebhookEvent` cases). AI-antipattern ratchet: no regressions (`hardcodedRoutes` 851 < 852 baseline).
   - Kill-list grep: `grep -rln 'vi.mock("stripe"' services/reservations/src` → `services/stripe.test.ts` (the real SDK mock, kept) and `services/deposit.test.ts` (a pre-existing prose comment in a file kept byte-identical). No `vi.mock` of `deposit.js` remains anywhere in `services/reservations/src`.
   - Deviation (2026-10-04): `routes/stripe-webhook.test.ts` briefly gained a static `webhooks` on its SDK mock in 3.2 so every commit stayed green; 3.5 deleted that mock outright.
+- **2026-10-05 — PR 3 merged:** #6061 squash-merged as `241855af1` on `origin/main` (07:58:32Z) after merging origin/main (#6060, #6062) into the branch → final head `f15e29801` (clean merge, no llms drift, all gates re-run green: reservations 1780 passed / 150 skipped, jobs 29, notifications 119, typecheck, lint, `regen --check`). `reviewer` PASS 9/10 and `stripe-flow-reviewer` PASS 9.5/10 on the final head, both confirming the 3.3 `STRIPE_SECRET_KEY` checkpoint; `CI Gate` check run SUCCESS on `f15e29801` (run 37279577071). Item 3.7 checked; run #4 may start Implement. Release record: `release.md`.
