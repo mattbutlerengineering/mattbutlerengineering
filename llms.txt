@@ -15775,7 +15775,20 @@
       }
     </item>
     <item priority="low">
+      type ClientSchema = Parameters<typeof toResponseJsonSchema>[0];
+    </item>
+    <item priority="low">
+      interface SchemaCapture {
+        clientMethod: string;
+        subClient: string;
+        method: HttpMethod;
+        path: string;
+        definition?: AnyEndpointDefinition;
+      }
+    </item>
+    <item priority="low">
       interface ClientInventory {
+        schemaCaptures: readonly SchemaCapture[];
         pairs: readonly ClientPair[];
         invocations: readonly Invocation[];
         subClients: readonly string[];
@@ -15886,6 +15899,11 @@
       export async function bootFastifyOwners(): Promise<FastifyOwnerTables> { /* ... */ }
     </item>
   </file>
+  <file path="tools/route-contract/src/known-parity-gaps.ts">
+    <item priority="high">
+      export const KNOWN_PARITY_GAPS: readonly string[];
+    </item>
+  </file>
   <file path="tools/route-contract/src/module-scope-env.fixture.ts">
     <item priority="high">
       export const NODE_ENV_AT_EVALUATION: unknown;
@@ -15905,6 +15923,7 @@
         inventory: ClientInventory;
         fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
         edgeTerminalPathCount: number;
+        openApiDocuments: Readonly<Record<FastifyOwner, unknown>>;
       }
     </item>
     <item priority="high">
@@ -15918,6 +15937,115 @@
     </item>
     <item priority="high">
       export function vacuityInputFromReport(report: RouteContractReport): VacuityInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PARITY_DOMAINS: unknown;
+    </item>
+    <item priority="low">
+      interface ParityFailure {
+        clientMethod: string;
+        method: string;
+        path: string;
+        facet: Facet | "route";
+        detail: string;
+      }
+    </item>
+    <item priority="low">
+      interface SchemaParityReport {
+        failures: readonly ParityFailure[];
+        comparedPerDomain: Readonly<Record<string, number>>;
+      }
+    </item>
+    <item priority="low">
+      interface OpenApiDocument {
+        paths?: Record<string, Record<string, OpenApiOperation>>;
+        components?: { readonly schemas?: unknown };
+      }
+    </item>
+    <item priority="high">
+      export function findOperation(
+        doc: OpenApiDocument,
+        method: string,
+        path: string
+      ): OpenApiOperation | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function schemaParityReport(
+        report: RouteContractReport,
+        domains: readonly string[]
+      ): SchemaParityReport { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parityVacuityFailures(
+        parity: SchemaParityReport,
+        domains: readonly string[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatParityFailures(failures: readonly ParityFailure[]): string { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/schema-parity.ts">
+    <item priority="low">
+      type Facet = "body" | "query" | "response";
+    </item>
+    <item priority="low">
+      type JsonSchema = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      type RefTable = Readonly<Record<string, JsonSchema>>;
+    </item>
+    <item priority="low">
+      interface ParityMismatch {
+        facet: Facet;
+        detail: string;
+      }
+    </item>
+    <item priority="high">
+      export function refTableFromOpenApi(doc: { components?: { schemas?: unknown } }): RefTable { /* ... */ }
+    </item>
+    <item priority="medium">
+      function unifyNullable(schema: JsonSchema): JsonSchema { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalize(schema: unknown, facet: Facet, refs: RefTable, depth = 0): unknown { /* ... */ }
+    </item>
+    <item priority="high">
+      export function firstDifference(a: unknown, b: unknown, pointer = ""): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface OpenApiParameter {
+        in?: string;
+        name?: string;
+        required?: boolean;
+        schema?: unknown;
+      }
+    </item>
+    <item priority="high">
+      export function queryFromParameters(
+        parameters: readonly OpenApiParameter[] | undefined
+      ): JsonSchema | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OpenApiOperation {
+        parameters?: readonly OpenApiParameter[];
+        requestBody?: { readonly content?: Record<string, { readonly schema?: u...;
+        responses?: Record<
+          string,
+          {
+            readonly description?: st...;
+      }
+    </item>
+    <item priority="high">
+      export function routeFacets(operation: OpenApiOperation): Partial<Record<Facet, JsonSchema>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareFacet(
+        facet: Facet,
+        client: JsonSchema | undefined,
+        route: JsonSchema | undefined,
+        refs: RefTable
+      ): ParityMismatch | null { /* ... */ }
     </item>
   </file>
   <file path="tools/route-contract/src/types.ts">
