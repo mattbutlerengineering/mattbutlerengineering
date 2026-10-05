@@ -1257,13 +1257,16 @@
     type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
     type TransitionResult =
       { kind: "not-found" } | { kind: "invalid"; message: string } | { kind: "ok"; deposit: Deposit };
-    export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
+    export function depositTransitionHandler(
+      deposits: DepositService,
+      transition: (id: string) => Promise<Deposit>
+    ) {
       return async (request: DepositTransitionRequest, reply: FastifyReply) => {
         const result = await loadInVenueContext<TransitionResult>(
           "deposit",
           request.params.id,
           async () => {
-            const existing = await depositService.getById(request.params.id);
+            const existing = await deposits.getById(request.params.id);
             if (!existing) {
               return { kind: "not-found" };
             }
@@ -1298,6 +1301,8 @@
       data: T;
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+      const { depositService } = fastify.services;
+    
       // POST /api/v1/deposits — create a deposit
       fastify.post<{
         Body: { reservationId: string; amountCents: number; currency?: string };
@@ -1518,7 +1523,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.apply(id))
+        depositTransitionHandler(depositService, (id) => depositService.apply(id))
       );
     
       // POST /api/v1/deposits/:id/refund — refund a held deposit
@@ -1553,7 +1558,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.refund(id))
+        depositTransitionHandler(depositService, (id) => depositService.refund(id))
       );
     
       // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
@@ -1588,7 +1593,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
+        depositTransitionHandler(depositService, (id) => depositService.forfeit(id, "staff"))
       );
     };
   </file>
@@ -3262,6 +3267,8 @@
       currency: string;
     }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
+      const { depositService } = fastify.services;
+    
       fastify.post<{
         Params: { slug: string };
         Body: CreatePublicPaymentIntentBody;
@@ -3355,7 +3362,7 @@
             let stripeCustomerId: string | undefined;
             if (guestEmail || guestName) {
               try {
-                const customer = await stripeService.createCustomer({
+                const customer = await fastify.payments.createCustomer({
                   email: guestEmail,
                   name: guestName,
                   // Stable key so a lost-response retry reuses the same customer
@@ -3399,7 +3406,7 @@
             // used by the capture/cancel/refund flows.
             let paymentIntent;
             try {
-              paymentIntent = await stripeService.createPaymentIntent({
+              paymentIntent = await fastify.payments.createPaymentIntent({
                 amountCents: depositAmountCents,
                 currency,
                 customerId: stripeCustomerId,
@@ -4812,7 +4819,11 @@
             // deposit first, or cancel and rebook.
             if (
               request.body.partySize !== undefined &&
-              (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+              (await isPartySizeDepositBlocked(
+                reservation,
+                request.body.partySize,
+                fastify.services.depositService
+              ))
             ) {
               return reply
                 .code(409)
@@ -5449,33 +5460,44 @@
       }
       await runWithVenueContext(venueId, work);
     }
-    async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+    interface WebhookDeps {
+      deposits: DepositService;
+      payments: PaymentsPort;
+    }
+    async function holdIfPending(
+      paymentIntentId: string,
+      eventType: string,
+      deps: WebhookDeps
+    ): Promise<void> {
       await withDepositVenueContext(paymentIntentId, eventType, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) {
           return;
         }
     
         if (deposit.status === "pending") {
-          await depositService.hold(deposit.id, paymentIntentId);
+          await deps.deposits.hold(deposit.id, paymentIntentId);
         }
       });
     }
-    async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentSucceeded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id, event.type);
+      await holdIfPending(paymentIntent.id, event.type, deps);
     }
-    async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentAmountCapturableUpdated(
+      event: Stripe.Event,
+      deps: WebhookDeps
+    ): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id, event.type);
+      await holdIfPending(paymentIntent.id, event.type, deps);
     }
-    async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentCanceled(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const paymentIntentId = paymentIntent.id;
     
       await withDepositVenueContext(paymentIntentId, event.type, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;
     
@@ -5505,16 +5527,16 @@
         // (money NOT collected, NOT returned by us) rather than falsely claiming a
         // refund. No Stripe call is made either way — the intent is already canceled.
         if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
-          await depositService.refund(deposit.id, { skipStripeCancel: true });
+          await deps.deposits.refund(deposit.id, { skipStripeCancel: true });
         } else {
-          await depositService.expireAuthorization(deposit.id);
+          await deps.deposits.expireAuthorization(deposit.id);
         }
       });
     }
     function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
       return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
     }
-    async function onChargeRefunded(event: Stripe.Event): Promise<void> {
+    async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
       // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
       const paymentIntentId =
@@ -5523,7 +5545,7 @@
       if (!paymentIntentId) return;
     
       await withDepositVenueContext(paymentIntentId, event.type, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;
     
@@ -5539,8 +5561,8 @@
           // cancelPaymentIntent in either case fails, refund() then rolls back and
           // throws (#5753), and Stripe would retry this webhook forever on the 500
           // (#5719 LOW).
-          const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-          await depositService.refund(deposit.id, {
+          const intent = await deps.payments.retrievePaymentIntent(paymentIntentId);
+          await deps.deposits.refund(deposit.id, {
             skipStripeCancel: intent.status !== "requires_capture",
           });
           return;
@@ -5562,9 +5584,18 @@
             { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
             "charge.refunded received for a captured deposit; reconciling post-capture refund"
           );
-          await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
+          await deps.deposits.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
         }
       });
+    }
+    function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
+      return new WebhookEventRouter()
+        .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
+        .register("payment_intent.amount_capturable_updated", (event) =>
+          onPaymentIntentAmountCapturableUpdated(event, deps)
+        )
+        .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
+        .register("charge.refunded", (event) => onChargeRefunded(event, deps));
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -5572,6 +5603,11 @@
       // consumes the stream, so signature verification below runs against the exact
       // bytes Stripe sent, not a re-serialization of the parsed body.
       fastify.addHook("preParsing", createRawBodyCaptureHook());
+    
+      const webhookRouter = createWebhookRouter({
+        deposits: fastify.services.depositService,
+        payments: fastify.payments,
+      });
     
       fastify.post("/api/v1/stripe/webhook", async (request, reply) => {
         // Fail closed if the signing secret is not configured. An empty secret
@@ -5609,7 +5645,7 @@
     
         let event: Stripe.Event;
         try {
-          event = stripeService.constructWebhookEvent(rawBody, signature, webhookSecret);
+          event = verifyStripeWebhookSignature(rawBody, signature, webhookSecret);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Invalid webhook signature";
           return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
@@ -8269,15 +8305,7 @@
     }
   </file>
   <file path="src/services/deposit.ts">
-    export type StripePort = Pick<
-      StripeService,
-      | "cancelPaymentIntent"
-      | "capturePaymentIntent"
-      | "createPartialRefund"
-      | "createCustomer"
-      | "retrievePaymentIntent"
-      | "findDepositRefund"
-    >;
+    export type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
     export interface DepositServiceLogger {
       error(details: object, msg: string): void;
@@ -9355,9 +9383,6 @@
         return deposit;
       }
     }
-    export const depositService = new DepositService(
-      new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder")
-    );
     export function calculateDepositAmount(
       venue: { depositType: string | null; depositAmountCents: number | null },
       partySize: number
@@ -9377,11 +9402,12 @@
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
       holdService: typeof holdService;
-      depositService: typeof depositService;
+      /** Built in `buildApp` over the one payments adapter — never a module singleton. */
+      depositService: DepositService;
       waitlistService: typeof waitlistService;
       briefingService: typeof briefingService;
     }
-    export const defaultDomainServices: DomainServices = {
+    export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       venueService,
       tableService,
@@ -9389,7 +9415,6 @@
       guestService,
       floorPlanService,
       holdService,
-      depositService,
       waitlistService,
       briefingService,
     };
@@ -11316,6 +11341,7 @@
   <file path="src/services/reservation-cancellation.ts">
     export interface CancelReservationDeps {
       logger: FastifyBaseLogger;
+      deposits: DepositService;
     }
     export interface CancelReservationOptions {
       /**
@@ -11356,13 +11382,14 @@
       deposit: Deposit,
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      initiator: CancelInitiator
+      initiator: CancelInitiator,
+      deposits: DepositService
     ): Promise<ResolveDepositOutcome> {
       if (initiator === "staff") {
         // Staff cancels on the venue's behalf — waive any cancellation fee and
         // refund the deposit in full instead of evaluating guest-facing policy.
         try {
-          await depositService.refund(deposit.id);
+          await deposits.refund(deposit.id);
         } catch (err) {
           return {
             ok: false,
@@ -11397,15 +11424,15 @@
       let stripeOp: DepositStripeOp;
       try {
         if (feeResult.depositAction === "refund_full") {
-          await depositService.refund(deposit.id);
+          await deposits.refund(deposit.id);
           stripeOp = "refund";
         } else if (feeResult.depositAction === "forfeit") {
-          await depositService.forfeit(deposit.id, "cancellation");
+          await deposits.forfeit(deposit.id, "cancellation");
           stripeOp = "forfeit";
         } else {
           // refund_partial: capture then partially refund (also covers a partial
           // no-show where noShowFeePercent < 100).
-          await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+          await deposits.refundPartial(deposit.id, feeResult.refundAmountCents);
           stripeOp = "refund_partial";
         }
       } catch (err) {
@@ -11426,9 +11453,10 @@
     async function resolveDeposit(
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      initiator: CancelInitiator
+      initiator: CancelInitiator,
+      deposits: DepositService
     ): Promise<ResolveDepositOutcome> {
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       if (!deposit) return { ok: true, resolved: null };
     
       if (deposit.status === "partial_refunded") {
@@ -11445,7 +11473,7 @@
           return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
         }
         try {
-          await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+          await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
         } catch (err) {
           if (err instanceof DepositWrittenOffUncollectableError) {
             // The authorization was canceled before this row's capture ever
@@ -11491,7 +11519,7 @@
         // `false` (#5722 R5 MED-1).
         const isForfeited = deposit.status === "forfeited";
         const timestampField = isForfeited ? "forfeitedAt" : "appliedAt";
-        const verification = await depositService.verifyCaptureCompleted(
+        const verification = await deposits.verifyCaptureCompleted(
           deposit.id,
           deposit.status,
           timestampField,
@@ -11531,13 +11559,13 @@
           // status — re-fetch the now-held row and re-run normal cancellation
           // policy evaluation fresh, exactly as if it started `held` (#5722 R5
           // MED-1).
-          const rolledBack = await depositService.getById(deposit.id);
+          const rolledBack = await deposits.getById(deposit.id);
           if (rolledBack?.status !== "held") {
             // A concurrent transition beat this rollback to the row — an
             // ordinary retryable conflict, not a failure.
             return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
           }
-          return resolveHeldDeposit(rolledBack, reservation, logger, initiator);
+          return resolveHeldDeposit(rolledBack, reservation, logger, initiator, deposits);
         }
         if (verification === "recaptured") {
           // Unreachable in practice — `allowRecapture` is always `false` above
@@ -11555,7 +11583,7 @@
     
       if (deposit.status !== "held") return { ok: true, resolved: null };
     
-      return resolveHeldDeposit(deposit, reservation, logger, initiator);
+      return resolveHeldDeposit(deposit, reservation, logger, initiator, deposits);
     }
     export async function cancelReservationWithDeposit(
       reservation: Reservation,
@@ -11576,7 +11604,7 @@
         throw err;
       }
     
-      const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator);
+      const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator, deps.deposits);
       if (!depositOutcome.ok) return depositOutcome.failure;
       const { resolved } = depositOutcome;
     
@@ -11661,7 +11689,8 @@
     }
     export async function isPartySizeDepositBlocked(
       reservation: Reservation,
-      newPartySize: number | undefined
+      newPartySize: number | undefined,
+      deposits: DepositService
     ): Promise<boolean> {
       if (newPartySize === undefined || newPartySize === reservation.partySize) {
         return false;
@@ -11674,25 +11703,27 @@
         return false;
       }
     
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       return Boolean(deposit && DEPOSIT_HELD_STATUSES.has(deposit.status));
     }
     async function checkPartySizeDepositGuard(
       reservation: Reservation,
-      changes: ReservationChanges
+      changes: ReservationChanges,
+      deposits: DepositService
     ): Promise<ModifyReservationResult | null> {
-      const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize);
+      const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
     export async function modifyReservation(
       reservation: Reservation,
-      changes: ReservationChanges
+      changes: ReservationChanges,
+      deposits: DepositService
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes)) {
         return NO_CHANGES_RESULT;
       }
     
-      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes);
+      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
       if (depositGuardResult) {
         return depositGuardResult;
       }
@@ -11792,7 +11823,8 @@
       targetStatus: "forfeited" | "partial_refunded",
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      err: unknown
+      err: unknown,
+      deposits: DepositService
     ): Promise<ForfeitOutcome> {
       if (err instanceof DepositCaptureAmbiguousError) {
         logger.error(
@@ -11802,7 +11834,7 @@
         return { outcome: "failed" };
       }
     
-      const current = await depositService.getById(depositId);
+      const current = await deposits.getById(depositId);
     
       if (current?.status === "uncollectable") {
         logger.warn(
@@ -11847,16 +11879,17 @@
     async function forfeitHeldDeposit(
       deposit: Deposit,
       reservation: Reservation,
-      logger: FastifyBaseLogger
+      logger: FastifyBaseLogger,
+      deposits: DepositService
     ): Promise<ForfeitOutcome> {
       const depositId = deposit.id;
       const action = await resolveNoShowDepositAction(deposit, reservation);
       try {
         if (action.op === "forfeit") {
-          await depositService.forfeit(depositId, "no_show");
+          await deposits.forfeit(depositId, "no_show");
           return { outcome: "resolved" };
         } else if (action.op === "refund_partial") {
-          await depositService.refundPartial(depositId, action.refundAmountCents);
+          await deposits.refundPartial(depositId, action.refundAmountCents);
           return {
             outcome: "resolved",
             // The policy resolved to less than a full forfeit (#5719 item 6) —
@@ -11866,7 +11899,7 @@
               "Only part of the deposit was charged as a no-show fee; the remainder was refunded.",
           };
         } else {
-          await depositService.refund(depositId);
+          await deposits.refund(depositId);
           return {
             outcome: "resolved",
             warning: "The deposit was fully refunded — the no-show policy applied no fee.",
@@ -11899,7 +11932,14 @@
         }
         if (action.op !== "refund_full") {
           const targetStatus = action.op === "forfeit" ? "forfeited" : "partial_refunded";
-          return reconcileCaptureLegFailure(depositId, targetStatus, reservation, logger, err);
+          return reconcileCaptureLegFailure(
+            depositId,
+            targetStatus,
+            reservation,
+            logger,
+            err,
+            deposits
+          );
         }
         logger.error(
           { err, reservationId: reservation.id, depositId },
@@ -11936,7 +11976,8 @@
     }
     export async function recordNoShow(
       reservation: Reservation,
-      logger: FastifyBaseLogger
+      logger: FastifyBaseLogger,
+      deposits: DepositService
     ): Promise<RecordNoShowResult> {
       try {
         transitionReservation(reservation.status, "NO_SHOW");
@@ -11947,7 +11988,7 @@
         throw err;
       }
     
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       let depositWarning: string | undefined;
       let forfeitedDepositId: string | null = null;
     
@@ -11962,7 +12003,7 @@
           "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
         );
       } else if (deposit?.status === "held") {
-        const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
+        const outcome = await forfeitHeldDeposit(deposit, reservation, logger, deposits);
         const applied = applyForfeitOutcome(outcome, deposit.id);
         if (applied.done) return applied.result;
         depositWarning = applied.depositWarning;
@@ -11986,7 +12027,7 @@
           return DEPOSIT_FAILURE_RESULT;
         }
         try {
-          await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+          await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
           forfeitedDepositId = deposit.id;
         } catch (err) {
           if (err instanceof DepositWrittenOffUncollectableError) {
@@ -12038,7 +12079,7 @@
         // LOW-A) — otherwise a no-show could recapture the full deposit even
         // when its own policy calls for a lower (or zero) fee.
         const allowRecapture = isForfeited && deposit.forfeitOrigin === "no_show";
-        const verification = await depositService.verifyCaptureCompleted(
+        const verification = await deposits.verifyCaptureCompleted(
           deposit.id,
           deposit.status,
           timestampField,
@@ -12072,13 +12113,13 @@
           // Nothing was ever charged, and this wasn't the operation that set the
           // status — re-fetch the now-held row and re-run normal policy
           // evaluation fresh, exactly as if it started `held` (#5722 R5 MED-1).
-          const rolledBack = await depositService.getById(deposit.id);
+          const rolledBack = await deposits.getById(deposit.id);
           if (rolledBack?.status !== "held") {
             // A concurrent transition beat this rollback to the row — an
             // ordinary retryable conflict, not a failure.
             return DEPOSIT_CONCURRENT_RETRY_RESULT;
           }
-          const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger);
+          const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger, deposits);
           const applied = applyForfeitOutcome(outcome, deposit.id);
           if (applied.done) return applied.result;
           depositWarning = applied.depositWarning;
@@ -13523,6 +13564,7 @@
         this.isRetriable = isRetriable;
       }
     }
+    export const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
     function wrapStripeError(err: unknown): never {
       if (err != null && typeof err === "object" && "type" in err) {
         const stripeType = String((err as { type: string }).type);
@@ -13565,6 +13607,13 @@
       id: string;
       email: string | null;
       name: string | null;
+    }
+    export function verifyStripeWebhookSignature(
+      rawBody: Buffer,
+      signature: string,
+      webhookSecret: string
+    ): Stripe.Event {
+      return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     }
     export class StripeService {
       private readonly stripe: Stripe;
@@ -13777,18 +13826,7 @@
           wrapStripeError(err);
         }
       }
-    
-      /**
-       * Validates and parses an incoming Stripe webhook payload.
-       * Throws if the signature is invalid.
-       */
-      constructWebhookEvent(payload: Buffer, signature: string, webhookSecret: string): Stripe.Event {
-        return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      }
     }
-    export const stripeService = new StripeService(
-      process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"
-    );
   </file>
   <file path="src/services/table-state-machine.ts">
     export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
@@ -15025,6 +15063,11 @@
        * notifier runtime's lazily connected scheduler; tests inject a recorder.
        */
       jobs?: JobsPort;
+      /**
+       * Stripe operations. Defaults to one `StripeService` built here from
+       * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
+       */
+      payments?: PaymentsPort;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
@@ -15121,7 +15164,19 @@
       // decorate them so route plugins resolve dependencies from `fastify.services`
       // instead of importing the sibling singleton at module scope. Decorated before
       // route registration so child route plugins inherit it.
-      const services: DomainServices = { ...defaultDomainServices, ...options.services };
+      //
+      // Payments are constructed exactly once, here: one StripeService (same env
+      // name and placeholder fallback as before; getStripeConfig above still
+      // validates it) unless a test injects `options.payments`, and one
+      // DepositService over it.
+      const payments: PaymentsPort =
+        options.payments ?? new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder");
+      fastify.decorate("payments", payments);
+      const services: DomainServices = {
+        ...defaultDomainServices,
+        ...options.services,
+        depositService: options.services?.depositService ?? new DepositService(payments),
+      };
       fastify.decorate("services", services);
     
       // Wire the reservation transitions (maintenance:reservation-transition-effects):
@@ -15144,6 +15199,7 @@
         },
         policy: allOutboundLive,
         reservationService: services.reservationService,
+        deposits: services.depositService,
         logger: fastify.log,
       });
       fastify.decorate("transitions", transitions);
@@ -15379,7 +15435,10 @@
       /** Normalized effects recorded so far (live arrays). */
       effects: RecordedEffects;
       /** Spread into `buildApp(...)`; carries every recording seam. */
-      appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" | "reservationEvents">;
+      appOptions: Pick<
+        ReservationsAppOptions,
+        "notificationPort" | "jobs" | "reservationEvents" | "services"
+      >;
       /** Reminder jobs currently scheduled, keyed by job id. */
       scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
       /** Put a reservation's two reminders in the store, as a public booking would. */
@@ -15455,7 +15514,12 @@
     
       return {
         effects,
-        appOptions: { notificationPort, jobs: scheduler, reservationEvents },
+        appOptions: {
+          notificationPort,
+          jobs: scheduler,
+          reservationEvents,
+          services: { depositService: recordingDepositService as unknown as DepositService },
+        },
         scheduledJobs,
         seedReminders(reservationId, venueId) {
           const payload: ReminderPayload = { reservationId, venueId };
@@ -15544,6 +15608,73 @@
         },
       };
     }
+    export type PaymentsOp = keyof PaymentsPort;
+    type PaymentsImpl<Op extends PaymentsOp> = (
+      ...args: Parameters<PaymentsPort[Op]>
+    ) => Awaited<ReturnType<PaymentsPort[Op]>> | Promise<Awaited<ReturnType<PaymentsPort[Op]>>>;
+    export interface InMemoryPayments extends PaymentsPort {
+      /** Every call, in order, with its arguments (idempotency keys included). */
+      readonly calls: { op: PaymentsOp; args: unknown[] }[];
+      /** Replace an op's default result (or make it throw) from now on. */
+      respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
+      /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
+      failNext(op: PaymentsOp, stripeType: string): void;
+    }
+    export function createInMemoryPayments(): InMemoryPayments {
+      const calls: { op: PaymentsOp; args: unknown[] }[] = [];
+      const counters = { cus: 0, pi: 0, re: 0 };
+      const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
+      const failures = new Map<PaymentsOp, string>();
+    
+      const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
+        createCustomer: (options) => ({
+          id: nextId("cus"),
+          email: options.email ?? null,
+          name: options.name ?? null,
+        }),
+        createPaymentIntent: () => {
+          const id = nextId("pi");
+          return { id, status: "requires_payment_method", clientSecret: `${id}_secret` };
+        },
+        capturePaymentIntent: (id) => ({ id, status: "succeeded" }),
+        cancelPaymentIntent: (id) => ({ id, status: "canceled" }),
+        createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
+        retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
+        findDepositRefund: () => null,
+      };
+      const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
+    
+      function call<Op extends PaymentsOp>(op: Op): PaymentsPort[Op] {
+        const recorded = async (...args: Parameters<PaymentsPort[Op]>) => {
+          calls.push({ op, args });
+          const stripeType = failures.get(op);
+          if (stripeType !== undefined) {
+            failures.delete(op);
+            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), { type: stripeType });
+            throw new StripeOperationError(cause, stripeType, RETRIABLE_STRIPE_TYPES.has(stripeType));
+          }
+          return await (impls[op] as PaymentsImpl<Op>)(...args);
+        };
+        return recorded as unknown as PaymentsPort[Op];
+      }
+    
+      return {
+        calls,
+        respond(op, impl) {
+          (impls as Record<PaymentsOp, unknown>)[op] = impl;
+        },
+        failNext(op, stripeType) {
+          failures.set(op, stripeType);
+        },
+        createCustomer: call("createCustomer"),
+        createPaymentIntent: call("createPaymentIntent"),
+        capturePaymentIntent: call("capturePaymentIntent"),
+        cancelPaymentIntent: call("cancelPaymentIntent"),
+        createPartialRefund: call("createPartialRefund"),
+        retrievePaymentIntent: call("retrievePaymentIntent"),
+        findDepositRefund: call("findDepositRefund"),
+      };
+    }
   </file>
   <file path="src/transitions/index.ts">
     type ReservationWrites = Pick<
@@ -15555,6 +15686,8 @@
       ports: EffectPorts;
       policy: VenueEffectPolicySource;
       reservationService: ReservationWrites;
+      /** The one DepositService (built over the payments port in buildApp). */
+      deposits: DepositService;
       logger: EffectLogger;
       now?: () => Date;
     }
@@ -15592,7 +15725,7 @@
     export function createReservationTransitions(
       deps: ReservationTransitionsDeps
     ): ReservationTransitions {
-      const { ports, policy, reservationService, logger, now = () => new Date() } = deps;
+      const { ports, policy, reservationService, deposits, logger, now = () => new Date() } = deps;
     
       /** Plans and runs a committed transition's effects. */
       async function settle(fact: TransitionFact, venueId: string | null | undefined): Promise<void> {
@@ -15612,7 +15745,7 @@
           const result = await cancelReservationWithDeposit(
             reservation,
             options.manageToken,
-            { logger: options.log },
+            { logger: options.log, deposits },
             {
               initiator: options.initiator,
               cancellationReason: options.reason,
@@ -15636,7 +15769,7 @@
         },
     
         async noShow(reservation, log) {
-          const result = await recordNoShow(reservation, log);
+          const result = await recordNoShow(reservation, log, deposits);
           if (result.success) {
             await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
           }
@@ -15655,7 +15788,7 @@
         },
     
         async modifyByGuest(reservation, changes, manageToken) {
-          const result = await modifyReservation(reservation, changes);
+          const result = await modifyReservation(reservation, changes, deposits);
           if (result.success) {
             await settle(
               {
@@ -15967,6 +16100,16 @@
       jobs: JobsPort;
       events: EventsPort;
     }
+    export type PaymentsPort = Pick<
+      StripeService,
+      | "createCustomer"
+      | "createPaymentIntent"
+      | "capturePaymentIntent"
+      | "cancelPaymentIntent"
+      | "createPartialRefund"
+      | "retrievePaymentIntent"
+      | "findDepositRefund"
+    >;
   </file>
   <file path="src/transitions/run.ts">
     export interface EffectLogger {
