@@ -8,6 +8,10 @@ assumptions:
   - "The three backlog seeds (D2 staff-create messaging, D4 hold-confirm messaging, guest-modify double confirmation email) are appended to `docs/backlog.md` in PR 1, alongside the tests that pin those absences, in the protocol's `(from: maintenance:reservation-transition-effects)` form."
   - "`@mbe/jobs` is `private: true` (verified packages/jobs/package.json), so the boolean `JobScheduler.cancel` change needs no changeset."
   - "No tracker import or export: the autorun brief says Tracker none, and this stage creates no GitHub issues."
+  - 'Implement (2026-10-04): the harness''s `vi.mock("../services/deposit.js")` lives in the test file (`entry-points.test.ts`), not in `effects-harness.ts` — vi.mock is only hoisted in the file that calls it. The harness exports the recording `depositService` the mock hands out. Same seam, same count (exactly one), different file.'
+  - "Implement (2026-10-04): the harness records messages at the `NotificationDispatcher` seam and jobs at the scheduler seam (behind the REAL `createBookingNotifier`/`createPostVisitNotifier`), not at the `bookingNotifier`/`postVisitNotifier` objects. Lowest outbound seam = strongest pin of 'guest messaging unchanged'; in PR 2 the harness keeps recording at the dispatcher (production messaging adapter over it) so venue-flag gating stays inside the pin."
+  - "Implement (2026-10-04): the D9 floor-plan-clone and lapsing-scan cases run the REAL `floorPlanService.clone` / `guestService.scanLapsedGuests` over a mocked Prisma client, so today's emit into the dead singleton is exercised (not stubbed out)."
+  - "Implement (2026-10-04): item 1.6's three backlog seeds already landed on the run branch at Architect (commit 3776e5217); verified present and well-formed, so 1.6 is checked without a new edit."
   - "Each PR runs the repo's pre-PR gates (`pnpm install --frozen-lockfile`, `pnpm build --filter @mbe/cli...`, lint, typecheck, test, `/local-ci-precheck`) — repo policy, not a work item, so it is not checkboxed."
 ---
 
@@ -35,42 +39,42 @@ Traceability keys used in every `Accept:` line:
 
 Demonstrable at the boundary: `entry-points.test.ts` runs green on main; every money and messaging row passes as `it`, every ruling delta is visible as `it.fails`. `git diff origin/main --stat -- 'services/reservations/src/**' ':!**/*.test.ts' ':!**/test/**'` is empty.
 
-- [ ] **1.1 Effects harness over today's seams** — add `services/reservations/src/test/effects-harness.ts`.
+- [x] **1.1 Effects harness over today's seams** — add `services/reservations/src/test/effects-harness.ts`.
   - Accept: one helper builds an app via `buildApp` with recording `bookingNotifier`, `notificationPort`, `postVisitNotifier` and `reservationEvents` options plus **exactly one** temporary `vi.mock("../services/deposit.js")` recording `DepositService` op calls, and exposes normalized `{ events, messages, jobs, depositOps }`. The normalized shape is the one PR 2/PR 3 will re-back with in-memory ports, so test bodies written against it never change. A smoke test proves each of the four channels records.
   - Test-first: the harness is test code; its own smoke test is written first and fails until the harness records.
   - Files: `services/reservations/src/test/effects-harness.ts` (new), possibly `src/test/mocks.ts` (reuse only).
   - Blocked by: —
   - Dies here: none.
 
-- [ ] **1.2 Cancel rows, all three doors** — `entry-points.test.ts` cases for staff PATCH → CANCELLED, staff DELETE, guest manage DELETE.
+- [x] **1.2 Cancel rows, all three doors** — `entry-points.test.ts` cases for staff PATCH → CANCELLED, staff DELETE, guest manage DELETE.
   - Accept (Row cancelled/staff-patch, /staff-delete, /guest-manage; D1; ruling "money unchanged", "messaging unchanged"): per door, `depositOps` equals today's exact op and args (staff: initiator from verified isAdmin; guest: guest fee policy); `messages` contains one `booking-cancelled`; `jobs` shows cancel of `BOOKING_REMINDER:<id>` and `DAY_OF_REMINDER:<id>` — all as `it`. `reservation:cancelled` SSE is `it` for staff-patch and `it.fails` for staff-delete and guest-manage (D1). A domain failure case asserts no effects run.
   - Test-first: these ARE the first tests; no production change.
   - Files: `services/reservations/src/transitions/entry-points.test.ts` (new).
   - Blocked by: 1.1
   - Dies here: none.
 
-- [ ] **1.3 No-show and staff-update rows** — no-show, PATCH → COMPLETED, PATCH time change, PATCH other-field change.
+- [x] **1.3 No-show and staff-update rows** — no-show, PATCH → COMPLETED, PATCH time change, PATCH other-field change.
   - Accept (Rows no-show, staff-updated ×3; D6, D7, D8): no-show `depositOps` = today's forfeit/reconcile exactly (`it`), no message, no job (`it`), `reservation:updated` `it.fails` (D6). COMPLETED sends `post-visit-thank-you` with venue-flag gating intact (`it`), SSE `it.fails` (D7). Time change on a **publicly booked** reservation: replacement reminder jobs at the new time `it.fails` (D8); on a **staff-created** reservation: zero jobs created (`it`, guard); no email on any staff time change (`it`, guard); SSE `it.fails`. Other-field change: SSE `it.fails`. Status + time changed together expects exactly one `reservation:updated` (`it.fails`).
   - Test-first: tests only.
   - Files: `entry-points.test.ts`.
   - Blocked by: 1.1
   - Dies here: none.
 
-- [ ] **1.4 Guest modify, hold-confirm (3 doors), create (walk-in, staff), confirm-attendance rows**
+- [x] **1.4 Guest modify, hold-confirm (3 doors), create (walk-in, staff), confirm-attendance rows**
   - Accept (Rows guest-modified, hold-confirmed ×3, created ×2, attendance-confirmed; D2, D3, D4, D5): guest modify with time change sends `booking-confirmation` AND `booking-modified` (today's quirk, `it`), jobs cancel ×2 + schedule ≤ 2 (`it`), SSE `it.fails`. Public-booking hold confirm: confirmation email + ≤ 2 reminder jobs (`it`); staff-hold and public-hold: no message, no job (`it`, D4 guard); `hold:confirmed` delivered to a live `/events` subscriber `it.fails` on all three (D5). Walk-in: `reservation:created` + `table:updated` (`it`, D3). Staff create: no message, no job (`it`, D2 guard), `reservation:created` `it.fails`. Confirm-attendance: `reservation:updated` only on PENDING → CONFIRMED (`it.fails`), and none when already CONFIRMED (`it`). Reminder timing rules (24h, 2h, skip when start is past) asserted on the public-booking door (`it`).
   - Test-first: tests only.
   - Files: `entry-points.test.ts`.
   - Blocked by: 1.1
   - Dies here: none.
 
-- [ ] **1.5 Non-transition emit sites** — floor-plan clone and lapsing-guest scan.
+- [x] **1.5 Non-transition emit sites** — floor-plan clone and lapsing-guest scan.
   - Accept (D9): cloning a floor plan through its route delivers `floor-plan:created` to a live subscriber — `it.fails`; the lapsing scan (route at `guests.ts`) delivers `guest:lapsing` — `it.fails`. No change to `guests.ts` in this PR.
   - Test-first: tests only.
   - Files: `entry-points.test.ts`.
   - Blocked by: 1.1
   - Dies here: none.
 
-- [ ] **1.6 Backlog seeds for the deferred product decisions** — append three lines to `docs/backlog.md`.
+- [x] **1.6 Backlog seeds for the deferred product decisions** — append three lines to `docs/backlog.md`.
   - Accept (ruling: D2 and D4 "each becomes a backlog seed"; architecture assumption on guest-modify double email): three well-formed `- <seed> (from: maintenance:reservation-transition-effects)` lines appended at the end, no existing line rewritten; file prettier-clean.
   - Test-first: n/a (docs).
   - Files: `docs/backlog.md`.
@@ -223,4 +227,11 @@ None that block. One clarification resolved here rather than routed back (see `a
 
 ## Notes
 
-<Deviations discovered during Implement get logged here, dated.>
+- **2026-10-04 — PR 1 (tests-first) gate output** (branch `refactor/transition-effects-pr1`, off `origin/main` `2653312ff`; run-dir docs carried on this branch):
+  - RED → GREEN, 1.1: `effects-harness.test.ts` with the harness moved aside → `Failed to resolve import "./effects-harness.js"`, `Test Files 1 failed`; restored → `Tests 5 passed (5)`.
+  - Every `it.fails` verified to fail for the RIGHT reason (temp copy with `it.fails(`→`it(`): all 16 fail on the effect assertion — 15 × `expected [] to deeply equal [ '<event>' ]` (no live event today) and D8 × `expected { …(2) } to deeply equal { …(2) }` (seeded reminders still at their old delay). No `it.fails` fails on setup or status code.
+  - `pnpm --dir services/reservations test` → `Test Files 109 passed | 4 skipped (113)`, `Tests 1732 passed | 16 expected fail | 150 skipped (1898)`.
+  - `pnpm --dir packages/jobs test` → `Tests 26 passed (26)`; `pnpm --dir packages/notifications test` → `Tests 119 passed (119)`.
+  - `pnpm lint` → `Tasks: 52 successful, 52 total`; `pnpm typecheck` → `Tasks: 52 successful, 52 total`.
+  - `pnpm regen` then `pnpm regen --check` (after committing the regenerated root and `services/reservations/` `llms.txt`/`llms-full.txt`) → `All generated artifacts are up to date.`
+  - Production diff: `git diff origin/main --stat -- 'services/reservations/src/**' ':!**/*.test.ts' ':!**/test/**'` is empty.

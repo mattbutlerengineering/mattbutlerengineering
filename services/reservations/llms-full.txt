@@ -15442,4 +15442,193 @@
     }
   </file>
   </section>
+  <section priority="medium" role="test">
+  <file path="src/test/effects-harness.ts">
+    export interface RecordedEvent {
+      type: string;
+      id?: string;
+    }
+    export interface RecordedMessage {
+      kind: string;
+      reservationId?: string;
+      guestEmail?: string;
+    }
+    export type RecordedJobOp =
+      | { op: "schedule"; jobType: string; jobId: string; delayMs: number }
+      | { op: "cancel"; jobId: string };
+    export interface RecordedDepositOp {
+      op: string;
+      args: unknown[];
+    }
+    export interface RecordedEffects {
+      events: RecordedEvent[];
+      messages: RecordedMessage[];
+      jobs: RecordedJobOp[];
+      depositOps: RecordedDepositOp[];
+    }
+    type DepositMoneyOp = "refund" | "refundPartial" | "forfeit" | "apply" | "verifyCaptureCompleted";
+    interface ScriptedDeposit {
+      id: string;
+      status: string;
+      [key: string]: unknown;
+    }
+    interface DepositRecorder {
+      ops: RecordedDepositOp[];
+      deposit: ScriptedDeposit | null;
+      results: Map<string, () => Promise<unknown>>;
+    }
+    function activeDeposits(): DepositRecorder {
+      if (!currentDeposits) {
+        throw new Error("effects-harness: createEffectsRecorder() must run before deposit calls");
+      }
+      return currentDeposits;
+    }
+    function recordDepositOp(op: string) {
+      return async (...args: unknown[]): Promise<unknown> => {
+        const recorder = activeDeposits();
+        recorder.ops.push({ op, args });
+        const scripted = recorder.results.get(op);
+        if (scripted) return scripted();
+        return { ...(recorder.deposit ?? {}), id: args[0] };
+      };
+    }
+    type DepositMethod = (...args: unknown[]) => Promise<unknown>;
+    export const recordingDepositService: Record<
+      "getByReservationId" | "getById" | DepositMoneyOp,
+      DepositMethod
+    > = {
+      getByReservationId: async () => activeDeposits().deposit,
+      getById: async () => activeDeposits().deposit,
+      refund: recordDepositOp("refund"),
+      refundPartial: recordDepositOp("refundPartial"),
+      forfeit: recordDepositOp("forfeit"),
+      apply: recordDepositOp("apply"),
+      verifyCaptureCompleted: recordDepositOp("verifyCaptureCompleted"),
+    };
+    export interface EffectsRecorder {
+      /** Normalized effects recorded so far (live arrays). */
+      effects: RecordedEffects;
+      /** Spread into `buildApp(...)`; carries every recording seam. */
+      appOptions: Pick<
+        ReservationsAppOptions,
+        "notificationPort" | "bookingNotifier" | "postVisitNotifier" | "reservationEvents"
+      >;
+      /** Reminder jobs currently scheduled, keyed by job id. */
+      scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
+      /** Put a reservation's two reminders in the store, as a public booking would. */
+      seedReminders(reservationId: string, venueId: string): void;
+      deposits: {
+        service: typeof recordingDepositService;
+        /** The deposit `getByReservationId`/`getById` return (null = no deposit). */
+        seed(deposit: ScriptedDeposit | null): void;
+        /** Script one money op's result (resolve or reject). */
+        script(op: string, result: () => Promise<unknown>): void;
+      };
+      /** Wait for fire-and-forget effects to settle. */
+      settle(): Promise<void>;
+    }
+    function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
+    }
+    function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher {
+      return new Proxy({} as NotificationDispatcher, {
+        get(_target, prop) {
+          // Only `send*` members are outbound messages. Anything else (`then`,
+          // Fastify's decorate-time `getter`/`setter` probe) must read as absent.
+          if (typeof prop !== "string" || !prop.startsWith("send")) return undefined;
+          return async (input: { reservationId?: string; guestEmail?: string } | undefined) => {
+            messages.push({
+              kind: MESSAGE_KINDS[prop] ?? `unexpected:${prop}`,
+              ...(input?.reservationId !== undefined && { reservationId: input.reservationId }),
+              ...(input?.guestEmail !== undefined && { guestEmail: input.guestEmail }),
+            });
+          };
+        },
+      });
+    }
+    function createRecordingScheduler(
+      jobs: RecordedJobOp[],
+      store: EffectsRecorder["scheduledJobs"]
+    ): NotifierScheduler {
+      return {
+        async schedule(jobType, payload, delayMs, jobId) {
+          const id = jobId ?? `${jobType}:${store.size}`;
+          jobs.push({ op: "schedule", jobType, jobId: id, delayMs });
+          store.set(id, { jobType, delayMs, payload });
+          return id;
+        },
+        // Reports whether a job was removed — a `Promise<boolean>` is assignable to
+        // today's `Promise<void>` signature, and is what PR 2's JobsPort needs.
+        async cancel(jobId: string) {
+          jobs.push({ op: "cancel", jobId });
+          return store.delete(jobId) as unknown as void;
+        },
+      };
+    }
+    export function createEffectsRecorder(): EffectsRecorder {
+      const effects: RecordedEffects = { events: [], messages: [], jobs: [], depositOps: [] };
+      const scheduledJobs: EffectsRecorder["scheduledJobs"] = new Map();
+    
+      const reservationEvents = new ReservationEventEmitter();
+      reservationEvents.on("change", (event: ReservationEvent) => {
+        if (event.type === "table-status:changed") return;
+        const data = event.data as { id?: unknown };
+        effects.events.push({
+          type: event.type,
+          ...(typeof data?.id === "string" && { id: data.id }),
+        });
+      });
+    
+      const notificationPort = createRecordingDispatcher(effects.messages);
+      const scheduler = createRecordingScheduler(effects.jobs, scheduledJobs);
+      const bookingNotifier = createBookingNotifier({
+        notificationAdapter: notificationPort,
+        scheduler,
+        getVenue: (venueId) => venueService.getById(venueId),
+      });
+      const postVisitNotifier = createPostVisitNotifier({
+        sendThankYouEmail: (input) => notificationPort.sendThankYouEmail(input),
+        updateReservationEmailStatus: async () => undefined,
+        updateGuestUnsubscribed: async () => undefined,
+      });
+    
+      const depositRecorder: DepositRecorder = {
+        ops: effects.depositOps,
+        deposit: null,
+        results: new Map(),
+      };
+      currentDeposits = depositRecorder;
+    
+      return {
+        effects,
+        appOptions: { notificationPort, bookingNotifier, postVisitNotifier, reservationEvents },
+        scheduledJobs,
+        seedReminders(reservationId, venueId) {
+          const payload: ReminderPayload = { reservationId, venueId };
+          for (const jobType of [JOB_TYPES.BOOKING_REMINDER, JOB_TYPES.DAY_OF_REMINDER]) {
+            scheduledJobs.set(reminderJobId(jobType, reservationId), {
+              jobType,
+              delayMs: 1,
+              payload,
+            });
+          }
+        },
+        deposits: {
+          service: recordingDepositService,
+          seed(deposit) {
+            depositRecorder.deposit = deposit;
+          },
+          script(op, result) {
+            depositRecorder.results.set(op, result);
+          },
+        },
+        async settle() {
+          for (let i = 0; i < 10; i++) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+        },
+      };
+    }
+  </file>
+  </section>
 </codebase>
