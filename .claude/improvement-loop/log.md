@@ -2788,3 +2788,23 @@ This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), 
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+
+## 2026-10-05 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `3526097`, merged `origin/main` `17b1edc`, `docs/backlog.md` conflict resolved by rule). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 2 due / 2 captured / 2 audited, both `hospitality` (`book/:venueSlug`, `reservations/manage`). `marketing` and `rialto-web` had nothing due; their capture runs skipped with "no routes planned". 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered.
+
+**Judge:** rubric v1, model `claude-opus-5`. Both routes judged clean (`tells: []`) on the judged tells — no agent-built face, no semantic-accessibility faults that axe missed. Note for a human: the booking page's "Date & Party" stepper label visually collides with the "Date" field label at both 1280x720 and 375x812; no rubric v1 tell covers text overlap, so it was deliberately not filed as a Finding.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, but `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage set Matt owns; ≥10 pairs needed). Logged, not retried; status re-queried and still `stale`. Rating proceeded anyway per the unclearable-stale rule: 4 pairs rated against the medusa references, recorded. Agent-built findings stay suppressed while the stamp is `stale` — intended.
+
+**Filing:** 3 mechanical findings, all recurrences against still-open issues → 3 `skip`, 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. Issue states fetched for all 16 ledger issues (all open); the `ui-quality` label enumeration returned 16 with `hasNextPage: false`, exactly matching the ledger — no orphan labelled issues, no escalation. Checkpoint commit pushed to `ui-quality/ledger`.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate` (every finding was a `skip`).
+
+**P1 SLA:** 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), 0 past the 7-day SLA (oldest 3 days). 0 escalations.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved), no stopped filing, no script exit 2 other than the expected unlabelled-calibration-set one above.
