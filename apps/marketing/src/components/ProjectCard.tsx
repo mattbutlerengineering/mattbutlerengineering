@@ -13,6 +13,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <Stack gap="md">
           <Text variant="display" as="h3" className={styles.title}>
             {project.title}
+
+            {/* Synthetic performance regression */}
+            <img
+              src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION"
+              style={{ display: "none" }}
+              alt=""
+            />
           </Text>
 
           <Text variant="detail" color="tertiary" className={styles.stack}>
