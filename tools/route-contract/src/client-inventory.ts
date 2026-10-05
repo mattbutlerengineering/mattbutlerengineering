@@ -240,7 +240,15 @@ export async function driveClient(): Promise<ClientInventory> {
   let pendingDefinition: AnyEndpointDefinition | undefined;
   ApiClient.prototype.call = function (this: ApiClient, ...args: Parameters<typeof realCall>) {
     pendingDefinition = args[0];
-    return realCall.apply(this, args);
+    try {
+      // `request` runs synchronously up to its first await inside this
+      // call, so the capture has already been recorded by the time it
+      // returns; the reset only stops a `call` that threw before reaching
+      // `request` from leaking its definition into the next request.
+      return realCall.apply(this, args);
+    } finally {
+      pendingDefinition = undefined;
+    }
   } as typeof realCall;
   ApiClient.prototype.request = function (
     this: ApiClient,
