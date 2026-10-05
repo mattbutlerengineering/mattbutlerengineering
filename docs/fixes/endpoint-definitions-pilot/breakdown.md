@@ -139,7 +139,7 @@ preHandlers.
   - Test first: n/a — this is the evidence assembly over 3.3's snapshot and the entity baselines.
   - Files: none beyond 3.3.
   - Blocked by: 3.5
-- [ ] **3.7 Last commit: delete `packages/api-client/src/guests.test.ts`** — remove the shallow-module tests, stating where coverage moved.
+- [x] **3.7 Last commit: delete `packages/api-client/src/guests.test.ts`** — remove the shallow-module tests, stating where coverage moved.
   - Accept: file deleted in full (17 tests) in the final commit of PR 3; commit message states: 12 request-shape/unwrap assertions (lines 55-202) → route-contract method+path join + body/query parity; 3 "schema validation" tests (220-241) → `ApiClient.call` unit tests (1.4) + response parity; 2 "error handling" tests (204-218) → existing `client.test.ts` (404 categorization, network retry). Coverage for `packages/api-client` stays ≥ 80%.
   - Test first: before deleting, temporarily break one facade method (e.g. wrong body key) and confirm route-contract parity fails — proving the moved coverage actually catches what the deleted tests caught; revert.
   - Files: `packages/api-client/src/guests.test.ts` (deleted).
