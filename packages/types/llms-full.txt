@@ -1682,6 +1682,45 @@
       return { breaking, nonBreaking };
     }
   </file>
+  <file path="src/sse-events.ts">
+    export interface SsePayloadMap {
+      "reservation:created": Reservation;
+      "reservation:updated": Reservation;
+      "reservation:cancelled": Reservation;
+      "hold:created": ReservationHold;
+      "hold:released": ReservationHold;
+      "hold:confirmed": Reservation;
+      "table:updated": Table;
+      "floor-plan:created": FloorPlan;
+      "guest:lapsing": LapsingGuest[];
+      "table-status:changed": TableStatusDelta[];
+    }
+    export type SseEventName = keyof SsePayloadMap;
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export interface SseEventDefinition {
+      /** Query-key roots to invalidate when this event arrives (may be empty). */
+      readonly invalidates: readonly SseQueryKey[];
+    }
+    export const SSE_EVENT_CATALOG = {
+      "reservation:created": { invalidates: ["reservations"] },
+      "reservation:updated": { invalidates: ["reservations"] },
+      "reservation:cancelled": { invalidates: ["reservations"] },
+      "hold:created": { invalidates: [] },
+      "hold:released": { invalidates: [] },
+      "hold:confirmed": { invalidates: ["reservations"] },
+      "table:updated": { invalidates: ["tables"] },
+      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "guest:lapsing": { invalidates: ["lapsingGuests"] },
+      "table-status:changed": { invalidates: [] },
+    } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
+    export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
+    export interface SseEvent {
+      type: SseEventName;
+      venueId: string;
+      timestamp: string;
+      data: SsePayloadMap[SseEventName];
+    }
+  </file>
   <file path="src/table-status.ts">
     export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
     export const RESERVED_SOON_WINDOW_MINUTES = 30;

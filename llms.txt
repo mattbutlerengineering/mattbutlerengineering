@@ -3675,6 +3675,11 @@
       ): TParams | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
+    <item priority="high">
+      export const SSE_INVALIDATION_QUERY_KEYS: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
@@ -8240,15 +8245,10 @@
   </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing" | "table-status:changed";
+      type ReservationEventType = SseEventName;
     </item>
     <item priority="low">
-      interface ReservationEvent {
-        type: ReservationEventType;
-        venueId: string;
-        timestamp: string;
-        data: Reservation | Table | ReservationHold | FloorPlan | Lapsi...;
-      }
+      type ReservationEvent = SseEvent;
     </item>
     <item priority="high">
       class ReservationEventEmitter {
@@ -15272,6 +15272,42 @@
         baseline: JsonSchema | undefined,
         current: JsonSchema | undefined
       ): { breaking: string[]; nonBreaking: string[] } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/types/src/sse-events.ts">
+    <item priority="low">
+      interface SsePayloadMap {
+        "reservation:created": Reservation;
+        "reservation:updated": Reservation;
+        "reservation:cancelled": Reservation;
+        "hold:created": ReservationHold;
+        "hold:released": ReservationHold;
+      }
+    </item>
+    <item priority="low">
+      type SseEventName = keyof SsePayloadMap;
+    </item>
+    <item priority="low">
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    </item>
+    <item priority="low">
+      interface SseEventDefinition {
+        invalidates: readonly SseQueryKey[];
+      }
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_CATALOG: unknown;
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_NAMES: unknown;
+    </item>
+    <item priority="low">
+      interface SseEvent {
+        type: SseEventName;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[SseEventName];
+      }
     </item>
   </file>
   <file path="packages/types/src/table-status.ts">

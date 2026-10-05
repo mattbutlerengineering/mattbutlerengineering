@@ -2094,6 +2094,15 @@
       return rest as unknown as TParams;
     }
   </file>
+  <file path="src/hooks/sse-query-keys.ts">
+    export const SSE_INVALIDATION_QUERY_KEYS = [
+      RESERVATIONS_QUERY_KEY,
+      TABLES_QUERY_KEY,
+      FLOOR_PLANS_QUERY_KEY,
+      FLOOR_PLAN_QUERY_KEY,
+      LAPSING_GUESTS_QUERY_KEY,
+    ] as const satisfies readonly SseQueryKey[];
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];

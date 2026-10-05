@@ -12677,6 +12677,15 @@
       return rest as unknown as TParams;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
+    export const SSE_INVALIDATION_QUERY_KEYS = [
+      RESERVATIONS_QUERY_KEY,
+      TABLES_QUERY_KEY,
+      FLOOR_PLANS_QUERY_KEY,
+      FLOOR_PLAN_QUERY_KEY,
+      LAPSING_GUESTS_QUERY_KEY,
+    ] as const satisfies readonly SseQueryKey[];
+  </file>
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
@@ -33477,23 +33486,8 @@
     };
   </file>
   <file path="services/reservations/src/services/events.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated"
-      | "floor-plan:created"
-      | "guest:lapsing"
-      | "table-status:changed";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
-    }
+    export type ReservationEventType = SseEventName;
+    export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;
     
@@ -56425,6 +56419,45 @@
       }
     
       return { breaking, nonBreaking };
+    }
+  </file>
+  <file path="packages/types/src/sse-events.ts">
+    export interface SsePayloadMap {
+      "reservation:created": Reservation;
+      "reservation:updated": Reservation;
+      "reservation:cancelled": Reservation;
+      "hold:created": ReservationHold;
+      "hold:released": ReservationHold;
+      "hold:confirmed": Reservation;
+      "table:updated": Table;
+      "floor-plan:created": FloorPlan;
+      "guest:lapsing": LapsingGuest[];
+      "table-status:changed": TableStatusDelta[];
+    }
+    export type SseEventName = keyof SsePayloadMap;
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export interface SseEventDefinition {
+      /** Query-key roots to invalidate when this event arrives (may be empty). */
+      readonly invalidates: readonly SseQueryKey[];
+    }
+    export const SSE_EVENT_CATALOG = {
+      "reservation:created": { invalidates: ["reservations"] },
+      "reservation:updated": { invalidates: ["reservations"] },
+      "reservation:cancelled": { invalidates: ["reservations"] },
+      "hold:created": { invalidates: [] },
+      "hold:released": { invalidates: [] },
+      "hold:confirmed": { invalidates: ["reservations"] },
+      "table:updated": { invalidates: ["tables"] },
+      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "guest:lapsing": { invalidates: ["lapsingGuests"] },
+      "table-status:changed": { invalidates: [] },
+    } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
+    export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
+    export interface SseEvent {
+      type: SseEventName;
+      venueId: string;
+      timestamp: string;
+      data: SsePayloadMap[SseEventName];
     }
   </file>
   <file path="packages/types/src/table-status.ts">

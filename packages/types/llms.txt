@@ -1131,6 +1131,42 @@
       ): { breaking: string[]; nonBreaking: string[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/sse-events.ts">
+    <item priority="low">
+      interface SsePayloadMap {
+        "reservation:created": Reservation;
+        "reservation:updated": Reservation;
+        "reservation:cancelled": Reservation;
+        "hold:created": ReservationHold;
+        "hold:released": ReservationHold;
+      }
+    </item>
+    <item priority="low">
+      type SseEventName = keyof SsePayloadMap;
+    </item>
+    <item priority="low">
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    </item>
+    <item priority="low">
+      interface SseEventDefinition {
+        invalidates: readonly SseQueryKey[];
+      }
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_CATALOG: unknown;
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_NAMES: unknown;
+    </item>
+    <item priority="low">
+      interface SseEvent {
+        type: SseEventName;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[SseEventName];
+      }
+    </item>
+  </file>
   <file path="src/table-status.ts">
     <item priority="low">
       type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";

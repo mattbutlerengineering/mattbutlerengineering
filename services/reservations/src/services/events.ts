@@ -6,26 +6,15 @@ import type {
   FloorPlan,
   LapsingGuest,
   TableStatusDelta,
+  SseEvent,
+  SseEventName,
 } from "@mbe/types";
 
-export type ReservationEventType =
-  | "reservation:created"
-  | "reservation:updated"
-  | "reservation:cancelled"
-  | "hold:created"
-  | "hold:released"
-  | "hold:confirmed"
-  | "table:updated"
-  | "floor-plan:created"
-  | "guest:lapsing"
-  | "table-status:changed";
+/** Event names are owned by the shared catalog in @mbe/types (SSE_EVENT_CATALOG). */
+export type ReservationEventType = SseEventName;
 
-export interface ReservationEvent {
-  type: ReservationEventType;
-  venueId: string;
-  timestamp: string;
-  data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
-}
+/** Wire envelope, owned by the shared catalog in @mbe/types. */
+export type ReservationEvent = SseEvent;
 
 /** Maximum concurrent SSE connections before Node emits a warning. */
 const MAX_SSE_LISTENERS = 100;
