@@ -48960,8 +48960,8 @@
       /**
        * Execute one endpoint definition (`@mbe/types` `defineEndpoint`):
        * interpolates `:params` (URL-encoded), appends `query` via
-       * {@link buildQueryString}, serializes `body` (`{}` for a body-less
-       * POST/PATCH/PUT), takes the method — and therefore the retry policy —
+       * {@link buildQueryString}, serializes a declared `body` on any method
+       * (`{}` for a body-less POST/PATCH/PUT), takes the method — and therefore the retry policy —
        * from the definition, and validates the success body with the
        * definition's own schema. Returns the full wire body (no `.data` unwrap);
        * `undefined` for a 204.
@@ -48977,9 +48977,13 @@
           body?: unknown;
         };
         const path = `${interpolatePath(def.path, params)}${query ? buildQueryString(query) : ""}`;
-        const options: RequestOptions = BODY_METHODS.has(def.method)
-          ? { method: def.method, body: JSON.stringify(def.body ? body : {}) }
-          : { method: def.method };
+        // A declared body is sent on any method (a DELETE can carry one); a
+        // body-less POST/PATCH/PUT still sends `{}`.
+        const options: RequestOptions = def.body
+          ? { method: def.method, body: JSON.stringify(body) }
+          : BODY_METHODS.has(def.method)
+            ? { method: def.method, body: "{}" }
+            : { method: def.method };
         return this.request(
           path,
           options,
