@@ -555,6 +555,20 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       },
     });
     expectOk(res, "create hold");
+    const crossVenueTable = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/holds",
+      payload: {
+        venueId: ctx.venueA.id,
+        date: "2026-10-03",
+        time: "2026-10-03T18:00:00Z",
+        partySize: 2,
+        tableId: ctx.tableB,
+      },
+    });
+    expect(crossVenueTable.statusCode, `venue A + venue-B table: ${crossVenueTable.body}`).toBe(
+      403
+    );
   }),
   "GET /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
@@ -1113,6 +1127,15 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "member venue B"
     );
+    const crossVenueTable = await asMember(ctx, {
+      method: "POST",
+      url: "/api/v1/reservations/walk-in",
+      payload: { venueId: ctx.venueA.id, partySize: 2, tableId: ctx.tableB },
+    });
+    expect(
+      crossVenueTable.statusCode,
+      `member venue A + venue-B table: ${crossVenueTable.body}`
+    ).toBe(403);
   }),
   // Reservation `/:id` routes authorize owner-or-admin
   // (`requireReservationOwnerOrAdmin`): admin always short-circuits past the
@@ -1234,6 +1257,17 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "member venue B"
     );
+    // Membership of the body's venue is not enough: the table must be that
+    // venue's too, refused before any conflict check could answer for venue B.
+    const crossVenueTable = await asMember(ctx, {
+      method: "POST",
+      url: "/api/v1/reservations",
+      payload: bodyFor(ctx.venueA.id, ctx.tableB),
+    });
+    expect(
+      crossVenueTable.statusCode,
+      `member venue A + venue-B table: ${crossVenueTable.body}`
+    ).toBe(403);
   }),
 };
 

@@ -9,11 +9,13 @@ import type {
 } from "@mbe/types";
 import {
   createProblemDetails,
+  titleForStatus,
   createHoldBodyJsonSchema,
   confirmHoldBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { requireAuth } from "@mbe/auth/fastify";
+import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { holdService } from "../services/hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -136,6 +138,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           400: { $ref: "Error#" },
+          403: { $ref: "Error#" },
           409: { $ref: "Error#" },
         },
       },
@@ -143,6 +146,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const sessionId = getSessionId(request);
       const result = await holdService.create(request.body, sessionId);
+
+      if (result.tableNotInVenue) {
+        return reply
+          .code(403)
+          .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+      }
 
       if (!result.success) {
         const statusCode = result.error?.includes("not found") ? 404 : 409;
