@@ -13,6 +13,7 @@ import {
   useTableStatuses,
 } from "./useSSESync.js";
 import type { UseTableStatusesResult } from "./useSSESync.js";
+import { SSE_EVENT_NAMES } from "@mbe/types";
 
 /* ── Fake fetchEventSource ─────────────────────────────────────────
  *
@@ -962,5 +963,80 @@ describe("useTableStatuses — offline cache (#4187)", () => {
     expect(result.current.tableStatuses.statuses.get("t3")).toBe("occupied");
     expect(result.current.tableStatuses.statuses.get("t4")).toBe("needs-bussing");
     expect(result.current.tableStatuses.statuses.get("t5")).toBe("seated");
+  });
+});
+
+/* ── Catalog contract (sse-event-catalog) ──────────────────────────
+ *
+ * The SSE vocabulary lives in @mbe/types' SSE_EVENT_CATALOG. These tests
+ * drive useSSESync through the real SseClient with every catalog name and
+ * pin the per-event invalidation set, so client/server drift is a failing
+ * test rather than a silent dropped event.
+ */
+
+function catalogPayload(type: string): Record<string, unknown> {
+  const data =
+    type === "guest:lapsing" || type === "table-status:changed"
+      ? []
+      : { id: "x-1", guestName: "Test", startTime: "2026-01-01T18:00:00Z", venueId: "v1" };
+  return { type, venueId: "v1", timestamp: "2026-01-01T00:00:00Z", data };
+}
+
+describe("useSSESync — every catalog event is subscribed and handled", () => {
+  it("forwards every SSE_EVENT_NAMES entry to feed listeners", () => {
+    const { result } = renderHook(
+      () => {
+        useSSESync();
+        return useSSEEventFeed({ maxItems: 50 });
+      },
+      { wrapper: makeWrapper() }
+    );
+
+    act(() => {
+      void simulateOpen();
+    });
+
+    for (const name of SSE_EVENT_NAMES) {
+      act(() => {
+        simulateEvent(name, catalogPayload(name));
+      });
+    }
+
+    const received = result.current.map((event) => event.type).sort();
+    expect(received).toEqual([...SSE_EVENT_NAMES].sort());
+  });
+});
+
+describe("useSSESync — per-event invalidation contract", () => {
+  const EXPECTED_INVALIDATIONS: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ["reservation:created", ["reservations"]],
+    ["reservation:updated", ["reservations"]],
+    ["reservation:cancelled", ["reservations"]],
+    ["hold:created", []],
+    ["hold:released", []],
+    ["hold:confirmed", ["reservations"]],
+    ["table:updated", ["tables"]],
+    ["floor-plan:created", ["floorPlan", "floorPlans"]],
+    ["guest:lapsing", ["lapsingGuests"]],
+    ["table-status:changed", []],
+  ];
+
+  it.each(EXPECTED_INVALIDATIONS)("%s invalidates exactly %j", (name, expectedKeys) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      void simulateOpen();
+    });
+    act(() => {
+      simulateEvent(name, catalogPayload(name));
+    });
+
+    const invalidated = invalidateSpy.mock.calls
+      .map(([filters]) => (filters?.queryKey as readonly unknown[] | undefined)?.[0])
+      .sort();
+    expect(invalidated).toEqual([...expectedKeys].sort());
   });
 });
