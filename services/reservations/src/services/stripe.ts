@@ -22,7 +22,7 @@ export class StripeOperationError extends Error {
 }
 
 /** Stripe error types that are transient and safe to retry. */
-const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
+export const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
 
 /**
  * Wraps a Stripe error in StripeOperationError with retriability metadata.
