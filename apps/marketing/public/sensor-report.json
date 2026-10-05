@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-05T01:47:40.910Z",
+  "generated_at": "2026-10-05T18:07:35.286Z",
   "period": {
     "start": "2026-09-28",
     "end": "2026-10-05"
@@ -18,6 +18,14 @@
     "prMetrics": {
       "available": true,
       "latest": {
+        "date": "2026-10-05",
+        "window_days": 30,
+        "total_ai_prs": 123,
+        "merged": 114,
+        "rejected": 9,
+        "acceptance_rate": 0.93
+      },
+      "previous": {
         "date": "2026-09-28",
         "window_days": 30,
         "total_ai_prs": 150,
@@ -25,15 +33,7 @@
         "rejected": 5,
         "acceptance_rate": 0.97
       },
-      "previous": {
-        "date": "2026-09-21",
-        "window_days": 30,
-        "total_ai_prs": 172,
-        "merged": 170,
-        "rejected": 2,
-        "acceptance_rate": 0.99
-      },
-      "entry_count": 11
+      "entry_count": 12
     },
     "metricsFreshness": {
       "available": true,
@@ -42,7 +42,7 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.41,
+          "age_days": 1.09,
           "latest": "2026-10-04T15:53:03.183Z",
           "max_age_days": 3
         }
@@ -73,39 +73,32 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 105842339,
-      "output_tokens": 162524,
-      "cache_creation_tokens": 1526034,
-      "cache_hit_rate": 0.9858,
+      "cache_read_tokens": 1058301,
+      "output_tokens": 2009,
+      "cache_creation_tokens": 85175,
+      "cache_hit_rate": 0.9255,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1031,
-          "output_tokens": 161881,
-          "cache_read_tokens": 105661546,
-          "cache_creation_tokens": 1479563
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 44,
-          "output_tokens": 643,
-          "cache_read_tokens": 180793,
-          "cache_creation_tokens": 46471
+          "input_tokens": 18,
+          "output_tokens": 2009,
+          "cache_read_tokens": 1058301,
+          "cache_creation_tokens": 85175
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 21,
+      "completed": 30,
+      "passed": 20,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "conclusion": "",
-        "createdAt": "2026-10-05T01:47:06Z",
-        "name": "Push on main",
-        "status": "in_progress"
+        "conclusion": "success",
+        "createdAt": "2026-10-05T17:53:45Z",
+        "name": "Auto-Merge Policy",
+        "status": "completed"
       }
     },
     "lighthouse": {
@@ -123,21 +116,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 13,
-      "logs_7d": 13,
-      "total_commits_7d": 158,
-      "unique_branches_7d": 3,
-      "branches_7d": [
-        "metrics/queue-telemetry-2026-10-05",
-        "main",
-        "metrics/progress-tracker-2026-10-05"
-      ]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.449,
-      "total_lines_added_7d": 47477,
-      "lines_churned_7d": 21317,
+      "churn_rate": 0.006,
+      "total_lines_added_7d": 701113,
+      "lines_churned_7d": 3954,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -149,15 +138,11 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 913548,
-      "window_shas": 48
+      "total_runs": 1812173,
+      "window_shas": 55
     },
     "e2eStability": {
-      "available": true,
-      "consecutive_failures": 8,
-      "total_runs": 12,
-      "total_non_frontend_runs": 11,
-      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
+      "available": false
     },
     "queueEfficiency": {
       "available": false,
@@ -175,20 +160,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "codeChurn",
-      "metric": "churn_rate",
-      "current": 0.449,
-      "previous": 0.002,
-      "delta": 0.447,
-      "severity": "medium"
-    }
-  ],
+  "regressions": [],
   "summary": {
-    "sensors_available": 10,
+    "sensors_available": 9,
     "sensors_total": 17,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }
