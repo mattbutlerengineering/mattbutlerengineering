@@ -31,27 +31,6 @@ vi.mock("../services/database.js", async () => {
   });
 });
 
-const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({
-  mockPaymentIntents: {
-    create: vi.fn(),
-    capture: vi.fn(),
-    cancel: vi.fn(),
-  },
-  mockCustomers: {
-    create: vi.fn(),
-  },
-}));
-
-vi.mock("stripe", () => {
-  class MockStripe {
-    paymentIntents = mockPaymentIntents;
-    customers = mockCustomers;
-    webhooks = { constructEvent: vi.fn() };
-    constructor(_key: string) {}
-  }
-  return { default: MockStripe };
-});
-
 // Mock auth so we don't need real JWT
 vi.mock("@mbe/auth/fastify", () => ({
   requireAuth: vi.fn(async (request: { user?: unknown }) => {
@@ -100,6 +79,11 @@ vi.mock("@mbe/auth/fastify", () => ({
 
 import { requireAuth } from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
+import {
+  createInMemoryPayments,
+  type InMemoryPayments,
+  type PaymentsOp,
+} from "../transitions/in-memory.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -135,9 +119,14 @@ const DEPOSITS_URL = "/api/v1/deposits";
 const depositUrl = (id: string, action?: string): string =>
   action ? `${DEPOSITS_URL}/${id}/${action}` : `${DEPOSITS_URL}/${id}`;
 
+/** In-memory payments injected as `buildApp({ payments })` — no `vi.mock("stripe")`. */
+let payments: InMemoryPayments;
+const opCalls = (op: PaymentsOp) => payments.calls.filter((call) => call.op === op);
+
 describe("Deposit API routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    payments = createInMemoryPayments();
     // ADR-026 venue scoping: every deposit route resolves its venue through
     // `app_resolve_venue_id`. Default to a resolvable venue so the existing
     // specs exercise the happy path; the fail-closed specs override it.
@@ -149,7 +138,7 @@ describe("Deposit API routes", () => {
       const mockDeposit = makeDeposit();
       mockDepositDb.create.mockResolvedValueOnce(mockDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -170,7 +159,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 if reservationId is missing", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -187,7 +176,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 if amountCents is missing", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -212,7 +201,7 @@ describe("Deposit API routes", () => {
       // (ADR-026 §3.3 item 6 / #5369 PR 7).
       mockDepositDb.findUnique.mockResolvedValue(mockDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -230,7 +219,7 @@ describe("Deposit API routes", () => {
     it("returns 404 if deposit not found", async () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(null);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -249,7 +238,7 @@ describe("Deposit API routes", () => {
       const mockDeposit = makeDeposit();
       mockDepositDb.findUnique.mockResolvedValueOnce(mockDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -270,7 +259,7 @@ describe("Deposit API routes", () => {
     it("returns 200 with null data when the reservation has no deposit yet", async () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(null);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -286,7 +275,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 when reservationId is missing", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -302,7 +291,7 @@ describe("Deposit API routes", () => {
     it("returns 404 when the reservation does not exist", async () => {
       mockQueryRaw.mockResolvedValueOnce([{ app_resolve_venue_id: null }]);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -332,7 +321,7 @@ describe("Deposit API routes", () => {
         };
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -352,7 +341,7 @@ describe("Deposit API routes", () => {
         return makeDeposit();
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -373,7 +362,7 @@ describe("Deposit API routes", () => {
       const depositB = makeDeposit({ id: "dep-b", reservationId: "res-456" });
       mockDepositDb.findMany.mockResolvedValueOnce([depositA, depositB]);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -393,7 +382,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 when neither reservationId nor venueId+date is supplied", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -408,7 +397,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 when venueId is supplied without date", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -423,7 +412,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 400 when date is supplied without venueId", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -453,7 +442,7 @@ describe("Deposit API routes", () => {
         };
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -473,7 +462,7 @@ describe("Deposit API routes", () => {
         return [makeDeposit()];
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -503,12 +492,12 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
         .mockResolvedValueOnce(appliedDeposit); // post-CAS fetch
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPaymentIntents.capture.mockResolvedValueOnce({
+      payments.respond("capturePaymentIntent", () => ({
         id: "pi_test_123",
         status: "succeeded",
-      });
+      }));
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -526,7 +515,7 @@ describe("Deposit API routes", () => {
     it("returns 404 if deposit not found", async () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(null);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -546,7 +535,7 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(pendingDeposit)
         .mockResolvedValueOnce(pendingDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -574,12 +563,12 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
         .mockResolvedValueOnce(refundedDeposit); // post-CAS fetch
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPaymentIntents.cancel.mockResolvedValueOnce({
+      payments.respond("cancelPaymentIntent", () => ({
         id: "pi_test_123",
         status: "canceled",
-      });
+      }));
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -600,7 +589,7 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(appliedDeposit)
         .mockResolvedValueOnce(appliedDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -628,12 +617,12 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
         .mockResolvedValueOnce(forfeitedDeposit); // post-CAS fetch
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPaymentIntents.capture.mockResolvedValueOnce({
+      payments.respond("capturePaymentIntent", () => ({
         id: "pi_test_123",
         status: "succeeded",
-      });
+      }));
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -665,12 +654,12 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
         .mockResolvedValueOnce(forfeitedDeposit); // post-CAS fetch
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
-      mockPaymentIntents.capture.mockResolvedValueOnce({
+      payments.respond("capturePaymentIntent", () => ({
         id: "pi_test_123",
         status: "succeeded",
-      });
+      }));
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -694,7 +683,7 @@ describe("Deposit API routes", () => {
         .mockResolvedValueOnce(pendingDeposit)
         .mockResolvedValueOnce(pendingDeposit);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -727,7 +716,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 403 for POST /api/v1/deposits as non-admin", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -742,7 +731,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 403 for GET /api/v1/deposits/:id as non-admin", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -756,7 +745,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 403 for POST /api/v1/deposits/:id/capture as non-admin", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -770,7 +759,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 403 for POST /api/v1/deposits/:id/refund as non-admin", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -784,7 +773,7 @@ describe("Deposit API routes", () => {
     });
 
     it("returns 403 for POST /api/v1/deposits/:id/forfeit as non-admin", async () => {
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -819,7 +808,7 @@ describe("Deposit API routes", () => {
         return makeDeposit();
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -844,7 +833,7 @@ describe("Deposit API routes", () => {
         return makeDeposit();
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -862,9 +851,9 @@ describe("Deposit API routes", () => {
     // `app.venue_id` scoping active — the transition's compare-and-swap write
     // (the money-adjacent statement the RLS policy governs) sees the venue.
     it.each([
-      ["capture", "applied", mockPaymentIntents.capture],
-      ["refund", "refunded", mockPaymentIntents.cancel],
-      ["forfeit", "forfeited", mockPaymentIntents.capture],
+      ["capture", "applied", "capturePaymentIntent"],
+      ["refund", "refunded", "cancelPaymentIntent"],
+      ["forfeit", "forfeited", "capturePaymentIntent"],
     ] as const)(
       "%s succeeds and writes inside the resolved venue context",
       async (action, expectedStatus, stripeCall) => {
@@ -884,9 +873,10 @@ describe("Deposit API routes", () => {
           observed.current = getCurrentVenueId();
           return { count: 1 };
         });
-        stripeCall.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+        // Either op resolves `{ id, status }`; the union of their signatures needs the cast.
+        payments.respond(stripeCall, ((id: string) => ({ id, status: "succeeded" })) as never);
 
-        const app = await buildApp({ logger: false });
+        const app = await buildApp({ logger: false, payments });
         await app.ready();
 
         const response = await app.inject({
@@ -900,7 +890,7 @@ describe("Deposit API routes", () => {
         expect(body.data.status).toBe(expectedStatus);
         expect(observed.current).toBe(VENUE_ID);
         // The Stripe call still fires, unchanged, with its idempotency key.
-        expect(stripeCall).toHaveBeenCalledTimes(1);
+        expect(opCalls(stripeCall)).toHaveLength(1);
         await app.close();
       }
     );
@@ -908,7 +898,7 @@ describe("Deposit API routes", () => {
     it("POST / rejects a reservation that does not exist, without creating a deposit", async () => {
       mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -926,7 +916,7 @@ describe("Deposit API routes", () => {
     it("POST / rejects a reservation with no venue (never treated as venue-less)", async () => {
       mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -947,7 +937,7 @@ describe("Deposit API routes", () => {
       // depositService.getById is never even reached.
       mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -964,9 +954,9 @@ describe("Deposit API routes", () => {
     // Fail closed on a PAYMENT surface: an unresolvable venue must stop the
     // transition before any money moves — no CAS write, no Stripe call.
     it.each([
-      ["capture", mockPaymentIntents.capture],
-      ["refund", mockPaymentIntents.cancel],
-      ["forfeit", mockPaymentIntents.capture],
+      ["capture", "capturePaymentIntent"],
+      ["refund", "cancelPaymentIntent"],
+      ["forfeit", "capturePaymentIntent"],
     ] as const)(
       "%s rejects an unresolvable venue before any money moves",
       async (action, stripeCall) => {
@@ -975,7 +965,7 @@ describe("Deposit API routes", () => {
         // read of the deposit happens either.
         mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
 
-        const app = await buildApp({ logger: false });
+        const app = await buildApp({ logger: false, payments });
         await app.ready();
 
         const response = await app.inject({
@@ -987,7 +977,7 @@ describe("Deposit API routes", () => {
         expect(response.statusCode).toBe(404);
         expect(mockDepositDb.findUnique).not.toHaveBeenCalled();
         expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
-        expect(stripeCall).not.toHaveBeenCalled();
+        expect(opCalls(stripeCall)).toEqual([]);
         await app.close();
       }
     );
