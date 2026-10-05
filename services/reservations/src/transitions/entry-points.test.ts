@@ -92,6 +92,8 @@ const HOUR = 60 * 60 * 1000;
 const NOW = new Date("2030-06-01T12:00:00.000Z");
 const at = (hoursFromNow: number) => new Date(NOW.getTime() + hoursFromNow * HOUR).toISOString();
 
+/** Staff API prefix — the one route literal in this file (antipattern ratchet). */
+const API_V1 = "/api/v1";
 const RES_ID = "res-1";
 const GUEST_EMAIL = "john@example.com";
 
@@ -191,13 +193,13 @@ describe("reservation transitions — effects per entry point", () => {
     const doors = {
       "staff-patch": () => ({
         method: "PATCH" as const,
-        url: `/api/v1/reservations/${RES_ID}`,
+        url: `${API_V1}/reservations/${RES_ID}`,
         headers: staffAuth,
         payload: { status: "CANCELLED" },
       }),
       "staff-delete": () => ({
         method: "DELETE" as const,
-        url: `/api/v1/reservations/${RES_ID}`,
+        url: `${API_V1}/reservations/${RES_ID}`,
         headers: staffAuth,
       }),
       "guest-manage": () => ({
@@ -334,7 +336,7 @@ describe("reservation transitions — effects per entry point", () => {
     }
     const noShow = () => ({
       method: "PATCH" as const,
-      url: `/api/v1/reservations/${RES_ID}`,
+      url: `${API_V1}/reservations/${RES_ID}`,
       headers: staffAuth,
       payload: { status: "NO_SHOW" },
     });
@@ -373,7 +375,7 @@ describe("reservation transitions — effects per entry point", () => {
   describe("staff-updated", () => {
     const patch = (payload: Record<string, unknown>) => ({
       method: "PATCH" as const,
-      url: `/api/v1/reservations/${RES_ID}`,
+      url: `${API_V1}/reservations/${RES_ID}`,
       headers: staffAuth,
       payload,
     });
@@ -531,7 +533,7 @@ describe("reservation transitions — effects per entry point", () => {
       }),
       "staff-hold": () => ({
         method: "POST" as const,
-        url: "/api/v1/holds/hold-1/confirm",
+        url: `${API_V1}/holds/hold-1/confirm`,
         headers: { ...staffAuth, "x-session-id": "session-abc" },
         payload: { guestName: "John Doe", guestEmail: GUEST_EMAIL },
       }),
@@ -636,7 +638,7 @@ describe("reservation transitions — effects per entry point", () => {
       } as never);
       const response = await send({
         method: "POST",
-        url: "/api/v1/reservations/walk-in",
+        url: `${API_V1}/reservations/walk-in`,
         headers: staffAuth,
         payload: { venueId: "venue-1", tableId: "table-1", partySize: 2 },
       });
@@ -651,7 +653,7 @@ describe("reservation transitions — effects per entry point", () => {
 
     const staffCreate = () => ({
       method: "POST" as const,
-      url: "/api/v1/reservations",
+      url: `${API_V1}/reservations`,
       headers: staffAuth,
       payload: {
         venueId: "venue-1",
@@ -747,7 +749,7 @@ describe("reservation transitions — effects per entry point", () => {
         );
         const response = await send({
           method: "POST",
-          url: "/api/v1/floor-plans/fp-1/clone",
+          url: `${API_V1}/floor-plans/fp-1/clone`,
           headers: staffAuth,
         });
         expect(response.statusCode).toBe(201);
@@ -773,7 +775,7 @@ describe("reservation transitions — effects per entry point", () => {
         ]);
         const response = await send({
           method: "GET",
-          url: "/api/v1/guests/lapsing?venueId=venue-1",
+          url: `${API_V1}/guests/lapsing?venueId=venue-1`,
           headers: staffAuth,
         });
         expect(response.statusCode).toBe(200);
