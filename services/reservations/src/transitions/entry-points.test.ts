@@ -243,6 +243,22 @@ describe("reservation transitions — effects per entry point", () => {
       expect(rec.effects.jobs).toEqual(reminderCancels);
     });
 
+    it.each(["staff-patch", "staff-delete"] as const)(
+      "%s (admin) inside the late-cancel window still refunds in full (staff waive the fee)",
+      async (door) => {
+        arrangeCancel();
+        vi.mocked(reservationService.getById).mockResolvedValue(
+          makeReservation({ startTime: at(5), endTime: at(7) })
+        );
+        vi.mocked(venueService.getPolicyById).mockResolvedValue(
+          makeVenuePolicy({ freeCancellationHours: 24, lateCancellationFeePercent: 50 })
+        );
+        const response = await send(doors[door]());
+        expect(response.statusCode).toBe(200);
+        expect(rec.effects.depositOps).toEqual([{ op: "refund", args: ["dep-1"] }]);
+      }
+    );
+
     it("staff-patch by the non-admin OWNER: guest fee policy applies (partial refund)", async () => {
       asGuestOwner();
       arrangeCancel();
@@ -278,7 +294,8 @@ describe("reservation transitions — effects per entry point", () => {
       vi.mocked(venueService.getPolicyById).mockResolvedValue(
         makeVenuePolicy({ freeCancellationHours: 24, lateCancellationFeePercent: 50 })
       );
-      await send(doors["guest-manage"]());
+      const response = await send(doors["guest-manage"]());
+      expect(response.statusCode).toBe(200);
       expect(rec.effects.depositOps).toEqual([{ op: "refund", args: ["dep-1"] }]);
     });
 
@@ -298,6 +315,23 @@ describe("reservation transitions — effects per entry point", () => {
       arrangeCancel();
       await send(doors["guest-manage"]());
       expect(eventTypes()).toEqual(["reservation:cancelled"]);
+    });
+
+    it("guest-manage: a failed partial refund aborts the cancel and sets off nothing", async () => {
+      arrangeCancel();
+      vi.mocked(reservationService.getById).mockResolvedValue(
+        makeReservation({ startTime: at(5), endTime: at(7) })
+      );
+      vi.mocked(venueService.getPolicyById).mockResolvedValue(
+        makeVenuePolicy({ freeCancellationHours: 24, lateCancellationFeePercent: 50 })
+      );
+      rec.deposits.script("refundPartial", () => Promise.reject(new Error("Stripe unavailable")));
+      const response = await send(doors["guest-manage"]());
+      expect(response.statusCode).toBe(500);
+      expect(reservationService.update).not.toHaveBeenCalled();
+      expect(rec.effects.messages).toEqual([]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.events).toEqual([]);
     });
 
     it.each(Object.keys(doors) as (keyof typeof doors)[])(
@@ -359,8 +393,30 @@ describe("reservation transitions — effects per entry point", () => {
           noShowFeePercent: 40,
         })
       );
-      await send(noShow());
+      const response = await send(noShow());
+      expect(response.statusCode).toBe(200);
       expect(rec.effects.depositOps).toEqual([{ op: "refundPartial", args: ["dep-1", 6000] }]);
+    });
+
+    it("marked just before the start time still charges the no-show tier (evaluated at max(now, start))", async () => {
+      arrangeNoShow();
+      vi.mocked(reservationService.getById).mockResolvedValue(
+        makeReservation({ startTime: at(0.25), endTime: at(2) })
+      );
+      const response = await send(noShow());
+      expect(response.statusCode).toBe(200);
+      expect(rec.effects.depositOps).toEqual([{ op: "forfeit", args: ["dep-1", "no_show"] }]);
+    });
+
+    it("a failed forfeit aborts the no-show before the status write and sets off nothing", async () => {
+      arrangeNoShow();
+      rec.deposits.script("forfeit", () => Promise.reject(new Error("Stripe unavailable")));
+      const response = await send(noShow());
+      expect(response.statusCode).toBe(500);
+      expect(reservationService.update).not.toHaveBeenCalled();
+      expect(rec.effects.messages).toEqual([]);
+      expect(rec.effects.jobs).toEqual([]);
+      expect(rec.effects.events).toEqual([]);
     });
 
     it.fails("emits reservation:updated (D6)", async () => {
