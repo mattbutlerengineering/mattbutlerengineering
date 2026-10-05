@@ -361,3 +361,10 @@ Every PR stops before merge for Matt's review, per the brief: authorization code
 | `/new-service-route` teaches the real shape       | Docs rewrite                                                                                                                                            |
 | 7-8 inline checks                                 | `isVenueMember` deleted (PR 4/after the security PR); list filters stay UNSCOPED; cross-entity and public-consistency checks stay in handlers by design |
 | Test ordering                                     | Test ordering                                                                                                                                           |
+
+## Security rulings confirmed by Matt (2026-10-05)
+
+- **`GET /api/v1/availability/:venueId` and `/:venueId/dates`: `member`.** Precondition: the public booking widget stops calling this route. It was calling it anonymously and getting 401 in production (verified live); a separate maintenance fix (PR #6077) moves the widget to `GET /public/v1/venues/:slug/availability`. PR 5 must not merge before #6077 is merged and deployed.
+- **`POST /api/v1/holds` and `GET` / `DELETE` / `POST …/confirm` on `/api/v1/holds/:id`: `member`** of the hold's own venue. The session check stays on DELETE and confirm; `confirmHold` gains venue context; for non-admins an unknown hold returns 403, not 404.
+- **`POST /api/v1/reservations`:** fixed separately as a security PR (#6072, merged and deployed; live probe returns 401). PR 4 moves it to `venueScoped({ venue: "body" })` and deletes `isVenueMember` if it remains.
+- **Table/venue mismatch on reservation writes:** being fixed separately as a security PR (service-layer check before conflict detection). Not this run's scope.
