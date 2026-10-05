@@ -108,6 +108,59 @@ describe("AvailabilityClient", () => {
     });
   });
 
+  describe("getTimeSlotsForVenue (public, slug-scoped)", () => {
+    it("requests /public/v1/venues/:slug/availability with date and partySize", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeTimeSlot] }));
+
+      await new AvailabilityClient(makeApiClient()).getTimeSlotsForVenue("joes-bistro", {
+        date: "2026-06-01",
+        partySize: 2,
+      });
+
+      const [url, init] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.pathname).toBe("/public/v1/venues/joes-bistro/availability");
+      expect(parsed.searchParams.get("date")).toBe("2026-06-01");
+      expect(parsed.searchParams.get("partySize")).toBe("2");
+      expect(init?.method).toBe("GET");
+    });
+
+    it("never targets the authenticated /api/v1/availability route", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [] }));
+
+      await new AvailabilityClient(makeApiClient()).getTimeSlotsForVenue("joes-bistro", {
+        date: "2026-06-01",
+        partySize: 2,
+      });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(new URL(url as string).pathname.startsWith("/api/v1/availability")).toBe(false);
+    });
+
+    it("unwraps the data envelope into the time slots array", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeTimeSlot] }));
+
+      const result = await new AvailabilityClient(makeApiClient()).getTimeSlotsForVenue(
+        "joes-bistro",
+        { date: "2026-06-01", partySize: 2 }
+      );
+      expect(result).toEqual([fakeTimeSlot]);
+    });
+
+    it("rejects when the venue slug is unknown (404)", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ title: "Venue Not Found", status: 404, detail: "No venue" }, 404)
+      );
+
+      await expect(
+        new AvailabilityClient(makeApiClient()).getTimeSlotsForVenue("nope", {
+          date: "2026-06-01",
+          partySize: 2,
+        })
+      ).rejects.toThrow();
+    });
+  });
+
   describe("getDates", () => {
     it("requests /api/v1/availability/:venueId/dates with params", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeDateAvailability] }));

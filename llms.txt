@@ -1406,7 +1406,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
@@ -12338,6 +12337,12 @@
       }
     </item>
     <item priority="low">
+      interface GetVenueTimeSlotsParams {
+        date: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
       interface GetDatesParams {
         venueId: string;
         startDate: string;
@@ -12348,6 +12353,7 @@
     <item priority="high">
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;
+        async getTimeSlotsForVenue(): Promise<unknown>;
         async getDates(): Promise<unknown>;
       }
     </item>
@@ -12358,6 +12364,9 @@
         async getSessionId(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
+    </item>
+    <item priority="medium">
+      function publicAvailabilityPath(slug: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function publicHoldsPath(slug: string): string { /* ... */ }
