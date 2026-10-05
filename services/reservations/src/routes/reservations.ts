@@ -30,10 +30,7 @@ import {
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
-import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
-import { recordNoShow } from "../services/reservation-no-show.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
-import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
@@ -104,7 +101,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
    * staff refund on their own cancellation. Admins get staff semantics
    * (waived fee, deposit refunded in full); a non-admin owner gets guest
    * semantics (the venue's cancellation-fee policy applies) — see
-   * {@link cancelReservationWithDeposit}. A manage token is generated (not
+   * `cancelReservationWithDeposit`. A manage token is generated (not
    * faked) so the guest cancellation email still carries a working manage
    * link when the reservation has a guest email on file.
    */
@@ -112,20 +109,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     reservation: Reservation,
     logger: FastifyBaseLogger,
     isAdmin: boolean,
+    door: "staff-patch" | "staff-delete",
     options: { cancellationReason?: string; cancellationNote?: string } = {}
   ) {
     const manageToken = reservation.guestEmail
       ? generateManageToken(reservation.id, reservation.guestEmail)
       : "";
-    return cancelReservationWithDeposit(
-      reservation,
+    return fastify.transitions.cancel(reservation, {
+      door,
+      initiator: isAdmin ? "staff" : "guest",
       manageToken,
-      {
-        bookingNotifier: fastify.bookingNotifier,
-        logger,
-      },
-      { ...options, initiator: isAdmin ? "staff" : "guest" }
-    );
+      reason: options.cancellationReason,
+      note: options.cancellationNote,
+      log: logger,
+    });
   }
 
   // List reservations
@@ -284,18 +281,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
       // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
       // a single transaction. If the table update fails the whole thing rolls
-      // back and rejects, so we only reach the SSE emits below after a
+      // back and rejects, so its live events are set off only after a
       // committed, consistent state.
-      const result = await reservationService.createWalkIn(request.body, userId);
+      const result = await fastify.transitions.createWalkIn(request.body, userId);
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
           .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
-      }
-      // Emit only after the transaction has committed.
-      fastify.reservationEvents.emitReservationCreated(result.reservation);
-      if (result.table) {
-        fastify.reservationEvents.emitTableUpdated(result.table);
       }
       return reply.code(201).send({ data: result.reservation });
     }
@@ -459,7 +451,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      const result = await reservationService.createWithConflictCheck(body, userId);
+      const result = await fastify.transitions.createByStaff(body, userId);
 
       if (!result.success) {
         const statusCode = result.conflict?.hasConflict ? 409 : 400;
@@ -574,6 +566,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               reservation,
               request.log,
               request.authorization?.isAdmin === true,
+              "staff-patch",
               {
                 cancellationReason: request.body.cancellationReason,
                 cancellationNote: request.body.cancellationNote,
@@ -586,7 +579,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
                 .send(createProblemDetails(result.status, result.title, result.detail));
             }
 
-            fastify.reservationEvents.emitReservationCancelled(result.reservation);
             return { data: result.reservation };
           } catch (err) {
             if (err instanceof ReservationTransitionError) {
@@ -598,7 +590,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
         if (request.body.status === "NO_SHOW") {
           try {
-            const result = await recordNoShow(reservation, request.log);
+            const result = await fastify.transitions.noShow(reservation, request.log);
 
             if (!result.success) {
               return reply
@@ -645,10 +637,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         try {
-          const result = await reservationService.updateWithConflictCheck(
-            request.params.id,
-            request.body
-          );
+          const result = await fastify.transitions.updateByStaff(reservation, request.body);
 
           if (!result.success) {
             if (result.error === "Reservation not found") {
@@ -673,32 +662,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
                   "Bad Request",
                   result.error ?? "Failed to update reservation"
                 )
-              );
-          }
-
-          // Fire post-visit thank-you email when status transitions to COMPLETED
-          if (request.body.status === "COMPLETED" && result.reservation) {
-            const reservation = result.reservation;
-            const venue = reservation.venueId
-              ? await venueService.getById(reservation.venueId)
-              : null;
-            const settings = (venue?.settings ?? {}) as Record<string, unknown>;
-            const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
-
-            fastify.postVisitNotifier
-              .sendPostVisitEmail({
-                reservationId: reservation.id,
-                guestId: reservation.guestId ?? null,
-                guestEmail: reservation.guestEmail ?? null,
-                guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-                unsubscribed: Boolean(reservation.guest?.unsubscribed),
-                venueName: venue?.name ?? "",
-                venuePostVisitEmailEnabled: postVisitEmailEnabled,
-                visitDate: reservation.date,
-                feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
-              })
-              .catch((err) =>
-                fastify.log.error({ err }, "Failed to send post-visit thank-you email")
               );
           }
 
@@ -776,7 +739,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           const result = await cancelReservationForRequest(
             reservation,
             request.log,
-            request.authorization?.isAdmin === true
+            request.authorization?.isAdmin === true,
+            "staff-delete"
           );
           if (!result.success) {
             return reply

@@ -26,13 +26,8 @@ vi.mock("./database.js", async () => {
   });
 });
 
-vi.mock("./events.js", () => ({
-  emitFloorPlanCreated: vi.fn(),
-}));
-
 import { floorPlanService } from "./floor-plan.js";
 import { prisma } from "./database.js";
-import { emitFloorPlanCreated } from "./events.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
 
@@ -223,7 +218,6 @@ describe("floorPlanService", () => {
 
       expect(result).not.toBeNull();
       expect(result!.name).toBe("Copy of Main Floor");
-      expect(emitFloorPlanCreated).toHaveBeenCalledWith(result);
     });
 
     it("handles name collisions by appending copy number", async () => {

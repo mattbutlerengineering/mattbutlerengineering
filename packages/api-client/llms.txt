@@ -117,6 +117,12 @@
     <item priority="high">
       export function buildQueryString(params: QueryParams): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function interpolatePath(path: string, params: Record<string, unknown> | undefined): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined { /* ... */ }
+    </item>
     <item priority="low">
       interface ClientConfig {
         baseUrl: string;
@@ -143,7 +149,7 @@
         timeout: number;
         maxRetries: number;
         async request(): Promise<unknown>;
-        async get(): Promise<unknown>;
+        async call(): Promise<unknown>;
       }
     </item>
     <item priority="low">
@@ -210,13 +216,7 @@
   </file>
   <file path="src/guests.ts">
     <item priority="low">
-      interface FindOrCreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        dietaryRestrictions?: string[];
-      }
+      type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     </item>
     <item priority="low">
       interface ListGuestsParams {

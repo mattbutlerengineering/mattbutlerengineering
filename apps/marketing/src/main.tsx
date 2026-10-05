@@ -19,6 +19,7 @@ import { App } from "./App";
 initSentry({
   appName: "marketing",
   dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
 });
 
 // Unregister stale service workers (e.g. from previous misconfigured builds)

@@ -37,41 +37,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
-import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
-import { TABLES_QUERY_KEY } from "./useTables.js";
-import { VENUES_QUERY_KEY } from "./useVenues.js";
 import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
 import { getCachedFloorPlanSnapshot, setCachedFloorPlanSnapshot } from "../lib/offline-cache.js";
-import type {
-  Reservation,
-  Table,
-  ReservationHold,
-  LapsingGuest,
-  TableStatusDelta,
-  TableDisplayStatus,
+import {
+  SSE_EVENT_CATALOG,
+  SSE_EVENT_NAMES,
+  type Reservation,
+  type SseEvent,
+  type SseEventName,
+  type TableStatusDelta,
+  type TableDisplayStatus,
 } from "@mbe/types";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
-export type ReservationEventType =
-  | "reservation:created"
-  | "reservation:updated"
-  | "reservation:cancelled"
-  | "hold:created"
-  | "hold:released"
-  | "hold:confirmed"
-  | "table:updated"
-  | "guest:lapsing"
-  | "venue:updated"
-  | "table-status:changed";
+/** Event names come from the shared catalog in @mbe/types (SSE_EVENT_CATALOG). */
+export type ReservationEventType = SseEventName;
 
-export interface ReservationEvent {
-  type: ReservationEventType;
-  venueId: string;
-  timestamp: string;
-  data: Reservation | Table | ReservationHold | LapsingGuest[] | TableStatusDelta[];
-}
+/** Wire envelope from the shared catalog in @mbe/types. */
+export type ReservationEvent = SseEvent;
 
 interface SSEConnectionState {
   isConnected: boolean;
@@ -101,19 +86,6 @@ type SSEConnectionAction =
 
 const TOAST_WINDOW_MS = 10_000;
 const TOAST_MAX = 3;
-
-const SSE_EVENT_TYPES: readonly ReservationEventType[] = [
-  "reservation:created",
-  "reservation:updated",
-  "reservation:cancelled",
-  "hold:created",
-  "hold:released",
-  "hold:confirmed",
-  "table:updated",
-  "guest:lapsing",
-  "venue:updated",
-  "table-status:changed",
-];
 
 /* ── Context ────────────────────────────────────────────────────── */
 
@@ -223,16 +195,20 @@ export function useSSESync(): { reconnect: () => void } {
 
   const handleEvent = useCallback(
     (type: string, payload: unknown) => {
-      const event = payload as ReservationEvent;
+      // SseClient only delivers names in SSE_EVENT_NAMES (its eventTypes filter).
       const eventType = type as ReservationEventType;
+      const event = payload as ReservationEvent;
+
+      for (const key of SSE_EVENT_CATALOG[eventType].invalidates) {
+        queryClientRef.current.invalidateQueries({ queryKey: [key] });
+      }
+      for (const listener of feedListeners) {
+        listener(makeEvent(eventType, event.data));
+      }
 
       switch (eventType) {
         case "reservation:created": {
           const reservation = event.data as Reservation;
-          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-          for (const listener of feedListeners) {
-            listener(makeEvent("reservation:created", reservation));
-          }
           if (canShowToastRef.current()) {
             toastRef.current({
               title: "New reservation",
@@ -243,19 +219,8 @@ export function useSSESync(): { reconnect: () => void } {
           }
           break;
         }
-        case "reservation:updated": {
-          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-          for (const listener of feedListeners) {
-            listener(makeEvent("reservation:updated", event.data as Reservation));
-          }
-          break;
-        }
         case "reservation:cancelled": {
           const reservation = event.data as Reservation;
-          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-          for (const listener of feedListeners) {
-            listener(makeEvent("reservation:cancelled", reservation));
-          }
           if (canShowToastRef.current()) {
             toastRef.current({
               title: "Reservation cancelled",
@@ -266,53 +231,23 @@ export function useSSESync(): { reconnect: () => void } {
           }
           break;
         }
-        case "hold:created": {
-          for (const listener of feedListeners) {
-            listener(makeEvent("hold:created", event.data as ReservationHold));
-          }
+        // No toast: invalidation and feed-forwarding above are the whole
+        // handling. table-status:changed is consumed by useTableStatuses via
+        // the feed (changed-tables-only delta, see
+        // @mbe/types#deriveTableDisplayStatus).
+        case "reservation:updated":
+        case "hold:created":
+        case "hold:released":
+        case "hold:confirmed":
+        case "table:updated":
+        case "floor-plan:created":
+        case "guest:lapsing":
+        case "table-status:changed":
           break;
-        }
-        case "hold:released": {
-          for (const listener of feedListeners) {
-            listener(makeEvent("hold:released", event.data as ReservationHold));
-          }
-          break;
-        }
-        case "hold:confirmed": {
-          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-          for (const listener of feedListeners) {
-            listener(makeEvent("hold:confirmed", event.data as Reservation));
-          }
-          break;
-        }
-        case "table:updated": {
-          queryClientRef.current.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
-          for (const listener of feedListeners) {
-            listener(makeEvent("table:updated", event.data as Table));
-          }
-          break;
-        }
-        case "guest:lapsing": {
-          for (const listener of feedListeners) {
-            listener(makeEvent("guest:lapsing", event.data as LapsingGuest[]));
-          }
-          break;
-        }
-        case "table-status:changed": {
-          // Changed-tables-only delta (status string, not a color token —
-          // see @mbe/types#deriveTableDisplayStatus). Forwarded to the feed
-          // for now; the floor plan canvas wires up live consumption in a
-          // later part of this feature (#3834/#3835).
-          for (const listener of feedListeners) {
-            listener(makeEvent("table-status:changed", event.data as TableStatusDelta[]));
-          }
-          break;
-        }
-        case "venue:updated": {
-          // A venue mutation invalidates the cached venue list (used by
-          // VenueContext via useVenues) so the switcher and readiness refresh.
-          queryClientRef.current.invalidateQueries({ queryKey: [VENUES_QUERY_KEY] });
-          break;
+        default: {
+          // A catalog name with no case above is a type error here.
+          const unhandled: never = eventType;
+          return unhandled;
         }
       }
     },
@@ -334,7 +269,7 @@ export function useSSESync(): { reconnect: () => void } {
     }
     return new SseClient({
       url: url.toString(),
-      eventTypes: SSE_EVENT_TYPES,
+      eventTypes: SSE_EVENT_NAMES,
       getAccessToken: () => accessTokenRef.current,
       onEvent: (type, payload) => handleEventRef.current(type, payload),
       onError: (error) => {

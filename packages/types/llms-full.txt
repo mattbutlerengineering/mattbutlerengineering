@@ -1,4 +1,234 @@
 <codebase path="packages/types">
+  <section priority="medium" role="endpoints">
+  <file path="src/endpoints/define.ts">
+    export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+    export interface ProblemResponse {
+      readonly kind: "problem";
+      readonly description?: string;
+    }
+    export interface BodyResponse {
+      readonly description?: string;
+      readonly body: z.ZodType | null;
+    }
+    export type EndpointResponse = BodyResponse | ProblemResponse;
+    export type EndpointResponses = { readonly [status: number]: EndpointResponse };
+    export interface EndpointDefinition<
+      M extends HttpMethod = HttpMethod,
+      P extends string = string,
+      Params extends z.ZodObject | undefined = z.ZodObject | undefined,
+      Query extends z.ZodObject | undefined = z.ZodObject | undefined,
+      Body extends z.ZodType | undefined = z.ZodType | undefined,
+      R extends EndpointResponses = EndpointResponses,
+    > {
+      readonly method: M;
+      /** Absolute path in Fastify syntax, e.g. /api/v1/guests/:id (prefix included). */
+      readonly path: P;
+      readonly params?: Params;
+      readonly query?: Query;
+      readonly body?: Body;
+      readonly responses: R;
+    }
+    export type AnyEndpointDefinition = EndpointDefinition;
+    type SuccessStatus = (typeof SUCCESS_STATUSES)[number];
+    export type PathParamNames<P extends string> = P extends `${string}:${infer Param}/${infer Rest}`
+      ? Param | PathParamNames<`/${Rest}`>
+      : P extends `${string}:${infer Param}`
+        ? Param
+        : never;
+    type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+    type SuccessKey<R> = Extract<keyof R, SuccessStatus>;
+    type SameKeys<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    type ParamsSchemaOf<D> = D extends { readonly params: infer X extends z.ZodObject } ? X : undefined;
+    type ResponsesOf<D> = D extends { readonly responses: infer X } ? X : never;
+    type DefinitionCheck<D extends AnyEndpointDefinition> = [PathParamNames<D["path"]>] extends [never]
+      ? ParamsSchemaOf<D> extends z.ZodObject
+        ? [params_declared_but_path_has_no_segment: never]
+        : SuccessCheck<ResponsesOf<D>>
+      : ParamsSchemaOf<D> extends z.ZodObject<infer Shape>
+        ? SameKeys<keyof Shape, PathParamNames<D["path"]>> extends true
+          ? SuccessCheck<ResponsesOf<D>>
+          : [params_keys_must_equal_path_segments: never]
+        : [path_has_segments_but_no_params_schema: never];
+    type SuccessCheck<R> = [SuccessKey<R>] extends [never]
+      ? [exactly_one_2xx_response_required_none_declared: never]
+      : true extends IsUnion<SuccessKey<R>>
+        ? [exactly_one_2xx_response_required_several_declared: never]
+        : [];
+    export function defineEndpoint<const D extends AnyEndpointDefinition>(
+      def: D,
+      ..._contractCheck: DefinitionCheck<D>
+    ): D {
+      return def;
+    }
+    export function problem(description?: string): ProblemResponse {
+      return description === undefined ? { kind: "problem" } : { kind: "problem", description };
+    }
+    export function isProblemResponse(response: EndpointResponse): response is ProblemResponse {
+      return "kind" in response && response.kind === "problem";
+    }
+    export function successResponse(def: AnyEndpointDefinition): {
+      status: number;
+      response: BodyResponse;
+    } {
+      const entries = Object.entries(def.responses).filter(([status]) =>
+        (SUCCESS_STATUSES as readonly number[]).includes(Number(status))
+      );
+      const only = entries.length === 1 ? entries[0] : undefined;
+      if (!only || isProblemResponse(only[1])) {
+        throw new Error(
+          `${def.method} ${def.path}: endpoint definition needs exactly one 2xx body response, found ${entries.length}`
+        );
+      }
+      return { status: Number(only[0]), response: only[1] };
+    }
+    type ParamsOf<D> = ParamsSchemaOf<D>;
+    type QueryOf<D> = D extends { readonly query: infer X extends z.ZodObject } ? X : undefined;
+    type BodyOf<D> = D extends { readonly body: infer X extends z.ZodType } ? X : undefined;
+    type Simplify<T> = { [K in keyof T]: T[K] } & {};
+    type Declared<K extends string, S, T> = S extends z.ZodType ? { [P in K]: T } : unknown;
+    export type EndpointInput<D extends AnyEndpointDefinition> = Simplify<
+      Declared<"params", ParamsOf<D>, z.input<NonNullable<ParamsOf<D>>>> &
+        Declared<"query", QueryOf<D>, z.input<NonNullable<QueryOf<D>>>> &
+        Declared<"body", BodyOf<D>, z.input<NonNullable<BodyOf<D>>>>
+    >;
+    type BodyOutput<Resp> = Resp extends { body: infer B }
+      ? B extends z.ZodType
+        ? z.output<B>
+        : undefined
+      : never;
+    export type EndpointSuccess<D extends AnyEndpointDefinition> = BodyOutput<
+      ResponsesOf<D>[SuccessKey<ResponsesOf<D>> & keyof ResponsesOf<D>]
+    >;
+    type ReplyOf<R> =
+      | { [K in keyof R]: R[K] extends ProblemResponse ? never : BodyOutput<R[K]> }[keyof R]
+      | ProblemDetails;
+    export type EndpointRouteGeneric<D extends AnyEndpointDefinition> = Simplify<
+      Declared<"Params", ParamsOf<D>, z.output<NonNullable<ParamsOf<D>>>> &
+        Declared<"Querystring", QueryOf<D>, z.output<NonNullable<QueryOf<D>>>> &
+        Declared<"Body", BodyOf<D>, z.output<NonNullable<BodyOf<D>>>> &
+        (EndpointSuccess<D> extends undefined ? unknown : { Reply: ReplyOf<ResponsesOf<D>> })
+    >;
+  </file>
+  <file path="src/endpoints/guests.ts">
+    export const GUESTS_PREFIX = "/api/v1/guests";
+    export const guestsEndpoints = {
+      list: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}`,
+        query: ListGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Successful response with paginated guest list",
+            body: paginatedResponseSchema(GuestSchema),
+          },
+          401: authRequired,
+        },
+      }),
+      search: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/search`,
+        query: SearchGuestsQuerySchema,
+        responses: {
+          200: { description: "Search results", body: paginatedResponseSchema(GuestSchema) },
+          401: authRequired,
+        },
+      }),
+      getSegments: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/segments`,
+        query: GuestSegmentsQuerySchema,
+        responses: {
+          200: { description: "Guest segments", body: z.object({ data: z.array(GuestSegmentSchema) }) },
+          401: authRequired,
+        },
+      }),
+      get: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Guest found", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      create: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}`,
+        body: CreateGuestBodySchema,
+        responses: {
+          201: { description: "Guest created", body: guestEnvelope },
+          400: problem("Invalid request or duplicate email/phone"),
+          401: authRequired,
+        },
+      }),
+      findOrCreate: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/find-or-create`,
+        body: FindOrCreateGuestBodySchema,
+        responses: {
+          200: { description: "Guest found or created", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+        },
+      }),
+      update: defineEndpoint({
+        method: "PATCH",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        body: UpdateGuestBodySchema,
+        responses: {
+          200: { description: "Guest updated", body: guestEnvelope },
+          404: guestNotFound,
+        },
+      }),
+      addNote: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/notes`,
+        params: GuestIdParamsSchema,
+        body: AddGuestNoteBodySchema,
+        responses: {
+          201: { description: "Note appended; returns updated guest", body: guestEnvelope },
+          400: problem("Invalid request"),
+          401: authRequired,
+          404: guestNotFound,
+        },
+      }),
+      getLapsing: defineEndpoint({
+        method: "GET",
+        path: `${GUESTS_PREFIX}/lapsing`,
+        query: LapsingGuestsQuerySchema,
+        responses: {
+          200: {
+            description: "Lapsing guests list",
+            body: z.object({ data: z.array(LapsingGuestSchema) }),
+          },
+          400: problem(),
+          401: problem(),
+        },
+      }),
+      sendWinBack: defineEndpoint({
+        method: "POST",
+        path: `${GUESTS_PREFIX}/:id/win-back`,
+        params: GuestIdParamsSchema,
+        responses: {
+          200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
+          401: problem(),
+          404: problem(),
+        },
+      }),
+      delete: defineEndpoint({
+        method: "DELETE",
+        path: `${GUESTS_PREFIX}/:id`,
+        params: GuestIdParamsSchema,
+        responses: {
+          204: { description: "Guest deleted", body: null },
+          404: guestNotFound,
+          409: problem("Guest has reservations"),
+        },
+      }),
+    };
+  </file>
+  </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     export const AgentSessionStatusSchema = z.enum([
@@ -130,6 +360,12 @@
       createdBy: z.string(),
       createdAt: z.string(),
     });
+    export const CommunicationPreferenceSchema = z.enum([
+      "email_only",
+      "sms_only",
+      "both",
+      "transactional_only",
+    ]);
     export const GuestSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -145,7 +381,7 @@
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
       dietaryRestrictions: z.array(z.string()).nullable(),
-      communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
+      communicationPreference: CommunicationPreferenceSchema,
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -165,6 +401,17 @@
       visitCount: z.number(),
       hasPreferences: z.boolean(),
     });
+    export const LapsingGuestSchema = z.object({
+      guestId: z.string(),
+      name: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      communicationPreference: CommunicationPreferenceSchema,
+      avgFrequencyDays: z.number(),
+      daysSinceLastVisit: z.number(),
+      daysOverdue: z.number(),
+    });
+    export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
   <file path="src/schemas/health-system.ts">
     export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
@@ -266,6 +513,40 @@
       const { $schema: _schema, $id: _id, ...rest } = cleaned;
       return rest;
     }
+    function stripRequired(obj: Record<string, unknown>): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === "required" && Array.isArray(value)) continue;
+        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+          result[key] = stripRequired(value as Record<string, unknown>);
+        } else if (Array.isArray(value)) {
+          result[key] = value.map((item) =>
+            item !== null && typeof item === "object" && !Array.isArray(item)
+              ? stripRequired(item as Record<string, unknown>)
+              : item
+          );
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+    export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> {
+      const raw = toJSONSchema(zodSchema, {
+        target: "openapi-3.0",
+        unrepresentable: "any",
+        override: (ctx) => {
+          const ref = SHARED_RESPONSE_REFS.get(ctx.zodSchema);
+          if (!ref) return;
+          // Zod's override hook is mutate-in-place by contract.
+          for (const key of Object.keys(ctx.jsonSchema)) delete ctx.jsonSchema[key];
+          ctx.jsonSchema.$ref = ref;
+        },
+      });
+      const cleaned = stripRequired(stripAdditionalProperties(raw as Record<string, unknown>));
+      const { $schema: _schema, ...rest } = cleaned;
+      return rest;
+    }
     export const userPreferencesJsonSchema = toFastifyJsonSchema(
       "UserPreferences",
       UserPreferencesSchema
@@ -286,6 +567,10 @@
     );
     export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);
     export const guestSegmentJsonSchema = toFastifyJsonSchema("GuestSegment", GuestSegmentSchema);
+    export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string> = new Map<unknown, string>([
+      [GuestSchema, `${guestJsonSchema.$id}#`],
+      [GuestSegmentSchema, `${guestSegmentJsonSchema.$id}#`],
+    ]);
     export const guestRiskResultJsonSchema = toFastifyJsonSchema(
       "GuestRiskResult",
       GuestRiskResultSchema
@@ -1231,33 +1516,9 @@
       createdAt: string;
       updatedAt: string;
     }
-    export interface LapsingGuest {
-      guestId: string;
-      name: string;
-      email: string | null;
-      phone: string | null;
-      communicationPreference: CommunicationPreference;
-      avgFrequencyDays: number;
-      daysSinceLastVisit: number;
-      daysOverdue: number;
-    }
-    export interface CreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      notes?: string;
-      tags?: string[];
-      dietaryRestrictions?: string[];
-    }
-    export interface UpdateGuestRequest {
-      email?: string | null;
-      phone?: string | null;
-      name?: string;
-      notes?: string | null;
-      tags?: string[] | null;
-      dietaryRestrictions?: string[] | null;
-    }
+    export type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
+    export type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
+    export type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
     export interface GuestSearchParams {
       venueId: string;
       query?: string; // Search name, email, or phone
@@ -1531,6 +1792,45 @@
       }
     
       return { breaking, nonBreaking };
+    }
+  </file>
+  <file path="src/sse-events.ts">
+    export interface SsePayloadMap {
+      "reservation:created": Reservation;
+      "reservation:updated": Reservation;
+      "reservation:cancelled": Reservation;
+      "hold:created": ReservationHold;
+      "hold:released": ReservationHold;
+      "hold:confirmed": Reservation;
+      "table:updated": Table;
+      "floor-plan:created": FloorPlan;
+      "guest:lapsing": LapsingGuest[];
+      "table-status:changed": TableStatusDelta[];
+    }
+    export type SseEventName = keyof SsePayloadMap;
+    export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    export interface SseEventDefinition {
+      /** Query-key roots to invalidate when this event arrives (may be empty). */
+      readonly invalidates: readonly SseQueryKey[];
+    }
+    export const SSE_EVENT_CATALOG = {
+      "reservation:created": { invalidates: ["reservations"] },
+      "reservation:updated": { invalidates: ["reservations"] },
+      "reservation:cancelled": { invalidates: ["reservations"] },
+      "hold:created": { invalidates: [] },
+      "hold:released": { invalidates: [] },
+      "hold:confirmed": { invalidates: ["reservations"] },
+      "table:updated": { invalidates: ["tables"] },
+      "floor-plan:created": { invalidates: ["floorPlans", "floorPlan"] },
+      "guest:lapsing": { invalidates: ["lapsingGuests"] },
+      "table-status:changed": { invalidates: [] },
+    } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
+    export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
+    export interface SseEvent {
+      type: SseEventName;
+      venueId: string;
+      timestamp: string;
+      data: SsePayloadMap[SseEventName];
     }
   </file>
   <file path="src/table-status.ts">

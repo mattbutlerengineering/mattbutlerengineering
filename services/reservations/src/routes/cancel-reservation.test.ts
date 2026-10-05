@@ -3,8 +3,7 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
 import type { NotificationDispatcher } from "@mbe/notifications";
-import type { BookingNotifier } from "../services/booking-notifications.js";
-import { createBookingNotifier } from "../services/booking-notifications.js";
+import type { JobsPort } from "../transitions/ports.js";
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -123,16 +122,14 @@ function createStubNotificationDispatcher(): Pick<
   };
 }
 
-// Every app instance must inject a stub BookingNotifier: the default notifier
+// Every app instance must inject a stub jobs scheduler: the default one
 // lazily opens a BullMQ/ioredis connection on the first cancel, which (with no
 // Redis in CI) leaks a retry-forever ECONNREFUSED loop past the test run and
 // races vitest worker teardown (EnvironmentTeardownError).
-function createStubBookingNotifier(): BookingNotifier {
+function createStubJobs(): JobsPort {
   return {
-    scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-    rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-    cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+    schedule: vi.fn().mockResolvedValue("job"),
+    cancel: vi.fn().mockResolvedValue(false),
   };
 }
 
@@ -146,14 +143,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
     app = await buildApp({
       logger: false,
       notificationPort: stubNotifications as never,
-      bookingNotifier: createBookingNotifier({
-        notificationAdapter: stubNotifications as never,
-        scheduler: {
-          schedule: vi.fn().mockResolvedValue(undefined),
-          cancel: vi.fn().mockResolvedValue(undefined),
-        },
-        getVenue: (id) => venueService.getById(id),
-      }),
+      jobs: createStubJobs(),
     });
     await app.ready();
   });
@@ -351,78 +341,6 @@ describe("DELETE /public/v1/reservations/manage", () => {
     expect(response.json().code).toBe("RESERVATION_NOT_FOUND");
   });
 
-  describe("booking notifier injection", () => {
-    // Isolated app instance to test BookingNotifier injection without rate-limit bleed
-    let notifierApp: FastifyInstance;
-    let stubNotifier: BookingNotifier;
-
-    beforeAll(async () => {
-      stubNotifier = {
-        scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-        cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-        rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-        cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      };
-      notifierApp = await buildApp({
-        logger: false,
-        notificationPort: createStubNotificationDispatcher() as never,
-        bookingNotifier: stubNotifier,
-      });
-      await notifierApp.ready();
-    });
-
-    afterAll(async () => {
-      await notifierApp.close();
-    });
-
-    it("delegates to the injected bookingNotifier.cancelBookingNotifications (one seam)", async () => {
-      const token = generateManageToken("res_1", "jane@example.com");
-      // middleware ownership check + route handler each call getById once
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-      vi.mocked(reservationService.update).mockResolvedValueOnce({
-        ...mockReservation,
-        status: "CANCELLED",
-      } as never);
-
-      const response = await notifierApp.inject({
-        method: "DELETE",
-        url: `/public/v1/reservations/manage?token=${token}`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(stubNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "res_1" }),
-        token,
-        "guest"
-      );
-    });
-
-    it("delegates to the injected bookingNotifier.cancelBookingNotifications with a header-sourced token", async () => {
-      const token = generateManageToken("res_1", "jane@example.com");
-      // middleware ownership check + route handler each call getById once
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-      vi.mocked(reservationService.update).mockResolvedValueOnce({
-        ...mockReservation,
-        status: "CANCELLED",
-      } as never);
-
-      const response = await notifierApp.inject({
-        method: "DELETE",
-        url: "/public/v1/reservations/manage",
-        headers: { authorization: `Bearer ${token}` },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(stubNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "res_1" }),
-        token,
-        "guest"
-      );
-    });
-  });
-
   describe("cancellation policy + deposit integration", () => {
     // Fresh app instance so the outer suite's 10-request rate limit does not bleed in
     let depositApp: FastifyInstance;
@@ -431,7 +349,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       depositApp = await buildApp({
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
-        bookingNotifier: createStubBookingNotifier(),
+        jobs: createStubJobs(),
       });
       await depositApp.ready();
     });
@@ -704,5 +622,36 @@ describe("DELETE /public/v1/reservations/manage", () => {
       expect(depositService.refundPartial).not.toHaveBeenCalled();
       expect(reservationService.update).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("DELETE /public/v1/reservations/manage — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "DELETE",
+        url: "/public/v1/reservations/manage?token=garbage-token",
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(401);
+    }
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
   });
 });
