@@ -57475,7 +57475,21 @@
       readonly requestCount: number;
       readonly exempt: boolean;
     }
+    export type ClientSchema = Parameters<typeof toResponseJsonSchema>[0];
+    export interface SchemaCapture {
+      readonly clientMethod: string;
+      readonly subClient: string;
+      readonly method: HttpMethod;
+      /** Query-stripped, exactly as the request was issued. */
+      readonly path: string;
+      /** Present when the request went through `ApiClient.call(def, …)`. */
+      readonly definition?: AnyEndpointDefinition;
+      /** The schema `ApiClient.request` validated the response with, if any. */
+      readonly response?: ClientSchema;
+    }
     export interface ClientInventory {
+      /** One entry per issued request, in issue order. */
+      readonly schemaCaptures: readonly SchemaCapture[];
       /** Deduplicated `method + path`, each carrying every client method that emits it. */
       readonly pairs: readonly ClientPair[];
       /** One entry per method call made, in roster order. */
@@ -57552,8 +57566,40 @@
         [];
       const invocations: Invocation[] = [];
     
+      const schemaCaptures: SchemaCapture[] = [];
+    
       const realFetch = globalThis.fetch;
       let current: { clientMethod: string; subClient: string; count: number } | null = null;
+    
+      // Transport spies. `call` records the definition it was handed; `request`
+      // (which every path, `call` included, goes through) records the response
+      // schema. Prototype-level so AgentSessionClient — which extends ApiClient —
+      // is covered too.
+      const realCall = ApiClient.prototype.call;
+      const realRequest = ApiClient.prototype.request;
+      let pendingDefinition: AnyEndpointDefinition | undefined;
+      ApiClient.prototype.call = function (this: ApiClient, ...args: Parameters<typeof realCall>) {
+        pendingDefinition = args[0];
+        return realCall.apply(this, args);
+      } as typeof realCall;
+      ApiClient.prototype.request = function (
+        this: ApiClient,
+        ...args: Parameters<typeof realRequest>
+      ) {
+        const [path, options, schema] = args;
+        if (current) {
+          schemaCaptures.push({
+            clientMethod: current.clientMethod,
+            subClient: current.subClient,
+            method: (options?.method ?? "GET") as HttpMethod,
+            path: path.split("?")[0] ?? path,
+            ...(pendingDefinition && { definition: pendingDefinition }),
+            ...(schema && { response: schema as ClientSchema }),
+          });
+        }
+        pendingDefinition = undefined;
+        return realRequest.apply(this, args);
+      } as typeof realRequest;
     
       globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
         const href =
@@ -57603,6 +57649,8 @@
         }
       } finally {
         globalThis.fetch = realFetch;
+        ApiClient.prototype.call = realCall;
+        ApiClient.prototype.request = realRequest;
       }
     
       const byPair = new Map<string, { pair: ClientPair; subClients: Set<string> }>();
@@ -57625,6 +57673,7 @@
       const entries = [...byPair.values()];
     
       return {
+        schemaCaptures,
         pairs: entries.map((e) => e.pair),
         invocations,
         subClients: roster.map((entry) => entry.name),
@@ -57793,6 +57842,13 @@
        * `NODE_ENV` at all.
        */
       envConditionalRoutes(): EnvConditionalRoute[];
+      /**
+       * `owner`'s OpenAPI document from the `test` boot (`app.swagger()`), read
+       * after `ready()`. The route side of schema parity: it is exactly the
+       * artifact the "OpenAPI output unchanged" constraint protects, and Fastify's
+       * `findRoute` exposes no route schema to read instead.
+       */
+      openApiDocument(owner: FastifyOwner): unknown;
       close(): Promise<void>;
     }
     export interface EnvConditionalRoute {
@@ -57908,6 +57964,7 @@
         routeCount: (owner) => counts[owner],
         testBootRouteCount: (owner) => testEntries[owner].length,
         envConditionalRoutes,
+        openApiDocument: (owner) => apps[owner].swagger(),
         close: async () => {
           for (const owner of FASTIFY_OWNERS) {
             await apps[owner].close();
@@ -57916,6 +57973,26 @@
         },
       };
     }
+  </file>
+  <file path="tools/route-contract/src/known-parity-gaps.ts">
+    export const KNOWN_PARITY_GAPS: readonly string[] = [
+      // body — the client sends a hand-built object with no schema; the route
+      // validates against a Zod-derived body schema.
+      "guests.create body",
+      "guests.findOrCreate body",
+      "guests.update body",
+      "guests.addNote body",
+      // query — the client builds its query string by hand (two of them by
+      // string concatenation); the route validates a Zod-derived querystring.
+      "guests.list query",
+      "guests.search query",
+      "guests.getSegments query",
+      "guests.getLapsing query",
+      // response — the client validates nothing; the route serializes an inline
+      // hand-written schema.
+      "guests.getLapsing response",
+      "guests.sendWinBack response",
+    ];
   </file>
   <file path="tools/route-contract/src/module-scope-env.fixture.ts">
     export const NODE_ENV_AT_EVALUATION = process.env.NODE_ENV;
@@ -57934,6 +58011,8 @@
       readonly fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
       /** Paths the edge terminates itself — the same signal for the fourth owner. */
       readonly edgeTerminalPathCount: number;
+      /** Each Fastify owner's `app.swagger()` document, read before the apps close. */
+      readonly openApiDocuments: Readonly<Record<FastifyOwner, unknown>>;
     }
     export async function buildRouteContractReport(): Promise<RouteContractReport> {
       const inventory = await driveClient();
@@ -57958,11 +58037,16 @@
           FASTIFY_OWNERS.map((owner) => [owner, fastify.routeCount(owner)])
         ) as Record<FastifyOwner, number>;
     
+        const openApiDocuments = Object.fromEntries(
+          FASTIFY_OWNERS.map((owner) => [owner, fastify.openApiDocument(owner)])
+        ) as Record<FastifyOwner, unknown>;
+    
         return {
           verdicts,
           inventory,
           fastifyRouteCounts,
           edgeTerminalPathCount: EDGE_TERMINAL_PATHS.length,
+          openApiDocuments,
         };
       } finally {
         await fastify.close();
@@ -58004,6 +58088,242 @@
           .map((invocation) => invocation.clientMethod),
         ownerTableSizes: { ...report.fastifyRouteCounts, edge: report.edgeTerminalPathCount },
       };
+    }
+    export const PARITY_DOMAINS = ["guests"] as const;
+    export interface ParityFailure {
+      readonly clientMethod: string;
+      readonly method: string;
+      readonly path: string;
+      readonly facet: Facet | "route";
+      readonly detail: string;
+    }
+    export interface SchemaParityReport {
+      readonly failures: readonly ParityFailure[];
+      /** Compared captures per domain — the anti-vacuity signal. */
+      readonly comparedPerDomain: Readonly<Record<string, number>>;
+    }
+    export interface OpenApiDocument {
+      readonly paths?: Record<string, Record<string, OpenApiOperation>>;
+      readonly components?: { readonly schemas?: unknown };
+    }
+    function trimSlash(path: string): string {
+      let end = path.length;
+      while (end > 1 && path[end - 1] === "/") end -= 1;
+      return path.slice(0, end);
+    }
+    export function findOperation(
+      doc: OpenApiDocument,
+      method: string,
+      path: string
+    ): OpenApiOperation | undefined {
+      const wanted = trimSlash(path).split("/");
+      const candidates = Object.entries(doc.paths ?? {})
+        .map(([template, item]) => ({ segments: trimSlash(template).split("/"), item }))
+        .filter(
+          ({ segments }) =>
+            segments.length === wanted.length &&
+            segments.every((seg, i) => /^\{.+\}$/.test(seg) || seg === wanted[i])
+        )
+        .sort(
+          (a, b) =>
+            a.segments.filter((seg) => seg.startsWith("{")).length -
+            b.segments.filter((seg) => seg.startsWith("{")).length
+        );
+      for (const { item } of candidates) {
+        const operation = item[method.toLowerCase()];
+        if (operation) return operation;
+      }
+      return undefined;
+    }
+    export function schemaParityReport(
+      report: RouteContractReport,
+      domains: readonly string[]
+    ): SchemaParityReport {
+      const doc = (report.openApiDocuments[PARITY_OWNER] ?? {}) as OpenApiDocument;
+      const refs = refTableFromOpenApi(doc);
+      const failures: ParityFailure[] = [];
+      const comparedPerDomain: Record<string, number> = Object.fromEntries(domains.map((d) => [d, 0]));
+    
+      for (const capture of report.inventory.schemaCaptures) {
+        if (!domains.includes(capture.subClient)) continue;
+        comparedPerDomain[capture.subClient] = (comparedPerDomain[capture.subClient] ?? 0) + 1;
+        const where = {
+          clientMethod: capture.clientMethod,
+          method: capture.method,
+          path: capture.path,
+        };
+    
+        const operation = findOperation(doc, capture.method, capture.path);
+        if (!operation) {
+          failures.push({ ...where, facet: "route", detail: "no OpenAPI operation documents it" });
+          continue;
+        }
+        const route = routeFacets(operation);
+        const def = capture.definition;
+        const client: Partial<Record<Facet, JsonSchema>> = {
+          body: def?.body ? toRequestJsonSchema(def.body) : undefined,
+          query: def?.query ? toRequestJsonSchema(def.query) : undefined,
+          response: capture.response ? toResponseJsonSchema(capture.response) : undefined,
+        };
+        for (const facet of ["body", "query", "response"] as const) {
+          const mismatch = compareFacet(facet, client[facet], route[facet], refs);
+          if (mismatch) failures.push({ ...where, ...mismatch });
+        }
+      }
+    
+      return { failures, comparedPerDomain };
+    }
+    export function parityVacuityFailures(
+      parity: SchemaParityReport,
+      domains: readonly string[]
+    ): string[] {
+      return domains
+        .filter((domain) => (parity.comparedPerDomain[domain] ?? 0) === 0)
+        .map((domain) => `parity domain "${domain}" produced no schema captures`);
+    }
+    export function formatParityFailures(failures: readonly ParityFailure[]): string {
+      return failures
+        .map((f) => `${f.clientMethod}  ${f.method} ${f.path}  [${f.facet}] ${f.detail}`)
+        .join("\n");
+    }
+  </file>
+  <file path="tools/route-contract/src/schema-parity.ts">
+    export type Facet = "body" | "query" | "response";
+    export type JsonSchema = Record<string, unknown>;
+    export type RefTable = Readonly<Record<string, JsonSchema>>;
+    export interface ParityMismatch {
+      readonly facet: Facet;
+      readonly detail: string;
+    }
+    export function refTableFromOpenApi(doc: { components?: { schemas?: unknown } }): RefTable {
+      const schemas = isObject(doc.components?.schemas) ? doc.components.schemas : {};
+      const table: Record<string, JsonSchema> = {};
+      for (const [key, schema] of Object.entries(schemas)) {
+        if (!isObject(schema)) continue;
+        table[`#/components/schemas/${key}`] = schema;
+        const id = typeof schema.title === "string" ? schema.title : schema.$id;
+        if (typeof id === "string") table[`${id}#`] = schema;
+      }
+      return table;
+    }
+    function unifyNullable(schema: JsonSchema): JsonSchema {
+      const { anyOf, type } = schema;
+      if (Array.isArray(anyOf) && anyOf.length === 2) {
+        const nonNull = anyOf.filter((s) => !(isObject(s) && s.type === "null"));
+        const only = nonNull[0];
+        if (nonNull.length === 1 && isObject(only)) {
+          const { anyOf: _anyOf, ...rest } = schema;
+          return { ...rest, ...only, nullable: true };
+        }
+      }
+      if (Array.isArray(type) && type.includes("null")) {
+        const remaining = type.filter((t) => t !== "null");
+        if (remaining.length === 1) return { ...schema, type: remaining[0], nullable: true };
+      }
+      return schema;
+    }
+    export function normalize(schema: unknown, facet: Facet, refs: RefTable, depth = 0): unknown {
+      if (Array.isArray(schema)) return schema.map((item) => normalize(item, facet, refs, depth));
+      if (!isObject(schema)) return schema;
+    
+      if (typeof schema.$ref === "string") {
+        const target = refs[schema.$ref];
+        if (target === undefined || depth >= MAX_REF_DEPTH) return { $ref: schema.$ref };
+        return normalize(target, facet, refs, depth + 1);
+      }
+    
+      const unified = unifyNullable(schema);
+      const result: JsonSchema = {};
+      for (const [key, value] of Object.entries(unified)) {
+        if (DOC_KEYS.has(key) || STRIPPED_KEYS.has(key)) continue;
+        if (key === "required" && Array.isArray(value)) {
+          if (facet !== "response") result[key] = [...value].sort();
+          continue;
+        }
+        if (key === "properties" && isObject(value)) {
+          // Property names are data, not schema keywords — never filter them.
+          result[key] = Object.fromEntries(
+            Object.entries(value).map(([name, prop]) => [name, normalize(prop, facet, refs, depth)])
+          );
+          continue;
+        }
+        result[key] = normalize(value, facet, refs, depth);
+      }
+      return result;
+    }
+    export function firstDifference(a: unknown, b: unknown, pointer = ""): string | null {
+      if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return pointer || "/";
+        for (let i = 0; i < a.length; i++) {
+          const diff = firstDifference(a[i], b[i], `${pointer}/${i}`);
+          if (diff !== null) return diff;
+        }
+        return null;
+      }
+      if (isObject(a) && isObject(b)) {
+        const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+        for (const key of keys) {
+          const diff = firstDifference(a[key], b[key], `${pointer}/${escapePointer(key)}`);
+          if (diff !== null) return diff;
+        }
+        return null;
+      }
+      return a === b ? null : pointer || "/";
+    }
+    interface OpenApiParameter {
+      readonly in?: string;
+      readonly name?: string;
+      readonly required?: boolean;
+      readonly schema?: unknown;
+    }
+    export function queryFromParameters(
+      parameters: readonly OpenApiParameter[] | undefined
+    ): JsonSchema | undefined {
+      const query = (parameters ?? []).filter((p) => p.in === "query" && typeof p.name === "string");
+      if (query.length === 0) return undefined;
+      const required = query.filter((p) => p.required === true).map((p) => p.name as string);
+      return {
+        type: "object",
+        properties: Object.fromEntries(query.map((p) => [p.name as string, p.schema ?? {}])),
+        ...(required.length > 0 && { required }),
+      };
+    }
+    export interface OpenApiOperation {
+      readonly parameters?: readonly OpenApiParameter[];
+      readonly requestBody?: { readonly content?: Record<string, { readonly schema?: unknown }> };
+      readonly responses?: Record<
+        string,
+        {
+          readonly description?: string;
+          readonly content?: Record<string, { readonly schema?: unknown }>;
+        }
+      >;
+    }
+    export function routeFacets(operation: OpenApiOperation): Partial<Record<Facet, JsonSchema>> {
+      const success = Object.entries(operation.responses ?? {}).find(([status]) =>
+        /^2\d\d$/.test(status)
+      );
+      return {
+        body: jsonSchemaOf(operation.requestBody?.content),
+        query: queryFromParameters(operation.parameters),
+        response: success ? jsonSchemaOf(success[1].content) : undefined,
+      };
+    }
+    export function compareFacet(
+      facet: Facet,
+      client: JsonSchema | undefined,
+      route: JsonSchema | undefined,
+      refs: RefTable
+    ): ParityMismatch | null {
+      if (client === undefined && route === undefined) return null;
+      if (client === undefined) {
+        return { facet, detail: "client declares no schema; the route registers one" };
+      }
+      if (route === undefined) {
+        return { facet, detail: "route registers no schema; the client declares one" };
+      }
+      const pointer = firstDifference(normalize(client, facet, refs), normalize(route, facet, refs));
+      return pointer === null ? null : { facet, detail: `differs at ${pointer}` };
     }
   </file>
   <file path="tools/route-contract/src/types.ts">

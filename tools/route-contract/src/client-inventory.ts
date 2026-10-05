@@ -28,9 +28,10 @@
  *    nothing, which is a false positive in exactly the place a real regression
  *    would look identical.
  */
-import { createApiClient, AgentSessionClient } from "@mbe/api-client";
+import { createApiClient, AgentSessionClient, ApiClient } from "@mbe/api-client";
 import * as apiClientModule from "@mbe/api-client";
 import type { DepositTransition } from "@mbe/api-client";
+import type { AnyEndpointDefinition, toResponseJsonSchema } from "@mbe/types";
 
 import { PLACEHOLDER } from "./types.js";
 import type { ClientPair, HttpMethod } from "./types.js";
@@ -101,7 +102,29 @@ export interface Invocation {
   readonly exempt: boolean;
 }
 
+/** A Zod schema as the client holds it (the shape `toResponseJsonSchema` accepts). */
+export type ClientSchema = Parameters<typeof toResponseJsonSchema>[0];
+
+/**
+ * What one issued request DECLARED — the client side of schema parity
+ * (`schema-parity.ts`). Captured by spies on the transport, so it is what the
+ * real client passes, not what its source looks like it passes.
+ */
+export interface SchemaCapture {
+  readonly clientMethod: string;
+  readonly subClient: string;
+  readonly method: HttpMethod;
+  /** Query-stripped, exactly as the request was issued. */
+  readonly path: string;
+  /** Present when the request went through `ApiClient.call(def, …)`. */
+  readonly definition?: AnyEndpointDefinition;
+  /** The schema `ApiClient.request` validated the response with, if any. */
+  readonly response?: ClientSchema;
+}
+
 export interface ClientInventory {
+  /** One entry per issued request, in issue order. */
+  readonly schemaCaptures: readonly SchemaCapture[];
   /** Deduplicated `method + path`, each carrying every client method that emits it. */
   readonly pairs: readonly ClientPair[];
   /** One entry per method call made, in roster order. */
@@ -203,8 +226,40 @@ export async function driveClient(): Promise<ClientInventory> {
     [];
   const invocations: Invocation[] = [];
 
+  const schemaCaptures: SchemaCapture[] = [];
+
   const realFetch = globalThis.fetch;
   let current: { clientMethod: string; subClient: string; count: number } | null = null;
+
+  // Transport spies. `call` records the definition it was handed; `request`
+  // (which every path, `call` included, goes through) records the response
+  // schema. Prototype-level so AgentSessionClient — which extends ApiClient —
+  // is covered too.
+  const realCall = ApiClient.prototype.call;
+  const realRequest = ApiClient.prototype.request;
+  let pendingDefinition: AnyEndpointDefinition | undefined;
+  ApiClient.prototype.call = function (this: ApiClient, ...args: Parameters<typeof realCall>) {
+    pendingDefinition = args[0];
+    return realCall.apply(this, args);
+  } as typeof realCall;
+  ApiClient.prototype.request = function (
+    this: ApiClient,
+    ...args: Parameters<typeof realRequest>
+  ) {
+    const [path, options, schema] = args;
+    if (current) {
+      schemaCaptures.push({
+        clientMethod: current.clientMethod,
+        subClient: current.subClient,
+        method: (options?.method ?? "GET") as HttpMethod,
+        path: path.split("?")[0] ?? path,
+        ...(pendingDefinition && { definition: pendingDefinition }),
+        ...(schema && { response: schema as ClientSchema }),
+      });
+    }
+    pendingDefinition = undefined;
+    return realRequest.apply(this, args);
+  } as typeof realRequest;
 
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const href =
@@ -254,6 +309,8 @@ export async function driveClient(): Promise<ClientInventory> {
     }
   } finally {
     globalThis.fetch = realFetch;
+    ApiClient.prototype.call = realCall;
+    ApiClient.prototype.request = realRequest;
   }
 
   const byPair = new Map<string, { pair: ClientPair; subClients: Set<string> }>();
@@ -276,6 +333,7 @@ export async function driveClient(): Promise<ClientInventory> {
   const entries = [...byPair.values()];
 
   return {
+    schemaCaptures,
     pairs: entries.map((e) => e.pair),
     invocations,
     subClients: roster.map((entry) => entry.name),

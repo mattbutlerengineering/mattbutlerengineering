@@ -1742,6 +1742,9 @@ importers:
       '@mbe/reservations-service':
         specifier: workspace:*
         version: link:../../services/reservations
+      '@mbe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@mbe/users-service':
         specifier: workspace:*
         version: link:../../services/users
