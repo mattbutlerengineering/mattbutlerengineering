@@ -325,7 +325,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, architecture-audit]
+    # Not `lint`: ESLint produces nothing this job consumes, and the turbo
+    # `^build` cache it reuses comes from Typecheck. CI Gate still requires
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
+    needs: [typecheck, architecture-audit]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -409,10 +412,13 @@ jobs:
         # and dependency-graph.md. `pnpm regen` regenerates every committed
         # artifact; `pnpm regen --check` then fails if any drifted, naming the
         # stale artifact and the exact fix command. Add new artifacts to the
-        # manifest, not here.
+        # manifest, not here. `--git-only`: the check runs right after a full
+        # regen, so re-deriving every llms package (`mbe pack --check`) can
+        # only re-confirm bytes just written — it cost ~3 of this job's ~11
+        # minutes. The git diff is the signal that can fail here.
         run: |
           pnpm regen
-          pnpm regen --check
+          pnpm regen --check --git-only
 
       - name: Check bundle size budgets
         run: pnpm size:check
@@ -475,7 +481,10 @@ jobs:
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, architecture-audit]
+    # Not `lint`: ESLint produces nothing this job consumes, and the turbo
+    # `^build` cache it reuses comes from Typecheck. CI Gate still requires
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
+    needs: [typecheck, architecture-audit]
 
     # Single source of truth for the repo-wide coverage threshold, enforced on
     # the Node-22 leg below. The stricter agent-core package gate (80%) is a
@@ -632,7 +641,7 @@ jobs:
   migrations:
     name: Validate Migrations
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck] # not lint, see the Build job
 
     services:
       postgres:
@@ -697,7 +706,7 @@ jobs:
   rls-integration:
     name: RLS Integration (owner role, #5369)
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck] # not lint, see the Build job
     timeout-minutes: 15
 
     services:
@@ -1053,42 +1062,23 @@ jobs:
         run: echo "sha=${{ github.event.pull_request.head.sha || github.sha }}" >> "$GITHUB_OUTPUT"
       - name: Check required job results
         id: gate-check
+        # Fail-CLOSED decision (scripts/ci-gate-required-results.mjs): only
+        # `success` and `skipped` pass; every other result (failure, cancelled,
+        # abandoned, neutral, timed_out, empty, ...) fails. The previous inline
+        # loop failed only on failure/cancelled, so on 2026-10-05 (PR #6077,
+        # run 37363956419 attempt 2) `abandoned` jobs let CI Gate go green with
+        # nothing verified. The module also checks the root of the chain:
+        # detect-changes must succeed, and prepare must succeed whenever
+        # has_code == 'true' (its only `if:`), so a broken root can't
+        # masquerade as a legitimate docs-only skip cascade.
+        #
+        # toJSON(needs) rather than a hand-listed env var per job: a job added
+        # to `needs:` above is gated automatically.
         env:
-          DETECT_CHANGES: ${{ needs.detect-changes.result }}
-          PREPARE: ${{ needs.prepare.result }}
-          LINT: ${{ needs.lint.result }}
-          TYPECHECK: ${{ needs.typecheck.result }}
-          ARCH: ${{ needs.architecture-audit.result }}
-          BUILD: ${{ needs.build.result }}
-          TEST: ${{ needs.test.result }}
-          HADOLINT: ${{ needs.hadolint.result }}
-          TRIVY: ${{ needs.trivy.result }}
-          MIGRATIONS: ${{ needs.migrations.result }}
-          DRY_RUN: ${{ needs.migration-dry-run.result }}
-          RLS_INTEGRATION: ${{ needs.rls-integration.result }}
-          DEPS: ${{ needs.dependency-audit.result }}
-          INTEGRITY: ${{ needs.integrity.result }}
-          ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
-          VISUAL_TOLERANCE: ${{ needs.visual-tolerance-check.result }}
-          A11Y_ATTRIBUTION: ${{ needs.a11y-attribution.result }}
-          DOCS_FORMAT: ${{ needs.docs-format.result }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN rls-integration=$RLS_INTEGRATION deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION docs-format=$DOCS_FORMAT"
-          # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
-          # PRs where detect-changes sets has_code=false and prepare legitimately skips,
-          # and a11y-attribution which only runs on agent-* / worktree-agent-* branches
-          # per its own `if:` condition). Only "failure"/"cancelled" trip the gate.
-          # detect-changes and prepare are included here because they are the root of
-          # the dependency chain: if prepare actually FAILS (not skips), every job that
-          # needs it cascades to "skipped" by GitHub Actions' default behavior, which
-          # would otherwise look identical to a legitimate path-filtered skip and let
-          # the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$RLS_INTEGRATION" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION" "$DOCS_FORMAT"; do
-            if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
-              echo "::error::Required job failed or was cancelled"
-              exit 1
-            fi
-          done
+          set -euo pipefail
+          node scripts/ci-gate-required-results.mjs
       - name: Publish CI Gate commit status
         # #4025: a check RUN produced off the `pull_request` event is what
         # branch protection's required-status evaluation normally reads —

@@ -22,7 +22,7 @@ export class StripeOperationError extends Error {
 }
 
 /** Stripe error types that are transient and safe to retry. */
-const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
+export const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
 
 /**
  * Wraps a Stripe error in StripeOperationError with retriability metadata.
@@ -74,6 +74,19 @@ export interface CustomerResult {
   id: string;
   email: string | null;
   name: string | null;
+}
+
+/**
+ * Verifies a Stripe webhook's signature and returns the parsed event. Pure
+ * local HMAC over the raw body — needs no API key or client, so it is not on
+ * `PaymentsPort`. Throws on a missing or invalid signature.
+ */
+export function verifyStripeWebhookSignature(
+  rawBody: Buffer,
+  signature: string,
+  webhookSecret: string
+): Stripe.Event {
+  return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
 }
 
 /**
@@ -291,22 +304,4 @@ export class StripeService {
       wrapStripeError(err);
     }
   }
-
-  /**
-   * Validates and parses an incoming Stripe webhook payload.
-   * Throws if the signature is invalid.
-   */
-  constructWebhookEvent(payload: Buffer, signature: string, webhookSecret: string): Stripe.Event {
-    return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  }
 }
-
-/**
- * Singleton Stripe service instance.
- * Uses STRIPE_SECRET_KEY from environment.
- * Production validation (non-empty assertion) happens in buildApp() via assertStripeSecrets().
- * The placeholder key allows module load in test/dev without a real Stripe key.
- */
-export const stripeService = new StripeService(
-  process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"
-);

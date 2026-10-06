@@ -215,7 +215,10 @@
       type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
     </item>
     <item priority="high">
-      export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
+      export function depositTransitionHandler(
+        deposits: DepositService,
+        transition: (id: string) => Promise<Deposit>
+      ) { /* ... */ }
     </item>
   </file>
   <file path="src/routes/deposits.ts">
@@ -424,13 +427,6 @@
     </item>
   </file>
   <file path="src/routes/reservations.ts">
-    <item priority="low">
-      async function isVenueMember(
-        user: AuthUser | undefined,
-        venueId: string | undefined,
-        lookup: VenueMembershipLookup
-      ): Promise<boolean> { /* ... */ }
-    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>
@@ -620,23 +616,39 @@
         work: () => Promise<void>
       ): Promise<void> { /* ... */ }
     </item>
-    <item priority="low">
-      async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> { /* ... */ }
+    <item priority="high">
+      interface WebhookDeps {
+        deposits: DepositService;
+        payments: PaymentsPort;
+      }
     </item>
     <item priority="low">
-      async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function holdIfPending(
+        paymentIntentId: string,
+        eventType: string,
+        deps: WebhookDeps
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentSucceeded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentAmountCapturableUpdated(
+        event: Stripe.Event,
+        deps: WebhookDeps
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function onPaymentIntentCanceled(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
       function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean { /* ... */ }
     </item>
     <item priority="low">
-      async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter { /* ... */ }
     </item>
     <item priority="high">
       export const stripeWebhookRoutes: FastifyPluginAsync;
@@ -973,10 +985,7 @@
   </file>
   <file path="src/services/deposit.ts">
     <item priority="low">
-      type StripePort = Pick<
-        StripeService,
-        | "cancelPaymentIntent"
-        | "cap...;
+      type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     </item>
     <item priority="low">
       type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
@@ -1046,9 +1055,6 @@
       }
     </item>
     <item priority="high">
-      export const depositService: unknown;
-    </item>
-    <item priority="high">
       export function calculateDepositAmount(
         venue: { depositType: string | null; depositAmountCents: number | null },
         partySize: number
@@ -1066,7 +1072,7 @@
       }
     </item>
     <item priority="high">
-      export const defaultDomainServices: DomainServices;
+      export const defaultDomainServices: Omit<DomainServices, "depositService">;
     </item>
   </file>
   <file path="src/services/events.ts">
@@ -1250,6 +1256,7 @@
         success: boolean;
         hold?: ReservationHold;
         error?: string;
+        tableNotInVenue?: boolean;
       }
     </item>
     <item priority="high">
@@ -1443,6 +1450,7 @@
     <item priority="low">
       interface CancelReservationDeps {
         logger: FastifyBaseLogger;
+        deposits: DepositService;
       }
     </item>
     <item priority="low">
@@ -1478,14 +1486,16 @@
         deposit: Deposit,
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        initiator: CancelInitiator
+        initiator: CancelInitiator,
+        deposits: DepositService
       ): Promise<ResolveDepositOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function resolveDeposit(
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        initiator: CancelInitiator
+        initiator: CancelInitiator,
+        deposits: DepositService
       ): Promise<ResolveDepositOutcome> { /* ... */ }
     </item>
     <item priority="high">
@@ -1521,19 +1531,22 @@
     <item priority="high">
       export async function isPartySizeDepositBlocked(
         reservation: Reservation,
-        newPartySize: number | undefined
+        newPartySize: number | undefined,
+        deposits: DepositService
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="low">
       async function checkPartySizeDepositGuard(
         reservation: Reservation,
-        changes: ReservationChanges
+        changes: ReservationChanges,
+        deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
     <item priority="high">
       export async function modifyReservation(
         reservation: Reservation,
-        changes: ReservationChanges
+        changes: ReservationChanges,
+        deposits: DepositService
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -1559,14 +1572,16 @@
         targetStatus: "forfeited" | "partial_refunded",
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        err: unknown
+        err: unknown,
+        deposits: DepositService
       ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function forfeitHeldDeposit(
         deposit: Deposit,
         reservation: Reservation,
-        logger: FastifyBaseLogger
+        logger: FastifyBaseLogger,
+        deposits: DepositService
       ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="high">
@@ -1581,7 +1596,8 @@
     <item priority="high">
       export async function recordNoShow(
         reservation: Reservation,
-        logger: FastifyBaseLogger
+        logger: FastifyBaseLogger,
+        deposits: DepositService
       ): Promise<RecordNoShowResult> { /* ... */ }
     </item>
   </file>
@@ -1950,6 +1966,9 @@
         cause: unknown;
       }
     </item>
+    <item priority="high">
+      export const RETRIABLE_STRIPE_TYPES: unknown;
+    </item>
     <item priority="medium">
       function wrapStripeError(err: unknown): never { /* ... */ }
     </item>
@@ -1985,15 +2004,19 @@
       }
     </item>
     <item priority="high">
+      export function verifyStripeWebhookSignature(
+        rawBody: Buffer,
+        signature: string,
+        webhookSecret: string
+      ): Stripe.Event { /* ... */ }
+    </item>
+    <item priority="high">
       class StripeService {
         stripe: Stripe;
         async createPaymentIntent(): Promise<unknown>;
         async capturePaymentIntent(): Promise<unknown>;
         async cancelPaymentIntent(): Promise<unknown>;
       }
-    </item>
-    <item priority="high">
-      export const stripeService: unknown;
     </item>
   </file>
   <file path="src/services/table-state-machine.ts">
@@ -2016,6 +2039,14 @@
     </item>
     <item priority="high">
       export const tableStatusService: unknown;
+    </item>
+  </file>
+  <file path="src/services/table-venue.ts">
+    <item priority="high">
+      export const TABLE_NOT_IN_VENUE_DETAIL: unknown;
+    </item>
+    <item priority="high">
+      export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
     </item>
   </file>
   <file path="src/services/table.ts">
@@ -2279,9 +2310,9 @@
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
         jobs?: JobsPort;
+        payments?: PaymentsPort;
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
-        venueMembershipLookup?: VenueMembershipLookup;
       }
     </item>
     <item priority="high">
@@ -2361,7 +2392,9 @@
     <item priority="low">
       interface EffectsRecorder {
         effects: RecordedEffects;
-        appOptions: Pick<ReservationsAppOptions, "notificationPort" | "jobs" ...;
+        appOptions: Pick<
+          ReservationsAppOptions,
+          "notificationPort" ...;
         scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: ...;
         deposits: {
           service: typeof recordingDepositService;
@@ -2418,6 +2451,22 @@
     <item priority="high">
       export function createInMemoryEvents(): InMemoryEvents { /* ... */ }
     </item>
+    <item priority="low">
+      type PaymentsOp = keyof PaymentsPort;
+    </item>
+    <item priority="high">
+      type PaymentsImpl = (
+        ...args: Parameters<PaymentsPort[Op]>
+      ) => Awaited<Re...;
+    </item>
+    <item priority="low">
+      interface InMemoryPayments {
+        calls: { op: PaymentsOp; args: unknown[] }[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryPayments(): InMemoryPayments { /* ... */ }
+    </item>
   </file>
   <file path="src/transitions/index.ts">
     <item priority="high">
@@ -2433,8 +2482,8 @@
         ports: EffectPorts;
         policy: VenueEffectPolicySource;
         reservationService: ReservationWrites;
+        deposits: DepositService;
         logger: EffectLogger;
-        now?: () => Date;
       }
     </item>
     <item priority="low">
@@ -2573,6 +2622,12 @@
         jobs: JobsPort;
         events: EventsPort;
       }
+    </item>
+    <item priority="low">
+      type PaymentsPort = Pick<
+        StripeService,
+        | "createCustomer"
+        | "createPa...;
     </item>
   </file>
   <file path="src/transitions/run.ts">

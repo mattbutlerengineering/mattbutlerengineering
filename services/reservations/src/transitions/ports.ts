@@ -10,6 +10,7 @@ import type { JobScheduler, ReminderPayload } from "@mbe/jobs";
 import type { JOB_TYPES } from "@mbe/jobs";
 import type { Reservation } from "@mbe/types";
 import type { ReservationEvent } from "../services/events.js";
+import type { StripeService } from "../services/stripe.js";
 
 /**
  * Who triggered a cancellation. Guest self-service and staff/venue-side
@@ -99,3 +100,22 @@ export interface EffectPorts {
   jobs: JobsPort;
   events: EventsPort;
 }
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+/**
+ * The Stripe operations deposits and the public deposit routes use. Production
+ * is the one `StripeService` built in `buildApp`; tests inject
+ * `createInMemoryPayments`. Money logic stays in `DepositService`, which
+ * depends on this port (`deposit.ts` keeps `StripePort` as an alias).
+ */
+export type PaymentsPort = Pick<
+  StripeService,
+  | "createCustomer"
+  | "createPaymentIntent"
+  | "capturePaymentIntent"
+  | "cancelPaymentIntent"
+  | "createPartialRefund"
+  | "retrievePaymentIntent"
+  | "findDepositRefund"
+>;

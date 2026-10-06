@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Reservation } from "@mbe/types";
-import type * as DepositModule from "./deposit.js";
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
@@ -15,35 +14,14 @@ vi.mock("./venue.js", () => ({
   },
 }));
 
-vi.mock("./deposit.js", async () => {
-  // The real error classes, not stand-ins: resolveDeposit's `instanceof`
-  // checks are only meaningful if the class the test throws is the class it
-  // imports.
-  const actual = await vi.importActual<typeof DepositModule>("./deposit.js");
-  return {
-    DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
-    DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
-    DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
-    DepositTransitionError: actual.DepositTransitionError,
-    depositService: {
-      getByReservationId: vi.fn(),
-      getById: vi.fn(),
-      refund: vi.fn(),
-      refundPartial: vi.fn(),
-      forfeit: vi.fn(),
-      verifyCaptureCompleted: vi.fn(),
-    },
-  };
-});
-
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
 import {
-  depositService,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
   DepositConcurrentUpdateError,
+  type DepositService,
 } from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
@@ -78,9 +56,20 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   };
 }
 
+/** The injected DepositService fake (the real error classes come from ./deposit.js). */
+const depositService = {
+  getByReservationId: vi.fn(),
+  getById: vi.fn(),
+  refund: vi.fn(),
+  refundPartial: vi.fn(),
+  forfeit: vi.fn(),
+  verifyCaptureCompleted: vi.fn(),
+};
+
 function makeDeps() {
   return {
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+    deposits: depositService as unknown as DepositService,
   } as unknown as CancelReservationDeps;
 }
 

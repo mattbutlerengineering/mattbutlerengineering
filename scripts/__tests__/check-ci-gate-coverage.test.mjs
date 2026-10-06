@@ -169,6 +169,52 @@ describe("extractEvaluatedJobs", () => {
   });
 });
 
+/**
+ * Builds a `ci-gate` job whose result-check step hands the whole `needs`
+ * context to scripts/ci-gate-required-results.mjs — the fail-closed form
+ * that replaced the inline env/for-loop (PR #6077 incident, 2026-10-05).
+ */
+function makeModuleGateJob(needsJobs, { invokeModule = true } = {}) {
+  const needsBlock = `    needs:\n      [\n${needsJobs.map((j) => `        ${j},\n`).join("")}      ]\n`;
+  return (
+    `  ci-gate:\n${needsBlock}` +
+    "    steps:\n" +
+    "      - name: Check required job results\n" +
+    "        env:\n" +
+    "          NEEDS_JSON: ${{ toJSON(needs) }}\n" +
+    "        run: |\n" +
+    "          set -euo pipefail\n" +
+    (invokeModule ? "          node scripts/ci-gate-required-results.mjs\n" : "          true\n")
+  );
+}
+
+describe("extractEvaluatedJobs — toJSON(needs) module form", () => {
+  it("treats every needs job as evaluated when the step passes toJSON(needs) to the module", () => {
+    const content = makeCiYml(
+      [
+        "  detect-changes:\n    runs-on: ubuntu-latest\n",
+        "  foo-job:\n    runs-on: ubuntu-latest\n",
+        makeModuleGateJob(["detect-changes", "foo-job"]),
+      ].join("")
+    );
+
+    expect(extractEvaluatedJobs(content)).toEqual(["detect-changes", "foo-job"]);
+    expect(findUnreachableJobs(content, {})).toEqual([]);
+  });
+
+  it("evaluates nothing when toJSON(needs) is exposed but the module is never invoked", () => {
+    const content = makeCiYml(
+      [
+        "  foo-job:\n    runs-on: ubuntu-latest\n",
+        makeModuleGateJob(["foo-job"], { invokeModule: false }),
+      ].join("")
+    );
+
+    expect(extractEvaluatedJobs(content)).toEqual([]);
+    expect(findUnreachableJobs(content, {})).toEqual(["foo-job"]);
+  });
+});
+
 describe("the real repository ci.yml", () => {
   it("has zero jobs unreachable from ci-gate's needs (RED before #5003's fix)", () => {
     const content = readFileSync(join(repoRoot, ".github", "workflows", "ci.yml"), "utf-8");

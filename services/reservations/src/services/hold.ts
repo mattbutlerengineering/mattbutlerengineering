@@ -10,6 +10,7 @@ import { availabilityService } from "./availability.js";
 import { estimateDuration } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
+import { isTableInVenue, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -33,6 +34,8 @@ export interface CreateHoldResult {
   success: boolean;
   hold?: ReservationHold;
   error?: string;
+  /** The requested table is missing or belongs to another venue (route answers 403). */
+  tableNotInVenue?: boolean;
 }
 
 export const holdService = {
@@ -61,6 +64,14 @@ export const holdService = {
     const duration = estimateDuration(partySize, settings);
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
     const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
+
+    // A caller-named table must belong to the hold's venue, checked before any
+    // conflict data is read so the answer can't reveal another venue's
+    // bookings. confirmHold books the hold's own tableId, so this also keeps a
+    // confirmed reservation inside its venue.
+    if (tableId && !(await isTableInVenue(tableId, venueId))) {
+      return { success: false, error: TABLE_NOT_IN_VENUE_DETAIL, tableNotInVenue: true };
+    }
 
     // Fetch reservations + holds once for both the conflict and pacing pre-checks.
     const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
