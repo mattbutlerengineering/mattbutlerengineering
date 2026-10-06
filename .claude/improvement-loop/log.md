@@ -2840,3 +2840,8 @@ This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), 
 ### Skipped Issues
 
 0 `agent-skip` open — nothing to review.
+
+## 2026-10-06
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
