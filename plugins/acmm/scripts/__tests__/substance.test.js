@@ -268,6 +268,22 @@ describe("feedback loop substance checker", () => {
     rmSync(dir, { recursive: true });
   });
 
+  // A loop entry can mention a date it has not reached yet ("nothing comes due again until
+  // ~2026-10-29"). Counting that as the newest entry reported a dead loop as fresh until a month
+  // past the forecast, and printed a negative age ("is -23 days old").
+  test("ignores future dates mentioned in an entry's prose", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "log.md");
+    writeFileSync(
+      filePath,
+      `## ${isoDaysAgo(45)}\n\nNothing comes due again until ~${isoDaysAgo(-23)}.\n`
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, false);
+    assert.match(result.evidence, /is 45 days old/, result.evidence);
+    rmSync(dir, { recursive: true });
+  });
+
   // A missing log and a log that stopped being written are different failures: the first says
   // the loop was never wired up, the second says it died on a knowable date. Reporting them
   // identically is what let the criterion sit red without anyone knowing which one to fix.
@@ -690,7 +706,8 @@ describe("feedback-loops integration — real repo files", () => {
       .flatMap((f) => [
         ...readFileSync(join(loopDir, f), "utf-8").matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g),
       ])
-      .map((m) => m[1]);
+      .map((m) => m[1])
+      .filter((d) => new Date(d).getTime() <= Date.now());
     return dates.sort().at(-1);
   }
 
