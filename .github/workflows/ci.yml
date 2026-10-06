@@ -371,6 +371,18 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Restore prettier cache
+        # Prettier caches by file content (a changed file is re-checked even
+        # with its mtime held), so an older commit's cache cannot false-pass
+        # this one; the key rotates on prettier's version/plugins and config.
+        # 41s -> ~1s warm (scripts/__tests__/ci-prettier-cache.test.mjs).
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.cache/prettier
+          key: prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc.js', '.prettierignore') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc.js', '.prettierignore') }}-
+
       - name: Run Full Repository Audit
         run: pnpm repo-audit
 
