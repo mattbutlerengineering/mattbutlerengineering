@@ -2845,3 +2845,29 @@ This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), 
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+
+## 2026-10-06 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `65b271b9`, merged `origin/main` `c3cd85b2`, `resolved: []` — no conflicts). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 0 due / 0 captured / 0 audited. This is the 28-day TTL working as designed, not a defect: the ledger holds 154 rows, the loop's first fire was 2026-10-01, so every reachable route was captured within the last 5 days and nothing comes due again until ~2026-10-29. 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered, 18 `unreachable:auth`.
+
+**Capture:** all three capture runs were still executed rather than skipped on the empty plan, as a liveness check on the harness — `marketing`, `rialto-web` and `hospitality` each booted their `vite preview` (ports 4175/4176/4177) and exited 0 with the single "no routes planned" skip. The capture path is alive; it simply had nothing planned.
+
+**Judge:** nothing to judge — no manifest rows, so no screenshots. `detect.mjs mechanical` and `detect.mjs judged` both exited 2 with "no capture manifest under .ui-quality/captures/". That is each script's documented refusal on zero captures, **not** a pipeline bug: with 0 due routes there is no manifest for them to read. No judged files were written and no Finding was invented to fill the gap.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, and `rate.mjs pairs --calibration` exited 2 for the fourth consecutive fire — `docs/ui-quality/calibration.json` still has no labelled pairs. This is the Verify-stage set Matt owns (≥10 pairs, labelled once); no agent action can clear it, so it was logged and not retried, and the status re-query returned `stale` again. `rate.mjs pairs` then planned 0 rating pairs (no captures to pair), so `rate.mjs record` was not called. Stamp for this fire: `stale`.
+
+**Filing:** stopped at the plan. `findings.mjs plan` exited 2 with `ENOENT: .ui-quality/findings.mechanical.json` — the direct downstream consequence of the zero-capture refusal above, not incomplete GitHub state. It named no `ui-quality`-labelled issues the findings ledger does not know, and it wrote no `.ui-quality/findings.escalation.json`, so no escalation issue was opened. 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. No checkpoint commit was needed (nothing was filed).
+
+Issue reconciliation was still completed before the plan and came back clean: all 16 ledger issues fetched individually (#5943, #5944, #5945, #5973, #5974, #5975, #5976, #6002, #6003, #6004, #6005, #6006, #6022, #6023, #6024, #6025) — every one `open`, none `missing`. The `ui-quality` label enumeration returned `totalCount: 16` with `hasNextPage: false`, exactly matching the findings ledger: no orphan labelled issues, nothing to adopt. Rubric migration not needed — every ledger key is `r1` and `rubric.json` is still v1.
+
+**Fix PR:** none — filing stopped at the plan exit 2, so no action could carry `fix_pr_candidate`, and there were no findings to fix.
+
+**P1 SLA:** step (6h) was skipped by the plan's exit-2 stop, but the ages were measured read-only (no `--escalate`) so the fact is on the record: 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), **0 past the 7-day SLA** (oldest #5973 at 4 days). The skipped step would have been a no-op — no escalation was missed.
+
+**Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: update`) instead. For the exhaustive `ui-quality` label enumeration, `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal depends on.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). Filing stopped, but for the benign reason above rather than unreadable state. A genuinely quiet fire: nothing was due, so nothing was judged or filed.
