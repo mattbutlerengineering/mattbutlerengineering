@@ -740,6 +740,13 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/v1/availability/*", (route) =>
     jsonResponse(route, "availability-slots")
   );
+  // Public (slug-scoped) availability — the booking widget's api client is
+  // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
+  // (the staff route above 401s for guests). The `**/public/v1/venues/*`
+  // config glob below never reaches it (`*` never crosses `/`).
+  await page.route("**/public/v1/venues/*/availability*", (route) =>
+    jsonResponse(route, "availability-slots")
+  );
 
   // Holds
   await page.route("**/api/v1/holds/*/confirm", (route) => {

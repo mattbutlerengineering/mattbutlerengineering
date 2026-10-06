@@ -126,7 +126,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
