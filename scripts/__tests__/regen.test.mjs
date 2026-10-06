@@ -135,4 +135,39 @@ describe("regen --check", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(errorSpy.mock.calls.flat().join("\n")).toContain("rialto-catalog-schemas");
   });
+
+  // `--git-only` is for callers that ran `pnpm regen` immediately before the
+  // check (ci.yml's Build job, .husky/pre-push's full path). Right after a
+  // regen, `mbe pack --check` compares the derived output to bytes that were
+  // just derived the same way, so it cannot fail — while re-deriving every
+  // package (root `.` alone is ~90s on a CI runner). Only the git signal
+  // carries information there.
+  describe("with gitOnly", () => {
+    it("never re-derives llms packages via `mbe pack --check`", async () => {
+      mockSpawnSync.mockReturnValue({ status: 0 });
+
+      const runCheck = await loadRunCheck();
+      runCheck({ gitOnly: true });
+
+      const packCalls = mockSpawnSync.mock.calls.filter(
+        ([cmd, args]) => cmd === "pnpm" && args.includes("pack")
+      );
+      expect(packCalls).toHaveLength(0);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it("still exits 1 when a committed llms output differs in git", async () => {
+      mockSpawnSync.mockImplementation((cmd, args) =>
+        cmd === "git" && args.some((a) => String(a) === "llms-full.txt")
+          ? { status: 1 }
+          : { status: 0 }
+      );
+
+      const runCheck = await loadRunCheck();
+      runCheck({ gitOnly: true });
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      expect(errorSpy.mock.calls.flat().join("\n")).toContain("committed output differs");
+    });
+  });
 });

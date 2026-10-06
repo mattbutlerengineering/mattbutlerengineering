@@ -5,6 +5,9 @@
  * Usage:
  *   node scripts/regen.mjs            # regenerate everything
  *   node scripts/regen.mjs --check    # exit non-zero if any artifact is stale
+ *   node scripts/regen.mjs --check --git-only
+ *                                     # git-diff signal only; for use right
+ *                                     # after `regen` (see runCheck)
  *
  * Entry point for `pnpm regen` and `pnpm regen --check` (see root package.json).
  * Artifact definitions live in regen-manifest.mjs — add new families there.
@@ -99,7 +102,15 @@ function isLlmsPackageStale(pkg) {
   return code !== 0;
 }
 
-function runCheck() {
+/**
+ * @param {{ gitOnly?: boolean }} [options] gitOnly skips the per-package
+ *   `mbe pack --check` re-derivation. Only correct immediately after a full
+ *   `regen`: the derived bytes were just written to disk, so that comparison
+ *   cannot fail (see the #5574 note below) while costing ~3 min of CI time
+ *   re-packing every package. The git signal still runs and still catches
+ *   every committed artifact that differs from a fresh regeneration.
+ */
+function runCheck({ gitOnly = false } = {}) {
   const llmsFamily = FAMILIES.find((f) => f.id === "llms-txt");
   const otherFamilies = FAMILIES.filter((f) => f.id !== "llms-txt");
 
@@ -113,7 +124,7 @@ function runCheck() {
   const staleOther = otherFamilies.filter((f) => !isClean(f.outputs));
 
   // llms-txt: real source→output check per package (see isLlmsPackageStale).
-  const stalePackages = llmsFamily ? llmsPackages().filter(isLlmsPackageStale) : [];
+  const stalePackages = llmsFamily && !gitOnly ? llmsPackages().filter(isLlmsPackageStale) : [];
 
   // ...AND the git signal, which #3635 replaced rather than unioned. Both are
   // needed because each is blind to what the other sees:
@@ -185,7 +196,7 @@ function runRegen() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const checkMode = process.argv.includes("--check");
   if (checkMode) {
-    runCheck();
+    runCheck({ gitOnly: process.argv.includes("--git-only") });
   } else {
     runRegen();
   }
