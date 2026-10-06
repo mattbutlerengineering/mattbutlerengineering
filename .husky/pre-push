@@ -88,8 +88,12 @@ fi
 
 # Always run the cheap output-cleanliness check (git status of committed
 # artifacts, no regeneration): catches hand-edited or uncommitted artifact
-# files on both paths for ~0 cost.
-if ! pnpm regen --check; then
+# files on both paths for ~0 cost. `--git-only` is what keeps it cheap: plain
+# `--check` re-derives every llms package via `mbe pack --check` (minutes),
+# which on the full path only re-confirms what `pnpm regen` just wrote and on
+# the fast path re-checks sources this push did not touch. CI's Build job
+# remains the authoritative regen gate either way.
+if ! pnpm regen --check --git-only; then
   echo ""
   echo "ERROR: generated artifacts are out of sync (stale artifact + fix command shown above)."
   echo "Stage the changed files and amend/create a new commit before pushing."
