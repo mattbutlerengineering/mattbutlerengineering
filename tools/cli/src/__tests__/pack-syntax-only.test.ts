@@ -42,7 +42,7 @@ describe("pack is syntax-only", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("never resolves symbols, and still keeps exported consts and drops local ones", async () => {
+  it("never resolves symbols for any declaration kind, and still keeps exported consts and drops local ones", async () => {
     const pkgDir = join(tmpDir, "packages/syntax-only-fixture");
     mkdirSync(pkgDir, { recursive: true });
     writeFileSync(
@@ -50,6 +50,13 @@ describe("pack is syntax-only", () => {
       `
 const LOCAL_CONST = "local";
 export const EXPORTED_CONST: string = LOCAL_CONST;
+function localFunction(): string {
+  return LOCAL_CONST;
+}
+interface LocalShape {
+  id: string;
+}
+class LocalClass {}
 `.trim()
     );
     const getSymbol = vi.spyOn(Node.prototype, "getSymbol");
