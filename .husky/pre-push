@@ -45,7 +45,7 @@ fi
 # skip ~2 minutes of build + regen.
 #
 # Safety: CI's build job still runs the authoritative `pnpm regen && pnpm regen
-# --check` on every PR and main push, so a wrong "check" verdict here can only
+# --check --git-only` on every PR and main push, so a wrong "check" verdict here can only
 # delay drift detection to CI — never let it land. If the gating script itself
 # fails (missing origin/main, etc.), fail safe to the full path.
 REGEN_MODE=$(node scripts/check-regen-needed.mjs 2>/dev/null) || REGEN_MODE=full
