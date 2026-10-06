@@ -66,3 +66,21 @@ describe("ci.yml integrity critical path", () => {
     expect(needsOf("ci-gate")).toContain("integrity");
   });
 });
+
+/**
+ * Architecture Audit builds the CLI on its own runner, with no turbo cache
+ * step and no artifact, then runs check-adr/check-deps. Build and Test consume
+ * none of it, so waiting for it only delayed both by the audit's tail past
+ * Typecheck (run 37527830915: Typecheck ended 20:39:16, Architecture Audit
+ * 20:40:04, Build/Test started 20:40:05).
+ */
+describe("ci.yml architecture-audit critical path", () => {
+  it.each(["build", "test"])("%s does not wait for architecture-audit", (job) => {
+    expect(needsOf(job)).not.toContain("architecture-audit");
+    expect(needsOf(job)).toContain("typecheck");
+  });
+
+  it("CI Gate still requires architecture-audit", () => {
+    expect(needsOf("ci-gate")).toContain("architecture-audit");
+  });
+});
