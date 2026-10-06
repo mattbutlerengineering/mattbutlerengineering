@@ -301,7 +301,9 @@ jobs:
 
   integrity:
     name: Integrity
-    needs: [prepare, build]
+    # Not `build`: both checks below read committed files on this runner and
+    # Build hands it no artifact (scripts/__tests__/ci-lint-critical-path.test.mjs).
+    needs: [prepare]
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

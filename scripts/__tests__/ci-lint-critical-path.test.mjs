@@ -49,3 +49,20 @@ describe("ci.yml lint critical path", () => {
     expect(needsOf("ci-gate")).toContain("lint");
   });
 });
+
+/**
+ * Integrity runs only `detect-instruction-rot.mjs` and
+ * `check-doc-freshness.mjs`, which read committed files on their own runner.
+ * Build passes it no artifact, so waiting for Build only added Integrity's
+ * ~45s to the end of the critical path (run 37480517290: Build ended 14:46:14,
+ * Integrity 14:46:17-14:47:01, CI Gate 14:47:03).
+ */
+describe("ci.yml integrity critical path", () => {
+  it("integrity does not wait for build", () => {
+    expect(needsOf("integrity")).not.toContain("build");
+  });
+
+  it("CI Gate still requires integrity", () => {
+    expect(needsOf("ci-gate")).toContain("integrity");
+  });
+});
