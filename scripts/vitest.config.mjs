@@ -10,6 +10,10 @@ export default defineConfig({
     // pnpm-lock.yaml touch cold-busts every turbo task and roughly doubles
     // durations — the mechanism that red main at #3588 and via deposits.test.ts.
     // 1.97x headroom was not enough to survive that; this is ~7.9x.
+    // visual-defect-reproduction.test.mjs itself now runs outside the coverage
+    // pass (see test:coverage in package.json and
+    // __tests__/scripts-coverage-exclusions.test.mjs): it adds no coverage and
+    // timed out under it on main once #5931 doubled its baselines to 99.
     testTimeout: 60000,
     include: ["scripts/__tests__/**/*.test.mjs"],
     reporters: ["default", "junit"],

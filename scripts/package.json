@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint .",
     "test": "cd .. && vitest run --config scripts/vitest.config.mjs",
-    "test:coverage": "cd .. && vitest run --config scripts/vitest.config.mjs --coverage"
+    "test:coverage": "cd .. && vitest run --config scripts/vitest.config.mjs --coverage --exclude scripts/__tests__/visual-defect-reproduction.test.mjs && vitest run --config scripts/vitest.config.mjs --outputFile.junit=scripts/test-results/junit-uninstrumented.xml scripts/__tests__/visual-defect-reproduction.test.mjs"
   },
   "dependencies": {
     "@mbe/agent-core": "workspace:*",
