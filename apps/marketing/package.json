@@ -32,13 +32,13 @@
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/observability": "workspace:^",
-    "@tanstack/react-query": "^5.103.1",
+    "@tanstack/react-query": "^5.104.1",
     "framer-motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
-    "three": "^0.186.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
