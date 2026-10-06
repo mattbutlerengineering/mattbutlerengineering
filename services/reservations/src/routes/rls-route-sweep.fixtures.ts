@@ -65,6 +65,8 @@ export function normalizeRouteKey(key: string): string {
 }
 
 /** Routes with no venue-scoped data at all — excluded from the sweep by design. */
+const HOLDS_URL = "/api/v1/holds";
+
 export const INFRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /docs",
   "GET /docs/*",
@@ -511,7 +513,7 @@ export async function createDisposableStaffHold(
   const sessionId = `rls-sweep-staff-hold-${randomUUID()}`;
   const res = await asAdmin(ctx, {
     method: "POST",
-    url: "/api/v1/holds",
+    url: HOLDS_URL,
     headers: { "x-session-id": sessionId },
     payload: {
       venueId,
@@ -574,7 +576,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
   "POST /api/v1/holds": notRls(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
-      url: "/api/v1/holds",
+      url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
         date: "2026-10-03",
@@ -586,7 +588,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     expectOk(res, "create hold");
     const crossVenueTable = await asAdmin(ctx, {
       method: "POST",
-      url: "/api/v1/holds",
+      url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
         date: "2026-10-03",
@@ -603,7 +605,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     expectOk(
       await asMember(ctx, {
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         payload: {
           venueId: ctx.venueA.id,
           date: "2026-10-03",
@@ -617,7 +619,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
 
     const denied = await asMember(ctx, {
       method: "POST",
-      url: "/api/v1/holds",
+      url: HOLDS_URL,
       payload: {
         venueId: ctx.venueB.id,
         date: "2026-10-03",
@@ -630,28 +632,28 @@ const notRlsFixtures: Record<string, RouteFixture> = {
   }),
   "GET /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
-      await asAdmin(ctx, { method: "GET", url: "/api/v1/holds/does-not-exist" }),
+      await asAdmin(ctx, { method: "GET", url: `${HOLDS_URL}/does-not-exist` }),
       "get hold (admin, unknown id: 404)"
     );
 
     const holdA = await createDisposableStaffHold(ctx, ctx.venueA.id);
     expectOk(
-      await asMember(ctx, { method: "GET", url: `/api/v1/holds/${holdA.id}` }),
+      await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/${holdA.id}` }),
       "member venue A"
     );
 
     const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
-    const denied = await asMember(ctx, { method: "GET", url: `/api/v1/holds/${holdB.id}` });
+    const denied = await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/${holdB.id}` });
     expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);
 
-    const unknown = await asMember(ctx, { method: "GET", url: "/api/v1/holds/does-not-exist" });
+    const unknown = await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/does-not-exist` });
     expect(unknown.statusCode, `member, unknown id (no existence leak): ${unknown.body}`).toBe(403);
   }),
   "DELETE /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
       await asAdmin(ctx, {
         method: "DELETE",
-        url: "/api/v1/holds/does-not-exist",
+        url: `${HOLDS_URL}/does-not-exist`,
         headers: { "x-session-id": "rls-sweep-session" },
       }),
       "release hold (admin, unknown id: 404)"
@@ -661,7 +663,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     expectOk(
       await asMember(ctx, {
         method: "DELETE",
-        url: `/api/v1/holds/${holdA.id}`,
+        url: `${HOLDS_URL}/${holdA.id}`,
         headers: { "x-session-id": holdA.sessionId },
       }),
       "member venue A"
@@ -670,7 +672,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
     const denied = await asMember(ctx, {
       method: "DELETE",
-      url: `/api/v1/holds/${holdB.id}`,
+      url: `${HOLDS_URL}/${holdB.id}`,
       headers: { "x-session-id": holdB.sessionId },
     });
     expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);

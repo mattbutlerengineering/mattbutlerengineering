@@ -44,6 +44,7 @@ async function loadTokenHelpers(): Promise<{
 }
 
 /** An unknown slug — proves item 3's denial leg without depending on any seeded venue. */
+const HOLDS_URL = "/api/v1/holds";
 const UNKNOWN_SLUG = "rls-sweep-no-such-slug";
 
 /**
@@ -411,7 +412,7 @@ const holdConfirmFixtures: Record<string, RouteFixture> = {
       expectOk(
         await asAdmin(ctx, {
           method: "POST",
-          url: `/api/v1/holds/${adminHold.id}/confirm`,
+          url: `${HOLDS_URL}/${adminHold.id}/confirm`,
           headers: { "x-session-id": adminHold.sessionId },
           payload,
         }),
@@ -421,7 +422,7 @@ const holdConfirmFixtures: Record<string, RouteFixture> = {
       expectOk(
         await asMember(ctx, {
           method: "POST",
-          url: `/api/v1/holds/${ctx.holdA}/confirm`,
+          url: `${HOLDS_URL}/${ctx.holdA}/confirm`,
           headers: { "x-session-id": ctx.holdSessionId },
           payload,
         }),
@@ -431,7 +432,7 @@ const holdConfirmFixtures: Record<string, RouteFixture> = {
       const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
       const denied = await asMember(ctx, {
         method: "POST",
-        url: `/api/v1/holds/${holdB.id}/confirm`,
+        url: `${HOLDS_URL}/${holdB.id}/confirm`,
         headers: { "x-session-id": holdB.sessionId },
         payload,
       });
