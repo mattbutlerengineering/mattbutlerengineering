@@ -4,11 +4,10 @@ import Stripe from "stripe";
 import {
   ADMIN_HEADERS,
   asAdmin,
-  expectBroken,
+  asMember,
+  createDisposableStaffHold,
   expectDenied,
   expectOk,
-  type ExpectBrokenOptions,
-  type PayloadOrFactory,
   type RouteFixture,
   type SweepContext,
 } from "./rls-route-sweep.fixtures.js";
@@ -19,7 +18,7 @@ import {
  * `rls-route-sweep.fixtures.ts` (which had grown past this repo's 800-line
  * file guideline) rather than folded into it — these routes share one
  * property the staff API doesn't: every one of them is ADR-026 §3.3 item 3 or
- * item 4, so every fixture here (except `holdConfirmFixtures`, below) is now
+ * item 4, so every fixture here is now
  * "ok": item 3 (`resolveVenueId("venue_slug", …)` + `runWithVenueContext`,
  * replacing an unscoped `venueService.getBySlug`/`getPublicConfigBySlug`
  * read) covers the entire `/public/v1/venues/:slug/*` funnel, and item 4
@@ -44,35 +43,6 @@ async function loadTokenHelpers(): Promise<{
   return { generateManageToken, generateUnsubscribeToken };
 }
 
-/** A headers value, or a factory reading it off {@link SweepContext} (e.g. the seeded `holdSessionId`). */
-type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record<string, string>);
-
-/** Still used by `holdConfirmFixtures` below — the one fixture in this file that stays genuinely broken. */
-function brokenPublic(
-  blocker: string,
-  method: "GET" | "POST" | "PATCH" | "DELETE",
-  urlFor: (ctx: SweepContext) => string,
-  payloadFor?: PayloadOrFactory,
-  options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
-): RouteFixture {
-  return {
-    kind: "broken",
-    blocker,
-    run: async (ctx) => {
-      const url = urlFor(ctx);
-      const payload = typeof payloadFor === "function" ? payloadFor(ctx) : payloadFor;
-      const headers =
-        typeof options.headersFor === "function" ? options.headersFor(ctx) : options.headersFor;
-      expectBroken(
-        await asAdmin(ctx, { method, url, payload, ...(headers ? { headers } : {}) }),
-        `${method} ${url}`,
-        ctx,
-        options.expectBrokenOptions
-      );
-    },
-  };
-}
-
 /** An unknown slug — proves item 3's denial leg without depending on any seeded venue. */
 const UNKNOWN_SLUG = "rls-sweep-no-such-slug";
 
@@ -80,8 +50,8 @@ const UNKNOWN_SLUG = "rls-sweep-no-such-slug";
  * Creates a disposable hold via the already-proven public create-hold route
  * (`POST /public/v1/venues/:slug/holds`, `publicFunnelFixtures` below). Used
  * by every public-funnel fixture that needs a REAL hold to confirm/read —
- * never `ctx.holdA`, which `holdConfirmFixtures`'s still-broken,
- * out-of-scope `POST /api/v1/holds/:id/confirm` fixture also depends on.
+ * never `ctx.holdA`, which `holdConfirmFixtures`'s staff
+ * `POST /api/v1/holds/:id/confirm` fixture consumes.
  */
 async function createDisposablePublicHold(
   ctx: SweepContext,
@@ -422,22 +392,52 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
  * creating the resulting reservation — the identical "lookup can't run
  * inside the scope it's computing" shape as items 1-8, just on a table the
  * ADR's own audit never named. Filed here rather than silently rolled into
- * the not-rls bucket precisely because it IS an RLS-table read. Still open —
- * #5369 PR 8 only closes items 3 and 4.
+ * the not-rls bucket precisely because it IS an RLS-table read. Closed by the
+ * venue-membership fix on the staff holds routes: the route now resolves the
+ * hold's own venue (`requireVenueAccess` for members) and runs the whole
+ * confirm inside that venue's context (`runWithVenueContext`), so the read
+ * the tripwire used to catch is scoped.
  *
- * `confirmHold`'s session check (Step 2) runs BEFORE the unscoped venue
- * lookup and rejects a mismatched session with `SESSION_MISMATCH` — so this
- * needs the hold's REAL seeded session id, not a placeholder, to actually
- * reach the bug rather than a coincidental 403 one step earlier.
+ * `confirmHold`'s session check (Step 2) runs before any write, so the
+ * success legs use each hold's REAL session id, not a placeholder.
  */
 const holdConfirmFixtures: Record<string, RouteFixture> = {
-  "POST /api/v1/holds/:id/confirm": brokenPublic(
-    "sweep-discovered",
-    "POST",
-    (ctx) => `/api/v1/holds/${ctx.holdA}/confirm`,
-    { guestName: "RLS Sweep", guestEmail: "rls-sweep-confirm@example.com" },
-    { headersFor: (ctx) => ({ "x-session-id": ctx.holdSessionId }) }
-  ),
+  "POST /api/v1/holds/:id/confirm": {
+    kind: "ok",
+    run: async (ctx) => {
+      const payload = { guestName: "RLS Sweep", guestEmail: "rls-sweep-confirm@example.com" };
+
+      const adminHold = await createDisposableStaffHold(ctx, ctx.venueA.id);
+      expectOk(
+        await asAdmin(ctx, {
+          method: "POST",
+          url: `/api/v1/holds/${adminHold.id}/confirm`,
+          headers: { "x-session-id": adminHold.sessionId },
+          payload,
+        }),
+        "admin venue A"
+      );
+
+      expectOk(
+        await asMember(ctx, {
+          method: "POST",
+          url: `/api/v1/holds/${ctx.holdA}/confirm`,
+          headers: { "x-session-id": ctx.holdSessionId },
+          payload,
+        }),
+        "member venue A"
+      );
+
+      const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
+      const denied = await asMember(ctx, {
+        method: "POST",
+        url: `/api/v1/holds/${holdB.id}/confirm`,
+        headers: { "x-session-id": holdB.sessionId },
+        payload,
+      });
+      expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);
+    },
+  },
 };
 
 /**

@@ -306,9 +306,12 @@ type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled
 
 ### Holds (authenticated — staff)
 
-All four require a JWT (#4487). Anonymous guests use the `/public/v1` hold
-routes below, which resolve the venue by slug instead of trusting a
-client-supplied `venueId`.
+All four require a JWT (#4487) and membership of the hold's venue (ADR-020):
+`POST` checks the body's `venueId`, the `/:id` routes the hold's own
+`venueId` (an unknown hold is a 403 for non-admins, so existence never leaks;
+admins get 404). Anonymous guests use the `/public/v1` hold routes below,
+which resolve the venue by slug instead of trusting a client-supplied
+`venueId`.
 
 | Method | Path                        | Description                                  |
 | ------ | --------------------------- | -------------------------------------------- |

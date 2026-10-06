@@ -438,18 +438,6 @@
         generateUnsubscribeToken: (guestId: string) => string;
       }> { /* ... */ }
     </item>
-    <item priority="high">
-      type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record;
-    </item>
-    <item priority="medium">
-      function brokenPublic(
-        blocker: string,
-        method: "GET" | "POST" | "PATCH" | "DELETE",
-        urlFor: (ctx: SweepContext) => string,
-        payloadFor?: PayloadOrFactory,
-        options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
-      ): RouteFixture { /* ... */ }
-    </item>
     <item priority="low">
       async function createDisposablePublicHold(
         ctx: SweepContext,
@@ -592,6 +580,12 @@
         venueId: string,
         guestEmail = `rls-sweep-disposable-${randomUUID()}@example.com`
       ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createDisposableStaffHold(
+        ctx: SweepContext,
+        venueId: string
+      ): Promise<{ id: string; sessionId: string }> { /* ... */ }
     </item>
     <item priority="low">
       async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
