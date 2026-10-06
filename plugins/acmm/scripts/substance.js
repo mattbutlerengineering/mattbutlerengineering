@@ -255,13 +255,16 @@ function checkSkill(filePaths, _cwd) {
  * loop and an absent one are different problems and must not read identically.
  */
 function checkFeedbackLoop(filePaths, _cwd) {
+  const now = Date.now();
   let newest = null;
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content.trim()) continue;
     for (const d of extractISODates(content)) {
       const ts = new Date(d).getTime();
-      if (isNaN(ts)) continue;
+      // A future date is a forecast in an entry's prose ("nothing comes due again until
+      // ~2026-10-29"), not an entry; counting it would read a dead loop as fresh.
+      if (isNaN(ts) || ts > now) continue;
       if (!newest || ts > newest.ts) newest = { date: d, ts };
     }
   }
