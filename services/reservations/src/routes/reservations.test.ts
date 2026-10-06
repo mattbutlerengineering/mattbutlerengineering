@@ -622,6 +622,29 @@ describe("Reservation Routes", () => {
       expect(body.data.partySize).toBe(6);
     });
 
+    it("moving onto another venue's table → 403 problem, never a 409", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "The requested table does not belong to this venue",
+        tableNotInVenue: true,
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-of-venue-B" },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 403,
+        title: "Forbidden",
+        detail: "The requested table does not belong to this venue",
+      });
+    });
+
     it("updates occasion and seatingPreference", async () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
@@ -2244,5 +2267,56 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       expect.objectContaining({ venueId: "venue-123" }),
       "auth0|admin-1"
     );
+  });
+
+  // A member of venue-123 naming a table of another venue: the service
+  // refuses the table before reading any conflict data, and the route answers
+  // with the same 403 problem as the sibling cross-entity checks in
+  // tables.ts / floor-plans.ts — never the 409 that would reveal whether the
+  // other venue's slot is taken.
+  const TABLE_NOT_IN_VENUE = {
+    success: false,
+    error: "The requested table does not belong to this venue",
+    tableNotInVenue: true,
+  } as const;
+
+  it("member of the venue + another venue's table → 403 problem, never a 409", async () => {
+    signInAsStaff();
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce(TABLE_NOT_IN_VENUE);
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, tableId: "table-of-venue-B" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toMatchObject({
+      status: 403,
+      title: "Forbidden",
+      detail: "The requested table does not belong to this venue",
+    });
+  });
+
+  it("walk-in: member of the venue + another venue's table → 403 problem", async () => {
+    signInAsStaff();
+    vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce(TABLE_NOT_IN_VENUE);
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations/walk-in",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { venueId: "venue-123", tableId: "table-of-venue-B", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toMatchObject({
+      status: 403,
+      title: "Forbidden",
+      detail: "The requested table does not belong to this venue",
+    });
   });
 });

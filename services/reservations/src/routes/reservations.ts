@@ -11,6 +11,7 @@ import type {
 } from "@mbe/types";
 import {
   createProblemDetails,
+  titleForStatus,
   listReservationsQueryJsonSchema,
   listMyReservationsQueryJsonSchema,
   walkInBodyJsonSchema,
@@ -28,6 +29,7 @@ import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { guestService } from "../services/guest.js";
+import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -233,6 +235,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Authentication required",
             $ref: "Error#",
           },
+          403: {
+            description:
+              "Caller is not a member of the venue, or the table belongs to another venue",
+            $ref: "Error#",
+          },
           409: {
             description: "Table is not available",
             $ref: "Error#",
@@ -264,6 +271,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // back and rejects, so its live events are set off only after a
       // committed, consistent state.
       const result = await fastify.transitions.createWalkIn(request.body, userId);
+      if (result.tableNotInVenue) {
+        return reply
+          .code(403)
+          .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+      }
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
@@ -430,6 +442,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       const result = await fastify.transitions.createByStaff(body, userId);
 
+      if (result.tableNotInVenue) {
+        return reply
+          .code(403)
+          .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+      }
+
       if (!result.success) {
         const statusCode = result.conflict?.hasConflict ? 409 : 400;
         const title = statusCode === 409 ? "Conflict" : "Bad Request";
@@ -485,6 +503,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           },
           400: {
             description: "Invalid request",
+            $ref: "Error#",
+          },
+          403: {
+            description: "The requested table belongs to another venue",
             $ref: "Error#",
           },
           404: {
@@ -625,6 +647,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               return reply
                 .code(404)
                 .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            }
+
+            if (result.tableNotInVenue) {
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
             }
 
             if (result.conflict?.hasConflict) {

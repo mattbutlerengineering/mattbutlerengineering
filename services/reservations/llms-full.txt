@@ -2532,6 +2532,7 @@
                 },
               },
               400: { $ref: "Error#" },
+              403: { $ref: "Error#" },
               409: { $ref: "Error#" },
             },
           },
@@ -2539,6 +2540,12 @@
         async (request, reply) => {
           const sessionId = getSessionId(request);
           const result = await holdService.create(request.body, sessionId);
+    
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
     
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
@@ -4194,6 +4201,11 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description:
+                  "Caller is not a member of the venue, or the table belongs to another venue",
+                $ref: "Error#",
+              },
               409: {
                 description: "Table is not available",
                 $ref: "Error#",
@@ -4225,6 +4237,11 @@
           // back and rejects, so its live events are set off only after a
           // committed, consistent state.
           const result = await fastify.transitions.createWalkIn(request.body, userId);
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
@@ -4391,6 +4408,12 @@
     
           const result = await fastify.transitions.createByStaff(body, userId);
     
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
+    
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
             const title = statusCode === 409 ? "Conflict" : "Bad Request";
@@ -4446,6 +4469,10 @@
               },
               400: {
                 description: "Invalid request",
+                $ref: "Error#",
+              },
+              403: {
+                description: "The requested table belongs to another venue",
                 $ref: "Error#",
               },
               404: {
@@ -4586,6 +4613,12 @@
                   return reply
                     .code(404)
                     .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+                }
+    
+                if (result.tableNotInVenue) {
+                  return reply
+                    .code(403)
+                    .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
                 }
     
                 if (result.conflict?.hasConflict) {
@@ -10346,6 +10379,8 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     export const holdService = {
       /**
@@ -10373,6 +10408,14 @@
         const duration = estimateDuration(partySize, settings);
         const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
         const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
+    
+        // A caller-named table must belong to the hold's venue, checked before any
+        // conflict data is read so the answer can't reveal another venue's
+        // bookings. confirmHold books the hold's own tableId, so this also keeps a
+        // confirmed reservation inside its venue.
+        if (tableId && !(await isTableInVenue(tableId, venueId))) {
+          return { success: false, error: TABLE_NOT_IN_VENUE_DETAIL, tableNotInVenue: true };
+        }
     
         // Fetch reservations + holds once for both the conflict and pacing pre-checks.
         const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
@@ -11951,6 +11994,8 @@
       error?: string;
       conflict?: ConflictCheckResult;
       pacing?: PacingCheckResult;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     export interface UpdateReservationResult {
       success: boolean;
@@ -11958,6 +12003,8 @@
       error?: string;
       conflict?: ConflictCheckResult;
       capacityExceeded?: boolean;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     function compareReservationDateDesc(
       a: { date: Date; startTime: Date },
@@ -12102,6 +12149,12 @@
       ): Promise<CreateReservationResult> {
         const startTime = new Date(data.startTime);
         const endTime = new Date(data.endTime);
+    
+        // The named venue must own the table, checked before any conflict data is
+        // read so the conflict answer can't reveal another venue's bookings.
+        if (data.venueId && !(await isTableInVenue(data.tableId, data.venueId))) {
+          return TABLE_NOT_IN_VENUE;
+        }
     
         // Resolve the venue used for the pacing pre-check and the pacing/conflict
         // re-check under the lock. Prefer the request's venueId, else the table's.
@@ -12301,6 +12354,18 @@
           return { success: false, error: "Reservation not found" };
         }
     
+        // A move onto another venue's table is refused before the capacity and
+        // conflict checks, either of which would reveal that table's size or
+        // bookings. (A reservation with no venueId never reaches this through a
+        // route: resolveVenueId answers null for it and the PATCH route 404s.)
+        if (
+          data.tableId !== undefined &&
+          existing.venueId &&
+          !(await isTableInVenue(data.tableId, existing.venueId))
+        ) {
+          return TABLE_NOT_IN_VENUE;
+        }
+    
         // Capacity check runs whenever partySize changes, independent of
         // timeOrTableChanged below — a partySize-only edit is not a slot move,
         // but it still must not exceed the (possibly unchanged) assigned table's
@@ -12442,6 +12507,12 @@
         const now = new Date();
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
+    
+        // Refuse another venue's table before reading conflict data or flipping
+        // its status to OCCUPIED.
+        if (!(await isTableInVenue(data.tableId, data.venueId))) {
+          return TABLE_NOT_IN_VENUE;
+        }
     
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
@@ -13631,6 +13702,16 @@
       });
     }
     export const tableStatusService = { getSnapshot };
+  </file>
+  <file path="src/services/table-venue.ts">
+    export const TABLE_NOT_IN_VENUE_DETAIL = "The requested table does not belong to this venue";
+    export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { venueId: true },
+      });
+      return table?.venueId === venueId;
+    }
   </file>
   <file path="src/services/table.ts">
     export function mapPrismaTable(table: {

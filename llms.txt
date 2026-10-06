@@ -8434,6 +8434,7 @@
         success: boolean;
         hold?: ReservationHold;
         error?: string;
+        tableNotInVenue?: boolean;
       }
     </item>
     <item priority="high">
@@ -9216,6 +9217,14 @@
     </item>
     <item priority="high">
       export const tableStatusService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/table-venue.ts">
+    <item priority="high">
+      export const TABLE_NOT_IN_VENUE_DETAIL: unknown;
+    </item>
+    <item priority="high">
+      export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
