@@ -329,8 +329,10 @@ jobs:
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
-    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
-    needs: [typecheck, architecture-audit]
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
+    # `architecture-audit` either: it builds the CLI on its own runner and
+    # hands this job nothing; CI Gate still requires it.
+    needs: [typecheck]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -485,8 +487,10 @@ jobs:
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
-    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
-    needs: [typecheck, architecture-audit]
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
+    # `architecture-audit` either: it builds the CLI on its own runner and
+    # hands this job nothing; CI Gate still requires it.
+    needs: [typecheck]
 
     # Single source of truth for the repo-wide coverage threshold, enforced on
     # the Node-22 leg below. The stricter agent-core package gate (80%) is a
