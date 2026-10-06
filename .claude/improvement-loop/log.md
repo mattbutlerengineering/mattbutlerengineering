@@ -2808,3 +2808,35 @@ This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), 
 **P1 SLA:** 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), 0 past the 7-day SLA (oldest 3 days). 0 escalations.
 
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved), no stopped filing, no script exit 2 other than the expected unlabelled-calibration-set one above.
+
+## 2026-10-05 (mbe-evening, second fire — implement-queue + progress-tracker)
+
+### Metrics
+
+| Metric                         | Value                                                                  | Status                                |
+| ------------------------------ | ---------------------------------------------------------------------- | ------------------------------------- |
+| Agent Success (this iteration) | 0/0 — no issues claimed, Phase 0 blocked                               | n/a                                   |
+| CI Pass (main)                 | Red at Phase 0 pre-flight                                              | 🔴 Red                                |
+| Queue (open `ready`)           | 60                                                                     | 🔴 Red (>10), up from 59 this morning |
+| has-pr (open)                  | 4 (#5895, #5748, #5608, #5604)                                         | unchanged from this morning's flag    |
+| Blocked (`agent-failed`)       | 0                                                                      | 🟢 Green                              |
+| Skipped (`agent-skip`)         | 0                                                                      | 🟢 Green                              |
+| Daily/7d Spend                 | insufficient data — `.claude/agent-spend/sessions.jsonl` still 0 lines | matches standing #5885                |
+| Reverts pending (unmerged)     | 1 (#6076, see Patterns)                                                | -                                     |
+
+### Patterns
+
+- **Main broke again this evening (push 18:57:55Z, commit `87a9e4724`/#6072, run [37359920871](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/37359920871)) — third occurrence this week of the exact class #6041 already root-caused and left unfixed.** Failing job `Test (Node 22)` timed out (`Error: Test timed out in 60000ms`, 1 failed/4780 passed) in a `scripts`-package screenshot-snapshot test; #6072's diff is reservations-only and does not touch that package. revert-watchdog auto-filed critical issue #6075 and opened revert PR #6076 (branch/culprit SHA correctly matches #6072 this time — no intervening main commit landed in the ~28-minute gap before the watchdog ran, so #6040's reverts-HEAD-not-culprit bug did not additionally misfire here). Unlike #6012 (10-04), #6076's diff is a genuine revert of #6072.
+- **This is not a case for a mechanical flake-vs-real-regression call: #6072 is a security fix** (closes an anonymous/non-member write hole on `POST /api/v1/reservations`), and a second security fix (#6079, cross-tenant table write) is already built on top of it and currently blocked/red because its base is the disputed commit. Merging #6076 would reopen the original hole and orphan #6079. Posted findings + evidence on #6041 (third-occurrence comment) and #6075 (recommend against merging #6076 pending human/CI confirmation); did not merge, close, or edit either PR. Notified the user directly via push notification — this combines a CI-infra judgment call (confirmed-flake root cause already on file in #6041) with a security tradeoff (reverting a vulnerability fix), which reads as a decision for a human, not a default action, especially since this session has no `actions:write` to even re-run the job itself (`rerun_failed_jobs`/`run_workflow` both 403).
+- Per Phase 0 ("no open PR may sit in a failed state before claiming new work"), #6079 is independently also CI-red right now (blocked by the same disputed base) — this alone would have blocked claiming new `ready` issues this iteration even setting the security question aside. 0 issues claimed, 0 workers dispatched, nothing to commit to `metrics/queue-telemetry.jsonl`.
+- **Queue ticked up again (60, vs 59 this morning)** — fifth consecutive count-over-count increase across the last few nights (24 → 40 → 56 → 59 → 60) with zero drain tonight. The growth driver remains intake (ui-quality/audit filing, decompose features) outpacing a 3-per-iteration batch cap, now compounded by two separate main-red iterations in one day.
+
+### Recommendations
+
+- Same as repeated in the 2026-10-04 entry, now a third time: **#6041 (root cause: no `testTimeout` on the root `vitest.config.ts`, so `scripts/__tests__/` trips vitest's 5s default under any cold/parallel CI run) needs to actually land.** It has sat `ready`/unfixed for 36h+ and has now caused two separate false "broken main" + auto-revert cycles (10-04 and tonight). This is the single highest-leverage fix available — landing it removes the recurring trigger rather than re-litigating each incident by hand.
+- #6075/#6076 need a human call: confirm green via re-run (this session cannot), then close #6076 without merging and let #6079 proceed. Flagged, not actioned.
+- Not re-filing a `meta-improvement` for the broken-main pattern itself — #6040 and #6041 already cover both halves (wrong-commit revert; flaky root cause) and a third tracking issue would be a dupe, not new signal.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
