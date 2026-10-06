@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { spawn, spawnSync } from "node:child_process";
 
 // regen.mjs's isClean() and the llms-txt per-package check both shell out
 // via spawnSync — mock it so tests control staleness without touching the
 // real git tree or spawning `mbe pack`.
 vi.mock("node:child_process", () => ({
+  spawn: vi.fn(),
   spawnSync: vi.fn(),
 }));
 
+const mockSpawn = vi.mocked(spawn);
 const mockSpawnSync = vi.mocked(spawnSync);
 
 describe("regen --check", () => {
@@ -169,5 +173,78 @@ describe("regen --check", () => {
       expect(exitSpy).toHaveBeenCalledWith(1);
       expect(errorSpy.mock.calls.flat().join("\n")).toContain("committed output differs");
     });
+  });
+});
+
+// `mbe pack` reads only `.ts` sources and writes only its own package's
+// llms.txt/llms-full.txt, so packs are independent. Run one at a time, the
+// ~28 small packs (~2-4s each, mostly pnpm+tsx startup) queued behind the
+// root `.` pack (~99s), which made llms-txt ~200s of the Build job's
+// "Verify generated artifacts" step on run 37480517290.
+describe("regen llms packs", () => {
+  /** A fake child process whose exit the test controls. */
+  function fakeChild() {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    return child;
+  }
+
+  let children;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+    mockSpawnSync.mockReset().mockReturnValue({ status: 0 });
+    mockSpawn.mockReset();
+    children = [];
+    mockSpawn.mockImplementation(() => {
+      const child = fakeChild();
+      children.push(child);
+      return child;
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  const settle = () => nextTurn();
+
+  /** Exit every running pack (and those the pool starts next) with exitCode(child). */
+  async function closeAll(exitCode) {
+    for (;;) {
+      await settle();
+      const running = children.filter((c) => !c.closed);
+      if (running.length === 0) return;
+      for (const c of running) {
+        c.closed = true;
+        c.emit("close", exitCode(c));
+      }
+    }
+  }
+
+  it("runs several packs at once, starting with the root pack", async () => {
+    const { runRegen } = await import("../regen.mjs");
+    const done = runRegen();
+    await settle();
+
+    expect(children.length).toBeGreaterThan(1);
+    expect(mockSpawn.mock.calls[0][1]).toEqual(["--filter", "@mbe/cli", "start", "pack", "."]);
+
+    await closeAll(() => 0);
+    await done;
+
+    const { llmsPackages } = await import("../regen-manifest.mjs");
+    const packed = mockSpawn.mock.calls.map(([, args]) => args.at(-1));
+    expect(packed.sort()).toEqual([...llmsPackages()].sort());
+  });
+
+  it("rejects naming the package when a pack fails", async () => {
+    const { runRegen } = await import("../regen.mjs");
+    const done = runRegen();
+    const outcome = expect(done).rejects.toThrow("1 package(s) failed");
+
+    await closeAll((c) => (c === children[0] ? 1 : 0));
+    await outcome;
   });
 });
