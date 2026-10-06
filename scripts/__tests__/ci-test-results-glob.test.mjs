@@ -42,7 +42,9 @@ function covered(file, patterns) {
   return patterns.some((p) => {
     const source = p
       .split("/")
-      .map((seg) => (seg === "*" ? "[^/]+" : seg.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")))
+      .map((seg) =>
+        seg === "*" ? "[^/]+" : seg.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")
+      )
       .join("/");
     return new RegExp(`^${source}$`).test(file);
   });
