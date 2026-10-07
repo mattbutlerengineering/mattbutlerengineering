@@ -213,9 +213,9 @@ describe("venue-scope coverage (no database)", () => {
 
 /**
  * The RLS sweep's two-way completeness checks, moved verbatim out of
- * `rls-route-sweep.integration.test.ts` (where `describe.skipIf(!DATABASE_URL)`
- * meant they only ever ran in the Postgres job). They read nothing but the
- * router and the fixture keys, so they run here on every `test` job.
+ * `rls-route-sweep.integration.test.ts`, which is gated on a database URL, so
+ * they only ever ran in the Postgres job. They read nothing but the router and
+ * the fixture keys, so they run here on every `test` job.
  */
 describe("RLS route sweep fixture completeness (no database)", () => {
   const originalEnv = process.env;
