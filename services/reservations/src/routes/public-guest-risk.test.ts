@@ -360,3 +360,32 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("GET /public/v1/venues/:slug/guest-risk — rate limiting", () => {
+  it("has rate limiting configured at 20 req/min", async () => {
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 21 requests — the 21st should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 21; i++) {
+      const response = await freshApp.inject({
+        method: "GET",
+        url: "/public/v1/venues/the-oak-table/guest-risk",
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+
+    // First 20 return 400 (missing email/phone), 21st should be rate limited
+    for (let i = 0; i < 20; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(400);
+    }
+    const twentyFirst = responses[20];
+    if (!twentyFirst) throw new Error("expected a 21st response");
+    expect(twentyFirst.statusCode).toBe(429);
+  });
+});

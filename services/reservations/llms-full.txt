@@ -1,4 +1,154 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="adapters">
+  <file path="src/transitions/adapters/dispatcher-messaging.ts">
+    export interface DispatcherMessagingDeps {
+      dispatcher: NotificationDispatcher;
+      postVisitNotifier: PostVisitNotifier;
+      getVenue: (venueId: string) => Promise<Venue | null>;
+      logger?: EffectLogger;
+    }
+    export function createDispatcherMessaging(deps: DispatcherMessagingDeps): MessagingPort {
+      const { dispatcher, postVisitNotifier, getVenue, logger } = deps;
+    
+      async function sendBookingConfirmation(
+        reservation: Reservation,
+        manageToken: string
+      ): Promise<void> {
+        const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
+        if (!guestEmail || !venueId) return;
+        const venue = await getVenue(venueId);
+        if (!venue) return;
+        await dispatcher.sendBookingConfirmation({
+          reservationId: id,
+          date: reservation.date,
+          startTime,
+          endTime: reservation.endTime,
+          partySize: reservation.partySize,
+          guestName: reservation.guestName,
+          guestEmail,
+          guestPhone: guestPhone ?? null,
+          specialRequests: reservation.notes ?? null,
+          venueName: venue.name,
+          venueTimezone: venue.ianaTimezone,
+          venueAddress: null,
+          manageToken,
+        });
+      }
+    
+      async function sendBookingCancelled(
+        reservation: Reservation,
+        manageToken: string,
+        initiator: CancelInitiator
+      ): Promise<void> {
+        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
+        if (!reservation.guestEmail || !venue) return;
+    
+        const preference = resolveChannel(
+          reservation.guest?.communicationPreference as CommunicationPreference | null
+        );
+        try {
+          await dispatcher.sendBookingCancelled(
+            {
+              reservationId: reservation.id,
+              date: reservation.date,
+              startTime: reservation.startTime,
+              endTime: reservation.endTime,
+              partySize: reservation.partySize,
+              guestName: reservation.guestName,
+              guestEmail: reservation.guestEmail,
+              guestPhone: reservation.guestPhone ?? null,
+              specialRequests: reservation.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken,
+            },
+            preference
+          );
+        } catch (err) {
+          logger?.error(
+            { err, reservationId: reservation.id, initiator },
+            "Failed to send booking cancelled notification"
+          );
+        }
+      }
+    
+      async function sendBookingModified(updated: Reservation, manageToken: string): Promise<void> {
+        const venue = updated.venueId ? await getVenue(updated.venueId) : null;
+        if (!updated.guestEmail || !venue) return;
+    
+        const preference = resolveChannel(
+          updated.guest?.communicationPreference as CommunicationPreference | null
+        );
+        try {
+          await dispatcher.sendBookingModified(
+            {
+              reservationId: updated.id,
+              date: updated.date,
+              startTime: updated.startTime,
+              endTime: updated.endTime,
+              partySize: updated.partySize,
+              guestName: updated.guestName,
+              guestEmail: updated.guestEmail,
+              guestPhone: updated.guestPhone ?? null,
+              specialRequests: updated.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken,
+              sequence: 2,
+            },
+            preference
+          );
+        } catch {
+          logger?.error({}, "Failed to send booking modified notification");
+        }
+      }
+    
+      async function sendPostVisitThankYou(reservation: Reservation): Promise<void> {
+        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
+        const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+        const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+    
+        await postVisitNotifier.sendPostVisitEmail({
+          reservationId: reservation.id,
+          guestId: reservation.guestId ?? null,
+          guestEmail: reservation.guestEmail ?? null,
+          guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+          unsubscribed: Boolean(reservation.guest?.unsubscribed),
+          venueName: venue?.name ?? "",
+          venuePostVisitEmailEnabled: postVisitEmailEnabled,
+          visitDate: reservation.date,
+          feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+        });
+      }
+    
+      return {
+        async send(message) {
+          switch (message.kind) {
+            case "booking-confirmation":
+              return sendBookingConfirmation(message.reservation, message.manageToken);
+            case "booking-cancelled":
+              return sendBookingCancelled(message.reservation, message.manageToken, message.initiator);
+            case "booking-modified":
+              return sendBookingModified(message.reservation, message.manageToken);
+            case "post-visit-thank-you":
+              return sendPostVisitThankYou(message.reservation);
+          }
+        },
+      };
+    }
+  </file>
+  <file path="src/transitions/adapters/emitter-events.ts">
+    export function createEmitterEvents(emitter: ReservationEventEmitter): EventsPort {
+      return {
+        publish(event) {
+          emitter.emitChange({ ...event, timestamp: new Date().toISOString() });
+        },
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="config">
   <file path="src/config/manage-token.ts">
     export interface ManageTokenConfig {
@@ -1047,15 +1197,14 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
             }
     
-            const result = await cancelReservationWithDeposit(
-              preamble.reservation,
-              request.manageToken,
-              { bookingNotifier: fastify.bookingNotifier, logger: request.log },
-              {
-                cancellationReason: request.body?.cancellationReason,
-                cancellationNote: request.body?.cancellationNote,
-              }
-            );
+            const result = await fastify.transitions.cancel(preamble.reservation, {
+              door: "guest-manage",
+              initiator: "guest",
+              manageToken: request.manageToken,
+              reason: request.body?.cancellationReason,
+              note: request.body?.cancellationNote,
+              log: request.log,
+            });
     
             if (!result.success) {
               return reply
@@ -1096,9 +1245,7 @@
               return reply.status(401).type("text/html").send(invalidHtml);
             }
     
-            if (reservation.status === "PENDING") {
-              await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
-            }
+            await fastify.transitions.confirmAttendance(reservation);
     
             return reply.status(200).type("text/html").send(successHtml);
           });
@@ -1110,13 +1257,16 @@
     type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
     type TransitionResult =
       { kind: "not-found" } | { kind: "invalid"; message: string } | { kind: "ok"; deposit: Deposit };
-    export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
+    export function depositTransitionHandler(
+      deposits: DepositService,
+      transition: (id: string) => Promise<Deposit>
+    ) {
       return async (request: DepositTransitionRequest, reply: FastifyReply) => {
         const result = await loadInVenueContext<TransitionResult>(
           "deposit",
           request.params.id,
           async () => {
-            const existing = await depositService.getById(request.params.id);
+            const existing = await deposits.getById(request.params.id);
             if (!existing) {
               return { kind: "not-found" };
             }
@@ -1151,6 +1301,8 @@
       data: T;
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+      const { depositService } = fastify.services;
+    
       // POST /api/v1/deposits — create a deposit
       fastify.post<{
         Body: { reservationId: string; amountCents: number; currency?: string };
@@ -1371,7 +1523,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.apply(id))
+        depositTransitionHandler(depositService, (id) => depositService.apply(id))
       );
     
       // POST /api/v1/deposits/:id/refund — refund a held deposit
@@ -1406,7 +1558,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.refund(id))
+        depositTransitionHandler(depositService, (id) => depositService.refund(id))
       );
     
       // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
@@ -1441,7 +1593,7 @@
             },
           },
         },
-        depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
+        depositTransitionHandler(depositService, (id) => depositService.forfeit(id, "staff"))
       );
     };
   </file>
@@ -1744,6 +1896,7 @@
           if (!cloned) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
+          fastify.reservationEvents.emitFloorPlanCreated(cloned);
           return reply.code(201).send({ data: cloned });
         }
       );
@@ -2005,34 +2158,17 @@
   <file path="src/routes/guests.ts">
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       // List guests for a venue
-      fastify.get<{
-        Querystring: { venueId: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<Guest> | ProblemDetails;
-      }>(
-        "/",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "List guests for a venue",
-            operationId: "listGuests",
-            description:
-              "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: listGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Successful response with paginated guest list",
-                ...createListResponseSchema("Guest#"),
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.list, {
+        docs: {
+          summary: "List guests for a venue",
+          operationId: "listGuests",
+          description:
+            "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
@@ -2041,37 +2177,20 @@
           }
           const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
-        }
-      );
+        },
+      });
     
       // Search guests
-      fastify.get<{
-        Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
-        Reply: PaginatedResponse<Guest> | ProblemDetails;
-      }>(
-        "/search",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Search guests",
-            operationId: "searchGuests",
-            description: "Search guests by name, email, phone, or filter by tags and visit history.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: searchGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Search results",
-                ...createListResponseSchema("Guest#"),
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.search, {
+        docs: {
+          summary: "Search guests",
+          operationId: "searchGuests",
+          description: "Search guests by name, email, phone, or filter by tags and visit history.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId, query, tags, hasNotVisitedInDays } = request.query;
           if (!venueId) {
             return reply
@@ -2084,40 +2203,20 @@
             tags: tags ? tags.split(",") : undefined,
             hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
           });
-        }
-      );
+        },
+      });
     
       // Get guest segments
-      fastify.get<{
-        Querystring: { venueId: string };
-        Reply: ApiResponse<GuestSegment[]> | ProblemDetails;
-      }>(
-        "/segments",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Get guest segments",
-            operationId: "getGuestSegments",
-            description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: guestSegmentsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Guest segments",
-                type: "object",
-                properties: {
-                  data: { type: "array", items: { $ref: "GuestSegment#" } },
-                },
-              },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.getSegments, {
+        docs: {
+          summary: "Get guest segments",
+          operationId: "getGuestSegments",
+          description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
@@ -2126,42 +2225,23 @@
           }
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
-        }
-      );
+        },
+      });
     
       // Get guest by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Get guest by ID",
-            operationId: "getGuestById",
-            description: "Retrieve a single guest by ID.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Guest found",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              404: { description: "Guest not found", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.get, {
+        docs: {
+          summary: "Get guest by ID",
+          operationId: "getGuestById",
+          description: "Retrieve a single guest by ID.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const guest = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -2172,36 +2252,20 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Create guest
-      fastify.post<{
-        Body: CreateGuestRequest;
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/",
-        {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-          schema: {
-            summary: "Create a new guest",
-            operationId: "createGuest",
-            description: "Create a new guest. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            body: createGuestBodyJsonSchema,
-            response: {
-              201: {
-                description: "Guest created",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              400: { description: "Invalid request or duplicate email/phone", $ref: "Error#" },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.create, {
+        docs: {
+          summary: "Create a new guest",
+          operationId: "createGuest",
+          description: "Create a new guest. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+        handler: async (request, reply) => {
           try {
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
@@ -2219,43 +2283,21 @@
             }
             throw error;
           }
-        }
-      );
+        },
+      });
     
       // Find or create guest (identity resolution)
-      fastify.post<{
-        Body: {
-          venueId: string;
-          email?: string;
-          phone?: string;
-          name: string;
-          dietaryRestrictions?: string[];
-        };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/find-or-create",
-        {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-          schema: {
-            summary: "Find or create guest",
-            operationId: "findOrCreateGuest",
-            description:
-              "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            body: findOrCreateGuestBodyJsonSchema,
-            response: {
-              200: {
-                description: "Guest found or created",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              400: { description: "Invalid request", $ref: "Error#" },
-              401: { description: "Authentication required", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.findOrCreate, {
+        docs: {
+          summary: "Find or create guest",
+          operationId: "findOrCreateGuest",
+          description:
+            "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+        handler: async (request, reply) => {
           const { venueId, email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
@@ -2269,44 +2311,23 @@
             dietaryRestrictions,
           });
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Update guest
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateGuestRequest;
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Update a guest",
-            operationId: "updateGuest",
-            description: "Update guest information. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            body: updateGuestBodyJsonSchema,
-            response: {
-              200: {
-                description: "Guest updated",
-                type: "object",
-                properties: { data: { $ref: "Guest#" } },
-              },
-              404: { description: "Guest not found", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.update, {
+        docs: {
+          summary: "Update a guest",
+          operationId: "updateGuest",
+          description: "Update guest information. Requires authentication.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const guest = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -2317,63 +2338,24 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return { data: guest };
-        }
-      );
+        },
+      });
     
       // Add staff note to guest
-      fastify.post<{
-        Params: { id: string };
-        Body: { text: string };
-        Reply: ApiResponse<Guest> | ProblemDetails;
-      }>(
-        "/:id/notes",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Add a staff note to a guest",
-            operationId: "addGuestNote",
-            description:
-              "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
-              required: ["id"],
-            },
-            body: addGuestNoteBodyJsonSchema,
-            response: {
-              201: {
-                description: "Note appended; returns updated guest",
-                type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
-              },
-              400: {
-                description: "Invalid request",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.addNote, {
+        docs: {
+          summary: "Add a staff note to a guest",
+          operationId: "addGuestNote",
+          description:
+            "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const { text } = request.body;
           if (!text || text.trim().length === 0) {
             return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
@@ -2389,112 +2371,49 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return reply.code(201).send({ data: guest });
-        }
-      );
+        },
+      });
     
       // Get lapsing guests for a venue (on-demand scan)
-      fastify.get<{
-        Querystring: { venueId: string };
-        Reply: ApiResponse<LapsingGuest[]> | ProblemDetails;
-      }>(
-        "/lapsing",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
-          schema: {
-            summary: "Get lapsing guests",
-            operationId: "getLapsingGuests",
-            description:
-              "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: lapsingGuestsQueryJsonSchema,
-            response: {
-              200: {
-                description: "Lapsing guests list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        guestId: { type: "string" },
-                        name: { type: "string" },
-                        email: { type: "string", nullable: true },
-                        phone: { type: "string", nullable: true },
-                        communicationPreference: { type: "string" },
-                        avgFrequencyDays: { type: "number" },
-                        daysSinceLastVisit: { type: "number" },
-                        daysOverdue: { type: "number" },
-                      },
-                    },
-                  },
-                },
-              },
-              400: { $ref: "Error#" },
-              401: { $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.getLapsing, {
+        docs: {
+          summary: "Get lapsing guests",
+          operationId: "getLapsingGuests",
+          description:
+            "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+        handler: async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
             return reply
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const lapsing = await guestService.scanLapsedGuests(venueId);
+          const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
+            fastify.reservationEvents.emitLapsingGuests(vid, guests)
+          );
           return { data: lapsing };
-        }
-      );
+        },
+      });
     
       // Send win-back message to a guest
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<{ sent: boolean }> | ProblemDetails;
-      }>(
-        "/:id/win-back",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Send win-back message",
-            operationId: "sendGuestWinBack",
-            description:
-              "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              required: ["id"],
-              properties: {
-                id: { type: "string", description: "Guest ID" },
-              },
-            },
-            response: {
-              200: {
-                description: "Win-back result",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "object",
-                    properties: {
-                      sent: { type: "boolean" },
-                    },
-                  },
-                },
-              },
-              404: { $ref: "Error#" },
-              401: { $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.sendWinBack, {
+        docs: {
+          summary: "Send win-back message",
+          operationId: "sendGuestWinBack",
+          description:
+            "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const found = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -2511,38 +2430,23 @@
           }
           const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
           return { data: { sent } };
-        }
-      );
+        },
+      });
     
       // Delete guest
-      fastify.delete<{
-        Params: { id: string };
-      }>(
-        "/:id",
-        {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-          ],
-          schema: {
-            summary: "Delete a guest",
-            operationId: "deleteGuest",
-            description: "Delete a guest. Will fail if guest has reservations.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: { id: { type: "string", description: "Guest ID" } },
-              required: ["id"],
-            },
-            response: {
-              204: { description: "Guest deleted", type: "null" },
-              404: { description: "Guest not found", $ref: "Error#" },
-              409: { description: "Guest has reservations", $ref: "Error#" },
-            },
-          },
+      registerEndpoint(fastify, guestsEndpoints.delete, {
+        docs: {
+          summary: "Delete a guest",
+          operationId: "deleteGuest",
+          description: "Delete a guest. Will fail if guest has reservations.",
+          tags: ["Guests"],
+          security: [{ bearerAuth: [] }],
         },
-        async (request, reply) => {
+        preHandler: [
+          requireAuth,
+          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+        ],
+        handler: async (request, reply) => {
           const deleted = await loadInVenueContext(
             "guest",
             request.params.id,
@@ -2553,8 +2457,8 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return reply.code(204).send();
-        }
-      );
+        },
+      });
     };
   </file>
   <file path="src/routes/health.ts">
@@ -2628,6 +2532,7 @@
                 },
               },
               400: { $ref: "Error#" },
+              403: { $ref: "Error#" },
               409: { $ref: "Error#" },
             },
           },
@@ -2635,6 +2540,12 @@
         async (request, reply) => {
           const sessionId = getSessionId(request);
           const result = await holdService.create(request.body, sessionId);
+    
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
     
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
@@ -2828,11 +2739,14 @@
               .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
-          const result = await confirmHold({
-            holdId: request.params.id,
-            sessionId,
-            guestDetails: request.body,
-          });
+          const result = await fastify.transitions.confirmHold(
+            {
+              holdId: request.params.id,
+              sessionId,
+              guestDetails: request.body,
+            },
+            { door: "staff-hold" }
+          );
     
           if (!result.success) {
             const statusMap: Record<string, number> = {
@@ -2998,15 +2912,10 @@
               return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
             }
     
-            const result = await modifyReservationWithNotifications(
+            const result = await fastify.transitions.modifyByGuest(
               preamble.reservation,
               request.body ?? {},
-              request.manageToken,
-              {
-                bookingNotifier: fastify.bookingNotifier,
-                notificationPort: fastify.notificationPort,
-                logger: request.log,
-              }
+              request.manageToken
             );
     
             if (!result.success) {
@@ -3114,6 +3023,8 @@
       currency: string;
     }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
+      const { depositService } = fastify.services;
+    
       fastify.post<{
         Params: { slug: string };
         Body: CreatePublicPaymentIntentBody;
@@ -3207,7 +3118,7 @@
             let stripeCustomerId: string | undefined;
             if (guestEmail || guestName) {
               try {
-                const customer = await stripeService.createCustomer({
+                const customer = await fastify.payments.createCustomer({
                   email: guestEmail,
                   name: guestName,
                   // Stable key so a lost-response retry reuses the same customer
@@ -3251,7 +3162,7 @@
             // used by the capture/cancel/refund flows.
             let paymentIntent;
             try {
-              paymentIntent = await stripeService.createPaymentIntent({
+              paymentIntent = await fastify.payments.createPaymentIntent({
                 amountCents: depositAmountCents,
                 currency,
                 customerId: stripeCustomerId,
@@ -3651,12 +3562,15 @@
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
             const { guestName, guestEmail, guestPhone, notes } = request.body;
-            const result = await confirmHold({
-              holdId,
-              sessionId,
-              venueId,
-              guestDetails: { guestName, guestEmail, guestPhone, notes },
-            });
+            const result = await fastify.transitions.confirmHold(
+              {
+                holdId,
+                sessionId,
+                venueId,
+                guestDetails: { guestName, guestEmail, guestPhone, notes },
+              },
+              { door: "public-hold" }
+            );
     
             if (!result.success) {
               const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
@@ -3794,17 +3708,27 @@
             // branch only keeps the union honest.
             const link = await resolveGuestLink({ venueId, guestEmail, guestPhone });
     
-            const result = await confirmHold({
-              holdId,
-              sessionId,
-              guestDetails: {
-                guestName,
-                guestEmail,
-                guestPhone,
-                notes: specialRequests,
-                guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+            // The manage token is minted once, for the confirmed reservation, and
+            // used both in the confirmation email and in this response.
+            let manageToken = "";
+            const result = await fastify.transitions.confirmHold(
+              {
+                holdId,
+                sessionId,
+                guestDetails: {
+                  guestName,
+                  guestEmail,
+                  guestPhone,
+                  notes: specialRequests,
+                  guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+                },
               },
-            });
+              {
+                door: "public-booking",
+                manageToken: (reservation) =>
+                  (manageToken = generateManageToken(reservation.id, guestEmail)),
+              }
+            );
     
             if (!result.success) {
               // A hold the caller does not own answers exactly as a hold that does not
@@ -3824,14 +3748,8 @@
     
             decrementHoldCount(ip);
     
-            const manageToken = generateManageToken(result.reservation.id, guestEmail);
-    
-            // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
-            fastify.bookingNotifier
-              .scheduleBookingNotifications(result.reservation, manageToken)
-              .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
-    
-            // The notifier above gets the linked reservation; the caller never learns of the link.
+            // The confirmation email (sent in the background by the transition)
+            // gets the linked reservation; the caller never learns of the link.
             return reply.status(201).send({
               data: {
                 reservation: withoutGuestLink(result.reservation),
@@ -4120,15 +4038,6 @@
     }
   </file>
   <file path="src/routes/reservations.ts">
-    async function isVenueMember(
-      user: AuthUser | undefined,
-      venueId: string | undefined,
-      lookup: VenueMembershipLookup
-    ): Promise<boolean> {
-      if (!user || !venueId) return false;
-      if (hasPermission(user, "admin")) return true;
-      return lookup(user.raw.sub, venueId);
-    }
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
@@ -4140,7 +4049,7 @@
        * staff refund on their own cancellation. Admins get staff semantics
        * (waived fee, deposit refunded in full); a non-admin owner gets guest
        * semantics (the venue's cancellation-fee policy applies) — see
-       * {@link cancelReservationWithDeposit}. A manage token is generated (not
+       * `cancelReservationWithDeposit`. A manage token is generated (not
        * faked) so the guest cancellation email still carries a working manage
        * link when the reservation has a guest email on file.
        */
@@ -4148,20 +4057,20 @@
         reservation: Reservation,
         logger: FastifyBaseLogger,
         isAdmin: boolean,
+        door: "staff-patch" | "staff-delete",
         options: { cancellationReason?: string; cancellationNote?: string } = {}
       ) {
         const manageToken = reservation.guestEmail
           ? generateManageToken(reservation.id, reservation.guestEmail)
           : "";
-        return cancelReservationWithDeposit(
-          reservation,
+        return fastify.transitions.cancel(reservation, {
+          door,
+          initiator: isAdmin ? "staff" : "guest",
           manageToken,
-          {
-            bookingNotifier: fastify.bookingNotifier,
-            logger,
-          },
-          { ...options, initiator: isAdmin ? "staff" : "guest" }
-        );
+          reason: options.cancellationReason,
+          note: options.cancellationNote,
+          log: logger,
+        });
       }
     
       // List reservations
@@ -4292,6 +4201,11 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description:
+                  "Caller is not a member of the venue, or the table belongs to another venue",
+                $ref: "Error#",
+              },
               409: {
                 description: "Table is not available",
                 $ref: "Error#",
@@ -4320,18 +4234,18 @@
           }
           // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
           // a single transaction. If the table update fails the whole thing rolls
-          // back and rejects, so we only reach the SSE emits below after a
+          // back and rejects, so its live events are set off only after a
           // committed, consistent state.
-          const result = await reservationService.createWalkIn(request.body, userId);
+          const result = await fastify.transitions.createWalkIn(request.body, userId);
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
-          }
-          // Emit only after the transaction has committed.
-          fastify.reservationEvents.emitReservationCreated(result.reservation);
-          if (result.table) {
-            fastify.reservationEvents.emitTableUpdated(result.table);
           }
           return reply.code(201).send({ data: result.reservation });
         }
@@ -4403,7 +4317,11 @@
       }>(
         "/",
         {
-          preHandler: optionalAuth,
+          // Staff-only: guests book through `/public/v1/venues/:slug/*`. The
+          // route-level limiter keeps the default `onRequest` hook, so it runs
+          // before requireAuth and the 401 surface stays bounded
+          // (gotchas § Fastify / rate limiting).
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           config: {
             rateLimit: {
               max: 20,
@@ -4414,7 +4332,7 @@
             summary: "Create a new reservation",
             operationId: "createReservation",
             description:
-              "Create a new reservation. Authentication is optional - guest info can be provided instead.",
+              "Create a new reservation (staff). Requires authentication and membership of the body's venueId (platform admins are exempt). Guests book through the public booking routes instead.",
             tags: ["Reservations"],
             body: createReservationBodyJsonSchema,
             response: {
@@ -4430,8 +4348,12 @@
                   "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
                 $ref: "Error#",
               },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
               403: {
-                description: "guestId supplied by a caller who is not a member of the venue",
+                description: "Caller is not a member of the body's venueId (or no venueId was given)",
                 $ref: "Error#",
               },
               409: {
@@ -4462,22 +4384,11 @@
               );
           }
     
-          // CRM linking of any kind runs only for a venue member (the same decision
-          // requireVenueAccess makes); everyone else gets today's call exactly, and
-          // a guestId from anyone else is refused rather than silently dropped.
-          const isMember = await isVenueMember(
-            request.user,
-            request.body.venueId,
-            fastify.venueMembershipLookup
-          );
-          if (!isMember && request.body.guestId) {
-            return reply
-              .code(403)
-              .send(createProblemDetails(403, "Forbidden", "You do not have access to this venue"));
-          }
-    
+          // requireVenueAccess has already admitted only a member of the body's
+          // venueId (or a platform admin), so CRM linking runs whenever a venue
+          // is named.
           let body = request.body;
-          if (isMember && request.body.venueId) {
+          if (request.body.venueId) {
             const link = await linkOrCreateGuest({
               venueId: request.body.venueId,
               guestId: request.body.guestId,
@@ -4495,7 +4406,13 @@
             }
           }
     
-          const result = await reservationService.createWithConflictCheck(body, userId);
+          const result = await fastify.transitions.createByStaff(body, userId);
+    
+          if (result.tableNotInVenue) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
     
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
@@ -4554,6 +4471,10 @@
                 description: "Invalid request",
                 $ref: "Error#",
               },
+              403: {
+                description: "The requested table belongs to another venue",
+                $ref: "Error#",
+              },
               404: {
                 description: "Reservation not found",
                 $ref: "Error#",
@@ -4610,6 +4531,7 @@
                   reservation,
                   request.log,
                   request.authorization?.isAdmin === true,
+                  "staff-patch",
                   {
                     cancellationReason: request.body.cancellationReason,
                     cancellationNote: request.body.cancellationNote,
@@ -4622,7 +4544,6 @@
                     .send(createProblemDetails(result.status, result.title, result.detail));
                 }
     
-                fastify.reservationEvents.emitReservationCancelled(result.reservation);
                 return { data: result.reservation };
               } catch (err) {
                 if (err instanceof ReservationTransitionError) {
@@ -4634,7 +4555,7 @@
     
             if (request.body.status === "NO_SHOW") {
               try {
-                const result = await recordNoShow(reservation, request.log);
+                const result = await fastify.transitions.noShow(reservation, request.log);
     
                 if (!result.success) {
                   return reply
@@ -4662,7 +4583,11 @@
             // deposit first, or cancel and rebook.
             if (
               request.body.partySize !== undefined &&
-              (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+              (await isPartySizeDepositBlocked(
+                reservation,
+                request.body.partySize,
+                fastify.services.depositService
+              ))
             ) {
               return reply
                 .code(409)
@@ -4681,16 +4606,19 @@
             }
     
             try {
-              const result = await reservationService.updateWithConflictCheck(
-                request.params.id,
-                request.body
-              );
+              const result = await fastify.transitions.updateByStaff(reservation, request.body);
     
               if (!result.success) {
                 if (result.error === "Reservation not found") {
                   return reply
                     .code(404)
                     .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+                }
+    
+                if (result.tableNotInVenue) {
+                  return reply
+                    .code(403)
+                    .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
                 }
     
                 if (result.conflict?.hasConflict) {
@@ -4709,32 +4637,6 @@
                       "Bad Request",
                       result.error ?? "Failed to update reservation"
                     )
-                  );
-              }
-    
-              // Fire post-visit thank-you email when status transitions to COMPLETED
-              if (request.body.status === "COMPLETED" && result.reservation) {
-                const reservation = result.reservation;
-                const venue = reservation.venueId
-                  ? await venueService.getById(reservation.venueId)
-                  : null;
-                const settings = (venue?.settings ?? {}) as Record<string, unknown>;
-                const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
-    
-                fastify.postVisitNotifier
-                  .sendPostVisitEmail({
-                    reservationId: reservation.id,
-                    guestId: reservation.guestId ?? null,
-                    guestEmail: reservation.guestEmail ?? null,
-                    guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-                    unsubscribed: Boolean(reservation.guest?.unsubscribed),
-                    venueName: venue?.name ?? "",
-                    venuePostVisitEmailEnabled: postVisitEmailEnabled,
-                    visitDate: reservation.date,
-                    feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
-                  })
-                  .catch((err) =>
-                    fastify.log.error({ err }, "Failed to send post-visit thank-you email")
                   );
               }
     
@@ -4812,7 +4714,8 @@
               const result = await cancelReservationForRequest(
                 reservation,
                 request.log,
-                request.authorization?.isAdmin === true
+                request.authorization?.isAdmin === true,
+                "staff-delete"
               );
               if (!result.success) {
                 return reply
@@ -5327,33 +5230,44 @@
       }
       await runWithVenueContext(venueId, work);
     }
-    async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> {
+    interface WebhookDeps {
+      deposits: DepositService;
+      payments: PaymentsPort;
+    }
+    async function holdIfPending(
+      paymentIntentId: string,
+      eventType: string,
+      deps: WebhookDeps
+    ): Promise<void> {
       await withDepositVenueContext(paymentIntentId, eventType, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) {
           return;
         }
     
         if (deposit.status === "pending") {
-          await depositService.hold(deposit.id, paymentIntentId);
+          await deps.deposits.hold(deposit.id, paymentIntentId);
         }
       });
     }
-    async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentSucceeded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id, event.type);
+      await holdIfPending(paymentIntent.id, event.type, deps);
     }
-    async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentAmountCapturableUpdated(
+      event: Stripe.Event,
+      deps: WebhookDeps
+    ): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await holdIfPending(paymentIntent.id, event.type);
+      await holdIfPending(paymentIntent.id, event.type, deps);
     }
-    async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
+    async function onPaymentIntentCanceled(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const paymentIntentId = paymentIntent.id;
     
       await withDepositVenueContext(paymentIntentId, event.type, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;
     
@@ -5383,16 +5297,16 @@
         // (money NOT collected, NOT returned by us) rather than falsely claiming a
         // refund. No Stripe call is made either way — the intent is already canceled.
         if (isDeliberateCancellation(paymentIntent.cancellation_reason)) {
-          await depositService.refund(deposit.id, { skipStripeCancel: true });
+          await deps.deposits.refund(deposit.id, { skipStripeCancel: true });
         } else {
-          await depositService.expireAuthorization(deposit.id);
+          await deps.deposits.expireAuthorization(deposit.id);
         }
       });
     }
     function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean {
       return reason === null || DELIBERATE_CANCELLATION_REASONS.has(reason);
     }
-    async function onChargeRefunded(event: Stripe.Event): Promise<void> {
+    async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
       // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
       const paymentIntentId =
@@ -5401,7 +5315,7 @@
       if (!paymentIntentId) return;
     
       await withDepositVenueContext(paymentIntentId, event.type, async () => {
-        const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+        const deposit = await deps.deposits.getByPaymentIntentId(paymentIntentId);
     
         if (!deposit) return;
     
@@ -5417,8 +5331,8 @@
           // cancelPaymentIntent in either case fails, refund() then rolls back and
           // throws (#5753), and Stripe would retry this webhook forever on the 500
           // (#5719 LOW).
-          const intent = await stripeService.retrievePaymentIntent(paymentIntentId);
-          await depositService.refund(deposit.id, {
+          const intent = await deps.payments.retrievePaymentIntent(paymentIntentId);
+          await deps.deposits.refund(deposit.id, {
             skipStripeCancel: intent.status !== "requires_capture",
           });
           return;
@@ -5440,9 +5354,18 @@
             { depositId: deposit.id, paymentIntentId, amountRefunded: charge.amount_refunded },
             "charge.refunded received for a captured deposit; reconciling post-capture refund"
           );
-          await depositService.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
+          await deps.deposits.recordPostCaptureRefund(deposit.id, charge.amount_refunded);
         }
       });
+    }
+    function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter {
+      return new WebhookEventRouter()
+        .register("payment_intent.succeeded", (event) => onPaymentIntentSucceeded(event, deps))
+        .register("payment_intent.amount_capturable_updated", (event) =>
+          onPaymentIntentAmountCapturableUpdated(event, deps)
+        )
+        .register("payment_intent.canceled", (event) => onPaymentIntentCanceled(event, deps))
+        .register("charge.refunded", (event) => onChargeRefunded(event, deps));
     }
     export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       // Scoped to this plugin's routes only (fastify.register encapsulation) — captures
@@ -5450,6 +5373,11 @@
       // consumes the stream, so signature verification below runs against the exact
       // bytes Stripe sent, not a re-serialization of the parsed body.
       fastify.addHook("preParsing", createRawBodyCaptureHook());
+    
+      const webhookRouter = createWebhookRouter({
+        deposits: fastify.services.depositService,
+        payments: fastify.payments,
+      });
     
       fastify.post("/api/v1/stripe/webhook", async (request, reply) => {
         // Fail closed if the signing secret is not configured. An empty secret
@@ -5487,7 +5415,7 @@
     
         let event: Stripe.Event;
         try {
-          event = stripeService.constructWebhookEvent(rawBody, signature, webhookSecret);
+          event = verifyStripeWebhookSignature(rawBody, signature, webhookSecret);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Invalid webhook signature";
           return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
@@ -7848,177 +7776,6 @@
     }
     export const bookingMetricsService = { getDailyBookingMetrics };
   </file>
-  <file path="src/services/booking-notifications.ts">
-    function reminderJobId(jobType: string, reservationId: string): string {
-      return `${jobType}:${reservationId}`;
-    }
-    export type CancelInitiator = "guest" | "staff";
-    export interface BookingNotifierDeps {
-      notificationAdapter: NotificationDispatcher;
-      scheduler: NotifierScheduler;
-      getVenue: (venueId: string) => Promise<Venue | null>;
-      logger?: FastifyBaseLogger;
-    }
-    export interface BookingNotifier {
-      scheduleBookingNotifications(reservation: Reservation, manageToken: string): Promise<void>;
-      cancelBookingReminders(reservationId: string): Promise<void>;
-      rescheduleBookingReminders(reservation: Reservation, manageToken: string): Promise<void>;
-      cancelBookingNotifications(
-        reservation: Reservation,
-        manageToken: string,
-        initiator: CancelInitiator
-      ): Promise<void>;
-    }
-    export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier {
-      const { notificationAdapter, scheduler, getVenue, logger } = deps;
-    
-      async function scheduleBookingNotifications(
-        reservation: Reservation,
-        manageToken: string
-      ): Promise<void> {
-        const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
-    
-        if (guestEmail && venueId) {
-          const venue = await getVenue(venueId);
-          if (venue) {
-            await notificationAdapter.sendBookingConfirmation({
-              reservationId: id,
-              date: reservation.date,
-              startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail,
-              guestPhone: guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken,
-            });
-          }
-        }
-    
-        if (!venueId) return;
-    
-        const startMs = new Date(startTime).getTime();
-        const now = Date.now();
-    
-        if (startMs <= now) return;
-    
-        // Channel routing is decided at delivery time from fresh guest state
-        // (see deliverReminder in job-worker.ts) — the payload carries only the
-        // lookup keys, not a snapshot that could go stale between scheduling and
-        // delivery.
-        const reminderPayload: ReminderPayload = {
-          reservationId: id,
-          venueId,
-        };
-    
-        const dayBeforeDelay = startMs - now - DAY_MS;
-        if (dayBeforeDelay > 0) {
-          await scheduler.schedule(
-            JOB_TYPES.BOOKING_REMINDER,
-            reminderPayload,
-            dayBeforeDelay,
-            reminderJobId(JOB_TYPES.BOOKING_REMINDER, id)
-          );
-        }
-    
-        const dayOfDelay = startMs - now - TWO_HOURS_MS;
-        if (dayOfDelay > 0) {
-          await scheduler.schedule(
-            JOB_TYPES.DAY_OF_REMINDER,
-            reminderPayload,
-            dayOfDelay,
-            reminderJobId(JOB_TYPES.DAY_OF_REMINDER, id)
-          );
-        }
-      }
-    
-      async function cancelBookingReminders(reservationId: string): Promise<void> {
-        await Promise.allSettled([
-          scheduler.cancel(reminderJobId(JOB_TYPES.BOOKING_REMINDER, reservationId)),
-          scheduler.cancel(reminderJobId(JOB_TYPES.DAY_OF_REMINDER, reservationId)),
-        ]);
-      }
-    
-      async function rescheduleBookingReminders(
-        reservation: Reservation,
-        manageToken: string
-      ): Promise<void> {
-        await cancelBookingReminders(reservation.id);
-        await scheduleBookingNotifications(reservation, manageToken);
-      }
-    
-      /**
-       * Owns the full "cancel this booking's notifications" intent: tears down the
-       * scheduled reminder jobs AND dispatches the guest-facing cancellation
-       * email/SMS. The dispatcher is a collaborator nested behind the notifier, so
-       * cancellation callers cross a single seam. Best-effort on dispatch — a
-       * failed send is logged but never rethrown, because the reservation cancel
-       * that triggered this has already committed.
-       */
-      async function cancelBookingNotifications(
-        reservation: Reservation,
-        manageToken: string,
-        initiator: CancelInitiator
-      ): Promise<void> {
-        await cancelBookingReminders(reservation.id);
-    
-        const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
-        if (!reservation.guestEmail || !venue) return;
-    
-        const preference = resolveChannel(
-          reservation.guest?.communicationPreference as CommunicationPreference | null
-        );
-        try {
-          await notificationAdapter.sendBookingCancelled(
-            {
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken,
-            },
-            preference
-          );
-        } catch (err) {
-          logger?.error(
-            { err, reservationId: reservation.id, initiator },
-            "Failed to send booking cancelled notification"
-          );
-        }
-      }
-    
-      return {
-        scheduleBookingNotifications,
-        cancelBookingReminders,
-        rescheduleBookingReminders,
-        cancelBookingNotifications,
-      };
-    }
-    export function createDefaultBookingNotifier(
-      notificationAdapter: NotificationDispatcher,
-      runtime: NotifierRuntime,
-      logger?: FastifyBaseLogger
-    ): BookingNotifier {
-      return createBookingNotifier({
-        notificationAdapter,
-        scheduler: runtime.scheduler,
-        getVenue: (venueId) => venueService.getById(venueId),
-        logger,
-      });
-    }
-  </file>
   <file path="src/services/briefing.ts">
     export interface BriefingEntry extends Omit<Reservation, "guestEmail" | "guestPhone"> {
       guest: BriefingGuest | null;
@@ -8268,12 +8025,7 @@
       }
     
       // Step 4: Map to domain type
-      const reservation = toReservation(result.value);
-    
-      // Step 5: Emit event
-      emitHoldConfirmed(reservation);
-    
-      return { success: true, reservation };
+      return { success: true, reservation: toReservation(result.value) };
     }
   </file>
   <file path="src/services/contact-policy.ts">
@@ -8323,15 +8075,7 @@
     }
   </file>
   <file path="src/services/deposit.ts">
-    export type StripePort = Pick<
-      StripeService,
-      | "cancelPaymentIntent"
-      | "capturePaymentIntent"
-      | "createPartialRefund"
-      | "createCustomer"
-      | "retrievePaymentIntent"
-      | "findDepositRefund"
-    >;
+    export type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     export type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
     export interface DepositServiceLogger {
       error(details: object, msg: string): void;
@@ -9409,9 +9153,6 @@
         return deposit;
       }
     }
-    export const depositService = new DepositService(
-      new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder")
-    );
     export function calculateDepositAmount(
       venue: { depositType: string | null; depositAmountCents: number | null },
       partySize: number
@@ -9431,11 +9172,12 @@
       guestService: typeof guestService;
       floorPlanService: typeof floorPlanService;
       holdService: typeof holdService;
-      depositService: typeof depositService;
+      /** Built in `buildApp` over the one payments adapter — never a module singleton. */
+      depositService: DepositService;
       waitlistService: typeof waitlistService;
       briefingService: typeof briefingService;
     }
-    export const defaultDomainServices: DomainServices = {
+    export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
       availabilityService,
       venueService,
       tableService,
@@ -9443,29 +9185,13 @@
       guestService,
       floorPlanService,
       holdService,
-      depositService,
       waitlistService,
       briefingService,
     };
   </file>
   <file path="src/services/events.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated"
-      | "floor-plan:created"
-      | "guest:lapsing"
-      | "table-status:changed";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
-    }
+    export type ReservationEventType = SseEventName;
+    export type ReservationEvent = SseEvent;
     export class ReservationEventEmitter extends EventEmitter {
       private connectionCount = 0;
     
@@ -9596,37 +9322,6 @@
           data: changes,
         });
       }
-    }
-    export const reservationEvents = new ReservationEventEmitter();
-    export function emitReservationCreated(reservation: Reservation): void {
-      reservationEvents.emitReservationCreated(reservation);
-    }
-    export function emitReservationUpdated(reservation: Reservation): void {
-      reservationEvents.emitReservationUpdated(reservation);
-    }
-    export function emitReservationCancelled(reservation: Reservation): void {
-      reservationEvents.emitReservationCancelled(reservation);
-    }
-    export function emitHoldCreated(hold: ReservationHold): void {
-      reservationEvents.emitHoldCreated(hold);
-    }
-    export function emitHoldReleased(hold: ReservationHold): void {
-      reservationEvents.emitHoldReleased(hold);
-    }
-    export function emitHoldConfirmed(reservation: Reservation): void {
-      reservationEvents.emitHoldConfirmed(reservation);
-    }
-    export function emitTableUpdated(table: Table): void {
-      reservationEvents.emitTableUpdated(table);
-    }
-    export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
-      reservationEvents.emitFloorPlanCreated(floorPlan);
-    }
-    export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
-      reservationEvents.emitLapsingGuests(venueId, guests);
-    }
-    export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void {
-      reservationEvents.emitTableStatusChanged(venueId, changes);
     }
   </file>
   <file path="src/services/floor-plan.ts">
@@ -9841,9 +9536,7 @@
     
         if (!cloned) return null;
     
-        const mapped = mapPrismaFloorPlan(cloned);
-        emitFloorPlanCreated(mapped);
-        return mapped;
+        return mapPrismaFloorPlan(cloned);
       },
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {
@@ -10640,7 +10333,11 @@
         });
       },
     
-      async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
+      /** `emitLapsingGuests` publishes the result to live SSE clients (the caller's live emitter). */
+      async scanLapsedGuests(
+        venueId: string,
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
+      ): Promise<LapsingGuest[]> {
         return runLapsedGuestScan(venueId, {
           findGuestsForScan: (vid) =>
             prisma.guest.findMany({
@@ -10682,6 +10379,8 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     export const holdService = {
       /**
@@ -10709,6 +10408,14 @@
         const duration = estimateDuration(partySize, settings);
         const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
         const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
+    
+        // A caller-named table must belong to the hold's venue, checked before any
+        // conflict data is read so the answer can't reveal another venue's
+        // bookings. confirmHold books the hold's own tableId, so this also keeps a
+        // confirmed reservation inside its venue.
+        if (tableId && !(await isTableInVenue(tableId, venueId))) {
+          return { success: false, error: TABLE_NOT_IN_VENUE_DETAIL, tableNotInVenue: true };
+        }
     
         // Fetch reservations + holds once for both the conflict and pacing pre-checks.
         const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
@@ -11033,6 +10740,8 @@
   <file path="src/services/lapsed-guest-cron.ts">
     export interface LapsedGuestMonitorPrismaConfig {
       prisma: PrismaClient;
+      /** Publishes a venue's lapsing guests to live SSE clients (the app's live emitter). */
+      emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"];
       startupDelayMs?: number;
       intervalMs?: number;
     }
@@ -11085,7 +10794,8 @@
       return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
-      prisma: PrismaClient
+      prisma: PrismaClient,
+      emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
     ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
       return {
         getVenueIds: () => getAllVenueIds(prisma),
@@ -11100,7 +10810,7 @@
       const { startupDelayMs = DEFAULT_STARTUP_DELAY_MS, intervalMs = DEFAULT_INTERVAL_MS } = config;
     
       const { getVenueIds, runScan } = isPrismaConfig(config)
-        ? buildPrismaCallbacks(config.prisma)
+        ? buildPrismaCallbacks(config.prisma, config.emitLapsingGuests)
         : config;
     
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -11287,7 +10997,7 @@
         ): Promise<string> {
           return connect().schedule(jobType, payload, delayMs, jobId);
         },
-        async cancel(jobId: string): Promise<void> {
+        async cancel(jobId: string): Promise<boolean> {
           return connect().cancel(jobId);
         },
       };
@@ -11410,8 +11120,8 @@
   </file>
   <file path="src/services/reservation-cancellation.ts">
     export interface CancelReservationDeps {
-      bookingNotifier: BookingNotifier;
       logger: FastifyBaseLogger;
+      deposits: DepositService;
     }
     export interface CancelReservationOptions {
       /**
@@ -11452,13 +11162,14 @@
       deposit: Deposit,
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      initiator: CancelInitiator
+      initiator: CancelInitiator,
+      deposits: DepositService
     ): Promise<ResolveDepositOutcome> {
       if (initiator === "staff") {
         // Staff cancels on the venue's behalf — waive any cancellation fee and
         // refund the deposit in full instead of evaluating guest-facing policy.
         try {
-          await depositService.refund(deposit.id);
+          await deposits.refund(deposit.id);
         } catch (err) {
           return {
             ok: false,
@@ -11493,15 +11204,15 @@
       let stripeOp: DepositStripeOp;
       try {
         if (feeResult.depositAction === "refund_full") {
-          await depositService.refund(deposit.id);
+          await deposits.refund(deposit.id);
           stripeOp = "refund";
         } else if (feeResult.depositAction === "forfeit") {
-          await depositService.forfeit(deposit.id, "cancellation");
+          await deposits.forfeit(deposit.id, "cancellation");
           stripeOp = "forfeit";
         } else {
           // refund_partial: capture then partially refund (also covers a partial
           // no-show where noShowFeePercent < 100).
-          await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+          await deposits.refundPartial(deposit.id, feeResult.refundAmountCents);
           stripeOp = "refund_partial";
         }
       } catch (err) {
@@ -11522,9 +11233,10 @@
     async function resolveDeposit(
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      initiator: CancelInitiator
+      initiator: CancelInitiator,
+      deposits: DepositService
     ): Promise<ResolveDepositOutcome> {
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       if (!deposit) return { ok: true, resolved: null };
     
       if (deposit.status === "partial_refunded") {
@@ -11541,7 +11253,7 @@
           return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
         }
         try {
-          await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+          await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
         } catch (err) {
           if (err instanceof DepositWrittenOffUncollectableError) {
             // The authorization was canceled before this row's capture ever
@@ -11587,7 +11299,7 @@
         // `false` (#5722 R5 MED-1).
         const isForfeited = deposit.status === "forfeited";
         const timestampField = isForfeited ? "forfeitedAt" : "appliedAt";
-        const verification = await depositService.verifyCaptureCompleted(
+        const verification = await deposits.verifyCaptureCompleted(
           deposit.id,
           deposit.status,
           timestampField,
@@ -11627,13 +11339,13 @@
           // status — re-fetch the now-held row and re-run normal cancellation
           // policy evaluation fresh, exactly as if it started `held` (#5722 R5
           // MED-1).
-          const rolledBack = await depositService.getById(deposit.id);
+          const rolledBack = await deposits.getById(deposit.id);
           if (rolledBack?.status !== "held") {
             // A concurrent transition beat this rollback to the row — an
             // ordinary retryable conflict, not a failure.
             return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
           }
-          return resolveHeldDeposit(rolledBack, reservation, logger, initiator);
+          return resolveHeldDeposit(rolledBack, reservation, logger, initiator, deposits);
         }
         if (verification === "recaptured") {
           // Unreachable in practice — `allowRecapture` is always `false` above
@@ -11651,11 +11363,13 @@
     
       if (deposit.status !== "held") return { ok: true, resolved: null };
     
-      return resolveHeldDeposit(deposit, reservation, logger, initiator);
+      return resolveHeldDeposit(deposit, reservation, logger, initiator, deposits);
     }
     export async function cancelReservationWithDeposit(
       reservation: Reservation,
-      manageToken: string,
+      // Kept for call-site stability; the guest's manage link is now carried to the
+      // cancellation email by the transitions `cancel` verb, not used here.
+      _manageToken: string,
       deps: CancelReservationDeps,
       options: CancelReservationOptions = {}
     ): Promise<CancelReservationResult> {
@@ -11670,7 +11384,7 @@
         throw err;
       }
     
-      const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator);
+      const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator, deps.deposits);
       if (!depositOutcome.ok) return depositOutcome.failure;
       const { resolved } = depositOutcome;
     
@@ -11725,17 +11439,10 @@
         };
       }
     
-      await deps.bookingNotifier.cancelBookingNotifications(reservation, manageToken, initiator);
-    
       return { success: true, reservation: updated };
     }
   </file>
   <file path="src/services/reservation-modification.ts">
-    export interface ModifyReservationDeps {
-      bookingNotifier: BookingNotifier;
-      notificationPort: NotificationDispatcher;
-      logger: FastifyBaseLogger;
-    }
     export interface ReservationChanges {
       date?: string;
       startTime?: string;
@@ -11755,14 +11462,15 @@
         changes.specialRequests !== undefined
       );
     }
-    function isTimeChange(changes: ReservationChanges): boolean {
+    export function isTimeChange(changes: ReservationChanges): boolean {
       return (
         changes.date !== undefined || changes.startTime !== undefined || changes.endTime !== undefined
       );
     }
     export async function isPartySizeDepositBlocked(
       reservation: Reservation,
-      newPartySize: number | undefined
+      newPartySize: number | undefined,
+      deposits: DepositService
     ): Promise<boolean> {
       if (newPartySize === undefined || newPartySize === reservation.partySize) {
         return false;
@@ -11775,71 +11483,27 @@
         return false;
       }
     
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       return Boolean(deposit && DEPOSIT_HELD_STATUSES.has(deposit.status));
     }
     async function checkPartySizeDepositGuard(
       reservation: Reservation,
-      changes: ReservationChanges
+      changes: ReservationChanges,
+      deposits: DepositService
     ): Promise<ModifyReservationResult | null> {
-      const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize);
+      const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
-    async function notifyModification(
-      updated: Reservation,
-      manageToken: string,
-      timeChanged: boolean,
-      deps: ModifyReservationDeps
-    ): Promise<void> {
-      const { bookingNotifier, notificationPort, logger } = deps;
-    
-      if (timeChanged) {
-        bookingNotifier
-          .rescheduleBookingReminders(updated, manageToken)
-          .catch((err) => logger.error({ err }, "Failed to reschedule booking reminders"));
-      }
-    
-      const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-      if (!updated.guestEmail || !venue) return;
-    
-      const preference = resolveChannel(
-        updated.guest?.communicationPreference as CommunicationPreference | null
-      );
-      try {
-        await notificationPort.sendBookingModified(
-          {
-            reservationId: updated.id,
-            date: updated.date,
-            startTime: updated.startTime,
-            endTime: updated.endTime,
-            partySize: updated.partySize,
-            guestName: updated.guestName,
-            guestEmail: updated.guestEmail,
-            guestPhone: updated.guestPhone ?? null,
-            specialRequests: updated.notes ?? null,
-            venueName: venue.name,
-            venueTimezone: venue.ianaTimezone,
-            venueAddress: null,
-            manageToken,
-            sequence: 2,
-          },
-          preference
-        );
-      } catch {
-        logger.error("Failed to send booking modified notification");
-      }
-    }
-    export async function modifyReservationWithNotifications(
+    export async function modifyReservation(
       reservation: Reservation,
       changes: ReservationChanges,
-      manageToken: string,
-      deps: ModifyReservationDeps
+      deposits: DepositService
     ): Promise<ModifyReservationResult> {
       if (!hasAnyChange(changes)) {
         return NO_CHANGES_RESULT;
       }
     
-      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes);
+      const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
       if (depositGuardResult) {
         return depositGuardResult;
       }
@@ -11883,10 +11547,7 @@
         };
       }
     
-      const updated = updateResult.reservation!;
-      await notifyModification(updated, manageToken, isTimeChange(changes), deps);
-    
-      return { success: true, reservation: updated };
+      return { success: true, reservation: updateResult.reservation! };
     }
   </file>
   <file path="src/services/reservation-no-show.ts">
@@ -11942,7 +11603,8 @@
       targetStatus: "forfeited" | "partial_refunded",
       reservation: Reservation,
       logger: FastifyBaseLogger,
-      err: unknown
+      err: unknown,
+      deposits: DepositService
     ): Promise<ForfeitOutcome> {
       if (err instanceof DepositCaptureAmbiguousError) {
         logger.error(
@@ -11952,7 +11614,7 @@
         return { outcome: "failed" };
       }
     
-      const current = await depositService.getById(depositId);
+      const current = await deposits.getById(depositId);
     
       if (current?.status === "uncollectable") {
         logger.warn(
@@ -11997,16 +11659,17 @@
     async function forfeitHeldDeposit(
       deposit: Deposit,
       reservation: Reservation,
-      logger: FastifyBaseLogger
+      logger: FastifyBaseLogger,
+      deposits: DepositService
     ): Promise<ForfeitOutcome> {
       const depositId = deposit.id;
       const action = await resolveNoShowDepositAction(deposit, reservation);
       try {
         if (action.op === "forfeit") {
-          await depositService.forfeit(depositId, "no_show");
+          await deposits.forfeit(depositId, "no_show");
           return { outcome: "resolved" };
         } else if (action.op === "refund_partial") {
-          await depositService.refundPartial(depositId, action.refundAmountCents);
+          await deposits.refundPartial(depositId, action.refundAmountCents);
           return {
             outcome: "resolved",
             // The policy resolved to less than a full forfeit (#5719 item 6) —
@@ -12016,7 +11679,7 @@
               "Only part of the deposit was charged as a no-show fee; the remainder was refunded.",
           };
         } else {
-          await depositService.refund(depositId);
+          await deposits.refund(depositId);
           return {
             outcome: "resolved",
             warning: "The deposit was fully refunded — the no-show policy applied no fee.",
@@ -12049,7 +11712,14 @@
         }
         if (action.op !== "refund_full") {
           const targetStatus = action.op === "forfeit" ? "forfeited" : "partial_refunded";
-          return reconcileCaptureLegFailure(depositId, targetStatus, reservation, logger, err);
+          return reconcileCaptureLegFailure(
+            depositId,
+            targetStatus,
+            reservation,
+            logger,
+            err,
+            deposits
+          );
         }
         logger.error(
           { err, reservationId: reservation.id, depositId },
@@ -12086,7 +11756,8 @@
     }
     export async function recordNoShow(
       reservation: Reservation,
-      logger: FastifyBaseLogger
+      logger: FastifyBaseLogger,
+      deposits: DepositService
     ): Promise<RecordNoShowResult> {
       try {
         transitionReservation(reservation.status, "NO_SHOW");
@@ -12097,7 +11768,7 @@
         throw err;
       }
     
-      const deposit = await depositService.getByReservationId(reservation.id);
+      const deposit = await deposits.getByReservationId(reservation.id);
       let depositWarning: string | undefined;
       let forfeitedDepositId: string | null = null;
     
@@ -12112,7 +11783,7 @@
           "Recording no-show with a pending (not yet authorized) deposit; nothing was captured"
         );
       } else if (deposit?.status === "held") {
-        const outcome = await forfeitHeldDeposit(deposit, reservation, logger);
+        const outcome = await forfeitHeldDeposit(deposit, reservation, logger, deposits);
         const applied = applyForfeitOutcome(outcome, deposit.id);
         if (applied.done) return applied.result;
         depositWarning = applied.depositWarning;
@@ -12136,7 +11807,7 @@
           return DEPOSIT_FAILURE_RESULT;
         }
         try {
-          await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+          await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
           forfeitedDepositId = deposit.id;
         } catch (err) {
           if (err instanceof DepositWrittenOffUncollectableError) {
@@ -12188,7 +11859,7 @@
         // LOW-A) — otherwise a no-show could recapture the full deposit even
         // when its own policy calls for a lower (or zero) fee.
         const allowRecapture = isForfeited && deposit.forfeitOrigin === "no_show";
-        const verification = await depositService.verifyCaptureCompleted(
+        const verification = await deposits.verifyCaptureCompleted(
           deposit.id,
           deposit.status,
           timestampField,
@@ -12222,13 +11893,13 @@
           // Nothing was ever charged, and this wasn't the operation that set the
           // status — re-fetch the now-held row and re-run normal policy
           // evaluation fresh, exactly as if it started `held` (#5722 R5 MED-1).
-          const rolledBack = await depositService.getById(deposit.id);
+          const rolledBack = await deposits.getById(deposit.id);
           if (rolledBack?.status !== "held") {
             // A concurrent transition beat this rollback to the row — an
             // ordinary retryable conflict, not a failure.
             return DEPOSIT_CONCURRENT_RETRY_RESULT;
           }
-          const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger);
+          const outcome = await forfeitHeldDeposit(rolledBack, reservation, logger, deposits);
           const applied = applyForfeitOutcome(outcome, deposit.id);
           if (applied.done) return applied.result;
           depositWarning = applied.depositWarning;
@@ -12323,6 +11994,8 @@
       error?: string;
       conflict?: ConflictCheckResult;
       pacing?: PacingCheckResult;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     export interface UpdateReservationResult {
       success: boolean;
@@ -12330,6 +12003,8 @@
       error?: string;
       conflict?: ConflictCheckResult;
       capacityExceeded?: boolean;
+      /** The requested table is missing or belongs to another venue (route answers 403). */
+      tableNotInVenue?: boolean;
     }
     function compareReservationDateDesc(
       a: { date: Date; startTime: Date },
@@ -12474,6 +12149,12 @@
       ): Promise<CreateReservationResult> {
         const startTime = new Date(data.startTime);
         const endTime = new Date(data.endTime);
+    
+        // The named venue must own the table, checked before any conflict data is
+        // read so the conflict answer can't reveal another venue's bookings.
+        if (data.venueId && !(await isTableInVenue(data.tableId, data.venueId))) {
+          return TABLE_NOT_IN_VENUE;
+        }
     
         // Resolve the venue used for the pacing pre-check and the pacing/conflict
         // re-check under the lock. Prefer the request's venueId, else the table's.
@@ -12673,6 +12354,18 @@
           return { success: false, error: "Reservation not found" };
         }
     
+        // A move onto another venue's table is refused before the capacity and
+        // conflict checks, either of which would reveal that table's size or
+        // bookings. (A reservation with no venueId never reaches this through a
+        // route: resolveVenueId answers null for it and the PATCH route 404s.)
+        if (
+          data.tableId !== undefined &&
+          existing.venueId &&
+          !(await isTableInVenue(data.tableId, existing.venueId))
+        ) {
+          return TABLE_NOT_IN_VENUE;
+        }
+    
         // Capacity check runs whenever partySize changes, independent of
         // timeOrTableChanged below — a partySize-only edit is not a slot move,
         // but it still must not exceed the (possibly unchanged) assigned table's
@@ -12814,6 +12507,12 @@
         const now = new Date();
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
+    
+        // Refuse another venue's table before reading conflict data or flipping
+        // its status to OCCUPIED.
+        if (!(await isTableInVenue(data.tableId, data.venueId))) {
+          return TABLE_NOT_IN_VENUE;
+        }
     
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
@@ -13673,6 +13372,7 @@
         this.isRetriable = isRetriable;
       }
     }
+    export const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
     function wrapStripeError(err: unknown): never {
       if (err != null && typeof err === "object" && "type" in err) {
         const stripeType = String((err as { type: string }).type);
@@ -13715,6 +13415,13 @@
       id: string;
       email: string | null;
       name: string | null;
+    }
+    export function verifyStripeWebhookSignature(
+      rawBody: Buffer,
+      signature: string,
+      webhookSecret: string
+    ): Stripe.Event {
+      return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     }
     export class StripeService {
       private readonly stripe: Stripe;
@@ -13927,18 +13634,7 @@
           wrapStripeError(err);
         }
       }
-    
-      /**
-       * Validates and parses an incoming Stripe webhook payload.
-       * Throws if the signature is invalid.
-       */
-      constructWebhookEvent(payload: Buffer, signature: string, webhookSecret: string): Stripe.Event {
-        return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      }
     }
-    export const stripeService = new StripeService(
-      process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"
-    );
   </file>
   <file path="src/services/table-state-machine.ts">
     export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
@@ -14006,6 +13702,16 @@
       });
     }
     export const tableStatusService = { getSnapshot };
+  </file>
+  <file path="src/services/table-venue.ts">
+    export const TABLE_NOT_IN_VENUE_DETAIL = "The requested table does not belong to this venue";
+    export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { venueId: true },
+      });
+      return table?.venueId === venueId;
+    }
   </file>
   <file path="src/services/table.ts">
     export function mapPrismaTable(table: {
@@ -15170,8 +14876,16 @@
   <file path="src/app.ts">
     export interface ReservationsAppOptions extends AppOptions {
       notificationPort?: NotificationDispatcher;
-      bookingNotifier?: BookingNotifier;
-      postVisitNotifier?: PostVisitNotifier;
+      /**
+       * Reminder-job scheduler the reservation transitions use. Defaults to the
+       * notifier runtime's lazily connected scheduler; tests inject a recorder.
+       */
+      jobs?: JobsPort;
+      /**
+       * Stripe operations. Defaults to one `StripeService` built here from
+       * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
+       */
+      payments?: PaymentsPort;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
@@ -15236,23 +14950,13 @@
       // buildApp() stays side-effect-free.
       const notifierRuntime = createNotifierRuntime();
     
-      // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-      const bookingNotifier =
-        options.bookingNotifier ??
-        createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
-      fastify.decorate("bookingNotifier", bookingNotifier);
-    
-      // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-      const postVisitNotifier =
-        options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
-      fastify.decorate("postVisitNotifier", postVisitNotifier);
-    
       // Wire waitlist notifier — injectable for testing, default env-backed for production
       const waitlistNotifier =
         options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
       fastify.decorate("waitlistNotifier", waitlistNotifier);
     
-      // Wire reservation events emitter — injectable for testing, default singleton for production
+      // Wire the live reservation events emitter — the single instance SSE clients
+      // subscribe to (routes/events.ts); injectable for testing
       const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
       fastify.decorate("reservationEvents", reservationEvents);
     
@@ -15278,8 +14982,45 @@
       // decorate them so route plugins resolve dependencies from `fastify.services`
       // instead of importing the sibling singleton at module scope. Decorated before
       // route registration so child route plugins inherit it.
-      const services: DomainServices = { ...defaultDomainServices, ...options.services };
+      //
+      // Payments are constructed exactly once, here: one StripeService (same env
+      // name and placeholder fallback as before; getStripeConfig above still
+      // validates it) unless a test injects `options.payments`, and one
+      // DepositService over it.
+      const payments: PaymentsPort =
+        options.payments ?? new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder");
+      fastify.decorate("payments", payments);
+      const services: DomainServices = {
+        ...defaultDomainServices,
+        ...options.services,
+        depositService: options.services?.depositService ?? new DepositService(payments),
+      };
       fastify.decorate("services", services);
+    
+      // Wire the reservation transitions (maintenance:reservation-transition-effects):
+      // the one module that decides what a transition sets off. Every effect
+      // adapter is constructed exactly once, here — messaging over the single
+      // NotificationDispatcher, jobs over the notifier runtime's scheduler (or an
+      // injected one), events over the single live emitter — and the venue effect
+      // policy source is chosen in this one place. Decorated before route
+      // registration so child route plugins inherit it.
+      const transitions = createReservationTransitions({
+        ports: {
+          messaging: createDispatcherMessaging({
+            dispatcher: notificationPort,
+            postVisitNotifier: createDefaultPostVisitNotifier(notificationPort),
+            getVenue: (venueId) => services.venueService.getById(venueId),
+            logger: fastify.log,
+          }),
+          jobs: options.jobs ?? notifierRuntime.scheduler,
+          events: createEmitterEvents(reservationEvents),
+        },
+        policy: allOutboundLive,
+        reservationService: services.reservationService,
+        deposits: services.depositService,
+        logger: fastify.log,
+      });
+      fastify.decorate("transitions", transitions);
     
       // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
       // (#5469). `@mbe/database`'s createDatabase() registers its own
@@ -15355,7 +15096,10 @@
       await fastify.register(stripeWebhookRoutes);
     
       // Wire lapsed-guest monitor with lifecycle hooks
-      const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+      const lapsedGuestMonitor = createLapsedGuestMonitor({
+        prisma,
+        emitLapsingGuests: (venueId, guests) => reservationEvents.emitLapsingGuests(venueId, guests),
+      });
     
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
@@ -15440,6 +15184,843 @@
         smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
       });
     }
+  </file>
+  </section>
+  <section priority="medium" role="test">
+  <file path="src/test/effects-harness.ts">
+    export interface RecordedEvent {
+      type: string;
+      id?: string;
+    }
+    export interface RecordedMessage {
+      kind: string;
+      reservationId?: string;
+      guestEmail?: string;
+    }
+    export type RecordedJobOp =
+      | { op: "schedule"; jobType: string; jobId: string; delayMs: number }
+      | { op: "cancel"; jobId: string };
+    export interface RecordedDepositOp {
+      op: string;
+      args: unknown[];
+    }
+    export interface RecordedEffects {
+      events: RecordedEvent[];
+      messages: RecordedMessage[];
+      jobs: RecordedJobOp[];
+      depositOps: RecordedDepositOp[];
+    }
+    type DepositMoneyOp = "refund" | "refundPartial" | "forfeit" | "apply" | "verifyCaptureCompleted";
+    interface ScriptedDeposit {
+      id: string;
+      status: string;
+      [key: string]: unknown;
+    }
+    interface DepositRecorder {
+      ops: RecordedDepositOp[];
+      deposit: ScriptedDeposit | null;
+      results: Map<string, () => Promise<unknown>>;
+    }
+    function activeDeposits(): DepositRecorder {
+      if (!currentDeposits) {
+        throw new Error("effects-harness: createEffectsRecorder() must run before deposit calls");
+      }
+      return currentDeposits;
+    }
+    function recordDepositOp(op: string) {
+      return async (...args: unknown[]): Promise<unknown> => {
+        const recorder = activeDeposits();
+        recorder.ops.push({ op, args });
+        const scripted = recorder.results.get(op);
+        if (scripted) return scripted();
+        return { ...(recorder.deposit ?? {}), id: args[0] };
+      };
+    }
+    type DepositMethod = (...args: unknown[]) => Promise<unknown>;
+    export const recordingDepositService: Record<
+      "getByReservationId" | "getById" | DepositMoneyOp,
+      DepositMethod
+    > = {
+      getByReservationId: async () => activeDeposits().deposit,
+      getById: async () => activeDeposits().deposit,
+      refund: recordDepositOp("refund"),
+      refundPartial: recordDepositOp("refundPartial"),
+      forfeit: recordDepositOp("forfeit"),
+      apply: recordDepositOp("apply"),
+      verifyCaptureCompleted: recordDepositOp("verifyCaptureCompleted"),
+    };
+    export interface EffectsRecorder {
+      /** Normalized effects recorded so far (live arrays). */
+      effects: RecordedEffects;
+      /** Spread into `buildApp(...)`; carries every recording seam. */
+      appOptions: Pick<
+        ReservationsAppOptions,
+        "notificationPort" | "jobs" | "reservationEvents" | "services" | "payments"
+      >;
+      /** Reminder jobs currently scheduled, keyed by job id. */
+      scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: unknown }>;
+      /** Put a reservation's two reminders in the store, as a public booking would. */
+      seedReminders(reservationId: string, venueId: string): void;
+      deposits: {
+        service: typeof recordingDepositService;
+        /** The deposit `getByReservationId`/`getById` return (null = no deposit). */
+        seed(deposit: ScriptedDeposit | null): void;
+        /** Script one money op's result (resolve or reject). */
+        script(op: string, result: () => Promise<unknown>): void;
+      };
+      /** Wait for fire-and-forget effects to settle. */
+      settle(): Promise<void>;
+    }
+    function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
+    }
+    function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher {
+      return new Proxy({} as NotificationDispatcher, {
+        get(_target, prop) {
+          // Only `send*` members are outbound messages. Anything else (`then`,
+          // Fastify's decorate-time `getter`/`setter` probe) must read as absent.
+          if (typeof prop !== "string" || !prop.startsWith("send")) return undefined;
+          return async (input: { reservationId?: string; guestEmail?: string } | undefined) => {
+            messages.push({
+              kind: MESSAGE_KINDS[prop] ?? `unexpected:${prop}`,
+              ...(input?.reservationId !== undefined && { reservationId: input.reservationId }),
+              ...(input?.guestEmail !== undefined && { guestEmail: input.guestEmail }),
+            });
+          };
+        },
+      });
+    }
+    function createRecordingScheduler(
+      jobs: RecordedJobOp[],
+      store: EffectsRecorder["scheduledJobs"]
+    ): JobsPort {
+      return {
+        async schedule(jobType, payload, delayMs, jobId) {
+          const id = jobId ?? `${jobType}:${store.size}`;
+          jobs.push({ op: "schedule", jobType, jobId: id, delayMs });
+          store.set(id, { jobType, delayMs, payload });
+          return id;
+        },
+        async cancel(jobId: string) {
+          jobs.push({ op: "cancel", jobId });
+          return store.delete(jobId);
+        },
+      };
+    }
+    export function createEffectsRecorder(): EffectsRecorder {
+      const effects: RecordedEffects = { events: [], messages: [], jobs: [], depositOps: [] };
+      const scheduledJobs: EffectsRecorder["scheduledJobs"] = new Map();
+    
+      const reservationEvents = new ReservationEventEmitter();
+      reservationEvents.on("change", (event: ReservationEvent) => {
+        if (event.type === "table-status:changed") return;
+        const data = event.data as { id?: unknown };
+        effects.events.push({
+          type: event.type,
+          ...(typeof data?.id === "string" && { id: data.id }),
+        });
+      });
+    
+      const notificationPort = createRecordingDispatcher(effects.messages);
+      const scheduler = createRecordingScheduler(effects.jobs, scheduledJobs);
+      const depositRecorder: DepositRecorder = {
+        ops: effects.depositOps,
+        deposit: null,
+        results: new Map(),
+      };
+      currentDeposits = depositRecorder;
+    
+      return {
+        effects,
+        appOptions: {
+          notificationPort,
+          jobs: scheduler,
+          reservationEvents,
+          // Inject payments alongside the deposit fake so no harness-built app
+          // can fall through to a real StripeService on the placeholder key.
+          payments: createInMemoryPayments(),
+          services: { depositService: recordingDepositService as unknown as DepositService },
+        },
+        scheduledJobs,
+        seedReminders(reservationId, venueId) {
+          const payload: ReminderPayload = { reservationId, venueId };
+          for (const jobType of [JOB_TYPES.BOOKING_REMINDER, JOB_TYPES.DAY_OF_REMINDER]) {
+            scheduledJobs.set(reminderJobId(jobType, reservationId), {
+              jobType,
+              delayMs: 1,
+              payload,
+            });
+          }
+        },
+        deposits: {
+          service: recordingDepositService,
+          seed(deposit) {
+            depositRecorder.deposit = deposit;
+          },
+          script(op, result) {
+            depositRecorder.results.set(op, result);
+          },
+        },
+        async settle() {
+          for (let i = 0; i < 10; i++) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+        },
+      };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="transitions">
+  <file path="src/transitions/in-memory.ts">
+    export interface InMemoryMessaging extends MessagingPort {
+      readonly sent: readonly GuestMessage[];
+      /** Make the next send of `kind` reject (once). */
+      failNext(kind: GuestMessageKind, error?: Error): void;
+    }
+    export function createInMemoryMessaging(): InMemoryMessaging {
+      const sent: GuestMessage[] = [];
+      const failures = new Map<GuestMessageKind, Error>();
+      return {
+        sent,
+        failNext(kind, error = new Error(`scripted ${kind} failure`)) {
+          failures.set(kind, error);
+        },
+        async send(message) {
+          const failure = failures.get(message.kind);
+          if (failure) {
+            failures.delete(message.kind);
+            throw failure;
+          }
+          sent.push(message);
+        },
+      };
+    }
+    export interface InMemoryJob {
+      jobType: string;
+      delayMs: number;
+      payload: unknown;
+    }
+    export interface InMemoryJobs extends JobsPort {
+      readonly jobs: ReadonlyMap<string, InMemoryJob>;
+    }
+    export function createInMemoryJobs(): InMemoryJobs {
+      const jobs = new Map<string, InMemoryJob>();
+      return {
+        jobs,
+        async schedule(jobType, payload, delayMs, jobId) {
+          const id = jobId ?? `${jobType}:${jobs.size}`;
+          jobs.set(id, { jobType, delayMs, payload });
+          return id;
+        },
+        async cancel(jobId) {
+          return jobs.delete(jobId);
+        },
+      };
+    }
+    export interface InMemoryEvents extends EventsPort {
+      readonly published: readonly LiveEvent[];
+    }
+    export function createInMemoryEvents(): InMemoryEvents {
+      const published: LiveEvent[] = [];
+      return {
+        published,
+        publish(event) {
+          published.push(event);
+        },
+      };
+    }
+    export type PaymentsOp = keyof PaymentsPort;
+    type PaymentsImpl<Op extends PaymentsOp> = (
+      ...args: Parameters<PaymentsPort[Op]>
+    ) => Awaited<ReturnType<PaymentsPort[Op]>> | Promise<Awaited<ReturnType<PaymentsPort[Op]>>>;
+    export interface InMemoryPayments extends PaymentsPort {
+      /** Every call, in order, with its arguments (idempotency keys included). */
+      readonly calls: { op: PaymentsOp; args: unknown[] }[];
+      /** Replace an op's default result (or make it throw) from now on. */
+      respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
+      /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
+      failNext(op: PaymentsOp, stripeType: string): void;
+    }
+    export function createInMemoryPayments(): InMemoryPayments {
+      const calls: { op: PaymentsOp; args: unknown[] }[] = [];
+      const counters = { cus: 0, pi: 0, re: 0 };
+      const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
+      const failures = new Map<PaymentsOp, string>();
+    
+      const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
+        createCustomer: (options) => ({
+          id: nextId("cus"),
+          email: options.email ?? null,
+          name: options.name ?? null,
+        }),
+        createPaymentIntent: () => {
+          const id = nextId("pi");
+          return { id, status: "requires_payment_method", clientSecret: `${id}_secret` };
+        },
+        capturePaymentIntent: (id) => ({ id, status: "succeeded" }),
+        cancelPaymentIntent: (id) => ({ id, status: "canceled" }),
+        createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
+        retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
+        findDepositRefund: () => null,
+      };
+      const impls: { [Op in PaymentsOp]: PaymentsImpl<Op> } = { ...defaults };
+    
+      function call<Op extends PaymentsOp>(op: Op): PaymentsPort[Op] {
+        const recorded = async (...args: Parameters<PaymentsPort[Op]>) => {
+          calls.push({ op, args });
+          const stripeType = failures.get(op);
+          if (stripeType !== undefined) {
+            failures.delete(op);
+            const cause = Object.assign(new Error(`${stripeType} (in-memory)`), { type: stripeType });
+            throw new StripeOperationError(cause, stripeType, RETRIABLE_STRIPE_TYPES.has(stripeType));
+          }
+          return await (impls[op] as PaymentsImpl<Op>)(...args);
+        };
+        return recorded as unknown as PaymentsPort[Op];
+      }
+    
+      return {
+        calls,
+        respond(op, impl) {
+          (impls as Record<PaymentsOp, unknown>)[op] = impl;
+        },
+        failNext(op, stripeType) {
+          failures.set(op, stripeType);
+        },
+        createCustomer: call("createCustomer"),
+        createPaymentIntent: call("createPaymentIntent"),
+        capturePaymentIntent: call("capturePaymentIntent"),
+        cancelPaymentIntent: call("cancelPaymentIntent"),
+        createPartialRefund: call("createPartialRefund"),
+        retrievePaymentIntent: call("retrievePaymentIntent"),
+        findDepositRefund: call("findDepositRefund"),
+      };
+    }
+  </file>
+  <file path="src/transitions/index.ts">
+    type ReservationWrites = Pick<
+      typeof ReservationServiceSingleton,
+      "update" | "updateWithConflictCheck" | "createWalkIn" | "createWithConflictCheck"
+    >;
+    type DomainLogger = Parameters<typeof recordNoShow>[1];
+    export interface ReservationTransitionsDeps {
+      ports: EffectPorts;
+      policy: VenueEffectPolicySource;
+      reservationService: ReservationWrites;
+      /** The one DepositService (built over the payments port in buildApp). */
+      deposits: DepositService;
+      logger: EffectLogger;
+      now?: () => Date;
+    }
+    export interface CancelOptions {
+      door: CancelDoor;
+      initiator: CancelInitiator;
+      manageToken: string;
+      reason?: string;
+      note?: string;
+      log: DomainLogger;
+    }
+    export interface ConfirmHoldOptions {
+      door: HoldDoor;
+      /** Mints the guest's manage token for the confirmed reservation (public booking only). */
+      manageToken?: (reservation: Reservation) => string | undefined;
+    }
+    export interface ReservationTransitions {
+      cancel(reservation: Reservation, options: CancelOptions): Promise<CancelReservationResult>;
+      noShow(reservation: Reservation, log: DomainLogger): Promise<RecordNoShowResult>;
+      updateByStaff(
+        before: Reservation,
+        patch: UpdateReservationRequest
+      ): Promise<UpdateReservationResult>;
+      modifyByGuest(
+        reservation: Reservation,
+        changes: ReservationChanges,
+        manageToken: string
+      ): Promise<ModifyReservationResult>;
+      confirmHold(input: ConfirmHoldInput, options: ConfirmHoldOptions): Promise<ConfirmHoldResult>;
+      createWalkIn(body: WalkInRequest, userId?: string): Promise<CreateReservationResult>;
+      createByStaff(body: CreateReservationRequest, userId?: string): Promise<CreateReservationResult>;
+      /** No-op unless the reservation is PENDING (the guard moved here from the route). */
+      confirmAttendance(reservation: Reservation): Promise<void>;
+    }
+    export function createReservationTransitions(
+      deps: ReservationTransitionsDeps
+    ): ReservationTransitions {
+      const { ports, policy, reservationService, deposits, logger, now = () => new Date() } = deps;
+    
+      /** Plans and runs a committed transition's effects. */
+      async function settle(fact: TransitionFact, venueId: string | null | undefined): Promise<void> {
+        let venuePolicy;
+        try {
+          venuePolicy = await policy(venueId ?? "");
+        } catch (err) {
+          // A policy failure may suppress effects; it can never undo the write.
+          logger.error({ err, venueId, fact: fact.kind }, "Venue effect policy lookup failed");
+          return;
+        }
+        await runEffects(planEffects(fact, venuePolicy, now()), ports, logger);
+      }
+    
+      return {
+        async cancel(reservation, options) {
+          const result = await cancelReservationWithDeposit(
+            reservation,
+            options.manageToken,
+            { logger: options.log, deposits },
+            {
+              initiator: options.initiator,
+              cancellationReason: options.reason,
+              cancellationNote: options.note,
+            }
+          );
+          if (result.success) {
+            await settle(
+              {
+                kind: "cancelled",
+                door: options.door,
+                reservation,
+                updated: result.reservation,
+                manageToken: options.manageToken,
+                initiator: options.initiator,
+              },
+              reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async noShow(reservation, log) {
+          const result = await recordNoShow(reservation, log, deposits);
+          if (result.success) {
+            await settle({ kind: "no-show", reservation: result.reservation }, reservation.venueId);
+          }
+          return result;
+        },
+    
+        async updateByStaff(before, patch) {
+          const result = await reservationService.updateWithConflictCheck(before.id, patch);
+          if (result.success && result.reservation) {
+            await settle(
+              { kind: "staff-updated", before, after: result.reservation, patch },
+              before.venueId
+            );
+          }
+          return result;
+        },
+    
+        async modifyByGuest(reservation, changes, manageToken) {
+          const result = await modifyReservation(reservation, changes, deposits);
+          if (result.success) {
+            await settle(
+              {
+                kind: "guest-modified",
+                before: reservation,
+                after: result.reservation,
+                manageToken,
+                timeChanged: isTimeChange(changes),
+              },
+              reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async confirmHold(input, options) {
+          const result = await confirmHold(input);
+          if (result.success) {
+            await settle(
+              {
+                kind: "hold-confirmed",
+                door: options.door,
+                reservation: result.reservation,
+                manageToken: options.manageToken?.(result.reservation),
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async createWalkIn(body, userId) {
+          const result = await reservationService.createWalkIn(body, userId);
+          if (result.success && result.reservation) {
+            await settle(
+              {
+                kind: "created",
+                door: "walk-in",
+                reservation: result.reservation,
+                table: result.table,
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async createByStaff(body, userId) {
+          const result = await reservationService.createWithConflictCheck(body, userId);
+          if (result.success && result.reservation) {
+            await settle(
+              {
+                kind: "created",
+                door: "staff-create",
+                reservation: result.reservation,
+              },
+              result.reservation.venueId
+            );
+          }
+          return result;
+        },
+    
+        async confirmAttendance(reservation) {
+          if (reservation.status !== "PENDING") return;
+          const updated = await reservationService.update(reservation.id, {
+            status: "CONFIRMED",
+          });
+          if (updated) {
+            await settle({ kind: "attendance-confirmed", reservation: updated }, reservation.venueId);
+          }
+        },
+      };
+    }
+  </file>
+  <file path="src/transitions/plan.ts">
+    export type CancelDoor = "staff-patch" | "staff-delete" | "guest-manage";
+    export type HoldDoor = "public-booking" | "staff-hold" | "public-hold";
+    export type TransitionFact =
+      | {
+          kind: "cancelled";
+          door: CancelDoor;
+          /** The reservation as it was before the cancel — what the guest is told about. */
+          reservation: Reservation;
+          /** The committed CANCELLED row — what live clients receive. */
+          updated: Reservation;
+          manageToken: string;
+          initiator: CancelInitiator;
+        }
+      | { kind: "no-show"; reservation: Reservation }
+      | {
+          kind: "staff-updated";
+          before: Reservation;
+          after: Reservation;
+          patch: UpdateReservationRequest;
+        }
+      | {
+          kind: "guest-modified";
+          before: Reservation;
+          after: Reservation;
+          manageToken: string;
+          timeChanged: boolean;
+        }
+      | {
+          kind: "hold-confirmed";
+          door: HoldDoor;
+          reservation: Reservation;
+          manageToken?: string;
+        }
+      | {
+          kind: "created";
+          door: "walk-in" | "staff-create";
+          reservation: Reservation;
+          table?: Table;
+        }
+      | { kind: "attendance-confirmed"; reservation: Reservation };
+    export function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
+    }
+    function reservationEvent(
+      type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
+      reservation: Reservation
+    ): LiveEvent {
+      return { type, venueId: reservation.venueId ?? "", data: reservation };
+    }
+    function cancelReminders(reservationId: string): JobOp[] {
+      return REMINDERS.map(({ jobType }) => ({
+        op: "cancel" as const,
+        jobId: reminderJobId(jobType, reservationId),
+      }));
+    }
+    function reminderOps(
+      reservation: Reservation,
+      now: Date,
+      mode: "schedule" | "replace-if-present"
+    ): JobOp[] {
+      const { id, venueId, startTime } = reservation;
+      if (!venueId) return [];
+      const payload: ReminderPayload = { reservationId: id, venueId };
+      const untilStart = new Date(startTime).getTime() - now.getTime();
+      return REMINDERS.flatMap(({ jobType, leadMs }): JobOp[] => {
+        const jobId = reminderJobId(jobType, id);
+        const delayMs = untilStart - leadMs;
+        if (delayMs > 0) return [{ op: mode, jobType, jobId, delayMs, payload }];
+        return mode === "replace-if-present" ? [{ op: "cancel", jobId }] : [];
+      });
+    }
+    function confirmationChain(
+      reservation: Reservation,
+      manageToken: string,
+      now: Date
+    ): PlannedEffect[] {
+      return [
+        background(message({ kind: "booking-confirmation", reservation, manageToken }), "propagate"),
+        ...reminderOps(reservation, now, "schedule").map((op) => background(job(op), "propagate")),
+      ];
+    }
+    function isStaffTimeChange(patch: UpdateReservationRequest): boolean {
+      return patch.date !== undefined || patch.startTime !== undefined || patch.endTime !== undefined;
+    }
+    function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] {
+      switch (fact.kind) {
+        case "cancelled":
+          return [
+            ...cancelReminders(fact.reservation.id).map((op) => awaited(job(op), "log")),
+            awaited(
+              message({
+                kind: "booking-cancelled",
+                reservation: fact.reservation,
+                manageToken: fact.manageToken,
+                initiator: fact.initiator,
+              }),
+              "propagate"
+            ),
+            live(reservationEvent("reservation:cancelled", fact.updated)),
+          ];
+    
+        case "no-show":
+          return [live(reservationEvent("reservation:updated", fact.reservation))];
+    
+        case "staff-updated":
+          return [
+            ...(fact.patch.status === "COMPLETED"
+              ? [
+                  background(
+                    message({
+                      kind: "post-visit-thank-you",
+                      reservation: fact.after,
+                    }),
+                    "log"
+                  ),
+                ]
+              : []),
+            ...(isStaffTimeChange(fact.patch)
+              ? reminderOps(fact.after, now, "replace-if-present").map((op) =>
+                  background(job(op), "log")
+                )
+              : []),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
+    
+        case "guest-modified":
+          return [
+            ...(fact.timeChanged
+              ? [
+                  ...cancelReminders(fact.after.id).map((op) => background(job(op), "log")),
+                  ...confirmationChain(fact.after, fact.manageToken, now),
+                ]
+              : []),
+            awaited(
+              message({
+                kind: "booking-modified",
+                reservation: fact.after,
+                manageToken: fact.manageToken,
+              }),
+              "log"
+            ),
+            live(reservationEvent("reservation:updated", fact.after)),
+          ];
+    
+        case "hold-confirmed":
+          return [
+            ...(fact.door === "public-booking" && fact.manageToken !== undefined
+              ? confirmationChain(fact.reservation, fact.manageToken, now)
+              : []),
+            live(reservationEvent("hold:confirmed", fact.reservation)),
+          ];
+    
+        case "created":
+          return [
+            live(reservationEvent("reservation:created", fact.reservation)),
+            ...(fact.door === "walk-in" && fact.table
+              ? [
+                  live({
+                    type: "table:updated",
+                    venueId: fact.table.venueId ?? "",
+                    data: fact.table,
+                  }),
+                ]
+              : []),
+          ];
+    
+        case "attendance-confirmed":
+          return [live(reservationEvent("reservation:updated", fact.reservation))];
+      }
+    }
+    export function planEffects(
+      fact: TransitionFact,
+      policy: VenueEffectPolicy,
+      now: Date
+    ): PlannedEffect[] {
+      const planned = planForFact(fact, now);
+      if (policy.outbound === "live") return planned;
+      return planned.filter(({ effect }) => effect.port === "events");
+    }
+  </file>
+  <file path="src/transitions/ports.ts">
+    export type CancelInitiator = "guest" | "staff";
+    export type GuestMessage =
+      | {
+          kind: "booking-confirmation";
+          reservation: Reservation;
+          manageToken: string;
+        }
+      | { kind: "booking-modified"; reservation: Reservation; manageToken: string }
+      | {
+          kind: "booking-cancelled";
+          reservation: Reservation;
+          manageToken: string;
+          initiator: CancelInitiator;
+        }
+      | { kind: "post-visit-thank-you"; reservation: Reservation };
+    export type GuestMessageKind = GuestMessage["kind"];
+    export interface MessagingPort {
+      send(message: GuestMessage): Promise<void>;
+    }
+    export type JobsPort = Pick<JobScheduler, "schedule" | "cancel">;
+    export type ReminderJobType = typeof JOB_TYPES.BOOKING_REMINDER | typeof JOB_TYPES.DAY_OF_REMINDER;
+    export type JobOp =
+      | {
+          op: "schedule";
+          jobType: ReminderJobType;
+          jobId: string;
+          delayMs: number;
+          payload: ReminderPayload;
+        }
+      | { op: "cancel"; jobId: string }
+      | {
+          op: "replace-if-present";
+          jobType: ReminderJobType;
+          jobId: string;
+          delayMs: number;
+          payload: ReminderPayload;
+        };
+    export type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    export interface EventsPort {
+      publish(event: LiveEvent): void;
+    }
+    export type Effect =
+      | { port: "events"; event: LiveEvent }
+      | { port: "messaging"; message: GuestMessage }
+      | { port: "jobs"; op: JobOp };
+    export interface PlannedEffect {
+      effect: Effect;
+      timing: "await" | "background";
+      onFailure: "log" | "propagate";
+    }
+    export interface EffectPorts {
+      messaging: MessagingPort;
+      jobs: JobsPort;
+      events: EventsPort;
+    }
+    export type PaymentsPort = Pick<
+      StripeService,
+      | "createCustomer"
+      | "createPaymentIntent"
+      | "capturePaymentIntent"
+      | "cancelPaymentIntent"
+      | "createPartialRefund"
+      | "retrievePaymentIntent"
+      | "findDepositRefund"
+    >;
+  </file>
+  <file path="src/transitions/run.ts">
+    export interface EffectLogger {
+      error(details: object, msg: string): void;
+    }
+    function describe(effect: Effect): Record<string, unknown> {
+      switch (effect.port) {
+        case "events":
+          return { port: "events", type: effect.event.type };
+        case "messaging":
+          return {
+            port: "messaging",
+            kind: effect.message.kind,
+            reservationId: effect.message.reservation.id,
+          };
+        case "jobs":
+          return { port: "jobs", op: effect.op.op, jobId: effect.op.jobId };
+      }
+    }
+    async function runJob(op: JobOp, ports: EffectPorts): Promise<void> {
+      switch (op.op) {
+        case "schedule":
+          await ports.jobs.schedule(op.jobType, op.payload, op.delayMs, op.jobId);
+          return;
+        case "cancel":
+          await ports.jobs.cancel(op.jobId);
+          return;
+        case "replace-if-present":
+          if (await ports.jobs.cancel(op.jobId)) {
+            await ports.jobs.schedule(op.jobType, op.payload, op.delayMs, op.jobId);
+          }
+          return;
+      }
+    }
+    async function applyEffect(effect: Effect, ports: EffectPorts): Promise<void> {
+      switch (effect.port) {
+        case "events":
+          ports.events.publish(effect.event);
+          return;
+        case "messaging":
+          await ports.messaging.send(effect.message);
+          return;
+        case "jobs":
+          await runJob(effect.op, ports);
+          return;
+      }
+    }
+    async function runBackgroundChain(
+      chain: PlannedEffect[],
+      ports: EffectPorts,
+      logger: EffectLogger
+    ): Promise<void> {
+      for (const planned of chain) {
+        try {
+          await applyEffect(planned.effect, ports);
+        } catch (err) {
+          logger.error({ err, ...describe(planned.effect) }, "Background transition effect failed");
+          if (planned.onFailure === "propagate") return;
+        }
+      }
+    }
+    export async function runEffects(
+      planned: PlannedEffect[],
+      ports: EffectPorts,
+      logger: EffectLogger
+    ): Promise<void> {
+      const chain = planned.filter((p) => p.timing === "background");
+      if (chain.length > 0) {
+        // Detached by design: background effects settle after the response.
+        // runBackgroundChain never rejects — every failure is caught and logged.
+        void runBackgroundChain(chain, ports, logger);
+      }
+    
+      for (const step of planned) {
+        if (step.timing !== "await") continue;
+        try {
+          await applyEffect(step.effect, ports);
+        } catch (err) {
+          if (step.onFailure === "propagate") throw err;
+          logger.error({ err, ...describe(step.effect) }, "Transition effect failed");
+        }
+      }
+    }
+  </file>
+  <file path="src/transitions/venue-policy.ts">
+    export interface VenueEffectPolicy {
+      outbound: "live" | "suppressed";
+    }
+    export type VenueEffectPolicySource = (venueId: string) => Promise<VenueEffectPolicy>;
+    export const allOutboundLive: VenueEffectPolicySource = async () => LIVE;
   </file>
   </section>
 </codebase>

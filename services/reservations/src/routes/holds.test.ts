@@ -303,6 +303,34 @@ describe("Hold Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Not Found");
     });
+
+    it("returns 403 (never 409) when the table belongs to another venue", async () => {
+      vi.mocked(holdService.create).mockResolvedValue({
+        success: false,
+        error: "The requested table does not belong to this venue",
+        tableNotInVenue: true,
+      });
+
+      const response = await authInject({
+        method: "POST",
+        url: HOLDS_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: {
+          venueId: "venue-1",
+          date: "2024-02-15",
+          time: "2024-02-15T18:00:00.000Z",
+          partySize: 4,
+          tableId: "table-of-venue-B",
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 403,
+        title: "Forbidden",
+        detail: "The requested table does not belong to this venue",
+      });
+    });
   });
 
   describe("GET /v1/holds/:id", () => {

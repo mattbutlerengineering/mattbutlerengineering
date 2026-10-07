@@ -717,6 +717,11 @@
     },
     {
       "from": "@mbe/route-contract",
+      "to": "@mbe/types",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/route-contract",
       "to": "@mbe/users-service",
       "type": "devDependency"
     },

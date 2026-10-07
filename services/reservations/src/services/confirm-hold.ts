@@ -1,6 +1,5 @@
 import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
 import { prisma } from "./database.js";
-import { emitHoldConfirmed } from "./events.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
@@ -38,8 +37,8 @@ export type ConfirmHoldResult =
  * 2.5. Pacing pre-check (fast fail outside the lock)
  * 3. bookSlot: advisory lock -> expiry guard -> conflict + pacing re-check ->
  *    create reservation -> delete hold
- * 4. Emit hold:confirmed event
- * 5. Return reservation
+ * 4. Return reservation (the `hold:confirmed` live event is set off by the
+ *    reservation-transitions `confirmHold` verb, through the live emitter)
  *
  * The advisory lock, expiry guard, and conflict/pacing re-checks all run inside
  * the shared {@link bookSlot} seam so two concurrent confirmations (or a confirm
@@ -171,10 +170,5 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
   }
 
   // Step 4: Map to domain type
-  const reservation = toReservation(result.value);
-
-  // Step 5: Emit event
-  emitHoldConfirmed(reservation);
-
-  return { success: true, reservation };
+  return { success: true, reservation: toReservation(result.value) };
 }

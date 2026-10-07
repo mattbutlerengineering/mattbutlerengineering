@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vites
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { Guest, Reservation } from "@mbe/types";
-import type { BookingNotifier } from "../services/booking-notifications.js";
+import { ReservationEventEmitter, type ReservationEvent } from "../services/events.js";
 import { generateManageToken, verifyManageToken, secureCompareHex } from "./public-reservations.js";
 
 vi.mock("../services/venue.js", () => ({
@@ -314,17 +314,26 @@ describe("guest link on the public confirm (M5.2)", () => {
   /** Headers a same-IP pair of injects may legitimately differ on. */
   const VOLATILE_HEADERS = [/^x-ratelimit-/, /^date$/];
 
-  const stubNotifier: BookingNotifier = {
-    scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-    rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-    cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+  // The confirmed reservation the transition's effects receive, as seen on the
+  // live hold:confirmed event (the booking confirmation rides the same fact).
+  const liveEvents = new ReservationEventEmitter();
+  const confirmedSeen: Reservation[] = [];
+  liveEvents.on("change", (event: ReservationEvent) => {
+    if (event.type === "hold:confirmed") confirmedSeen.push(event.data as Reservation);
+  });
+  const stubJobs = {
+    schedule: vi.fn().mockResolvedValue("job"),
+    cancel: vi.fn().mockResolvedValue(false),
   };
   let stubApp: FastifyInstance;
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    stubApp = await buildApp({ logger: false, bookingNotifier: stubNotifier });
+    stubApp = await buildApp({
+      logger: false,
+      reservationEvents: liveEvents,
+      jobs: stubJobs,
+    });
     await stubApp.ready();
   });
 
@@ -338,7 +347,7 @@ describe("guest link on the public confirm (M5.2)", () => {
     vi.mocked(guestService.getById).mockReset();
     vi.mocked(guestService.findByEmail).mockReset().mockResolvedValue(null);
     vi.mocked(guestService.findByPhone).mockReset().mockResolvedValue(null);
-    vi.mocked(stubNotifier.scheduleBookingNotifications).mockClear();
+    confirmedSeen.length = 0;
   });
 
   async function confirm(
@@ -392,14 +401,14 @@ describe("guest link on the public confirm (M5.2)", () => {
     expect(guestService.findByPhone).toHaveBeenCalledTimes(2);
   });
 
-  it("SC11: the 201 is identical matched or unknown, while the notifier still sees the link", async () => {
+  it("SC11: the 201 is identical matched or unknown, while the transition's effects still see the link", async () => {
     vi.mocked(guestService.findByEmail).mockResolvedValue(emailGuest);
     const matched = await confirm(knownContact, linkedReservation);
-    const matchedNotified = vi.mocked(stubNotifier.scheduleBookingNotifications).mock.calls.at(-1);
+    const matchedNotified = confirmedSeen.at(-1);
 
     vi.mocked(guestService.findByEmail).mockResolvedValue(null);
     const unknown = await confirm(knownContact);
-    const unknownNotified = vi.mocked(stubNotifier.scheduleBookingNotifications).mock.calls.at(-1);
+    const unknownNotified = confirmedSeen.at(-1);
 
     expect(matched.statusCode).toBe(201);
     expect(unknown.statusCode).toBe(201);
@@ -441,12 +450,12 @@ describe("guest link on the public confirm (M5.2)", () => {
       expect(reservation.guestId).toBeNull();
       expect(reservation.guest).toBeNull();
     }
-    expect(matchedNotified?.[0]).toMatchObject({ guestId: "gst_1" });
-    expect(matchedNotified?.[0].guest).toEqual({
+    expect(matchedNotified).toMatchObject({ guestId: "gst_1" });
+    expect(matchedNotified?.guest).toEqual({
       visitCount: 12,
       communicationPreference: "email_only",
     });
-    expect(unknownNotified?.[0]).toMatchObject({ guestId: null });
+    expect(unknownNotified).toMatchObject({ guestId: null });
   });
 
   it("SC12: a guestId in the public body is never read", async () => {
@@ -465,22 +474,23 @@ describe("guest link on the public confirm (M5.2)", () => {
   });
 });
 
-describe("bookingNotifier injection", () => {
-  it("calls injected bookingNotifier.scheduleBookingNotifications with reservation and manage token", async () => {
-    const stubNotifier: BookingNotifier = {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+describe("confirmation email manage token (public booking)", () => {
+  it("emails the guest the same manage token the 201 body returns", async () => {
+    const notificationPort = {
+      sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
     };
-    const stubApp = await buildApp({ logger: false, bookingNotifier: stubNotifier });
-    await stubApp.ready();
-
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(confirmHold).mockResolvedValueOnce({
-      success: true,
-      reservation: mockReservation,
+    const stubApp = await buildApp({
+      logger: false,
+      notificationPort: notificationPort as never,
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
+      },
     });
+    await stubApp.ready();
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
 
     const response = await stubApp.inject({
       method: "POST",
@@ -488,14 +498,13 @@ describe("bookingNotifier injection", () => {
       headers: SESSION_HEADERS,
       payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
     });
+    // The confirmation email rides the background chain, after the response.
+    await vi.waitFor(() => expect(notificationPort.sendBookingConfirmation).toHaveBeenCalled());
 
     expect(response.statusCode).toBe(201);
-    const { manageToken } = response.json().data;
-    expect(stubNotifier.scheduleBookingNotifications).toHaveBeenCalledWith(
-      mockReservation,
-      manageToken
+    expect(notificationPort.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ manageToken: response.json().data.manageToken })
     );
-
     await stubApp.close();
   });
 });
@@ -552,17 +561,15 @@ describe("hold ownership on the public confirm (x-session-id)", () => {
   /** Headers a same-IP pair of injects may legitimately differ on. */
   const VOLATILE_HEADERS = [/^x-ratelimit-/, /^date$/];
 
-  const stubNotifier: BookingNotifier = {
-    scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-    rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-    cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+  const stubJobs = {
+    schedule: vi.fn().mockResolvedValue("job"),
+    cancel: vi.fn().mockResolvedValue(false),
   };
   let app: FastifyInstance;
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false, bookingNotifier: stubNotifier });
+    app = await buildApp({ logger: false, jobs: stubJobs });
     await app.ready();
   });
 

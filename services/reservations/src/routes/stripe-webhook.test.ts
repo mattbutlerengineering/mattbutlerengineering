@@ -1,30 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const {
-  mockWebhooks,
-  mockDepositFindFirst,
-  mockDepositFindUnique,
-  mockDepositUpdate,
-  mockDepositUpdateMany,
-  mockStripeCancel,
-  mockStripeRetrieve,
-  mockStripeRefundsList,
-} = vi.hoisted(() => ({
-  mockWebhooks: {
-    constructEvent: vi.fn(),
-  },
-  mockDepositFindFirst: vi.fn(),
-  mockDepositFindUnique: vi.fn(),
-  mockDepositUpdate: vi.fn(),
-  mockDepositUpdateMany: vi.fn(),
-  mockStripeCancel: vi.fn(),
-  mockStripeRetrieve: vi.fn(),
-  // Default: no tagged refundPartial leg found. recordPostCaptureRefund
-  // (#5753 LOW-C) calls this for every partial_refunded deposit, so tests
-  // that don't care about "our own leg" still need a sane default rather
-  // than throwing on an unmocked `.data` access.
-  mockStripeRefundsList: vi.fn().mockResolvedValue({ data: [] }),
-}));
+const { mockDepositFindFirst, mockDepositFindUnique, mockDepositUpdate, mockDepositUpdateMany } =
+  vi.hoisted(() => ({
+    mockDepositFindFirst: vi.fn(),
+    mockDepositFindUnique: vi.fn(),
+    mockDepositUpdate: vi.fn(),
+    mockDepositUpdateMany: vi.fn(),
+  }));
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -45,22 +27,6 @@ vi.mock("../services/database.js", async () => {
   });
 });
 
-vi.mock("stripe", () => {
-  class MockStripe {
-    paymentIntents = {
-      create: vi.fn(),
-      capture: vi.fn(),
-      cancel: mockStripeCancel,
-      retrieve: mockStripeRetrieve,
-    };
-    refunds = { list: mockStripeRefundsList };
-    customers = { create: vi.fn() };
-    webhooks = mockWebhooks;
-    constructor(_key: string) {}
-  }
-  return { default: MockStripe };
-});
-
 // ADR-026 §3.3 item 4 / #5369 PR 8: the webhook handlers now resolve the
 // deposit's venue via `resolveVenueId` (a raw `$queryRaw` call the plain
 // `createMockDatabaseService()` stub above can't answer) before touching
@@ -72,19 +38,28 @@ vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
 }));
 
+import Stripe from "stripe";
 import { buildApp } from "../app.js";
+import { createInMemoryPayments, type InMemoryPayments } from "../transitions/in-memory.js";
 import { setStripeWebhookLogger } from "./stripe-webhook.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 
 describe("POST /api/v1/stripe/webhook", () => {
   const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const WEBHOOK_SECRET = "whsec_test";
+  /** A real Stripe signature over `body` (HMAC with the configured secret). */
+  const signFor = (body: string) =>
+    Stripe.webhooks.generateTestHeaderString({ payload: body, secret: WEBHOOK_SECRET });
+  let payments: InMemoryPayments;
+  const opCalls = (op: string) => payments.calls.filter((call) => call.op === op);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    payments = createInMemoryPayments();
     // A configured signing secret is the normal production state. Without it the
     // route fails closed (see dedicated test below), so set it for the tests
     // that exercise the verification + dispatch path.
-    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
   });
 
   afterEach(() => {
@@ -99,8 +74,9 @@ describe("POST /api/v1/stripe/webhook", () => {
     // An empty secret makes Stripe's HMAC use an empty (publicly known) key,
     // which would accept forged events. The route must reject before verifying.
     delete process.env.STRIPE_WEBHOOK_SECRET;
+    const verify = vi.spyOn(Stripe.webhooks, "constructEvent");
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -114,12 +90,13 @@ describe("POST /api/v1/stripe/webhook", () => {
     });
 
     expect(response.statusCode).toBe(503);
-    expect(mockWebhooks.constructEvent).not.toHaveBeenCalled();
+    expect(verify).not.toHaveBeenCalled();
+    verify.mockRestore();
     await app.close();
   });
 
   it("returns 400 if stripe-signature header is missing", async () => {
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -136,11 +113,7 @@ describe("POST /api/v1/stripe/webhook", () => {
   });
 
   it("returns 400 if webhook signature is invalid", async () => {
-    mockWebhooks.constructEvent.mockImplementationOnce(() => {
-      throw new Error("No signatures found matching the expected signature for payload");
-    });
-
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -162,9 +135,8 @@ describe("POST /api/v1/stripe/webhook", () => {
       type: "customer.created",
       data: { object: { id: "cus_123" } },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -173,7 +145,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -190,11 +162,10 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     // Make depositService.getByPaymentIntentId throw to simulate a transient DB error
     mockDepositFindFirst.mockRejectedValueOnce(new Error("DB connection timeout"));
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -203,7 +174,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -220,7 +191,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     // Deposit is already in 'held' state — handler should be a no-op (no throw)
     mockDepositFindFirst.mockResolvedValueOnce({
       id: "dep_123",
@@ -238,7 +208,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       updatedAt: new Date(),
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -247,7 +217,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -267,10 +237,9 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
     const logSpy = { info: vi.fn(), warn: vi.fn() };
     setStripeWebhookLogger(logSpy);
@@ -281,7 +250,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -312,7 +281,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     const depositMock = {
       id: "dep_pending_1",
       reservationId: "res_pending_1",
@@ -335,7 +303,7 @@ describe("POST /api/v1/stripe/webhook", () => {
     // hold() -> updateMany CAS (pending -> held)
     mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -344,7 +312,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -371,7 +339,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     const depositMock = {
       id: "dep_456",
       reservationId: "res_456",
@@ -401,11 +368,14 @@ describe("POST /api/v1/stripe/webhook", () => {
     });
     // onChargeRefunded only cancels a live authorization (requires_capture);
     // anything else has nothing to cancel (#5719 LOW, #5753).
-    mockStripeRetrieve.mockResolvedValueOnce({ id: "pi_held_deposit", status: "requires_capture" });
+    payments.respond("retrievePaymentIntent", () => ({
+      id: "pi_held_deposit",
+      status: "requires_capture",
+    }));
     // refund() calls stripe.cancelPaymentIntent
-    mockStripeCancel.mockResolvedValueOnce({ id: "pi_held_deposit", status: "canceled" });
+    payments.respond("cancelPaymentIntent", () => ({ id: "pi_held_deposit", status: "canceled" }));
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -414,7 +384,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -424,7 +394,7 @@ describe("POST /api/v1/stripe/webhook", () => {
     // Should have transitioned via updateMany
     expect(mockDepositUpdateMany).toHaveBeenCalled();
     // Should have called Stripe to cancel
-    expect(mockStripeCancel).toHaveBeenCalled();
+    expect(opCalls("cancelPaymentIntent")).toHaveLength(1);
     await app.close();
   });
 
@@ -438,7 +408,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     const depositMock = {
       id: "dep_456",
       reservationId: "res_456",
@@ -462,10 +431,13 @@ describe("POST /api/v1/stripe/webhook", () => {
       status: "refunded",
       refundedAt: new Date(),
     });
-    mockStripeRetrieve.mockResolvedValueOnce({ id: "pi_held_deposit", status: "requires_capture" });
-    mockStripeCancel.mockResolvedValueOnce({ id: "pi_held_deposit", status: "canceled" });
+    payments.respond("retrievePaymentIntent", () => ({
+      id: "pi_held_deposit",
+      status: "requires_capture",
+    }));
+    payments.respond("cancelPaymentIntent", () => ({ id: "pi_held_deposit", status: "canceled" }));
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
     const logSpy = { info: vi.fn(), warn: vi.fn() };
     setStripeWebhookLogger(logSpy);
@@ -476,7 +448,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -498,7 +470,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     const depositMock = {
       id: "dep_789",
       reservationId: "res_789",
@@ -522,13 +493,16 @@ describe("POST /api/v1/stripe/webhook", () => {
       status: "refunded",
       refundedAt: new Date(),
     });
-    mockStripeRetrieve.mockResolvedValueOnce({
+    payments.respond("retrievePaymentIntent", () => ({
       id: "pi_expanded_deposit",
       status: "requires_capture",
-    });
-    mockStripeCancel.mockResolvedValueOnce({ id: "pi_expanded_deposit", status: "canceled" });
+    }));
+    payments.respond("cancelPaymentIntent", () => ({
+      id: "pi_expanded_deposit",
+      status: "canceled",
+    }));
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -537,14 +511,14 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
     expect(response.statusCode).toBe(200);
     expect(mockDepositFindFirst).toHaveBeenCalled();
     expect(mockDepositUpdateMany).toHaveBeenCalled();
-    expect(mockStripeCancel).toHaveBeenCalled();
+    expect(opCalls("cancelPaymentIntent")).toHaveLength(1);
     await app.close();
   });
 
@@ -566,7 +540,6 @@ describe("POST /api/v1/stripe/webhook", () => {
           },
         },
       };
-      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
       const depositMock = {
         id: "dep_999",
         reservationId: "res_999",
@@ -590,9 +563,12 @@ describe("POST /api/v1/stripe/webhook", () => {
         status: "refunded",
         refundedAt: new Date(),
       });
-      mockStripeRetrieve.mockResolvedValueOnce({ id: "pi_already_canceled", status: intentStatus });
+      payments.respond("retrievePaymentIntent", () => ({
+        id: "pi_already_canceled",
+        status: intentStatus,
+      }));
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -601,13 +577,13 @@ describe("POST /api/v1/stripe/webhook", () => {
         payload: Buffer.from(JSON.stringify(mockEvent)),
         headers: {
           "content-type": "application/json",
-          "stripe-signature": "valid_test_sig",
+          "stripe-signature": signFor(JSON.stringify(mockEvent)),
         },
       });
 
       expect(response.statusCode).toBe(200);
       expect(mockDepositUpdateMany).toHaveBeenCalled();
-      expect(mockStripeCancel).not.toHaveBeenCalled();
+      expect(opCalls("cancelPaymentIntent")).toEqual([]);
       await app.close();
     }
   );
@@ -622,11 +598,10 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     // No deposit found for this payment intent
     mockDepositFindFirst.mockResolvedValueOnce(null);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -635,7 +610,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
@@ -662,7 +637,6 @@ describe("POST /api/v1/stripe/webhook", () => {
           },
         },
       };
-      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
       const depositMock = {
         id: "dep_post_capture",
         reservationId: "res_post_capture",
@@ -693,7 +667,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         postCaptureRefundCents: 2500,
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -702,7 +676,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         payload: Buffer.from(JSON.stringify(mockEvent)),
         headers: {
           "content-type": "application/json",
-          "stripe-signature": "valid_test_sig",
+          "stripe-signature": signFor(JSON.stringify(mockEvent)),
         },
       });
 
@@ -714,7 +688,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         })
       );
       // Never touches Stripe — the refund already happened; there's nothing to call.
-      expect(mockStripeCancel).not.toHaveBeenCalled();
+      expect(opCalls("cancelPaymentIntent")).toEqual([]);
       await app.close();
     }
   );
@@ -746,7 +720,6 @@ describe("POST /api/v1/stripe/webhook", () => {
           },
         },
       };
-      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
       const depositMock = {
         id: "dep_held_cancel",
         reservationId: "res_held_cancel",
@@ -771,7 +744,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         uncollectableAt: new Date(),
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -780,7 +753,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         payload: Buffer.from(JSON.stringify(mockEvent)),
         headers: {
           "content-type": "application/json",
-          "stripe-signature": "valid_test_sig",
+          "stripe-signature": signFor(JSON.stringify(mockEvent)),
         },
       });
 
@@ -791,7 +764,7 @@ describe("POST /api/v1/stripe/webhook", () => {
           data: expect.objectContaining({ status: "uncollectable" }),
         })
       );
-      expect(mockStripeCancel).not.toHaveBeenCalled();
+      expect(opCalls("cancelPaymentIntent")).toEqual([]);
       await app.close();
     }
   );
@@ -814,7 +787,6 @@ describe("POST /api/v1/stripe/webhook", () => {
           },
         },
       };
-      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
       const depositMock = {
         id: "dep_held_deliberate",
         reservationId: "res_held_deliberate",
@@ -839,7 +811,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         refundedAt: new Date(),
       });
 
-      const app = await buildApp({ logger: false });
+      const app = await buildApp({ logger: false, payments });
       await app.ready();
 
       const response = await app.inject({
@@ -848,7 +820,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         payload: Buffer.from(JSON.stringify(mockEvent)),
         headers: {
           "content-type": "application/json",
-          "stripe-signature": "valid_test_sig",
+          "stripe-signature": signFor(JSON.stringify(mockEvent)),
         },
       });
 
@@ -860,7 +832,7 @@ describe("POST /api/v1/stripe/webhook", () => {
         })
       );
       // skipStripeCancel: true — the intent is already canceled (that's this event).
-      expect(mockStripeCancel).not.toHaveBeenCalled();
+      expect(opCalls("cancelPaymentIntent")).toEqual([]);
       await app.close();
     }
   );
@@ -888,7 +860,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     mockDepositFindFirst.mockResolvedValueOnce({
       id: "dep_already_refunded",
       reservationId: "res_already_refunded",
@@ -905,7 +876,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       updatedAt: new Date(),
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -914,24 +885,18 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 
     expect(response.statusCode).toBe(200);
     // Not `held` — the early-return guard drops the event before any write.
     expect(mockDepositUpdateMany).not.toHaveBeenCalled();
-    expect(mockStripeCancel).not.toHaveBeenCalled();
+    expect(opCalls("cancelPaymentIntent")).toEqual([]);
     await app.close();
   });
 
   it("verifies against the literal raw request bytes, not a JSON.stringify(JSON.parse()) reconstruction", async () => {
-    const mockEvent = {
-      type: "customer.created",
-      data: { object: { id: "cus_123" } },
-    };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-
     // Deliberately non-canonical JSON: extra whitespace and a number written in
     // exponential form. JSON.parse(rawPayload) then JSON.stringify(...) collapses
     // the whitespace and reformats 1.50e2 as 150 — so a re-serialized fallback
@@ -940,7 +905,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       '{ "type":  "customer.created", "data": { "object": { "id": "cus_123" } }, "amount": 1.50e2 }'
     );
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -949,15 +914,13 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: rawPayload,
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(rawPayload.toString()),
       },
     });
 
+    // The signature is a real HMAC over these exact bytes, so a 200 proves the
+    // route verified the raw buffer — a re-serialized body would not match.
     expect(response.statusCode).toBe(200);
-    expect(mockWebhooks.constructEvent).toHaveBeenCalledTimes(1);
-    const verifiedBuffer = mockWebhooks.constructEvent.mock.calls[0]?.[0] as Buffer;
-    expect(Buffer.isBuffer(verifiedBuffer)).toBe(true);
-    expect(verifiedBuffer.equals(rawPayload)).toBe(true);
     await app.close();
   });
 
@@ -970,7 +933,6 @@ describe("POST /api/v1/stripe/webhook", () => {
         },
       },
     };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
     mockDepositFindFirst.mockResolvedValueOnce({
       id: "dep_pending_cancel",
       reservationId: "res_pending_cancel",
@@ -987,7 +949,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       updatedAt: new Date(),
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({ logger: false, payments });
     await app.ready();
 
     const response = await app.inject({
@@ -996,7 +958,7 @@ describe("POST /api/v1/stripe/webhook", () => {
       payload: Buffer.from(JSON.stringify(mockEvent)),
       headers: {
         "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
+        "stripe-signature": signFor(JSON.stringify(mockEvent)),
       },
     });
 

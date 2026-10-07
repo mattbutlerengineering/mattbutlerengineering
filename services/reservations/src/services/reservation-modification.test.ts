@@ -14,20 +14,15 @@ vi.mock("./venue.js", () => ({
   },
 }));
 
-vi.mock("./deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-  },
-}));
-
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
-import { depositService } from "./deposit.js";
-import {
-  modifyReservationWithNotifications,
-  type ModifyReservationDeps,
-} from "./reservation-modification.js";
+import type { DepositService } from "./deposit.js";
+import { modifyReservation } from "./reservation-modification.js";
+
+/** The injected DepositService fake. */
+const depositService = { getByReservationId: vi.fn() };
+const deposits = depositService as unknown as DepositService;
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -56,35 +51,6 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   };
 }
 
-function makeDeps() {
-  return {
-    bookingNotifier: {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-    },
-    notificationPort: {
-      sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
-      sendBookingReminder: vi.fn().mockResolvedValue(undefined),
-      sendBookingModified: vi.fn().mockResolvedValue(undefined),
-      sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
-      sendWinBack: vi.fn().mockResolvedValue(undefined),
-    },
-    logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
-  } as unknown as ModifyReservationDeps & {
-    bookingNotifier: {
-      rescheduleBookingReminders: ReturnType<typeof vi.fn>;
-    };
-    notificationPort: { sendBookingModified: ReturnType<typeof vi.fn> };
-  };
-}
-
-const mockVenue = {
-  id: "venue_1",
-  name: "The Oak Table",
-  ianaTimezone: "America/Los_Angeles",
-};
-
 function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   return {
     id: "venue_1",
@@ -100,7 +66,7 @@ function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   };
 }
 
-describe("modifyReservationWithNotifications", () => {
+describe("modifyReservation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -108,12 +74,7 @@ describe("modifyReservationWithNotifications", () => {
   it("returns NO_CHANGES_PROVIDED when no fields are provided", async () => {
     const reservation = makeReservation();
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      {},
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, {}, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -131,12 +92,7 @@ describe("modifyReservationWithNotifications", () => {
       conflict: { hasConflict: true },
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { startTime: "18:00" },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { startTime: "18:00" }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -152,12 +108,7 @@ describe("modifyReservationWithNotifications", () => {
       error: "Database unavailable",
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 2 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 2 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -174,122 +125,13 @@ describe("modifyReservationWithNotifications", () => {
       capacityExceeded: true,
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 10 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 10 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.status).toBe(422);
       expect(result.code).toBe("PARTY_SIZE_EXCEEDS_TABLE");
     }
-  });
-
-  it("reschedules reminder jobs via bookingNotifier when the time changes", async () => {
-    const reservation = makeReservation();
-    const updated = { ...reservation, startTime: "20:00" };
-    const deps = makeDeps();
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updated,
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
-
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { startTime: "20:00" },
-      "token123",
-      deps
-    );
-
-    expect(result.success).toBe(true);
-    expect(deps.bookingNotifier.rescheduleBookingReminders).toHaveBeenCalledWith(
-      updated,
-      "token123"
-    );
-  });
-
-  it("does NOT reschedule reminder jobs when only partySize changes", async () => {
-    const reservation = makeReservation();
-    const updated = { ...reservation, partySize: 2 };
-    const deps = makeDeps();
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updated,
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
-
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 2 },
-      "token123",
-      deps
-    );
-
-    expect(result.success).toBe(true);
-    expect(deps.bookingNotifier.rescheduleBookingReminders).not.toHaveBeenCalled();
-  });
-
-  it("does NOT reschedule reminder jobs when only specialRequests changes", async () => {
-    const reservation = makeReservation();
-    const updated = { ...reservation, notes: "No peanuts please" };
-    const deps = makeDeps();
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updated,
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
-
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { specialRequests: "No peanuts please" },
-      "token123",
-      deps
-    );
-
-    expect(result.success).toBe(true);
-    expect(deps.bookingNotifier.rescheduleBookingReminders).not.toHaveBeenCalled();
-  });
-
-  it("dispatches the modified notification with the guest's communication preference", async () => {
-    const reservation = makeReservation();
-    const updated = { ...reservation, partySize: 2 };
-    const deps = makeDeps();
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updated,
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
-
-    await modifyReservationWithNotifications(reservation, { partySize: 2 }, "token123", deps);
-
-    expect(deps.notificationPort.sendBookingModified).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reservationId: "res_1",
-        guestEmail: "jane@example.com",
-        venueName: "The Oak Table",
-        manageToken: "token123",
-        sequence: 2,
-      }),
-      "email_only"
-    );
-  });
-
-  it("does not send a notification when the reservation has no guestEmail", async () => {
-    const reservation = makeReservation({ guestEmail: null });
-    const updated = { ...reservation, partySize: 2 };
-    const deps = makeDeps();
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updated,
-    } as never);
-
-    await modifyReservationWithNotifications(reservation, { partySize: 2 }, "token123", deps);
-
-    expect(deps.notificationPort.sendBookingModified).not.toHaveBeenCalled();
   });
 
   it("maps changes onto the update payload (specialRequests -> notes)", async () => {
@@ -299,14 +141,8 @@ describe("modifyReservationWithNotifications", () => {
       success: true,
       reservation: updated,
     } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
-    await modifyReservationWithNotifications(
-      reservation,
-      { specialRequests: "No peanuts please" },
-      "token123",
-      makeDeps()
-    );
+    await modifyReservation(reservation, { specialRequests: "No peanuts please" }, deposits);
 
     expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
       notes: "No peanuts please",
@@ -324,14 +160,8 @@ describe("modifyReservationWithNotifications", () => {
       success: true,
       reservation: updated,
     } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 10 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 10 }, deposits);
 
     expect(result.success).toBe(true);
     expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
@@ -354,12 +184,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "held",
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 6 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 6 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -379,12 +204,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "held",
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 4 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 4 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -403,12 +223,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       status: "pending",
     } as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 8 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 8 }, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -427,14 +242,8 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       success: true,
       reservation: updated,
     } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { partySize: 6 },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { partySize: 6 }, deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.getByReservationId).not.toHaveBeenCalled();
@@ -447,13 +256,11 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       success: true,
       reservation: updated,
     } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
-    const result = await modifyReservationWithNotifications(
+    const result = await modifyReservation(
       reservation,
       { partySize: 4, specialRequests: "new" },
-      "token123",
-      makeDeps()
+      deposits
     );
 
     expect(result.success).toBe(true);
@@ -468,14 +275,8 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
       success: true,
       reservation: updated,
     } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
-    const result = await modifyReservationWithNotifications(
-      reservation,
-      { startTime: "20:00" },
-      "token123",
-      makeDeps()
-    );
+    const result = await modifyReservation(reservation, { startTime: "20:00" }, deposits);
 
     expect(result.success).toBe(true);
     expect(venueService.getPolicyById).not.toHaveBeenCalled();

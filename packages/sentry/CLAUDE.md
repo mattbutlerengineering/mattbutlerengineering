@@ -43,7 +43,11 @@ fastify.register(sentryFastifyPlugin);
 ```typescript
 import { initSentry, handleErrorBoundary, reportApiError } from "@mbe/sentry/react";
 
-initSentry({ appName: "hospitality", dsn: process.env.SENTRY_DSN });
+initSentry({
+  appName: "hospitality",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE, // process.env does not exist in a Vite bundle
+});
 
 // In error boundary
 componentDidCatch(error, info) {
@@ -59,6 +63,8 @@ reportApiError(apiError);
 ## Config Resolution
 
 `resolveConfig(dsn)` reads `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` from env. Sentry is no-op when `SENTRY_DSN` is unset.
+
+In the browser `process.env` is undefined, so `resolveConfig` falls back to `development` and no release. Browser callers therefore pass `environment` explicitly, and `react.ts` omits `release` when unresolved so the SDK reads the `SENTRY_RELEASE` global that `sentryVitePlugin` injects.
 
 ## Commands
 

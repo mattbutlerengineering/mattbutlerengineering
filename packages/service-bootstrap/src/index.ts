@@ -20,3 +20,5 @@ export type { ErrorClassification } from "./classify-error.js";
 export { registerReadinessRoutes } from "./readiness-routes.js";
 export type { ReadinessRoutesOptions } from "./readiness-routes.js";
 export { validateStartupConfig, buildJwksUrl } from "./validate-startup-config.js";
+export { registerEndpoint } from "./register-endpoint.js";
+export type { EndpointDocs, RegisterEndpointOptions } from "./register-endpoint.js";

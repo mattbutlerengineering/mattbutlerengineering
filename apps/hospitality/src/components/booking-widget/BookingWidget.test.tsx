@@ -107,7 +107,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 describe("BookingWidget", () => {
   const mockApi = {
     availability: {
+      // Staff route — 401s for anonymous guests; asserted never called.
       getTimeSlots: vi.fn(),
+      // Public slug-scoped route — what the widget calls for slots.
+      getTimeSlotsForVenue: vi.fn(),
     },
     holds: {
       create: vi.fn(),
@@ -149,7 +152,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
       { time: "2026-05-20T19:00:00", available: true },
     ]);
@@ -159,6 +162,13 @@ describe("BookingWidget", () => {
 
     // Step 2: Time
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    // Slots come from the public slug-scoped route, never the staff
+    // /api/v1/availability route that 401s for anonymous guests.
+    expect(mockApi.availability.getTimeSlotsForVenue).toHaveBeenCalledWith("the-oak-table", {
+      date: FUTURE_DATE,
+      partySize: 2,
+    });
+    expect(mockApi.availability.getTimeSlots).not.toHaveBeenCalled();
     // Slots render asynchronously after the "Time" heading; await the first slot
     // so the click below doesn't race the slot list render (flaky on slow CI).
     expect(await screen.findByText(/6:00 PM/i)).toBeDefined();
@@ -202,7 +212,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockRejectedValue(new Error("API Down"));
+    mockApi.availability.getTimeSlotsForVenue.mockRejectedValue(new Error("API Down"));
 
     fireEvent.click(screen.getByText("Find Available Times"));
 
@@ -245,7 +255,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -319,7 +329,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -402,7 +412,7 @@ describe("BookingWidget", () => {
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
     fireEvent.click(screen.getByRole("button", { name: "4" }));
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -501,7 +511,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -582,7 +592,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -642,7 +652,7 @@ describe("BookingWidget", () => {
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
+    mockApi.availability.getTimeSlotsForVenue.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
     ]);
     fireEvent.click(screen.getByText("Find Available Times"));
@@ -683,22 +693,21 @@ describe("BookingWidget", () => {
   // exists: since #4487 a slug-less widget cannot hold a slot at all, so it can
   // never reach confirmation. What matters now is that it says so rather than
   // falling back to the authenticated /api/v1/holds and 401ing.
-  it("cannot hold a slot when no venueSlug is provided, and never calls the staff route", async () => {
+  it("cannot book when no venueSlug is provided, and never calls a staff route", async () => {
     render(<BookingWidget venueId="v1" />);
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
-    mockApi.availability.getTimeSlots.mockResolvedValue([
-      { time: "2026-05-20T18:00:00", available: true },
-    ]);
     fireEvent.click(screen.getByText("Find Available Times"));
 
-    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    fireEvent.click(await screen.findByText(/6:00 PM/i));
-
+    // Without a slug there is no public availability route to call either, so
+    // the dead end surfaces at the slot step instead of a 401 from the staff
+    // /api/v1/availability route.
     await waitFor(() =>
       expect(screen.getByText(MISSING_VENUE_SLUG_ERROR, { exact: false })).toBeDefined()
     );
+    expect(mockApi.availability.getTimeSlots).not.toHaveBeenCalled();
+    expect(mockApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
     expect(mockApi.holds.create).not.toHaveBeenCalled();
     expect(mockApi.holds.createForVenue).not.toHaveBeenCalled();
     expect(mockApi.venues.getPublicConfig).not.toHaveBeenCalled();

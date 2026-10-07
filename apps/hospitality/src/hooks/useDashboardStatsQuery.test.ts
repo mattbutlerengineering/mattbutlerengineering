@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { computeStatsFromReservations, computeWaitlistStats } from "./useDashboardStatsQuery.js";
-import type { Reservation, WaitlistEntry } from "@mbe/types";
+import {
+  computeStatsFromReservations,
+  computeWaitlistStats,
+  computeDepositStats,
+} from "./useDashboardStatsQuery.js";
+import type { Reservation, WaitlistEntry, Deposit } from "@mbe/types";
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -169,5 +173,82 @@ describe("computeWaitlistStats", () => {
     const stats = computeWaitlistStats(entries);
     expect(stats.waitlistCount).toBe(3);
     expect(stats.longestWaitMinutes).toBe(35);
+  });
+});
+
+/* ── Deposit stats ───────────────────────────────────── */
+
+function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
+  return {
+    id: "dep-1",
+    reservationId: "res-1",
+    amountCents: 5000,
+    currency: "usd",
+    status: "pending",
+    stripePaymentIntentId: null,
+    stripeCustomerId: null,
+    heldAt: null,
+    appliedAt: null,
+    refundedAt: null,
+    forfeitedAt: null,
+    createdAt: "2026-01-15T00:00:00Z",
+    updatedAt: "2026-01-15T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("computeDepositStats", () => {
+  it("returns fallback stats for empty deposits list", () => {
+    const stats = computeDepositStats([]);
+    expect(stats.depositAtRiskCount).toBe(0);
+    expect(stats.noShowExposureCents).toBe(0);
+  });
+
+  it("counts pending and held deposits toward depositAtRiskCount", () => {
+    const deposits = [
+      makeDeposit({ id: "d1", status: "pending" }),
+      makeDeposit({ id: "d2", status: "held" }),
+      makeDeposit({ id: "d3", status: "applied" }),
+      makeDeposit({ id: "d4", status: "refunded" }),
+      makeDeposit({ id: "d5", status: "partial_refunded" }),
+      makeDeposit({ id: "d6", status: "forfeited" }),
+      makeDeposit({ id: "d7", status: "uncollectable" }),
+    ];
+
+    const stats = computeDepositStats(deposits);
+    expect(stats.depositAtRiskCount).toBe(2);
+  });
+
+  it("returns depositAtRiskCount equal to total when all deposits are at risk", () => {
+    const deposits = [
+      makeDeposit({ id: "d1", status: "pending" }),
+      makeDeposit({ id: "d2", status: "held" }),
+      makeDeposit({ id: "d3", status: "pending" }),
+    ];
+
+    const stats = computeDepositStats(deposits);
+    expect(stats.depositAtRiskCount).toBe(3);
+  });
+
+  it("sums amountCents of forfeited deposits only for noShowExposureCents", () => {
+    const deposits = [
+      makeDeposit({ id: "d1", status: "forfeited", amountCents: 3000 }),
+      makeDeposit({ id: "d2", status: "forfeited", amountCents: 2000 }),
+      makeDeposit({ id: "d3", status: "partial_refunded", amountCents: 4000 }),
+      makeDeposit({ id: "d4", status: "applied", amountCents: 1000 }),
+    ];
+
+    const stats = computeDepositStats(deposits);
+    expect(stats.noShowExposureCents).toBe(5000);
+  });
+
+  it("returns noShowExposureCents equal to total when all deposits are forfeited", () => {
+    const deposits = [
+      makeDeposit({ id: "d1", status: "forfeited", amountCents: 1500 }),
+      makeDeposit({ id: "d2", status: "forfeited", amountCents: 2500 }),
+    ];
+
+    const stats = computeDepositStats(deposits);
+    expect(stats.noShowExposureCents).toBe(4000);
   });
 });

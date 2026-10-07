@@ -12,7 +12,9 @@ import {
   useSSEEventFeed,
   useTableStatuses,
 } from "./useSSESync.js";
+import { SSE_INVALIDATION_QUERY_KEYS } from "./sse-query-keys.js";
 import type { UseTableStatusesResult } from "./useSSESync.js";
+import { SSE_EVENT_CATALOG, SSE_EVENT_NAMES } from "@mbe/types";
 
 /* ── Fake fetchEventSource ─────────────────────────────────────────
  *
@@ -234,103 +236,6 @@ describe("useSSEStatus — connection status via context", () => {
 
     expect(result.current.status.isConnected).toBe(true);
     expect(result.current.status.error).toBeNull();
-  });
-});
-
-describe("useSSESync — connect → event → invalidate flow", () => {
-  it("invalidates reservations query on reservation:created", () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
-
-    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
-
-    act(() => {
-      void simulateOpen();
-    });
-
-    act(() => {
-      simulateEvent("reservation:created", {
-        type: "reservation:created",
-        venueId: "v1",
-        timestamp: "2026-01-01T00:00:00Z",
-        data: {
-          id: "res-1",
-          date: "2026-01-01",
-          startTime: "18:00",
-          endTime: "20:00",
-          partySize: 4,
-          status: "CONFIRMED",
-          notes: null,
-          cancellationReason: null,
-          cancellationNote: null,
-          guestName: "Test",
-          guestEmail: null,
-          guestPhone: null,
-          guestId: null,
-          userId: null,
-          tableId: "t1",
-          venueId: "v1",
-          createdAt: "2026-01-01T00:00:00Z",
-          updatedAt: "2026-01-01T00:00:00Z",
-        },
-      });
-    });
-
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ["reservations"] })
-    );
-  });
-
-  it("invalidates tables query on table:updated", () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
-
-    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
-
-    act(() => {
-      simulateEvent("table:updated", {
-        type: "table:updated",
-        venueId: "v1",
-        timestamp: "2026-01-01T00:00:00Z",
-        data: {
-          id: "t1",
-          name: "Table 1",
-          tableNumber: "1",
-          capacity: 4,
-          minCovers: 1,
-          maxCovers: 4,
-          location: null,
-          isActive: true,
-          priority: 1,
-          status: "AVAILABLE",
-          venueId: "v1",
-          floorPlanId: null,
-          shapeMetadata: null,
-          createdAt: "2026-01-01T00:00:00Z",
-          updatedAt: "2026-01-01T00:00:00Z",
-        },
-      });
-    });
-
-    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ["tables"] }));
-  });
-
-  it("invalidates venues query on venue:updated", () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
-
-    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
-
-    act(() => {
-      simulateEvent("venue:updated", {
-        type: "venue:updated",
-        venueId: "v1",
-        timestamp: "2026-01-01T00:00:00Z",
-        data: { id: "v1", name: "Renamed Venue" },
-      });
-    });
-
-    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ["venues"] }));
   });
 });
 
@@ -962,5 +867,89 @@ describe("useTableStatuses — offline cache (#4187)", () => {
     expect(result.current.tableStatuses.statuses.get("t3")).toBe("occupied");
     expect(result.current.tableStatuses.statuses.get("t4")).toBe("needs-bussing");
     expect(result.current.tableStatuses.statuses.get("t5")).toBe("seated");
+  });
+});
+
+/* ── Catalog contract (sse-event-catalog) ──────────────────────────
+ *
+ * The SSE vocabulary lives in @mbe/types' SSE_EVENT_CATALOG. These tests
+ * drive useSSESync through the real SseClient with every catalog name and
+ * pin the per-event invalidation set, so client/server drift is a failing
+ * test rather than a silent dropped event.
+ */
+
+function catalogPayload(type: string): Record<string, unknown> {
+  const data =
+    type === "guest:lapsing" || type === "table-status:changed"
+      ? []
+      : { id: "x-1", guestName: "Test", startTime: "2026-01-01T18:00:00Z", venueId: "v1" };
+  return { type, venueId: "v1", timestamp: "2026-01-01T00:00:00Z", data };
+}
+
+describe("useSSESync — every catalog event is subscribed and handled", () => {
+  it("forwards every SSE_EVENT_NAMES entry to feed listeners", () => {
+    const { result } = renderHook(
+      () => {
+        useSSESync();
+        return useSSEEventFeed({ maxItems: 50 });
+      },
+      { wrapper: makeWrapper() }
+    );
+
+    act(() => {
+      void simulateOpen();
+    });
+
+    for (const name of SSE_EVENT_NAMES) {
+      act(() => {
+        simulateEvent(name, catalogPayload(name));
+      });
+    }
+
+    const received = result.current.map((event) => event.type).sort();
+    expect(received).toEqual([...SSE_EVENT_NAMES].sort());
+  });
+});
+
+describe("useSSESync — per-event invalidation contract", () => {
+  const EXPECTED_INVALIDATIONS: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ["reservation:created", ["reservations"]],
+    ["reservation:updated", ["reservations"]],
+    ["reservation:cancelled", ["reservations"]],
+    ["hold:created", []],
+    ["hold:released", []],
+    ["hold:confirmed", ["reservations"]],
+    ["table:updated", ["tables"]],
+    ["floor-plan:created", ["floorPlan", "floorPlans"]],
+    ["guest:lapsing", ["lapsingGuests"]],
+    ["table-status:changed", []],
+  ];
+
+  it.each(EXPECTED_INVALIDATIONS)("%s invalidates exactly %j", (name, expectedKeys) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      void simulateOpen();
+    });
+    act(() => {
+      simulateEvent(name, catalogPayload(name));
+    });
+
+    const invalidated = invalidateSpy.mock.calls
+      .map(([filters]) => (filters?.queryKey as readonly unknown[] | undefined)?.[0])
+      .sort();
+    expect(invalidated).toEqual([...expectedKeys].sort());
+  });
+});
+
+describe("useSSESync — query-key pin", () => {
+  it("covers exactly the keys the catalog invalidates", () => {
+    const catalogKeys = new Set(
+      SSE_EVENT_NAMES.flatMap((name) => [...SSE_EVENT_CATALOG[name].invalidates])
+    );
+    expect([...new Set(SSE_INVALIDATION_QUERY_KEYS)].sort()).toEqual([...catalogKeys].sort());
   });
 });
