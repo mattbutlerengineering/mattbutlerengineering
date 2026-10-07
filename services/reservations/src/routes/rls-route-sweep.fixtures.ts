@@ -64,9 +64,9 @@ export function normalizeRouteKey(key: string): string {
   return key.endsWith("/") && key.length > 1 ? key.slice(0, -1) : key;
 }
 
-/** Routes with no venue-scoped data at all — excluded from the sweep by design. */
 const HOLDS_URL = "/api/v1/holds";
 
+/** Routes with no venue-scoped data at all — excluded from the sweep by design. */
 export const INFRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /docs",
   "GET /docs/*",
