@@ -301,7 +301,9 @@ jobs:
 
   integrity:
     name: Integrity
-    needs: [prepare, build]
+    # Not `build`: both checks below read committed files on this runner and
+    # Build hands it no artifact (scripts/__tests__/ci-lint-critical-path.test.mjs).
+    needs: [prepare]
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -327,8 +329,10 @@ jobs:
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
-    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
-    needs: [typecheck, architecture-audit]
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
+    # `architecture-audit` either: it builds the CLI on its own runner and
+    # hands this job nothing; CI Gate still requires it.
+    needs: [typecheck]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -366,6 +370,18 @@ jobs:
 
       - name: Build all packages
         run: pnpm build
+
+      - name: Restore prettier cache
+        # Prettier caches by file content (a changed file is re-checked even
+        # with its mtime held), so an older commit's cache cannot false-pass
+        # this one; the key rotates on prettier's version/plugins and config.
+        # 41s -> ~1s warm (scripts/__tests__/ci-prettier-cache.test.mjs).
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.cache/prettier
+          key: prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc.js', '.prettierignore') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc.js', '.prettierignore') }}-
 
       - name: Run Full Repository Audit
         run: pnpm repo-audit
@@ -483,8 +499,10 @@ jobs:
     runs-on: ubuntu-latest
     # Not `lint`: ESLint produces nothing this job consumes, and the turbo
     # `^build` cache it reuses comes from Typecheck. CI Gate still requires
-    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs).
-    needs: [typecheck, architecture-audit]
+    # lint (scripts/__tests__/ci-lint-critical-path.test.mjs). Not
+    # `architecture-audit` either: it builds the CLI on its own runner and
+    # hands this job nothing; CI Gate still requires it.
+    needs: [typecheck]
 
     # Single source of truth for the repo-wide coverage threshold, enforced on
     # the Node-22 leg below. The stricter agent-core package gate (80%) is a
@@ -565,7 +583,13 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-node${{ matrix.node-version }}
-          path: "**/test-results/*.xml"
+          # Fixed depths, not `**`: a recursive pattern makes the glob walk all
+          # of node_modules (73s for one file on run 37527830915). Covers the
+          # root and every workspace package (ci-test-results-glob.test.mjs).
+          path: |
+            test-results/*.xml
+            */test-results/*.xml
+            */*/test-results/*.xml
           retention-days: 14
 
       - name: Upload coverage reports
