@@ -2876,6 +2876,7 @@ Issue reconciliation was still completed before the plan and came back clean: al
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+
 ## 2026-10-07 — mbe-evening /implement-queue + /progress-tracker
 
 ### Metrics (7d window, 2026-09-30 → 2026-10-07)
