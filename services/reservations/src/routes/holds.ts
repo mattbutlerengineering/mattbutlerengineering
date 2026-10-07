@@ -108,10 +108,15 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   // Register schemas
   fastify.addSchema(HoldSchema);
 
-  // Opportunistic cleanup hook
-  fastify.addHook("onRequest", async () => {
+  // Opportunistic cleanup hook. A failed sweep is maintenance, not the
+  // caller's request: log it and carry on rather than answer 500.
+  fastify.addHook("onRequest", async (request) => {
     // 1% chance to cleanup expired holds
-    await holdService.maybeCleanup();
+    try {
+      await holdService.maybeCleanup();
+    } catch (err) {
+      request.log.warn({ err }, "Opportunistic expired-hold cleanup failed");
+    }
   });
 
   // POST / - Create a hold
