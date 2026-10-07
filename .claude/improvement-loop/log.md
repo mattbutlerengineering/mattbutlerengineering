@@ -2913,3 +2913,29 @@ Issue reconciliation was still completed before the plan and came back clean: al
 ### Skipped Issues
 
 0 `agent-skip` open — nothing to review.
+
+## 2026-10-07 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `7f802d56`, merged `origin/main` `e1723f94`, `resolved: []` — no conflicts). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 0 due / 0 captured / 0 audited. Second consecutive zero-due fire, and still the 28-day TTL working as designed rather than a defect: the ledger refreshed to 154 rows, every reachable route was captured during fires 1-4 (2026-10-01 → 10-04), and nothing comes due again until ~2026-10-29. 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered, 18 `unreachable:auth`.
+
+**Capture:** all three capture runs were executed rather than skipped on the empty plan, as a liveness check on the harness — `marketing`, `rialto-web` and `hospitality` each booted their `vite preview` and exited 0 with the single "no routes planned" skip. The capture path is alive; it simply had nothing planned.
+
+**Judge:** nothing to judge — no manifest rows, so no screenshots. `detect.mjs mechanical` and `detect.mjs judged` both exited 2 with "no capture manifest under `.ui-quality/captures/`". That is each script's documented refusal on zero captures, **not** a pipeline bug. No judged files were written and no Finding was invented to fill the gap.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, and `rate.mjs pairs --calibration` exited 2 for the **fifth** consecutive fire — `docs/ui-quality/calibration.json` still has no labelled pairs. This is the Verify-stage set Matt owns (≥ 10 pairs, labelled once); no agent action can clear it, so it was logged and not retried, and the status re-query returned `stale` again. `rate.mjs pairs` then planned 0 rating pairs (no captures to pair), so `rate.mjs record` was not called. Stamp for this fire: `stale`. Standing consequence worth restating: `metrics/ui-quality-calibrations.jsonl` is still 0 bytes, so the judged half of the loop has never contributed a finding — every one of the 16 filed issues is mechanical (axe). The mechanical half is unaffected by the stamp.
+
+**Filing:** nothing to file, and the plan was therefore not run. `findings.mjs plan` requires at least one `--findings <json>`, and both detector outputs are absent for the benign zero-capture reason above — so filing was skipped at its input rather than refused on incomplete GitHub state. No `.ui-quality/findings.escalation.json` was written and no escalation issue was opened. 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. No checkpoint commit was needed (nothing was filed). Rubric migration not needed — all 42 ledger keys are `r1` and `rubric.json` is still v1.
+
+Issue reconciliation was still completed read-only, since the skipped plan is the step that would normally catch an orphan labelled issue: the findings ledger references 16 distinct issues (#5943, #5944, #5945, #5973, #5974, #5975, #5976, #6002, #6003, #6004, #6005, #6006, #6022, #6023, #6024, #6025) plus one `null` carrier (a P2 overflow seed, no issue); the `ui-quality` label enumeration returned `totalCount: 16`, `hasNextPage: false`, and every issue is `open`. The two sets match exactly — no orphan labelled issues, nothing to adopt, nothing `missing`.
+
+**Fix PR:** none — there were no findings this fire, so no action could carry `fix_pr_candidate: true`.
+
+**P1 SLA:** run with `--escalate` and it was a genuine no-op: 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), **0 past the 7-day SLA**, oldest #5973 at 5 days. `p1-age.mjs` exited 0 and wrote 0 escalation actions, so nothing was executed over MCP and no `escalated_at` stamp was needed. Forward note: #5973 (created 2026-10-02) breaches on 2026-10-09 and #6005/#6006 on 2026-10-10, so the 10-09 and 10-10 fires should expect their first real escalations unless those axe-critical issues are fixed first.
+
+**Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue` / `mcp__github__create_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: get`/`create`/`update`) instead. For both exhaustive label enumerations (`ui-quality`, `ui-quality:p1`), `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal and the SLA check depend on.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). A genuinely quiet fire: nothing was due, so nothing was judged or filed. The only thing waiting on a human is the unlabelled calibration set.
