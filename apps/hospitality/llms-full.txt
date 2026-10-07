@@ -2117,7 +2117,7 @@
         const queryParams = stripEnabled(params);
     
         const query = useQuery({
-          queryKey: queryParams !== undefined ? [key, queryParams] : [key],
+          queryKey: buildQueryKey(key, params),
           queryFn: () => fetcher(queryParams as TParams | undefined, api),
           enabled,
         });
@@ -2131,6 +2131,13 @@
           refetch: query.refetch,
         };
       };
+    }
+    export function buildQueryKey<TParams>(
+      key: string,
+      params?: (TParams & { enabled?: boolean }) | undefined
+    ): readonly unknown[] {
+      const queryParams = stripEnabled(params);
+      return queryParams !== undefined ? [key, queryParams] : [key];
     }
     function resolveEnabled<TParams>(
       params: (TParams & { enabled?: boolean }) | undefined,
@@ -2683,6 +2690,9 @@
     export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
       return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
     }
+    export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+      return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
+    }
     export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
       invalidateKeys: FLOOR_PLANS_QUERY_KEY,
       mutationFn: (api, id) => api.floorPlans.clone(id),
@@ -2691,7 +2701,7 @@
       invalidateKeys: FLOOR_PLANS_QUERY_KEY,
       mutationFn: (api, id) => api.floorPlans.setActive(id),
       onSuccess: (queryClient, _data, id) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
       },
     });
     export interface BulkUpdatePositionsPayload {
@@ -2703,14 +2713,14 @@
       mutationFn: (api, { floorPlanId, positions }) =>
         api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
     export const useAddTable = createMutationHook<CreateTableRequest, Table>({
       invalidateKeys: [],
       mutationFn: (api, data) => api.tables.create(data),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
     export const useDeleteTable = createMutationHook<string>({
@@ -2843,9 +2853,7 @@
         mutationFn: (data: FindOrCreateGuestRequest) => api.guests.findOrCreate(data),
         onSuccess: (_data, variables) => {
           queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-          queryClient.invalidateQueries({
-            queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId],
-          });
+          queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
         },
       });
     
@@ -3037,6 +3045,9 @@
     export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
       return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
     }
+    export function guestSegmentsQueryKey(venueId: string | null | undefined): readonly unknown[] {
+      return buildQueryKey(GUEST_SEGMENTS_QUERY_KEY, { venueId });
+    }
     export interface UseLapsingGuestsResult {
       data: LapsingGuest[] | undefined;
       isLoading: boolean;
@@ -3063,7 +3074,7 @@
       invalidateKeys: GUESTS_QUERY_KEY,
       mutationFn: (api, data) => api.guests.findOrCreate(data),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
+        queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
       },
     });
     export const useUpdateGuest = createMutationHook<{ guestId: string; data: UpdateGuestRequest }>({

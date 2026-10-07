@@ -1,6 +1,6 @@
 import type { FloorPlan, CreateTableRequest, Table } from "@mbe/types";
 import type { useApiClient } from "./useApiClient.js";
-import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
@@ -55,6 +55,11 @@ export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
   return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
 }
 
+/** The cache key useFloorPlan(id) reads from — invalidate through this, never a hand-built array. */
+export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+  return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
+}
+
 /* ── useCloneFloorPlan mutation ──────────────────────── */
 
 export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
@@ -68,7 +73,7 @@ export const useActivateFloorPlan = createMutationHook<string>({
   invalidateKeys: FLOOR_PLANS_QUERY_KEY,
   mutationFn: (api, id) => api.floorPlans.setActive(id),
   onSuccess: (queryClient, _data, id) => {
-    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
+    queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
   },
 });
 
@@ -84,7 +89,7 @@ export const useBulkUpdatePositions = createMutationHook<BulkUpdatePositionsPayl
   mutationFn: (api, { floorPlanId, positions }) =>
     api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
   onSuccess: (queryClient, _data, variables) => {
-    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+    queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
   },
 });
 
@@ -94,7 +99,7 @@ export const useAddTable = createMutationHook<CreateTableRequest, Table>({
   invalidateKeys: [],
   mutationFn: (api, data) => api.tables.create(data),
   onSuccess: (queryClient, _data, variables) => {
-    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+    queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
   },
 });
 
