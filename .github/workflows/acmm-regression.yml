@@ -77,14 +77,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build the CLI
-        # NOT optional. Two consumers below need @mbe/agent-core's build:
-        # (1) the husky pre-commit hook the PR-open step below triggers runs
-        # `mbe check-adr --staged`, which imports @mbe/agent-core -- without
-        # this build that throws ERR_MODULE_NOT_FOUND and the commit fails
-        # (same root cause the Release workflow hit in #3320); (2) the
-        # regression script below lazily imports @mbe/gh-client to file an
-        # issue when a regression is detected, which needs the same build.
-        # The `...` suffix builds both as transitive deps.
+        # NOT optional: the regression script below lazily imports
+        # @mbe/gh-client to file an issue when a regression is detected, which
+        # needs its build (the `...` suffix builds it as a transitive dep).
+        # The pre-commit hook's check-adr no longer needs any build
+        # (tools/cli/src/check-adr.ts).
         run: pnpm build --filter @mbe/cli...
 
       - name: Compute today's date

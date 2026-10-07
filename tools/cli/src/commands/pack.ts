@@ -104,7 +104,8 @@ function getSkeleton(node: Node): string {
   }
 
   if (Node.isVariableStatement(node)) {
-    if (node.isExported()) {
+    // hasExportKeyword, not isExported: see pack-syntax-only.test.ts.
+    if (node.hasExportKeyword()) {
       const declarations = node.getDeclarations();
       const declsText = declarations
         .map((d) => {
@@ -202,7 +203,7 @@ async function packDirectory(
         Node.isTypeAliasDeclaration(statement) ||
         Node.isEnumDeclaration(statement) ||
         Node.isFunctionDeclaration(statement) ||
-        (Node.isVariableStatement(statement) && statement.isExported())
+        (Node.isVariableStatement(statement) && statement.hasExportKeyword())
       ) {
         const skeleton = getSkeleton(statement);
         const full = statement.getText();
