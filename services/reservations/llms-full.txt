@@ -5943,6 +5943,200 @@
       return runWithVenueContext(venueId, load);
     }
   </file>
+  <file path="src/routes/venue-scope.ts">
+    type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
+      RawServerDefault,
+      RawRequestDefaultExpression,
+      RawReplyDefaultExpression,
+      RG
+    >;
+    type RequestOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[0];
+    type ReplyOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[1];
+    export type VenueSource<RG extends RouteGenericInterface, E> =
+      /** Reads `venueId` from the query string, body or route params. */
+      | "query"
+      | "body"
+      | "params"
+      /** The same, for a key not named `venueId` (e.g. venues' own `:id`). */
+      | { readonly from: "query" | "body" | "params"; readonly field: string }
+      /** The venue owning an entity, through the SECURITY DEFINER resolver. */
+      | {
+          readonly entity: EntityKind;
+          readonly key: (request: RequestOf<RG>) => unknown;
+          /** Runs INSIDE the venue context; `null` answers 404 `notFound`. */
+          readonly load?: (key: string) => Promise<E | null>;
+          /** 404 `detail`, today's exact text for that route. */
+          readonly notFound: string;
+        }
+      /** Escape hatch for tables with no RLS policy, or composite resolution. */
+      | {
+          readonly resolve: (request: RequestOf<RG>) => Promise<string | null>;
+          /** Names the source in the coverage registry's descriptor. */
+          readonly label: string;
+          readonly notFound: string;
+        };
+    export type VenueAccess<E> =
+      /** Default: ADR-020 venue membership (`requireVenueAccess`). Admins pass. */
+      | "member"
+      /** RLS context only; relies on `requireAuth` in the route's preHandler. */
+      | "authenticated"
+      /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
+      | { readonly owner: (entity: E) => string | null };
+    export interface VenueScope<E> {
+      readonly venueId: string;
+      readonly entity: E;
+      readonly isAdmin: boolean;
+    }
+    export interface VenueScopeSpec<RG extends RouteGenericInterface, E> {
+      readonly venue: VenueSource<RG, E>;
+      readonly access?: VenueAccess<E>;
+    }
+    export type ScopedHandler<RG extends RouteGenericInterface, E> = (
+      request: RequestOf<RG>,
+      reply: ReplyOf<RG>,
+      scope: VenueScope<E>
+    ) => ReturnType<Handler<RG>>;
+    export const VENUE_SCOPE: unique symbol = Symbol.for("mbe.reservations.venueScope");
+    export const venueScopeHooks = {
+      admitIdentity(
+        _user: AuthUser | undefined,
+        _venueId: string,
+        _method: string,
+        _routeKey: string
+      ): ProblemDetails | null {
+        return null;
+      },
+    };
+    export function venueScopeOf(handler: unknown): string | null {
+      if (typeof handler !== "function") return null;
+      const descriptor = (handler as { [VENUE_SCOPE]?: unknown })[VENUE_SCOPE];
+      return typeof descriptor === "string" ? descriptor : null;
+    }
+    type DirectSource = { readonly from: "query" | "body" | "params"; readonly field: string };
+    type EntitySource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly entity: EntityKind }
+    >;
+    type ResolveSource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly resolve: unknown }
+    >;
+    function directSource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): DirectSource | null {
+      if (typeof source === "string") return { from: source, field: "venueId" };
+      return "from" in source ? source : null;
+    }
+    function isEntitySource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): source is EntitySource<RG, E> {
+      return typeof source === "object" && "entity" in source;
+    }
+    function describe<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>,
+      access: VenueAccess<E>
+    ): string {
+      const direct = directSource(source);
+      const from = direct
+        ? `${direct.from}.${direct.field}`
+        : isEntitySource(source)
+          ? `entity:${source.entity}`
+          : `resolve:${(source as ResolveSource<RG, E>).label}`;
+      return `${from}/${typeof access === "object" ? "owner" : access}`;
+    }
+    function readField(request: FastifyRequest, { from, field }: DirectSource): string | null {
+      const container = request[from] as Record<string, unknown> | null | undefined;
+      const value = container?.[field];
+      return typeof value === "string" ? value : null;
+    }
+    function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply {
+      return reply.code(status).send(createProblemDetails(status, titleForStatus(status), detail));
+    }
+    export function venueScoped<
+      RG extends RouteGenericInterface = RouteGenericInterface,
+      E = undefined,
+    >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> {
+      const source = spec.venue;
+      const access: VenueAccess<E> = spec.access ?? "member";
+      const ownerAccess = typeof access === "object" ? access : null;
+      if (ownerAccess && !(isEntitySource(source) && source.load)) {
+        throw new Error("venueScoped: owner access needs an entity source with load");
+      }
+      const direct = directSource(source);
+      const notFound = direct ? null : (source as EntitySource<RG, E> | ResolveSource<RG, E>).notFound;
+    
+      /** Today's ADR-020 guards, applied to the venue already resolved here. */
+      async function decide(
+        request: FastifyRequest,
+        reply: FastifyReply,
+        venueId: string | null,
+        entity: E | null | undefined
+      ): Promise<boolean> {
+        if (ownerAccess) {
+          await requireOwnershipOrAdmin(
+            async () => (entity == null ? null : ownerAccess.owner(entity)),
+            resolveCurrentUserEmail
+          )(request, reply);
+        } else {
+          await requireVenueAccess(request.server.venueMembershipLookup, () => venueId)(request, reply);
+        }
+        return !reply.sent;
+      }
+    
+      async function scopedHandler(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
+        const isAdmin = hasPermission(request.user, "admin");
+    
+        let venueId: string | null;
+        let entityKey: string | null = null;
+        if (direct) {
+          venueId = readField(request, direct);
+        } else if (isEntitySource(source)) {
+          const key = source.key(request as RequestOf<RG>);
+          entityKey = typeof key === "string" ? key : null;
+          venueId = entityKey === null ? null : await resolveVenueId(source.entity, entityKey);
+        } else {
+          venueId = await (source as ResolveSource<RG, E>).resolve(request as RequestOf<RG>);
+        }
+    
+        if (venueId === null) {
+          // Admins and `authenticated` routes learn the honest answer; a
+          // non-admin gets the guard's own 401/403, so existence never leaks.
+          if (access === "authenticated" || isAdmin) {
+            return direct
+              ? sendProblem(reply, 400, `${direct.field} is required`)
+              : sendProblem(reply, 404, notFound!);
+          }
+          await decide(request, reply, null, null);
+          return reply;
+        }
+    
+        const problem = venueScopeHooks.admitIdentity(
+          request.user,
+          venueId,
+          request.method,
+          `${request.method} ${request.routeOptions.url}`
+        );
+        if (problem) return reply.code(problem.status).send(problem);
+    
+        if (access === "member" && !(await decide(request, reply, venueId, null))) return reply;
+    
+        const resolvedVenueId = venueId;
+        return runWithVenueContext(resolvedVenueId, async () => {
+          let entity: E | null | undefined = undefined;
+          if (isEntitySource(source) && source.load) {
+            entity = await source.load(entityKey!);
+            if (entity === null) return sendProblem(reply, 404, source.notFound);
+          }
+          if (ownerAccess && !(await decide(request, reply, resolvedVenueId, entity))) return reply;
+          const scope: VenueScope<E> = { venueId: resolvedVenueId, entity: entity as E, isAdmin };
+          return handler(request as RequestOf<RG>, reply as ReplyOf<RG>, scope);
+        });
+      }
+    
+      Object.defineProperty(scopedHandler, VENUE_SCOPE, { value: describe(source, access) });
+      return scopedHandler as unknown as Handler<RG>;
+    }
+  </file>
   <file path="src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
     function isWriteConflict(error: unknown): boolean {
@@ -14936,6 +15130,22 @@
        */
       services?: Partial<DomainServices>;
     }
+    function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
+      const view: ReadonlyMap<K, V> = {
+        get size() {
+          return map.size;
+        },
+        get: (key) => map.get(key),
+        has: (key) => map.has(key),
+        keys: () => map.keys(),
+        values: () => map.values(),
+        entries: () => map.entries(),
+        forEach: (callback, thisArg) =>
+          map.forEach((value, key) => callback.call(thisArg, value, key, view)),
+        [Symbol.iterator]: () => map[Symbol.iterator](),
+      };
+      return view;
+    }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
       // unconfigured optional deposits feature never takes down the whole service.
@@ -14964,6 +15174,23 @@
         },
         options
       );
+    
+      // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
+      // records every route's `venueScoped` descriptor, or null, keyed
+      // "METHOD /url" (trailing slash stripped, as the RLS sweep keys routes).
+      // Installed before the first route plugin registers, so child plugins
+      // inherit the hook; routes/venue-scope-coverage.test.ts reads it with no
+      // database.
+      const venueScopes = new Map<string, string | null>();
+      fastify.addHook("onRoute", (route) => {
+        const url =
+          route.url.length > 1 && route.url.endsWith("/") ? route.url.slice(0, -1) : route.url;
+        const methods = Array.isArray(route.method) ? route.method : [route.method];
+        for (const method of methods) {
+          venueScopes.set(`${method} ${url}`, venueScopeOf(route.handler));
+        }
+      });
+      fastify.decorate("venueScopes", readOnlyView(venueScopes));
     
       // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
       // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real

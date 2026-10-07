@@ -41,6 +41,7 @@ import { createReservationJobHandlers, createReservationJobWorker } from "./serv
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { db, prisma } from "./services/database.js";
+import { venueScopeOf } from "./routes/venue-scope.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
@@ -113,6 +114,24 @@ export interface ReservationsAppOptions extends AppOptions {
 /**
  * Creates the Fastify application instance.
  */
+/** A view of `map` with no mutators, so callers cannot rewrite the registry. */
+function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
+  const view: ReadonlyMap<K, V> = {
+    get size() {
+      return map.size;
+    },
+    get: (key) => map.get(key),
+    has: (key) => map.has(key),
+    keys: () => map.keys(),
+    values: () => map.values(),
+    entries: () => map.entries(),
+    forEach: (callback, thisArg) =>
+      map.forEach((value, key) => callback.call(thisArg, value, key, view)),
+    [Symbol.iterator]: () => map[Symbol.iterator](),
+  };
+  return view;
+}
+
 export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
   // Validate Stripe secrets at startup — warns (does not throw) if missing so an
   // unconfigured optional deposits feature never takes down the whole service.
@@ -141,6 +160,23 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     options
   );
+
+  // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
+  // records every route's `venueScoped` descriptor, or null, keyed
+  // "METHOD /url" (trailing slash stripped, as the RLS sweep keys routes).
+  // Installed before the first route plugin registers, so child plugins
+  // inherit the hook; routes/venue-scope-coverage.test.ts reads it with no
+  // database.
+  const venueScopes = new Map<string, string | null>();
+  fastify.addHook("onRoute", (route) => {
+    const url =
+      route.url.length > 1 && route.url.endsWith("/") ? route.url.slice(0, -1) : route.url;
+    const methods = Array.isArray(route.method) ? route.method : [route.method];
+    for (const method of methods) {
+      venueScopes.set(`${method} ${url}`, venueScopeOf(route.handler));
+    }
+  });
+  fastify.decorate("venueScopes", readOnlyView(venueScopes));
 
   // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
   // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real
@@ -367,5 +403,7 @@ declare module "fastify" {
     hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
     services: DomainServices;
+    /** Every route's `venueScoped` descriptor, or null (see `venueScopeOf`). */
+    venueScopes: ReadonlyMap<string, string | null>;
   }
 }
