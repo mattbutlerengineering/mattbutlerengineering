@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T01:23:21.673Z",
+  "generated_at": "2026-10-07T18:04:36.031Z",
   "period": {
     "start": "2026-09-30",
     "end": "2026-10-07"
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.34,
-          "latest": "2026-10-06T17:18:56.253Z",
+          "age_days": 0.01,
+          "latest": "2026-10-07T17:52:38.627Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-06T17:18:56.253Z",
+      "collected_at": "2026-10-07T17:52:38.627Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 1,
@@ -73,24 +73,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 75535065,
-      "output_tokens": 129175,
-      "cache_creation_tokens": 962424,
-      "cache_hit_rate": 0.9874,
+      "cache_read_tokens": 1070577,
+      "output_tokens": 1405,
+      "cache_creation_tokens": 84031,
+      "cache_hit_rate": 0.9272,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 628,
-          "output_tokens": 123997,
-          "cache_read_tokens": 73525174,
-          "cache_creation_tokens": 829175
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 300,
-          "output_tokens": 5178,
-          "cache_read_tokens": 2009891,
-          "cache_creation_tokens": 133249
+          "input_tokens": 18,
+          "output_tokens": 1405,
+          "cache_read_tokens": 1070577,
+          "cache_creation_tokens": 84031
         }
       }
     },
@@ -98,13 +91,13 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 14,
-      "failed": 3,
-      "pass_rate_pct": 82,
+      "passed": 24,
+      "failed": 0,
+      "pass_rate_pct": 100,
       "most_recent": {
         "conclusion": "success",
-        "createdAt": "2026-09-23T20:49:48Z",
-        "name": "Revert Watchdog",
+        "createdAt": "2026-10-07T17:56:45Z",
+        "name": "Push on main",
         "status": "completed"
       }
     },
@@ -118,22 +111,22 @@
     "issueFeedback": {
       "available": false,
       "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
-      "collected_at": "2026-10-04T18:06:46.992Z",
-      "stale": true
+      "collected_at": "2026-10-06T18:08:12.399Z",
+      "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 26,
-      "logs_7d": 26,
-      "total_commits_7d": 387,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.006,
-      "total_lines_added_7d": 702762,
-      "lines_churned_7d": 3935,
+      "churn_rate": 0.005,
+      "total_lines_added_7d": 703163,
+      "lines_churned_7d": 3778,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -143,24 +136,13 @@
     },
     "flakyTests": {
       "available": true,
-      "flaky_count": 1,
-      "flaky_tests": [
-        {
-          "testName": "scripts/__tests__/visual-defect-reproduction.test.mjs > marketing — the declared visual sensitivity can see defect.md § A's reproduction > metrics-1280x720.png",
-          "sha": "adf63987a9179dfd8968d36b2094765450a613c5",
-          "passCount": 1,
-          "failCount": 1
-        }
-      ],
-      "total_runs": 1989892,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 1440035,
       "window_shas": 68
     },
     "e2eStability": {
-      "available": true,
-      "consecutive_failures": 8,
-      "total_runs": 12,
-      "total_non_frontend_runs": 11,
-      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
+      "available": false
     },
     "queueEfficiency": {
       "available": false,
@@ -180,7 +162,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 10,
+    "sensors_available": 9,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
