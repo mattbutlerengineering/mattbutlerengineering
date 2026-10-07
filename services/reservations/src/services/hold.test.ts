@@ -612,35 +612,6 @@ describe("holdService", () => {
     });
   });
 
-  describe("getVenueId", () => {
-    it("returns the owning venue id, selecting only that column", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce({
-        venueId: "venue-1",
-      } as never);
-
-      expect(await holdService.getVenueId("hold-1")).toBe("venue-1");
-      expect(prisma.reservationHold.findUnique).toHaveBeenCalledWith({
-        where: { id: "hold-1" },
-        select: { venueId: true },
-      });
-    });
-
-    it("returns null when the hold does not exist", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);
-
-      expect(await holdService.getVenueId("missing")).toBeNull();
-    });
-
-    it("does not delete an expired hold (authorization lookup has no side effects)", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce({
-        venueId: "venue-1",
-      } as never);
-
-      expect(await holdService.getVenueId("hold-1")).toBe("venue-1");
-      expect(prisma.reservationHold.delete).not.toHaveBeenCalled();
-    });
-  });
-
   describe("getBySessionId", () => {
     it("returns active hold for session and venue", async () => {
       vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce(makePrismaHold() as never);

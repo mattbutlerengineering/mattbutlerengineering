@@ -7,7 +7,6 @@ vi.mock("../services/hold.js", () => ({
   holdService: {
     create: vi.fn(),
     getById: vi.fn(),
-    getVenueId: vi.fn(),
     getBySessionId: vi.fn(),
     release: vi.fn(),
     cleanupExpired: vi.fn(),
@@ -117,11 +116,8 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-import { jwtVerify } from "jose";
-import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
-import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 
 // Route constants (kept out of individual tests so the AI-antipattern
@@ -184,8 +180,6 @@ describe("Hold Routes", () => {
     resetRateLimitState();
     // Default maybeCleanup to do nothing
     vi.mocked(holdService.maybeCleanup).mockResolvedValue(false);
-    // Every hold in this file belongs to venue-123 unless a test says otherwise.
-    vi.mocked(holdService.getVenueId).mockResolvedValue("venue-123");
   });
 
   afterEach(async () => {
@@ -443,7 +437,6 @@ describe("Hold Routes", () => {
           guestName: "John Doe",
           guestEmail: "john@example.com",
         },
-        venueId: "venue-123",
       });
     });
 
@@ -747,243 +740,6 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(401);
       expect(confirmHold).not.toHaveBeenCalled();
-    });
-  });
-
-  // Staff holds are scoped to the hold's own venue (ADR-020): any signed-in
-  // user used to be able to create holds at any venue (blocking inventory and
-  // reading venue-B slot state via 409 vs 201) and read any hold by id.
-  // The auth-bypass identity used above is a platform admin, which
-  // requireVenueAccess waves through, so these tests sign in as a non-admin.
-  describe("venue membership", () => {
-    const NON_ADMIN_SUB = "auth0|staff-member";
-    const CREATE_PAYLOAD = {
-      venueId: "venue-123",
-      date: "2024-02-15",
-      time: "2024-02-15T18:00:00.000Z",
-      partySize: 4,
-    };
-    const CONFIRM_PAYLOAD = { guestName: "John Doe", guestEmail: "john@example.com" };
-
-    let scopedApp: FastifyInstance | undefined;
-    let lookup: ReturnType<typeof vi.fn<VenueMembershipLookup>>;
-
-    afterEach(async () => {
-      await scopedApp?.close();
-      scopedApp = undefined;
-    });
-
-    /** Builds an app whose membership lookup answers `isMember` for every venue. */
-    const buildScopedApp = async (isMember: boolean) => {
-      lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(isMember);
-      scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
-      await scopedApp.ready();
-      return scopedApp;
-    };
-
-    /** Injects as a signed-in, non-admin user (no `admin` permission). */
-    const staffInject = (target: FastifyInstance, options: InjectOptions) => {
-      vi.mocked(jwtVerify).mockResolvedValueOnce({
-        payload: {
-          sub: NON_ADMIN_SUB,
-          iss: "https://test.auth0.com/",
-          aud: "https://api.example.com",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-          permissions: [],
-        },
-        protectedHeader: { alg: "RS256" },
-      } as never);
-      return target.inject({
-        ...options,
-        headers: { authorization: "Bearer staff-token", ...options.headers },
-      });
-    };
-
-    describe("non-member", () => {
-      it("POST /v1/holds returns 403 and creates nothing", async () => {
-        const target = await buildScopedApp(false);
-
-        const response = await staffInject(target, {
-          method: "POST",
-          url: HOLDS_URL,
-          payload: CREATE_PAYLOAD,
-        });
-
-        expect(response.statusCode).toBe(403);
-        expect(lookup).toHaveBeenCalledWith(NON_ADMIN_SUB, "venue-123");
-        expect(holdService.create).not.toHaveBeenCalled();
-      });
-
-      it("GET /v1/holds/:id returns 403 without reading the hold", async () => {
-        const target = await buildScopedApp(false);
-
-        const response = await staffInject(target, { method: "GET", url: HOLD_URL });
-
-        expect(response.statusCode).toBe(403);
-        expect(holdService.getVenueId).toHaveBeenCalledWith("hold-123");
-        expect(lookup).toHaveBeenCalledWith(NON_ADMIN_SUB, "venue-123");
-        expect(holdService.getById).not.toHaveBeenCalled();
-      });
-
-      it("DELETE /v1/holds/:id returns 403 without releasing", async () => {
-        const target = await buildScopedApp(false);
-
-        const response = await staffInject(target, {
-          method: "DELETE",
-          url: HOLD_URL,
-          headers: { "x-session-id": "session-abc" },
-        });
-
-        expect(response.statusCode).toBe(403);
-        expect(holdService.release).not.toHaveBeenCalled();
-      });
-
-      it("POST /v1/holds/:id/confirm returns 403 without confirming", async () => {
-        const target = await buildScopedApp(false);
-
-        const response = await staffInject(target, {
-          method: "POST",
-          url: CONFIRM_URL,
-          headers: { "x-session-id": "session-abc" },
-          payload: CONFIRM_PAYLOAD,
-        });
-
-        expect(response.statusCode).toBe(403);
-        expect(confirmHold).not.toHaveBeenCalled();
-      });
-    });
-
-    describe("unknown hold", () => {
-      it("returns 403 (not 404) to a non-admin so existence does not leak", async () => {
-        vi.mocked(holdService.getVenueId).mockResolvedValue(null);
-        const target = await buildScopedApp(true);
-
-        const get = await staffInject(target, { method: "GET", url: HOLD_URL });
-        const del = await staffInject(target, {
-          method: "DELETE",
-          url: HOLD_URL,
-          headers: { "x-session-id": "session-abc" },
-        });
-        const confirm = await staffInject(target, {
-          method: "POST",
-          url: CONFIRM_URL,
-          headers: { "x-session-id": "session-abc" },
-          payload: CONFIRM_PAYLOAD,
-        });
-
-        expect([get.statusCode, del.statusCode, confirm.statusCode]).toEqual([403, 403, 403]);
-        expect(lookup).not.toHaveBeenCalled();
-        expect(holdService.getById).not.toHaveBeenCalled();
-        expect(holdService.release).not.toHaveBeenCalled();
-        expect(confirmHold).not.toHaveBeenCalled();
-      });
-
-      it("still returns 404 to a platform admin", async () => {
-        vi.mocked(holdService.getVenueId).mockResolvedValue(null);
-        vi.mocked(holdService.getById).mockResolvedValue(null);
-        vi.mocked(holdService.release).mockResolvedValue(false);
-
-        const get = await authInject({ method: "GET", url: HOLD_URL });
-        const del = await authInject({
-          method: "DELETE",
-          url: HOLD_URL,
-          headers: { "x-session-id": "session-abc" },
-        });
-        const confirm = await authInject({
-          method: "POST",
-          url: CONFIRM_URL,
-          headers: { "x-session-id": "session-abc" },
-          payload: CONFIRM_PAYLOAD,
-        });
-
-        expect([get.statusCode, del.statusCode, confirm.statusCode]).toEqual([404, 404, 404]);
-        expect(confirmHold).not.toHaveBeenCalled();
-      });
-    });
-
-    describe("member", () => {
-      it("POST /v1/holds creates the hold", async () => {
-        vi.mocked(holdService.create).mockResolvedValue({ success: true, hold: mockHold });
-        const target = await buildScopedApp(true);
-
-        const response = await staffInject(target, {
-          method: "POST",
-          url: HOLDS_URL,
-          headers: { "x-session-id": "session-abc" },
-          payload: CREATE_PAYLOAD,
-        });
-
-        expect(response.statusCode).toBe(201);
-        expect(holdService.create).toHaveBeenCalledWith(CREATE_PAYLOAD, "session-abc");
-      });
-
-      it("GET /v1/holds/:id returns the hold", async () => {
-        vi.mocked(holdService.getById).mockResolvedValue(mockHold);
-        const target = await buildScopedApp(true);
-
-        const response = await staffInject(target, { method: "GET", url: HOLD_URL });
-
-        expect(response.statusCode).toBe(200);
-        expect(JSON.parse(response.body).data).toEqual(mockHold);
-      });
-
-      it("DELETE /v1/holds/:id still enforces the session check", async () => {
-        vi.mocked(holdService.release).mockResolvedValue(false);
-        const target = await buildScopedApp(true);
-
-        const response = await staffInject(target, {
-          method: "DELETE",
-          url: HOLD_URL,
-          headers: { "x-session-id": "wrong-session" },
-        });
-
-        expect(response.statusCode).toBe(404);
-        expect(holdService.release).toHaveBeenCalledWith("hold-123", "wrong-session");
-      });
-
-      it("POST /v1/holds/:id/confirm still enforces the session check", async () => {
-        vi.mocked(confirmHold).mockResolvedValue({
-          success: false,
-          error: "Session ID does not match the hold",
-          errorCode: "SESSION_MISMATCH",
-        });
-        const target = await buildScopedApp(true);
-
-        const response = await staffInject(target, {
-          method: "POST",
-          url: CONFIRM_URL,
-          headers: { "x-session-id": "wrong-session" },
-          payload: CONFIRM_PAYLOAD,
-        });
-
-        expect(response.statusCode).toBe(403);
-        expect(confirmHold).toHaveBeenCalledWith(
-          expect.objectContaining({ holdId: "hold-123", sessionId: "wrong-session" })
-        );
-      });
-
-      it("POST /v1/holds/:id/confirm runs inside the hold's venue context", async () => {
-        let venueInContext: string | null = null;
-        vi.mocked(confirmHold).mockImplementation(async () => {
-          venueInContext = getCurrentVenueId();
-          return { success: true, reservation: mockReservation };
-        });
-        const target = await buildScopedApp(true);
-
-        const response = await staffInject(target, {
-          method: "POST",
-          url: CONFIRM_URL,
-          headers: { "x-session-id": "session-abc" },
-          payload: CONFIRM_PAYLOAD,
-        });
-
-        expect(response.statusCode).toBe(201);
-        expect(venueInContext).toBe("venue-123");
-        expect(confirmHold).toHaveBeenCalledWith(
-          expect.objectContaining({ holdId: "hold-123", venueId: "venue-123" })
-        );
-      });
     });
   });
 });

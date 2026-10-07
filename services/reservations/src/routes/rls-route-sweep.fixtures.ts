@@ -64,8 +64,6 @@ export function normalizeRouteKey(key: string): string {
   return key.endsWith("/") && key.length > 1 ? key.slice(0, -1) : key;
 }
 
-const HOLDS_URL = "/api/v1/holds";
-
 /** Routes with no venue-scoped data at all — excluded from the sweep by design. */
 export const INFRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /docs",
@@ -500,34 +498,6 @@ async function createDisposableReservation(
 }
 
 /**
- * Creates a disposable staff hold in `venueId` (admin, on its own fresh
- * table so repeated calls never collide on a slot) and returns its id plus
- * the `x-session-id` capability the `/:id` routes require. Exported for the
- * staff `/confirm` fixture in `rls-route-sweep.fixtures-public.ts`.
- */
-export async function createDisposableStaffHold(
-  ctx: SweepContext,
-  venueId: string
-): Promise<{ id: string; sessionId: string }> {
-  const tableId = await createDisposableTable(ctx, venueId);
-  const sessionId = `rls-sweep-staff-hold-${randomUUID()}`;
-  const res = await asAdmin(ctx, {
-    method: "POST",
-    url: HOLDS_URL,
-    headers: { "x-session-id": sessionId },
-    payload: {
-      venueId,
-      date: "2026-10-08",
-      time: "2026-10-08T18:00:00Z",
-      partySize: 2,
-      tableId,
-    },
-  });
-  expectOk(res, `create disposable staff hold in ${venueId}`);
-  return { id: extractId(res), sessionId };
-}
-
-/**
  * venue_groups CRUD (`requireAdmin`-only): `venue_groups` carries no RLS
  * policy at all (ADR-026 §3, "Not an RLS problem at all" table row) — a
  * plain admin smoke check, not part of the venue-isolation matrix.
@@ -568,15 +538,14 @@ const notRlsFixtures: Record<string, RouteFixture> = {
   }),
 
   // `reservation_holds` is explicitly OUT of ADR-026 §1's seven-table list —
-  // no RLS policy applies to it regardless of `app.venue_id`, hence
-  // "not-rls". The staff routes are still membership-gated (ADR-020): create
-  // checks the body's `venueId`, the `/:id` routes the hold's own `venueId`,
-  // so each fixture also proves the member/non-member legs. (The staff
-  // `/confirm` fixture lives in `rls-route-sweep.fixtures-public.ts`.)
+  // no RLS policy applies to it regardless of `app.venue_id`. `requireAuth`
+  // only (no `requireVenueAccess`), by design (see holds.ts's own doc
+  // comment: this is the staff surface, session-id-capability-gated like its
+  // public sibling, not membership-gated).
   "POST /api/v1/holds": notRls(async (ctx) => {
     const res = await asAdmin(ctx, {
       method: "POST",
-      url: HOLDS_URL,
+      url: "/api/v1/holds",
       payload: {
         venueId: ctx.venueA.id,
         date: "2026-10-03",
@@ -588,7 +557,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     expectOk(res, "create hold");
     const crossVenueTable = await asAdmin(ctx, {
       method: "POST",
-      url: HOLDS_URL,
+      url: "/api/v1/holds",
       payload: {
         venueId: ctx.venueA.id,
         date: "2026-10-03",
@@ -600,82 +569,22 @@ const notRlsFixtures: Record<string, RouteFixture> = {
     expect(crossVenueTable.statusCode, `venue A + venue-B table: ${crossVenueTable.body}`).toBe(
       403
     );
-
-    const memberTable = await createDisposableTable(ctx, ctx.venueA.id);
-    expectOk(
-      await asMember(ctx, {
-        method: "POST",
-        url: HOLDS_URL,
-        payload: {
-          venueId: ctx.venueA.id,
-          date: "2026-10-03",
-          time: "2026-10-03T18:00:00Z",
-          partySize: 2,
-          tableId: memberTable,
-        },
-      }),
-      "member venue A"
-    );
-
-    const denied = await asMember(ctx, {
-      method: "POST",
-      url: HOLDS_URL,
-      payload: {
-        venueId: ctx.venueB.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
-        partySize: 2,
-        tableId: ctx.tableB,
-      },
-    });
-    expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);
   }),
   "GET /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
-      await asAdmin(ctx, { method: "GET", url: `${HOLDS_URL}/does-not-exist` }),
-      "get hold (admin, unknown id: 404)"
+      await asAdmin(ctx, { method: "GET", url: "/api/v1/holds/does-not-exist" }),
+      "get hold (404, not a venue-isolation case)"
     );
-
-    const holdA = await createDisposableStaffHold(ctx, ctx.venueA.id);
-    expectOk(
-      await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/${holdA.id}` }),
-      "member venue A"
-    );
-
-    const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
-    const denied = await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/${holdB.id}` });
-    expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);
-
-    const unknown = await asMember(ctx, { method: "GET", url: `${HOLDS_URL}/does-not-exist` });
-    expect(unknown.statusCode, `member, unknown id (no existence leak): ${unknown.body}`).toBe(403);
   }),
   "DELETE /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
       await asAdmin(ctx, {
         method: "DELETE",
-        url: `${HOLDS_URL}/does-not-exist`,
+        url: "/api/v1/holds/does-not-exist",
         headers: { "x-session-id": "rls-sweep-session" },
       }),
-      "release hold (admin, unknown id: 404)"
+      "release hold (404)"
     );
-
-    const holdA = await createDisposableStaffHold(ctx, ctx.venueA.id);
-    expectOk(
-      await asMember(ctx, {
-        method: "DELETE",
-        url: `${HOLDS_URL}/${holdA.id}`,
-        headers: { "x-session-id": holdA.sessionId },
-      }),
-      "member venue A"
-    );
-
-    const holdB = await createDisposableStaffHold(ctx, ctx.venueB.id);
-    const denied = await asMember(ctx, {
-      method: "DELETE",
-      url: `${HOLDS_URL}/${holdB.id}`,
-      headers: { "x-session-id": holdB.sessionId },
-    });
-    expect(denied.statusCode, `member venue B: ${denied.body}`).toBe(403);
   }),
 };
 

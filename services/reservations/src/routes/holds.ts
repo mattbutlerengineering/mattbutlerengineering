@@ -14,11 +14,9 @@ import {
   confirmHoldBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import { requireAuth } from "@mbe/auth/fastify";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { holdService } from "../services/hold.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
-import { venueIdFromBody } from "./venue-access.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
 
@@ -81,22 +79,9 @@ function getSessionId(request: FastifyRequest): string {
 }
 
 /**
- * Resolves the venue owning the hold addressed by `:id`, so `requireVenueAccess`
- * scopes every `/:id` route to members of the hold's own venue. `null` (no
- * such hold) becomes a 403 for non-admins, so hold existence never leaks;
- * platform admins skip the resolver and still get the handler's 404.
- */
-const holdVenueIdFromParams: VenueIdResolver = (request) => {
-  const params = request.params as { id?: unknown } | null | undefined;
-  return typeof params?.id === "string" ? holdService.getVenueId(params.id) : null;
-};
-
-/**
  * Authenticated (staff) hold routes, mounted under the api/v1 holds prefix.
  *
- * Every route here requires a JWT (#4487) AND membership of the hold's venue
- * (ADR-020): the create route checks the body's `venueId`, the `/:id` routes
- * the hold's own `venueId`. This service's contract is that all
+ * Every route here requires a JWT (#4487). This service's contract is that all
  * api/v1 routes require auth except availability, but these four were exempt in
  * practice because the anonymous public booking widget called them. The widget
  * now uses the hardened public sibling (`public-holds.ts`,
@@ -121,7 +106,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: requireAuth,
       config: {
         rateLimit: {
           max: 20,
@@ -194,11 +179,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       // 100/min onRequest limiter. Deliberately NOT a route-level
       // config.rateLimit — that would replace the global limiter and (#4492)
       // leave stages before the preHandler with no bound at all.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Get hold status",
         operationId: "getHold",
@@ -243,11 +224,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     {
       // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Release a hold",
         operationId: "releaseHold",
@@ -315,11 +292,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id/confirm",
     {
       // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Confirm a hold and create reservation",
         operationId: "confirmHold",
@@ -372,24 +345,13 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
-      // Re-resolved here (requireVenueAccess skips the resolver for admins) so
-      // the confirm runs inside the hold's own venue context, as sibling
-      // entity-addressed routes do, and is pinned to that venue.
-      const venueId = await holdService.getVenueId(request.params.id);
-      if (!venueId) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found"));
-      }
-
-      const result = await runWithVenueContext(venueId, () =>
-        fastify.transitions.confirmHold(
-          {
-            holdId: request.params.id,
-            sessionId,
-            guestDetails: request.body,
-            venueId,
-          },
-          { door: "staff-hold" }
-        )
+      const result = await fastify.transitions.confirmHold(
+        {
+          holdId: request.params.id,
+          sessionId,
+          guestDetails: request.body,
+        },
+        { door: "staff-hold" }
       );
 
       if (!result.success) {

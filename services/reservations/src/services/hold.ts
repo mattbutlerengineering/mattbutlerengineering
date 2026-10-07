@@ -167,20 +167,6 @@ export const holdService = {
   },
 
   /**
-   * Resolves the venue owning a hold, for authorization (`requireVenueAccess`)
-   * only. Unlike `getById` it never deletes an expired hold, so the
-   * authorization step has no side effects; the handler still reports expiry.
-   * `reservation_holds` is not an RLS table, so this read needs no venue context.
-   */
-  async getVenueId(id: string): Promise<string | null> {
-    const hold = await prisma.reservationHold.findUnique({
-      where: { id },
-      select: { venueId: true },
-    });
-    return hold?.venueId ?? null;
-  },
-
-  /**
    * Gets a hold by session ID for a venue.
    */
   async getBySessionId(sessionId: string, venueId: string): Promise<ReservationHold | null> {
