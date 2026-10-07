@@ -327,6 +327,16 @@ const TEMPLATES: readonly Template[] = [
       "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
   },
 
+  // Data Display (continued)
+  {
+    id: "row-actions-menu",
+    title: "Row Actions Menu",
+    description: "Data table with a per-row overflow button opening a dropdown of row actions",
+    category: "Data Display",
+    prompt:
+      'Data table where each row has a trailing "..." overflow button that opens a DropdownMenu listing row actions like Edit, Duplicate, and Delete',
+  },
+
   // Forms (continued)
   {
     id: "modal-form-dialog",
