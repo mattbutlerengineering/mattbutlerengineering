@@ -21,8 +21,12 @@ import {
   walkInBodyJsonSchema,
   createReservationBodyJsonSchema,
   publicReservationBodyJsonSchema,
+  toResponseJsonSchema,
+  SHARED_RESPONSE_REFS,
 } from "./schemas/json-schema.js";
 import { WalkInBodySchema } from "./schemas/reservation-requests.js";
+import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
+import { paginatedResponseSchema } from "./schemas/common.js";
 
 describe("JSON Schema generation (toFastifyJsonSchema)", () => {
   describe("structural requirements", () => {
@@ -275,5 +279,67 @@ describe("Reservation response schema carries the guest relation (booking-guest-
     expect(
       ((reservationJsonSchema as Record<string, unknown>).required as string[]) ?? []
     ).not.toContain("guest");
+  });
+});
+
+describe("toResponseJsonSchema (endpoint definitions → Fastify response schema)", () => {
+  it("keeps a shared entity as a $ref inside an envelope", () => {
+    expect(toResponseJsonSchema(z.object({ data: GuestSchema }))).toEqual({
+      type: "object",
+      properties: { data: { $ref: "Guest#" } },
+    });
+    expect(toResponseJsonSchema(z.object({ data: z.array(GuestSegmentSchema) }))).toEqual({
+      type: "object",
+      properties: { data: { type: "array", items: { $ref: "GuestSegment#" } } },
+    });
+  });
+
+  it("derives the exact shape createListResponseSchema('Guest#') hand-writes today", () => {
+    // packages/database/src/list-utils.ts createListResponseSchema — no `required`.
+    expect(toResponseJsonSchema(paginatedResponseSchema(GuestSchema))).toEqual({
+      type: "object",
+      properties: {
+        data: { type: "array", items: { $ref: "Guest#" } },
+        pagination: {
+          type: "object",
+          properties: {
+            page: { type: "number" },
+            limit: { type: "number" },
+            total: { type: "number" },
+            totalPages: { type: "number" },
+            hasNext: { type: "boolean" },
+            hasPrev: { type: "boolean" },
+          },
+        },
+      },
+    });
+  });
+
+  it("spells a nullable field the OpenAPI 3.0 way and declares no required/additionalProperties", () => {
+    const schema = toResponseJsonSchema(
+      z.object({ email: z.string().nullable(), sent: z.boolean() })
+    );
+    expect(schema).toEqual({
+      type: "object",
+      properties: {
+        email: { type: "string", nullable: true },
+        sent: { type: "boolean" },
+      },
+    });
+  });
+
+  it("inlines a schema that is only a copy of a shared entity (documented failure mode)", () => {
+    const schema = toResponseJsonSchema(
+      z.object({ data: GuestSchema.extend({ extra: z.string() }) })
+    );
+    const data = (schema.properties as Record<string, Record<string, unknown>>).data!;
+    expect(data).not.toHaveProperty("$ref");
+    expect(data).toHaveProperty("type", "object");
+  });
+
+  it("maps exactly the entities whose $id the shared Fastify schemas assign", () => {
+    expect([...SHARED_RESPONSE_REFS.values()].sort()).toEqual(["Guest#", "GuestSegment#"]);
+    expect(guestJsonSchema.$id).toBe("Guest");
+    expect(guestSegmentJsonSchema.$id).toBe("GuestSegment");
   });
 });

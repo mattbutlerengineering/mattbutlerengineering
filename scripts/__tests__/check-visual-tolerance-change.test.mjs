@@ -147,6 +147,9 @@ describe("ci.yml wiring — visual-tolerance-check job (#4711)", () => {
     const gateCheckIndex = CI_WORKFLOW.indexOf("- name: Check required job results");
     expect(gateCheckIndex).toBeGreaterThan(-1);
     const gateCheckBlock = CI_WORKFLOW.slice(gateCheckIndex, gateCheckIndex + 2500);
-    expect(gateCheckBlock).toMatch(/visual-tolerance-check\.result/);
+    // The step hands the whole `needs` context (which includes
+    // visual-tolerance-check, asserted above) to the fail-closed module.
+    expect(gateCheckBlock).toMatch(/NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}/);
+    expect(gateCheckBlock).toMatch(/node scripts\/ci-gate-required-results\.mjs/);
   });
 });

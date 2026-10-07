@@ -24,8 +24,16 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
+import { isTableInVenue, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 export { ReservationTransitionError };
+
+/** The result every write returns when its table belongs to another venue. */
+const TABLE_NOT_IN_VENUE = {
+  success: false,
+  error: TABLE_NOT_IN_VENUE_DETAIL,
+  tableNotInVenue: true,
+} as const;
 
 export interface ListReservationsOptions {
   page: number;
@@ -50,6 +58,8 @@ export interface CreateReservationResult {
   error?: string;
   conflict?: ConflictCheckResult;
   pacing?: PacingCheckResult;
+  /** The requested table is missing or belongs to another venue (route answers 403). */
+  tableNotInVenue?: boolean;
 }
 
 export interface UpdateReservationResult {
@@ -58,6 +68,8 @@ export interface UpdateReservationResult {
   error?: string;
   conflict?: ConflictCheckResult;
   capacityExceeded?: boolean;
+  /** The requested table is missing or belongs to another venue (route answers 403). */
+  tableNotInVenue?: boolean;
 }
 
 /**
@@ -209,6 +221,12 @@ export const reservationService = {
   ): Promise<CreateReservationResult> {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
+
+    // The named venue must own the table, checked before any conflict data is
+    // read so the conflict answer can't reveal another venue's bookings.
+    if (data.venueId && !(await isTableInVenue(data.tableId, data.venueId))) {
+      return TABLE_NOT_IN_VENUE;
+    }
 
     // Resolve the venue used for the pacing pre-check and the pacing/conflict
     // re-check under the lock. Prefer the request's venueId, else the table's.
@@ -408,6 +426,18 @@ export const reservationService = {
       return { success: false, error: "Reservation not found" };
     }
 
+    // A move onto another venue's table is refused before the capacity and
+    // conflict checks, either of which would reveal that table's size or
+    // bookings. (A reservation with no venueId never reaches this through a
+    // route: resolveVenueId answers null for it and the PATCH route 404s.)
+    if (
+      data.tableId !== undefined &&
+      existing.venueId &&
+      !(await isTableInVenue(data.tableId, existing.venueId))
+    ) {
+      return TABLE_NOT_IN_VENUE;
+    }
+
     // Capacity check runs whenever partySize changes, independent of
     // timeOrTableChanged below — a partySize-only edit is not a slot move,
     // but it still must not exceed the (possibly unchanged) assigned table's
@@ -549,6 +579,12 @@ export const reservationService = {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
+
+    // Refuse another venue's table before reading conflict data or flipping
+    // its status to OCCUPIED.
+    if (!(await isTableInVenue(data.tableId, data.venueId))) {
+      return TABLE_NOT_IN_VENUE;
+    }
 
     // Pre-check for conflicts and pacing before the transaction (which re-checks
     // to prevent TOCTOU races). Fetch the conflict slices once and use the

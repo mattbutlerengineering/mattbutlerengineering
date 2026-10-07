@@ -5,7 +5,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "hospitality|reservations/manage|r1|accessibility/axe-moderate": {
@@ -14,7 +14,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "hospitality|reservations/manage|r1|accessibility/axe-serious": {
@@ -23,7 +23,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-05",
     "escalated_at": null
   },
   "marketing|/|r1|accessibility/vague-link-purpose": {
@@ -141,6 +141,240 @@
     "severity": "P2",
     "first_seen": "2026-10-01",
     "last_seen": "2026-10-01",
+    "escalated_at": null
+  },
+  "rialto-web|components/flip-dot|r1|accessibility/axe-critical": {
+    "issue": 5973,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/footer|r1|accessibility/axe-moderate": {
+    "issue": 5974,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/hover-card|r1|accessibility/axe-serious": {
+    "issue": 5975,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/navigation-menu|r1|accessibility/axe-moderate": {
+    "issue": 5976,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-02",
+    "last_seen": "2026-10-02",
+    "escalated_at": null
+  },
+  "rialto-web|components/table|r1|accessibility/axe-serious": {
+    "issue": 6002,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|components/tag|r1|accessibility/axe-serious": {
+    "issue": 6003,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|components/tape-chart|r1|accessibility/axe-moderate": {
+    "issue": 6004,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|demos/drivers|r1|accessibility/axe-critical": {
+    "issue": 6005,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|demos/visual-test|r1|accessibility/axe-critical": {
+    "issue": 6006,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-03",
+    "last_seen": "2026-10-03",
+    "escalated_at": null
+  },
+  "rialto-web|examples/guest-checkin|r1|accessibility/axe-moderate": {
+    "issue": 6022,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/guest-profile|r1|accessibility/axe-moderate": {
+    "issue": 6023,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/invoice|r1|accessibility/axe-moderate": {
+    "issue": 6024,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|visual-test|r1|accessibility/axe-critical": {
+    "issue": 6025,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P1",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/notification-center|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/notification-center|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/onboarding|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/pricing-table|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/pricing-table|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/reservation-kanban|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/reservation-kanban|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/reservation-timeline|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/reservations|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|examples/settings|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|privacy|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|visual-test|r1|accessibility/axe-moderate": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
+    "escalated_at": null
+  },
+  "rialto-web|visual-test|r1|accessibility/axe-serious": {
+    "issue": null,
+    "carrier": "seed",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-04",
+    "last_seen": "2026-10-04",
     "escalated_at": null
   }
 }

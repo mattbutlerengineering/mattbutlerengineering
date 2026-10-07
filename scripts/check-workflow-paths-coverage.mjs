@@ -105,6 +105,20 @@ export const ALLOWLIST = {
         "always-exit-0 stats refresh; a change to it does not redeploy marketing — accepted, seeded in docs/backlog.md (session:2026-08-28)",
       guardedBy: "scripts/__tests__/deploy-static-repo-stats.test.mjs",
     },
+    "scripts/require-deploy-secrets.mjs": {
+      reason:
+        "deploy gate helper, same reasoning as the deploy-services.yml entry above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. Recorded in docs/fixes/static-sentry-dsn-routing/defect.md (maintenance:static-sentry-dsn-routing)",
+      // Two tests cover this surface; guardedBy names the one that reads THIS
+      // workflow. require-deploy-secrets.test.mjs covers the script itself but
+      // never opens deploy-static.yml, so it cannot vouch for this entry — it
+      // is the guard for the deploy-services.yml entry above.
+      guardedBy: "scripts/__tests__/deploy-static-sentry-env.test.mjs",
+    },
+    "scripts/verify-sentry-sourcemaps.mjs": {
+      reason:
+        "post-build deploy gate, same reasoning as require-deploy-secrets.mjs above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. Recorded in docs/fixes/static-sourcemaps-confirm/defect.md (maintenance:static-sourcemaps-confirm)",
+      guardedBy: "scripts/__tests__/verify-sentry-sourcemaps.test.mjs",
+    },
   },
   "instruction-regression.yml": {
     "plugins/acmm/scripts/evals/index.js": {

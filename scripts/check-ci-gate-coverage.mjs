@@ -25,7 +25,9 @@
  * than a job missing from `needs:` entirely, but just as unguarded. This
  * check therefore also requires every non-advisory job in `needs:` to have
  * a `VAR: ${{ needs.<job>.result }}` env entry on that step AND for `$VAR`
- * to be read inside its `for job_result in ...` loop.
+ * to be read inside its `for job_result in ...` loop — or for the step to
+ * pass `NEEDS_JSON: ${{ toJSON(needs) }}` to scripts/ci-gate-required-results.mjs,
+ * which evaluates every job in `needs` (the current, fail-closed form).
  *
  * Usage: node scripts/check-ci-gate-coverage.mjs
  * Exit code: 0 if every non-advisory job is reachable from ci-gate's needs
@@ -119,6 +121,14 @@ function extractForLoopVarNames(jobBody) {
   return [...match[1].matchAll(/\$([A-Z_][A-Z0-9_]*)/g)].map((m) => m[1]);
 }
 
+/** True when the gate step passes `toJSON(needs)` to ci-gate-required-results.mjs. */
+function passesNeedsToModule(gateBody) {
+  return (
+    /^\s*NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}\s*$/m.test(gateBody) &&
+    /node scripts\/ci-gate-required-results\.mjs/.test(gateBody)
+  );
+}
+
 /**
  * Job names in `ci-gate`'s `needs:` whose `.result` is both exposed via an
  * env var on the "Check required job results" step AND read inside that
@@ -127,6 +137,11 @@ function extractForLoopVarNames(jobBody) {
  */
 export function extractEvaluatedJobs(content) {
   const gateBody = extractJobBody(content, GATE_JOB_NAME);
+  // Fail-closed form (PR #6077 incident, 2026-10-05): the step hands the
+  // whole `needs` context to scripts/ci-gate-required-results.mjs, which
+  // evaluates every job in it — so every job in `needs:` is evaluated.
+  if (passesNeedsToModule(gateBody)) return extractJobNeeds(content, GATE_JOB_NAME);
+
   const envVarToJob = extractEnvVarJobMap(gateBody);
   const loopVarNames = extractForLoopVarNames(gateBody);
 

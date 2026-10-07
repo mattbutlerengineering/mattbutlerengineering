@@ -144,6 +144,9 @@ describe("reservationService", () => {
     vi.mocked(checkPacingForSlot).mockReturnValue(true);
     // assertBookable: slot is bookable by default (returns undefined = no error).
     vi.mocked(assertBookable).mockReturnValue(undefined);
+    // Default: every table the suite names belongs to venue-1, the venue every
+    // fixture books at. The cross-venue suite below overrides this.
+    vi.mocked(prisma.table.findUnique).mockResolvedValue({ venueId: "venue-1" } as never);
   });
 
   describe("list", () => {
@@ -1487,6 +1490,140 @@ describe("reservationService", () => {
       }
 
       expect(availabilityService.fetchConflictData).toHaveBeenCalledWith("venue-1", "2026-05-04");
+    });
+  });
+
+  // A member of venue A names venue A in the body but a table of venue B. The
+  // table must be rejected before any conflict data is read, so the outcome is
+  // identical whether venue B's slot is free or taken — a 409 can never be an
+  // oracle for another venue's bookings — and nothing is written.
+  describe("rejects a table from another venue (cross-tenant)", () => {
+    const FOREIGN_TABLE = { venueId: "venue-B" };
+
+    for (const slotTaken of [false, true]) {
+      const slot = slotTaken ? "taken" : "free";
+
+      it(`createWithConflictCheck: venue-B table, slot ${slot} → rejected, nothing read or written`, async () => {
+        vi.mocked(prisma.table.findUnique).mockResolvedValue(FOREIGN_TABLE as never);
+        if (slotTaken) {
+          vi.mocked(assertBookable).mockReturnValue({
+            code: "CONFLICT",
+            message: "Table is not available for this time slot",
+          });
+        }
+
+        const result = await reservationService.createWithConflictCheck({
+          date: "2026-05-05",
+          startTime: "2026-05-05T18:00:00Z",
+          endTime: "2026-05-05T19:30:00Z",
+          partySize: 2,
+          tableId: "table-of-venue-B",
+          venueId: "venue-1",
+        });
+
+        expect(result).toEqual({
+          success: false,
+          error: "The requested table does not belong to this venue",
+          tableNotInVenue: true,
+        });
+        expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+        expect(assertBookable).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it(`createWalkIn: venue-B table, slot ${slot} → rejected, table not flipped`, async () => {
+        vi.mocked(prisma.table.findUnique).mockResolvedValue(FOREIGN_TABLE as never);
+        if (slotTaken) {
+          vi.mocked(assertBookable).mockReturnValue({
+            code: "CONFLICT",
+            message: "Table is not available for this time slot",
+          });
+        }
+
+        const result = await reservationService.createWalkIn({
+          partySize: 2,
+          tableId: "table-of-venue-B",
+          venueId: "venue-1",
+        });
+
+        expect(result).toEqual({
+          success: false,
+          error: "The requested table does not belong to this venue",
+          tableNotInVenue: true,
+        });
+        expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+        expect(assertBookable).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it(`updateWithConflictCheck: move onto a venue-B table, slot ${slot} → rejected before capacity and conflict`, async () => {
+        vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+          makePrismaReservation() as never
+        );
+        vi.mocked(prisma.table.findUnique).mockResolvedValue({
+          ...FOREIGN_TABLE,
+          capacity: 2,
+        } as never);
+        if (slotTaken) {
+          vi.mocked(assertBookable).mockReturnValue({
+            code: "CONFLICT",
+            message: "Table is not available for this time slot",
+          });
+        }
+
+        // partySize 8 > the foreign table's capacity: a capacity answer would
+        // leak venue B's table size, so the venue check must win.
+        const result = await reservationService.updateWithConflictCheck("res-1", {
+          tableId: "table-of-venue-B",
+          partySize: 8,
+        });
+
+        expect(result).toEqual({
+          success: false,
+          error: "The requested table does not belong to this venue",
+          tableNotInVenue: true,
+        });
+        expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+        expect(assertBookable).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(prisma.reservation.update).not.toHaveBeenCalled();
+      });
+    }
+
+    it("a table that does not exist gets the same rejection as a foreign one", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValue(null as never);
+
+      const result = await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "no-such-table",
+        venueId: "venue-1",
+      });
+
+      expect(result.tableNotInVenue).toBe(true);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("a table of the request's own venue is unaffected", async () => {
+      useSlotTxOnce();
+
+      const result = await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.tableNotInVenue).toBeUndefined();
+      expect(prisma.table.findUnique).toHaveBeenCalledWith({
+        where: { id: "table-1" },
+        select: { venueId: true },
+      });
     });
   });
 });

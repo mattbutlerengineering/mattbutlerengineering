@@ -16,6 +16,11 @@ export interface ReportableApiError {
 export interface InitOptions {
   readonly appName: string;
   readonly dsn: string;
+  /**
+   * Browser callers pass `import.meta.env.MODE`: `process.env` does not exist
+   * in a Vite bundle, so resolveConfig() cannot see the build mode there.
+   */
+  readonly environment?: string;
 }
 
 export function initSentry(options: InitOptions): void {
@@ -26,8 +31,11 @@ export function initSentry(options: InitOptions): void {
 
   Sentry.init({
     dsn: config.dsn,
-    environment: config.environment,
-    release: config.release,
+    environment: options.environment ?? config.environment,
+    // An own `release: undefined` key would override the SDK's default, which
+    // reads the SENTRY_RELEASE global that sentryVitePlugin injects into the
+    // bundle — so only pass release when one was actually resolved.
+    ...(config.release !== undefined && { release: config.release }),
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
     integrations: [],

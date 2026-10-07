@@ -59,6 +59,7 @@
       interface InitOptions {
         appName: string;
         dsn: string;
+        environment?: string;
       }
     </item>
     <item priority="high">

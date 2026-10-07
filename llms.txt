@@ -1043,6 +1043,24 @@
       function buildSyntheticTurnMetrics(costUsd: number, modelId: string): readonly TurnMetrics[] { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/transitions/adapters/dispatcher-messaging.ts">
+    <item priority="low">
+      interface DispatcherMessagingDeps {
+        dispatcher: NotificationDispatcher;
+        postVisitNotifier: PostVisitNotifier;
+        getVenue: (venueId: string) => Promise<Venue | null>;
+        logger?: EffectLogger;
+      }
+    </item>
+    <item priority="high">
+      export function createDispatcherMessaging(deps: DispatcherMessagingDeps): MessagingPort { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/adapters/emitter-events.ts">
+    <item priority="high">
+      export function createEmitterEvents(emitter: ReservationEventEmitter): EventsPort { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="agent">
   <file path="tools/cli/src/commands/agent/check-model.ts">
@@ -1388,7 +1406,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
@@ -2213,11 +2230,16 @@
         totalReviewers: number | null;
       }
     </item>
+    <item priority="high">
+      export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD: unknown;
+    </item>
     <item priority="low">
       interface PrCategoryBreakdownStats {
         merged: number | null;
         closedWithoutMerge: number | null;
         acceptanceRate: number | null;
+        totalDecided: number | null;
+        lowSample: boolean;
       }
     </item>
     <item priority="low">
@@ -2646,6 +2668,134 @@
   <file path="apps/hospitality/e2e/problem-details.ts">
     <item priority="high">
       export const SERVER_ERROR_BODY: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="endpoints">
+  <file path="packages/types/src/endpoints/define.ts">
+    <item priority="low">
+      type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+    </item>
+    <item priority="low">
+      interface ProblemResponse {
+        kind: "problem";
+        description?: string;
+      }
+    </item>
+    <item priority="low">
+      interface BodyResponse {
+        description?: string;
+        body: z.ZodType | null;
+      }
+    </item>
+    <item priority="low">
+      type EndpointResponse = BodyResponse | ProblemResponse;
+    </item>
+    <item priority="low">
+      type EndpointResponses = { readonly [status: number]: EndpointResponse };
+    </item>
+    <item priority="low">
+      interface EndpointDefinition {
+        method: M;
+        path: P;
+        params?: Params;
+        query?: Query;
+        body?: Body;
+      }
+    </item>
+    <item priority="low">
+      type AnyEndpointDefinition = EndpointDefinition;
+    </item>
+    <item priority="high">
+      type SuccessStatus = (typeof SUCCESS_STATUSES)[number];
+    </item>
+    <item priority="low">
+      type PathParamNames = P extends `${string}:${infer Param}/${infer Rest}`
+        ? Pa...;
+    </item>
+    <item priority="high">
+      type IsUnion = T extends unknown ? ([U] extends [T] ? false : true) : never;
+    </item>
+    <item priority="high">
+      type SuccessKey = Extract<keyof R, SuccessStatus>;
+    </item>
+    <item priority="high">
+      type SameKeys = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    </item>
+    <item priority="high">
+      type ParamsSchemaOf = D extends { readonly params: infer X extends z.ZodObject ...;
+    </item>
+    <item priority="high">
+      type ResponsesOf = D extends { readonly responses: infer X } ? X : never;
+    </item>
+    <item priority="high">
+      type DefinitionCheck = [PathParamNames<D["path"]>] extends [never]
+        ? ParamsSch...;
+    </item>
+    <item priority="high">
+      type SuccessCheck = [SuccessKey<R>] extends [never]
+        ? [exactly_one_2xx_resp...;
+    </item>
+    <item priority="high">
+      export function defineEndpoint<const D extends AnyEndpointDefinition>(
+        def: D,
+        ..._contractCheck: DefinitionCheck<D>
+      ): D { /* ... */ }
+    </item>
+    <item priority="high">
+      export function problem(description?: string): ProblemResponse { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isProblemResponse(response: EndpointResponse): response is ProblemResponse { /* ... */ }
+    </item>
+    <item priority="high">
+      export function successResponse(def: AnyEndpointDefinition): {
+        status: number;
+        response: BodyResponse;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      type ParamsOf = ParamsSchemaOf<D>;
+    </item>
+    <item priority="high">
+      type QueryOf = D extends { readonly query: infer X extends z.ZodObject }...;
+    </item>
+    <item priority="high">
+      type BodyOf = D extends { readonly body: infer X extends z.ZodType } ? ...;
+    </item>
+    <item priority="high">
+      type Simplify = { [K in keyof T]: T[K] } & {};
+    </item>
+    <item priority="high">
+      type Declared = S extends z.ZodType ? { [P in K]: T } : unknown;
+    </item>
+    <item priority="low">
+      type EndpointInput = Simplify<
+        Declared<"params", ParamsOf<D>, z.input<NonNu...;
+    </item>
+    <item priority="high">
+      type BodyOutput = Resp extends { body: infer B }
+        ? B extends z.ZodType
+        ...;
+    </item>
+    <item priority="low">
+      type EndpointSuccess = BodyOutput<
+        ResponsesOf<D>[SuccessKey<ResponsesOf<D>> &...;
+    </item>
+    <item priority="high">
+      type ReplyOf = { [K in keyof R]: R[K] extends | ProblemDetails;
+    </item>
+    <item priority="low">
+      type EndpointRouteGeneric = Simplify<
+        Declared<"Params", ParamsOf<D>, z.output<NonN...;
+    </item>
+  </file>
+  <file path="packages/types/src/endpoints/guests.ts">
+    <item priority="high">
+      export const GUESTS_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      export const guestsEndpoints: unknown;
     </item>
   </file>
   </section>
@@ -3550,6 +3700,11 @@
       ): TParams | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
+    <item priority="high">
+      export const SSE_INVALIDATION_QUERY_KEYS: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
@@ -3739,10 +3894,15 @@
       }
     </item>
     <item priority="high">
-      type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+      type ReservationStats = Omit<
+        DashboardStats,
+        "waitlistCount" | "longestWaitM...;
     </item>
     <item priority="high">
       type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="high">
+      type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposu...;
     </item>
     <item priority="medium">
       function getTodayString(): string { /* ... */ }
@@ -3757,6 +3917,9 @@
     </item>
     <item priority="high">
       export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeDepositStats(deposits: readonly Deposit[]): DepositStats { /* ... */ }
     </item>
     <item priority="high">
       export function useDashboardStatsQuery(): UseDashboardStatsQueryResult { /* ... */ }
@@ -5977,7 +6140,10 @@
       type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
     </item>
     <item priority="high">
-      export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
+      export function depositTransitionHandler(
+        deposits: DepositService,
+        transition: (id: string) => Promise<Deposit>
+      ) { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/deposits.ts">
@@ -6186,13 +6352,6 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
-    <item priority="low">
-      async function isVenueMember(
-        user: AuthUser | undefined,
-        venueId: string | undefined,
-        lookup: VenueMembershipLookup
-      ): Promise<boolean> { /* ... */ }
-    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>
@@ -6382,23 +6541,39 @@
         work: () => Promise<void>
       ): Promise<void> { /* ... */ }
     </item>
-    <item priority="low">
-      async function holdIfPending(paymentIntentId: string, eventType: string): Promise<void> { /* ... */ }
+    <item priority="high">
+      interface WebhookDeps {
+        deposits: DepositService;
+        payments: PaymentsPort;
+      }
     </item>
     <item priority="low">
-      async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function holdIfPending(
+        paymentIntentId: string,
+        eventType: string,
+        deps: WebhookDeps
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function onPaymentIntentAmountCapturableUpdated(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentSucceeded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentAmountCapturableUpdated(
+        event: Stripe.Event,
+        deps: WebhookDeps
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function onPaymentIntentCanceled(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
       function isDeliberateCancellation(reason: Stripe.PaymentIntent.CancellationReason | null): boolean { /* ... */ }
     </item>
     <item priority="low">
-      async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onChargeRefunded(event: Stripe.Event, deps: WebhookDeps): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createWebhookRouter(deps: WebhookDeps): WebhookEventRouter { /* ... */ }
     </item>
     <item priority="high">
       export const stripeWebhookRoutes: FastifyPluginAsync;
@@ -6529,6 +6704,9 @@
       export const StaffNoteSchema: unknown;
     </item>
     <item priority="high">
+      export const CommunicationPreferenceSchema: unknown;
+    </item>
+    <item priority="high">
       export const GuestSchema: unknown;
     </item>
     <item priority="high">
@@ -6539,6 +6717,12 @@
     </item>
     <item priority="high">
       export const GuestRecognitionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const LapsingGuestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WinBackResultSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/health-system.ts">
@@ -6604,6 +6788,12 @@
     <item priority="high">
       export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
     </item>
+    <item priority="medium">
+      function stripRequired(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toResponseJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
+    </item>
     <item priority="high">
       export const userPreferencesJsonSchema: unknown;
     </item>
@@ -6636,6 +6826,9 @@
     </item>
     <item priority="high">
       export const guestSegmentJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string>;
     </item>
     <item priority="high">
       export const guestRiskResultJsonSchema: unknown;
@@ -7879,37 +8072,6 @@
       export const bookingMetricsService: unknown;
     </item>
   </file>
-  <file path="services/reservations/src/services/booking-notifications.ts">
-    <item priority="medium">
-      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
-    </item>
-    <item priority="low">
-      type CancelInitiator = "guest" | "staff";
-    </item>
-    <item priority="low">
-      interface BookingNotifierDeps {
-        notificationAdapter: NotificationDispatcher;
-        scheduler: NotifierScheduler;
-        getVenue: (venueId: string) => Promise<Venue | null>;
-        logger?: FastifyBaseLogger;
-      }
-    </item>
-    <item priority="low">
-      interface BookingNotifier {
-        
-      }
-    </item>
-    <item priority="high">
-      export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier { /* ... */ }
-    </item>
-    <item priority="high">
-      export function createDefaultBookingNotifier(
-        notificationAdapter: NotificationDispatcher,
-        runtime: NotifierRuntime,
-        logger?: FastifyBaseLogger
-      ): BookingNotifier { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/services/briefing.ts">
     <item priority="low">
       interface BriefingEntry {
@@ -8000,10 +8162,7 @@
   </file>
   <file path="services/reservations/src/services/deposit.ts">
     <item priority="low">
-      type StripePort = Pick<
-        StripeService,
-        | "cancelPaymentIntent"
-        | "cap...;
+      type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
     </item>
     <item priority="low">
       type DepositForfeitOrigin = "no_show" | "cancellation" | "staff";
@@ -8073,9 +8232,6 @@
       }
     </item>
     <item priority="high">
-      export const depositService: unknown;
-    </item>
-    <item priority="high">
       export function calculateDepositAmount(
         venue: { depositType: string | null; depositAmountCents: number | null },
         partySize: number
@@ -8093,20 +8249,15 @@
       }
     </item>
     <item priority="high">
-      export const defaultDomainServices: DomainServices;
+      export const defaultDomainServices: Omit<DomainServices, "depositService">;
     </item>
   </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing" | "table-status:changed";
+      type ReservationEventType = SseEventName;
     </item>
     <item priority="low">
-      interface ReservationEvent {
-        type: ReservationEventType;
-        venueId: string;
-        timestamp: string;
-        data: Reservation | Table | ReservationHold | FloorPlan | Lapsi...;
-      }
+      type ReservationEvent = SseEvent;
     </item>
     <item priority="high">
       class ReservationEventEmitter {
@@ -8115,39 +8266,6 @@
         async emitChange(): Promise<unknown>;
         async onChange(): Promise<unknown>;
       }
-    </item>
-    <item priority="high">
-      export const reservationEvents: unknown;
-    </item>
-    <item priority="high">
-      export function emitReservationCreated(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitReservationUpdated(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitReservationCancelled(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldCreated(hold: ReservationHold): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldReleased(hold: ReservationHold): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitHoldConfirmed(reservation: Reservation): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitTableUpdated(table: Table): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitFloorPlanCreated(floorPlan: FloorPlan): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
@@ -8315,6 +8433,7 @@
         success: boolean;
         hold?: ReservationHold;
         error?: string;
+        tableNotInVenue?: boolean;
       }
     </item>
     <item priority="high">
@@ -8375,6 +8494,7 @@
     <item priority="low">
       interface LapsedGuestMonitorPrismaConfig {
         prisma: PrismaClient;
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"];
         startupDelayMs?: number;
         intervalMs?: number;
       }
@@ -8411,7 +8531,8 @@
     </item>
     <item priority="medium">
       function buildPrismaCallbacks(
-        prisma: PrismaClient
+        prisma: PrismaClient,
+        emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
       ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> { /* ... */ }
     </item>
     <item priority="high">
@@ -8505,8 +8626,8 @@
   <file path="services/reservations/src/services/reservation-cancellation.ts">
     <item priority="low">
       interface CancelReservationDeps {
-        bookingNotifier: BookingNotifier;
         logger: FastifyBaseLogger;
+        deposits: DepositService;
       }
     </item>
     <item priority="low">
@@ -8542,33 +8663,30 @@
         deposit: Deposit,
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        initiator: CancelInitiator
+        initiator: CancelInitiator,
+        deposits: DepositService
       ): Promise<ResolveDepositOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function resolveDeposit(
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        initiator: CancelInitiator
+        initiator: CancelInitiator,
+        deposits: DepositService
       ): Promise<ResolveDepositOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export async function cancelReservationWithDeposit(
         reservation: Reservation,
-        manageToken: string,
+        // Kept for call-site stability; the guest's manage link is now carried to the
+        // cancellation email by the transitions `cancel` verb, not used here.
+        _manageToken: string,
         deps: CancelReservationDeps,
         options: CancelReservationOptions = {}
       ): Promise<CancelReservationResult> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
-    <item priority="low">
-      interface ModifyReservationDeps {
-        bookingNotifier: BookingNotifier;
-        notificationPort: NotificationDispatcher;
-        logger: FastifyBaseLogger;
-      }
-    </item>
     <item priority="low">
       interface ReservationChanges {
         date?: string;
@@ -8584,35 +8702,28 @@
     <item priority="medium">
       function hasAnyChange(changes: ReservationChanges): boolean { /* ... */ }
     </item>
-    <item priority="medium">
-      function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
+    <item priority="high">
+      export function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
     </item>
     <item priority="high">
       export async function isPartySizeDepositBlocked(
         reservation: Reservation,
-        newPartySize: number | undefined
+        newPartySize: number | undefined,
+        deposits: DepositService
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="low">
       async function checkPartySizeDepositGuard(
         reservation: Reservation,
-        changes: ReservationChanges
+        changes: ReservationChanges,
+        deposits: DepositService
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
-    <item priority="low">
-      async function notifyModification(
-        updated: Reservation,
-        manageToken: string,
-        timeChanged: boolean,
-        deps: ModifyReservationDeps
-      ): Promise<void> { /* ... */ }
-    </item>
     <item priority="high">
-      export async function modifyReservationWithNotifications(
+      export async function modifyReservation(
         reservation: Reservation,
         changes: ReservationChanges,
-        manageToken: string,
-        deps: ModifyReservationDeps
+        deposits: DepositService
       ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
@@ -8638,14 +8749,16 @@
         targetStatus: "forfeited" | "partial_refunded",
         reservation: Reservation,
         logger: FastifyBaseLogger,
-        err: unknown
+        err: unknown,
+        deposits: DepositService
       ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="low">
       async function forfeitHeldDeposit(
         deposit: Deposit,
         reservation: Reservation,
-        logger: FastifyBaseLogger
+        logger: FastifyBaseLogger,
+        deposits: DepositService
       ): Promise<ForfeitOutcome> { /* ... */ }
     </item>
     <item priority="high">
@@ -8660,7 +8773,8 @@
     <item priority="high">
       export async function recordNoShow(
         reservation: Reservation,
-        logger: FastifyBaseLogger
+        logger: FastifyBaseLogger,
+        deposits: DepositService
       ): Promise<RecordNoShowResult> { /* ... */ }
     </item>
   </file>
@@ -9029,6 +9143,9 @@
         cause: unknown;
       }
     </item>
+    <item priority="high">
+      export const RETRIABLE_STRIPE_TYPES: unknown;
+    </item>
     <item priority="medium">
       function wrapStripeError(err: unknown): never { /* ... */ }
     </item>
@@ -9064,15 +9181,19 @@
       }
     </item>
     <item priority="high">
+      export function verifyStripeWebhookSignature(
+        rawBody: Buffer,
+        signature: string,
+        webhookSecret: string
+      ): Stripe.Event { /* ... */ }
+    </item>
+    <item priority="high">
       class StripeService {
         stripe: Stripe;
         async createPaymentIntent(): Promise<unknown>;
         async capturePaymentIntent(): Promise<unknown>;
         async cancelPaymentIntent(): Promise<unknown>;
       }
-    </item>
-    <item priority="high">
-      export const stripeService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">
@@ -9095,6 +9216,14 @@
     </item>
     <item priority="high">
       export const tableStatusService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/table-venue.ts">
+    <item priority="high">
+      export const TABLE_NOT_IN_VENUE_DETAIL: unknown;
+    </item>
+    <item priority="high">
+      export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
@@ -12217,6 +12346,12 @@
       }
     </item>
     <item priority="low">
+      interface GetVenueTimeSlotsParams {
+        date: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
       interface GetDatesParams {
         venueId: string;
         startDate: string;
@@ -12227,6 +12362,7 @@
     <item priority="high">
       class AvailabilityClient {
         async getTimeSlots(): Promise<unknown>;
+        async getTimeSlotsForVenue(): Promise<unknown>;
         async getDates(): Promise<unknown>;
       }
     </item>
@@ -12237,6 +12373,9 @@
         async getSessionId(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
+    </item>
+    <item priority="medium">
+      function publicAvailabilityPath(slug: string): string { /* ... */ }
     </item>
     <item priority="medium">
       function publicHoldsPath(slug: string): string { /* ... */ }
@@ -12280,6 +12419,12 @@
     <item priority="high">
       export function buildQueryString(params: QueryParams): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function interpolatePath(path: string, params: Record<string, unknown> | undefined): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined { /* ... */ }
+    </item>
     <item priority="low">
       interface ClientConfig {
         baseUrl: string;
@@ -12306,7 +12451,7 @@
         timeout: number;
         maxRetries: number;
         async request(): Promise<unknown>;
-        async get(): Promise<unknown>;
+        async call(): Promise<unknown>;
       }
     </item>
     <item priority="low">
@@ -12373,13 +12518,7 @@
   </file>
   <file path="packages/api-client/src/guests.ts">
     <item priority="low">
-      interface FindOrCreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        dietaryRestrictions?: string[];
-      }
+      type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     </item>
     <item priority="low">
       interface ListGuestsParams {
@@ -14107,6 +14246,7 @@
       interface InitOptions {
         appName: string;
         dsn: string;
+        environment?: string;
       }
     </item>
     <item priority="high">
@@ -14313,6 +14453,47 @@
     </item>
     <item priority="high">
       export const registerReadinessRoutes: unknown;
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/register-endpoint.ts">
+    <item priority="low">
+      interface EndpointDocs {
+        summary?: string;
+        operationId?: string;
+        description?: string;
+        tags?: readonly string[];
+        security?: ReadonlyArray<Record<string, readonly string[]>>;
+      }
+    </item>
+    <item priority="high">
+      type RouteGenericOf = EndpointRouteGeneric<D> extends RouteGenericInterface ? E...;
+    </item>
+    <item priority="low">
+      interface RegisterEndpointOptions {
+        docs: EndpointDocs;
+        preHandler?: RouteShorthandOptions<
+          RawServerDefault,
+          RawReque...;
+        handler: RouteHandlerMethod<
+          RawServerDefault,
+          RawRequestD...;
+      }
+    </item>
+    <item priority="medium">
+      function relativeUrl(prefix: string, def: AnyEndpointDefinition): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assertParamsMatchPath(def: AnyEndpointDefinition): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function responseSchemas(responses: EndpointResponses): Record<string, Record<string, unknown>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function registerEndpoint<D extends AnyEndpointDefinition>(
+        fastify: FastifyInstance,
+        def: D,
+        options: RegisterEndpointOptions<D>
+      ): void { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
@@ -14909,31 +15090,13 @@
       }
     </item>
     <item priority="low">
-      interface LapsingGuest {
-        guestId: string;
-        name: string;
-        email: string | null;
-        phone: string | null;
-        communicationPreference: CommunicationPreference;
-      }
+      type LapsingGuest = z.infer<typeof LapsingGuestSchema>;
     </item>
     <item priority="low">
-      interface CreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        notes?: string;
-      }
+      type CreateGuestRequest = z.input<typeof CreateGuestBodySchema>;
     </item>
     <item priority="low">
-      interface UpdateGuestRequest {
-        email?: string | null;
-        phone?: string | null;
-        name?: string;
-        notes?: string | null;
-        tags?: string[] | null;
-      }
+      type UpdateGuestRequest = z.input<typeof UpdateGuestBodySchema>;
     </item>
     <item priority="low">
       interface GuestSearchParams {
@@ -15082,6 +15245,42 @@
         baseline: JsonSchema | undefined,
         current: JsonSchema | undefined
       ): { breaking: string[]; nonBreaking: string[] } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/types/src/sse-events.ts">
+    <item priority="low">
+      interface SsePayloadMap {
+        "reservation:created": Reservation;
+        "reservation:updated": Reservation;
+        "reservation:cancelled": Reservation;
+        "hold:created": ReservationHold;
+        "hold:released": ReservationHold;
+      }
+    </item>
+    <item priority="low">
+      type SseEventName = keyof SsePayloadMap;
+    </item>
+    <item priority="low">
+      type SseQueryKey = "reservations" | "tables" | "floorPlans" | "floorPlan" | "lapsingGuests";
+    </item>
+    <item priority="low">
+      interface SseEventDefinition {
+        invalidates: readonly SseQueryKey[];
+      }
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_CATALOG: unknown;
+    </item>
+    <item priority="high">
+      export const SSE_EVENT_NAMES: unknown;
+    </item>
+    <item priority="low">
+      interface SseEvent {
+        type: SseEventName;
+        venueId: string;
+        timestamp: string;
+        data: SsePayloadMap[SseEventName];
+      }
     </item>
   </file>
   <file path="packages/types/src/table-status.ts">
@@ -15374,8 +15573,8 @@
     <item priority="low">
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
-        bookingNotifier?: BookingNotifier;
-        postVisitNotifier?: PostVisitNotifier;
+        jobs?: JobsPort;
+        payments?: PaymentsPort;
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
       }
@@ -15585,7 +15784,20 @@
       }
     </item>
     <item priority="low">
+      type ClientSchema = Parameters<typeof toResponseJsonSchema>[0];
+    </item>
+    <item priority="low">
+      interface SchemaCapture {
+        clientMethod: string;
+        subClient: string;
+        method: HttpMethod;
+        path: string;
+        definition?: AnyEndpointDefinition;
+      }
+    </item>
+    <item priority="low">
       interface ClientInventory {
+        schemaCaptures: readonly SchemaCapture[];
         pairs: readonly ClientPair[];
         invocations: readonly Invocation[];
         subClients: readonly string[];
@@ -15715,6 +15927,7 @@
         inventory: ClientInventory;
         fastifyRouteCounts: Readonly<Record<FastifyOwner, number>>;
         edgeTerminalPathCount: number;
+        openApiDocuments: Readonly<Record<FastifyOwner, unknown>>;
       }
     </item>
     <item priority="high">
@@ -15728,6 +15941,118 @@
     </item>
     <item priority="high">
       export function vacuityInputFromReport(report: RouteContractReport): VacuityInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PARITY_DOMAINS: unknown;
+    </item>
+    <item priority="low">
+      interface ParityFailure {
+        clientMethod: string;
+        method: string;
+        path: string;
+        facet: Facet | "route";
+        detail: string;
+      }
+    </item>
+    <item priority="low">
+      interface SchemaParityReport {
+        failures: readonly ParityFailure[];
+        comparedPerDomain: Readonly<Record<string, number>>;
+      }
+    </item>
+    <item priority="low">
+      interface OpenApiDocument {
+        paths?: Record<string, Record<string, OpenApiOperation>>;
+        components?: { readonly schemas?: unknown };
+      }
+    </item>
+    <item priority="medium">
+      function trimSlash(path: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findOperation(
+        doc: OpenApiDocument,
+        method: string,
+        path: string
+      ): OpenApiOperation | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function schemaParityReport(
+        report: RouteContractReport,
+        domains: readonly string[]
+      ): SchemaParityReport { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parityVacuityFailures(
+        parity: SchemaParityReport,
+        domains: readonly string[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatParityFailures(failures: readonly ParityFailure[]): string { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/route-contract/src/schema-parity.ts">
+    <item priority="low">
+      type Facet = "body" | "query" | "response";
+    </item>
+    <item priority="low">
+      type JsonSchema = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      type RefTable = Readonly<Record<string, JsonSchema>>;
+    </item>
+    <item priority="low">
+      interface ParityMismatch {
+        facet: Facet;
+        detail: string;
+      }
+    </item>
+    <item priority="high">
+      export function refTableFromOpenApi(doc: { components?: { schemas?: unknown } }): RefTable { /* ... */ }
+    </item>
+    <item priority="medium">
+      function unifyNullable(schema: JsonSchema): JsonSchema { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalize(schema: unknown, facet: Facet, refs: RefTable, depth = 0): unknown { /* ... */ }
+    </item>
+    <item priority="high">
+      export function firstDifference(a: unknown, b: unknown, pointer = ""): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface OpenApiParameter {
+        in?: string;
+        name?: string;
+        required?: boolean;
+        schema?: unknown;
+      }
+    </item>
+    <item priority="high">
+      export function queryFromParameters(
+        parameters: readonly OpenApiParameter[] | undefined
+      ): JsonSchema | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OpenApiOperation {
+        parameters?: readonly OpenApiParameter[];
+        requestBody?: { readonly content?: Record<string, { readonly schema?: u...;
+        responses?: Record<
+          string,
+          {
+            readonly description?: st...;
+      }
+    </item>
+    <item priority="high">
+      export function routeFacets(operation: OpenApiOperation): Partial<Record<Facet, JsonSchema>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareFacet(
+        facet: Facet,
+        client: JsonSchema | undefined,
+        route: JsonSchema | undefined,
+        refs: RefTable
+      ): ParityMismatch | null { /* ... */ }
     </item>
   </file>
   <file path="tools/route-contract/src/types.ts">
@@ -15869,6 +16194,94 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="services/reservations/src/test/effects-harness.ts">
+    <item priority="low">
+      interface RecordedEvent {
+        type: string;
+        id?: string;
+      }
+    </item>
+    <item priority="low">
+      interface RecordedMessage {
+        kind: string;
+        reservationId?: string;
+        guestEmail?: string;
+      }
+    </item>
+    <item priority="low">
+      type RecordedJobOp = { op: "schedule"; jobType: str | { op: "cancel"; jobId: string ;
+    </item>
+    <item priority="low">
+      interface RecordedDepositOp {
+        op: string;
+        args: unknown[];
+      }
+    </item>
+    <item priority="low">
+      interface RecordedEffects {
+        events: RecordedEvent[];
+        messages: RecordedMessage[];
+        jobs: RecordedJobOp[];
+        depositOps: RecordedDepositOp[];
+      }
+    </item>
+    <item priority="high">
+      type DepositMoneyOp = "refund" | "refundPartial" | "forfeit" | "apply" | "verifyCaptureCompleted";
+    </item>
+    <item priority="high">
+      interface ScriptedDeposit {
+        id: string;
+        status: string;
+      }
+    </item>
+    <item priority="high">
+      interface DepositRecorder {
+        ops: RecordedDepositOp[];
+        deposit: ScriptedDeposit | null;
+        results: Map<string, () => Promise<unknown>>;
+      }
+    </item>
+    <item priority="medium">
+      function activeDeposits(): DepositRecorder { /* ... */ }
+    </item>
+    <item priority="medium">
+      function recordDepositOp(op: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      type DepositMethod = (...args: unknown[]) => Promise<unknown>;
+    </item>
+    <item priority="high">
+      export const recordingDepositService: Record<
+        "getByReservationId" | "getById" | DepositMoney...;
+    </item>
+    <item priority="low">
+      interface EffectsRecorder {
+        effects: RecordedEffects;
+        appOptions: Pick<
+          ReservationsAppOptions,
+          "notificationPort" ...;
+        scheduledJobs: Map<string, { jobType: string; delayMs: number; payload: ...;
+        deposits: {
+          service: typeof recordingDepositService;
+          /** Th...;
+      }
+    </item>
+    <item priority="medium">
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createRecordingDispatcher(messages: RecordedMessage[]): NotificationDispatcher { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createRecordingScheduler(
+        jobs: RecordedJobOp[],
+        store: EffectsRecorder["scheduledJobs"]
+      ): JobsPort { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createEffectsRecorder(): EffectsRecorder { /* ... */ }
+    </item>
+  </file>
   <file path="services/users/src/test/fixtures.ts">
     <item priority="high">
       export const MOCK_USER: unknown;
@@ -16182,6 +16595,262 @@
   <file path="packages/mcp-server/src/tools/pulumi.ts">
     <item priority="high">
       export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="transitions">
+  <file path="services/reservations/src/transitions/in-memory.ts">
+    <item priority="low">
+      interface InMemoryMessaging {
+        sent: readonly GuestMessage[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryMessaging(): InMemoryMessaging { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InMemoryJob {
+        jobType: string;
+        delayMs: number;
+        payload: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface InMemoryJobs {
+        jobs: ReadonlyMap<string, InMemoryJob>;
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryJobs(): InMemoryJobs { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InMemoryEvents {
+        published: readonly LiveEvent[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryEvents(): InMemoryEvents { /* ... */ }
+    </item>
+    <item priority="low">
+      type PaymentsOp = keyof PaymentsPort;
+    </item>
+    <item priority="high">
+      type PaymentsImpl = (
+        ...args: Parameters<PaymentsPort[Op]>
+      ) => Awaited<Re...;
+    </item>
+    <item priority="low">
+      interface InMemoryPayments {
+        calls: { op: PaymentsOp; args: unknown[] }[];
+      }
+    </item>
+    <item priority="high">
+      export function createInMemoryPayments(): InMemoryPayments { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/index.ts">
+    <item priority="high">
+      type ReservationWrites = Pick<
+        typeof ReservationServiceSingleton,
+        "update" | ...;
+    </item>
+    <item priority="high">
+      type DomainLogger = Parameters<typeof recordNoShow>[1];
+    </item>
+    <item priority="low">
+      interface ReservationTransitionsDeps {
+        ports: EffectPorts;
+        policy: VenueEffectPolicySource;
+        reservationService: ReservationWrites;
+        deposits: DepositService;
+        logger: EffectLogger;
+      }
+    </item>
+    <item priority="low">
+      interface CancelOptions {
+        door: CancelDoor;
+        initiator: CancelInitiator;
+        manageToken: string;
+        reason?: string;
+        note?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ConfirmHoldOptions {
+        door: HoldDoor;
+        manageToken?: (reservation: Reservation) => string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationTransitions {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createReservationTransitions(
+        deps: ReservationTransitionsDeps
+      ): ReservationTransitions { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/plan.ts">
+    <item priority="low">
+      type CancelDoor = "staff-patch" | "staff-delete" | "guest-manage";
+    </item>
+    <item priority="low">
+      type HoldDoor = "public-booking" | "staff-hold" | "public-hold";
+    </item>
+    <item priority="low">
+      type TransitionFact = {
+            kind: "cancelled";
+          | { kind: "no-show"; reservation | {
+            kind: "staff-updated"; | {
+            kind: "guest-modified" | {
+            kind: "hold-confirmed" | {
+            kind: "created";
+            | { kind: "attendance-confirmed";
+    </item>
+    <item priority="high">
+      export function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reservationEvent(
+        type: "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:confirmed",
+        reservation: Reservation
+      ): LiveEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cancelReminders(reservationId: string): JobOp[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reminderOps(
+        reservation: Reservation,
+        now: Date,
+        mode: "schedule" | "replace-if-present"
+      ): JobOp[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function confirmationChain(
+        reservation: Reservation,
+        manageToken: string,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isStaffTimeChange(patch: UpdateReservationRequest): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function planEffects(
+        fact: TransitionFact,
+        policy: VenueEffectPolicy,
+        now: Date
+      ): PlannedEffect[] { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/ports.ts">
+    <item priority="low">
+      type CancelInitiator = "guest" | "staff";
+    </item>
+    <item priority="low">
+      type GuestMessage = {
+            kind: "booking-confirm | { kind: "booking-modified"; re | {
+            kind: "booking-cancell | { kind: "post-visit-thank-you";
+    </item>
+    <item priority="low">
+      type GuestMessageKind = GuestMessage["kind"];
+    </item>
+    <item priority="low">
+      interface MessagingPort {
+        
+      }
+    </item>
+    <item priority="low">
+      type JobsPort = Pick<JobScheduler, "schedule" | "cancel">;
+    </item>
+    <item priority="low">
+      type ReminderJobType = typeof JOB_TYPES.BOOKING_REMIN | typeof JOB_TYPES.DAY_OF_REMIND;
+    </item>
+    <item priority="low">
+      type JobOp = {
+            op: "schedule";
+             | { op: "cancel"; jobId: string  | {
+            op: "replace-if-presen;
+    </item>
+    <item priority="low">
+      type LiveEvent = Omit<ReservationEvent, "timestamp">;
+    </item>
+    <item priority="low">
+      interface EventsPort {
+        
+      }
+    </item>
+    <item priority="low">
+      type Effect = { port: "events"; event: LiveE | { port: "messaging"; message:  | { port: "jobs"; op: JobOp };
+    </item>
+    <item priority="low">
+      interface PlannedEffect {
+        effect: Effect;
+        timing: "await" | "background";
+        onFailure: "log" | "propagate";
+      }
+    </item>
+    <item priority="low">
+      interface EffectPorts {
+        messaging: MessagingPort;
+        jobs: JobsPort;
+        events: EventsPort;
+      }
+    </item>
+    <item priority="low">
+      type PaymentsPort = Pick<
+        StripeService,
+        | "createCustomer"
+        | "createPa...;
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/run.ts">
+    <item priority="low">
+      interface EffectLogger {
+        
+      }
+    </item>
+    <item priority="medium">
+      function describe(effect: Effect): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runJob(op: JobOp, ports: EffectPorts): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function applyEffect(effect: Effect, ports: EffectPorts): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runBackgroundChain(
+        chain: PlannedEffect[],
+        ports: EffectPorts,
+        logger: EffectLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runEffects(
+        planned: PlannedEffect[],
+        ports: EffectPorts,
+        logger: EffectLogger
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/transitions/venue-policy.ts">
+    <item priority="low">
+      interface VenueEffectPolicy {
+        outbound: "live" | "suppressed";
+      }
+    </item>
+    <item priority="low">
+      type VenueEffectPolicySource = (venueId: string) => Promise<VenueEffectPolicy>;
+    </item>
+    <item priority="high">
+      export const allOutboundLive: VenueEffectPolicySource;
     </item>
   </file>
   </section>

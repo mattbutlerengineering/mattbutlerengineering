@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { toDateString, type Reservation, type WaitlistEntry } from "@mbe/types";
+import { toDateString, type Reservation, type WaitlistEntry, type Deposit } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { useApiClient } from "./useApiClient.js";
@@ -14,6 +14,8 @@ export interface DashboardStats {
   cancellationTrend: "up" | "down" | "neutral";
   waitlistCount: number;
   longestWaitMinutes: number;
+  depositAtRiskCount: number;
+  noShowExposureCents: number;
 }
 
 export interface UseDashboardStatsQueryResult {
@@ -25,14 +27,21 @@ export interface UseDashboardStatsQueryResult {
 }
 
 /** Stats derived from reservations only — see {@link computeStatsFromReservations}. */
-type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+type ReservationStats = Omit<
+  DashboardStats,
+  "waitlistCount" | "longestWaitMinutes" | "depositAtRiskCount" | "noShowExposureCents"
+>;
 
 /** Stats derived from waitlist entries only — see {@link computeWaitlistStats}. */
 type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
 
+/** Stats derived from deposits only — see {@link computeDepositStats}. */
+type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
+
 /* ── Helpers ─────────────────────────────────────────── */
 
 const WAITLIST_QUERY_KEY = "waitlist" as const;
+const DEPOSITS_QUERY_KEY = "deposits" as const;
 
 const FALLBACK_RESERVATION_STATS: ReservationStats = {
   totalReservations: 0,
@@ -45,6 +54,11 @@ const FALLBACK_RESERVATION_STATS: ReservationStats = {
 const FALLBACK_WAITLIST_STATS: WaitlistStats = {
   waitlistCount: 0,
   longestWaitMinutes: 0,
+};
+
+const FALLBACK_DEPOSIT_STATS: DepositStats = {
+  depositAtRiskCount: 0,
+  noShowExposureCents: 0,
 };
 
 function getTodayString(): string {
@@ -90,6 +104,18 @@ export function computeWaitlistStats(entries: readonly WaitlistEntry[]): Waitlis
   };
 }
 
+export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
+  if (deposits.length === 0) return FALLBACK_DEPOSIT_STATS;
+
+  return {
+    depositAtRiskCount: deposits.filter((d) => d.status === "pending" || d.status === "held")
+      .length,
+    noShowExposureCents: deposits
+      .filter((d) => d.status === "forfeited")
+      .reduce((sum, d) => sum + d.amountCents, 0),
+  };
+}
+
 /* ── Hook ────────────────────────────────────────────── */
 
 export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
@@ -115,12 +141,20 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
     enabled: Boolean(selectedVenueId),
   });
 
+  const depositsQuery = useQuery({
+    queryKey: [DEPOSITS_QUERY_KEY, { date: today, venueId: selectedVenueId }],
+    queryFn: () => api.deposits.listByVenueAndDate(selectedVenueId ?? "", today),
+    enabled: Boolean(selectedVenueId),
+  });
+
   const reservations = reservationsQuery.data ?? [];
   const waitlistEntries = waitlistQuery.data ?? [];
+  const deposits = depositsQuery.data ?? [];
 
   const stats: DashboardStats = {
     ...computeStatsFromReservations(reservations),
     ...computeWaitlistStats(waitlistEntries),
+    ...computeDepositStats(deposits),
   };
 
   return {

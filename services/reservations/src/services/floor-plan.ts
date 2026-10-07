@@ -11,7 +11,6 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { emitFloorPlanCreated } from "./events.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
@@ -229,9 +228,7 @@ export const floorPlanService = {
 
     if (!cloned) return null;
 
-    const mapped = mapPrismaFloorPlan(cloned);
-    emitFloorPlanCreated(mapped);
-    return mapped;
+    return mapPrismaFloorPlan(cloned);
   },
 
   async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {
