@@ -2871,3 +2871,8 @@ Issue reconciliation was still completed before the plan and came back clean: al
 **Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: update`) instead. For the exhaustive `ui-quality` label enumeration, `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal depends on.
 
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). Filing stopped, but for the benign reason above rather than unreadable state. A genuinely quiet fire: nothing was due, so nothing was judged or filed.
+
+## 2026-10-07
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
