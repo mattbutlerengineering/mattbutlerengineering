@@ -566,11 +566,17 @@ describe("FloorPlanEditorPage", () => {
       renderPage();
 
       await waitFor(() => screen.getByText("Set as Active"));
+      expect(screen.queryByText("Active")).toBeNull();
+
+      // The server now reports the plan as active; the detail query must refetch to show it.
+      mockGetById.mockResolvedValue({ ...activatedPlan, tables: [] });
       fireEvent.click(screen.getByText("Set as Active"));
 
       await waitFor(() => {
         expect(mockSetActive).toHaveBeenCalledWith("fp-1");
       });
+      expect(await screen.findByText("Active")).toBeDefined();
+      expect(screen.queryByText("Set as Active")).toBeNull();
     });
 
     it("navigates back when back button is clicked", async () => {
