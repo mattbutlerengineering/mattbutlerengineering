@@ -25223,7 +25223,7 @@
       const sessionId = `rls-sweep-staff-hold-${randomUUID()}`;
       const res = await asAdmin(ctx, {
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
