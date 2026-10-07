@@ -23,10 +23,6 @@ vi.mock("./database.js", async () => {
   });
 });
 
-vi.mock("./events.js", () => ({
-  emitHoldConfirmed: vi.fn(),
-}));
-
 vi.mock("./availability.js", () => ({
   availabilityService: {
     fetchConflictData: vi.fn(),
@@ -44,7 +40,6 @@ vi.mock("./assert-bookable.js", () => ({
 
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
-import { emitHoldConfirmed } from "./events.js";
 import { availabilityService } from "./availability.js";
 import { checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
@@ -195,9 +190,6 @@ describe("confirmHold", () => {
         expect(result.reservation.status).toBe("CONFIRMED");
         expect(result.reservation.guestName).toBe("Jane Doe");
       }
-
-      expect(emitHoldConfirmed).toHaveBeenCalledTimes(1);
-      expect(emitHoldConfirmed).toHaveBeenCalledWith(expect.objectContaining({ id: "res-1" }));
     });
   });
 
@@ -248,10 +240,9 @@ describe("confirmHold", () => {
         expect(result.error).toContain("expired");
       }
 
-      // Expired hold deleted, but NO reservation created and no event emitted.
+      // Expired hold deleted, but NO reservation created.
       expect(holdDelete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
       expect(reservationCreate).not.toHaveBeenCalled();
-      expect(emitHoldConfirmed).not.toHaveBeenCalled();
     });
   });
 
@@ -364,9 +355,6 @@ describe("confirmHold", () => {
       if (!result.success) {
         expect(result.errorCode).toBe("CONFLICT");
       }
-
-      // Event should NOT be emitted on conflict
-      expect(emitHoldConfirmed).not.toHaveBeenCalled();
     });
 
     it("returns CONFLICT when conflicting hold found", async () => {
@@ -429,54 +417,6 @@ describe("confirmHold", () => {
     });
   });
 
-  describe("Slice 7: Event emission verification", () => {
-    it("emits hold:confirmed with the created reservation", async () => {
-      const hold = makePrismaHold();
-      const reservation = makeReservationResult(hold);
-
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = makeTxMock({
-            reservation: {
-              ...makeTxMock().reservation,
-              create: vi.fn().mockResolvedValue(reservation),
-            },
-          });
-          return fn(tx);
-        }
-      );
-
-      await confirmHold({
-        holdId: "hold-1",
-        sessionId: "session-abc",
-        guestDetails: { guestName: "Jane Doe" },
-      });
-
-      expect(emitHoldConfirmed).toHaveBeenCalledTimes(1);
-      // Verify the reservation object passed to the event has the right shape
-      const emittedReservation = vi.mocked(emitHoldConfirmed).mock.calls[0]?.[0];
-      if (!emittedReservation) throw new Error("expected an emitHoldConfirmed call");
-      expect(emittedReservation).toMatchObject({
-        id: "res-1",
-        status: "CONFIRMED",
-        venueId: "venue-1",
-      });
-    });
-
-    it("does not emit event when confirmation fails", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);
-
-      await confirmHold({
-        holdId: "missing",
-        guestDetails: {},
-      });
-
-      expect(emitHoldConfirmed).not.toHaveBeenCalled();
-    });
-  });
-
   describe("Slice 9: Pacing regression — confirm must enforce pacing", () => {
     it("rejects hold confirmation when pacing limit would be exceeded", async () => {
       // Regression: confirm-hold previously skipped pacing entirely.
@@ -509,7 +449,6 @@ describe("confirmHold", () => {
       if (!result.success) {
         expect(result.errorCode).toBe("PACING_EXCEEDED");
       }
-      expect(emitHoldConfirmed).not.toHaveBeenCalled();
     });
 
     it("allows confirmation when pacing limit is not exceeded", async () => {
@@ -619,7 +558,6 @@ describe("confirmHold", () => {
       if (!result.success) {
         expect(result.errorCode).toBe("PACING_EXCEEDED");
       }
-      expect(emitHoldConfirmed).not.toHaveBeenCalled();
     });
   });
 });

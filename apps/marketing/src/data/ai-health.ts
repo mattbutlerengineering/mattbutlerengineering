@@ -184,11 +184,28 @@ export interface ReviewBurdenMetrics {
   readonly noFormalReviewStage: boolean;
 }
 
+/**
+ * A category's acceptance rate is only trustworthy once enough PRs have been
+ * decided — below this, `merged: 0, closed_without_merge: 1` (n=1) renders as
+ * a flat 0%/100% that overstates confidence at that sample size (#5901). Matches
+ * the "keep AI-health pages honest" theme `reviewBurden.noFormalReviewStage`
+ * already applies: a judgment the normalizer makes once, not left to the panel.
+ */
+export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
+
 /** Safe per-category view-model entry for the prCategoryBreakdown panel. */
 export interface PrCategoryBreakdownStats {
   readonly merged: number | null;
   readonly closedWithoutMerge: number | null;
   readonly acceptanceRate: number | null;
+  /** `merged + closedWithoutMerge`. Null when either input isn't a valid number. */
+  readonly totalDecided: number | null;
+  /**
+   * True when `totalDecided` is below `PR_CATEGORY_LOW_SAMPLE_THRESHOLD`, OR
+   * when `totalDecided` itself couldn't be determined — an unknown sample
+   * size is never presented as reliable either (#5901).
+   */
+  readonly lowSample: boolean;
 }
 
 /** Safe view model for the prCategoryBreakdown panel — null/empty fields when unavailable. */
@@ -288,10 +305,17 @@ function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMe
 /** Extracts the safe view model for a single by_category entry from the raw sensor entry. */
 function normalizePrCategoryStats(stats: unknown): PrCategoryBreakdownStats {
   const s = asRecord(stats);
+  const merged = readNumber(s.merged);
+  const closedWithoutMerge = readNumber(s.closed_without_merge);
+  const totalDecided =
+    merged !== null && closedWithoutMerge !== null ? merged + closedWithoutMerge : null;
+
   return {
-    merged: readNumber(s.merged),
-    closedWithoutMerge: readNumber(s.closed_without_merge),
+    merged,
+    closedWithoutMerge,
     acceptanceRate: readNumber(s.acceptance_rate),
+    totalDecided,
+    lowSample: totalDecided === null || totalDecided < PR_CATEGORY_LOW_SAMPLE_THRESHOLD,
   };
 }
 

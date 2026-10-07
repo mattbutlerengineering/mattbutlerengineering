@@ -2,21 +2,10 @@
 
 pnpm lint-staged
 
-# `check-adr` below reaches @mbe/agent-core through the CLI's module graph, and
-# packages/agent-core/dist is gitignored — so a fresh worktree has none and the
-# commit aborts with an opaque ERR_MODULE_NOT_FOUND stack trace that says
-# nothing about what to do. Rebuild it when it cannot be proven fresh: a cheap
-# mtime comparison that only builds when it has to (#3989).
-#
-# This is preparation, not a check. The helper never throws, but it exits 1 when
-# the dist still cannot be proven fresh — which matters for the PR-risk
-# classifier, not for check-adr. Letting that abort the commit would turn a
-# build-cache detail into a hard block, so it degrades to one actionable line
-# and check-adr stays the gate.
-node scripts/agent-core-build-freshness.mjs check >/dev/null 2>&1 ||
-  echo "pre-commit: could not prove packages/agent-core/dist is fresh. If check-adr fails below, run: pnpm build --filter @mbe/cli..." >&2
-
-pnpm --filter @mbe/cli start check-adr --staged
+# Standalone entry, not `start check-adr`: the full CLI imports workspace
+# packages whose gitignored dist/ a fresh worktree lacks, so every first commit
+# there failed with ERR_MODULE_NOT_FOUND (scripts/__tests__/precommit-check-adr.test.mjs).
+pnpm --filter @mbe/cli exec tsx src/check-adr.ts --staged
 
 # Secret scanning — skip if gitleaks is not installed
 if command -v gitleaks >/dev/null 2>&1; then

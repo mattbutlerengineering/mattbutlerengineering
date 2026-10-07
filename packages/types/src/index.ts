@@ -129,6 +129,16 @@ export type {
   BulkUpdateTablePositionsRequest,
 } from "./floor-plan.js";
 
+// SSE event catalog (shared server/client event vocabulary)
+export type {
+  SsePayloadMap,
+  SseEventName,
+  SseQueryKey,
+  SseEventDefinition,
+  SseEvent,
+} from "./sse-events.js";
+export { SSE_EVENT_CATALOG, SSE_EVENT_NAMES } from "./sse-events.js";
+
 // Error classes
 export { AppError } from "./errors.js";
 
@@ -137,3 +147,6 @@ export { toDateString } from "./date.js";
 
 // Zod Schemas
 export * from "./schemas/index.js";
+
+// Endpoint definitions (one statement per endpoint's wire contract)
+export * from "./endpoints/index.js";

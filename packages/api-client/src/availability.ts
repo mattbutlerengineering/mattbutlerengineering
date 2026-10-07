@@ -15,6 +15,11 @@ export interface GetTimeSlotsParams {
   duration?: number;
 }
 
+export interface GetVenueTimeSlotsParams {
+  date: string;
+  partySize: number;
+}
+
 export interface GetDatesParams {
   venueId: string;
   startDate: string;
@@ -31,6 +36,20 @@ export class AvailabilityClient {
   async getTimeSlots(params: GetTimeSlotsParams): Promise<TimeSlot[]> {
     const { venueId, ...query } = params;
     return this.client.getOne<TimeSlot[]>(`/api/v1/availability/${venueId}`, query as QueryParams);
+  }
+
+  /**
+   * Get available time slots for a venue addressed by slug — the public,
+   * unauthenticated route the anonymous booking widget must use. Unlike
+   * {@link getTimeSlots} (staff, JWT-gated), the server resolves the venue
+   * from the slug and returns only available slots; `duration` is not
+   * accepted because the venue's own turn-time rules decide it.
+   */
+  async getTimeSlotsForVenue(slug: string, params: GetVenueTimeSlotsParams): Promise<TimeSlot[]> {
+    return this.client.getOne<TimeSlot[]>(publicAvailabilityPath(slug), {
+      date: params.date,
+      partySize: params.partySize,
+    });
   }
 
   /**
@@ -209,6 +228,10 @@ export class HoldsClient {
     }
     return { "x-session-id": this.sessionId };
   }
+}
+
+function publicAvailabilityPath(slug: string): string {
+  return `/public/v1/venues/${slug}/availability`;
 }
 
 function publicHoldsPath(slug: string): string {

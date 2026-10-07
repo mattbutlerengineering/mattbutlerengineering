@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation } from "@mbe/types";
-import type * as DepositModule from "./deposit.js";
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
@@ -9,27 +8,6 @@ vi.mock("./reservation.js", () => ({
     getById: vi.fn(),
   },
 }));
-
-vi.mock("./deposit.js", async () => {
-  // The real error classes, not stand-ins: recordNoShow's `instanceof` checks
-  // are only meaningful if the class the test throws is the class it imports.
-  const actual = await vi.importActual<typeof DepositModule>("./deposit.js");
-  return {
-    DepositConcurrentUpdateError: actual.DepositConcurrentUpdateError,
-    DepositTransitionError: actual.DepositTransitionError,
-    DepositRefundLegIncompleteError: actual.DepositRefundLegIncompleteError,
-    DepositCaptureAmbiguousError: actual.DepositCaptureAmbiguousError,
-    DepositWrittenOffUncollectableError: actual.DepositWrittenOffUncollectableError,
-    depositService: {
-      getByReservationId: vi.fn(),
-      getById: vi.fn(),
-      forfeit: vi.fn(),
-      refundPartial: vi.fn(),
-      refund: vi.fn(),
-      verifyCaptureCompleted: vi.fn(),
-    },
-  };
-});
 
 vi.mock("./venue.js", () => ({
   venueService: {
@@ -39,17 +17,28 @@ vi.mock("./venue.js", () => ({
 
 import { reservationService } from "./reservation.js";
 import {
-  depositService,
   DepositConcurrentUpdateError,
   DepositRefundLegIncompleteError,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
+  type DepositService,
 } from "./deposit.js";
 import { StripeOperationError } from "./stripe.js";
 import { venueService } from "./venue.js";
 import type { VenuePolicy } from "./venue.js";
 import { recordNoShow } from "./reservation-no-show.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
+
+/** The injected DepositService fake (the real error classes come from ./deposit.js). */
+const depositService = {
+  getByReservationId: vi.fn(),
+  getById: vi.fn(),
+  forfeit: vi.fn(),
+  refundPartial: vi.fn(),
+  refund: vi.fn(),
+  verifyCaptureCompleted: vi.fn(),
+};
+const deposits = depositService as unknown as DepositService;
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
@@ -130,7 +119,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "no_show");
@@ -148,7 +137,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).not.toHaveBeenCalled();
@@ -170,7 +159,7 @@ describe("recordNoShow", () => {
     } as never);
     const logger = makeLogger();
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).not.toHaveBeenCalled();
@@ -194,7 +183,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     expect(depositService.forfeit).not.toHaveBeenCalled();
@@ -203,7 +192,7 @@ describe("recordNoShow", () => {
   it("returns a 409 failure BEFORE touching the deposit when the reservation cannot transition to NO_SHOW", async () => {
     const reservation = makeReservation({ status: "CANCELLED" });
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -230,7 +219,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -251,7 +240,7 @@ describe("recordNoShow", () => {
       status: "CONFIRMED",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -280,7 +269,7 @@ describe("recordNoShow", () => {
       status: "CONFIRMED",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -300,7 +289,7 @@ describe("recordNoShow", () => {
       new DepositCaptureAmbiguousError("dep_1", "processing", new Error("stripe boom"))
     );
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     expect(reservationService.update).not.toHaveBeenCalled();
@@ -318,7 +307,7 @@ describe("recordNoShow", () => {
       new DepositRefundLegIncompleteError("dep_1", new Error("stripe refund boom"))
     );
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -334,7 +323,7 @@ describe("recordNoShow", () => {
     vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(fullNoShowFeeVenuePolicy);
     vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -366,7 +355,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(depositService.getById).toHaveBeenCalledWith("dep_1");
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
@@ -397,7 +386,7 @@ describe("recordNoShow", () => {
       new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
     );
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -419,7 +408,7 @@ describe("recordNoShow", () => {
       status: "held",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -446,7 +435,7 @@ describe("recordNoShow", () => {
       status: "held",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -473,7 +462,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     expect(reservationService.update).toHaveBeenCalledWith("res_1", { status: "NO_SHOW" });
@@ -502,7 +491,7 @@ describe("recordNoShow", () => {
     } as never);
     const logger = makeLogger();
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -529,7 +518,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     // 60% of 10000 cents = 6000 fee, 4000 refunded — floored integer cents.
     expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 4000);
@@ -560,7 +549,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    await recordNoShow(reservation, makeLogger());
+    await recordNoShow(reservation, makeLogger(), deposits);
 
     // 60% no-show fee on 10000 cents = 6000 fee, 4000 refunded — NOT the 10%
     // late-cancellation fee (9000 cents refunded).
@@ -581,7 +570,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -603,7 +592,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(depositService.refund).toHaveBeenCalledWith("dep_1");
     expect(depositService.refundPartial).not.toHaveBeenCalled();
@@ -616,7 +605,7 @@ describe("recordNoShow", () => {
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(reservationService.update).mockResolvedValueOnce(null);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -643,7 +632,7 @@ describe("recordNoShow", () => {
       new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
     );
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     const [logContext] = vi.mocked(logger.error).mock.calls[0] as [Record<string, unknown>];
@@ -662,7 +651,7 @@ describe("recordNoShow", () => {
     );
     const logger = makeLogger();
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -693,7 +682,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 4000);
     expect(venueService.getPolicyById).not.toHaveBeenCalled();
@@ -709,7 +698,7 @@ describe("recordNoShow", () => {
     } as never);
     vi.mocked(depositService.refundPartial).mockRejectedValueOnce(new Error("stripe refund boom"));
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -737,7 +726,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -765,7 +754,7 @@ describe("recordNoShow", () => {
       )
     );
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -785,7 +774,7 @@ describe("recordNoShow", () => {
       refundAmountCents: null,
     } as never);
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     expect(depositService.refundPartial).not.toHaveBeenCalled();
@@ -810,7 +799,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -837,7 +826,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     // allowRecapture=true: a no-show retry over its own forfeited row (proven
     // by the persisted forfeitOrigin, #5744 LOW-A) is the ONE case where
@@ -877,7 +866,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    await recordNoShow(reservation, makeLogger());
+    await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
       "dep_1",
@@ -913,7 +902,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    await recordNoShow(reservation, makeLogger());
+    await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(depositService.verifyCaptureCompleted).toHaveBeenCalledWith(
       "dep_1",
@@ -932,7 +921,7 @@ describe("recordNoShow", () => {
     } as never);
     vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("concurrent");
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -951,7 +940,7 @@ describe("recordNoShow", () => {
     } as never);
     vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("in-flight");
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -973,7 +962,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     // allowRecapture=false: `applied` is only ever set by the separate staff
     // capture route — never the same operation as this no-show (#5722 R5 MED-1).
@@ -1008,7 +997,7 @@ describe("recordNoShow", () => {
       status: "CANCELLED",
     } as never);
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -1042,7 +1031,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(depositService.forfeit).toHaveBeenCalledWith("dep_1", "no_show");
     expect(result.success).toBe(true);
@@ -1064,7 +1053,7 @@ describe("recordNoShow", () => {
       status: "applied",
     } as never);
 
-    const result = await recordNoShow(reservation, makeLogger());
+    const result = await recordNoShow(reservation, makeLogger(), deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -1087,7 +1076,7 @@ describe("recordNoShow", () => {
       status: "NO_SHOW",
     } as never);
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -1104,7 +1093,7 @@ describe("recordNoShow", () => {
     } as never);
     vi.mocked(depositService.verifyCaptureCompleted).mockResolvedValueOnce("failed");
 
-    const result = await recordNoShow(reservation, logger);
+    const result = await recordNoShow(reservation, logger, deposits);
 
     expect(result.success).toBe(false);
     if (!result.success) {

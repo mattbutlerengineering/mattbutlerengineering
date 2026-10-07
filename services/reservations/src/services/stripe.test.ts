@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so these refs are available inside the vi.mock factory
-const { mockPaymentIntents, mockCustomers, mockWebhooks, mockRefunds } = vi.hoisted(() => ({
+const { mockPaymentIntents, mockCustomers, mockRefunds } = vi.hoisted(() => ({
   mockPaymentIntents: {
     create: vi.fn(),
     capture: vi.fn(),
@@ -10,9 +10,6 @@ const { mockPaymentIntents, mockCustomers, mockWebhooks, mockRefunds } = vi.hois
   },
   mockCustomers: {
     create: vi.fn(),
-  },
-  mockWebhooks: {
-    constructEvent: vi.fn(),
   },
   mockRefunds: {
     create: vi.fn(),
@@ -24,7 +21,6 @@ vi.mock("stripe", () => {
   class MockStripe {
     paymentIntents = mockPaymentIntents;
     customers = mockCustomers;
-    webhooks = mockWebhooks;
     refunds = mockRefunds;
     constructor(_key: string) {}
   }
@@ -400,39 +396,6 @@ describe("StripeService", () => {
           idempotencyKey: "res-1:customer",
         }
       );
-    });
-  });
-
-  describe("constructWebhookEvent", () => {
-    it("calls stripe.webhooks.constructEvent with payload and signature", () => {
-      const mockEvent = {
-        type: "payment_intent.succeeded",
-        data: { object: { id: "pi_test_123" } },
-      };
-      mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-
-      const result = stripeService.constructWebhookEvent(
-        Buffer.from("raw_payload"),
-        "stripe_signature_header",
-        "whsec_test_secret"
-      );
-
-      expect(mockWebhooks.constructEvent).toHaveBeenCalledWith(
-        Buffer.from("raw_payload"),
-        "stripe_signature_header",
-        "whsec_test_secret"
-      );
-      expect(result.type).toBe("payment_intent.succeeded");
-    });
-
-    it("throws if signature is invalid", () => {
-      mockWebhooks.constructEvent.mockImplementationOnce(() => {
-        throw new Error("No signatures found matching the expected signature for payload");
-      });
-
-      expect(() =>
-        stripeService.constructWebhookEvent(Buffer.from("raw"), "bad_sig", "whsec_test_secret")
-      ).toThrow("No signatures found");
     });
   });
 

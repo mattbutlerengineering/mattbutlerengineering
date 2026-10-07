@@ -161,5 +161,55 @@
       "review_coverage": "no-formal-review-stage",
       "no_formal_review_stage": true
     }
+  },
+  {
+    "timestamp": "2026-10-03T15:10:13.799Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 94,
+    "reviewers": [
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 1.43,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 1,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-10-04T15:53:03.183Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 92,
+    "reviewers": [
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 1.43,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 1,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
   }
 ]

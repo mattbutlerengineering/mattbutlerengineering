@@ -105,7 +105,7 @@ export function createNotifierRuntime(): NotifierRuntime {
     ): Promise<string> {
       return connect().schedule(jobType, payload, delayMs, jobId);
     },
-    async cancel(jobId: string): Promise<void> {
+    async cancel(jobId: string): Promise<boolean> {
       return connect().cancel(jobId);
     },
   };
