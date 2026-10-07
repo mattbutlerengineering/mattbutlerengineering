@@ -9,6 +9,7 @@ import {
   ReservationList,
   ActivityFeed,
   LapsingGuestsWidget,
+  DepositExposureWidget,
   StatRow,
 } from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -104,8 +105,15 @@ export function HomePage() {
         <ActivityFeed events={feedEvents} isConnected={isConnected} />
       </div>
 
-      <div className={styles.lapsingGuests}>
+      <div className={styles.dashboardWidgets}>
         <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+        {!isLoading && (
+          <DepositExposureWidget
+            depositAtRiskCount={stats.depositAtRiskCount}
+            noShowExposureCents={stats.noShowExposureCents}
+            currency={selectedVenue?.currencyCode ?? "USD"}
+          />
+        )}
       </div>
     </div>
   );

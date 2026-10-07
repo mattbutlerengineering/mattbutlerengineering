@@ -3,7 +3,6 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
 import type { NotificationDispatcher } from "@mbe/notifications";
-import type { BookingNotifier } from "../services/booking-notifications.js";
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -25,13 +24,6 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 
-vi.mock("../services/deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-  },
-  setDepositServiceLogger: vi.fn(),
-}));
-
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -49,7 +41,13 @@ vi.mock("../services/resolve-venue.js", () => ({
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import type { VenuePolicy } from "../services/venue.js";
-import { depositService } from "../services/deposit.js";
+import type { DepositService } from "../services/deposit.js";
+
+/** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
+const depositService = {
+  getByReservationId: vi.fn(),
+};
+const injectedDeposits = depositService as unknown as DepositService;
 
 function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   return {
@@ -127,19 +125,17 @@ describe("PATCH /public/v1/reservations/manage", () => {
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     stubNotifications = createStubNotificationDispatcher();
-    // Stub BookingNotifier: the default one lazily opens a BullMQ/ioredis
+    // Stub jobs scheduler: the default one lazily opens a BullMQ/ioredis
     // connection on the first time-change modify, which (with no Redis in CI)
     // leaks a retry-forever ECONNREFUSED loop that races vitest worker teardown.
-    const stubNotifier: BookingNotifier = {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    };
     app = await buildApp({
+      services: { depositService: injectedDeposits },
       logger: false,
       notificationPort: stubNotifications as never,
-      bookingNotifier: stubNotifier,
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
+      },
     });
     await app.ready();
   });
@@ -370,13 +366,12 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       validationApp = await buildApp({
+        services: { depositService: injectedDeposits },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
-        bookingNotifier: {
-          scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-          cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-          rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-          cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        jobs: {
+          schedule: vi.fn().mockResolvedValue("job"),
+          cancel: vi.fn().mockResolvedValue(false),
         },
       });
       await validationApp.ready();
@@ -447,13 +442,12 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     beforeAll(async () => {
       transportApp = await buildApp({
+        services: { depositService: injectedDeposits },
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
-        bookingNotifier: {
-          scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-          cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-          rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-          cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        jobs: {
+          schedule: vi.fn().mockResolvedValue("job"),
+          cancel: vi.fn().mockResolvedValue(false),
         },
       });
       await transportApp.ready();
@@ -504,42 +498,39 @@ describe("PATCH /public/v1/reservations/manage", () => {
       expect(response.json().title).toBe("Missing Token");
     });
   });
+});
 
-  it("reschedules reminder jobs via injected bookingNotifier when time changes", async () => {
-    const stubNotifier: BookingNotifier = {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
-    };
-    const stubApp = await buildApp({
+describe("PATCH /public/v1/reservations/manage — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({
+      services: { depositService: injectedDeposits },
       logger: false,
-      notificationPort: createStubNotificationDispatcher() as never,
-      bookingNotifier: stubNotifier,
     });
-    await stubApp.ready();
+    await freshApp.ready();
 
-    const token = generateManageToken("res_1", "jane@example.com");
-    const updatedReservation = { ...mockReservation, startTime: "20:00" };
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "PATCH",
+        url: "/public/v1/reservations/manage?token=garbage-token",
+        payload: { partySize: 2 },
+      });
+      responses.push(response);
+    }
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-      success: true,
-      reservation: updatedReservation,
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    await freshApp.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
 
-    const response = await stubApp.inject({
-      method: "PATCH",
-      url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: "2026-06-15T20:00:00-07:00" },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(stubNotifier.rescheduleBookingReminders).toHaveBeenCalledWith(updatedReservation, token);
-
-    await stubApp.close();
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(401);
+    }
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
   });
 });

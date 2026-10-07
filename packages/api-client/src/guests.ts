@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type {
   PaginatedResponse,
   Guest,
@@ -6,17 +6,12 @@ import type {
   LapsingGuest,
   CreateGuestRequest,
   UpdateGuestRequest,
+  FindOrCreateGuestBodySchema,
 } from "@mbe/types";
-import { GuestSchema, GuestSegmentSchema, paginatedResponseSchema } from "@mbe/types";
+import { guestsEndpoints } from "@mbe/types";
+import type { ApiClient } from "./client.js";
 
-export interface FindOrCreateGuestRequest {
-  venueId: string;
-  email?: string;
-  phone?: string;
-  name: string;
-  dietaryRestrictions?: string[];
-}
-import type { ApiClient, QueryParams } from "./client.js";
+export type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
 
 export interface ListGuestsParams {
   page?: number;
@@ -30,8 +25,11 @@ export interface SearchGuestsParams {
   hasNotVisitedInDays?: number;
 }
 
-const guestListSchema: z.ZodSchema<PaginatedResponse<Guest>> = paginatedResponseSchema(GuestSchema);
-
+/**
+ * Guests API. A thin facade over `guestsEndpoints`: every path, method and
+ * schema comes from the definition (`ApiClient.call`); this class only keeps
+ * the positional signatures callers use and unwraps `{ data }` envelopes.
+ */
 export class GuestsClient {
   constructor(private client: ApiClient) {}
 
@@ -39,88 +37,83 @@ export class GuestsClient {
    * List guests for a venue
    */
   async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
-    return this.client.get<PaginatedResponse<Guest>>(
-      "/api/v1/guests",
-      params as unknown as QueryParams,
-      guestListSchema
-    );
+    const { venueId, page, limit } = params;
+    return this.client.call(guestsEndpoints.list, {
+      query: { venueId, page: page?.toString(), limit: limit?.toString() },
+    });
   }
 
   /**
    * Search guests
    */
   async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
-    return this.client.get<PaginatedResponse<Guest>>(
-      "/api/v1/guests/search",
-      params as unknown as QueryParams,
-      guestListSchema
-    );
+    const { venueId, query, hasNotVisitedInDays } = params;
+    return this.client.call(guestsEndpoints.search, {
+      query: { venueId, query, hasNotVisitedInDays: hasNotVisitedInDays?.toString() },
+    });
   }
 
   /**
    * Get guest segments for a venue
    */
   async getSegments(venueId: string): Promise<GuestSegment[]> {
-    return this.client.getOne<GuestSegment[]>(
-      `/api/v1/guests/segments?venueId=${venueId}`,
-      undefined,
-      z.array(GuestSegmentSchema)
-    );
+    return (await this.client.call(guestsEndpoints.getSegments, { query: { venueId } })).data;
   }
 
   /**
    * Get a guest by ID
    */
   async get(id: string): Promise<Guest> {
-    return this.client.getOne<Guest>(`/api/v1/guests/${id}`, undefined, GuestSchema);
+    return (await this.client.call(guestsEndpoints.get, { params: { id } })).data;
   }
 
   /**
    * Create a new guest
    */
   async create(data: CreateGuestRequest): Promise<Guest> {
-    return this.client.postOne<Guest>("/api/v1/guests", data, GuestSchema);
+    return (await this.client.call(guestsEndpoints.create, { body: data })).data;
   }
 
   /**
    * Find or create a guest by email/phone
    */
   async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
-    return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data, GuestSchema);
+    return (await this.client.call(guestsEndpoints.findOrCreate, { body: data })).data;
   }
 
   /**
    * Update a guest
    */
   async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
-    return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data, GuestSchema);
+    return (await this.client.call(guestsEndpoints.update, { params: { id }, body: data })).data;
   }
 
   /**
    * Delete a guest
    */
   async delete(id: string): Promise<void> {
-    await this.client.delete(`/api/v1/guests/${id}`);
+    await this.client.call(guestsEndpoints.delete, { params: { id } });
   }
 
   /**
    * Add a staff note to a guest
    */
   async addNote(id: string, text: string): Promise<Guest> {
-    return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text }, GuestSchema);
+    return (await this.client.call(guestsEndpoints.addNote, { params: { id }, body: { text } }))
+      .data;
   }
 
   /**
    * Get lapsing guests for a venue (on-demand scan)
    */
   async getLapsing(venueId: string): Promise<LapsingGuest[]> {
-    return this.client.getOne<LapsingGuest[]>(`/api/v1/guests/lapsing?venueId=${venueId}`);
+    return (await this.client.call(guestsEndpoints.getLapsing, { query: { venueId } })).data;
   }
 
   /**
    * Send a win-back message to a guest
    */
   async sendWinBack(id: string): Promise<{ sent: boolean }> {
-    return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
+    return (await this.client.call(guestsEndpoints.sendWinBack, { params: { id } })).data;
   }
 }

@@ -6,6 +6,13 @@ export const StaffNoteSchema = z.object({
   createdAt: z.string(),
 });
 
+export const CommunicationPreferenceSchema = z.enum([
+  "email_only",
+  "sms_only",
+  "both",
+  "transactional_only",
+]);
+
 export const GuestSchema = z.object({
   id: z.string(),
   venueId: z.string(),
@@ -21,7 +28,7 @@ export const GuestSchema = z.object({
   lastVisit: z.string().nullable(),
   tags: z.array(z.string()).nullable(),
   dietaryRestrictions: z.array(z.string()).nullable(),
-  communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
+  communicationPreference: CommunicationPreferenceSchema,
   staffNotes: z.array(StaffNoteSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -44,3 +51,18 @@ export const GuestRecognitionSchema = z.object({
   visitCount: z.number(),
   hasPreferences: z.boolean(),
 });
+
+/** One row of GET /api/v1/guests/lapsing (guestService.scanLapsedGuests). */
+export const LapsingGuestSchema = z.object({
+  guestId: z.string(),
+  name: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  communicationPreference: CommunicationPreferenceSchema,
+  avgFrequencyDays: z.number(),
+  daysSinceLastVisit: z.number(),
+  daysOverdue: z.number(),
+});
+
+/** POST /api/v1/guests/:id/win-back result. */
+export const WinBackResultSchema = z.object({ sent: z.boolean() });

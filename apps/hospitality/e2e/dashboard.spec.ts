@@ -45,6 +45,31 @@ test.describe("CF-2: Dashboard morning load", () => {
     await expect(mockedPage.getByRole("button", { name: /Guest Lookup/i })).toBeVisible();
   });
 
+  test("deposit exposure widget renders with mocked deposit data", async ({ mockedPage }) => {
+    await mockedPage.goto("dashboard");
+
+    await expect(mockedPage.getByRole("heading", { name: "Deposit Exposure" })).toBeVisible();
+
+    // The widget's value/label pairs are sibling Text nodes within the same
+    // row (see DepositExposureWidget.tsx) with no other distinguishing
+    // selector, so the label anchors the lookup and the value is its
+    // preceding sibling.
+    const atRiskValue = mockedPage
+      .getByText("Deposits at risk")
+      .locator("xpath=preceding-sibling::*[1]");
+    await expect(atRiskValue).toHaveText("2");
+
+    const exposureValue = mockedPage
+      .getByText("No-show exposure")
+      .locator("xpath=preceding-sibling::*[1]");
+    await expect(exposureValue).toHaveText("$75.00");
+
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/dashboard-deposit-exposure.png",
+      fullPage: true,
+    });
+  });
+
   test("stats API 500 — page renders error state without crashing", async ({ mockedPage }) => {
     // Register the 500 override AFTER mockedPage has set up the default mocks.
     // Playwright resolves routes LIFO, so this handler wins over the existing 200 mock.

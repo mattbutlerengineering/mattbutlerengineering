@@ -155,6 +155,7 @@ flowchart TD
   route_contract --> api_client
   route_contract --> config
   route_contract --> reservations_service
+  route_contract --> types
   route_contract --> users_service
   scripts --> agent_core
   scripts --> gh_client

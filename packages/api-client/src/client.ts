@@ -1,4 +1,9 @@
-import type { ProblemDetails } from "@mbe/types";
+import type {
+  AnyEndpointDefinition,
+  EndpointInput,
+  EndpointSuccess,
+  ProblemDetails,
+} from "@mbe/types";
 import { z } from "zod";
 import { retry } from "./retry.js";
 import { parseProblemDetails } from "./problem-details.js";
@@ -16,6 +21,25 @@ export function buildQueryString(params: QueryParams): string {
   }
   const s = sp.toString();
   return s ? `?${s}` : "";
+}
+
+/** Methods that always carry a JSON body (Fastify rejects an empty one, #4826). */
+const BODY_METHODS = new Set(["POST", "PATCH", "PUT"]);
+
+/** Replace each `:param` segment with its URL-encoded value. */
+function interpolatePath(path: string, params: Record<string, unknown> | undefined): string {
+  return path.replace(/:([A-Za-z0-9_]+)/g, (_segment, name: string) =>
+    encodeURIComponent(String(params?.[name]))
+  );
+}
+
+/** The single 2xx body schema of a definition (`undefined` for a body-less 204). */
+function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
+  for (const [status, response] of Object.entries(def.responses)) {
+    const code = Number(status);
+    if (code >= 200 && code < 300 && "body" in response) return response.body ?? undefined;
+  }
+  return undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -136,6 +160,41 @@ export class ApiClient {
     }
 
     return data as T;
+  }
+
+  /**
+   * Execute one endpoint definition (`@mbe/types` `defineEndpoint`):
+   * interpolates `:params` (URL-encoded), appends `query` via
+   * {@link buildQueryString}, serializes a declared `body` on any method
+   * (`{}` for a body-less POST/PATCH/PUT), takes the method — and therefore the retry policy —
+   * from the definition, and validates the success body with the
+   * definition's own schema. Returns the full wire body (no `.data` unwrap);
+   * `undefined` for a 204.
+   */
+  call<D extends AnyEndpointDefinition>(
+    def: D,
+    input: EndpointInput<D>,
+    override?: PerRequestOptions
+  ): Promise<EndpointSuccess<D>> {
+    const { params, query, body } = input as {
+      params?: Record<string, unknown>;
+      query?: QueryParams;
+      body?: unknown;
+    };
+    const path = `${interpolatePath(def.path, params)}${query ? buildQueryString(query) : ""}`;
+    // A declared body is sent on any method (a DELETE can carry one); a
+    // body-less POST/PATCH/PUT still sends `{}`.
+    const options: RequestOptions = def.body
+      ? { method: def.method, body: JSON.stringify(body) }
+      : BODY_METHODS.has(def.method)
+        ? { method: def.method, body: "{}" }
+        : { method: def.method };
+    return this.request(
+      path,
+      options,
+      successBodySchema(def) as z.ZodSchema<EndpointSuccess<D>> | undefined,
+      override
+    );
   }
 
   get<T>(

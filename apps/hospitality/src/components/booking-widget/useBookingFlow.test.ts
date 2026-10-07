@@ -9,7 +9,7 @@ import type {
 } from "@mbe/types";
 import { toDateString } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
-import { useBookingFlow, deriveStepKeys } from "./useBookingFlow.js";
+import { useBookingFlow, deriveStepKeys, MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ApiClientError } from "@mbe/api-client";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 
@@ -103,7 +103,11 @@ function makePublicVenueConfig(overrides?: Partial<PublicVenueConfig>): PublicVe
 function makeFakeApi() {
   return {
     availability: {
+      // Authenticated staff route (/api/v1/availability/:venueId) — present so
+      // tests can assert the widget never calls it; anonymous guests get a 401.
       getTimeSlots: vi.fn().mockResolvedValue([]),
+      // Public, slug-scoped route (/public/v1/venues/:slug/availability).
+      getTimeSlotsForVenue: vi.fn().mockResolvedValue([]),
     },
     holds: {
       // Staff surface (/api/v1/holds) — present so tests can assert the widget
@@ -234,25 +238,26 @@ describe("useBookingFlow", () => {
   describe("transition: date-party -> time-slot (slot fetch owned by the hook)", () => {
     it("goToTimeSlot transitions step and fetches slots via the injected api client", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockResolvedValue([mockSlot, mockSlot2]);
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot, mockSlot2]);
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => result.current.actions.goToTimeSlot());
 
       expect(result.current.state).toBe("time-slot");
-      expect(fakeApi.availability.getTimeSlots).toHaveBeenCalledWith({
-        venueId: "v1",
+      expect(fakeApi.availability.getTimeSlotsForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, {
         date: "2026-05-20",
         partySize: 2,
       });
+      // The staff route 401s for anonymous guests — the widget must never call it.
+      expect(fakeApi.availability.getTimeSlots).not.toHaveBeenCalled();
       expect(result.current.data.slots).toEqual([mockSlot, mockSlot2]);
       expect(result.current.data.slotsLoading).toBe(false);
     });
 
     it("goToTimeSlot sets slotsLoading true while the fetch is pending", () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockReturnValue(new Promise<TimeSlot[]>(() => {}));
+      fakeApi.availability.getTimeSlotsForVenue.mockReturnValue(new Promise<TimeSlot[]>(() => {}));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -263,7 +268,7 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot filters out unavailable slots", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockResolvedValue([
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([
         mockSlot,
         { time: "2026-05-20T20:00:00", available: false },
       ]);
@@ -277,8 +282,8 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot sets slotsError when the fetch rejects", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockRejectedValue(
-        serverError("GET", "/api/v1/availability/v1")
+      fakeApi.availability.getTimeSlotsForVenue.mockRejectedValue(
+        serverError("GET", `/public/v1/venues/${DEFAULT_SLUG}/availability`)
       );
       const { result } = renderBookingFlow(fakeApi);
 
@@ -288,6 +293,19 @@ describe("useBookingFlow", () => {
       expect(result.current.data.slotsError).toBe(ERROR_COPY.serverError.detail);
       expect(result.current.data.slotsError).not.toContain("failed: 500");
       expect(result.current.data.slotsLoading).toBe(false);
+    });
+
+    it("goToTimeSlot without a venueSlug reports the dead end and calls no availability route", async () => {
+      const fakeApi = makeFakeApi();
+      const { result } = renderBookingFlow(fakeApi, { venueSlug: null });
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => result.current.actions.goToTimeSlot());
+
+      expect(result.current.data.slotsError).toBe(MISSING_VENUE_SLUG_ERROR);
+      expect(result.current.data.slotsLoading).toBe(false);
+      expect(fakeApi.availability.getTimeSlots).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
     });
 
     it("goToTimeSlot clears selectedSlot", async () => {
@@ -794,7 +812,7 @@ describe("useBookingFlow", () => {
       });
       expect(result.current.data.hold).toEqual(soonToExpireHold);
 
-      fakeApi.availability.getTimeSlots.mockResolvedValue([mockSlot2]);
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot2]);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(6_000);
@@ -816,7 +834,7 @@ describe("useBookingFlow", () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(fakeApi.availability.getTimeSlots).not.toHaveBeenCalled();
+      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
       expect(result.current.state).toBe("date-party");
     });
 
@@ -848,7 +866,7 @@ describe("useBookingFlow", () => {
   describe("headless orchestration: slots -> Hold -> confirm through the hook (no component render)", () => {
     it("drives the full guest flow via a fake api client injected as a dependency", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockResolvedValue([mockSlot]);
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot]);
       const { result } = renderBookingFlow(fakeApi, { venueId: "venue-headless" });
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -871,7 +889,7 @@ describe("useBookingFlow", () => {
 
     it("Waitlist branch: no slot available routes to waitlist-join, still driven headlessly", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockResolvedValue([]);
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([]);
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
