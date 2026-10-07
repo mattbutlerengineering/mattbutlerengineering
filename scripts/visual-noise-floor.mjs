@@ -224,7 +224,7 @@ export function shiftPngChannels(buffer, amplitude) {
     out.data[i + 1] = Math.min(255, out.data[i + 1] + amplitude);
     out.data[i + 2] = Math.min(255, out.data[i + 2] + amplitude);
   }
-  return PNG.sync.write(out);
+  return PNG.sync.write(out, { filterType: 0, deflateLevel: 1 });
 }
 
 /**

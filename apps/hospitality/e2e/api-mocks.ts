@@ -499,6 +499,62 @@ export async function mockApi(page: Page): Promise<void> {
     route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
   );
 
+  // Deposits — backs the dashboard's deposit-exposure stats
+  // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
+  // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
+  // the shape computeDepositStats expects.
+  function depositsFixture(): Array<Record<string, unknown>> {
+    const now = new Date().toISOString();
+    return [
+      {
+        id: "dep_e2e_001",
+        reservationId: "res_e2e_001",
+        amountCents: 5000,
+        currency: "USD",
+        status: "pending",
+        stripePaymentIntentId: null,
+        stripeCustomerId: null,
+        heldAt: null,
+        appliedAt: null,
+        refundedAt: null,
+        forfeitedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: "dep_e2e_002",
+        reservationId: "res_e2e_002",
+        amountCents: 3000,
+        currency: "USD",
+        status: "held",
+        stripePaymentIntentId: "pi_e2e_002",
+        stripeCustomerId: "cus_e2e_002",
+        heldAt: now,
+        appliedAt: null,
+        refundedAt: null,
+        forfeitedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: "dep_e2e_003",
+        reservationId: "res_e2e_003",
+        amountCents: 7500,
+        currency: "USD",
+        status: "forfeited",
+        stripePaymentIntentId: "pi_e2e_003",
+        stripeCustomerId: "cus_e2e_003",
+        heldAt: now,
+        appliedAt: null,
+        refundedAt: null,
+        forfeitedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+  await page.route("**/api/v1/deposits?*", (route) => jsonOk(route, depositsFixture()));
+
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,
   // which layers on top of a base fixture). POST adds a "waiting" entry with
