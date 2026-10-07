@@ -69,7 +69,11 @@ export type VenueSource<RG extends RouteGenericInterface, E> =
   | {
       readonly entity: EntityKind;
       readonly key: (request: RequestOf<RG>) => unknown;
-      /** Runs INSIDE the venue context; `null` answers 404 `notFound`. */
+      /**
+       * Runs INSIDE the venue context; `null` answers 404 `notFound`. Must be a
+       * read with no side effects: for owner access it runs before the
+       * ownership decision, so a non-owner reaches it.
+       */
       readonly load?: (key: string) => Promise<E | null>;
       /** 404 `detail`, today's exact text for that route. */
       readonly notFound: string;
@@ -177,7 +181,8 @@ function describe<RG extends RouteGenericInterface, E>(
 function readField(request: FastifyRequest, { from, field }: DirectSource): string | null {
   const container = request[from] as Record<string, unknown> | null | undefined;
   const value = container?.[field];
-  return typeof value === "string" ? value : null;
+  // "" is no venue: treating it as one would skip the missing-key cell.
+  return typeof value === "string" && value !== "" ? value : null;
 }
 
 function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply {

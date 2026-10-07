@@ -188,6 +188,16 @@ describe("venueScoped — direct sources (member)", () => {
     });
   });
 
+  it("an empty-string key counts as missing", async () => {
+    const a = await app();
+    const member = await a.inject({ url: "/q?venueId=", headers: { "x-user": "member" } });
+    expect(member.statusCode).toBe(403);
+
+    const admin = await a.inject({ url: "/q?venueId=", headers: { "x-user": "admin" } });
+    expect(admin.statusCode).toBe(400);
+    expect(admin.json()).toMatchObject({ detail: "venueId is required" });
+  });
+
   it("a non-string key counts as missing", async () => {
     const a = await app();
     const res = await a.inject({

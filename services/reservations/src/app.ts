@@ -111,9 +111,6 @@ export interface ReservationsAppOptions extends AppOptions {
   services?: Partial<DomainServices>;
 }
 
-/**
- * Creates the Fastify application instance.
- */
 /** A view of `map` with no mutators, so callers cannot rewrite the registry. */
 function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
   const view: ReadonlyMap<K, V> = {
@@ -132,6 +129,9 @@ function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
   return view;
 }
 
+/**
+ * Creates the Fastify application instance.
+ */
 export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
   // Validate Stripe secrets at startup — warns (does not throw) if missing so an
   // unconfigured optional deposits feature never takes down the whole service.
