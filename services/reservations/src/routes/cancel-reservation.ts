@@ -6,7 +6,6 @@ import {
   manageProblemDetails,
   reservationNotFoundProblem,
 } from "./load-reservation-for-manage.js";
-import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
 
@@ -36,15 +35,14 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
         }
 
-        const result = await cancelReservationWithDeposit(
-          preamble.reservation,
-          request.manageToken,
-          { bookingNotifier: fastify.bookingNotifier, logger: request.log },
-          {
-            cancellationReason: request.body?.cancellationReason,
-            cancellationNote: request.body?.cancellationNote,
-          }
-        );
+        const result = await fastify.transitions.cancel(preamble.reservation, {
+          door: "guest-manage",
+          initiator: "guest",
+          manageToken: request.manageToken,
+          reason: request.body?.cancellationReason,
+          note: request.body?.cancellationNote,
+          log: request.log,
+        });
 
         if (!result.success) {
           return reply

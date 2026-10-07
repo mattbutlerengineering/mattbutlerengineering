@@ -555,6 +555,20 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       },
     });
     expectOk(res, "create hold");
+    const crossVenueTable = await asAdmin(ctx, {
+      method: "POST",
+      url: "/api/v1/holds",
+      payload: {
+        venueId: ctx.venueA.id,
+        date: "2026-10-03",
+        time: "2026-10-03T18:00:00Z",
+        partySize: 2,
+        tableId: ctx.tableB,
+      },
+    });
+    expect(crossVenueTable.statusCode, `venue A + venue-B table: ${crossVenueTable.body}`).toBe(
+      403
+    );
   }),
   "GET /api/v1/holds/:id": notRls(async (ctx) => {
     expectDenied(
@@ -1113,6 +1127,15 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "member venue B"
     );
+    const crossVenueTable = await asMember(ctx, {
+      method: "POST",
+      url: "/api/v1/reservations/walk-in",
+      payload: { venueId: ctx.venueA.id, partySize: 2, tableId: ctx.tableB },
+    });
+    expect(
+      crossVenueTable.statusCode,
+      `member venue A + venue-B table: ${crossVenueTable.body}`
+    ).toBe(403);
   }),
   // Reservation `/:id` routes authorize owner-or-admin
   // (`requireReservationOwnerOrAdmin`): admin always short-circuits past the
@@ -1198,21 +1221,53 @@ const reservationFixtures: Record<string, RouteFixture> = {
     );
   }),
   "POST /api/v1/reservations": ok(async (ctx) => {
-    const res = await asAdmin(ctx, {
+    const bodyFor = (venueId: string, tableId: string) => ({
+      date: "2026-10-06",
+      startTime: "2026-10-06T18:00:00Z",
+      endTime: "2026-10-06T20:00:00Z",
+      partySize: 2,
+      tableId,
+      venueId,
+      guestName: "RLS Sweep Guest",
+      guestEmail: `rls-sweep-create-${randomUUID()}@example.com`,
+    });
+    expectOk(
+      await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: bodyFor(ctx.venueA.id, ctx.tableA),
+      }),
+      "admin venue A (body-scoped, requireVenueAccess)"
+    );
+    // A fresh table so the member's create does not conflict with the admin's slot.
+    const memberTableA = await createDisposableTable(ctx, ctx.venueA.id);
+    expectOk(
+      await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: bodyFor(ctx.venueA.id, memberTableA),
+      }),
+      "member venue A"
+    );
+    expectDenied(
+      await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: bodyFor(ctx.venueB.id, ctx.tableB),
+      }),
+      "member venue B"
+    );
+    // Membership of the body's venue is not enough: the table must be that
+    // venue's too, refused before any conflict check could answer for venue B.
+    const crossVenueTable = await asMember(ctx, {
       method: "POST",
       url: "/api/v1/reservations",
-      payload: {
-        date: "2026-10-06",
-        startTime: "2026-10-06T18:00:00Z",
-        endTime: "2026-10-06T20:00:00Z",
-        partySize: 2,
-        tableId: ctx.tableA,
-        venueId: ctx.venueA.id,
-        guestName: "RLS Sweep Guest",
-        guestEmail: `rls-sweep-create-${randomUUID()}@example.com`,
-      },
+      payload: bodyFor(ctx.venueA.id, ctx.tableB),
     });
-    expectOk(res, "create reservation (body-scoped, open route)");
+    expect(
+      crossVenueTable.statusCode,
+      `member venue A + venue-B table: ${crossVenueTable.body}`
+    ).toBe(403);
   }),
 };
 

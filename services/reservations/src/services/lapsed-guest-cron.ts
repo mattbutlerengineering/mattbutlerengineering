@@ -3,7 +3,6 @@ import type { LapsingGuest } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import type { LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
-import { emitLapsingGuests } from "./events.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 const DEFAULT_STARTUP_DELAY_MS = 60_000;
@@ -15,6 +14,8 @@ const LAPSE_MIN_VISIT_COUNT = 3;
 /** Config using injected prisma client — qualification query lives here. */
 export interface LapsedGuestMonitorPrismaConfig {
   prisma: PrismaClient;
+  /** Publishes a venue's lapsing guests to live SSE clients (the app's live emitter). */
+  emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"];
   startupDelayMs?: number;
   intervalMs?: number;
 }
@@ -136,7 +137,8 @@ export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
 }
 
 function buildPrismaCallbacks(
-  prisma: PrismaClient
+  prisma: PrismaClient,
+  emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
 ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
   return {
     getVenueIds: () => getAllVenueIds(prisma),
@@ -152,7 +154,7 @@ export function createLapsedGuestMonitor(config: LapsedGuestMonitorConfig): Laps
   const { startupDelayMs = DEFAULT_STARTUP_DELAY_MS, intervalMs = DEFAULT_INTERVAL_MS } = config;
 
   const { getVenueIds, runScan } = isPrismaConfig(config)
-    ? buildPrismaCallbacks(config.prisma)
+    ? buildPrismaCallbacks(config.prisma, config.emitLapsingGuests)
     : config;
 
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;

@@ -424,7 +424,6 @@
     }
     export function useBookingFlow({
       api,
-      venueId,
       venueSlug,
       stripePublishableKey,
       onHoldChange,
@@ -455,15 +454,18 @@
       // Fetch available time slots for the currently selected date/party size.
       // Owned here (not the component) so it can be driven headlessly and reused
       // by both goToTimeSlot and the hold-expiry timer below.
+      // Slots come from the slug-scoped public route: the widget's api client is
+      // tokenless, so the staff /api/v1/availability route would 401 every guest.
+      // goToTimeSlot reports the missing-slug dead end before calling this, so the
+      // slug guard is just for the type.
       const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-        if (!flowState.data.selectedDate) return [];
-        const response = await api.availability.getTimeSlots({
-          venueId,
+        if (!flowState.data.selectedDate || !venueSlug) return [];
+        const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
           date: flowState.data.selectedDate,
           partySize: flowState.data.partySize,
         });
         return response.filter((slot) => slot.available);
-      }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
+      }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
     
       // Release a hold by ID — errors are ignored, the hold expires anyway.
       // Goes through the slug-scoped public route (#4487); a hold can only exist
@@ -544,12 +546,16 @@
           releaseHold(holdId);
         }
         dispatch({ type: "GO_TO_TIME_SLOT" });
+        if (!venueSlug) {
+          dispatch({ type: "SET_SLOTS_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+          return;
+        }
         fetchSlots()
           .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
           .catch((err: unknown) => {
             dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
-      }, [flowState.data.hold, releaseHold, fetchSlots]);
+      }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug]);
     
       const goToDateParty = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -1350,6 +1356,62 @@
         route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
       );
     
+      // Deposits — backs the dashboard's deposit-exposure stats
+      // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
+      // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
+      // the shape computeDepositStats expects.
+      function depositsFixture(): Array<Record<string, unknown>> {
+        const now = new Date().toISOString();
+        return [
+          {
+            id: "dep_e2e_001",
+            reservationId: "res_e2e_001",
+            amountCents: 5000,
+            currency: "USD",
+            status: "pending",
+            stripePaymentIntentId: null,
+            stripeCustomerId: null,
+            heldAt: null,
+            appliedAt: null,
+            refundedAt: null,
+            forfeitedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: "dep_e2e_002",
+            reservationId: "res_e2e_002",
+            amountCents: 3000,
+            currency: "USD",
+            status: "held",
+            stripePaymentIntentId: "pi_e2e_002",
+            stripeCustomerId: "cus_e2e_002",
+            heldAt: now,
+            appliedAt: null,
+            refundedAt: null,
+            forfeitedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: "dep_e2e_003",
+            reservationId: "res_e2e_003",
+            amountCents: 7500,
+            currency: "USD",
+            status: "forfeited",
+            stripePaymentIntentId: "pi_e2e_003",
+            stripeCustomerId: "cus_e2e_003",
+            heldAt: now,
+            appliedAt: null,
+            refundedAt: null,
+            forfeitedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+      }
+      await page.route("**/api/v1/deposits?*", (route) => jsonOk(route, depositsFixture()));
+    
       // Waitlist
       // Per-context stateful store, empty at session start (unlike reservations,
       // which layers on top of a base fixture). POST adds a "waiting" entry with
@@ -1589,6 +1651,13 @@
         });
       });
       await page.route("**/api/v1/availability/*", (route) =>
+        jsonResponse(route, "availability-slots")
+      );
+      // Public (slug-scoped) availability — the booking widget's api client is
+      // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
+      // (the staff route above 401s for guests). The `**/public/v1/venues/*`
+      // config glob below never reaches it (`*` never crosses `/`).
+      await page.route("**/public/v1/venues/*/availability*", (route) =>
         jsonResponse(route, "availability-slots")
       );
     
@@ -2094,6 +2163,15 @@
       return rest as unknown as TParams;
     }
   </file>
+  <file path="src/hooks/sse-query-keys.ts">
+    export const SSE_INVALIDATION_QUERY_KEYS = [
+      RESERVATIONS_QUERY_KEY,
+      TABLES_QUERY_KEY,
+      FLOOR_PLANS_QUERY_KEY,
+      FLOOR_PLAN_QUERY_KEY,
+      LAPSING_GUESTS_QUERY_KEY,
+    ] as const satisfies readonly SseQueryKey[];
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
@@ -2441,6 +2519,8 @@
       cancellationTrend: "up" | "down" | "neutral";
       waitlistCount: number;
       longestWaitMinutes: number;
+      depositAtRiskCount: number;
+      noShowExposureCents: number;
     }
     export interface UseDashboardStatsQueryResult {
       reservations: readonly Reservation[];
@@ -2449,8 +2529,12 @@
       error: Error | null;
       refetch: () => void;
     }
-    type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    type ReservationStats = Omit<
+      DashboardStats,
+      "waitlistCount" | "longestWaitMinutes" | "depositAtRiskCount" | "noShowExposureCents"
+    >;
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
       return toDateString(new Date());
     }
@@ -2490,6 +2574,17 @@
         longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
       };
     }
+    export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
+      if (deposits.length === 0) return FALLBACK_DEPOSIT_STATS;
+    
+      return {
+        depositAtRiskCount: deposits.filter((d) => d.status === "pending" || d.status === "held")
+          .length,
+        noShowExposureCents: deposits
+          .filter((d) => d.status === "forfeited")
+          .reduce((sum, d) => sum + d.amountCents, 0),
+      };
+    }
     export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
       const { selectedVenueId } = useVenue();
       const api = useApiClient();
@@ -2513,12 +2608,20 @@
         enabled: Boolean(selectedVenueId),
       });
     
+      const depositsQuery = useQuery({
+        queryKey: [DEPOSITS_QUERY_KEY, { date: today, venueId: selectedVenueId }],
+        queryFn: () => api.deposits.listByVenueAndDate(selectedVenueId ?? "", today),
+        enabled: Boolean(selectedVenueId),
+      });
+    
       const reservations = reservationsQuery.data ?? [];
       const waitlistEntries = waitlistQuery.data ?? [];
+      const deposits = depositsQuery.data ?? [];
     
       const stats: DashboardStats = {
         ...computeStatsFromReservations(reservations),
         ...computeWaitlistStats(waitlistEntries),
+        ...computeDepositStats(deposits),
       };
     
       return {

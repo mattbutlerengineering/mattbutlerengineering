@@ -1,0 +1,949 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`guests OpenAPI baseline > matches the recorded swagger paths for the guests operations 1`] = `
+{
+  "/api/v1/guests/": {
+    "get": {
+      "description": "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+      "operationId": "listGuests",
+      "parameters": [
+        {
+          "description": "Venue ID to list guests for",
+          "in": "query",
+          "name": "venueId",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+        {
+          "description": "Page number (1-indexed)",
+          "in": "query",
+          "name": "page",
+          "required": true,
+          "schema": {
+            "default": "1",
+            "type": "string",
+          },
+        },
+        {
+          "description": "Number of guests per page (max 100)",
+          "in": "query",
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "default": "10",
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Successful response with paginated guest list",
+                "properties": {
+                  "data": {
+                    "items": {
+                      "$ref": "#/components/schemas/def-7",
+                    },
+                    "type": "array",
+                  },
+                  "pagination": {
+                    "properties": {
+                      "hasNext": {
+                        "type": "boolean",
+                      },
+                      "hasPrev": {
+                        "type": "boolean",
+                      },
+                      "limit": {
+                        "type": "number",
+                      },
+                      "page": {
+                        "type": "number",
+                      },
+                      "total": {
+                        "type": "number",
+                      },
+                      "totalPages": {
+                        "type": "number",
+                      },
+                    },
+                    "type": "object",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Successful response with paginated guest list",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "List guests for a venue",
+      "tags": [
+        "Guests",
+      ],
+    },
+    "post": {
+      "description": "Create a new guest. Requires authentication.",
+      "operationId": "createGuest",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "dietaryRestrictions": {
+                  "description": "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+                "email": {
+                  "description": "Guest email",
+                  "format": "email",
+                  "type": "string",
+                },
+                "name": {
+                  "description": "Guest name",
+                  "type": "string",
+                },
+                "notes": {
+                  "description": "Internal notes",
+                  "type": "string",
+                },
+                "phone": {
+                  "description": "Guest phone",
+                  "type": "string",
+                },
+                "tags": {
+                  "description": "Tags for categorization",
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+                "venueId": {
+                  "description": "Venue ID",
+                  "type": "string",
+                },
+              },
+              "required": [
+                "venueId",
+                "name",
+              ],
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "201": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Guest created",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/def-7",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Guest created",
+        },
+        "400": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Invalid request or duplicate email/phone",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Create a new guest",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/find-or-create": {
+    "post": {
+      "description": "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+      "operationId": "findOrCreateGuest",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "dietaryRestrictions": {
+                  "description": "Dietary restrictions to merge with existing guest profile",
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+                "email": {
+                  "description": "Guest email (used for matching)",
+                  "format": "email",
+                  "type": "string",
+                },
+                "name": {
+                  "description": "Guest name",
+                  "type": "string",
+                },
+                "phone": {
+                  "description": "Guest phone (used for matching if email not found)",
+                  "type": "string",
+                },
+                "venueId": {
+                  "description": "Venue ID",
+                  "type": "string",
+                },
+              },
+              "required": [
+                "venueId",
+                "name",
+              ],
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Guest found or created",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/def-7",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Guest found or created",
+        },
+        "400": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Invalid request",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Find or create guest",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/lapsing": {
+    "get": {
+      "description": "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+      "operationId": "getLapsingGuests",
+      "parameters": [
+        {
+          "description": "Venue ID to scan",
+          "in": "query",
+          "name": "venueId",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Lapsing guests list",
+                "properties": {
+                  "data": {
+                    "items": {
+                      "properties": {
+                        "avgFrequencyDays": {
+                          "type": "number",
+                        },
+                        "communicationPreference": {
+                          "enum": [
+                            "email_only",
+                            "sms_only",
+                            "both",
+                            "transactional_only",
+                          ],
+                          "type": "string",
+                        },
+                        "daysOverdue": {
+                          "type": "number",
+                        },
+                        "daysSinceLastVisit": {
+                          "type": "number",
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "guestId": {
+                          "type": "string",
+                        },
+                        "name": {
+                          "type": "string",
+                        },
+                        "phone": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                      },
+                      "type": "object",
+                    },
+                    "type": "array",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Lapsing guests list",
+        },
+        "400": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Default Response",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Default Response",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Get lapsing guests",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/search": {
+    "get": {
+      "description": "Search guests by name, email, phone, or filter by tags and visit history.",
+      "operationId": "searchGuests",
+      "parameters": [
+        {
+          "description": "Venue ID to search within",
+          "in": "query",
+          "name": "venueId",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+        {
+          "description": "Search term (matches name, email, or phone)",
+          "in": "query",
+          "name": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+          },
+        },
+        {
+          "description": "Comma-separated tags to filter by",
+          "in": "query",
+          "name": "tags",
+          "required": false,
+          "schema": {
+            "type": "string",
+          },
+        },
+        {
+          "description": "Filter guests who haven't visited in X days",
+          "in": "query",
+          "name": "hasNotVisitedInDays",
+          "required": false,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Search results",
+                "properties": {
+                  "data": {
+                    "items": {
+                      "$ref": "#/components/schemas/def-7",
+                    },
+                    "type": "array",
+                  },
+                  "pagination": {
+                    "properties": {
+                      "hasNext": {
+                        "type": "boolean",
+                      },
+                      "hasPrev": {
+                        "type": "boolean",
+                      },
+                      "limit": {
+                        "type": "number",
+                      },
+                      "page": {
+                        "type": "number",
+                      },
+                      "total": {
+                        "type": "number",
+                      },
+                      "totalPages": {
+                        "type": "number",
+                      },
+                    },
+                    "type": "object",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Search results",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Search guests",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/segments": {
+    "get": {
+      "description": "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
+      "operationId": "getGuestSegments",
+      "parameters": [
+        {
+          "description": "Venue ID to get segments for",
+          "in": "query",
+          "name": "venueId",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Guest segments",
+                "properties": {
+                  "data": {
+                    "items": {
+                      "$ref": "#/components/schemas/def-8",
+                    },
+                    "type": "array",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Guest segments",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Get guest segments",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/{id}": {
+    "delete": {
+      "description": "Delete a guest. Will fail if guest has reservations.",
+      "operationId": "deleteGuest",
+      "parameters": [
+        {
+          "description": "Guest ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "204": {
+          "description": "Guest deleted",
+        },
+        "404": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Guest not found",
+        },
+        "409": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Guest has reservations",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Delete a guest",
+      "tags": [
+        "Guests",
+      ],
+    },
+    "get": {
+      "description": "Retrieve a single guest by ID.",
+      "operationId": "getGuestById",
+      "parameters": [
+        {
+          "description": "Guest ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Guest found",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/def-7",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Guest found",
+        },
+        "404": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Guest not found",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Get guest by ID",
+      "tags": [
+        "Guests",
+      ],
+    },
+    "patch": {
+      "description": "Update guest information. Requires authentication.",
+      "operationId": "updateGuest",
+      "parameters": [
+        {
+          "description": "Guest ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "dietaryRestrictions": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string",
+                      },
+                      "type": "array",
+                    },
+                    {
+                      "type": "null",
+                    },
+                  ],
+                  "description": "Dietary restrictions (replaces existing list)",
+                },
+                "email": {
+                  "anyOf": [
+                    {
+                      "format": "email",
+                      "type": "string",
+                    },
+                    {
+                      "type": "null",
+                    },
+                  ],
+                },
+                "name": {
+                  "type": "string",
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null",
+                  ],
+                },
+                "phone": {
+                  "type": [
+                    "string",
+                    "null",
+                  ],
+                },
+                "tags": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string",
+                      },
+                      "type": "array",
+                    },
+                    {
+                      "type": "null",
+                    },
+                  ],
+                },
+              },
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Guest updated",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/def-7",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Guest updated",
+        },
+        "404": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Guest not found",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Update a guest",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/{id}/notes": {
+    "post": {
+      "description": "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+      "operationId": "addGuestNote",
+      "parameters": [
+        {
+          "description": "Guest ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "text": {
+                  "description": "Note text",
+                  "minLength": 1,
+                  "type": "string",
+                },
+              },
+              "required": [
+                "text",
+              ],
+              "type": "object",
+            },
+          },
+        },
+        "required": true,
+      },
+      "responses": {
+        "201": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Note appended; returns updated guest",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/def-7",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Note appended; returns updated guest",
+        },
+        "400": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Invalid request",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Authentication required",
+        },
+        "404": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Guest not found",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Add a staff note to a guest",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+  "/api/v1/guests/{id}/win-back": {
+    "post": {
+      "description": "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+      "operationId": "sendGuestWinBack",
+      "parameters": [
+        {
+          "description": "Guest ID",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+          },
+        },
+      ],
+      "responses": {
+        "200": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Win-back result",
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "sent": {
+                        "type": "boolean",
+                      },
+                    },
+                    "type": "object",
+                  },
+                },
+                "type": "object",
+              },
+            },
+          },
+          "description": "Win-back result",
+        },
+        "401": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Default Response",
+        },
+        "404": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4",
+              },
+            },
+          },
+          "description": "Default Response",
+        },
+      },
+      "security": [
+        {
+          "bearerAuth": [],
+        },
+      ],
+      "summary": "Send win-back message",
+      "tags": [
+        "Guests",
+      ],
+    },
+  },
+}
+`;

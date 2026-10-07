@@ -4,7 +4,7 @@ import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import {
-  depositService,
+  type DepositService,
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
   DepositConcurrentUpdateError,
@@ -12,18 +12,18 @@ import {
 } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
-import type { BookingNotifier, CancelInitiator } from "./booking-notifications.js";
+import type { CancelInitiator } from "../transitions/ports.js";
 
 export interface CancelReservationDeps {
-  bookingNotifier: BookingNotifier;
   logger: FastifyBaseLogger;
+  deposits: DepositService;
 }
 
 /**
- * Who initiated the cancellation — drives deposit fee policy. Re-exported from
- * the notifier, which now owns the cancellation-notification seam.
+ * Who initiated the cancellation — drives deposit fee policy. Owned by the
+ * reservation-transitions ports, which carry it to the cancellation email.
  */
-export type { CancelInitiator } from "./booking-notifications.js";
+export type { CancelInitiator } from "../transitions/ports.js";
 
 export interface CancelReservationOptions {
   /**
@@ -83,7 +83,7 @@ const DEPOSIT_RESOLVED_STATUS_WRITE_FAILED_RESULT: CancelReservationResult = {
  *
  *  - A prior attempt left the deposit at a capture-based terminal status
  *    (`forfeited`/`applied`) that was never confirmed, and this retry's own
- *    {@link depositService.verifyCaptureCompleted} check couldn't verify it
+ *    {@link DepositService.verifyCaptureCompleted} check couldn't verify it
  *    either (#5722 R4 MED-1).
  *  - A re-entrant `partial_refunded` capture-leg replay couldn't confirm
  *    itself — the card was almost certainly already charged (this row only
@@ -174,13 +174,14 @@ async function resolveHeldDeposit(
   deposit: Deposit,
   reservation: Reservation,
   logger: FastifyBaseLogger,
-  initiator: CancelInitiator
+  initiator: CancelInitiator,
+  deposits: DepositService
 ): Promise<ResolveDepositOutcome> {
   if (initiator === "staff") {
     // Staff cancels on the venue's behalf — waive any cancellation fee and
     // refund the deposit in full instead of evaluating guest-facing policy.
     try {
-      await depositService.refund(deposit.id);
+      await deposits.refund(deposit.id);
     } catch (err) {
       return {
         ok: false,
@@ -215,15 +216,15 @@ async function resolveHeldDeposit(
   let stripeOp: DepositStripeOp;
   try {
     if (feeResult.depositAction === "refund_full") {
-      await depositService.refund(deposit.id);
+      await deposits.refund(deposit.id);
       stripeOp = "refund";
     } else if (feeResult.depositAction === "forfeit") {
-      await depositService.forfeit(deposit.id, "cancellation");
+      await deposits.forfeit(deposit.id, "cancellation");
       stripeOp = "forfeit";
     } else {
       // refund_partial: capture then partially refund (also covers a partial
       // no-show where noShowFeePercent < 100).
-      await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+      await deposits.refundPartial(deposit.id, feeResult.refundAmountCents);
       stripeOp = "refund_partial";
     }
   } catch (err) {
@@ -257,9 +258,10 @@ async function resolveHeldDeposit(
 async function resolveDeposit(
   reservation: Reservation,
   logger: FastifyBaseLogger,
-  initiator: CancelInitiator
+  initiator: CancelInitiator,
+  deposits: DepositService
 ): Promise<ResolveDepositOutcome> {
-  const deposit = await depositService.getByReservationId(reservation.id);
+  const deposit = await deposits.getByReservationId(reservation.id);
   if (!deposit) return { ok: true, resolved: null };
 
   if (deposit.status === "partial_refunded") {
@@ -276,7 +278,7 @@ async function resolveDeposit(
       return { ok: false, failure: DEPOSIT_FAILURE_RESULT };
     }
     try {
-      await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+      await deposits.refundPartial(deposit.id, deposit.refundAmountCents);
     } catch (err) {
       if (err instanceof DepositWrittenOffUncollectableError) {
         // The authorization was canceled before this row's capture ever
@@ -322,7 +324,7 @@ async function resolveDeposit(
     // `false` (#5722 R5 MED-1).
     const isForfeited = deposit.status === "forfeited";
     const timestampField = isForfeited ? "forfeitedAt" : "appliedAt";
-    const verification = await depositService.verifyCaptureCompleted(
+    const verification = await deposits.verifyCaptureCompleted(
       deposit.id,
       deposit.status,
       timestampField,
@@ -362,13 +364,13 @@ async function resolveDeposit(
       // status — re-fetch the now-held row and re-run normal cancellation
       // policy evaluation fresh, exactly as if it started `held` (#5722 R5
       // MED-1).
-      const rolledBack = await depositService.getById(deposit.id);
+      const rolledBack = await deposits.getById(deposit.id);
       if (rolledBack?.status !== "held") {
         // A concurrent transition beat this rollback to the row — an
         // ordinary retryable conflict, not a failure.
         return { ok: false, failure: DEPOSIT_CONCURRENT_RETRY_RESULT };
       }
-      return resolveHeldDeposit(rolledBack, reservation, logger, initiator);
+      return resolveHeldDeposit(rolledBack, reservation, logger, initiator, deposits);
     }
     if (verification === "recaptured") {
       // Unreachable in practice — `allowRecapture` is always `false` above
@@ -386,21 +388,23 @@ async function resolveDeposit(
 
   if (deposit.status !== "held") return { ok: true, resolved: null };
 
-  return resolveHeldDeposit(deposit, reservation, logger, initiator);
+  return resolveHeldDeposit(deposit, reservation, logger, initiator, deposits);
 }
 
 /**
  * Domain-level cancel: validates the status transition BEFORE any money
  * moves (a stale-status cancel — e.g. staff re-cancelling an already
  * CANCELLED reservation — must never touch the deposit), then owns deposit
- * resolution ordering, the `partial_refunded` retry guard,
- * abort-on-money-failure, and the winning cancel's notification teardown
- * (reminder jobs + guest dispatch), delegated to BookingNotifier via one seam.
- * Callers (routes) are thin adapters that translate the result into HTTP.
+ * resolution ordering, the `partial_refunded` retry guard and
+ * abort-on-money-failure. What the winning cancel sets off afterwards
+ * (reminder teardown, the guest's cancellation email, the live event) is
+ * applied by the reservation-transitions `cancel` verb, on success only.
  */
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
-  manageToken: string,
+  // Kept for call-site stability; the guest's manage link is now carried to the
+  // cancellation email by the transitions `cancel` verb, not used here.
+  _manageToken: string,
   deps: CancelReservationDeps,
   options: CancelReservationOptions = {}
 ): Promise<CancelReservationResult> {
@@ -415,7 +419,7 @@ export async function cancelReservationWithDeposit(
     throw err;
   }
 
-  const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator);
+  const depositOutcome = await resolveDeposit(reservation, deps.logger, initiator, deps.deposits);
   if (!depositOutcome.ok) return depositOutcome.failure;
   const { resolved } = depositOutcome;
 
@@ -469,8 +473,6 @@ export async function cancelReservationWithDeposit(
       detail: "Reservation was already cancelled by a concurrent request",
     };
   }
-
-  await deps.bookingNotifier.cancelBookingNotifications(reservation, manageToken, initiator);
 
   return { success: true, reservation: updated };
 }

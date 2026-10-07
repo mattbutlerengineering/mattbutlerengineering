@@ -1,5 +1,5 @@
 import { Card, Text } from "@mattbutlerengineering/rialto";
-import type { ReservationEvent } from "../../hooks/useSSESync.js";
+import type { ReservationEvent, ReservationEventType } from "../../hooks/useSSESync.js";
 import styles from "../../pages/HomePage.module.css";
 
 function formatEventTimestamp(timestamp: string): string {
@@ -15,7 +15,7 @@ function formatEventTimestamp(timestamp: string): string {
   return date.toLocaleDateString();
 }
 
-const EVENT_LABELS: Record<string, string> = {
+const EVENT_LABELS: Partial<Record<ReservationEventType, string>> = {
   "reservation:created": "New reservation created",
   "reservation:updated": "Reservation updated",
   "reservation:cancelled": "Reservation cancelled",
@@ -23,6 +23,7 @@ const EVENT_LABELS: Record<string, string> = {
   "hold:released": "Table hold released",
   "hold:confirmed": "Hold confirmed as reservation",
   "table:updated": "Table status changed",
+  "floor-plan:created": "Floor plan created",
 };
 
 function describeEvent(event: ReservationEvent): string {

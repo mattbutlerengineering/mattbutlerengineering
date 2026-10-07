@@ -6,26 +6,15 @@ import type {
   FloorPlan,
   LapsingGuest,
   TableStatusDelta,
+  SseEvent,
+  SseEventName,
 } from "@mbe/types";
 
-export type ReservationEventType =
-  | "reservation:created"
-  | "reservation:updated"
-  | "reservation:cancelled"
-  | "hold:created"
-  | "hold:released"
-  | "hold:confirmed"
-  | "table:updated"
-  | "floor-plan:created"
-  | "guest:lapsing"
-  | "table-status:changed";
+/** Event names are owned by the shared catalog in @mbe/types (SSE_EVENT_CATALOG). */
+export type ReservationEventType = SseEventName;
 
-export interface ReservationEvent {
-  type: ReservationEventType;
-  venueId: string;
-  timestamp: string;
-  data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
-}
+/** Wire envelope, owned by the shared catalog in @mbe/types. */
+export type ReservationEvent = SseEvent;
 
 /** Maximum concurrent SSE connections before Node emits a warning. */
 const MAX_SSE_LISTENERS = 100;
@@ -163,50 +152,4 @@ export class ReservationEventEmitter extends EventEmitter {
       data: changes,
     });
   }
-}
-
-// Singleton event emitter for the service
-export const reservationEvents = new ReservationEventEmitter();
-
-// Singleton-backed helper functions for non-route service consumers
-// (confirm-hold, floor-plan, guest, lapsed-guest-cron).
-// Route handlers use fastify.reservationEvents.* instead.
-export function emitReservationCreated(reservation: Reservation): void {
-  reservationEvents.emitReservationCreated(reservation);
-}
-
-export function emitReservationUpdated(reservation: Reservation): void {
-  reservationEvents.emitReservationUpdated(reservation);
-}
-
-export function emitReservationCancelled(reservation: Reservation): void {
-  reservationEvents.emitReservationCancelled(reservation);
-}
-
-export function emitHoldCreated(hold: ReservationHold): void {
-  reservationEvents.emitHoldCreated(hold);
-}
-
-export function emitHoldReleased(hold: ReservationHold): void {
-  reservationEvents.emitHoldReleased(hold);
-}
-
-export function emitHoldConfirmed(reservation: Reservation): void {
-  reservationEvents.emitHoldConfirmed(reservation);
-}
-
-export function emitTableUpdated(table: Table): void {
-  reservationEvents.emitTableUpdated(table);
-}
-
-export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
-  reservationEvents.emitFloorPlanCreated(floorPlan);
-}
-
-export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
-  reservationEvents.emitLapsingGuests(venueId, guests);
-}
-
-export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void {
-  reservationEvents.emitTableStatusChanged(venueId, changes);
 }

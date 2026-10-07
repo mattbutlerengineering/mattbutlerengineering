@@ -28,6 +28,7 @@ export {
   AvailabilityClient,
   HoldsClient,
   type GetTimeSlotsParams,
+  type GetVenueTimeSlotsParams,
   type GetDatesParams,
 } from "./availability.js";
 export { streamNDJSON, type StreamConfig } from "./streaming.js";

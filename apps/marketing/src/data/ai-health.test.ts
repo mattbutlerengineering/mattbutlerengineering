@@ -332,9 +332,30 @@ describe("normalizeSensorReport — prCategoryBreakdown", () => {
     expect(metrics.prCategoryBreakdown.totalMerged).toBe(95);
     expect(metrics.prCategoryBreakdown.totalClosedWithoutMerge).toBe(0);
     expect(metrics.prCategoryBreakdown.byCategory).toEqual([
-      ["tier:trivial", { merged: 55, closedWithoutMerge: 0, acceptanceRate: 1 }],
-      ["tier:sensitive", { merged: 18, closedWithoutMerge: 0, acceptanceRate: 1 }],
-      ["dependencies", { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1 }],
+      [
+        "tier:trivial",
+        {
+          merged: 55,
+          closedWithoutMerge: 0,
+          acceptanceRate: 1,
+          totalDecided: 55,
+          lowSample: false,
+        },
+      ],
+      [
+        "tier:sensitive",
+        {
+          merged: 18,
+          closedWithoutMerge: 0,
+          acceptanceRate: 1,
+          totalDecided: 18,
+          lowSample: false,
+        },
+      ],
+      [
+        "dependencies",
+        { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1, totalDecided: 1, lowSample: true },
+      ],
     ]);
   });
 
@@ -388,8 +409,14 @@ describe("normalizeSensorReport — prCategoryBreakdown", () => {
       },
     });
     expect(metrics.prCategoryBreakdown.byCategory).toEqual([
-      ["priority:critical", { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1 }],
-      ["some-future-category", { merged: 1, closedWithoutMerge: 1, acceptanceRate: 0.5 }],
+      [
+        "priority:critical",
+        { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1, totalDecided: 1, lowSample: true },
+      ],
+      [
+        "some-future-category",
+        { merged: 1, closedWithoutMerge: 1, acceptanceRate: 0.5, totalDecided: 2, lowSample: true },
+      ],
     ]);
   });
 
@@ -405,7 +432,80 @@ describe("normalizeSensorReport — prCategoryBreakdown", () => {
       },
     });
     expect(metrics.prCategoryBreakdown.byCategory).toEqual([
-      ["tier:trivial", { merged: null, closedWithoutMerge: null, acceptanceRate: null }],
+      [
+        "tier:trivial",
+        {
+          merged: null,
+          closedWithoutMerge: null,
+          acceptanceRate: null,
+          totalDecided: null,
+          lowSample: true,
+        },
+      ],
     ]);
+  });
+
+  it("flags lowSample true for a category with a single decided PR (n=1)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            audit: { merged: 0, closed_without_merge: 1, acceptance_rate: 0 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(1);
+    expect(stats.lowSample).toBe(true);
+  });
+
+  it("flags lowSample false at exactly the threshold (n=5)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:standard": { merged: 3, closed_without_merge: 2, acceptance_rate: 0.6 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(5);
+    expect(stats.lowSample).toBe(false);
+  });
+
+  it("flags lowSample true one below the threshold (n=4)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:standard": { merged: 2, closed_without_merge: 2, acceptance_rate: 0.5 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(4);
+    expect(stats.lowSample).toBe(true);
+  });
+
+  it("flags lowSample false well above the threshold", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:trivial": { merged: 55, closed_without_merge: 0, acceptance_rate: 1 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(55);
+    expect(stats.lowSample).toBe(false);
   });
 });

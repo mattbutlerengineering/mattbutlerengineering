@@ -1,18 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  reservationEvents,
-  emitReservationCreated,
-  emitReservationUpdated,
-  emitReservationCancelled,
-  emitHoldCreated,
-  emitHoldReleased,
-  emitHoldConfirmed,
-  emitTableUpdated,
-  emitFloorPlanCreated,
-  emitTableStatusChanged,
-  type ReservationEvent,
-} from "./events.js";
-import type { Reservation, Table, ReservationHold, FloorPlan } from "@mbe/types";
+import { ReservationEventEmitter, type ReservationEvent } from "./events.js";
+import type { Reservation, Table } from "@mbe/types";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture factories (only fields used by events.ts)
@@ -68,59 +56,13 @@ function makeTable(overrides?: Partial<Table>): Table {
   } as Table;
 }
 
-function makeHold(overrides?: Partial<ReservationHold>): ReservationHold {
-  return {
-    id: "hold-1",
-    venueId: "venue-1",
-    tableId: "table-1",
-    guestName: "Bob",
-    partySize: 2,
-    startTime: "2026-06-01T18:00:00.000Z",
-    endTime: "2026-06-01T20:00:00.000Z",
-    date: "2026-06-01",
-    expiresAt: "2026-06-01T18:05:00.000Z",
-    status: "ACTIVE",
-    sessionId: "sess-1",
-    createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt: "2026-06-01T00:00:00.000Z",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...(overrides as any),
-  } as ReservationHold;
-}
-
-function makeFloorPlan(overrides?: Partial<FloorPlan>): FloorPlan {
-  return {
-    id: "fp-1",
-    venueId: "venue-1",
-    name: "Main Floor",
-    isActive: true,
-    tables: [],
-    createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt: "2026-06-01T00:00:00.000Z",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...(overrides as any),
-  } as FloorPlan;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function captureNextEvent(): Promise<ReservationEvent> {
-  return new Promise((resolve) => {
-    const listener = (event: ReservationEvent) => {
-      reservationEvents.offChange(listener);
-      resolve(event);
-    };
-    reservationEvents.onChange(listener);
-  });
-}
-
 // ---------------------------------------------------------------------------
 
 describe("ReservationEventEmitter", () => {
+  const reservationEvents = new ReservationEventEmitter();
+
   beforeEach(() => {
-    // No shared state to reset — the singleton is stateless between emits.
+    // No shared state to reset — the emitter is stateless between emits.
     vi.clearAllMocks();
   });
 
@@ -196,138 +138,6 @@ describe("ReservationEventEmitter", () => {
       // Cleanup
       listeners.forEach((fn) => reservationEvents.offChange(fn as never));
       stderrSpy.mockRestore();
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-
-describe("emit helper functions", () => {
-  describe("emitReservationCreated", () => {
-    it("emits reservation:created with correct venueId and data", async () => {
-      const nextEvent = captureNextEvent();
-      const reservation = makeReservation({ venueId: "venue-42" });
-      emitReservationCreated(reservation);
-      const event = await nextEvent;
-      expect(event.type).toBe("reservation:created");
-      expect(event.venueId).toBe("venue-42");
-      expect(event.data).toBe(reservation);
-    });
-
-    it("falls back to empty string venueId when reservation.venueId is null", async () => {
-      const nextEvent = captureNextEvent();
-      emitReservationCreated(makeReservation({ venueId: undefined }));
-      const event = await nextEvent;
-      expect(event.venueId).toBe("");
-    });
-
-    it("timestamp is a valid ISO string", async () => {
-      const nextEvent = captureNextEvent();
-      emitReservationCreated(makeReservation());
-      const event = await nextEvent;
-      expect(() => new Date(event.timestamp)).not.toThrow();
-      expect(new Date(event.timestamp).toISOString()).toBe(event.timestamp);
-    });
-  });
-
-  describe("emitReservationUpdated", () => {
-    it("emits reservation:updated type", async () => {
-      const nextEvent = captureNextEvent();
-      emitReservationUpdated(makeReservation({ venueId: "venue-1" }));
-      const event = await nextEvent;
-      expect(event.type).toBe("reservation:updated");
-    });
-  });
-
-  describe("emitReservationCancelled", () => {
-    it("emits reservation:cancelled type", async () => {
-      const nextEvent = captureNextEvent();
-      emitReservationCancelled(makeReservation({ venueId: "venue-1" }));
-      const event = await nextEvent;
-      expect(event.type).toBe("reservation:cancelled");
-    });
-  });
-
-  describe("emitHoldCreated", () => {
-    it("emits hold:created with hold venueId", async () => {
-      const nextEvent = captureNextEvent();
-      const hold = makeHold({ venueId: "venue-99" });
-      emitHoldCreated(hold);
-      const event = await nextEvent;
-      expect(event.type).toBe("hold:created");
-      expect(event.venueId).toBe("venue-99");
-      expect(event.data).toBe(hold);
-    });
-  });
-
-  describe("emitHoldReleased", () => {
-    it("emits hold:released type", async () => {
-      const nextEvent = captureNextEvent();
-      emitHoldReleased(makeHold({ venueId: "venue-1" }));
-      const event = await nextEvent;
-      expect(event.type).toBe("hold:released");
-    });
-  });
-
-  describe("emitHoldConfirmed", () => {
-    it("emits hold:confirmed with reservation venueId", async () => {
-      const nextEvent = captureNextEvent();
-      const reservation = makeReservation({ venueId: "venue-55" });
-      emitHoldConfirmed(reservation);
-      const event = await nextEvent;
-      expect(event.type).toBe("hold:confirmed");
-      expect(event.venueId).toBe("venue-55");
-    });
-  });
-
-  describe("emitTableUpdated", () => {
-    it("emits table:updated with table venueId", async () => {
-      const nextEvent = captureNextEvent();
-      const table = makeTable({ venueId: "venue-77" });
-      emitTableUpdated(table);
-      const event = await nextEvent;
-      expect(event.type).toBe("table:updated");
-      expect(event.venueId).toBe("venue-77");
-      expect(event.data).toBe(table);
-    });
-
-    it("falls back to empty string when table.venueId is null", async () => {
-      const nextEvent = captureNextEvent();
-      emitTableUpdated(makeTable({ venueId: undefined }));
-      const event = await nextEvent;
-      expect(event.venueId).toBe("");
-    });
-  });
-
-  describe("emitFloorPlanCreated", () => {
-    it("emits floor-plan:created with floor plan venueId", async () => {
-      const nextEvent = captureNextEvent();
-      const fp = makeFloorPlan({ venueId: "venue-88" });
-      emitFloorPlanCreated(fp);
-      const event = await nextEvent;
-      expect(event.type).toBe("floor-plan:created");
-      expect(event.venueId).toBe("venue-88");
-      expect(event.data).toBe(fp);
-    });
-  });
-
-  describe("emitTableStatusChanged", () => {
-    it("emits table-status:changed with the given venueId and changed-table deltas", async () => {
-      const nextEvent = captureNextEvent();
-      const changes = [{ tableId: "table-1", status: "seated" as const }];
-      emitTableStatusChanged("venue-33", changes);
-      const event = await nextEvent;
-      expect(event.type).toBe("table-status:changed");
-      expect(event.venueId).toBe("venue-33");
-      expect(event.data).toBe(changes);
-    });
-
-    it("does not emit when there are no changed tables", () => {
-      const listener = vi.fn();
-      reservationEvents.onChange(listener);
-      emitTableStatusChanged("venue-1", []);
-      reservationEvents.offChange(listener);
-      expect(listener).not.toHaveBeenCalled();
     });
   });
 });

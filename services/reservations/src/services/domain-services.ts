@@ -5,7 +5,7 @@ import { reservationService } from "./reservation.js";
 import { guestService } from "./guest.js";
 import { floorPlanService } from "./floor-plan.js";
 import { holdService } from "./hold.js";
-import { depositService } from "./deposit.js";
+import type { DepositService } from "./deposit.js";
 import { waitlistService } from "./waitlist.js";
 import { briefingService } from "./briefing.js";
 
@@ -23,7 +23,8 @@ import { briefingService } from "./briefing.js";
  * and tests inject fakes through `buildApp({ services })` — no `vi.mock` ring needed.
  *
  * The default composition ({@link defaultDomainServices}) is exactly the existing
- * production singletons, so runtime wiring is unchanged.
+ * production singletons, so runtime wiring is unchanged — except `depositService`,
+ * which `buildApp` constructs over the one payments adapter.
  *
  * `venueGroupService` is intentionally absent: it is a secondary export of
  * `venue.js` that several not-yet-migrated route tests omit from their partial
@@ -38,7 +39,8 @@ export interface DomainServices {
   guestService: typeof guestService;
   floorPlanService: typeof floorPlanService;
   holdService: typeof holdService;
-  depositService: typeof depositService;
+  /** Built in `buildApp` over the one payments adapter — never a module singleton. */
+  depositService: DepositService;
   waitlistService: typeof waitlistService;
   briefingService: typeof briefingService;
 }
@@ -48,7 +50,7 @@ export interface DomainServices {
  * spreads any `options.services` overrides on top of this, so callers that pass
  * nothing get identical runtime behaviour.
  */
-export const defaultDomainServices: DomainServices = {
+export const defaultDomainServices: Omit<DomainServices, "depositService"> = {
   availabilityService,
   venueService,
   tableService,
@@ -56,7 +58,6 @@ export const defaultDomainServices: DomainServices = {
   guestService,
   floorPlanService,
   holdService,
-  depositService,
   waitlistService,
   briefingService,
 };

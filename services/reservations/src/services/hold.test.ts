@@ -9,6 +9,9 @@ vi.mock("./database.js", async () => {
       venue: {
         findUnique: vi.fn(),
       },
+      table: {
+        findUnique: vi.fn(),
+      },
       reservationHold: {
         findUnique: vi.fn(),
         findFirst: vi.fn(),
@@ -107,6 +110,8 @@ describe("holdService", () => {
     // Keep these for auto-assign path that doesn't use assertBookable
     vi.mocked(checkTableConflict).mockReturnValue(false);
     vi.mocked(checkPacingForSlot).mockReturnValue(true);
+    // Default: every named table belongs to venue-1, the venue every fixture holds at.
+    vi.mocked(prisma.table.findUnique).mockResolvedValue({ venueId: "venue-1" } as never);
   });
 
   afterEach(() => {
@@ -114,6 +119,45 @@ describe("holdService", () => {
   });
 
   describe("create", () => {
+    // A hold naming venue A with a venue-B table must be refused before any
+    // conflict data is read, so the answer cannot reveal venue B's bookings.
+    for (const slotTaken of [false, true]) {
+      it(`rejects a venue-B table (slot ${slotTaken ? "taken" : "free"}) before checking conflicts`, async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          settings: null,
+        } as never);
+        vi.mocked(estimateDuration).mockReturnValueOnce(90);
+        vi.mocked(prisma.table.findUnique).mockResolvedValue({ venueId: "venue-B" } as never);
+        if (slotTaken) {
+          vi.mocked(assertBookable).mockReturnValue({
+            code: "CONFLICT",
+            message: "Table is not available for this time slot",
+          });
+        }
+
+        const result = await holdService.create(
+          {
+            venueId: "venue-1",
+            date: "2026-05-05",
+            time: "2026-05-05T22:00:00Z",
+            partySize: 2,
+            tableId: "table-of-venue-B",
+          },
+          "session-abc"
+        );
+
+        expect(result).toEqual({
+          success: false,
+          error: "The requested table does not belong to this venue",
+          tableNotInVenue: true,
+        });
+        expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+        expect(assertBookable).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+    }
+
     it("returns error when venue not found", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(null as never);
 

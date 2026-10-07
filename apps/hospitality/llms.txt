@@ -126,7 +126,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
@@ -464,6 +463,11 @@
       ): TParams | undefined { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/sse-query-keys.ts">
+    <item priority="high">
+      export const SSE_INVALIDATION_QUERY_KEYS: unknown;
+    </item>
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
@@ -653,10 +657,15 @@
       }
     </item>
     <item priority="high">
-      type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+      type ReservationStats = Omit<
+        DashboardStats,
+        "waitlistCount" | "longestWaitM...;
     </item>
     <item priority="high">
       type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="high">
+      type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposu...;
     </item>
     <item priority="medium">
       function getTodayString(): string { /* ... */ }
@@ -671,6 +680,9 @@
     </item>
     <item priority="high">
       export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeDepositStats(deposits: readonly Deposit[]): DepositStats { /* ... */ }
     </item>
     <item priority="high">
       export function useDashboardStatsQuery(): UseDashboardStatsQueryResult { /* ... */ }
