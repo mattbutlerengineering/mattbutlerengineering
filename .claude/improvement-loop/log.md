@@ -2871,3 +2871,40 @@ Issue reconciliation was still completed before the plan and came back clean: al
 **Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: update`) instead. For the exhaustive `ui-quality` label enumeration, `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal depends on.
 
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). Filing stopped, but for the benign reason above rather than unreadable state. A genuinely quiet fire: nothing was due, so nothing was judged or filed.
+
+## 2026-10-07 — mbe-evening /implement-queue + /progress-tracker
+
+### Metrics (7d window, 2026-09-30 → 2026-10-07)
+
+| Metric        | Value                                                          | Status |
+| ------------- | -------------------------------------------------------------- | ------ |
+| Created       | 32 (audit+ci-fix)                                              | -      |
+| Closed        | 23 (audit+ci-fix)                                              | -      |
+| Closure Rate  | 71.9%                                                          | Yellow |
+| Time-to-Close | 42.8h mean                                                     | Yellow |
+| Agent Success | 12/12 open has-pr (100%)                                       | Green  |
+| CI Pass       | 29/29 success main (100%)                                      | Green  |
+| Queue (ready) | 58                                                             | Red    |
+| Stale (>7d)   | 14                                                             | Red    |
+| Blocked       | 0 agent-failed                                                 | Green  |
+| Skipped       | 0 agent-skip                                                   | Green  |
+| Reverts (7d)  | 0                                                              | Green  |
+| Merged PRs    | 108 (7d)                                                       | -      |
+| Spend         | unattributed — `.claude/agent-spend/sessions.jsonl` is 0 bytes | N/A    |
+
+### Patterns
+
+- **Diff-independent `pnpm audit` CVE fire drills recurred again** — this session closed 3 stale/resolved audit-tracking issues (#6101, #6084, #5997) that were already fixed by earlier commits (#6104, and an intervening dep bump), plus landed a genuine new one (#6065 → PR #6123, ip-address/fast-uri floor bump). This is the same documented class in `gotchas.md` § Dependencies — the backlog accumulates duplicate/stale tracking issues faster than anyone re-verifies them against current `main`.
+- **Scheduled-workflow "missed its run" false positives, twice in one pass** — #6096 (sentry-triage) and #6031 (acmm-regression) were both closed as self-healed: each workflow had already run successfully 5 days straight by the time this session looked, confirming the documented GitHub-drops-scheduled-runs class rather than a real cron/config bug. #6030 (auto-qa-tune) was the real one — missing a `pnpm build --filter @mbe/cli...` step sibling workflows already have, now fixed via PR #6119.
+- **New this run: PR merging is blocked at the CCR session's own permission-classifier level, independent of tier/review/CI state.** Filed as #6125 (meta-improvement) — see that issue for full detail. All 3 issue-PRs from this iteration (#6119, #6121, #6123) are CI-green and review-passed but stuck on a human merge click; the 3 metrics-only telemetry PRs only merged because the repo's own `auto-merge.yml` automation (not this session) completed them.
+- **Queue bottleneck:** 58 `ready` issues, 14 stale >7 days, against a nightly cap of 3 per `/implement-queue` iteration. At the current rate this backlog grows faster than it drains.
+
+### Recommendations
+
+- Per the skill's own Queue Adjust rule (queue >10, success >70%) — increase implement-queue cadence/batch size if budget allows, since the backlog is growing faster than one 3-issue nightly pass can drain it. Not actioned here — outside this routine's mandate (capped at one iteration, batch ≤3) and the merge-permission finding above means more claimed issues would just pile up more unmerged, reviewed-but-stuck PRs.
+- Sweep the `audit`/`ci-fix` backlog for other stale/already-resolved tracking issues like #6101/#6084/#5997 — a quick re-verify-against-main pass before claiming new work caught 3 in this session alone.
+- `.claude/agent-spend/sessions.jsonl` is completely empty (0 bytes) — cost attribution is dark across the whole fleet, not just this session. Worth a dedicated check on whether `recordSpend` is actually wired up anywhere.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
