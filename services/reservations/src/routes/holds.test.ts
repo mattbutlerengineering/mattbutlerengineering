@@ -339,6 +339,23 @@ describe("Hold Routes", () => {
     });
   });
 
+  describe("opportunistic expired-hold cleanup", () => {
+    // The onRequest hook sweeps expired holds ~1% of the time. A sweep that
+    // fails is maintenance, not the caller's request: it must never turn a
+    // hold read or confirm into a 500. It used to, whenever the sweep threw,
+    // which is what reddened main at ca1538a90 (entry-points.test.ts's
+    // staff-hold doors hit the 1% branch against a reset deleteMany mock).
+    it("a failing sweep does not fail the request", async () => {
+      vi.mocked(holdService.maybeCleanup).mockRejectedValue(new Error("deleteMany failed"));
+      vi.mocked(holdService.getById).mockResolvedValue(mockHold);
+
+      const response = await authInject({ method: "GET", url: HOLD_URL });
+
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).data).toEqual(mockHold);
+    });
+  });
+
   describe("GET /v1/holds/:id", () => {
     it("should return hold by ID", async () => {
       vi.mocked(holdService.getById).mockResolvedValue(mockHold);
