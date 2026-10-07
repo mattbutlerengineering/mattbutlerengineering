@@ -22,13 +22,13 @@ acceptance criteria are met.
 
 ## Start conditions (Implement may not begin until all hold)
 
-- [ ] **Prerequisite security PRs merged** — confirm on origin/main before the first code item.
+- [x] **Prerequisite security PRs merged** — confirm on origin/main before the first code item.
   - Accept: all three are merged on origin/main, each confirmed by `gh pr view <N> --json state,mergedAt` (or the merge commit present in `git log origin/main`):
     - #6072 — `POST /api/v1/reservations` requires auth + venue membership (already merged and deployed per architecture.md);
     - #6079 — table/venue mismatch on reservation writes (out of this run's scope);
     - the standalone holds `member` security PR (opened after #6079; all four `/api/v1/holds` routes require membership of the hold's venue, unknown hold → 403 for non-admins).
   - Blocked by: —
-- [ ] **Rebase and re-baseline** — rebase `refactor/venue-scoped-routes` onto origin/main, `pnpm install --frozen-lockfile`, `pnpm build --filter @mbe/cli...`.
+- [x] **Rebase and re-baseline** — rebase `refactor/venue-scoped-routes` onto origin/main, `pnpm install --frozen-lockfile`, `pnpm build --filter @mbe/cli...`.
   - Accept: branch rebased with no conflicts left; `pnpm --dir services/reservations test` and `pnpm --dir services/reservations typecheck` green on the rebased head; the counts in defect.md § Counts (43 lookups, 29 `loadInVenueContext`, 22 route `runWithVenueContext`, 8 bespoke resolvers) and the line pointers used below are re-measured and any drift is logged under Notes.
   - Blocked by: Prerequisite security PRs merged
 
@@ -165,3 +165,6 @@ none. (Sequencing questions the architecture left open — POST /reservations ti
 ## Notes
 
 <Deviations discovered during Implement get logged here, dated.>
+
+- **2026-10-06 — start conditions met.** #6072 (`87a9e4724`) and #6079 (`be0dbef6b`) were already on main. The standalone holds `member` PR had been committed on 10-05 (`8cffa9c92`) but never pushed; it was cherry-picked unchanged onto main, opened as #6128, reviewer PASS 9/10, CI Gate + RLS Integration (152/152, 0 skipped) green, and merged by Matt as `ca1538a90`. Two follow-up commits on that PR: one `HOLDS_URL` constant per sweep fixture file (the hardcodedRoutes ratchet rejected 8 new literals) and a JSDoc re-attachment the reviewer flagged.
+- **2026-10-06 — re-baseline on `ca1538a90`.** Branch rebased with no conflicts; `services/reservations` 1811 passed / 150 skipped, typecheck clean. Count drift vs defect.md § Counts, all from #6128: `fastify.venueMembershipLookup` 43 → **47** (holds.ts +4); `loadInVenueContext(` call sites 29 → **29**; route `runWithVenueContext(` 22 → **23** (holds confirm); bespoke `VenueIdResolver`s 8 → **9** (`holds.ts:89 holdVenueIdFromParams`; `reservations.ts` resolver moved 53 → 51). Milestone 5's holds item now _re-expresses_ #6128's guards through `venueScoped` rather than introducing them; the `/:id` routes' unknown-hold 403 for non-admins and admin 404 are the behaviour to preserve.
