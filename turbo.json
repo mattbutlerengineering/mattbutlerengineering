@@ -57,6 +57,8 @@
       "inputs": [
         "src/**",
         "scripts/**",
+        "e2e/**",
+        "*.ts",
         "package.json",
         "tsconfig*.json",
         "$TURBO_ROOT$/packages/config/typescript/**"
