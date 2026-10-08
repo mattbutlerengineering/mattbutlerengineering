@@ -39,7 +39,7 @@ describe("workflowRuns", () => {
     expect(result).toEqual([
       expect.objectContaining({ status: "completed", conclusion: "success", name: "CI" }),
     ]);
-    expect(http.mock.calls[0]![0].url).toContain("/actions/runs?per_page=30&page=1");
+    expect(http.mock.calls[0][0].url).toContain("/actions/runs?per_page=30&page=1");
   });
 
   it("filters by --branch and --commit via query params, and --workflow client-side", () => {
@@ -58,6 +58,6 @@ describe("workflowRuns", () => {
     );
     expect(result).toEqual([expect.objectContaining({ conclusion: "success" })]);
     expect(result).toHaveLength(1);
-    expect(http.mock.calls[0]![0].url).toContain("head_sha=abc123");
+    expect(http.mock.calls[0][0].url).toContain("head_sha=abc123");
   });
 });

@@ -106,11 +106,3 @@ Capture stopped on the volume policy: 679 errors across 18 packages (see defect.
 - Each PR is merged independently once reviewer passes + CI Gate green (release
   authorization above). Cut each PR's branch from fresh `origin/main` after the previous
   merges; the run docs travel with PR1 and are updated (checkboxes) in later PRs.
-
-## Decision: showcase test gets PR 6 (Matt, 2026-10-08)
-
-- `packages/rialto/src/showcase/App.vibes.test.tsx` and the 27 showcase source errors it
-  pulls in (found by the guard at PR1, see defect.md § Notes) get their **own PR 6** in this
-  run, after PR5. The plan is now 6 PRs.
-- Showcase demo-app source edits are allowed in PR 6. They are not type-only, but the code is
-  an unpublished demo app. Each edit is called out in that PR's body and review.md.

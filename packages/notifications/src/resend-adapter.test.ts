@@ -37,7 +37,7 @@ describe("ResendNotificationAdapter", () => {
     await adapter.sendBookingConfirmation(defaultInput);
 
     expect(mockSend).toHaveBeenCalledOnce();
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.from).toBe("bookings@mbe.dev");
     expect(call.to).toBe("jane@example.com");
     expect(call.subject).toContain("The Oak Table");
@@ -58,7 +58,7 @@ describe("ResendNotificationAdapter", () => {
     await adapter.sendBookingCancelled(defaultInput);
 
     expect(mockSend).toHaveBeenCalledOnce();
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.to).toBe("jane@example.com");
     expect(call.subject).toContain("Cancelled");
     expect(call.attachments[0].content).toContain("METHOD:CANCEL");
@@ -87,7 +87,7 @@ describe("ResendNotificationAdapter", () => {
 
     await adapter.sendBookingModified({ ...defaultInput, sequence: 2 });
 
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.attachments[0].content).toContain("SEQUENCE:2");
     expect(call.subject).toContain("Updated");
   });
@@ -102,7 +102,7 @@ describe("ResendNotificationAdapter", () => {
 
     await adapter.sendBookingReminder(defaultInput);
 
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.to).toBe("jane@example.com");
     expect(call.subject).toContain("Reminder");
     expect(call.attachments).toBeUndefined();
@@ -123,7 +123,7 @@ describe("ResendNotificationAdapter", () => {
     });
 
     expect(mockSend).toHaveBeenCalledOnce();
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.from).toBe("bookings@mbe.dev");
     expect(call.to).toBe("jane@example.com");
     expect(call.subject).toContain("Jane Doe");
@@ -144,7 +144,7 @@ describe("ResendNotificationAdapter", () => {
       venueName: `O'Brien's & Co <Bistro>`,
     });
 
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.html).not.toContain("<script>");
     expect(call.html).toContain("&lt;script&gt;");
     expect(call.html).toContain("O&#39;Brien&#39;s &amp; Co &lt;Bistro&gt;");
@@ -179,7 +179,7 @@ describe("ResendNotificationAdapter", () => {
 
     await adapter.sendBookingConfirmation(defaultInput);
 
-    const call = mockSend.mock.calls[0]![0];
+    const call = mockSend.mock.calls[0][0];
     expect(call.html).toContain("https://web.mbe.dev/reservations/manage?token=tok_abc123");
     expect(call.html).not.toContain("https://api.mbe.dev");
   });
@@ -205,7 +205,7 @@ describe("ResendNotificationAdapter", () => {
       await adapter.sendThankYouEmail(thankYouInput);
 
       expect(mockSend).toHaveBeenCalledOnce();
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.from).toBe("bookings@mbe.dev");
       expect(call.to).toBe("jane@example.com");
       expect(call.subject).toContain("The Oak Table");
@@ -223,7 +223,7 @@ describe("ResendNotificationAdapter", () => {
 
       await adapter.sendThankYouEmail(thankYouInput);
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).toContain("https://feedback.example.com");
     });
 
@@ -237,7 +237,7 @@ describe("ResendNotificationAdapter", () => {
 
       await adapter.sendThankYouEmail({ ...thankYouInput, feedbackUrl: null });
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).not.toContain("feedback");
     });
 
@@ -255,7 +255,7 @@ describe("ResendNotificationAdapter", () => {
         venueName: "O'Brien's & Co <Bistro>",
       });
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).not.toContain("<script>");
       expect(call.html).toContain("&lt;script&gt;");
       expect(call.html).toContain("O&#39;Brien&#39;s &amp; Co &lt;Bistro&gt;");
@@ -274,7 +274,7 @@ describe("ResendNotificationAdapter", () => {
         feedbackUrl: "javascript:alert('xss')",
       });
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).not.toContain("javascript:");
     });
 
@@ -288,7 +288,7 @@ describe("ResendNotificationAdapter", () => {
 
       await adapter.sendThankYouEmail(thankYouInput);
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).toContain("tok_unsub123");
       expect(call.html).toContain("unsubscribe");
     });
@@ -307,7 +307,7 @@ describe("ResendNotificationAdapter", () => {
 
       await adapter.sendThankYouEmail(thankYouInput);
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).toContain(
         "https://api.mbe.dev/public/v1/guests/unsubscribe?token=tok_unsub123"
       );
@@ -339,7 +339,7 @@ describe("ResendNotificationAdapter", () => {
 
       await adapter.sendThankYouEmail({ ...thankYouInput, guestFirstName: null });
 
-      const call = mockSend.mock.calls[0]![0];
+      const call = mockSend.mock.calls[0][0];
       expect(call.html).toContain("Guest");
     });
 

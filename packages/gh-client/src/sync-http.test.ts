@@ -1,12 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  defaultSyncHttp,
-  createSyncHttp,
-  createSyncBinaryHttp,
-  type SyncExecFn,
-} from "./sync-http.js";
-
-type ExecOpts = Parameters<SyncExecFn>[2];
+import { defaultSyncHttp, createSyncHttp, createSyncBinaryHttp } from "./sync-http.js";
 
 describe("defaultSyncHttp", () => {
   // Uses a malformed URL so `fetch` rejects during URL-parsing, before any
@@ -35,9 +28,9 @@ describe("defaultSyncHttp", () => {
 // without a live network call, via the injectable exec seam.
 describe("createSyncHttp — proxy env wiring", () => {
   it("spawns the bridge with NODE_USE_ENV_PROXY=1 and --no-warnings", () => {
-    let capturedArgs: string[] | undefined;
-    let capturedOpts: ExecOpts | undefined;
-    const fakeExec: SyncExecFn = (_cmd, args, opts) => {
+    let capturedArgs;
+    let capturedOpts;
+    const fakeExec = (_cmd, args, opts) => {
       capturedArgs = args;
       capturedOpts = opts;
       return JSON.stringify({ status: 200, body: "ok" });
@@ -47,13 +40,13 @@ describe("createSyncHttp — proxy env wiring", () => {
     const result = http({ method: "GET", url: "https://api.github.com", headers: {} });
 
     expect(capturedArgs).toContain("--no-warnings");
-    expect(capturedOpts!.env.NODE_USE_ENV_PROXY).toBe("1");
+    expect(capturedOpts.env.NODE_USE_ENV_PROXY).toBe("1");
     expect(result).toEqual({ status: 200, body: "ok" });
   });
 
   it("still passes through the caller's existing environment (e.g. HTTPS_PROXY, GITHUB_TOKEN)", () => {
-    let capturedOpts: ExecOpts | undefined;
-    const fakeExec: SyncExecFn = (_cmd, _args, opts) => {
+    let capturedOpts;
+    const fakeExec = (_cmd, _args, opts) => {
       capturedOpts = opts;
       return JSON.stringify({ status: 200, body: "ok" });
     };
@@ -64,7 +57,7 @@ describe("createSyncHttp — proxy env wiring", () => {
       headers: {},
     });
 
-    expect(capturedOpts!.env).toMatchObject(process.env);
+    expect(capturedOpts.env).toMatchObject(process.env);
   });
 });
 
@@ -84,9 +77,9 @@ describe("createSyncBinaryHttp", () => {
   });
 
   it("spawns the bridge with NODE_USE_ENV_PROXY=1 and --no-warnings", () => {
-    let capturedArgs: string[] | undefined;
-    let capturedOpts: ExecOpts | undefined;
-    const fakeExec: SyncExecFn = (_cmd, args, opts) => {
+    let capturedArgs;
+    let capturedOpts;
+    const fakeExec = (_cmd, args, opts) => {
       capturedArgs = args;
       capturedOpts = opts;
       return JSON.stringify({ status: 200, bodyBase64: "" });
@@ -99,6 +92,6 @@ describe("createSyncBinaryHttp", () => {
     });
 
     expect(capturedArgs).toContain("--no-warnings");
-    expect(capturedOpts!.env.NODE_USE_ENV_PROXY).toBe("1");
+    expect(capturedOpts.env.NODE_USE_ENV_PROXY).toBe("1");
   });
 });

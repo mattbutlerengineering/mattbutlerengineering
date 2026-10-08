@@ -53,7 +53,7 @@ describe("TwilioSmsAdapter", () => {
     await adapter.sendBookingReminder(defaultSmsInput);
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const call = mockCreate.mock.calls[0]![0];
+    const call = mockCreate.mock.calls[0][0];
     expect(call.to).toBe("+15551234567");
     expect(call.from).toBe("+15559876543");
     expect(call.body).toContain("The Oak Table");
@@ -81,7 +81,7 @@ describe("TwilioSmsAdapter", () => {
 
     await adapter.sendBookingReminder(defaultSmsInput);
 
-    const call = mockCreate.mock.calls[0]![0];
+    const call = mockCreate.mock.calls[0][0];
     expect(call.body).toContain("https://app.mbe.dev/reservations/manage");
   });
 
@@ -94,7 +94,7 @@ describe("TwilioSmsAdapter", () => {
     await adapter.sendWaitlistUpdate(defaultWaitlistInput);
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const call = mockCreate.mock.calls[0]![0];
+    const call = mockCreate.mock.calls[0][0];
     expect(call.to).toBe("+15551234567");
     expect(call.body).toContain("The Oak Table");
     expect(call.body).toContain("waitlist");
@@ -110,7 +110,7 @@ describe("TwilioSmsAdapter", () => {
     await adapter.sendWinbackMessage(defaultWinbackInput);
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const call = mockCreate.mock.calls[0]![0];
+    const call = mockCreate.mock.calls[0][0];
     expect(call.to).toBe("+15551234567");
     expect(call.body).toContain("The Oak Table");
     expect(call.body.length).toBeLessThanOrEqual(160);
@@ -168,7 +168,7 @@ describe("TwilioSmsAdapter", () => {
     await adapter.sendBookingReminder({ ...defaultSmsInput, guestName: null });
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const call = mockCreate.mock.calls[0]![0];
+    const call = mockCreate.mock.calls[0][0];
     expect(call.body).not.toContain("null");
   });
 
@@ -201,7 +201,7 @@ describe("TwilioSmsAdapter", () => {
       await adapter().sendWaitlistAdded(addedInput);
 
       expect(mockCreate).toHaveBeenCalledOnce();
-      const call = mockCreate.mock.calls[0]![0];
+      const call = mockCreate.mock.calls[0][0];
       expect(call.to).toBe("+15551234567");
       expect(call.from).toBe("+15559876543");
       expect(call.body).toContain("#3");
@@ -212,7 +212,7 @@ describe("TwilioSmsAdapter", () => {
     it("sendWaitlistPositionUpdate sends the updated position", async () => {
       await adapter().sendWaitlistPositionUpdate(positionInput);
 
-      const call = mockCreate.mock.calls[0]![0];
+      const call = mockCreate.mock.calls[0][0];
       expect(call.body).toContain("#1");
       expect(call.body).toContain("5 min");
       expect(call.body.length).toBeLessThanOrEqual(160);
@@ -221,7 +221,7 @@ describe("TwilioSmsAdapter", () => {
     it("sendWaitlistTableReady sends the table-ready message", async () => {
       await adapter().sendWaitlistTableReady(tableReadyInput);
 
-      const call = mockCreate.mock.calls[0]![0];
+      const call = mockCreate.mock.calls[0][0];
       expect(call.body).toContain("table is ready");
       expect(call.body).toContain("5 minutes");
       expect(call.body.length).toBeLessThanOrEqual(160);
@@ -251,7 +251,7 @@ describe("TwilioSmsAdapter", () => {
     it("truncates an over-long body to 160 chars", async () => {
       await adapter().sendWaitlistAdded({ ...addedInput, guestName: "X".repeat(200) });
 
-      const call = mockCreate.mock.calls[0]![0];
+      const call = mockCreate.mock.calls[0][0];
       expect(call.body.length).toBe(160);
     });
   });
