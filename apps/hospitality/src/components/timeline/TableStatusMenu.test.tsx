@@ -175,7 +175,7 @@ describe("TableStatusMenu", () => {
         /@media \(pointer: coarse\), \(max-width: 1024px\) \{([\s\S]*?)\n\}/
       );
       expect(coarseBlock).not.toBeNull();
-      const triggerRule = coarseBlock?.[1].match(/\.trigger\s*\{([^}]*)\}/)?.[1] ?? "";
+      const triggerRule = coarseBlock?.[1]!.match(/\.trigger\s*\{([^}]*)\}/)?.[1] ?? "";
       expect(triggerRule).toMatch(/min-block-size:\s*44px/);
       expect(triggerRule).toMatch(/min-inline-size:\s*44px/);
     });

@@ -174,7 +174,7 @@ describe("DashboardLayout", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",
       completedSteps: [],
-      nextStep: "hours",
+      nextStep: null,
       progress: 0,
     });
     renderLayout("/timeline");
@@ -195,7 +195,7 @@ describe("DashboardLayout", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",
       completedSteps: [],
-      nextStep: "hours",
+      nextStep: null,
       progress: 0,
     });
     renderLayout("/timeline");
@@ -237,7 +237,7 @@ describe("DashboardLayout", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",
       completedSteps: [],
-      nextStep: "hours",
+      nextStep: null,
       progress: 0,
     });
     rerender(renderTree());
@@ -251,7 +251,7 @@ describe("DashboardLayout", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
       completedSteps: [],
-      nextStep: "hours",
+      nextStep: "onboarding",
       progress: 33,
     });
     renderLayout("/timeline");
@@ -276,7 +276,7 @@ describe("DashboardLayout", () => {
   it("allows operational pages when status is operational", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -287,7 +287,7 @@ describe("DashboardLayout", () => {
   it("redirects the bare /setup checklist to /timeline when operational", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -300,7 +300,7 @@ describe("DashboardLayout", () => {
     // operational — only the /setup checklist itself should bounce.
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -312,7 +312,7 @@ describe("DashboardLayout", () => {
     beforeEach(() => {
       vi.mocked(useVenueReadiness).mockReturnValue({
         status: "operational",
-        completedSteps: ["hours", "tables", "publish"],
+        completedSteps: ["onboarding", "operating-hours", "floor-plan"],
         nextStep: null,
         progress: 100,
       });
@@ -337,7 +337,7 @@ describe("DashboardLayout", () => {
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -350,7 +350,7 @@ describe("DashboardLayout", () => {
   it("renders the chat route with a heading inside the main landmark (#4971)", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -365,7 +365,7 @@ describe("DashboardLayout", () => {
   it("has no Copilot nav item in sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -377,7 +377,7 @@ describe("DashboardLayout", () => {
     beforeEach(() => {
       vi.mocked(useVenueReadiness).mockReturnValue({
         status: "operational",
-        completedSteps: ["hours", "tables", "publish"],
+        completedSteps: ["onboarding", "operating-hours", "floor-plan"],
         nextStep: null,
         progress: 100,
       });
@@ -448,7 +448,7 @@ describe("DashboardLayout", () => {
   it("chat wrapper has z-index style to clear the navbar stacking context", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
@@ -467,7 +467,7 @@ describe("DashboardLayout", () => {
     beforeEach(() => {
       vi.mocked(useVenueReadiness).mockReturnValue({
         status: "operational",
-        completedSteps: ["hours", "tables", "publish"],
+        completedSteps: ["onboarding", "operating-hours", "floor-plan"],
         nextStep: null,
         progress: 100,
       });
@@ -531,7 +531,7 @@ describe("DashboardLayout", () => {
     beforeEach(() => {
       vi.mocked(useVenueReadiness).mockReturnValue({
         status: "operational",
-        completedSteps: ["hours", "tables", "publish"],
+        completedSteps: ["onboarding", "operating-hours", "floor-plan"],
         nextStep: null,
         progress: 100,
       });
@@ -557,7 +557,7 @@ describe("DashboardLayout", () => {
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      completedSteps: ["hours", "tables", "publish"],
+      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
