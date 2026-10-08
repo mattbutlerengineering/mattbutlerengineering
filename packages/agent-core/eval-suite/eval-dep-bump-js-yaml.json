@@ -1,0 +1,20 @@
+{
+  "id": "eval-dep-bump-js-yaml",
+  "category": "dep-bump",
+  "prompt": "Bump the js-yaml dependency declared in tools/cli/package.json from \"^5.4.2\" to \"^5.4.3\" (the latest published patch release). Edit only that one version string in tools/cli/package.json, then run pnpm install so pnpm-lock.yaml is regenerated to reflect the new resolved version. Do not change any other dependency, any application code, or any other package's package.json. The existing test suite in tools/cli already exercises js-yaml (via adr.ts and issue-frontmatter.ts) and must continue to pass unchanged.",
+  "fixtureRef": "tools/cli",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "tools/cli/package.json's js-yaml dependency is bumped to ^5.4.3",
+      "pnpm-lock.yaml reflects the new resolved js-yaml version for tools/cli",
+      "No application code or other package's dependencies are changed"
+    ]
+  },
+  "budget": {
+    "maxTurns": 22,
+    "maxCostUsd": 1
+  }
+}

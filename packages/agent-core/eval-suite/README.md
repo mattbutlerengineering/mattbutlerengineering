@@ -7,7 +7,7 @@ it ships. Run it with:
 
 ```bash
 mbe agent eval                       # run the whole suite
-mbe agent eval --task example-bugfix # run one task by id
+mbe agent eval --task example-test-writing # run one task by id
 mbe agent eval --json                # machine-readable EvalReport
 mbe agent eval --threshold 80        # exit non-zero if pass rate < 80%
 mbe agent eval --calibrate           # also print self-grade vs ground-truth calibration
@@ -29,7 +29,7 @@ wired up in [`../src/eval/cost-suite.ts`](../src/eval/cost-suite.ts) and run
 via `mbe agent eval --suite cost`. A `*.json` file dropped into an
 unregistered subdirectory is checked in, valid, and never runs.
 
-Copy [`example-bugfix.json`](./example-bugfix.json) as a starting point. The
+Copy [`example-test-writing.json`](./example-test-writing.json) as a starting point. The
 schema is defined and validated by `taskSchema` in
 [`../src/eval/types.ts`](../src/eval/types.ts) — a malformed file fails the load
 with a clear Zod error rather than scoring as a silent zero.
@@ -67,7 +67,7 @@ passing test can't prove.
 
 ```json
 {
-  "id": "example-bugfix",
+  "id": "example-test-writing",
   "category": "test-writing",
   "prompt": "Add a regression test to services/reservations/src/services/booking-notifications.test.ts, in the cancelBookingNotifications describe block, that locks in an existing (correct) behavior: a reservation cancellation email is transactional, per services/reservations/src/services/contact-policy.ts, so it must still be sent even when the guest has unsubscribed from marketing. Build a reservation whose guest carries unsubscribed: true (see the existing makeReservation/makeDeps helpers and communicationPreference-based test cases in the same describe block for the pattern), call cancelBookingNotifications, and assert notificationAdapter.sendBookingCancelled was still invoked. Do not change any production code — the behavior is already correct; only the test coverage is missing.",
   "fixtureRef": "services/reservations",
@@ -80,7 +80,7 @@ passing test can't prove.
       "No production code is changed — only test coverage is added"
     ]
   },
-  "budget": { "maxTurns": 20, "maxCostUsd": 0.5 }
+  "budget": { "maxTurns": 28, "maxCostUsd": 1 }
 }
 ```
 
@@ -91,7 +91,9 @@ passing test can't prove.
 > (`contact-policy.test.ts`) already locks that policy in. The prompt's premise was
 > false relative to the fixture (see #4630), which is exactly the "surrounding code
 > churned out from under the task" failure mode called out below — a live worked
-> example of the "pick a stable `fixtureRef`" tip, not just a hypothetical.
+> example of the "pick a stable `fixtureRef`" tip, not just a hypothetical. The file
+> and `id` were renamed from `example-bugfix` to `example-test-writing` (#5981) so
+> the `id`/`category` finally agree with what the task actually exercises.
 
 ## Authoring tips
 
