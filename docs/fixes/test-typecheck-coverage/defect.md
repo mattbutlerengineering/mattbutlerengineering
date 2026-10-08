@@ -225,8 +225,9 @@ Measured 679 > ~500. Choices for Matt:
 
 **PR 4: `apps/hospitality` unit tests (222)**
 
-- [ ] **Config + fixes** — `tsconfig.test.json` (react base) covering `src/**` tests and
-      `vite.manualChunks.test.ts`. 89 TS2322 means prop and mock shape drift.
+- [x] **Config + fixes** — `tsconfig.test.json` (react base) covering `src/**` tests.
+      89 TS2322 means prop and mock shape drift. `vite.manualChunks.test.ts` moved to PR 5
+      with the other root-level app tests (orchestrator, 2026-10-08).
   - Accept: as above.
 
 **PR 5: e2e and root-level tests in apps (36 e2e + 5 rialto-web root = 41)**
@@ -400,3 +401,88 @@ unknown>` demanded optional keys too. It is now `RequiredKeys<AdapterResult>`, a
   - **Adjacent smell (logged, not fixed):** `src/__tests__/fake-phase-deps.ts` (a test
     helper, not `*.test.ts`) is compiled into `dist/__tests__/`. This predates the run and is
     unchanged by it.
+- 2026-10-08 Implement PR4 (branch `fix/test-typecheck-coverage-4`, from `origin/main`
+  `a2d05bdd4`):
+  - **Split decision: no split.** The diff touches 71 files, which is over the 60-file rule of
+    thumb, but it is only about 600 changed lines (+363/−233). Most files change by 1 to 3
+    lines (an unused `React` import, a `!`, or one missing fixture field). Splitting would
+    have needed per-directory pending keys for `src/` and a second round of review for the
+    same edits.
+  - **Config.** `apps/hospitality/tsconfig.test.json` extends `./tsconfig.json` with
+    `noEmit`, `include: [src]` and `exclude: []`. `typecheck` is now
+    `tsc --noEmit -p tsconfig.test.json`. The test config is a superset of the build
+    config, and plain `tsc --noEmit` never followed the `tsconfig.node.json` reference anyway.
+    `tsconfig.json` is unchanged, so `build` (`tsc -b && vite build`) is unchanged too.
+    `jsx`, DOM libs and jest-dom types come from the base config and `src/test/setup.ts`. The
+    vitest globals need nothing extra: the two files that used `vi`/`afterEach` without
+    importing them now import them.
+  - **Guard.** `PENDING_IN_THIS_RUN` keys may now be a directory prefix ending in `/`.
+    `apps/hospitality` is replaced by `apps/hospitality/e2e/` and
+    `apps/hospitality/vite.manualChunks.test.ts` (both PR5). The stale-entry check handles
+    prefix keys too. A probe that added `apps/hospitality/src/` failed it as stale.
+  - **RED.** The guard failed with `expected { 'apps/hospitality': [ …(171) ] } to deeply equal {}`.
+    With the config in place and no fixes, `typecheck` exited 2 with 222 errors, matching
+    Capture: TS2322 89, TS2532 54, TS6133 15, TS2353 14, TS2345 10, TS2741 9, TS2722 6,
+    TS2352 5, TS2739 4, TS18048 4, TS2561 3, TS2304 2, and 1 each of TS5097, TS2786, TS2740,
+    TS2688, TS2604, TS2503 and TS2488. Fixing the TS2488 exposed one more of the same
+    `mock.calls[0]` shape. After the fixes: 0.
+  - **New finding: a test that tsc could not see.** `src/hooks/use-theme.test.tsx` sat next
+    to `use-theme.test.ts`. When two files share a base name and differ only in a
+    `.ts`/`.tsx` extension, tsc keeps the `.ts` file and silently drops the `.tsx` one, so
+    the guard still listed it after the config was green. It is renamed to
+    `use-theme.hooks.test.tsx` and has 0 errors. It is the only such pair in the repo.
+  - **Drift fixed toward the current interfaces:**
+    - `SetupStep` (`"hours"/"tables"/"publish"` → `"onboarding"/"operating-hours"/"floor-plan"`,
+      with `nextStep` set to what `computeReadiness` returns).
+    - `NavItem` (`href`/`type`/`status` → `path`/`stepStatus`, plus the required
+      `activePath`/`onNavigate` on `DashboardSidebar`).
+    - `Table`: the flat `x/y/width/height/shape` fields moved into `shapeMetadata`, and the
+      required `minCovers`/`maxCovers`/`priority`/... fields come from a `TABLE_DEFAULTS`
+      that each dialog never reads.
+    - Fields added to fixtures:
+      - `Guest`: `communicationPreference: "both"` (the Prisma default), `noShowCount`,
+        `riskScore`, `staffNotes`.
+      - `Reservation`: `occasion`/`seatingPreference: null`, and the full shape in
+        `ReservationList`.
+      - `reservation.guest.communicationPreference`.
+      - `GuestSegment.description`.
+      - `Pagination.hasPrev`.
+      - `DashboardStats`: the waitlist and deposit fields.
+      - `FloorPlan.layoutJson`.
+      - `Venue`: `venueGroupId`/`currencyCode`.
+      - `UseReservationsResult`: `isFromCache`/`lastSyncedAt`.
+      - `OnboardingWizardData.floorPlan`.
+      - `ReservationHold`, the full shape.
+    - `TimeSlot`: `tableIds` → `available`.
+    - `VenueContextValue`: `setSelectedVenueId` → `setVenueId` plus the other required
+      fields.
+    - `useAuth()` state: the 4 new fields in two factories. App.test now uses a full
+      `authState()` factory, because a partial cast cannot hold a `vi.fn()` or an
+      `ErrorContext`, and its errors carry a real `source`.
+    - `JWTPayload`: the full claims, which removes an `as` cast.
+    - `shape: "rect"` → `"rectangle"`.
+    - Typed `Map<string, TableDisplayStatus>` and `Promise<void>`.
+  - **Mechanical.** 68 `!` marks (60 from TS2532/TS2722 spans and 8 from
+    `HTMLElement | undefined` arguments) were placed by a compiler-API script after each
+    span tsc reported. It edited test files only. 13 unused `import React` lines were
+    removed, since the JSX runtime is automatic. An unused `calls` param became `_calls`. A
+    dead `_noAvailable` local in WalkInDialog was removed (it was never read). The
+    `./use-theme.ts` import became `.js`. The `/// <reference types="node" />` in
+    `theme-color-meta.test.ts` was dropped: `@types/node` is not a hospitality dependency,
+    and node types already reach the project transitively, as they do for the 17 other tests
+    that import `node:*`.
+  - **Casts introduced:** one, `data: { id: "res-1" } as Reservation` in
+    `ActivityFeed.test.tsx`, with an inline reason: the feed renders only `type` and
+    `timestamp`. No `as any` or `as unknown as` was added. The 4 `as any` on
+    `createApiClient` call args in `useApiClient`/`usePublicApiClient` tests predate this run;
+    only a `!` was inserted before them.
+  - **Coverage note:** the `DashboardSidebar` "renders step statuses correctly" test passed
+    `status` (an unknown key), so no step icon ever rendered. With `stepStatus` the icons now
+    render, but the test still asserts only the labels. Its name overclaims, as it did
+    before. Logged here, not fixed.
+  - **Non-test edits:** none. The changes are the `package.json` script, the new
+    `tsconfig.test.json`, and the guard.
+  - **Build:** `pnpm --dir apps/hospitality build` is green, and no `vitest` or
+    `@testing-library` code is in `dist/assets`.
+  - **Adjacent:** `docs/features/hospitality-service-ux/audit/xcut.md:121` still names
+    `use-theme.test.tsx`. It is a dated audit record and is left as written.

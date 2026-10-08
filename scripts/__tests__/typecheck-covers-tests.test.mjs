@@ -31,7 +31,8 @@ const execFileAsync = promisify(execFile);
 /**
  * TEMPORARY sequencing list for the PR plan in
  * docs/fixes/test-typecheck-coverage/defect.md § Work items (six PRs) — NOT an
- * allowlist. Each key is a package directory or a single test file; each value
+ * allowlist. Each key is a package directory, a single test file, or a
+ * directory prefix ending in "/" (matches every test file under it); each value
  * names the PR of that run that brings it under typecheck. A listed entry must
  * still be uncovered (a stale entry fails below), and the run's final PR
  * empties and deletes this list.
@@ -42,13 +43,23 @@ const PENDING_IN_THIS_RUN = new Map([
   // non-test prop-drift errors. Routed in defect.md § Notes (2026-10-08).
   // PR6 — assigned its own PR by Matt, 2026-10-08 (autorun-brief.md).
   ["packages/rialto/src/showcase/App.vibes.test.tsx", "PR6"],
-  ["apps/hospitality", "PR4 (src/) + PR5 (e2e/)"],
+  ["apps/hospitality/e2e/", "PR5 (e2e/)"],
+  ["apps/hospitality/vite.manualChunks.test.ts", "PR5 (root-level)"],
   ["apps/rialto-web", "PR5 (e2e/, token-count.config.test.ts)"],
   ["apps/gen", "PR5 (e2e/)"],
   ["apps/marketing", "PR5 (e2e/)"],
 ]);
 
 const TS_TEST_FILE = /\.(test|spec)\.(ts|tsx|mts|cts)$/;
+
+/** Whether a PENDING_IN_THIS_RUN key names this test file (exactly, or as a "/"-ended prefix). */
+function pendingKeyMatches(key, file) {
+  return key.endsWith("/") ? file.startsWith(key) : key === file;
+}
+
+function isPendingFile(file) {
+  return [...PENDING_IN_THIS_RUN.keys()].some((key) => pendingKeyMatches(key, file));
+}
 
 /**
  * The tsc projects a `typecheck` script runs, in order. Handles `&&`/`;`
@@ -183,7 +194,7 @@ describe("every workspace TS test file is type-checked by its package's typechec
     const offenders = Object.fromEntries(
       [...coverage]
         .filter(([wsDir]) => !PENDING_IN_THIS_RUN.has(wsDir))
-        .map(([wsDir, r]) => [wsDir, r, r.uncovered.filter((f) => !PENDING_IN_THIS_RUN.has(f))])
+        .map(([wsDir, r]) => [wsDir, r, r.uncovered.filter((f) => !isPendingFile(f))])
         .filter(([, , uncovered]) => uncovered.length > 0)
         .map(([wsDir, r, uncovered]) => [
           wsDir,
@@ -196,9 +207,11 @@ describe("every workspace TS test file is type-checked by its package's typechec
   });
 
   it("has no stale PENDING_IN_THIS_RUN entry (a fixed package or file must leave the list)", () => {
-    const uncoveredFiles = new Set([...coverage.values()].flatMap((r) => r.uncovered));
+    const uncoveredFiles = [...coverage.values()].flatMap((r) => r.uncovered);
     const stale = [...PENDING_IN_THIS_RUN.keys()].filter((key) =>
-      coverage.has(key) ? coverage.get(key).uncovered.length === 0 : !uncoveredFiles.has(key)
+      coverage.has(key)
+        ? coverage.get(key).uncovered.length === 0
+        : !uncoveredFiles.some((f) => pendingKeyMatches(key, f))
     );
     expect(stale).toEqual([]);
   });
