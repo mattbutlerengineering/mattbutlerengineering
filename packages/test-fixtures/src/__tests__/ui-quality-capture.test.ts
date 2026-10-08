@@ -23,8 +23,8 @@ const VIEWPORTS = [
   { width: 375, height: 812 },
 ];
 
-// Matches CapturePageLike's listener type. The real page's per-event payload
-// types erase to `never` there, so the fake replays scripted payloads `as never`.
+// Narrower than CapturePageLike's `any` listener (which a real Page's per-event
+// overloads need), so the fake replays scripted payloads `as never`.
 type Handler = (arg: never) => void;
 
 /** A fake Playwright page: records calls, replays scripted events on goto. */

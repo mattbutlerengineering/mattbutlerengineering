@@ -178,3 +178,44 @@ describe("@mbe/scripts turbo task hashes see the suite's real inputs", () => {
     expect(taskHashes()).toEqual(baseline);
   });
 });
+
+/** `<pkg>#typecheck`'s dry-run hash (nothing executes, nothing caches). */
+function typecheckHash(pkg) {
+  const env = { ...process.env, TURBO_TELEMETRY_DISABLED: "1" };
+  delete env.TURBO_TOKEN;
+  delete env.TURBO_TEAM;
+  const stdout = execFileSync(
+    TURBO_BIN,
+    ["run", "typecheck", `--filter=${pkg}`, "--dry-run=json"],
+    { cwd: ROOT, encoding: "utf8", env, maxBuffer: 64 * 1024 * 1024 }
+  );
+  const task = JSON.parse(stdout).tasks.find((t) => t.taskId === `${pkg}#typecheck`);
+  if (!task) throw new Error(`dry-run has no task ${pkg}#typecheck`);
+  return task.hash;
+}
+
+/**
+ * docs/fixes/test-typecheck-coverage PR5 brought apps' e2e/ and root-level
+ * tests under `typecheck` (each app's tsconfig.e2e.json). Root inputs used to
+ * be src/scripts only, so an edit to just an e2e spec replayed a cached green
+ * typecheck (measured: hash unchanged). Root turbo.json now adds `e2e/**` and
+ * `*.ts`; hospitality and rialto-web add the out-of-package JS their e2e
+ * imports via allowJs (apps/<app>/turbo.json). gen exercises the root config,
+ * the other two their package configs.
+ */
+describe("app typecheck hashes see e2e/, root-level tests, and allowJs imports", () => {
+  it.each([
+    ["@mbe/gen", "apps/gen/e2e/auth.spec.ts"],
+    ["@mbe/hospitality", "apps/hospitality/e2e/auth.spec.ts"],
+    ["@mbe/hospitality", "apps/hospitality/vite.manualChunks.test.ts"],
+    ["@mbe/hospitality", "scripts/venue-journey/report.mjs"],
+    ["@mbe/rialto-web", "apps/rialto-web/e2e/theme.spec.ts"],
+    ["@mbe/rialto-web", "apps/rialto-web/token-count.config.test.ts"],
+    ["@mbe/rialto-web", "infrastructure/worker/csp.js"],
+  ])("%s#typecheck responds to %s", { timeout: 120_000 }, (pkg, file) => {
+    const before = typecheckHash(pkg);
+    const mutated = withAppendedProbe(join(ROOT, file), () => typecheckHash(pkg));
+    expect(mutated).not.toBe(before);
+    expect(typecheckHash(pkg)).toBe(before);
+  });
+});

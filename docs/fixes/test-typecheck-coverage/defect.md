@@ -232,7 +232,7 @@ Measured 679 > ~500. Choices for Matt:
 
 **PR 5: e2e and root-level tests in apps (36 e2e + 5 rialto-web root = 41)**
 
-- [ ] **Config + fixes** — cover `apps/{hospitality,rialto-web,gen,marketing}/e2e/**` and
+- [x] **Config + fixes** — cover `apps/{hospitality,rialto-web,gen,marketing}/e2e/**` and
       `apps/rialto-web/token-count.config(.test).ts` (node types), widen turbo
       `tasks.typecheck.inputs` to include `e2e/**` and root `*.ts`, and lift the guard's e2e
       scoping.
@@ -486,3 +486,57 @@ unknown>` demanded optional keys too. It is now `RequiredKeys<AdapterResult>`, a
     `@testing-library` code is in `dist/assets`.
   - **Adjacent:** `docs/features/hospitality-service-ux/audit/xcut.md:121` still names
     `use-theme.test.tsx`. It is a dated audit record and is left as written.
+- 2026-10-08 Implement PR5 (branch `fix/test-typecheck-coverage-5`, from `origin/main`
+  `bdfcad156`):
+  - **Config.** Each of `apps/{hospitality,rialto-web,gen,marketing}` gets a
+    `tsconfig.e2e.json` (`extends ./tsconfig.json`, `noEmit`, `types: ["node"]`,
+    `include: ["e2e", "*.test.ts"]`, `exclude: []`), chained into `typecheck` after the
+    existing project (`... && tsc --noEmit -p tsconfig.e2e.json`). `rootDir` is `.` for gen,
+    inherited `..` for marketing, and `../..` plus `allowJs` for hospitality and rialto-web:
+    their e2e imports out-of-package JS (`scripts/venue-journey/report.mjs`,
+    `@mbe/edge-worker/csp.js` = `infrastructure/worker/csp.js`) that had no declarations
+    (TS7016), and `allowJs` takes the types from those files' own JSDoc instead of a
+    hand-written `.d.ts` that could drift. `tsconfig.json` (the build config) is unchanged in
+    all four. The five PR5 `PENDING_IN_THIS_RUN` entries are removed; only the PR6 showcase
+    entry remains.
+  - **Node types (lockfile change).** TypeScript here no longer auto-includes `@types/*`, so
+    every e2e file using `process`/`Buffer`/`node:*` failed TS2591. gen and marketing already
+    declare `@types/node: catalog:`; hospitality and rialto-web did not, and nothing
+    resolvable from those apps provides it. Both now declare `@types/node: catalog:` (the
+    convention of 20 other packages). `pnpm-lock.yaml` gains only the two importer entries
+    (+6 lines, version 26.6.2 already in the store); an unrelated `legacy-javascript`
+    0.0.1 → 0.0.3 drift that `pnpm install` produced was dropped. CI runs cold once.
+  - **RED.** With the entries removed and no config, the guard failed with
+    `expected { 'apps/rialto-web': [ …(16) ], …(3) } to deeply equal {}` (rialto-web 16,
+    hospitality 36, gen 4, marketing 10). First config draft, without node types: 123 errors
+    (hospitality 55, rialto-web 42, gen 6, marketing 20; TS2591 79). With the final config
+    and no test fixes, `typecheck` failed with hospitality 4, rialto-web 11, gen 1,
+    marketing 1 (17: TS2532 5, TS2345 5, TS2769 3, TS2322 2, TS7006 1, TS2459 1). After the
+    fixes: 0 in all four.
+  - **Fixes.** `!` on regex groups / indexed access (`token.split(".")[1]!` in gen and
+    hospitality `auth-helpers.ts`, `match[1]!`, `locator[2]!`, `block[1]!`, `source[i]!`,
+    `violations[0]!` after the `length > 0` assertion). `briefing.spec.ts` imported `type
+Page` from `./fixtures.js`, which imports but does not export it; it now imports from
+    `@playwright/test` like the other specs (that also cleared the TS7006 on `route`).
+  - **Non-test edit (type-only), `packages/test-fixtures/src/ui-quality-capture.ts`.**
+    `CapturePageLike.on/off` took `handler: (arg: never) => void`, which no real Playwright
+    `Page` satisfies (TS checks callback params one way, so every per-event payload must be
+    assignable to the param), so all three `ui-quality.capture.ts` call sites
+    (hospitality, rialto-web, marketing) were type errors. The param is now `any` (with an
+    inline reason and an eslint-disable; `unknown` would reject the typed handlers), and
+    `listen()`'s handler record is typed `Parameters<CapturePageLike["on"]>[1]`. Runtime is
+    unchanged; test-fixtures typecheck/test/lint green. The test file's comment about the
+    fake's `never` handlers was reworded to match.
+  - **Turbo inputs.** Root `tasks.typecheck.inputs` gains `e2e/**` and `*.ts`;
+    `apps/hospitality/turbo.json` and `apps/rialto-web/turbo.json` (new Package
+    Configurations) add the out-of-package allowJs imports. Dry-run hashes (`turbo run
+typecheck --dry=json`) before widening: unchanged for e2e spec, root test, root source
+    and cross-package edits in all four apps (the trap, measured). After: each edit moves
+    the affected app's hash, and restoring returns it (A/B/A). Pinned by a new `describe` in
+    `scripts/__tests__/turbo-task-inputs.test.mjs` (7 cases), which failed 7/7 with the old
+    inputs.
+  - **Casts introduced:** none. One `any` annotation (above), not a cast.
+  - **Build:** `pnpm --dir <pkg> build` green for test-fixtures and all four apps; no test
+    code in `dist`.
+  - **Adjacent (logged, not fixed):** app `lint` scripts are `eslint src/`, so e2e files
+    are type-checked now but still not linted.

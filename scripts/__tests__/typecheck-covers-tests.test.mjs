@@ -43,11 +43,6 @@ const PENDING_IN_THIS_RUN = new Map([
   // non-test prop-drift errors. Routed in defect.md § Notes (2026-10-08).
   // PR6 — assigned its own PR by Matt, 2026-10-08 (autorun-brief.md).
   ["packages/rialto/src/showcase/App.vibes.test.tsx", "PR6"],
-  ["apps/hospitality/e2e/", "PR5 (e2e/)"],
-  ["apps/hospitality/vite.manualChunks.test.ts", "PR5 (root-level)"],
-  ["apps/rialto-web", "PR5 (e2e/, token-count.config.test.ts)"],
-  ["apps/gen", "PR5 (e2e/)"],
-  ["apps/marketing", "PR5 (e2e/)"],
 ]);
 
 const TS_TEST_FILE = /\.(test|spec)\.(ts|tsx|mts|cts)$/;
