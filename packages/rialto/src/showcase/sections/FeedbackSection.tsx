@@ -113,7 +113,7 @@ export function FeedbackSection() {
           <Skeleton width="100%" height={16} />
           <Skeleton width="80%" height={16} />
           <div style={{ display: "flex", gap: "var(--rialto-space-sm)" }}>
-            <Skeleton width={40} height={40} variant="circular" />
+            <Skeleton width={40} height={40} variant="circle" />
             <div
               style={{
                 flex: 1,
@@ -138,7 +138,7 @@ export function FeedbackSection() {
         >
           Steps
         </Text>
-        <Steps steps={STEP_ITEMS} activeStep={step} />
+        <Steps steps={STEP_ITEMS} currentStep={step} />
         <div className={css.row} style={{ marginBlockStart: "var(--rialto-space-sm)" }}>
           <Button
             size="sm"
