@@ -219,3 +219,38 @@ describe("app typecheck hashes see e2e/, root-level tests, and allowJs imports",
     expect(typecheckHash(pkg)).toBe(before);
   });
 });
+
+/**
+ * A Package Configuration's `inputs` REPLACES the root array unless it opts in
+ * with `$TURBO_EXTENDS$`. The overrides above (hospitality, rialto-web,
+ * rialto-catalog) only add out-of-package files, so a copied root list would
+ * silently stop tracking root changes: add a test location to root
+ * `tasks.typecheck.inputs` and those packages keep the old list, and a cached
+ * (or CI remote-cached) green typecheck replays over an unhashed edit. Today's
+ * file hashes cannot show that future drift, so this one check reads the
+ * config: every package-level typecheck override must extend the root list.
+ */
+describe("package-level typecheck inputs extend the root list", () => {
+  const overrides = execFileSync("git", ["ls-files", "-z", "--", "*turbo.json"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter((f) => f && f !== "turbo.json")
+    .map((f) => [f, JSON.parse(readFileSync(join(ROOT, f), "utf8")).tasks?.typecheck?.inputs])
+    .filter(([, inputs]) => inputs !== undefined);
+
+  it("finds the known overrides (the probe itself works)", () => {
+    expect(overrides.map(([f]) => f)).toEqual(
+      expect.arrayContaining([
+        "apps/hospitality/turbo.json",
+        "apps/rialto-web/turbo.json",
+        "packages/rialto-catalog/turbo.json",
+      ])
+    );
+  });
+
+  it.each(overrides)("%s starts its typecheck inputs with $TURBO_EXTENDS$", (_file, inputs) => {
+    expect(inputs[0]).toBe("$TURBO_EXTENDS$");
+  });
+});
