@@ -380,14 +380,17 @@ describe("mbe-evening liveness signature (#5603 investigation)", () => {
 // mbe-weekly-improve dark and every other routine with a declared signature
 // alive. Routines marked `unverifiable` in the manifest (mbe-night,
 // mbe-midday, mbe-monthly-meta-audit — each has a prompt-documented title
-// now, none confirmed live at the trigger yet) are
-// asserted separately as `unverifiable`, not folded into the "every other
-// routine" alive claim — they are real, distinct findings the manifest
-// surfaces honestly rather than papering over with a fabricated signature.
+// now, none confirmed live at the trigger yet; mbe-morning — its ACMM-audit
+// signature was retired in #5955 with no replacement yet, see
+// routine-manifest.mjs's unverifiableReason) are asserted separately as
+// `unverifiable`, not folded into the "every other routine" alive claim —
+// they are real, distinct findings the manifest surfaces honestly rather
+// than papering over with a fabricated signature.
 describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
-  // End of day, not midnight — mbe-morning's ACMM PR lands at 16:03 UTC on
-  // 09-20 itself, which would otherwise read as a future/negative-age
-  // artifact relative to a midnight-of-09-20 "now" and be discarded.
+  // End of day, not midnight — several routines' artifacts land well after
+  // 00:00 UTC on 09-20 itself (e.g. mbe-learning-loop at 18:10 UTC), which
+  // would otherwise read as a future/negative-age artifact relative to a
+  // midnight-of-09-20 "now" and be discarded.
   const now = "2026-09-20T23:59:59Z";
 
   // One representative observed artifact per verifiable routine, matching
@@ -500,15 +503,28 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     "mbe-monthly-meta-audit",
   ];
 
+  // #5955: mbe-morning's `chore(acmm): daily audit` signature was retired —
+  // it's acmm-regression.yml's artifact now, not mbe-morning's — with no
+  // replacement signature declared yet. Distinct from the three above
+  // (which have a declared-but-trigger-unconfirmed signature): mbe-morning
+  // has no signature at all, so it reports `unverifiable` regardless of
+  // what the fixture observes for it.
+  const RETIRED_SIGNATURE_NO_REPLACEMENT = ["mbe-morning"];
+
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
       if (
         name === "mbe-weekly-improve" ||
-        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
+        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name) ||
+        RETIRED_SIGNATURE_NO_REPLACEMENT.includes(name)
       )
         continue;
       expect(byRoutine[name]).toBe("alive");
     }
+  });
+
+  it("reports mbe-morning as unverifiable, not silently omitted, now that its ACMM signature is retired", () => {
+    expect(byRoutine["mbe-morning"]).toBe("unverifiable");
   });
 
   it("keeps every prompt-updated routine unverifiable until its live trigger is confirmed updated", () => {

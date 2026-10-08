@@ -50,7 +50,7 @@ further down describe _why_, not _what_.
 | `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                                  |
 | `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                                  |
 | `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                         |
-| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                         |
+| `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues                                          | `/ideate` (cycle-check + ideation) — ACMM audit step retired (#5955), see prompt file                                   |
 | `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                                  |
 | `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                              |
 | `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`  | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `23 7 * * *`  | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues     | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                        |
@@ -203,6 +203,9 @@ Full mechanics: `.claude/skills/ideate/SKILL.md`. Operator guide
 The `/ideate` step is folded into the end of `mbe-morning`'s live prompt
 (replacing its old issue-worker step) — see
 [`routines/mbe-morning.md`](./routines/mbe-morning.md) for the exact text.
+As of #5955, `/ideate` is `mbe-morning`'s only step — its ACMM-audit step was
+retired in favor of `.github/workflows/acmm-regression.yml`, the single
+canonical daily ACMM run (#5857).
 
 ### Ideation label glossary
 
