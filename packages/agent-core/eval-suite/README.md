@@ -69,18 +69,18 @@ passing test can't prove.
 {
   "id": "example-test-writing",
   "category": "test-writing",
-  "prompt": "Add a regression test to services/reservations/src/services/booking-notifications.test.ts, in the cancelBookingNotifications describe block, that locks in an existing (correct) behavior: a reservation cancellation email is transactional, per services/reservations/src/services/contact-policy.ts, so it must still be sent even when the guest has unsubscribed from marketing. Build a reservation whose guest carries unsubscribed: true (see the existing makeReservation/makeDeps helpers and communicationPreference-based test cases in the same describe block for the pattern), call cancelBookingNotifications, and assert notificationAdapter.sendBookingCancelled was still invoked. Do not change any production code — the behavior is already correct; only the test coverage is missing.",
+  "prompt": "Add a regression test to services/reservations/src/transitions/adapters/dispatcher-messaging.test.ts, alongside the existing 'booking-cancelled' test cases, that locks in an existing (correct) behavior: a reservation-cancelled email is transactional, per services/reservations/src/services/contact-policy.ts, so it must still be sent even when the guest has unsubscribed from marketing. Using the existing res() helper and overrides pattern in that file, build a reservation whose guest carries unsubscribed: true — spread the file's existing default guest object and override only the unsubscribed field (Reservation['guest'] from @mbe/types requires a full shape including visitCount, so replacing it outright with a partial literal will fail typecheck) — send a 'booking-cancelled' message through the messaging adapter returned by createDispatcherMessaging, and assert dispatcher.sendBookingCancelled was still invoked. Do not change any production code — the behavior is already correct; only the test coverage is missing.",
   "fixtureRef": "services/reservations",
   "rubric": {
     "testsMustPass": true,
     "typecheckMustPass": true,
     "lintMustPass": false,
     "judgeCriteria": [
-      "The new test builds a reservation whose guest has unsubscribed: true and asserts sendBookingCancelled is still called",
+      "The new test builds a reservation whose guest has unsubscribed: true and asserts dispatcher.sendBookingCancelled is still called",
       "No production code is changed — only test coverage is added"
     ]
   },
-  "budget": { "maxTurns": 28, "maxCostUsd": 1 }
+  "budget": { "maxTurns": 28, "maxCostUsd": 1.2 }
 }
 ```
 
@@ -94,6 +94,31 @@ passing test can't prove.
 > example of the "pick a stable `fixtureRef`" tip, not just a hypothetical. The file
 > and `id` were renamed from `example-bugfix` to `example-test-writing` (#5981) so
 > the `id`/`category` finally agree with what the task actually exercises.
+>
+> **The fixture moved again before the rename even finished landing.** #6055 (merged
+> days after #5981 opened) deleted `services/reservations/src/services/booking-notifications.ts`
+> and its test file wholesale — `cancelBookingNotifications` doesn't exist anymore.
+> The cancellation-email send now lives in
+> `src/transitions/adapters/dispatcher-messaging.ts`'s `sendBookingCancelled`, which
+> still has no `unsubscribed` check (same transactional-bypass behavior, different
+> module), so the task was repointed there rather than retired. This is the "pick a
+> stable `fixtureRef`" tip failing a second time on the same task, inside the same
+> review round — a reminder that "stable" is relative to how actively a subsystem is
+> being refactored, not a one-time judgment.
+>
+> **A first attempt at the repointed prompt scored 67% on a real typecheck failure,
+> not a judge miss.** `res()`'s `overrides` parameter is typed `Partial<Reservation>`,
+> but `Reservation['guest']` (`@mbe/types`) is not itself partial — it requires
+> `visitCount`. An agent that replaced the whole `guest` object with
+> `{ communicationPreference, unsubscribed }` (a reasonable, idiomatic-looking test)
+> failed `tsc` on a missing `visitCount`, because the file's own default guest
+> literal only dodges that check by being embedded inside the full return object's
+> `as unknown as Reservation` cast — the override argument gets no such cover. The
+> prompt now explicitly says to spread the default guest object and override only
+> `unsubscribed`, which avoids the trap without touching production code. Re-run
+> with the revised prompt: `passed: true`, score 100%, 17 turns, $0.86
+> (`--adapter claude-cli`) — `budget.maxCostUsd` is set to 1.2, headroom above
+> that observed cost rather than below it.
 
 ## Authoring tips
 
