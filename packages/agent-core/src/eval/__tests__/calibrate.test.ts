@@ -43,6 +43,8 @@ function makeReport(scores: TaskScore[]): EvalReport {
       meanTurns: 5,
       stuckCount: 0,
     },
+    byCategory: {},
+    nonRunCount: 0,
   };
 }
 

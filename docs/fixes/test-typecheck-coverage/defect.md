@@ -219,7 +219,7 @@ Measured 679 > ~500. Choices for Matt:
 
 **PR 3: `packages/agent-core` (255)**
 
-- [ ] **Config + fixes** — same shape. 173 are indexed-access errors. Split into 3a/3b by
+- [x] **Config + fixes** — same shape. 173 are indexed-access errors. Split into 3a/3b by
       subdirectory if the diff isn't reviewable.
   - Accept: as above.
 
@@ -354,3 +354,49 @@ Measured 679 > ~500. Choices for Matt:
   - **Non-test edits:** none.
   - **Build output:** `rm -rf dist && pnpm build` in all three packages is green, with no
     `*.test.*` in `dist/`. Build configs are unchanged.
+- 2026-10-08 Implement PR3 (branch `fix/test-typecheck-coverage-3`, from `origin/main`
+  `bb85b3071`):
+  - **Split decision: no split.** The diff is 47 files, about 400 changed lines, nearly all
+    one-character `!` insertions, which is under the 3a/3b threshold (about 1500 lines or 60
+    files).
+  - **Config.** `packages/agent-core/tsconfig.test.json` has the PR2 shape, and `typecheck`
+    is now `tsc --noEmit -p tsconfig.test.json`. The `PENDING_IN_THIS_RUN` entry is removed.
+    `tsconfig.eslint.json` (`extends ./tsconfig.json`, `exclude: []`) is unaffected and
+    `pnpm lint` stays green.
+  - **RED.** With the entry removed and no config, the guard failed with
+    `expected { 'packages/agent-core': [ …(98) ] } to deeply equal {}`. With the config in
+    place and no test fixes, `typecheck` exited 2 with 255 errors (TS2532 126, TS18048 47,
+    TS2345 28, TS2322 10, TS6133 9, TS2722 9, TS7006 8, TS2339 6, TS2304 4, TS2352 3,
+    TS2488 2, TS2739 1, TS2558 1, TS1360 1). That matches Capture exactly. After the fixes: 0.
+  - **Indexed access (TS2532/TS2722, 135).** The `!` marks were placed by a throwaway
+    compiler-API script, right after each span that tsc reported as possibly undefined. It
+    edited test files only, and no `!!` was produced. TS18048 (47) was fixed at about 12
+    declaration sites (`const call = mock.calls[0]!`, `surfaces[0]!`,
+    `responseList[idx]!`, `map[task.id]!`, ...) rather than at each use.
+  - **Shape fixes toward real interfaces.** `StaticAnalysisResult` mocks gained the
+    required `durationMs` (gates, post-commit-gateway). `EvalReport` gained `byCategory` and
+    `nonRunCount` (calibrate). `SessionStatus` `"completed"` became `"succeeded"` (eval
+    code never reads `status`). Gemini `makeConfig` gained the required
+    `repoPath`/`baseBranch`. The `runSession` mock is now `vi.fn<typeof runSession>()` (it
+    used the removed vitest-1 tuple generics, which collapsed every call to `never`). The
+    `budget-calculator` file was missing its `vi` import (it ran on vitest globals). Unused
+    mock params became `_cmd`/`_args`/`_options`. The orchestrator `(e) => events.push(e)`
+    callbacks now use a block body (`void` return). `gates` `capturedPrevious` is now mutable.
+  - **Type-strengthening.** `cli-adapter.test.ts` `satisfies Record<keyof AdapterResult,
+unknown>` demanded optional keys too. It is now `RequiredKeys<AdapterResult>`, and a probe
+    confirmed it resolves to exactly the four required keys. `run-git.test.ts` replaces
+    `.catch((e) => e as GitCommandError)` with a `gitErrorFrom()` helper that narrows by
+    `instanceof` and fails if the call resolved.
+  - **Casts introduced, with a reason in the code:** two `as unknown as` in
+    `cost-tracker.test.ts`. One is the error-result fixture, whose `usage` has only the 4
+    token fields the tracker reads, while NonNullableUsage requires 6 more. The other is the
+    null-token case, which sits deliberately outside NonNullableUsage to pin the runtime
+    `?? 0`. `gates.test.ts` swapped `(gate as Record<string, unknown>)["lastResult"]` for
+    `Reflect.get(gate, "lastResult")`, which keeps the same assertion and needs no cast.
+  - **Non-test edits:** none. Only `package.json` (the script) and the new
+    `tsconfig.test.json` changed.
+  - **Build output:** `rm -rf dist && pnpm build` gives the same 392-file dist set as before
+    (diffed).
+  - **Adjacent smell (logged, not fixed):** `src/__tests__/fake-phase-deps.ts` (a test
+    helper, not `*.test.ts`) is compiled into `dist/__tests__/`. This predates the run and is
+    unchanged by it.

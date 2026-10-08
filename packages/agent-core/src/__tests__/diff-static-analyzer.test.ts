@@ -31,9 +31,9 @@ describe("analyzeDiff", () => {
 
     expect(result.clean).toBe(false);
     expect(result.violations).toHaveLength(1);
-    expect(result.violations[0].rule).toBe("no-console-log");
-    expect(result.violations[0].file).toBe("src/utils.ts");
-    expect(result.violations[0].severity).toBe("error");
+    expect(result.violations[0]!.rule).toBe("no-console-log");
+    expect(result.violations[0]!.file).toBe("src/utils.ts");
+    expect(result.violations[0]!.severity).toBe("error");
   });
 
   it("detects console.log in .tsx file", () => {
@@ -157,8 +157,8 @@ describe("analyzeDiff", () => {
     const result = analyzeDiff(diff);
 
     expect(result.violations).toHaveLength(2);
-    expect(result.violations[0].line).toBe(11);
-    expect(result.violations[1].line).toBe(13);
+    expect(result.violations[0]!.line).toBe(11);
+    expect(result.violations[1]!.line).toBe(13);
   });
 
   it("handles multiple files in one diff", () => {
