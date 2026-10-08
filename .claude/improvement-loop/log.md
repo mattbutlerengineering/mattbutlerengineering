@@ -2872,6 +2872,16 @@ Issue reconciliation was still completed before the plan and came back clean: al
 
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). Filing stopped, but for the benign reason above rather than unreadable state. A genuinely quiet fire: nothing was due, so nothing was judged or filed.
 
+## 2026-10-06 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 12 entries, metricsFreshness 0 unhealthy — review-burden=fresh 2.09d, reviewBurden 1 reviewers/1 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 93%, ciHealth 100% pass rate 21/21, sessionLogs 0 sessions (7d)/0 commits, codeChurn 1% churn rate [3883 deleted/702279 added, 7d], flakyTests 1 flaky [2489249 runs, 64 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as every recent run — still open and tracked by #5958 and #6039 (gh-client never falls back to REST on the GraphQL 403), not re-filed here. Fresh checkout this run needed `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` would start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — optional step, not exercised this run (no Sentry-specific signal to chase and the GraphQL block already constrains the GitHub-issue-filing half of triage).
+**Verifications:** `verify-fixes.mjs` failed outright (same GraphQL-403 on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked `metrics/verifications.jsonl` by hand instead: of 113 rows in the last 30 days, 102 are `confidence: skip` (sensor data unavailable, not real verifications) and 11 are real (all ACMM-based, `confidence: low`) — 11/11 verified true, 0 reopened. Fix-effectiveness rate (excluding skip rows): 100% (11/11), same thin ACMM-only sample as the last successful manual check (2026-10-04).
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` still carries no `budgets` key (error-state since before 2026-10-04); default budget of 3 applies per the skill's fallback rule. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Tuesday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-06` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 226 closed in the window, 191 `completed` / 15 `duplicate` / 11 `not_planned` / 9 `null` → 11.5% false-positive rate (duplicate+not_planned/total), well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above. No threshold changes applied this run.
+
 ## 2026-10-07
 
 **queueEfficiency:** unavailable (query_error)
@@ -2939,3 +2949,60 @@ Issue reconciliation was still completed read-only, since the skipped plan is th
 **Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue` / `mcp__github__create_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: get`/`create`/`update`) instead. For both exhaustive label enumerations (`ui-quality`, `ui-quality:p1`), `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal and the SLA check depend on.
 
 **Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). A genuinely quiet fire: nothing was due, so nothing was judged or filed. The only thing waiting on a human is the unlabelled calibration set.
+
+## 2026-10-07 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 12 entries, metricsFreshness 0 unhealthy — review-burden=fresh, reviewBurden 1 reviewers/2 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 93%, ciHealth 100% pass rate 24/24, sessionLogs 0 sessions (7d)/0 commits, codeChurn 1% churn rate [3778 deleted/703163 added, 7d], flakyTests 0 flaky [1440035 runs, 68 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store — stale main or squash-deleted branches). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as every recent run — still tracked by #5958/#6039 (gh-client never falls back to REST on the GraphQL 403), not re-filed here. Fresh checkout needed `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` would start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); optional step, not re-authorized here.
+**Verifications:** `verify-fixes.mjs` failed outright (same GraphQL-403 on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked `metrics/verifications.jsonl` by hand instead: of 113 rows in the last 30 days, 102 are `confidence: skip` (sensor data unavailable) and 11 are real (all ACMM-based, `confidence: low`) — 11/11 verified true, 0 reopened. Fix-effectiveness rate (excluding skip rows): 100% (11/11) — same thin ACMM-only sample as the 2026-10-06 run.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` still carries no `budgets` key. Default budget of 3 applies per the skill's fallback rule; moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Wednesday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-07` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 230 closed in the window (audit capped at the 100-per-page REST limit — pagination to a second page 403'd on a `repositories/{id}/...` link path the proxy blocks, so the audit count is a floor, not exact), 195 `completed` / 15 `duplicate` / 11 `not_planned` / 9 `null` → 11.3% false-positive rate (duplicate+not_planned/total), consistent with the 2026-10-06 run's 11.5% and well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above (thin sample, ACMM-only). No threshold changes applied this run.
+
+## 2026-10-08 — mbe-evening
+
+**State:** No `gh` binary in this CCR session (confirmed per `.claude/rules/gotchas.md`); all queries below ran through `mcp__github__*` MCP tools instead of the skill's documented `gh` commands, plus a local `git log`/`.claude/agent-spend/sessions.jsonl` read.
+
+### Metrics (7d: 2026-10-01 → 2026-10-08)
+
+| Metric        | Value                                                                                                                       | Status |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Created (7d)  | 30 (9 audit + 21 ci-fix)                                                                                                    | -      |
+| Closed (7d)   | 20 (6 audit + 14 ci-fix)                                                                                                    | -      |
+| Closure Rate  | 66.7%                                                                                                                       | Yellow |
+| Time-to-Close | ~43h mean (6 audit ≈67.5h, 14 ci-fix ≈32.9h) — heavily skewed by #5955 (153h, sat unclaimed until tonight) and #5890 (135h) | Yellow |
+| Agent Success | 8 has-pr / 0 agent-failed / 0 agent-skip (open, current snapshot)                                                           | Green  |
+| CI Pass       | 16/18 non-cancelled main runs in last 20 ≈ 88.9%                                                                            | Yellow |
+| Queue (ready) | 56                                                                                                                          | Red    |
+| Stale (>7d)   | ≥19 (oldest: #5369, 24 days, security/needs-review)                                                                         | Red    |
+| Blocked       | 0 agent-failed                                                                                                              | Green  |
+| Skipped       | 0 agent-skip                                                                                                                | Green  |
+| Reverts (7d)  | 0 (merged); 2 revert PRs opened and closed unmerged this week                                                               | Green  |
+| Spend         | unattributed — `.claude/agent-spend/sessions.jsonl` is 0 bytes on main (known gap, #5885, 5th+ occurrence)                  | N/A    |
+
+### This iteration's `/implement-queue` run
+
+Claimed 3 issues (zone-spread batch): #5955 (ci-fix, root zone), #5840 (feature, apps/gen), #5981 (feature, packages/agent-core).
+
+- **#5840 → PR #6142: merged.** Reviewer pass, 10/10, clean DepartureBoard template addition.
+- **#5955 → PR #6144: merged.** Reviewer pass, 8/10. Root-caused the issue as misattributed liveness signature (acmm-regression.yml's reused-PR artifact being read as mbe-morning's), not a real dark routine — retired the duplicate/broken ACMM step from mbe-morning's doc rather than patching the symptom.
+- **#5981 → PR #6146: reviewer flagged (4/10) a real hallucination** — the renamed `example-test-writing.json` eval task targeted `services/reservations/src/services/booking-notifications.ts`/`cancelBookingNotifications`, both deleted from `main` in #6055 before this PR opened. Verified independently (`git log`, `ls`, `grep` against current `main`) before acting — confirmed, not a false positive. Dispatched the one allowed retry worker to rewrite the task against a real fixture; it ran ~2 hours (likely cycling real `agent eval` invocations) without pushing a fix or reporting back. Stood down per the cutoff: labeled issue #5981 `needs-review`, left PR #6146 open/unmerged with a comment summarizing the finding for a human to pick up. The other 4 new eval tasks in that PR were confirmed sound by the reviewer.
+
+### Patterns
+
+- **The reviewer→retry→cutoff safety net worked exactly as designed tonight**, including the "don't wait forever on a stuck retry" judgment call — but a 2-hour unresolved retry on a single eval-authoring task is a real cost (background agent time) worth noting if this recurs. Worth a `/gotcha-harvest` pass on: (a) why the retry ran long without reporting, (b) two new environment frictions discovered live — `SKIP_PUSH_TYPECHECK=1` set inline on the same shell command as `git push` does NOT reach `.claude/hooks/pre-push-typecheck.sh` (the hook reads its own process env, not the command string's inline assignment), and `CLAUDE_PROJECT_DIR` being unset in a fresh worktree misdirects `pre-bash-guard.sh`'s `node_modules` check at the main checkout instead of the worktree, blocking `pnpm test`/`build`/`typecheck` entirely until worked around with a wrapper script.
+- **Queue backlog is Red and growing**: 56 ready issues, oldest 24 days (#5369, a real Postgres RLS protection gap, carries `needs-review` so not auto-claimable). At a 3-issue/iteration cap this backlog outpaces drain rate — consistent with last night's same finding.
+- **ci-fix issue volume this week (21 created) is dominated by a cluster of 6 "Broken Main" incidents** (most resolved same-day to within ~1 day) plus 3 still-open duplicate tracking issues for the same `GHSA-ch52-4w7c-c8xp` advisory (#5995/#5997/#5998) that an open PR (#5999, CI-green) already addresses but hasn't merged — the same stale-duplicate-tracking-issue class last night's log flagged for #6101/#6084/#5997.
+- **`.claude/agent-spend/sessions.jsonl` is still 0 bytes on `main`** — the #5981 worker's own verification runs wrote 13 real rows to it, but they're stranded on the flagged, unmerged PR #6146. Cost/spend metrics in this report (and every recent one) are not trustworthy; this is now a recurring, open, named gap (#5885).
+
+### Recommendations
+
+- A human needs to look at PR #6146 / issue #5981 (now `needs-review`) and either finish the fixture rewrite or close it out.
+- The live `mbe-morning` RemoteTrigger prompt (`trig_01QYoHCMjUgJybAoXUvjjrWX`) still runs its retired ACMM-audit step against a since-moved script path — PR #6144 fixed the doc/manifest side only (by design, per `docs/scheduled-tasks.md#editing-a-routine`'s two-step process); the matching live-trigger prompt edit is a separate, deliberately-not-automated step this session did not take.
+- Queue-adjust per the skill's own rule (queue >10, success high) would call for more frequent/larger `/implement-queue` runs, but that's outside this routine's mandate (one iteration, batch ≤3) — flagging rather than acting.
+- `node scripts/reap-worktrees.mjs` failed closed this run (GraphQL 403 blocks its `gh pr list` call in this CCR session) — retained all 4 worktrees rather than guessing. Same GraphQL-blocked-in-CCR class as #5958/#6039; no action taken here since fail-closed is the correct/safe behavior.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
