@@ -81,6 +81,6 @@ shipped inside the PR it describes.
   2026-10-07T19:46:42Z (`--match-head-commit`, explicit `--subject`).
 - CI Gate: run `37676211250` → success on final head `0bc168b46`.
 - Reviewer gate: pass 9/10 on `0e2489c3b`, re-run pass 9/10 on `0bc168b46` (head gained
-  only a byte-identical llms regen).
+  only a docs commit, `cd2846073`, and a root llms regen, `0bc168b46`).
 - Deploy: run `37677051612` → Deploy Hospitality success.
 - Not yet confirmed: the behavioral smoke on production (Auth0-gated) — left to Operate.
