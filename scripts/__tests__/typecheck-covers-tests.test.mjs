@@ -28,33 +28,7 @@ import { discoverWorkspaceGlobs, resolveGlob } from "../dep-graph-discovery.mjs"
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const execFileAsync = promisify(execFile);
 
-/**
- * TEMPORARY sequencing list for the PR plan in
- * docs/fixes/test-typecheck-coverage/defect.md § Work items (six PRs) — NOT an
- * allowlist. Each key is a package directory, a single test file, or a
- * directory prefix ending in "/" (matches every test file under it); each value
- * names the PR of that run that brings it under typecheck. A listed entry must
- * still be uncovered (a stale entry fails below), and the run's final PR
- * empties and deletes this list.
- */
-const PENDING_IN_THIS_RUN = new Map([
-  // Found by this guard at PR1, not in Capture's table: tsconfig.json excludes
-  // all of src/showcase, and the test drags in showcase sources with 27
-  // non-test prop-drift errors. Routed in defect.md § Notes (2026-10-08).
-  // PR6 — assigned its own PR by Matt, 2026-10-08 (autorun-brief.md).
-  ["packages/rialto/src/showcase/App.vibes.test.tsx", "PR6"],
-]);
-
 const TS_TEST_FILE = /\.(test|spec)\.(ts|tsx|mts|cts)$/;
-
-/** Whether a PENDING_IN_THIS_RUN key names this test file (exactly, or as a "/"-ended prefix). */
-function pendingKeyMatches(key, file) {
-  return key.endsWith("/") ? file.startsWith(key) : key === file;
-}
-
-function isPendingFile(file) {
-  return [...PENDING_IN_THIS_RUN.keys()].some((key) => pendingKeyMatches(key, file));
-}
 
 /**
  * The tsc projects a `typecheck` script runs, in order. Handles `&&`/`;`
@@ -188,26 +162,14 @@ describe("every workspace TS test file is type-checked by its package's typechec
   it("leaves no tracked test file outside every typecheck project", () => {
     const offenders = Object.fromEntries(
       [...coverage]
-        .filter(([wsDir]) => !PENDING_IN_THIS_RUN.has(wsDir))
-        .map(([wsDir, r]) => [wsDir, r, r.uncovered.filter((f) => !isPendingFile(f))])
-        .filter(([, , uncovered]) => uncovered.length > 0)
-        .map(([wsDir, r, uncovered]) => [
+        .filter(([, r]) => r.uncovered.length > 0)
+        .map(([wsDir, r]) => [
           wsDir,
           r.error
             ? `${r.error} (${r.tests.length} tests)`
-            : uncovered.map((f) => relative(wsDir, f)),
+            : r.uncovered.map((f) => relative(wsDir, f)),
         ])
     );
     expect(offenders).toEqual({});
-  });
-
-  it("has no stale PENDING_IN_THIS_RUN entry (a fixed package or file must leave the list)", () => {
-    const uncoveredFiles = [...coverage.values()].flatMap((r) => r.uncovered);
-    const stale = [...PENDING_IN_THIS_RUN.keys()].filter((key) =>
-      coverage.has(key)
-        ? coverage.get(key).uncovered.length === 0
-        : !uncoveredFiles.some((f) => pendingKeyMatches(key, f))
-    );
-    expect(stale).toEqual([]);
   });
 });
