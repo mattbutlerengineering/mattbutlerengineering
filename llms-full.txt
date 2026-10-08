@@ -29520,7 +29520,7 @@
         const name = exp.getName();
     
         // Skip non-component exports (types, hooks, lowercase utilities)
-        if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
+        if (name.startsWith("use") || name[0] !== name[0]!.toUpperCase()) continue;
         if (name.endsWith("Props") || name.endsWith("Context")) continue;
     
         // Resolve aliased symbols
@@ -50702,8 +50702,8 @@
   </file>
   <file path="packages/database/src/testing.ts">
     export interface MockPrisma {
-      $queryRaw: ReturnType<typeof vi.fn>;
-      $executeRaw: ReturnType<typeof vi.fn>;
+      $queryRaw: Mock;
+      $executeRaw: Mock;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -50712,25 +50712,25 @@
       /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
       db: {
         prisma: MockPrisma;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
-        shutdown: ReturnType<typeof vi.fn>;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
+        shutdown: Mock;
       };
       /** @deprecated Access via db.getSlowQueryStats instead. */
-      getSlowQueryStats: ReturnType<typeof vi.fn>;
+      getSlowQueryStats: Mock;
       /** @deprecated Access via db.getServiceStatus instead. */
-      getServiceStatus: ReturnType<typeof vi.fn>;
+      getServiceStatus: Mock;
       /** @deprecated Access via db.getPoolMetrics instead. */
-      getPoolMetrics: ReturnType<typeof vi.fn>;
+      getPoolMetrics: Mock;
     }
     export interface MockDatabaseServiceOverrides {
       /** Merged (not replaced) with the default prisma stub. */
       prisma?: Record<string, unknown>;
-      getSlowQueryStats?: ReturnType<typeof vi.fn>;
-      getServiceStatus?: ReturnType<typeof vi.fn>;
-      getPoolMetrics?: ReturnType<typeof vi.fn>;
-      shutdown?: ReturnType<typeof vi.fn>;
+      getSlowQueryStats?: Mock;
+      getServiceStatus?: Mock;
+      getPoolMetrics?: Mock;
+      shutdown?: Mock;
     }
     export function createMockDatabaseService(
       overrides?: MockDatabaseServiceOverrides
@@ -50765,10 +50765,10 @@
     export interface MockDatabaseModule {
       db: {
         prisma: MockPrisma;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
-        shutdown: ReturnType<typeof vi.fn>;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
+        shutdown: Mock;
       };
       prisma: MockPrisma;
     }

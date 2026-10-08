@@ -23,7 +23,9 @@ const VIEWPORTS = [
   { width: 375, height: 812 },
 ];
 
-type Handler = (arg: unknown) => void;
+// Matches CapturePageLike's listener type. The real page's per-event payload
+// types erase to `never` there, so the fake replays scripted payloads `as never`.
+type Handler = (arg: never) => void;
 
 /** A fake Playwright page: records calls, replays scripted events on goto. */
 function fakePage(
@@ -47,8 +49,8 @@ function fakePage(
         (handlers.get(event) ?? []).filter((h) => h !== handler)
       );
     },
-    async emulateMedia(opts: { reducedMotion: string }) {
-      calls.push(`emulateMedia:${opts.reducedMotion}`);
+    async emulateMedia(opts) {
+      calls.push(`emulateMedia:${opts?.reducedMotion}`);
     },
     async setViewportSize(v: { width: number; height: number }) {
       calls.push(`viewport:${v.width}x${v.height}`);
@@ -56,7 +58,7 @@ function fakePage(
     async goto(url: string) {
       calls.push(`goto:${url}`);
       for (const [event, arg] of script.events ?? []) {
-        for (const h of handlers.get(event) ?? []) h(arg);
+        for (const h of handlers.get(event) ?? []) h(arg as never);
       }
       if (script.gotoError) throw script.gotoError;
       return null;
@@ -203,7 +205,7 @@ describe("capturePage fold", () => {
       [true, "375x812"],
       [false, "1280x720"],
     ]);
-    expect(shots[2].path).toBe(join(outDir, "book-venueSlug@1280x720.fold.png"));
+    expect(shots[2]!.path).toBe(join(outDir, "book-venueSlug@1280x720.fold.png"));
     expect(row.screenshots).toHaveLength(2);
     expect(row.fold).toEqual({
       viewport: "1280x720",

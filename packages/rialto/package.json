@@ -392,7 +392,7 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.lib.ts && pnpm exec tsx scripts/generate-all.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
