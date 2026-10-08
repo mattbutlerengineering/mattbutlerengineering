@@ -15,7 +15,7 @@ describe("apiRequest", () => {
     const result = apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues/1");
 
     expect(result).toEqual({ status: 200, json: { ok: true } });
-    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(req.url).toBe("https://api.github.com/repos/owner/repo/issues/1");
     expect(req.headers.authorization).toBe("Bearer gho_test");
     expect(req.headers.accept).toBe("application/vnd.github+json");
@@ -26,7 +26,7 @@ describe("apiRequest", () => {
     const http: SyncHttp = vi.fn().mockReturnValue({ status: 201, body: "{}" });
     apiRequest(makeCtx(http), "POST", "/repos/owner/repo/issues", { title: "t" });
 
-    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(req.headers["content-type"]).toBe("application/json");
     expect(req.body).toBe(JSON.stringify({ title: "t" }));
   });
@@ -34,7 +34,7 @@ describe("apiRequest", () => {
   it("passes a full URL through unchanged (Search API shape)", () => {
     const http: SyncHttp = vi.fn().mockReturnValue({ status: 200, body: "{}" });
     apiRequest(makeCtx(http), "GET", "https://api.github.com/search/issues?q=x");
-    expect((http as ReturnType<typeof vi.fn>).mock.calls[0][0].url).toBe(
+    expect((http as ReturnType<typeof vi.fn>).mock.calls[0]![0].url).toBe(
       "https://api.github.com/search/issues?q=x"
     );
   });

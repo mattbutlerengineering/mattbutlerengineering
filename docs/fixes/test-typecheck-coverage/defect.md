@@ -213,7 +213,7 @@ Measured 679 > ~500. Choices for Matt:
 
 **PR 2: `gh-client` (35), `agent-test-utils` (21), `notifications` (56) — about 112**
 
-- [ ] **Config + fixes** — same shape. The notifications TS2739 ×32 means its mocks need the
+- [x] **Config + fixes** — same shape. The notifications TS2739 ×32 means its mocks need the
       missing required props.
   - Accept: as above.
 
@@ -237,6 +237,14 @@ Measured 679 > ~500. Choices for Matt:
       scoping.
   - Accept: the guard covers e2e. Editing only an e2e spec busts the typecheck cache (verify
     with `turbo run typecheck --filter=<app> --dry=json` showing a changed hash).
+
+**PR 6: `packages/rialto` showcase test (1 test, 27 non-test errors)** — added 2026-10-08 (Matt)
+
+- [ ] **Config + fixes** — bring `packages/rialto/src/showcase/App.vibes.test.tsx` under a
+      typecheck project and fix the 27 showcase-source errors it pulls in (TS2322 ×15, TS2353
+      ×7, TS4104 ×2, TS7006 ×2, TS2305 ×1). Showcase demo-app source edits are allowed (not
+      type-only, unpublished demo code), each called out in the PR body.
+  - Accept: the guard passes for `packages/rialto` with no `PENDING_IN_THIS_RUN` entry.
 
 **Final (in the last PR)**
 
@@ -316,3 +324,33 @@ Measured 679 > ~500. Choices for Matt:
     `build` runs `tsx scripts/generate-all.ts`, so a generator-only edit can replay a cached
     build. `tests/smoke/` holds 1 TS test outside every workspace package, so the guard does
     not see it.
+- 2026-10-08 Decision (Matt): the showcase test gets its own **PR 6**, after PR5 (work item
+  above, `autorun-brief.md` § Decision). Its `PENDING_IN_THIS_RUN` entry now reads `PR6`.
+- 2026-10-08 Implement PR2 (branch `fix/test-typecheck-coverage-2`, from `origin/main`
+  `d68f8ec1e`):
+  - **Config.** `tsconfig.test.json` in `gh-client`, `agent-test-utils`, `notifications`
+    (types shape: `extends ./tsconfig.json`, `rootDir: ../..`, `noEmit`, `include: [src]`,
+    `exclude: []`); each `typecheck` script is now `tsc --noEmit -p tsconfig.test.json`. The
+    test config is a superset of the build config, so a second `tsc --noEmit` is not needed.
+    Their three `PENDING_IN_THIS_RUN` entries are removed.
+  - **RED.** With the three configs moved aside and the scripts reverted, the guard failed
+    listing `packages/agent-test-utils`, `packages/gh-client` and `packages/notifications` with
+    their test files. With the configs in place and no test fixes, `typecheck` exited 2 with
+    agent-test-utils 21, gh-client 35, notifications 56 errors (112).
+  - **Per-package diagnostics, before → after:** agent-test-utils 21→0, gh-client 35→0
+    (as in PR1, fixing the TS2488 `const [req] = mock.calls[0]` sites exposed 3 more of the
+    same shape that tsc had not reported), notifications 56→0.
+  - **Fixes.** `!` on indexed access (`mock.calls[n]!`, `events[0]!`, `MODEL_PRICING[k]!`).
+    notifications: the dispatcher mocks gained the missing `NotificationPort` methods
+    (`sendWinBack`, `sendThankYouEmail`) and `SmsPort` methods (`sendWaitlistAdded`,
+    `sendWaitlistPositionUpdate`, `sendWaitlistTableReady`), and both are now checked with
+    `satisfies` against the real ports. gh-client `sync-http.test.ts`: the fake exec is typed
+    as the exported `SyncExecFn`, and the captured args/opts are typed.
+  - **Casts introduced, with a reason in the code:** one, `asFixture()` in
+    agent-test-utils `mock-claude-client.test.ts` (`as unknown as readonly SDKMessage[]`).
+    Replay fixtures are partial SDK messages: the mock yields them verbatim and reads only
+    `type`, `total_cost_usd` and `usage`, while the real `SDKSystemMessage`/`SDKResultSuccess`
+    carry dozens of required fields that do not matter here.
+  - **Non-test edits:** none.
+  - **Build output:** `rm -rf dist && pnpm build` in all three packages is green, with no
+    `*.test.*` in `dist/`. Build configs are unchanged.

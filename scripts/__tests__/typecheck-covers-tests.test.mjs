@@ -29,8 +29,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const execFileAsync = promisify(execFile);
 
 /**
- * TEMPORARY sequencing list for the five-PR plan in
- * docs/fixes/test-typecheck-coverage/defect.md § Work items — NOT an
+ * TEMPORARY sequencing list for the PR plan in
+ * docs/fixes/test-typecheck-coverage/defect.md § Work items (six PRs) — NOT an
  * allowlist. Each key is a package directory or a single test file; each value
  * names the PR of that run that brings it under typecheck. A listed entry must
  * still be uncovered (a stale entry fails below), and the run's final PR
@@ -40,10 +40,8 @@ const PENDING_IN_THIS_RUN = new Map([
   // Found by this guard at PR1, not in Capture's table: tsconfig.json excludes
   // all of src/showcase, and the test drags in showcase sources with 27
   // non-test prop-drift errors. Routed in defect.md § Notes (2026-10-08).
-  ["packages/rialto/src/showcase/App.vibes.test.tsx", "unassigned — see defect.md § Notes"],
-  ["packages/gh-client", "PR2"],
-  ["packages/agent-test-utils", "PR2"],
-  ["packages/notifications", "PR2"],
+  // PR6 — assigned its own PR by Matt, 2026-10-08 (autorun-brief.md).
+  ["packages/rialto/src/showcase/App.vibes.test.tsx", "PR6"],
   ["packages/agent-core", "PR3"],
   ["apps/hospitality", "PR4 (src/) + PR5 (e2e/)"],
   ["apps/rialto-web", "PR5 (e2e/, token-count.config.test.ts)"],
