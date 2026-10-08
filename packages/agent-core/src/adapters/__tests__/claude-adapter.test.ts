@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { SessionConfig, SessionResult } from "../../types.js";
 import type { AdapterConfig } from "../../cli-adapter.js";
+import type { runSession } from "../../session-runner.js";
 
 // ── Mock runSession before importing the adapter ──────────────────────
-const mockRunSession = vi.fn<[], Promise<SessionResult>>();
+const mockRunSession = vi.fn<typeof runSession>();
 
 vi.mock("../../session-runner.js", () => ({
-  runSession: (...args: unknown[]) => mockRunSession(...(args as [])),
+  runSession: (...args: Parameters<typeof runSession>) => mockRunSession(...args),
 }));
 
 import { ClaudeAdapter } from "../claude-adapter.js";
@@ -121,7 +122,7 @@ describe("ClaudeAdapter", () => {
       );
 
       expect(mockRunSession).toHaveBeenCalledOnce();
-      const sessionConfig = mockRunSession.mock.calls[0][0];
+      const sessionConfig = mockRunSession.mock.calls[0]![0];
       expect(sessionConfig).toMatchObject({
         taskDescription: "Add rate limiting to API",
         repoPath: "/home/user/project",
@@ -137,7 +138,7 @@ describe("ClaudeAdapter", () => {
 
       await adapter.run(makeConfig({ model: undefined }));
 
-      const sessionConfig = mockRunSession.mock.calls[0][0];
+      const sessionConfig = mockRunSession.mock.calls[0]![0];
       expect(sessionConfig.model).toBe("claude-sonnet-5");
     });
 
@@ -146,7 +147,7 @@ describe("ClaudeAdapter", () => {
 
       await adapter.run(makeConfig({ maxTurns: undefined }));
 
-      const sessionConfig = mockRunSession.mock.calls[0][0];
+      const sessionConfig = mockRunSession.mock.calls[0]![0];
       expect(sessionConfig.maxTurns).toBe(50);
     });
   });

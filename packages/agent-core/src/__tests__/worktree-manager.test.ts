@@ -159,7 +159,7 @@ describe("createWorktree (full mode)", () => {
     expect(result.mode).toBe("full");
     // 'git worktree add' should be the command used with `--` separator
     const calls = vi.mocked(execFile).mock.calls;
-    const gitArgs = calls[0][1] as string[];
+    const gitArgs = calls[0]![1] as string[];
     expect(gitArgs).toContain("worktree");
     expect(gitArgs).toContain("add");
     expect(gitArgs).toContain("--");
@@ -210,7 +210,7 @@ describe("createWorktree (lightweight mode)", () => {
 
     const calls = vi.mocked(execFile).mock.calls;
     // First call should be the clone
-    const firstArgs = calls[0][1] as string[];
+    const firstArgs = calls[0]![1] as string[];
     expect(firstArgs).toContain("clone");
     expect(firstArgs).toContain("--depth");
     expect(firstArgs).toContain("1");
@@ -225,7 +225,7 @@ describe("createWorktree (lightweight mode)", () => {
 
     const calls = vi.mocked(execFile).mock.calls;
     // Second call should be the branch creation
-    const secondArgs = calls[1][1] as string[];
+    const secondArgs = calls[1]![1] as string[];
     expect(secondArgs).toContain("checkout");
     expect(secondArgs).toContain("-b");
     expect(secondArgs).toContain(result.branchName);
@@ -253,7 +253,7 @@ describe("removeWorktree", () => {
 
     await removeWorktree("/repo", "/repo/.agent-worktrees/test", "full");
     expect(execFile).toHaveBeenCalled();
-    const gitArgs = vi.mocked(execFile).mock.calls[0][1] as string[];
+    const gitArgs = vi.mocked(execFile).mock.calls[0]![1] as string[];
     expect(gitArgs).toContain("worktree");
     expect(gitArgs).toContain("remove");
     expect(gitArgs).toContain("--");
@@ -281,7 +281,7 @@ describe("removeWorktree", () => {
     setupExecFileMock([""]);
 
     await removeWorktree("/repo", "/repo/.agent-worktrees/test");
-    const gitArgs = vi.mocked(execFile).mock.calls[0][1] as string[];
+    const gitArgs = vi.mocked(execFile).mock.calls[0]![1] as string[];
     expect(gitArgs).toContain("worktree");
   });
 
@@ -492,7 +492,7 @@ describe("syncLockfileIfNeeded", () => {
 
     const pnpmCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "pnpm");
     expect(pnpmCalls).toHaveLength(1);
-    expect(pnpmCalls[0][1]).toEqual(["install", "--frozen-lockfile"]);
+    expect(pnpmCalls[0]![1]).toEqual(["install", "--frozen-lockfile"]);
   });
 
   it("regenerates lockfile when frozen install fails and sentinel is absent", async () => {
@@ -517,7 +517,7 @@ describe("syncLockfileIfNeeded", () => {
     // Should have called pnpm install (without --frozen-lockfile) to regenerate
     const pnpmCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "pnpm");
     expect(pnpmCalls).toHaveLength(2);
-    expect(pnpmCalls[1][1]).toEqual(["install"]);
+    expect(pnpmCalls[1]![1]).toEqual(["install"]);
   });
 });
 
@@ -550,9 +550,9 @@ describe("git subprocess timeout", () => {
     await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
 
     const calls = vi.mocked(execFile).mock.calls;
-    const cloneArgs = calls[0][1] as string[];
+    const cloneArgs = calls[0]![1] as string[];
     expect(cloneArgs).toContain("clone");
-    const cloneOptions = calls[0][2] as { timeout?: number };
+    const cloneOptions = calls[0]![2] as { timeout?: number };
     expect(typeof cloneOptions.timeout).toBe("number");
     expect(cloneOptions.timeout).toBeGreaterThan(0);
   });

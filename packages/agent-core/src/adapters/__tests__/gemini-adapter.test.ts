@@ -42,8 +42,8 @@ function setupExecFileMock(
 
     callCounts[key] = (callCounts[key] ?? 0) + 1;
     const responseList = responses[key] ?? [{ stdout: "", stderr: "" }];
-    const idx = Math.min(callCounts[key] - 1, responseList.length - 1);
-    const response = responseList[idx];
+    const idx = Math.min(callCounts[key]! - 1, responseList.length - 1);
+    const response = responseList[idx]!;
 
     if (response.error) {
       const err = new Error("command failed") as Error & {
@@ -68,6 +68,8 @@ function makeConfig(overrides: Partial<AdapterConfig> = {}): AdapterConfig {
   return {
     taskDescription: "Fix the login bug in auth.ts",
     worktreePath: "/tmp/worktree-abc123",
+    repoPath: "/tmp/repo",
+    baseBranch: "main",
     ...overrides,
   };
 }
@@ -413,7 +415,7 @@ describe("GeminiCliAdapter", () => {
       await adapter.run(makeConfig({ taskDescription: longTask }));
 
       const geminiCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "gemini");
-      const passedTask = (geminiCall![1] as string[])[1];
+      const passedTask = (geminiCall![1] as string[])[1]!;
       expect(passedTask.length).toBeLessThanOrEqual(8_000);
       expect(passedTask).toMatch(/\.\.\.$/);
     });

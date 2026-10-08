@@ -62,7 +62,7 @@ describe("pr-creator", () => {
         number: 123,
       };
 
-      vi.mocked(execFile).mockImplementation((cmd, args, options, callback) => {
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _options, callback) => {
         (callback as any)(null, { stdout: JSON.stringify(mockResult) });
         return {} as any;
       });
