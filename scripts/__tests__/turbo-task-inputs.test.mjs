@@ -43,6 +43,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const TURBO_BIN = join(ROOT, "node_modules", ".bin", "turbo");
 const PLAYWRIGHT_CONFIG = join(ROOT, "apps/rialto-web/playwright.config.ts");
 const OWN_SOURCE = join(ROOT, "scripts/visual-tolerance.mjs");
+// typecheck-covers-tests.test.mjs reads every package's tsconfig*.json.
+const PACKAGE_TSCONFIG = join(ROOT, "packages/jobs/tsconfig.test.json");
 
 /**
  * Paths that build/test tooling writes into while a concurrent `turbo run` is
@@ -154,6 +156,17 @@ describe("@mbe/scripts turbo task hashes see the suite's real inputs", () => {
       expect(mutated.test).not.toBe(baseline.test);
       // A/B/A: after the byte-checked restore the hash must return to baseline,
       // proving the difference above came from the probe, not ambient churn.
+      expect(taskHashes()).toEqual(baseline);
+    }
+  );
+
+  it(
+    "test and test:coverage respond to a package tsconfig (typecheck-covers-tests reads them)",
+    { timeout: 120_000 },
+    () => {
+      const mutated = withAppendedProbe(PACKAGE_TSCONFIG, taskHashes);
+      expect(mutated.test).not.toBe(baseline.test);
+      expect(mutated.coverage).not.toBe(baseline.coverage);
       expect(taskHashes()).toEqual(baseline);
     }
   );
