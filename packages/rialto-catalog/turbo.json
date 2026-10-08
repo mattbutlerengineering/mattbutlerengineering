@@ -1,15 +1,11 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
-  "//": "typecheck: root inputs plus the rialto files scripts/generate-catalog.ts imports by relative path (../../rialto/scripts/component-metadata.ts, ../../rialto/src/components/catalog-meta.ts). tsconfig.test.json type-checks scripts/, so without these an edit to the imported rialto file alone would replay a cached green (docs/fixes/test-typecheck-coverage).",
+  "//": "typecheck: root inputs (inherited via $TURBO_EXTENDS$, so later root edits still apply) plus the rialto files scripts/generate-catalog.ts imports by relative path (../../rialto/scripts/component-metadata.ts, ../../rialto/src/components/catalog-meta.ts). tsconfig.test.json type-checks scripts/, so without these an edit to the imported rialto file alone would replay a cached green (docs/fixes/test-typecheck-coverage).",
   "tasks": {
     "typecheck": {
       "inputs": [
-        "src/**",
-        "scripts/**",
-        "package.json",
-        "tsconfig*.json",
-        "$TURBO_ROOT$/packages/config/typescript/**",
+        "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/packages/rialto/scripts/component-metadata.ts",
         "$TURBO_ROOT$/packages/rialto/src/components/catalog-meta.ts"
       ]

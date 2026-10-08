@@ -1,19 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
-  "//": "typecheck: root inputs plus scripts/venue-journey/report.mjs, which e2e/journeys/journey-recorder.ts imports by relative path. tsconfig.e2e.json type-checks e2e/ with allowJs, so the .mjs's JSDoc types are part of the program; without this input an edit to it alone would replay a cached green (docs/fixes/test-typecheck-coverage).",
+  "//": "typecheck: root inputs (inherited via $TURBO_EXTENDS$, so later root edits still apply) plus scripts/venue-journey/report.mjs, which e2e/journeys/journey-recorder.ts imports by relative path. tsconfig.e2e.json type-checks e2e/ with allowJs, so the .mjs's JSDoc types are part of the program; without this input an edit to it alone would replay a cached green (docs/fixes/test-typecheck-coverage).",
   "tasks": {
     "typecheck": {
-      "inputs": [
-        "src/**",
-        "scripts/**",
-        "e2e/**",
-        "*.ts",
-        "package.json",
-        "tsconfig*.json",
-        "$TURBO_ROOT$/packages/config/typescript/**",
-        "$TURBO_ROOT$/scripts/venue-journey/report.mjs"
-      ]
+      "inputs": ["$TURBO_EXTENDS$", "$TURBO_ROOT$/scripts/venue-journey/report.mjs"]
     }
   }
 }
