@@ -120,7 +120,7 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 
 ## Multi-CLI Adapters
 
-Supports dispatching agent tasks to Claude Code (SDK), Gemini CLI, or OpenCode CLI via a unified `AgentAdapter` interface.
+Supports dispatching agent tasks to Claude Code (SDK), Gemini CLI, OpenCode CLI, or Grok CLI via a unified `AgentAdapter` interface.
 
 ### Architecture
 
@@ -128,7 +128,7 @@ Supports dispatching agent tasks to Claude Code (SDK), Gemini CLI, or OpenCode C
 SessionConfig (task + worktree + model)
   → FailoverSessionAdapter (priority-cascade, ADR-017 `auto` mode)
     → RateLimitDetector (per-adapter cooldown tracking)
-    → Try adapters in order: claude → gemini → opencode
+    → Try adapters in order: claude → gemini → opencode (`grok` and `claude-cli` are explicit-only)
     → Skip if rate-limited or CLI/SDK not available
     → Throw AllAdaptersUnavailableError when all are exhausted
 ```
@@ -141,6 +141,7 @@ SessionConfig (task + worktree + model)
 | `ClaudeCliAdapter` | Claude CLI (subscription auth) | `claude`   | Subprocess: `claude -p <task> --output-format json` — explicit-selection only, NOT in the `auto` cascade (#3585) |
 | `GeminiCliAdapter` | Gemini CLI                     | `gemini`   | Subprocess: `gemini run --non-interactive`                                                                       |
 | `OpenCodeAdapter`  | OpenCode CLI                   | `opencode` | Subprocess: `opencode run --json`                                                                                |
+| `GrokCliAdapter`   | Grok CLI                       | `grok`     | Headless subprocess. Explicit only — not in the `auto` cascade.                                                  |
 
 ### Key Modules
 
@@ -152,6 +153,7 @@ SessionConfig (task + worktree + model)
 | `adapters/claude-cli-adapter.ts`       | Subprocess dispatch to the `claude` CLI — keyless alternative to `ClaudeAdapter` (#3585)        |
 | `adapters/gemini-adapter.ts`           | Subprocess dispatch to Gemini CLI                                                               |
 | `adapters/opencode-adapter.ts`         | Subprocess dispatch to OpenCode CLI                                                             |
+| `adapters/grok-adapter.ts`             | Subprocess dispatch to the Grok CLI — explicit only, not in the `auto` cascade                  |
 | `rate-limit-detector.ts`               | Tracks consecutive failures and cooldown expiry per adapter                                     |
 | `adapters/failover-session-adapter.ts` | Priority-cascade dispatch (ADR-017 `auto`), throws `AllAdaptersUnavailableError` when exhausted |
 
@@ -163,6 +165,7 @@ mbe agent run "task" --adapter gemini      # Direct dispatch to Gemini CLI
 mbe agent run "task" --adapter opencode    # Direct dispatch to OpenCode CLI
 mbe agent run "task" --adapter claude      # Default — uses Claude SDK directly
 mbe agent run "task" --adapter claude-cli  # Claude CLI subprocess — no ANTHROPIC_API_KEY needed
+mbe agent run "task" --adapter grok        # Grok CLI subprocess — not in `auto`
 ```
 
 ## Stuck Detection

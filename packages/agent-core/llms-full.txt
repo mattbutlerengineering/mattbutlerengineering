@@ -536,6 +536,38 @@
       if (!parsed.success || !parsed.data.is_error) return undefined;
       return parsed.data.result ?? parsed.data.subtype;
     }
+    export function parseGrokUsage(stdout: string): CliUsage {
+      const parsed = GrokJsonOutputSchema.safeParse(safeJsonParse(stdout.trim()));
+      if (!parsed.success) return {};
+    
+      const { usage, num_turns: numTurns, total_cost_usd: costUsd } = parsed.data;
+      const hasTokens =
+        usage !== undefined &&
+        (usage.input_tokens !== undefined ||
+          usage.output_tokens !== undefined ||
+          usage.cache_read_input_tokens !== undefined ||
+          usage.cache_creation_input_tokens !== undefined);
+    
+      return {
+        ...(costUsd !== undefined ? { costUsd } : {}),
+        ...(numTurns !== undefined ? { numTurns } : {}),
+        ...(hasTokens && usage
+          ? {
+              tokenUsage: {
+                inputTokens:
+                  (usage.input_tokens ?? 0) +
+                  (usage.cache_read_input_tokens ?? 0) +
+                  (usage.cache_creation_input_tokens ?? 0),
+                outputTokens: usage.output_tokens ?? 0,
+              },
+            }
+          : {}),
+      };
+    }
+    export function extractGrokError(stdout: string): string | undefined {
+      const parsed = GrokJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
+      return parsed.success ? parsed.data.message : undefined;
+    }
   </file>
   <file path="src/adapters/failover-session-adapter.ts">
     export class AllAdaptersUnavailableError extends Error {
@@ -629,6 +661,40 @@
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
         return extractGeminiError(stdout);
+      }
+    }
+  </file>
+  <file path="src/adapters/grok-adapter.ts">
+    export class GrokCliAdapter extends CliAdapterBase {
+      readonly name = "grok";
+      readonly cliBinary = "grok";
+      protected override get displayName(): string {
+        return "Grok";
+      }
+    
+      /**
+       * Headless invocation: `-p <task> --output-format json --always-approve`.
+       * `--max-turns` is forwarded when set. `--model` is forwarded only for a
+       * `grok-…` id — the session router otherwise fills `model` with a Claude
+       * id, and `grok -m claude-sonnet-5` rejects the run.
+       */
+      protected buildArgs(config: AdapterConfig): string[] {
+        const args = ["-p", config.taskDescription, "--output-format", "json", "--always-approve"];
+        if (config.maxTurns) {
+          args.push("--max-turns", String(config.maxTurns));
+        }
+        if (config.model?.startsWith("grok-")) {
+          args.push("-m", config.model);
+        }
+        return args;
+      }
+    
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseGrokUsage(stdout);
+      }
+    
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractGrokError(stdout);
       }
     }
   </file>
@@ -954,6 +1020,7 @@
       switch (adapterType) {
         case "claude":
         case "opencode":
+        case "grok":
         case "auto":
           return "billed";
         case "claude-cli":
@@ -2457,7 +2524,7 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/adapter-resolution.ts">
-    export type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode";
+    export type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode" | "grok";
     export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
       switch (adapterType) {
         case "claude":
@@ -2468,6 +2535,8 @@
           return new GeminiCliAdapter();
         case "opencode":
           return new OpenCodeAdapter();
+        case "grok":
+          return new GrokCliAdapter();
         case "auto":
           return new FailoverSessionAdapter([
             new ClaudeAdapter(),
@@ -8639,7 +8708,7 @@
       readonly issueNumber?: number | null;
       /** Model identifier used for the run. */
       readonly model?: string;
-      /** Backend that produced the run: "claude" | "gemini" | "opencode". */
+      /** Backend that produced the run: "claude" | "gemini" | "opencode" | "grok". */
       readonly adapter?: string;
       /** SDK session id (Claude path only). */
       readonly sessionId?: string;

@@ -94,9 +94,10 @@ describe("agent run --adapter", () => {
     expect(adapterOpt!.description).toContain("claude");
     expect(adapterOpt!.description).toContain("gemini");
     expect(adapterOpt!.description).toContain("opencode");
+    expect(adapterOpt!.description).toContain("grok");
   });
 
-  it.each(["claude", "gemini", "opencode", "auto"] as const)(
+  it.each(["claude", "gemini", "opencode", "grok", "auto"] as const)(
     "%s adapter resolves via resolveSessionAdapter and runs through runAgentSession",
     async (adapterType) => {
       mockRunAgentSession.mockResolvedValueOnce(makeSessionResult());

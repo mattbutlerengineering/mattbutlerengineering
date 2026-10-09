@@ -3,6 +3,7 @@ import { resolveSessionAdapter } from "../adapter-resolution.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
 import { ClaudeCliAdapter } from "../adapters/claude-cli-adapter.js";
 import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
+import { GrokCliAdapter } from "../adapters/grok-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { FailoverSessionAdapter } from "../adapters/failover-session-adapter.js";
 
@@ -23,6 +24,10 @@ describe("resolveSessionAdapter", () => {
 
   it("resolves 'opencode' to an OpenCodeAdapter", () => {
     expect(resolveSessionAdapter("opencode")).toBeInstanceOf(OpenCodeAdapter);
+  });
+
+  it("resolves 'grok' to a GrokCliAdapter and keeps it out of auto", () => {
+    expect(resolveSessionAdapter("grok")).toBeInstanceOf(GrokCliAdapter);
   });
 
   it("resolves 'auto' to a FailoverSessionAdapter cascading claude -> gemini -> opencode", () => {
