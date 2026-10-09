@@ -1,15 +1,10 @@
 /**
- * Parses cost/token usage from CLI subprocess stdout, for the two adapters
- * whose backends can emit machine-readable usage data.
+ * Parses cost/token usage from CLI subprocess stdout.
  *
- * Both Gemini CLI and OpenCode CLI request their JSON output flag
- * (`--output-format json` for Gemini, `--format json` for OpenCode; see
- * gemini-adapter.ts / opencode-adapter.ts, #3019), so parsing here operates
- * against real machine-readable output rather than default human-formatted
- * text.
- *
- * Parsing never throws — malformed or missing data always yields `{}`
- * (usage) or `undefined` (error extraction).
+ * OpenCode (`--format json`), Claude CLI, Grok (`--output-format json`), and
+ * Oh My Pi (`omp -p --mode json`) all emit machine-readable output. Parsing
+ * never throws — malformed or missing data always yields `{}` (usage) or
+ * `undefined` (error extraction).
  */
 
 import { z } from "zod";
@@ -32,80 +27,6 @@ function safeJsonParse(text: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-// ── Gemini CLI (`--output-format json`) ─────────────────────────────
-//
-// Emits a single JSON object at the end of the run:
-//   { session_id, response, stats: { models: Record<string, { tokens, api }> }, error?, warnings? }
-// `stats.models[*].tokens` carries `prompt` (input) / `candidates` (output)
-// counts per model. Gemini CLI's stats never carry a USD figure, so
-// costUsd is always left undefined here.
-//
-// `stats.models[*].api.totalRequests` is a real signal for turn count: it is
-// `UiTelemetryService`'s per-model API-call counter (its symbols are present
-// in the installed @google/gemini-cli@0.49.0 package's bundled CLI output —
-// upstream source is `packages/core/src/telemetry/uiTelemetry.ts`, but the
-// published package ships only the bundled/minified form, not that path
-// verbatim). It is NOT a strict 1:1 with logical turns: the bundle's
-// `processApiResponse` (a successful call) AND `processApiError` (a failed
-// or retried call) both increment it, so a retried/errored API call inflates
-// the count above the true turn count. That inflation is harmless for this
-// module's one real consumer — it only ever moves the value away from the
-// `{turns: 0, costUsd: 0}` shape `taskDidNotRun` checks for, never toward it
-// — but treat it as "API-call attempts", not an exact turn count, if you use
-// it elsewhere. Summed across models, never fabricated (absent, not a
-// hardcoded 0, when no model reports it).
-
-const GeminiModelMetricsSchema = z.object({
-  tokens: z
-    .object({
-      prompt: z.number().optional(),
-      candidates: z.number().optional(),
-    })
-    .optional(),
-  api: z
-    .object({
-      totalRequests: z.number().optional(),
-    })
-    .optional(),
-});
-
-const GeminiJsonOutputSchema = z.object({
-  stats: z
-    .object({
-      models: z.record(z.string(), GeminiModelMetricsSchema).optional(),
-    })
-    .optional(),
-});
-
-export function parseGeminiUsage(stdout: string): CliUsage {
-  const raw = safeJsonParse(stdout.trim());
-  const parsed = GeminiJsonOutputSchema.safeParse(raw);
-  const models = parsed.success ? parsed.data.stats?.models : undefined;
-  if (!models) return {};
-
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let numTurns = 0;
-  let tokensFound = false;
-  let turnsFound = false;
-  for (const model of Object.values(models)) {
-    if (model.tokens) {
-      tokensFound = true;
-      inputTokens += model.tokens.prompt ?? 0;
-      outputTokens += model.tokens.candidates ?? 0;
-    }
-    if (model.api?.totalRequests !== undefined) {
-      turnsFound = true;
-      numTurns += model.api.totalRequests;
-    }
-  }
-
-  return {
-    ...(tokensFound ? { tokenUsage: { inputTokens, outputTokens } } : {}),
-    ...(turnsFound ? { numTurns } : {}),
-  };
 }
 
 // ── OpenCode CLI (`--format json`) ───────────────────────────────────
@@ -160,16 +81,6 @@ export function parseOpenCodeUsage(stdout: string): CliUsage {
 // message from it so the ADR-017 failure-PR body stays useful now that a
 // CLI's descriptive error text may no longer land in stderr.
 
-const GeminiJsonErrorSchema = z.object({
-  error: z.object({ message: z.string() }).optional(),
-});
-
-/** Recovers Gemini's `--output-format json` error message, if present. */
-export function extractGeminiError(stdout: string): string | undefined {
-  const parsed = GeminiJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
-  return parsed.success ? parsed.data.error?.message : undefined;
-}
-
 const OpenCodeErrorEventSchema = z.object({
   type: z.literal("error"),
   error: z.object({
@@ -200,8 +111,9 @@ export function extractOpenCodeError(stdout: string): string | undefined {
 //     stop_reason, permission_denials, uuid }
 // `usage.input_tokens` / `usage.output_tokens` are the real per-run token
 // counts; `total_cost_usd` and `num_turns` are reported directly, unlike
-// Gemini (never a cost figure) or OpenCode (summed across step_finish
-// events). Grok reports the same top-level cost field; see parseGrokUsage.
+// OpenCode (summed across step_finish events) or Oh My Pi (summed across
+// assistant message_end events). Grok reports the same top-level cost
+// field; see parseGrokUsage.
 
 const ClaudeCliUsageSchema = z.object({
   input_tokens: z.number().optional(),
@@ -316,4 +228,146 @@ const GrokJsonErrorSchema = z.object({
 export function extractGrokError(stdout: string): string | undefined {
   const parsed = GrokJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
   return parsed.success ? parsed.data.message : undefined;
+}
+
+// ── Oh My Pi (`omp -p --mode json`) ──────────────────────────────────
+//
+// Newline-delimited JSON. Authoritative token usage is on assistant
+// `message_end` events (`message.usage`). Streaming `message_update`
+// events repeat partial counters, so they are ignored. `usage.input` is
+// uncached; cache hits live in `cacheRead` / `cacheWrite`. `TokenUsage`
+// has one input counter, so those buckets are summed into `inputTokens`.
+// `usage.cost.total` is an API-price figure, not a bill. A missing cost
+// field stays undefined (unreported). A numeric 0 is recorded.
+// `numTurns` counts `turn_end` events. When the stream has assistant
+// `message_end` events but no `turn_end`, that count is the fallback.
+
+const OmpUsageSchema = z.object({
+  input: z.number().optional(),
+  output: z.number().optional(),
+  cacheRead: z.number().optional(),
+  cacheWrite: z.number().optional(),
+  cost: z
+    .object({
+      total: z.number().optional(),
+    })
+    .optional(),
+});
+
+const OmpMessageEndSchema = z.object({
+  type: z.literal("message_end"),
+  message: z.object({
+    role: z.string().optional(),
+    usage: OmpUsageSchema.optional(),
+  }),
+});
+
+const OmpTurnEndSchema = z.object({
+  type: z.literal("turn_end"),
+});
+
+export function parseOmpUsage(stdout: string): CliUsage {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let costUsd = 0;
+  let tokensFound = false;
+  let costFound = false;
+  let turnEnds = 0;
+  let assistantEnds = 0;
+
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const raw = safeJsonParse(trimmed);
+    if (raw === undefined) continue;
+
+    if (OmpTurnEndSchema.safeParse(raw).success) {
+      turnEnds += 1;
+    }
+
+    const messageEnd = OmpMessageEndSchema.safeParse(raw);
+    if (!messageEnd.success || messageEnd.data.message.role !== "assistant") continue;
+    assistantEnds += 1;
+    const usage = messageEnd.data.message.usage;
+    if (!usage) continue;
+
+    const hasTokens =
+      usage.input !== undefined ||
+      usage.output !== undefined ||
+      usage.cacheRead !== undefined ||
+      usage.cacheWrite !== undefined;
+    if (hasTokens) {
+      tokensFound = true;
+      inputTokens += (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+      outputTokens += usage.output ?? 0;
+    }
+    if (usage.cost?.total !== undefined) {
+      costFound = true;
+      costUsd += usage.cost.total;
+    }
+  }
+
+  const numTurns = turnEnds > 0 ? turnEnds : assistantEnds > 0 ? assistantEnds : undefined;
+  if (!tokensFound && !costFound && numTurns === undefined) return {};
+
+  return {
+    ...(costFound ? { costUsd } : {}),
+    ...(numTurns !== undefined ? { numTurns } : {}),
+    ...(tokensFound ? { tokenUsage: { inputTokens, outputTokens } } : {}),
+  };
+}
+
+const OmpAutoRetryErrorSchema = z.object({
+  type: z.literal("auto_retry_end"),
+  success: z.literal(false),
+  finalError: z.string().min(1),
+});
+
+const OmpCompactionErrorSchema = z.object({
+  type: z.literal("compaction_end"),
+  errorMessage: z.string().min(1),
+});
+
+const OmpAssistantStreamErrorSchema = z.object({
+  type: z.literal("message_update"),
+  assistantMessageEvent: z.object({
+    type: z.literal("error"),
+    error: z.string().min(1),
+  }),
+});
+
+const OmpExtensionErrorSchema = z.object({
+  type: z.literal("extension_error"),
+  error: z.string().min(1),
+});
+
+const OmpGenericErrorSchema = z.object({
+  type: z.literal("error"),
+  message: z.string().min(1),
+});
+
+function ompErrorFromRecord(raw: unknown): string | undefined {
+  const retry = OmpAutoRetryErrorSchema.safeParse(raw);
+  if (retry.success) return retry.data.finalError;
+  const compaction = OmpCompactionErrorSchema.safeParse(raw);
+  if (compaction.success) return compaction.data.errorMessage;
+  const stream = OmpAssistantStreamErrorSchema.safeParse(raw);
+  if (stream.success) return stream.data.assistantMessageEvent.error;
+  const extension = OmpExtensionErrorSchema.safeParse(raw);
+  if (extension.success) return extension.data.error;
+  const generic = OmpGenericErrorSchema.safeParse(raw);
+  if (generic.success) return generic.data.message;
+  return undefined;
+}
+
+/** Last matching Oh My Pi JSONL error wins. Never throws. */
+export function extractOmpError(stdout: string): string | undefined {
+  let message: string | undefined;
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const found = ompErrorFromRecord(safeJsonParse(trimmed));
+    if (found) message = found;
+  }
+  return message;
 }

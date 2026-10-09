@@ -2348,8 +2348,8 @@
       /**
        * Headless invocation: `-p <task> --output-format json`, plus
        * `--permission-mode bypassPermissions` so the CLI never blocks on an
-       * interactive tool-permission prompt (mirrors Gemini's `--yolo` — the
-       * worktree is already the isolation boundary, per ADR-005). `--model`
+       * interactive tool-permission prompt (the worktree is already the
+       * isolation boundary, per ADR-005). `--model`
        * and `--max-turns` are forwarded only when the caller sets them.
        */
       protected buildArgs(config: AdapterConfig): string[] {
@@ -2382,7 +2382,7 @@
        * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
        * the same JSON stdout blob, falling back to raw stderr in
        * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
-       * contract, mirrors gemini-adapter.ts / opencode-adapter.ts).
+       * contract, mirrors opencode-adapter.ts).
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
         return extractClaudeCliError(stdout);
@@ -2510,7 +2510,7 @@
       /**
        * Run a full agent session (worktree → CLI dispatch → gates → publish)
        * through the shared `runCliAdapterSession()` pipeline — the seam
-       * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+       * `runAgentSession()` calls for the CLI backends,
        * mirroring `ClaudeAdapter.runSession()` (#2973).
        */
       async runSession(
@@ -2637,34 +2637,6 @@
         return undefined;
       }
     }
-    export function parseGeminiUsage(stdout: string): CliUsage {
-      const raw = safeJsonParse(stdout.trim());
-      const parsed = GeminiJsonOutputSchema.safeParse(raw);
-      const models = parsed.success ? parsed.data.stats?.models : undefined;
-      if (!models) return {};
-    
-      let inputTokens = 0;
-      let outputTokens = 0;
-      let numTurns = 0;
-      let tokensFound = false;
-      let turnsFound = false;
-      for (const model of Object.values(models)) {
-        if (model.tokens) {
-          tokensFound = true;
-          inputTokens += model.tokens.prompt ?? 0;
-          outputTokens += model.tokens.candidates ?? 0;
-        }
-        if (model.api?.totalRequests !== undefined) {
-          turnsFound = true;
-          numTurns += model.api.totalRequests;
-        }
-      }
-    
-      return {
-        ...(tokensFound ? { tokenUsage: { inputTokens, outputTokens } } : {}),
-        ...(turnsFound ? { numTurns } : {}),
-      };
-    }
     export function parseOpenCodeUsage(stdout: string): CliUsage {
       let costUsd = 0;
       let inputTokens = 0;
@@ -2687,10 +2659,6 @@
       }
     
       return found ? { costUsd, numTurns, tokenUsage: { inputTokens, outputTokens } } : {};
-    }
-    export function extractGeminiError(stdout: string): string | undefined {
-      const parsed = GeminiJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
-      return parsed.success ? parsed.data.error?.message : undefined;
     }
     export function extractOpenCodeError(stdout: string): string | undefined {
       for (const line of stdout.split("\n")) {
@@ -2763,6 +2731,79 @@
       const parsed = GrokJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
       return parsed.success ? parsed.data.message : undefined;
     }
+    export function parseOmpUsage(stdout: string): CliUsage {
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let costUsd = 0;
+      let tokensFound = false;
+      let costFound = false;
+      let turnEnds = 0;
+      let assistantEnds = 0;
+    
+      for (const line of stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const raw = safeJsonParse(trimmed);
+        if (raw === undefined) continue;
+    
+        if (OmpTurnEndSchema.safeParse(raw).success) {
+          turnEnds += 1;
+        }
+    
+        const messageEnd = OmpMessageEndSchema.safeParse(raw);
+        if (!messageEnd.success || messageEnd.data.message.role !== "assistant") continue;
+        assistantEnds += 1;
+        const usage = messageEnd.data.message.usage;
+        if (!usage) continue;
+    
+        const hasTokens =
+          usage.input !== undefined ||
+          usage.output !== undefined ||
+          usage.cacheRead !== undefined ||
+          usage.cacheWrite !== undefined;
+        if (hasTokens) {
+          tokensFound = true;
+          inputTokens += (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+          outputTokens += usage.output ?? 0;
+        }
+        if (usage.cost?.total !== undefined) {
+          costFound = true;
+          costUsd += usage.cost.total;
+        }
+      }
+    
+      const numTurns = turnEnds > 0 ? turnEnds : assistantEnds > 0 ? assistantEnds : undefined;
+      if (!tokensFound && !costFound && numTurns === undefined) return {};
+    
+      return {
+        ...(costFound ? { costUsd } : {}),
+        ...(numTurns !== undefined ? { numTurns } : {}),
+        ...(tokensFound ? { tokenUsage: { inputTokens, outputTokens } } : {}),
+      };
+    }
+    function ompErrorFromRecord(raw: unknown): string | undefined {
+      const retry = OmpAutoRetryErrorSchema.safeParse(raw);
+      if (retry.success) return retry.data.finalError;
+      const compaction = OmpCompactionErrorSchema.safeParse(raw);
+      if (compaction.success) return compaction.data.errorMessage;
+      const stream = OmpAssistantStreamErrorSchema.safeParse(raw);
+      if (stream.success) return stream.data.assistantMessageEvent.error;
+      const extension = OmpExtensionErrorSchema.safeParse(raw);
+      if (extension.success) return extension.data.error;
+      const generic = OmpGenericErrorSchema.safeParse(raw);
+      if (generic.success) return generic.data.message;
+      return undefined;
+    }
+    export function extractOmpError(stdout: string): string | undefined {
+      let message: string | undefined;
+      for (const line of stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const found = ompErrorFromRecord(safeJsonParse(trimmed));
+        if (found) message = found;
+      }
+      return message;
+    }
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
     export class AllAdaptersUnavailableError extends Error {
@@ -2829,36 +2870,6 @@
       }
     }
   </file>
-  <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
-    export class GeminiCliAdapter extends CliAdapterBase {
-      readonly name = "gemini";
-      readonly cliBinary = "gemini";
-      protected override get displayName(): string {
-        return "Gemini";
-      }
-    
-      protected buildArgs(config: AdapterConfig): string[] {
-        return ["-p", config.taskDescription, "--yolo", "--output-format", "json"];
-      }
-    
-      /**
-       * Parses real cost/tokenUsage from the `--output-format json` blob
-       * requested by buildArgs (#3019).
-       */
-      protected override parseUsage(stdout: string): CliUsage {
-        return parseGeminiUsage(stdout);
-      }
-    
-      /**
-       * Recovers Gemini's structured error message from the same JSON stdout
-       * blob on failure, falling back to raw stderr in CliAdapterBase.run()
-       * when stdout isn't JSON (ADR-017 failure-PR-body contract, #3019).
-       */
-      protected override parseErrorFromStdout(stdout: string): string | undefined {
-        return extractGeminiError(stdout);
-      }
-    }
-  </file>
   <file path="packages/agent-core/src/adapters/grok-adapter.ts">
     export class GrokCliAdapter extends CliAdapterBase {
       readonly name = "grok";
@@ -2890,6 +2901,42 @@
     
       protected override parseErrorFromStdout(stdout: string): string | undefined {
         return extractGrokError(stdout);
+      }
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/omp-adapter.ts">
+    export function ompModelToForward(model: string | undefined): string | undefined {
+      if (!model || model.startsWith("claude-")) return undefined;
+      return model;
+    }
+    export class OmpCliAdapter extends CliAdapterBase {
+      readonly name = "omp";
+      readonly cliBinary = "omp";
+      protected override get displayName(): string {
+        return "omp";
+      }
+    
+      /**
+       * Headless invocation: `-p --mode json --auto-approve --no-session -- <task>`.
+       * `--` keeps a task that starts with `-` from being parsed as a flag.
+       * `--no-session` keeps automated runs out of the interactive session store.
+       */
+      protected buildArgs(config: AdapterConfig): string[] {
+        const args = ["-p", "--mode", "json", "--auto-approve", "--no-session"];
+        const model = ompModelToForward(config.model);
+        if (model) {
+          args.push("--model", model);
+        }
+        args.push("--", config.taskDescription);
+        return args;
+      }
+    
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseOmpUsage(stdout);
+      }
+    
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractOmpError(stdout);
       }
     }
   </file>
@@ -3094,7 +3141,7 @@
       const numTurns = adapterResult?.numTurns ?? 0;
     
       // Record spend through the single seam — the ONLY spend write for a
-      // gemini/opencode run, mirroring session-runner's write for the claude
+      // CLI-subprocess run, mirroring session-runner's write for the claude
       // path. Best-effort: never fail a session over spend logging.
       try {
         recordSpend(config.repoPath, {
@@ -3747,7 +3794,7 @@
       )
       .option(
         "--adapter <type>",
-        "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+        "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
         "claude"
       )
       .option("--no-pr", "Skip PR creation, keep worktree for inspection")
@@ -3830,8 +3877,8 @@
             });
     
             // Spend is recorded inside agent-core through the single recordSpend
-            // seam (session-runner for claude, cli-adapter-session-runner for
-            // gemini/opencode), so the CLI no longer writes its own spend log —
+            // seam (session-runner for claude, the CLI-adapter session runner for
+            // the others), so the CLI no longer writes its own spend log —
             // that legacy sibling write double-counted claude runs.
     
             console.log("");
@@ -5545,7 +5592,7 @@
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
       .option(
         "--adapter <type>",
-        "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+        "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
         "claude"
       )
       .option("--json", "Emit the EvalReport as JSON", false)
@@ -5590,9 +5637,8 @@
           // Read baseline before appending the current run so the most recent
           // prior entry is used, not the one we're about to write. Scoped to
           // this run's own adapter (#4218 rework) — comparing cost across
-          // adapters is meaningless, and a $0 baseline from a structurally
-          // cost-blind adapter (gemini) must never silently disable the gate
-          // for a different adapter's genuine cost.
+          // adapters is meaningless, and a $0 report from one adapter must
+          // never silently disable the gate for a different adapter.
           const costBaseline =
             options.maxCostRegression !== undefined
               ? loadCostBaseline(findLogFile(), adapterType)
@@ -7514,7 +7560,7 @@
       .option("--base-branch <branch>", "Base branch to branch from", "main")
       .option(
         "--adapter <type>",
-        "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+        "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
         "claude"
       )
       .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
@@ -10425,9 +10471,8 @@
         case "auto":
           return "billed";
         case "claude-cli":
+        case "omp":
           return "api-equivalent";
-        case "gemini":
-          return "none";
       }
     }
     export function isWithinBudget(
@@ -40025,25 +40070,21 @@
     }
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
-    export type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode" | "grok";
+    export type AdapterType = "auto" | "claude" | "claude-cli" | "opencode" | "grok" | "omp";
     export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
       switch (adapterType) {
         case "claude":
           return new ClaudeAdapter();
         case "claude-cli":
           return new ClaudeCliAdapter();
-        case "gemini":
-          return new GeminiCliAdapter();
         case "opencode":
           return new OpenCodeAdapter();
         case "grok":
           return new GrokCliAdapter();
+        case "omp":
+          return new OmpCliAdapter();
         case "auto":
-          return new FailoverSessionAdapter([
-            new ClaudeAdapter(),
-            new GeminiCliAdapter(),
-            new OpenCodeAdapter(),
-          ]);
+          return new FailoverSessionAdapter([new ClaudeAdapter(), new OpenCodeAdapter()]);
       }
     }
   </file>
@@ -46209,7 +46250,7 @@
       readonly issueNumber?: number | null;
       /** Model identifier used for the run. */
       readonly model?: string;
-      /** Backend that produced the run: "claude" | "gemini" | "opencode" | "grok". */
+      /** Backend that produced the run: "claude" | "opencode" | "grok" | "omp" | "claude-cli". */
       readonly adapter?: string;
       /** SDK session id (Claude path only). */
       readonly sessionId?: string;

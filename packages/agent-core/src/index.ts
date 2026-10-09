@@ -31,20 +31,20 @@ export { runSession } from "./session-runner.js";
 export { runAgentSession } from "./run-agent-session.js";
 export type { AgentSessionAdapter, RunAgentSessionOptions } from "./run-agent-session.js";
 
-// Multi-CLI adapter stack (Claude SDK / Gemini CLI / OpenCode CLI failover)
+// Multi-CLI adapter stack (Claude SDK / OpenCode CLI failover, plus explicit CLIs)
 export type { AdapterConfig, AdapterResult, AgentAdapter } from "./cli-adapter.js";
 export { CliAdapterBase } from "./adapters/cli-adapter-base.js";
 export { ClaudeAdapter } from "./adapters/claude-adapter.js";
 export { ClaudeCliAdapter } from "./adapters/claude-cli-adapter.js";
-export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
 export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 export { GrokCliAdapter } from "./adapters/grok-adapter.js";
+export { OmpCliAdapter } from "./adapters/omp-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
 export {
-  parseGeminiUsage,
   parseOpenCodeUsage,
   parseClaudeCliUsage,
   parseGrokUsage,
+  parseOmpUsage,
 } from "./adapters/cli-usage-parser.js";
 export type { CliUsage } from "./adapters/cli-usage-parser.js";
 export {

@@ -35,9 +35,9 @@ const VALID_ADAPTERS: readonly AdapterType[] = [
   "auto",
   "claude",
   "claude-cli",
-  "gemini",
   "opencode",
   "grok",
+  "omp",
 ];
 
 function isAdapterType(value: string): value is AdapterType {
@@ -61,7 +61,7 @@ export const runCommand = new Command("run")
   )
   .option(
     "--adapter <type>",
-    "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+    "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
     "claude"
   )
   .option("--no-pr", "Skip PR creation, keep worktree for inspection")
@@ -144,8 +144,8 @@ export const runCommand = new Command("run")
         });
 
         // Spend is recorded inside agent-core through the single recordSpend
-        // seam (session-runner for claude, cli-adapter-session-runner for
-        // gemini/opencode), so the CLI no longer writes its own spend log —
+        // seam (session-runner for claude, the CLI-adapter session runner for
+        // the others), so the CLI no longer writes its own spend log —
         // that legacy sibling write double-counted claude runs.
 
         console.log("");
