@@ -201,8 +201,7 @@ export function extractOpenCodeError(stdout: string): string | undefined {
 // `usage.input_tokens` / `usage.output_tokens` are the real per-run token
 // counts; `total_cost_usd` and `num_turns` are reported directly, unlike
 // Gemini (never a cost figure) or OpenCode (summed across step_finish
-// events) — this is the only CLI adapter whose backend reports real cost
-// in a single top-level field.
+// events). Grok reports the same top-level cost field; see parseGrokUsage.
 
 const ClaudeCliUsageSchema = z.object({
   input_tokens: z.number().optional(),
@@ -253,4 +252,68 @@ export function extractClaudeCliError(stdout: string): string | undefined {
   const parsed = ClaudeCliResultSchema.safeParse(safeJsonParse(stdout.trim()));
   if (!parsed.success || !parsed.data.is_error) return undefined;
   return parsed.data.result ?? parsed.data.subtype;
+}
+
+// ── Grok CLI (`grok -p --output-format json`) ────────────────────────
+//
+// Emits one JSON object. `usage.input_tokens` is uncached input only;
+// cache hits live in sibling buckets. `TokenUsage` has a single input
+// counter, so those buckets are summed into `inputTokens`.
+// `total_cost_usd` is omitted when the server did not report a complete
+// cost (pool/OAuth, or `cost_is_partial`). Absence means unreported,
+// never free — leave `costUsd` undefined rather than writing 0.
+// `reasoning_tokens` is already excluded from grok's own `total_tokens`
+// formula, so it is not added to `outputTokens`.
+
+const GrokTokenUsageSchema = z.object({
+  input_tokens: z.number().optional(),
+  output_tokens: z.number().optional(),
+  cache_read_input_tokens: z.number().optional(),
+  cache_creation_input_tokens: z.number().optional(),
+});
+
+const GrokJsonOutputSchema = z.object({
+  num_turns: z.number().optional(),
+  total_cost_usd: z.number().optional(),
+  usage: GrokTokenUsageSchema.optional(),
+});
+
+export function parseGrokUsage(stdout: string): CliUsage {
+  const parsed = GrokJsonOutputSchema.safeParse(safeJsonParse(stdout.trim()));
+  if (!parsed.success) return {};
+
+  const { usage, num_turns: numTurns, total_cost_usd: costUsd } = parsed.data;
+  const hasTokens =
+    usage !== undefined &&
+    (usage.input_tokens !== undefined ||
+      usage.output_tokens !== undefined ||
+      usage.cache_read_input_tokens !== undefined ||
+      usage.cache_creation_input_tokens !== undefined);
+
+  return {
+    ...(costUsd !== undefined ? { costUsd } : {}),
+    ...(numTurns !== undefined ? { numTurns } : {}),
+    ...(hasTokens && usage
+      ? {
+          tokenUsage: {
+            inputTokens:
+              (usage.input_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0),
+            outputTokens: usage.output_tokens ?? 0,
+          },
+        }
+      : {}),
+  };
+}
+
+const GrokJsonErrorSchema = z.object({
+  type: z.literal("error"),
+  message: z.string().min(1),
+});
+
+/** Recovers Grok's `--output-format json` `{ type: "error", message }` text, if present. */
+export function extractGrokError(stdout: string): string | undefined {
+  const parsed = GrokJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
+  return parsed.success ? parsed.data.message : undefined;
 }

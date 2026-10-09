@@ -38,11 +38,13 @@ export { ClaudeAdapter } from "./adapters/claude-adapter.js";
 export { ClaudeCliAdapter } from "./adapters/claude-cli-adapter.js";
 export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
 export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
+export { GrokCliAdapter } from "./adapters/grok-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
 export {
   parseGeminiUsage,
   parseOpenCodeUsage,
   parseClaudeCliUsage,
+  parseGrokUsage,
 } from "./adapters/cli-usage-parser.js";
 export type { CliUsage } from "./adapters/cli-usage-parser.js";
 export {

@@ -10,6 +10,7 @@ describe("costBasisForAdapter", () => {
     // fallback reports $0, so the cost arm passes vacuously there anyway.
     expect(costBasisForAdapter("claude")).toBe("billed");
     expect(costBasisForAdapter("opencode")).toBe("billed");
+    expect(costBasisForAdapter("grok")).toBe("billed");
     expect(costBasisForAdapter("auto")).toBe("billed");
   });
 

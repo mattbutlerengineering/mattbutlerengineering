@@ -42,7 +42,7 @@ export interface SpendEntry {
   readonly issueNumber?: number | null;
   /** Model identifier used for the run. */
   readonly model?: string;
-  /** Backend that produced the run: "claude" | "gemini" | "opencode". */
+  /** Backend that produced the run: "claude" | "gemini" | "opencode" | "grok". */
   readonly adapter?: string;
   /** SDK session id (Claude path only). */
   readonly sessionId?: string;

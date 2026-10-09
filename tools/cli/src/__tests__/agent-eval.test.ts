@@ -221,7 +221,7 @@ describe("agent eval command", () => {
   });
 
   describe("--adapter selection", () => {
-    it.each([["auto"], ["claude"], ["gemini"], ["opencode"]] as const)(
+    it.each([["auto"], ["claude"], ["gemini"], ["opencode"], ["grok"]] as const)(
       "resolves the %s adapter and passes it to runAgentSession",
       async (adapter) => {
         mockLoadSuite.mockResolvedValue([task]);
