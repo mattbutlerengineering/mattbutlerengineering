@@ -52,7 +52,7 @@ const RLS_TABLES = [
   "waitlist_entries",
 ] as const;
 
-/** No table set FORCE at the time this suite was written; derived, not hardcoded, per the sibling suites' own convention. */
+/** Derived from the migrations, not hardcoded. The seven venue tables are forced. */
 const declaredForce = parseRlsDeclarations(
   readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -101,6 +101,19 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
     }
   }
 
+  /** Owner writes under FORCE pass only when app.venue_id matches the row. */
+  async function withOwnerVenue(venueId: string, work: () => Promise<void>): Promise<void> {
+    await owner.query("BEGIN");
+    try {
+      await owner.query("SELECT set_config('app.venue_id', $1, true)", [venueId]);
+      await work();
+      await owner.query("COMMIT");
+    } catch (error) {
+      await owner.query("ROLLBACK");
+      throw error;
+    }
+  }
+
   beforeAll(async () => {
     lockClient = new pg.Client({ connectionString: DATABASE_URL });
     await lockClient.connect();
@@ -130,92 +143,104 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
     });
     await probe.connect();
 
-    // Seed as the owner (bypasses RLS by design) BEFORE forcing — an
-    // owner-side seed write under FORCE with no app.venue_id set would be
-    // rejected by each table's own *_isolation policy.
+    // venue_groups is not forced. The seven venue tables are, so each insert
+    // runs with app.venue_id set to that row's venue. A deposit's WITH CHECK
+    // follows its reservation, so the two duplicate-payment deposits cannot
+    // share one statement: they belong to different venues.
     await owner.query(
       `INSERT INTO venue_groups (id, name, slug, created_at) VALUES ($1, 'RLS Resolve Group A', $1, now())`,
       [groupAId]
     );
     await owner.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, venue_group_id, updated_at)
-       VALUES ($1, 'RLS Resolve Venue A', $2, 'UTC', $3, now())`,
-      [venueAId, venueASlug, groupAId]
-    );
-    await owner.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, updated_at)
-       VALUES ($1, 'RLS Resolve Venue B', $1, 'UTC', now())`,
-      [venueBId]
-    );
-    // A second group + venue sharing venueA's slug — proves the no-group
-    // lookup refuses to guess between them instead of returning whichever
-    // row the planner happens to visit first.
-    await owner.query(
       `INSERT INTO venue_groups (id, name, slug, created_at) VALUES ($1, 'RLS Resolve Group B', $1, now())`,
       [groupBId]
     );
-    await owner.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, venue_group_id, updated_at)
-       VALUES ($1, 'RLS Resolve Venue C', $2, 'UTC', $3, now())`,
-      [venueCId, venueASlug, groupBId]
-    );
-    await owner.query(
-      `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
-       VALUES ($1, $2, 'RLS Resolve Table A', 4, 1, now())`,
-      [tableAId, venueAId]
-    );
-    await owner.query(
-      `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
-       VALUES ($1, $2, 'RLS Resolve Table B', 4, 1, now())`,
-      [tableBId, venueBId]
-    );
-    await owner.query(
-      `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Resolve Guest A', now())`,
-      [guestAId, venueAId]
-    );
-    await owner.query(
-      `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
-       VALUES ($1, $2, 'RLS Resolve Floor Plan A', true, '{}'::jsonb, now())`,
-      [floorPlanAId, venueAId]
-    );
-    await owner.query(
-      `INSERT INTO waitlist_entries
-         (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
-       VALUES ($1, $2, 2, 'RLS Resolve Waitlist A', '+15550009999', 1, 10, now())`,
-      [waitlistAId, venueAId]
-    );
-    await owner.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, guest_id, user_id, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, $5, '2026-11-01', '2026-11-01T18:00:00Z', '2026-11-01T20:00:00Z', 2, now())`,
-      [reservationAId, venueAId, tableAId, guestAId, reservationUserId]
-    );
-    // Second reservation for the SAME user at the SAME venue — proves
-    // app_reservation_venue_ids_for_user's DISTINCT actually dedupes.
-    await owner.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, user_id, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, '2026-11-02', '2026-11-02T18:00:00Z', '2026-11-02T20:00:00Z', 2, now())`,
-      [reservationA2Id, venueAId, tableAId, reservationUserId]
-    );
-    // Third reservation for the SAME user at a DIFFERENT venue — proves the
-    // function returns every venue the user's reservations span, not just one.
-    await owner.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, user_id, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, '2026-11-03', '2026-11-03T18:00:00Z', '2026-11-03T20:00:00Z', 2, now())`,
-      [reservationBId, venueBId, tableBId, reservationUserId]
-    );
-    await owner.query(
-      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
-       VALUES ($1, $2, 5000, 'usd', $3, now())`,
-      [depositAId, reservationAId, paymentIntentId]
-    );
-    await owner.query(
-      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
-       VALUES ($1, $2, 5000, 'usd', $5, now()), ($3, $4, 5000, 'usd', $5, now())`,
-      [depositDupAId, reservationA2Id, depositDupBId, reservationBId, dupPaymentIntentId]
-    );
+    await withOwnerVenue(venueAId, async () => {
+      await owner.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, venue_group_id, updated_at)
+         VALUES ($1, 'RLS Resolve Venue A', $2, 'UTC', $3, now())`,
+        [venueAId, venueASlug, groupAId]
+      );
+      await owner.query(
+        `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
+         VALUES ($1, $2, 'RLS Resolve Table A', 4, 1, now())`,
+        [tableAId, venueAId]
+      );
+      await owner.query(
+        `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Resolve Guest A', now())`,
+        [guestAId, venueAId]
+      );
+      await owner.query(
+        `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
+         VALUES ($1, $2, 'RLS Resolve Floor Plan A', true, '{}'::jsonb, now())`,
+        [floorPlanAId, venueAId]
+      );
+      await owner.query(
+        `INSERT INTO waitlist_entries
+           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
+         VALUES ($1, $2, 2, 'RLS Resolve Waitlist A', '+15550009999', 1, 10, now())`,
+        [waitlistAId, venueAId]
+      );
+      await owner.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, guest_id, user_id, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, $5, '2026-11-01', '2026-11-01T18:00:00Z', '2026-11-01T20:00:00Z', 2, now())`,
+        [reservationAId, venueAId, tableAId, guestAId, reservationUserId]
+      );
+      // Second reservation for the SAME user at the SAME venue — proves
+      // app_reservation_venue_ids_for_user's DISTINCT actually dedupes.
+      await owner.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, user_id, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, '2026-11-02', '2026-11-02T18:00:00Z', '2026-11-02T20:00:00Z', 2, now())`,
+        [reservationA2Id, venueAId, tableAId, reservationUserId]
+      );
+      await owner.query(
+        `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
+         VALUES ($1, $2, 5000, 'usd', $3, now())`,
+        [depositAId, reservationAId, paymentIntentId]
+      );
+      await owner.query(
+        `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
+         VALUES ($1, $2, 5000, 'usd', $3, now())`,
+        [depositDupAId, reservationA2Id, dupPaymentIntentId]
+      );
+    });
+    await withOwnerVenue(venueBId, async () => {
+      await owner.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at)
+         VALUES ($1, 'RLS Resolve Venue B', $1, 'UTC', now())`,
+        [venueBId]
+      );
+      await owner.query(
+        `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
+         VALUES ($1, $2, 'RLS Resolve Table B', 4, 1, now())`,
+        [tableBId, venueBId]
+      );
+      // Third reservation for the SAME user at a DIFFERENT venue — proves the
+      // function returns every venue the user's reservations span, not just one.
+      await owner.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, user_id, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, '2026-11-03', '2026-11-03T18:00:00Z', '2026-11-03T20:00:00Z', 2, now())`,
+        [reservationBId, venueBId, tableBId, reservationUserId]
+      );
+      await owner.query(
+        `INSERT INTO deposits (id, reservation_id, amount_cents, currency, stripe_payment_intent_id, updated_at)
+         VALUES ($1, $2, 5000, 'usd', $3, now())`,
+        [depositDupBId, reservationBId, dupPaymentIntentId]
+      );
+    });
+    // A second group + venue sharing venueA's slug — proves the no-group
+    // lookup refuses to guess between them instead of returning whichever
+    // row the planner happens to visit first.
+    await withOwnerVenue(venueCId, async () => {
+      await owner.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, venue_group_id, updated_at)
+         VALUES ($1, 'RLS Resolve Venue C', $2, 'UTC', $3, now())`,
+        [venueCId, venueASlug, groupBId]
+      );
+    });
 
     // Force goes on AFTER seeding — the moment the resolver tests below
     // start, the OWNER connection is subject to RLS on ordinary queries too,
@@ -229,17 +254,26 @@ describe.skipIf(!DATABASE_URL)("RLS venue-resolution functions (#5369 PR 3)", ()
     // tables NO FORCE would silently undo it on the target database.
     await setForce(declaredForce.has("venues"));
 
-    await owner.query("DELETE FROM deposits WHERE id = ANY($1)", [
-      [depositAId, depositDupAId, depositDupBId],
-    ]);
-    await owner.query("DELETE FROM reservations WHERE id = ANY($1)", [
-      [reservationAId, reservationA2Id, reservationBId],
-    ]);
-    await owner.query("DELETE FROM waitlist_entries WHERE id = $1", [waitlistAId]);
-    await owner.query("DELETE FROM floor_plans WHERE id = $1", [floorPlanAId]);
-    await owner.query("DELETE FROM guests WHERE id = $1", [guestAId]);
-    await owner.query("DELETE FROM tables WHERE id = ANY($1)", [[tableAId, tableBId]]);
-    await owner.query("DELETE FROM venues WHERE id = ANY($1)", [[venueAId, venueBId, venueCId]]);
+    await withOwnerVenue(venueAId, async () => {
+      await owner.query("DELETE FROM deposits WHERE id = ANY($1)", [[depositAId, depositDupAId]]);
+      await owner.query("DELETE FROM reservations WHERE id = ANY($1)", [
+        [reservationAId, reservationA2Id],
+      ]);
+      await owner.query("DELETE FROM waitlist_entries WHERE id = $1", [waitlistAId]);
+      await owner.query("DELETE FROM floor_plans WHERE id = $1", [floorPlanAId]);
+      await owner.query("DELETE FROM guests WHERE id = $1", [guestAId]);
+      await owner.query("DELETE FROM tables WHERE id = $1", [tableAId]);
+      await owner.query("DELETE FROM venues WHERE id = $1", [venueAId]);
+    });
+    await withOwnerVenue(venueBId, async () => {
+      await owner.query("DELETE FROM deposits WHERE id = $1", [depositDupBId]);
+      await owner.query("DELETE FROM reservations WHERE id = $1", [reservationBId]);
+      await owner.query("DELETE FROM tables WHERE id = $1", [tableBId]);
+      await owner.query("DELETE FROM venues WHERE id = $1", [venueBId]);
+    });
+    await withOwnerVenue(venueCId, async () => {
+      await owner.query("DELETE FROM venues WHERE id = $1", [venueCId]);
+    });
     await owner.query("DELETE FROM venue_groups WHERE id = ANY($1)", [[groupAId, groupBId]]);
 
     await probe.end();

@@ -111,6 +111,19 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     }
   }
 
+  /** Owner writes under FORCE pass only when app.venue_id matches the row. */
+  async function withOwnerVenue(venueId: string, work: () => Promise<void>): Promise<void> {
+    await seedClient.query("BEGIN");
+    try {
+      await seedClient.query("SELECT set_config('app.venue_id', $1, true)", [venueId]);
+      await work();
+      await seedClient.query("COMMIT");
+    } catch (error) {
+      await seedClient.query("ROLLBACK");
+      throw error;
+    }
+  }
+
   beforeAll(async () => {
     lockClient = new pg.Client({ connectionString: DATABASE_URL });
     await lockClient.connect();
@@ -129,22 +142,32 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const venueBSlug = `rls-sweep-b-${randomUUID()}`;
     const venueCSlug = `rls-sweep-c-${randomUUID()}`;
 
-    await seedClient.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-      [venueAId, "RLS Sweep Venue A", venueASlug]
-    );
-    await seedClient.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-      [venueBId, "RLS Sweep Venue B", venueBSlug]
-    );
+    // The seven venue tables are forced, so each venue's rows are inserted
+    // with app.venue_id set to that venue. venue_memberships and
+    // reservation_holds are not forced; they are inserted after the venues
+    // they reference have committed.
+    await withOwnerVenue(venueAId, async () => {
+      await seedClient.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
+        [venueAId, "RLS Sweep Venue A", venueASlug]
+      );
+    });
+    await withOwnerVenue(venueBId, async () => {
+      await seedClient.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
+        [venueBId, "RLS Sweep Venue B", venueBSlug]
+      );
+    });
     // #5369 PR 6: a second venue the member belongs to, so the item-1 fixture
     // can prove `listForMember`'s fan-out returns EVERY venue the member is a
     // member of, not just one. Deliberately not `venueB` — many other
     // fixtures in this sweep rely on `memberSub` staying a non-member of it.
-    await seedClient.query(
-      `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
-      [venueCId, "RLS Sweep Venue C", venueCSlug]
-    );
+    await withOwnerVenue(venueCId, async () => {
+      await seedClient.query(
+        `INSERT INTO venues (id, name, slug, iana_timezone, updated_at) VALUES ($1, $2, $3, 'UTC', now())`,
+        [venueCId, "RLS Sweep Venue C", venueCSlug]
+      );
+    });
     await seedClient.query(
       `INSERT INTO venue_memberships (id, user_sub, venue_id, role, updated_at)
        VALUES ($1, $2, $3, 'staff', now())`,
@@ -194,98 +217,102 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const depositWithPiAId = `rls-sweep-dep-pi-a-${randomUUID()}`;
     const depositWithPiAPaymentIntentId = `pi_rls_sweep_${randomUUID()}`;
 
-    await seedClient.query(
-      `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
-       VALUES ($1, $2, 'RLS Sweep Table A', 4, 1, now())`,
-      [tableAId, venueAId]
-    );
-    await seedClient.query(
-      `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
-       VALUES ($1, $2, 'RLS Sweep Table B', 4, 1, now())`,
-      [tableBId, venueBId]
-    );
-    await seedClient.query(
-      `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Sweep Guest A', now())`,
-      [guestAId, venueAId]
-    );
-    await seedClient.query(
-      `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Sweep Guest B', now())`,
-      [guestBId, venueBId]
-    );
-    await seedClient.query(
-      `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
-       VALUES ($1, $2, 'RLS Sweep Floor Plan A', true, '{}'::jsonb, now())`,
-      [floorPlanAId, venueAId]
-    );
-    await seedClient.query(
-      `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
-       VALUES ($1, $2, 'RLS Sweep Floor Plan B', true, '{}'::jsonb, now())`,
-      [floorPlanBId, venueBId]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, guest_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, $5, '2026-10-01', '2026-10-01T18:00:00Z', '2026-10-01T20:00:00Z', 2, now())`,
-      [reservationAId, venueAId, tableAId, guestAId, reservationAGuestEmail]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, guest_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, 'rls-sweep-guest-b@example.com', '2026-10-01', '2026-10-01T18:00:00Z', '2026-10-01T20:00:00Z', 2, now())`,
-      [reservationBId, venueBId, tableBId, guestBId]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, 'rls-sweep-mine-a@example.com', '2026-11-01', '2026-11-01T18:00:00Z', '2026-11-01T20:00:00Z', 2, now())`,
-      [reservationMineAId, venueAId, tableAId, ADMIN_SUB]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, 'rls-sweep-mine-b@example.com', '2026-11-02', '2026-11-02T18:00:00Z', '2026-11-02T20:00:00Z', 2, now())`,
-      [reservationMineBId, venueBId, tableBId, ADMIN_SUB]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, $4, 'rls-sweep-other-diner@example.com', '2026-11-03', '2026-11-03T18:00:00Z', '2026-11-03T20:00:00Z', 2, now())`,
-      [reservationOtherUserId, venueAId, tableAId, OTHER_DINER_SUB]
-    );
-    await seedClient.query(
-      `INSERT INTO waitlist_entries
-         (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
-       VALUES ($1, $2, 2, 'RLS Sweep Waitlist A', '+15550000001', 1, 10, now())`,
-      [waitlistAId, venueAId]
-    );
-    await seedClient.query(
-      `INSERT INTO waitlist_entries
-         (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
-       VALUES ($1, $2, 2, 'RLS Sweep Waitlist B', '+15550000002', 1, 10, now())`,
-      [waitlistBId, venueBId]
-    );
-    await seedClient.query(
-      `INSERT INTO waitlist_entries
-         (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
-       VALUES ($1, $2, 2, 'RLS Sweep Waitlist Seat Target', '+15550000003', 1, 10, now())`,
-      [waitlistSeatTargetId, venueAId]
-    );
-    await seedClient.query(
-      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, updated_at)
-       VALUES ($1, $2, 5000, 'usd', now())`,
-      [depositAId, reservationAId]
-    );
-    await seedClient.query(
-      `INSERT INTO reservations
-         (id, venue_id, table_id, guest_email, date, start_time, end_time, party_size, updated_at)
-       VALUES ($1, $2, $3, 'rls-sweep-webhook@example.com', '2026-10-05', '2026-10-05T18:00:00Z', '2026-10-05T20:00:00Z', 2, now())`,
-      [reservationForWebhookId, venueAId, tableAId]
-    );
-    await seedClient.query(
-      `INSERT INTO deposits (id, reservation_id, amount_cents, currency, status, stripe_payment_intent_id, updated_at)
-       VALUES ($1, $2, 5000, 'usd', 'pending', $3, now())`,
-      [depositWithPiAId, reservationForWebhookId, depositWithPiAPaymentIntentId]
-    );
+    await withOwnerVenue(venueAId, async () => {
+      await seedClient.query(
+        `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
+         VALUES ($1, $2, 'RLS Sweep Table A', 4, 1, now())`,
+        [tableAId, venueAId]
+      );
+      await seedClient.query(
+        `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Sweep Guest A', now())`,
+        [guestAId, venueAId]
+      );
+      await seedClient.query(
+        `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
+         VALUES ($1, $2, 'RLS Sweep Floor Plan A', true, '{}'::jsonb, now())`,
+        [floorPlanAId, venueAId]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, guest_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, $5, '2026-10-01', '2026-10-01T18:00:00Z', '2026-10-01T20:00:00Z', 2, now())`,
+        [reservationAId, venueAId, tableAId, guestAId, reservationAGuestEmail]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, 'rls-sweep-mine-a@example.com', '2026-11-01', '2026-11-01T18:00:00Z', '2026-11-01T20:00:00Z', 2, now())`,
+        [reservationMineAId, venueAId, tableAId, ADMIN_SUB]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, 'rls-sweep-other-diner@example.com', '2026-11-03', '2026-11-03T18:00:00Z', '2026-11-03T20:00:00Z', 2, now())`,
+        [reservationOtherUserId, venueAId, tableAId, OTHER_DINER_SUB]
+      );
+      await seedClient.query(
+        `INSERT INTO waitlist_entries
+           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
+         VALUES ($1, $2, 2, 'RLS Sweep Waitlist A', '+15550000001', 1, 10, now())`,
+        [waitlistAId, venueAId]
+      );
+      await seedClient.query(
+        `INSERT INTO waitlist_entries
+           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
+         VALUES ($1, $2, 2, 'RLS Sweep Waitlist Seat Target', '+15550000003', 1, 10, now())`,
+        [waitlistSeatTargetId, venueAId]
+      );
+      await seedClient.query(
+        `INSERT INTO deposits (id, reservation_id, amount_cents, currency, updated_at)
+         VALUES ($1, $2, 5000, 'usd', now())`,
+        [depositAId, reservationAId]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, 'rls-sweep-webhook@example.com', '2026-10-05', '2026-10-05T18:00:00Z', '2026-10-05T20:00:00Z', 2, now())`,
+        [reservationForWebhookId, venueAId, tableAId]
+      );
+      await seedClient.query(
+        `INSERT INTO deposits (id, reservation_id, amount_cents, currency, status, stripe_payment_intent_id, updated_at)
+         VALUES ($1, $2, 5000, 'usd', 'pending', $3, now())`,
+        [depositWithPiAId, reservationForWebhookId, depositWithPiAPaymentIntentId]
+      );
+    });
+    await withOwnerVenue(venueBId, async () => {
+      await seedClient.query(
+        `INSERT INTO tables (id, venue_id, name, capacity, min_covers, updated_at)
+         VALUES ($1, $2, 'RLS Sweep Table B', 4, 1, now())`,
+        [tableBId, venueBId]
+      );
+      await seedClient.query(
+        `INSERT INTO guests (id, venue_id, name, updated_at) VALUES ($1, $2, 'RLS Sweep Guest B', now())`,
+        [guestBId, venueBId]
+      );
+      await seedClient.query(
+        `INSERT INTO floor_plans (id, venue_id, name, is_active, layout_json, updated_at)
+         VALUES ($1, $2, 'RLS Sweep Floor Plan B', true, '{}'::jsonb, now())`,
+        [floorPlanBId, venueBId]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, guest_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, 'rls-sweep-guest-b@example.com', '2026-10-01', '2026-10-01T18:00:00Z', '2026-10-01T20:00:00Z', 2, now())`,
+        [reservationBId, venueBId, tableBId, guestBId]
+      );
+      await seedClient.query(
+        `INSERT INTO reservations
+           (id, venue_id, table_id, user_id, guest_email, date, start_time, end_time, party_size, updated_at)
+         VALUES ($1, $2, $3, $4, 'rls-sweep-mine-b@example.com', '2026-11-02', '2026-11-02T18:00:00Z', '2026-11-02T20:00:00Z', 2, now())`,
+        [reservationMineBId, venueBId, tableBId, ADMIN_SUB]
+      );
+      await seedClient.query(
+        `INSERT INTO waitlist_entries
+           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
+         VALUES ($1, $2, 2, 'RLS Sweep Waitlist B', '+15550000002', 1, 10, now())`,
+        [waitlistBId, venueBId]
+      );
+    });
     await seedClient.query(
       `INSERT INTO reservation_holds
          (id, venue_id, table_id, date, start_time, end_time, party_size, session_id, expires_at)
@@ -387,31 +414,26 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     // sweep is created under venue A or B (seeded or disposable), so scoping
     // by their venue catches every deposit regardless of which fixture
     // created it.
-    await seedClient.query(
-      "DELETE FROM deposits WHERE reservation_id IN (SELECT id FROM reservations WHERE venue_id = ANY($1))",
-      [[ctx.venueA.id, ctx.venueB.id]]
-    );
-    await seedClient.query("DELETE FROM waitlist_entries WHERE venue_id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
-    ]);
-    await seedClient.query("DELETE FROM reservations WHERE venue_id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
-    ]);
     await seedClient.query("DELETE FROM reservation_holds WHERE venue_id = ANY($1)", [
       [ctx.venueA.id, ctx.venueB.id],
     ]);
-    await seedClient.query("DELETE FROM guests WHERE venue_id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
-    ]);
-    await seedClient.query("DELETE FROM tables WHERE venue_id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
-    ]);
-    await seedClient.query("DELETE FROM floor_plans WHERE venue_id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id],
-    ]);
-    await seedClient.query("DELETE FROM venues WHERE id = ANY($1)", [
-      [ctx.venueA.id, ctx.venueB.id, ctx.venueC.id],
-    ]);
+    for (const venueId of [ctx.venueA.id, ctx.venueB.id]) {
+      await withOwnerVenue(venueId, async () => {
+        await seedClient.query(
+          "DELETE FROM deposits WHERE reservation_id IN (SELECT id FROM reservations WHERE venue_id = $1)",
+          [venueId]
+        );
+        await seedClient.query("DELETE FROM waitlist_entries WHERE venue_id = $1", [venueId]);
+        await seedClient.query("DELETE FROM reservations WHERE venue_id = $1", [venueId]);
+        await seedClient.query("DELETE FROM guests WHERE venue_id = $1", [venueId]);
+        await seedClient.query("DELETE FROM tables WHERE venue_id = $1", [venueId]);
+        await seedClient.query("DELETE FROM floor_plans WHERE venue_id = $1", [venueId]);
+        await seedClient.query("DELETE FROM venues WHERE id = $1", [venueId]);
+      });
+    }
+    await withOwnerVenue(ctx.venueC.id, async () => {
+      await seedClient.query("DELETE FROM venues WHERE id = $1", [ctx.venueC.id]);
+    });
 
     await seedClient.end();
     await lockClient.query("SELECT pg_advisory_unlock($1)", [RLS_SUITE_LOCK_KEY]);

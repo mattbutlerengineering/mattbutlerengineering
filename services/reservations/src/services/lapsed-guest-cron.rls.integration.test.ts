@@ -14,17 +14,13 @@ import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
  * wiring shape against a mock; only a real database can prove the RLS
  * policies then actually let the rows through.
  *
- * Deliberately does NOT reuse `DATABASE_URL`'s own role for the assertions:
- * Postgres skips every RLS policy for a table's OWNER unconditionally,
- * regardless of `app.venue_id` — and the role that ran this service's
- * migrations, which `DATABASE_URL` points at, is exactly that owner (no
- * table sets `FORCE ROW LEVEL SECURITY`). Testing through it would prove
- * nothing about the policies and would rediscover nothing if the venue
- * scoping regressed; it is also why #5401 is latent rather than live in
- * production today (tracked separately as #5369). Instead this test creates
- * its own fresh, non-owner, non-superuser role — the shape this service's
- * connecting role is eventually expected to have — and runs every assertion
- * through it.
+ * Deliberately does NOT reuse `DATABASE_URL`'s own role for the assertions.
+ * The migrations now `FORCE ROW LEVEL SECURITY`, so the owning connection is
+ * subject to the policies too, but this suite still proves the cron's
+ * non-owner read path: it creates a fresh, non-owner, non-superuser role and
+ * runs every assertion through it. Owner seed writes set `app.venue_id` in
+ * the same transaction, because `venue_isolation` and `guest_isolation`
+ * reject an insert whose venue does not match that setting.
  *
  * Requires a real, reachable Postgres at `DATABASE_URL` with this service's
  * migrations already applied (the `postgresql://test:test@localhost:5432/test`
@@ -100,24 +96,35 @@ describe.skipIf(!DATABASE_URL)(
       await ownerPrisma.$executeRawUnsafe(
         `GRANT EXECUTE ON FUNCTION app_cross_venue_venues(text) TO "${nonOwnerRole}"`
       );
+      // findGuestsForVenue and getAllVenueIds set the role before they read.
+      await ownerPrisma.$executeRawUnsafe(`GRANT app_reservations TO "${nonOwnerRole}"`);
 
       const appUrl = new URL(DATABASE_URL!);
       appUrl.username = nonOwnerRole;
       appUrl.password = nonOwnerPassword;
       [appPool, appPrisma] = connect(appUrl.toString());
 
-      venueA = await ownerPrisma.venue.create({
-        data: { name: "RLS IT Venue A", slug: `rls-it-a-${randomUUID()}`, ianaTimezone: "UTC" },
+      venueA = await ownerPrisma.$transaction(async (tx) => {
+        const id = randomUUID();
+        await tx.$executeRaw`SELECT set_config('app.venue_id', ${id}, true)`;
+        const venue = await tx.venue.create({
+          data: { id, name: "RLS IT Venue A", slug: `rls-it-a-${id}`, ianaTimezone: "UTC" },
+        });
+        await tx.guest.create({
+          data: { venueId: id, name: "RLS IT Guest A", visitCount: 5, lastVisit: new Date() },
+        });
+        return venue;
       });
-      venueB = await ownerPrisma.venue.create({
-        data: { name: "RLS IT Venue B", slug: `rls-it-b-${randomUUID()}`, ianaTimezone: "UTC" },
-      });
-
-      await ownerPrisma.guest.create({
-        data: { venueId: venueA.id, name: "RLS IT Guest A", visitCount: 5, lastVisit: new Date() },
-      });
-      await ownerPrisma.guest.create({
-        data: { venueId: venueB.id, name: "RLS IT Guest B", visitCount: 5, lastVisit: new Date() },
+      venueB = await ownerPrisma.$transaction(async (tx) => {
+        const id = randomUUID();
+        await tx.$executeRaw`SELECT set_config('app.venue_id', ${id}, true)`;
+        const venue = await tx.venue.create({
+          data: { id, name: "RLS IT Venue B", slug: `rls-it-b-${id}`, ianaTimezone: "UTC" },
+        });
+        await tx.guest.create({
+          data: { venueId: id, name: "RLS IT Guest B", visitCount: 5, lastVisit: new Date() },
+        });
+        return venue;
       });
     });
 
@@ -125,10 +132,23 @@ describe.skipIf(!DATABASE_URL)(
       await appPrisma.$disconnect();
       await appPool.end();
 
-      await ownerPrisma.guest.deleteMany({ where: { venueId: { in: [venueA.id, venueB.id] } } });
-      await ownerPrisma.venue.deleteMany({ where: { id: { in: [venueA.id, venueB.id] } } });
+      if (venueA) {
+        await ownerPrisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueA.id}, true)`;
+          await tx.guest.deleteMany({ where: { venueId: venueA.id } });
+          await tx.venue.delete({ where: { id: venueA.id } });
+        });
+      }
+      if (venueB) {
+        await ownerPrisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueB.id}, true)`;
+          await tx.guest.deleteMany({ where: { venueId: venueB.id } });
+          await tx.venue.delete({ where: { id: venueB.id } });
+        });
+      }
       // Table-level grants are separate ACL entries from the schema-level
       // USAGE grant -- both must be revoked before DROP ROLE will succeed.
+      await ownerPrisma.$executeRawUnsafe(`REVOKE app_reservations FROM "${nonOwnerRole}"`);
       await ownerPrisma.$executeRawUnsafe(
         `REVOKE EXECUTE ON FUNCTION app_cross_venue_venues(text) FROM "${nonOwnerRole}"`
       );
