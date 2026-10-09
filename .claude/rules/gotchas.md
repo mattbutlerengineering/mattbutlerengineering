@@ -170,11 +170,44 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 ## Claude Code Remote / cloud sessions
 
-- **The `gh` CLI does not exist in Claude Code Remote (cloud-scheduled) sessions.** Any skill that shells out to it dies with `spawn gh ENOENT` or `Command not found: gh`. That error is the environment, **not** a broken install, not a missing `PATH` entry, and not an auth problem — there is no `gh` binary to fix. Confirmed continuously since 2026-06-20 and recorded ten separate times in `.claude/improvement-loop/log.md` before it got an entry here (#4275). Commands known to fail exactly this way, with the 2026-08-16 log entry as source: `mbe check-model --issue` and `mbe issue transition`. Affected skills so far: `progress-tracker`, `learning-loop`, `implement-queue` — i.e. anything that drives the `ready`→`in-progress`→`has-pr` label machine or opens a PR.
-  - **Use the GitHub MCP tool surface instead** — `mcp__github__*` is the one GitHub path with working auth in these sessions. Load schemas on demand with `ToolSearch` (`select:mcp__github__search_issues,mcp__github__create_pull_request,…`); the exact tool inventory varies by session, so discover it with a `ToolSearch` keyword query rather than assuming a fixed list. Typical replacements: issue/PR search and listing, issue create/update/comment (this is how you hand-replicate `packages/gh-client/src/label-machine.ts`'s `markInProgress`/`markHasPr`), PR creation, and workflow-run/job-log queries.
+- **CORRECTED (2026-10-02, #5958): the `gh` CLI DOES exist in Claude Code Remote (cloud-scheduled) sessions — the real constraint is that its GraphQL-backed subcommands are blocked, while `gh api` REST calls work.** This entry previously said flatly that no `gh` binary exists and that the failure is unfixable; both claims are wrong, measured directly in a cloud session on 2026-10-02 (and independently on 2026-10-01 by the `mbe-monthly-meta-audit` routine, #5958):
+
+  ```
+  $ which gh && gh --version
+  /usr/local/bin/gh
+  gh version 2.89.0
+
+  $ gh auth status
+  X Failed to log in to github.com using token (GH_TOKEN)
+    The token in GH_TOKEN is invalid.        # misleading — see below
+
+  $ gh api user --jq .login
+  mattbutlerengineering                       # REST works, correctly authenticated
+
+  $ gh issue list --limit 2
+  HTTP 403: GitHub GraphQL is not available from Claude Code sessions; use the
+  REST API (gh api repos/{owner}/{repo}/...). ...
+
+  $ gh workflow run ci.yml --ref <branch>
+  HTTP 403: Resource not accessible by integration
+  ```
+
+  So: the binary is present and `gh api` (REST) is authenticated and working; `gh auth status` reporting an invalid token does **not** mean REST calls fail (the agent proxy injects real credentials for `api.github.com` REST calls; `gh auth status` only validates the `GH_TOKEN` string itself, which is a short sentinel, not a real credential); any `gh` subcommand that calls GitHub's GraphQL API under the hood — `gh issue list/view/edit`, `gh pr list/view/merge/edit`, etc. — gets a `403` naming REST (`gh api repos/{owner}/{repo}/...`) and, for review threads/auto-merge/draft-ready state, the CCR-specific routes under `/pulls/{n}/ccr/*` as the replacement; and `actions: write` is also unavailable (`gh workflow run` → `403 Resource not accessible by integration`), so the `gh workflow run ci.yml --ref <branch>` CI-dispatch recovery this file prescribes elsewhere (`gate-missing` in [§ CI](#ci)) **cannot be run from a cloud session** by either `gh` or `mcp__github__actions_run_trigger` — a PR stuck this way needs a human or a session with `actions: write`.
+
+  **Re-tested commands, 2026-10-02:** `mbe check-model --issue <N>` and `mbe issue transition <N> --to <state>` both still fail in a cloud session, but now with the GraphQL `403` above (via `gh issue view`/`gh issue edit` respectively), not `ENOENT` — the old discriminator table below is wrong and is replaced:
+
+  | Symptom                                                               | Meaning                                                                                                                                 |
+  | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+  | `spawn gh ENOENT` / `Command not found: gh`                           | Not reproduced in a current cloud session (2026-10-02) — if seen, suspect a different/older environment rather than assuming this class |
+  | `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` | The command you ran shells out to a `gh` subcommand backed by GraphQL; switch to `gh api` REST or the GitHub MCP tools                  |
+  | `HTTP 403: Resource not accessible by integration`                    | `actions: write` is unavailable to this session; cannot dispatch workflows via `gh` or `mcp__github__actions_run_trigger`               |
+  | `401 Bad credentials` on `gh api`/REST                                | Distinct class below — binary ran, REST token itself is wrong for the API (not the GraphQL block above)                                 |
+
+  **Use `gh api` REST or the GitHub MCP tool surface for anything that would otherwise hit GraphQL** — `mcp__github__*` is the other GitHub path with working auth in these sessions. Load schemas on demand with `ToolSearch` (`select:mcp__github__search_issues,mcp__github__create_pull_request,…`); the exact tool inventory varies by session, so discover it with a `ToolSearch` keyword query rather than assuming a fixed list. `progress-tracker`, `learning-loop`, and `implement-queue` still shell out to `gh issue list`/`gh pr list` directly in their skill prompts — those calls hit the same GraphQL block measured above and were not re-verified or changed as part of this correction (#5958 asked that they be checked, not fixed in the same pass); treat any `gh issue/pr list|view|edit` call in those skills as suspect until re-tested, and prefer `gh api` or `mcp__github__*` equivalents.
   - **Large MCP results land on disk, not in context.** A tool result over the harness's token cap is written to a file and the tool returns that path instead of the payload. That is the normal path for a repo-wide issue listing or a long job log — read the file with `jq` (filter server-side where the tool supports it, then `jq` the rest) rather than re-running the query hoping for a smaller result.
-  - **Distinct from the `GITHUB_TOKEN` REST-401 class (#3689/#3937).** There, a `gh` binary (or `@mbe/gh-client`'s REST fallback) exists and authenticates, but the session's `GITHUB_TOKEN`/`GH_TOKEN` is scoped for git-over-HTTPS only and `api.github.com` answers `401 Bad credentials`. Here nothing runs at all. Symptom tells them apart: `ENOENT` = no binary; `401 Bad credentials` = binary ran, token is wrong for the API.
-  - **Also distinct from the `pnpm exec mbe` gotcha** in [§ Build / pnpm / turbo](#build--pnpm--turbo). That one is about **our own** `@mbe/cli` bin never being symlinked into any `node_modules/.bin` (no workspace package depends on `@mbe/cli`), and it reproduces on a normal laptop — the fix is to invoke `node tools/cli/dist/index.js <cmd>`. This one is about a **third-party** binary being absent from a specific session type, and no invocation form recovers it. A session can hit both at once: `mbe` unresolvable _and_, once built and run directly, failing on the `gh` it shells out to.
+  - **Distinct from the `GITHUB_TOKEN` REST-401 class (#3689/#3937).** There, a `gh` binary exists and `gh api` genuinely 401s because the session's `GITHUB_TOKEN`/`GH_TOKEN` is scoped for git-over-HTTPS only. Here, REST works fine and only the GraphQL-backed subcommands are blocked — a `401 Bad credentials` from `gh api` itself still means that other class, not this one.
+  - **Also distinct from the `pnpm exec mbe` gotcha** in [§ Build / pnpm / turbo](#build--pnpm--turbo). That one is about **our own** `@mbe/cli` bin never being symlinked into any `node_modules/.bin` (no workspace package depends on `@mbe/cli`), and it reproduces on a normal laptop — the fix is to invoke `node tools/cli/dist/index.js <cmd>`. This one is about **third-party** `gh` subcommands being blocked in a specific session type by transport (GraphQL vs. REST), not by the binary's absence.
+  - **Caveat on recurrence:** this entry claimed continuous confirmation since 2026-06-20 across ten log entries, and #5958 showed that measurement had gone stale — CCR environments change without any repo diff recording it, the same "repo state, not repo code" caveat the branch-protection entry in [§ CI](#ci) already carries. Re-measure before trusting either version of this entry if the symptom you see doesn't match the table above.
 
 ## Deploy / static sites
 
