@@ -1,0 +1,21 @@
+{
+  "id": "eval-new-route-user-preferences",
+  "category": "new-route",
+  "prompt": "Add a new authenticated GET /api/v1/users/me/preferences route to services/users/src/routes/users.ts, following the exact same conventions as the existing GET /api/v1/users/me route in the same file: preHandler: requireAuth; if request.user is missing or request.user.email is missing, reply 401 using createProblemDetails(401, \"Unauthorized\", \"Authentication required\"); otherwise resolve the user via userService.findOrCreate({ email: authUser.email, name: authUser.name, picture: authUser.picture }) and respond with { data: user.preferences } (not the full user object). Register a Fastify JSON schema for the route (summary, operationId: \"getCurrentUserPreferences\", tags: [\"Users\"], security: [{ bearerAuth: [] }], a 200 response describing an object with a data property, and a 401 response using $ref: \"ProblemDetails#\"), matching the style of the other routes in this file. Add tests to services/users/src/routes/users.test.ts covering: (1) GET /api/v1/users/me/preferences returns 401 without auth, and (2) returns 200 with the authenticated user's preferences in the body when authenticated.",
+  "fixtureRef": "services/users",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A new GET /api/v1/users/me/preferences route is registered with preHandler: requireAuth",
+      "The handler returns 401 via createProblemDetails when authUser or authUser.email is missing",
+      "On success the response body is { data: <preferences> }, not the full user object",
+      "New tests cover both the 401-without-auth case and the 200-with-preferences case"
+    ]
+  },
+  "budget": {
+    "maxTurns": 28,
+    "maxCostUsd": 1.2
+  }
+}
