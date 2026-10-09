@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.3.1
+
+### Patch Changes
+
+- [#5937](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5937) [`e510f81`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e510f81b563e2552235e566ede9f03595044f7af) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - **useFocusTrap: skip disabled elements when choosing a trap candidate** — `FOCUSABLE_SELECTOR` (shared by `Dialog`, `Drawer`, and every other overlay built on `useFocusTrap`) previously matched `button`/`input`/`select`/`textarea` elements regardless of `disabled` state. A panel whose first (or only) focus candidate was disabled silently failed to receive initial focus, since `.focus()` on a disabled element is a no-op. Disabled elements are now excluded from both initial focus and Tab-wrap; `[href]` links (which have no native `disabled` attribute) are unaffected.
+
+- [#5992](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5992) [`43fb645`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/43fb6451a35afe4104cc33cb8fb19da158a4146e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - **TextArea: set `aria-invalid` when the character counter goes over the limit** — the "over limit" state (derived from `maxLength`) previously turned the counter text red and announced once via a polite live region, but never set `aria-invalid` unless the consumer also explicitly passed `error`. A screen-reader user tabbing back to an over-limit field got no persistent invalid signal, while a sighted user saw it continuously via the red counter. `aria-invalid` is now set from `error || isOver`, matching the sighted experience.
+
 ## 0.3.0
 
 ### Minor Changes
