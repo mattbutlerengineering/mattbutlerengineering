@@ -29,19 +29,19 @@ Examined the guest-risk route and shared schema, both new migrations, `assumeApp
 
 - Scenario: A shared cache using this library stores a response that `maxAge()` zeroes (shared `Set-Cookie` without `public`, or `proxy-revalidate`). `stale()` is `maxAge() <= age()`, so that entry is stale immediately. `evaluateRequest` then honors `Cache-Control: max-stale` and returns a hit (`_evaluateRequestHitResult`) without revalidation. That branch in published 4.3.0 (`index.js` around the `allowsStaleWithoutRevalidation` check) is the same code as 4.2.0. The 4.3.0 diff only changes `Vary: *` matching and adds `status` on the cached response. GitHub still lists patched versions as none. OSV's affected range stops at 4.2.0, so resolving 4.3.0 and deleting `ignoreGhsas` makes `pnpm audit` treat GHSA-ch52-4w7c-c8xp as gone while the max-stale path is unchanged. The package is still the `make-fetch-happen` tooling edge, not an API request path.
 - Standard: none
-- Decision: unresolved — needs a user decision. Put the ignore back, or keep 4.3.0 knowing it does not close this advisory.
+- Decision: fixed 2026-10-09. The user said keep going on the recommendation. `GHSA-ch52-4w7c-c8xp` is back in `pnpm.auditConfig.ignoreGhsas`. The scoped `^4.3.0` override stays. The seam test now requires the ignore.
 
 ### Major: `CREATE ROLE` is cluster-global, so the migration is not replayable
 
 - Scenario: `CREATE ROLE app_reservations` commits for the whole Postgres cluster. Prisma's shadow database is another database on that same cluster, and `services/reservations` `db:migrate` is `prisma migrate dev`, which replays every migration there. `DROP DATABASE` does not drop the role. The next replay — shadow, or `db:migrate:deploy` against `mbe` on `infrastructure-postgres-1` after this run already applied the migration to `open_security_rls` on that cluster — fails with `42710` (`role "app_reservations" already exists`). Prisma then marks the migration failed and later deploys stop until it is resolved. `migrate deploy` on a cluster that has never created the role still succeeds once. Production pre-deploy is that path. A second database on the production cluster is not.
 - Standard: none
-- Decision: unresolved — needs a user decision. Idempotent role creation, or accept that only a single fresh cluster can apply this migration.
+- Decision: fixed 2026-10-09. `20261009000000_create_app_reservations_role` is one `DO` block that swallows `duplicate_object`. Applied twice against local docker Postgres, then the role was dropped. The file was edited in place because it has not shipped; a later migration cannot stop this statement from replaying.
 
 ### Major: schema-wide default privileges grant `app_reservations` DML on later users and agent tables
 
 - Scenario: Production injects one `databaseUrl` into users, reservations, agent, and all three migrate jobs (`infrastructure/pulumi/index.ts`). Local compose already puts users and reservations in database `mbe`. `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_reservations` does not touch tables that exist today. The next `CREATE TABLE` in `public` by that same migrate role — a users or agent migration — grants `app_reservations` full DML on it. The reservations process assumes that role at the start of every app transaction. There is no RLS on those tables. Architecture forbids `GRANT ... ON ALL TABLES IN SCHEMA public` for this shared database; the default-privileges statement is the same grant for every later table.
 - Standard: none
-- Decision: unresolved — needs a user decision. Drop the default privileges and grant inside each reservations migration, or accept the cross-service grant.
+- Decision: fixed 2026-10-09. `ALTER DEFAULT PRIVILEGES` is removed from `20261009000100_grant_app_reservations_and_force_rls`. DML stays on the ten named reservations tables.
 
 ### Minor: old booking widget fail-opens deposits when the API ships first
 
@@ -65,4 +65,4 @@ Security of the hatch: the proof checks `pg_has_role(app_reservations, relowner,
 
 ## Verdict
 
-No critical finding. Three majors are unresolved and need a user decision before this is ready to ship: the 4.3.0 override does not patch GHSA-ch52-4w7c-c8xp, `CREATE ROLE` will fail on replay, and default privileges cross into later users and agent tables. Two minors are deferred. Product code was not changed.
+No critical finding. The three majors were fixed on 2026-10-09 after the user said to keep going: the advisory ignore is restored, role creation swallows `duplicate_object`, and default privileges are gone. Two minors stay deferred. Product code was changed for those three fixes.

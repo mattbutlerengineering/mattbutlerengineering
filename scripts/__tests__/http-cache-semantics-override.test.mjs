@@ -14,10 +14,12 @@ describe("http-cache-semantics override (#5995)", () => {
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
   const lockfile = readFileSync(resolve(ROOT, "pnpm-lock.yaml"), "utf8");
 
-  it("pins <=4.2.0 to ^4.3.0 and drops the advisory ignore", () => {
+  it("pins <=4.2.0 to ^4.3.0 and keeps the advisory ignore", () => {
     expect(pkg.pnpm.overrides["http-cache-semantics@<=4.2.0"]).toBe("^4.3.0");
     expect(String(pkg.pnpm.overrides["http-cache-semantics@<=4.2.0"])).not.toMatch(/^>=/);
-    expect(pkg.pnpm.auditConfig?.ignoreGhsas ?? []).not.toContain("GHSA-ch52-4w7c-c8xp");
+    // 4.3.0 does not change the max-stale path. The advisory still has no
+    // patched release, so audit must keep ignoring GHSA-ch52-4w7c-c8xp.
+    expect(pkg.pnpm.auditConfig?.ignoreGhsas ?? []).toContain("GHSA-ch52-4w7c-c8xp");
   });
 
   it("does not resolve http-cache-semantics@4.2.0", () => {

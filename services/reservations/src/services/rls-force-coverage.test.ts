@@ -184,7 +184,12 @@ describe("app_reservations role and FORCE migrations", () => {
     // the following statement (schema-engine postgres connector, test
     // split_script_into_statements_with_comments). The comment is allowed.
     expect(roleSql).toMatch(/Prisma 7\.10/);
-    expect(sqlStatements(roleSql)).toEqual(["CREATE ROLE app_reservations NOLOGIN NOINHERIT"]);
+    // Dollar-quoted body is one statement. CREATE ROLE is cluster-global, so a
+    // shadow-database replay must swallow 42710 duplicate_object.
+    const outsideDollarQuotes = roleSql.replace(/\$\$[\s\S]*\$\$/, "");
+    expect(sqlStatements(outsideDollarQuotes)).toEqual(["DO"]);
+    expect(roleSql).toMatch(/CREATE ROLE app_reservations NOLOGIN NOINHERIT/);
+    expect(roleSql).toMatch(/duplicate_object/);
     expect(roleSql.toLowerCase()).not.toMatch(/password|bypassrls/);
   });
 
@@ -196,9 +201,7 @@ describe("app_reservations role and FORCE migrations", () => {
     expect(normalized).not.toMatch(/grant\s+[a-z_][a-z0-9_]*\s+to\s+app_reservations/i);
     expect(normalized).toMatch(/GRANT USAGE ON SCHEMA public TO app_reservations/i);
     expect(normalized).not.toMatch(/ON ALL TABLES/i);
-    expect(normalized).toMatch(
-      /ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_reservations/i
-    );
+    expect(normalized).not.toMatch(/ALTER DEFAULT PRIVILEGES/i);
     expect(normalized).not.toMatch(/FOR ROLE/i);
 
     const dml = normalized.match(

@@ -19,11 +19,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   "venue_memberships"
 TO app_reservations;
 
--- Later tables created by this same migrate role. Omitting a role target
--- makes default privileges apply to current_user.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_reservations;
-
 GRANT EXECUTE ON FUNCTION app_cross_venue_venues(text) TO app_reservations;
 GRANT EXECUTE ON FUNCTION app_resolve_venue_id(text, text, text) TO app_reservations;
 GRANT EXECUTE ON FUNCTION app_reservation_venue_ids_for_user(text) TO app_reservations;
