@@ -23,28 +23,28 @@ describe("usePublicApiClient", () => {
       })
     );
 
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0] as any;
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0] as any;
     expect(callArgs.getAccessToken()).toBeNull();
   });
 
   it("defaults baseUrl to VITE_API_URL when no override is passed", () => {
     renderHook(() => usePublicApiClient());
 
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0] as any;
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0] as any;
     expect(callArgs.baseUrl).toBe(import.meta.env.VITE_API_URL ?? "");
   });
 
   it("passes through an explicit baseUrl override", () => {
     renderHook(() => usePublicApiClient({ baseUrl: "https://example.test" }));
 
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0] as any;
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0] as any;
     expect(callArgs.baseUrl).toBe("https://example.test");
   });
 
   it("passes through maxRetries when provided", () => {
     renderHook(() => usePublicApiClient({ maxRetries: 0 }));
 
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0] as any;
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0] as any;
     expect(callArgs.maxRetries).toBe(0);
   });
 

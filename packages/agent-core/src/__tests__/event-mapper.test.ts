@@ -124,8 +124,8 @@ describe("mapSdkMessage", () => {
       const events = mapSdkMessage(msg);
 
       expect(events).toHaveLength(2);
-      expect(events[0].type).toBe("session:assistant");
-      expect(events[1].type).toBe("session:tool_use");
+      expect(events[0]!.type).toBe("session:assistant");
+      expect(events[1]!.type).toBe("session:tool_use");
     });
   });
 

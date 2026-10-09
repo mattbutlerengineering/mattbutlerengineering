@@ -266,12 +266,16 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     updatedAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
     lifetimeSpend: null,
+    noShowCount: 0,
+    riskScore: "standard",
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }
 
 function makeSegment(overrides: Partial<GuestSegment> = {}): GuestSegment {
-  return { name: "VIP", count: 5, ...overrides };
+  return { name: "VIP", description: "Most frequent guests", count: 5, ...overrides };
 }
 
 function makeDirectoryResult(
@@ -306,6 +310,8 @@ function makeReservationsResult(
     isLoading: false,
     error: null,
     refetch: vi.fn(),
+    isFromCache: false,
+    lastSyncedAt: undefined,
     ...overrides,
   };
 }
@@ -575,7 +581,7 @@ describe("GuestsPage - add guest dialog", () => {
     await user.type(nameInput, "New Guest");
 
     const buttons = screen.getAllByText("Add Guest");
-    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(buttons[buttons.length - 1]!);
 
     await waitFor(() => {
       expect(addGuest).toHaveBeenCalledWith(
@@ -591,7 +597,7 @@ describe("GuestsPage - add guest dialog", () => {
     await waitFor(() => expect(screen.getByTestId("dialog")).toBeDefined());
 
     const buttons = screen.getAllByText("Add Guest");
-    const submitButton = buttons[buttons.length - 1];
+    const submitButton = buttons[buttons.length - 1]!;
     expect(submitButton.getAttribute("disabled")).not.toBeNull();
   });
 
@@ -611,7 +617,7 @@ describe("GuestsPage - add guest dialog", () => {
     await user.type(nameInput, "New Guest");
 
     const buttons = screen.getAllByText("Add Guest");
-    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(buttons[buttons.length - 1]!);
 
     await waitFor(() => {
       expect(screen.queryByTestId("dialog")).toBeNull();
@@ -646,7 +652,7 @@ describe("GuestsPage - add guest dialog", () => {
     await user.type(nameInput, "Dupe Guest");
 
     const buttons = screen.getAllByText("Add Guest");
-    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(buttons[buttons.length - 1]!);
 
     await waitFor(() => {
       expect(screen.getByText("A guest with this email already exists.")).toBeDefined();

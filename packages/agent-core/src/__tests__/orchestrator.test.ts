@@ -85,7 +85,9 @@ describe("runOrchestrator", () => {
     );
 
     const events: Array<{ type: string; message: string }> = [];
-    const result = await runOrchestrator(createConfig(), (e) => events.push(e));
+    const result = await runOrchestrator(createConfig(), (e) => {
+      events.push(e);
+    });
 
     expect(result.status).toBe("failed");
     expect(result.summary).toBe("SDK connection failed");
@@ -144,7 +146,9 @@ describe("runOrchestrator", () => {
     );
 
     const events: Array<{ type: string; message: string }> = [];
-    await runOrchestrator(createConfig(), (e) => events.push(e));
+    await runOrchestrator(createConfig(), (e) => {
+      events.push(e);
+    });
 
     expect(events[0]?.type).toBe("orchestrator:start");
     expect(events[events.length - 1]?.type).toBe("orchestrator:complete");
@@ -817,7 +821,7 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    const result = await handlers["create_session"]({
+    const result = await handlers["create_session"]!({
       taskDescription: "Do X",
     });
 
@@ -854,9 +858,9 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    const result = await handlers["check_session"]({ sessionId: "sess-123" });
+    const result = await handlers["check_session"]!({ sessionId: "sess-123" });
 
-    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0]!.text);
     expect(parsed.id).toBe("sess-123");
     expect(parsed.status).toBe("succeeded");
     expect(parsed.prUrl).toBe("https://github.com/repo/pull/5");
@@ -885,9 +889,9 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    const result = await handlers["list_sessions"]({});
+    const result = await handlers["list_sessions"]!({});
 
-    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0]!.text);
     expect(parsed.sessions).toHaveLength(1);
     expect(parsed.sessions[0].id).toBe("s1");
     expect(parsed.total).toBe(1);
@@ -906,9 +910,9 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    await handlers["list_sessions"]({ status: "running", page: 2, limit: 10 });
+    await handlers["list_sessions"]!({ status: "running", page: 2, limit: 10 });
 
-    const fetchUrl = mockFetch.mock.calls[0][0] as string;
+    const fetchUrl = mockFetch.mock.calls[0]![0] as string;
     expect(fetchUrl).toContain("status=running");
     expect(fetchUrl).toContain("page=2");
     expect(fetchUrl).toContain("limit=10");
@@ -925,9 +929,9 @@ describe("orchestrator MCP tool handlers", () => {
       }),
     });
 
-    const result = await handlers["cancel_session"]({ sessionId: "cancel-me" });
+    const result = await handlers["cancel_session"]!({ sessionId: "cancel-me" });
 
-    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0]!.text);
     expect(parsed.id).toBe("cancel-me");
     expect(parsed.status).toBe("cancelled");
     expect(parsed.message).toBe("Session cancelled successfully");
@@ -943,11 +947,11 @@ describe("orchestrator MCP tool handlers", () => {
       json: async () => ({ message: "Session already completed" }),
     });
 
-    const result = await handlers["cancel_session"]({ sessionId: "already-done" });
+    const result = await handlers["cancel_session"]!({ sessionId: "already-done" });
 
     const response = result as { content: Array<{ text: string }>; isError: boolean };
     expect(response.isError).toBe(true);
-    const parsed = JSON.parse(response.content[0].text);
+    const parsed = JSON.parse(response.content[0]!.text);
     // ApiClientError includes method+path prefix; check the original message is present
     expect(parsed.error).toContain("Session already completed");
   });
@@ -957,11 +961,11 @@ describe("orchestrator MCP tool handlers", () => {
 
     mockFetch.mockRejectedValueOnce("network down");
 
-    const result = await handlers["cancel_session"]({ sessionId: "net-err" });
+    const result = await handlers["cancel_session"]!({ sessionId: "net-err" });
 
     const response = result as { content: Array<{ text: string }>; isError: boolean };
     expect(response.isError).toBe(true);
-    const parsed = JSON.parse(response.content[0].text);
+    const parsed = JSON.parse(response.content[0]!.text);
     expect(parsed.error).toBe("network down");
   });
 
@@ -979,11 +983,11 @@ describe("orchestrator MCP tool handlers", () => {
       },
     });
 
-    const result = await handlers["cancel_session"]({ sessionId: "no-body" });
+    const result = await handlers["cancel_session"]!({ sessionId: "no-body" });
 
     const response = result as { content: Array<{ text: string }>; isError: boolean };
     expect(response.isError).toBe(true);
-    const parsed = JSON.parse(response.content[0].text);
+    const parsed = JSON.parse(response.content[0]!.text);
     expect(parsed.error).toContain("Internal Server Error");
   });
 
@@ -999,7 +1003,7 @@ describe("orchestrator MCP tool handlers", () => {
 
     // cancel_session wraps apiCall — if 204, data is undefined and accessing .data throws
     // This exercises the 204 branch in apiCall
-    const result = await handlers["cancel_session"]({ sessionId: "204-test" });
+    const result = await handlers["cancel_session"]!({ sessionId: "204-test" });
 
     // Since cancel expects session.data.id, getting undefined causes a TypeError → caught
     const response = result as { content: Array<{ text: string }>; isError: boolean };

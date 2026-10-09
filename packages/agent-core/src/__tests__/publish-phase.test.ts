@@ -167,7 +167,7 @@ describe("PublishPhase", () => {
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);
-    expect((resultEvents[0].data as { message: string }).message).toContain("PR created");
+    expect((resultEvents[0]!.data as { message: string }).message).toContain("PR created");
   });
 
   it("creates PR without gateway verdict when the session succeeded", async () => {

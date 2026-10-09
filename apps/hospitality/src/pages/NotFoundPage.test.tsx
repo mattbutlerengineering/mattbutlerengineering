@@ -5,7 +5,7 @@ import { NotFoundPage } from "./NotFoundPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children, level }: { children: React.ReactNode; level: number }) => {
-    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+    const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
     return <Tag>{children}</Tag>;
   },
   Text: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,

@@ -74,7 +74,7 @@ describe("updateSurfaceScore", () => {
   };
 
   it("updates lastChecked, lastScore, and appends to checkHistory", () => {
-    const surface = makeInventory().surfaces[0];
+    const surface = makeInventory().surfaces[0]!;
     const updated = updateSurfaceScore(surface, scores);
     expect(updated.lastChecked).toBeTruthy();
     expect(updated.lastScore).toEqual(scores);
@@ -83,14 +83,14 @@ describe("updateSurfaceScore", () => {
   });
 
   it("caps checkHistory at 10 entries", () => {
-    let s = makeInventory().surfaces[0];
+    let s = makeInventory().surfaces[0]!;
     for (let i = 0; i < 12; i++) s = updateSurfaceScore(s, scores);
     expect(s.checkHistory).toHaveLength(10);
     expect(s.checkCount).toBe(12);
   });
 
   it("does not mutate the original surface", () => {
-    const original = makeInventory().surfaces[0];
+    const original = makeInventory().surfaces[0]!;
     updateSurfaceScore(original, scores);
     expect(original.lastChecked).toBeNull();
     expect(original.checkCount).toBe(0);
@@ -101,7 +101,7 @@ describe("updateSurfaceScore", () => {
 
 describe("detectRegression", () => {
   it("returns null when no previous score", () => {
-    const surface = makeInventory().surfaces[0];
+    const surface = makeInventory().surfaces[0]!;
     expect(
       detectRegression(surface, {
         performance: 0.95,
@@ -114,7 +114,7 @@ describe("detectRegression", () => {
 
   it("detects regression when score drops >0.05", () => {
     const surface: AuditSurface = {
-      ...makeInventory().surfaces[0],
+      ...makeInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
     const reg = detectRegression(surface, {
@@ -130,7 +130,7 @@ describe("detectRegression", () => {
 
   it("returns null when drop <=0.05", () => {
     const surface: AuditSurface = {
-      ...makeInventory().surfaces[0],
+      ...makeInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
     expect(
@@ -145,7 +145,7 @@ describe("detectRegression", () => {
 
   it("reports worst regression across categories", () => {
     const surface: AuditSurface = {
-      ...makeInventory().surfaces[0],
+      ...makeInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.95, bestPractices: 0.95, seo: 0.95 },
     };
     const reg = detectRegression(surface, {

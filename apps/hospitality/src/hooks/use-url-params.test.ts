@@ -89,7 +89,7 @@ describe("useUrlParams - setters", () => {
 
     expect(mockSetSearchParams).toHaveBeenCalledTimes(1);
     // The updater function should set the new param
-    const updater = mockSetSearchParams.mock.calls[0][0];
+    const updater = mockSetSearchParams.mock.calls[0]![0];
     const prev = makeSearchParams({ date: "2026-01-01", status: "all" });
     const next = updater(prev);
     expect(next.get("status")).toBe("CONFIRMED");
@@ -106,7 +106,7 @@ describe("useUrlParams - setters", () => {
       result.current.setParam("date", "2026-07-04");
     });
 
-    const updater = mockSetSearchParams.mock.calls[0][0];
+    const updater = mockSetSearchParams.mock.calls[0]![0];
     const prev = makeSearchParams({ date: "2026-06-19", status: "PENDING" });
     const next = updater(prev);
     expect(next.get("date")).toBe("2026-07-04");

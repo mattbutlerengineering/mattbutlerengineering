@@ -59,7 +59,7 @@ describe("recordFailure", () => {
 
     await recordFailure("/repo", SAMPLE_RECORD);
 
-    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0][1] as string);
+    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0]![1] as string);
     expect(written.records).toHaveLength(2);
     expect(written.records[1].taskDescription).toBe("Fix the login button styling");
   });
@@ -76,7 +76,7 @@ describe("recordFailure", () => {
 
     await recordFailure("/repo", SAMPLE_RECORD);
 
-    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0][1] as string);
+    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0]![1] as string);
     expect(written.records).toHaveLength(100);
     expect(written.records[99].taskDescription).toBe("Fix the login button styling");
   });
@@ -111,7 +111,7 @@ describe("queryPastFailures", () => {
     const results = queryPastFailures(memory, "Fix login button issues");
 
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].taskDescription).toContain("login");
+    expect(results[0]!.taskDescription).toContain("login");
   });
 
   it("returns empty array for unrelated tasks", () => {
@@ -171,7 +171,7 @@ describe("loadMemory", () => {
     const memory = await loadMemory("/repo");
 
     expect(memory.records).toHaveLength(1);
-    expect(memory.records[0].taskDescription).toBe("Fix the login button styling");
+    expect(memory.records[0]!.taskDescription).toBe("Fix the login button styling");
   });
 });
 

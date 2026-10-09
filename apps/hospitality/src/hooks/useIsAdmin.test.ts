@@ -32,7 +32,14 @@ function makeUser(permissions: unknown): AuthUser {
   return {
     id: "auth0|user-123",
     email: "test@example.com",
-    raw: { sub: "auth0|user-123", permissions } as AuthUser["raw"],
+    raw: {
+      sub: "auth0|user-123",
+      iss: "https://example.auth0.com/",
+      aud: "https://api.example.com",
+      exp: 4_102_444_800,
+      iat: 1_767_225_600,
+      permissions,
+    },
   };
 }
 

@@ -29,5 +29,7 @@ describe("ReminderPayload", () => {
     expect(payload.reservationId).toBe("res_1");
     expect(payload.venueId).toBe("v_1");
     expect([JOB_TYPES.BOOKING_REMINDER, JOB_TYPES.DAY_OF_REMINDER]).toHaveLength(2);
+    // The compile-time assertions above only bite if the consts are referenced.
+    expect([_booking, _dayOf]).toEqual([true, true]);
   });
 });

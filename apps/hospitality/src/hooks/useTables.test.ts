@@ -47,6 +47,7 @@ function makePaginatedResponse(tables: Table[]): PaginatedResponse<Table> {
       total: tables.length,
       totalPages: 1,
       hasNext: false,
+      hasPrev: false,
     },
   };
 }

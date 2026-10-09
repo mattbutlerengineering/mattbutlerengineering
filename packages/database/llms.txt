@@ -121,8 +121,8 @@
   <file path="src/testing.ts">
     <item priority="low">
       interface MockPrisma {
-        $queryRaw: ReturnType<typeof vi.fn>;
-        $executeRaw: ReturnType<typeof vi.fn>;
+        $queryRaw: Mock;
+        $executeRaw: Mock;
       }
     </item>
     <item priority="low">
@@ -130,19 +130,20 @@
         prisma: MockPrisma;
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
+          getSlowQueryStats: Mock;
+        ...;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
       }
     </item>
     <item priority="low">
       interface MockDatabaseServiceOverrides {
         prisma?: Record<string, unknown>;
-        getSlowQueryStats?: ReturnType<typeof vi.fn>;
-        getServiceStatus?: ReturnType<typeof vi.fn>;
-        getPoolMetrics?: ReturnType<typeof vi.fn>;
-        shutdown?: ReturnType<typeof vi.fn>;
+        getSlowQueryStats?: Mock;
+        getServiceStatus?: Mock;
+        getPoolMetrics?: Mock;
+        shutdown?: Mock;
       }
     </item>
     <item priority="high">
@@ -154,7 +155,8 @@
       interface MockDatabaseModule {
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
+          getSlowQueryStats: Mock;
+        ...;
         prisma: MockPrisma;
       }
     </item>

@@ -125,7 +125,7 @@ describe("buildTurnMetricsList", () => {
       costUsd: 0.01,
       modelId: "claude-sonnet-4-6",
     });
-    expect(result[1].turnIndex).toBe(2);
+    expect(result[1]!.turnIndex).toBe(2);
   });
 
   it("preserves all fields immutably", () => {

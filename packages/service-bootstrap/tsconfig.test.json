@@ -4,6 +4,6 @@
     "rootDir": "../../",
     "noEmit": true
   },
-  "include": ["src/register-endpoint.ts", "src/register-endpoint.test.ts"],
+  "include": ["src"],
   "exclude": []
 }

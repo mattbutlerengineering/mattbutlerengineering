@@ -189,7 +189,7 @@ describe("buildPaginatedResponse", () => {
     type Item = { id: number; name: string };
     const items: Item[] = [{ id: 1, name: "Alice" }];
     const result = buildPaginatedResponse(items, 1, 10, 1);
-    expect(result.data[0].name).toBe("Alice");
+    expect(result.data[0]!.name).toBe("Alice");
   });
 });
 

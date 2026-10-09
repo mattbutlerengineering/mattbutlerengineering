@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 // Mock @mbe/observability — must be static so vi.mock hoists correctly
@@ -18,6 +18,25 @@ vi.mock("@mbe/sentry/node", () => ({
 const { startServiceServer } = await import("./start-service-server.js");
 const { initTelemetry } = await import("@mbe/observability");
 const { initSentry } = await import("@mbe/sentry/node");
+
+type TelemetrySdk = ReturnType<typeof initTelemetry>;
+
+/**
+ * NodeSDK is a class with private members, so no object literal satisfies it
+ * structurally. startServiceServer only calls start() and shutdown(); the Pick
+ * keeps the fake checked against those two real signatures.
+ */
+function asSdk(fake: Pick<TelemetrySdk, "start" | "shutdown">): TelemetrySdk {
+  return fake as unknown as TelemetrySdk;
+}
+
+/**
+ * `vi.mocked(fastify.close)` resolves the overloaded method to its last
+ * (callback) overload; startServiceServer awaits the promise overload.
+ */
+function closeMock(fastify: FastifyInstance): Mock<() => Promise<undefined>> {
+  return fastify.close as unknown as Mock<() => Promise<undefined>>;
+}
 
 function makeMockFastify(listenError?: Error): FastifyInstance {
   return {
@@ -59,7 +78,7 @@ describe("startServiceServer", () => {
       }
     );
 
-    vi.spyOn(process, "exit").mockImplementation((_code?: number) => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       return undefined as never;
     });
   });
@@ -83,7 +102,7 @@ describe("startServiceServer", () => {
 
   it("calls sdk.start() after initTelemetry", async () => {
     const mockSdk = { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const mockFastify = makeMockFastify();
     await startServiceServer({
@@ -183,10 +202,10 @@ describe("startServiceServer", () => {
         callOrder.push("sdk.shutdown");
       }),
     };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const mockFastify = makeMockFastify();
-    vi.mocked(mockFastify.close).mockImplementation(async () => {
+    closeMock(mockFastify).mockImplementation(async () => {
       callOrder.push("fastify.close");
     });
 
@@ -212,14 +231,14 @@ describe("startServiceServer", () => {
         callOrder.push("sdk.shutdown");
       }),
     };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const beforeShutdown = vi.fn().mockImplementation(async () => {
       callOrder.push("beforeShutdown");
     });
 
     const mockFastify = makeMockFastify();
-    vi.mocked(mockFastify.close).mockImplementation(async () => {
+    closeMock(mockFastify).mockImplementation(async () => {
       callOrder.push("fastify.close");
     });
 
@@ -260,10 +279,10 @@ describe("startServiceServer", () => {
         callOrder.push("sdk.shutdown");
       }),
     };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const mockFastify = makeMockFastify();
-    vi.mocked(mockFastify.close).mockImplementation(async () => {
+    closeMock(mockFastify).mockImplementation(async () => {
       callOrder.push("fastify.close");
     });
 
@@ -288,7 +307,7 @@ describe("startServiceServer", () => {
       start: vi.fn(),
       shutdown: vi.fn().mockRejectedValue(new Error("otlp exporter unreachable")),
     };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const mockFastify = makeMockFastify();
     await startServiceServer({
@@ -310,7 +329,7 @@ describe("startServiceServer", () => {
 
   it("a second signal while shutdown is in flight is a no-op", async () => {
     const mockSdk = { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) };
-    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+    vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
     const mockFastify = makeMockFastify();
     await startServiceServer({
@@ -341,7 +360,7 @@ describe("startServiceServer", () => {
         // Never resolves — simulates a hung sdk.shutdown().
         shutdown: vi.fn().mockImplementation(() => new Promise(() => {})),
       };
-      vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+      vi.mocked(initTelemetry).mockReturnValueOnce(asSdk(mockSdk));
 
       const mockFastify = makeMockFastify();
       await startServiceServer({

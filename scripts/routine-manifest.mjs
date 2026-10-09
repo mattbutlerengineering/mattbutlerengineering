@@ -151,11 +151,33 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-morning",
     triggerId: "trig_01QYoHCMjUgJybAoXUvjjrWX",
     periodDays: 1,
-    signature: {
-      type: "pr-title",
-      pattern: String.raw`chore\(acmm\): daily audit \d{4}-\d{2}-\d{2}`,
-      searchTerm: "daily audit",
-    },
+    // #5955: this used to declare the same `chore(acmm): daily audit <date>`
+    // pr-title signature mbe-morning's own ACMM-audit prompt step produced.
+    // #5857 ("one canonical daily audit") made `acmm-regression.yml` — a
+    // GitHub Actions workflow, independently watched by
+    // scripts/scheduled-workflow-health.mjs — the sole producer of that
+    // exact title via a long-lived reused branch/PR (`automation/
+    // acmm-regression`), whose `createdAt` freezes at first open while its
+    // title/commits keep moving forward on every later fire. Two problems,
+    // either one enough to retire the signature: (1) mbe-morning's own copy
+    // of the step ran a stale path (`scripts/acmm/audit.js`; real location
+    // is `plugins/acmm/scripts/audit.js`) and, even fixed, would collide
+    // under the identical title with acmm-regression.yml's PR — #5857's own
+    // body flagged this duplication for "whoever next edits the live
+    // routine" to resolve; (2) even papering over the staleness (e.g. via
+    // `observe: "latest-matching-commit"`) would misattribute
+    // acmm-regression.yml's liveness to mbe-morning, which is the wrong
+    // routine. docs/routines/mbe-morning.md's ACMM step is retired here as
+    // the actual fix; `/ideate` is this routine's only remaining
+    // responsibility, and its own output (ideation-batch/feature-proposal
+    // issues) is gated on batch completion — often nothing for weeks at a
+    // time — so no reliable `periodDays: 1` artifact exists for it yet. A
+    // human who wants mbe-morning tracked daily again needs to give
+    // `/ideate` (or this routine) a heartbeat artifact that fires every run,
+    // not just when there's ideation work to do — out of scope for this fix.
+    unverifiable: true,
+    unverifiableReason:
+      "mbe-morning's ACMM-audit step (and the chore(acmm): daily audit PR title it used to be detected by) was retired in #5955 — acmm-regression.yml now owns that artifact exclusively, and is tracked independently by scripts/scheduled-workflow-health.mjs. mbe-morning's remaining /ideate step produces no artifact on most runs (gated on ideation-batch completion), so no reliable periodDays: 1 signature exists for it yet.",
   },
   {
     name: "mbe-learning-loop",

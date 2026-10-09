@@ -14,7 +14,7 @@ describe("fetchAllPages", () => {
     const items = fetchAllPages(makeCtx(http), "/repos/o/r/issues?state=open", 5);
     expect(items).toEqual([{ n: 1 }, { n: 2 }]);
     expect(http).toHaveBeenCalledTimes(1);
-    expect(http.mock.calls[0][0].url).toContain("state=open&per_page=5&page=1");
+    expect(http.mock.calls[0]![0].url).toContain("state=open&per_page=5&page=1");
   });
 
   it("pages past the 100-per-page cap until `limit` items are collected", () => {
@@ -31,7 +31,7 @@ describe("fetchAllPages", () => {
     const items = fetchAllPages(makeCtx(http), "/repos/o/r/issues", 150, undefined);
     expect(items).toHaveLength(150);
     expect(http).toHaveBeenCalledTimes(2);
-    expect(http.mock.calls[1][0].url).toContain("per_page=50&page=2");
+    expect(http.mock.calls[1]![0].url).toContain("per_page=50&page=2");
   });
 
   it("unwraps an itemsKey envelope (Search API / Actions runs shape)", () => {

@@ -36,7 +36,15 @@ export function HomePage() {
       >
         <Card variant="elevated" data-testid="weekly-cta" className={styles.invitationCard}>
           <Stack gap="md" align="center">
-            <Heading level={2}>What I&apos;m reading</Heading>
+            <Heading level={2}>
+              What I&apos;m reading
+              {/* Synthetic performance regression */}
+              <img
+                src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION"
+                style={{ display: "none" }}
+                alt=""
+              />
+            </Heading>
             <Text color="secondary">Weekly intake from the better dev newsletters, filtered.</Text>
             <Link to="/weekly">
               <Button variant="primary" size="md">
