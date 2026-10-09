@@ -12936,15 +12936,7 @@
   </file>
   <file path="src/services/rls-force-coverage.ts">
     export const MIGRATIONS_DIR = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
-    export const PENDING_FORCE_TABLES = [
-      "deposits",
-      "floor_plans",
-      "guests",
-      "reservations",
-      "tables",
-      "venues",
-      "waitlist_entries",
-    ] as const;
+    export const PENDING_FORCE_TABLES = [] as const;
     export interface RlsDeclarations {
       readonly enabled: ReadonlySet<string>;
       readonly forced: ReadonlySet<string>;
@@ -12986,8 +12978,9 @@
         (table) => !declarations.forced.has(table) && !acknowledged.has(table)
       );
       const stale = [...acknowledged].filter((table) => !declarations.enabled.has(table));
+      const closed = [...acknowledged].filter((table) => declarations.forced.has(table));
     
-      return [...unaccounted, ...stale].sort();
+      return [...new Set([...unaccounted, ...stale, ...closed])].sort();
     }
   </file>
   <file path="src/services/serializers.ts">

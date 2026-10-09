@@ -17,18 +17,23 @@ import { fileURLToPath } from "node:url";
  * | `SELECT count(*) FROM venues`, `app.venue_id` unset | **2 of 2**   | 0          |
  * | same, `app.venue_id` set to venue B                 | **2 of 2**   | 1 (only B) |
  *
- * So the seven policies in the `2026091{4,5,6}*` / `20260919000000` migrations
- * are inert against the deployed connection: the first column is what production
- * does today. That is what issue #5369 reports, and it is why the seven-part
- * series (#5248-#5255, plus #5492) could ship, pass its tests and close green —
- * every isolation test probed with a SEPARATE non-owner role, which is the one
- * role the policies were never inert for.
+ * That first column is what production did while FORCE was absent (issue
+ * #5369). The seven-part series (#5248-#5255, plus #5492) shipped and closed
+ * green because every isolation test probed with a separate non-owner role,
+ * the one role the policies were never inert for.
  *
- * This module turns that lesson into a check that runs on every PR with no
- * database: an RLS-enabled table must either be forced, or appear in
- * {@link PENDING_FORCE_TABLES} with the reason recorded. An eighth venue-scoped
- * table added with `ENABLE` alone now fails at the moment its migration is
- * written, rather than shipping as a backstop that reads as protection.
+ * The seven venue tables are forced in
+ * `20261009000100_grant_app_reservations_and_force_rls`. The non-owner role
+ * `app_reservations` (`NOLOGIN NOINHERIT`) is created in
+ * `20261009000000_create_app_reservations_role`. Migrate stays the table
+ * owner on `DATABASE_URL`. Assuming the role inside app transactions is a
+ * later step; this module only checks migration text.
+ *
+ * An RLS-enabled table must be forced, or appear in {@link PENDING_FORCE_TABLES}
+ * with the reason recorded. A name in that list that the migrations already
+ * force fails too — the list must not keep describing a closed gap. An eighth
+ * venue-scoped table added with `ENABLE` alone fails at the moment its
+ * migration is written.
  *
  * Deliberately parses the committed migration SQL rather than querying
  * `pg_class`: the check must run in CI's ordinary `test` job (part of
@@ -41,30 +46,15 @@ import { fileURLToPath } from "node:url";
 export const MIGRATIONS_DIR = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
 
 /**
- * RLS-enabled tables that do NOT yet carry `FORCE ROW LEVEL SECURITY`, each an
- * acknowledged, tracked gap rather than an oversight.
+ * RLS-enabled tables that do NOT yet carry `FORCE ROW LEVEL SECURITY`.
  *
- * All seven are outstanding on issue #5369. The flip is blocked — not merely
- * unfinished — by ADR-026 §3.3: the lookup that resolves a route's venue is
- * itself an unscoped read of an RLS table, so under FORCE every entity-addressed
- * `/:id` route and the whole `/public/v1/venues/:slug/*` booking funnel answer
- * 404 before reaching the feature behind them. Measured end to end against the
- * real app on a migrated database (2026-09-21): 8 of 17 probed routes break,
- * including `GET /public/v1/venues/:slug`, which every public booking step
- * begins with.
- *
- * Emptying this list is the deliverable of whichever change closes those
- * blockers; it must land WITH the FORCE migration, never before it.
+ * Empty. The seven venue tables are forced in
+ * `20261009000100_grant_app_reservations_and_force_rls`. A name left here
+ * after its migration already forces it is reported by {@link unforcedRlsTables}.
+ * A later table added with `ENABLE` alone is listed here, with the reason, in
+ * the same change — or it is forced.
  */
-export const PENDING_FORCE_TABLES = [
-  "deposits",
-  "floor_plans",
-  "guests",
-  "reservations",
-  "tables",
-  "venues",
-  "waitlist_entries",
-] as const;
+export const PENDING_FORCE_TABLES = [] as const;
 
 /** Which tables the migrations enable, and which they additionally force. */
 export interface RlsDeclarations {
@@ -99,10 +89,10 @@ function matchTables(sql: string, verb: "enable" | "force"): string[] {
 /**
  * Reads RLS enable/force declarations out of migration SQL.
  *
- * Comments are stripped first, because the one migration in this service that
- * mentions FORCE at all (`20260920000000_add_cross_venue_read_escape_hatch`)
- * mentions it exclusively in prose explaining that it does NOT set it. A raw
- * text match would read that as enforcement.
+ * Comments are stripped first, because
+ * `20260920000000_add_cross_venue_read_escape_hatch` mentions FORCE only in
+ * prose explaining that it does NOT set it. A raw text match would read that
+ * as enforcement.
  *
  * `NO FORCE ROW LEVEL SECURITY` is not matched (the `no` sits between the table
  * name and `force`), so a later migration turning enforcement back off correctly
@@ -125,10 +115,10 @@ export function parseRlsDeclarations(sqlFiles: readonly string[]): RlsDeclaratio
  * Tables whose RLS is provably inert against the owning role and unaccounted
  * for, plus any acknowledgement that has gone stale.
  *
- * Both directions are failures. An unlisted enabled-but-unforced table is the
+ * Three directions are failures. An unlisted enabled-but-unforced table is the
  * #5369 bug recurring. A listed table that no migration enables is an
- * acknowledgement protecting nothing — it reads as "known gap, tracked" while
- * tracking a table that was renamed or never enabled.
+ * acknowledgement protecting nothing. A listed table the migrations already
+ * force is a closed gap still described as open.
  */
 export function unforcedRlsTables(
   declarations: RlsDeclarations,
@@ -140,6 +130,7 @@ export function unforcedRlsTables(
     (table) => !declarations.forced.has(table) && !acknowledged.has(table)
   );
   const stale = [...acknowledged].filter((table) => !declarations.enabled.has(table));
+  const closed = [...acknowledged].filter((table) => declarations.forced.has(table));
 
-  return [...unaccounted, ...stale].sort();
+  return [...new Set([...unaccounted, ...stale, ...closed])].sort();
 }
