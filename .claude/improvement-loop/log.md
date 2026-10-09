@@ -3054,6 +3054,11 @@ Issue reconciliation was still completed read-only, since the skipped plan is th
 **Skill proposals:** 0 — today is Wednesday, not the configured Friday extraction day; step skipped per schedule.
 **Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-07` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 230 closed in the window (audit capped at the 100-per-page REST limit — pagination to a second page 403'd on a `repositories/{id}/...` link path the proxy blocks, so the audit count is a floor, not exact), 195 `completed` / 15 `duplicate` / 11 `not_planned` / 9 `null` → 11.3% false-positive rate (duplicate+not_planned/total), consistent with the 2026-10-06 run's 11.5% and well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above (thin sample, ACMM-only). No threshold changes applied this run.
 
+## 2026-10-08
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
 ## 2026-10-08 — mbe-evening
 
 **State:** No `gh` binary in this CCR session (confirmed per `.claude/rules/gotchas.md`); all queries below ran through `mcp__github__*` MCP tools instead of the skill's documented `gh` commands, plus a local `git log`/`.claude/agent-spend/sessions.jsonl` read.
