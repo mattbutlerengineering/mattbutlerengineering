@@ -9146,7 +9146,7 @@
       });
     }
     export function buildGuestRiskFixture(): GuestRiskResult {
-      return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+      return GuestRiskResultSchema.parse({ requiresDeposit: false });
     }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states
@@ -23376,9 +23376,9 @@
             rateLimit: { max: 20, timeWindow: "1 minute" },
           },
           schema: {
-            summary: "Get guest risk score (public)",
+            summary: "Get guest deposit requirement (public)",
             description:
-              "Returns guest risk score for the booking widget. Used to determine if a deposit step should be shown. Rate-limited to 20 req/min per IP.",
+              "Returns whether the booking widget should show a deposit step. Rate-limited to 20 req/min per IP.",
             tags: ["Public"],
             params: {
               type: "object",
@@ -23430,9 +23430,9 @@
                 : null;
     
             if (!guest) {
-              // New guest — always trusted
+              // Unknown guest — no deposit. The named score stays off this public body.
               return reply.send({
-                data: { riskScore: "trusted", requiresDeposit: false },
+                data: { requiresDeposit: false },
               });
             }
     
@@ -23440,7 +23440,6 @@
     
             return reply.send({
               data: {
-                riskScore,
                 requiresDeposit: riskScore === "risky",
               },
             });
@@ -27963,7 +27962,6 @@
       count: z.number(),
     });
     export const GuestRiskResultSchema = z.object({
-      riskScore: z.enum(["trusted", "standard", "risky"]),
       requiresDeposit: z.boolean(),
     });
     export const GuestRecognitionSchema = z.object({
@@ -49801,7 +49799,8 @@
       constructor(private client: ApiClient) {}
     
       /**
-       * Get a guest's risk score for a venue by email or phone.
+       * Whether this guest must pay a deposit, by email or phone.
+       * Unwraps `{ data }` and parses `GuestRiskResultSchema`.
        */
       async guestRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
         return this.client.getOne<GuestRiskResult>(
@@ -56340,8 +56339,7 @@
       guests?: Guest[];
     }
     export interface GuestRiskResult {
-      riskScore: GuestRiskScore;
-      /** True when the guest's risk score warrants an automatic deposit requirement. */
+      /** True only when the guest's reliability assessment is risky. */
       requiresDeposit: boolean;
     }
     export interface GuestRecognition {

@@ -1001,7 +1001,7 @@
       });
     }
     export function buildGuestRiskFixture(): GuestRiskResult {
-      return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+      return GuestRiskResultSchema.parse({ requiresDeposit: false });
     }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states

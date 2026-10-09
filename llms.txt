@@ -15226,7 +15226,6 @@
     </item>
     <item priority="low">
       interface GuestRiskResult {
-        riskScore: GuestRiskScore;
         requiresDeposit: boolean;
       }
     </item>

@@ -223,8 +223,6 @@ describe("BookingWidget", () => {
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {
     // Guest-risk lookup now goes through the typed api.publicVenue.guestRisk() client method.
     mockApi.publicVenue.guestRisk.mockResolvedValue({
-      riskScore: "risky",
-      noShowCount: 2,
       requiresDeposit: true,
     });
 
@@ -300,8 +298,6 @@ describe("BookingWidget", () => {
     // effectiveDepositPolicy's own gating. It must never fire just because the
     // venue's deposit policy happens to be disabled.
     mockApi.publicVenue.guestRisk.mockResolvedValue({
-      riskScore: "risky",
-      noShowCount: 1,
       requiresDeposit: true,
     });
 
@@ -476,8 +472,6 @@ describe("BookingWidget", () => {
     } as unknown as ReturnType<typeof useElements>);
 
     mockApi.publicVenue.guestRisk.mockResolvedValue({
-      riskScore: "risky",
-      noShowCount: 3,
       requiresDeposit: true,
     });
 
@@ -563,8 +557,6 @@ describe("BookingWidget", () => {
     // where no deposit was actually required, even though depositConfig
     // itself is non-null.
     mockApi.publicVenue.guestRisk.mockResolvedValue({
-      riskScore: "trusted",
-      noShowCount: 0,
       requiresDeposit: false,
     });
 

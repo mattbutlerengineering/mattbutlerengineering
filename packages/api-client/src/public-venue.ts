@@ -28,7 +28,8 @@ export class PublicVenueClient {
   constructor(private client: ApiClient) {}
 
   /**
-   * Get a guest's risk score for a venue by email or phone.
+   * Whether this guest must pay a deposit, by email or phone.
+   * Unwraps `{ data }` and parses `GuestRiskResultSchema`.
    */
   async guestRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
     return this.client.getOne<GuestRiskResult>(

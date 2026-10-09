@@ -97,6 +97,15 @@ import { resolveVenueId } from "../services/resolve-venue.js";
 import type { Guest } from "@mbe/types";
 import { GuestRiskResultSchema } from "@mbe/types/schemas";
 
+/** Raw 200 body is `{ data: { requiresDeposit } }` — `riskScore` is absent, not Zod-stripped. */
+function expectDepositOnly(payload: string, requiresDeposit: boolean) {
+  const body = JSON.parse(payload) as { data: Record<string, unknown> };
+  expect(Object.keys(body)).toEqual(["data"]);
+  expect(body.data).toEqual({ requiresDeposit });
+  expect("riskScore" in body.data).toBe(false);
+  expect(payload).not.toContain("riskScore");
+}
+
 function makeGuest(overrides: Partial<Guest> = {}): Guest {
   return {
     id: "guest-1",
@@ -159,11 +168,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as {
-      data: { riskScore: string; requiresDeposit: boolean };
-    };
-    expect(body.data.riskScore).toBe("trusted");
-    expect(body.data.requiresDeposit).toBe(false);
+    expectDepositOnly(res.payload, false);
   });
 
   it("does not leak noShowCount in the public response (behavioral PII)", async () => {
@@ -177,9 +182,9 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
+    expectDepositOnly(res.payload, true);
     const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
     expect(body.data).not.toHaveProperty("noShowCount");
-    expect(body.data).toEqual({ riskScore: "risky", requiresDeposit: true });
   });
 
   it("returns risky and requiresDeposit=true for a guest with 2+ no-shows", async () => {
@@ -193,11 +198,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as {
-      data: { riskScore: string; requiresDeposit: boolean };
-    };
-    expect(body.data.riskScore).toBe("risky");
-    expect(body.data.requiresDeposit).toBe(true);
+    expectDepositOnly(res.payload, true);
   });
 
   it("decays risk when the guest's only no-shows are older than 12 months (uses lastNoShowAt, not lastVisit)", async () => {
@@ -222,12 +223,8 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as {
-      data: { riskScore: string; requiresDeposit: boolean };
-    };
     // 2 no-shows decayed by 50% (both older than 12 months) = 1.0 effective → standard, not risky
-    expect(body.data.riskScore).toBe("standard");
-    expect(body.data.requiresDeposit).toBe(false);
+    expectDepositOnly(res.payload, false);
   });
 
   it("returns trusted when guest is not found (new guest)", async () => {
@@ -239,11 +236,7 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as {
-      data: { riskScore: string; requiresDeposit: boolean };
-    };
-    expect(body.data.riskScore).toBe("trusted");
-    expect(body.data.requiresDeposit).toBe(false);
+    expectDepositOnly(res.payload, false);
   });
 
   it("returns 400 when neither email nor phone is provided", async () => {
@@ -311,8 +304,8 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as { data: { riskScore: string } };
-    expect(body.data.riskScore).toBe("standard");
+    // 1 no-show is standard, not risky — deposit stays off, and the name is not returned
+    expectDepositOnly(res.payload, false);
   });
 
   it("respects venue autoDepositAfterNoShows config", async () => {
@@ -340,9 +333,8 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload) as { data: { requiresDeposit: boolean } };
     // With threshold=3, 2 no-shows = standard → no auto-deposit
-    expect(body.data.requiresDeposit).toBe(false);
+    expectDepositOnly(res.payload, false);
   });
 
   it("contract: live response validates against the shared GuestRiskResult Zod schema", async () => {
@@ -358,6 +350,62 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     const body = JSON.parse(res.payload) as { data: unknown };
     const result = GuestRiskResultSchema.safeParse(body.data);
     expect(result.success).toBe(true);
+    expectDepositOnly(res.payload, false);
+  });
+
+  it("does not require Authorization and still returns only requiresDeposit", async () => {
+    vi.mocked(guestService.findByEmail).mockResolvedValue(
+      makeGuest({ noShowCount: 2, riskScore: "risky" })
+    );
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guest-risk?email=alice%40example.com",
+      headers: { authorization: "Bearer not-a-session" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expectDepositOnly(res.payload, true);
+  });
+
+  it("route description does not say the handler returns a risk score", () => {
+    const doc = app.swagger() as {
+      paths?: Record<string, { get?: { description?: string; summary?: string } }>;
+    };
+    const path = Object.keys(doc.paths ?? {}).find((key) => key.endsWith("/guest-risk"));
+    const operation = path ? doc.paths?.[path]?.get : undefined;
+    expect(operation?.description ?? "").not.toMatch(/risk score/i);
+    expect(operation?.summary ?? "").not.toMatch(/risk score/i);
+  });
+
+  it("registered GuestRiskResult schema is only requiresDeposit", () => {
+    const doc = app.swagger() as {
+      components?: { schemas?: Record<string, { properties?: Record<string, unknown> }> };
+      paths?: Record<
+        string,
+        {
+          get?: {
+            responses?: Record<
+              string,
+              {
+                content?: Record<
+                  string,
+                  { schema?: { properties?: { data?: { $ref?: string } } } }
+                >;
+              }
+            >;
+          };
+        }
+      >;
+    };
+    const path = Object.keys(doc.paths ?? {}).find((key) => key.endsWith("/guest-risk"));
+    const ref =
+      doc.paths?.[path ?? ""]?.get?.responses?.["200"]?.content?.["application/json"]?.schema
+        ?.properties?.data?.$ref;
+    const name = ref?.split("/").pop() ?? "";
+    const schema = doc.components?.schemas?.[name];
+    expect(Object.keys(schema?.properties ?? {}).sort()).toEqual(["requiresDeposit"]);
+    expect(schema?.properties).not.toHaveProperty("riskScore");
   });
 });
 
