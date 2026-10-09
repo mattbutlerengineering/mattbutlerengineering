@@ -6,6 +6,21 @@
     "source": ".claude/acmm/state.json",
     "points": [
       {
+        "date": "2026-08-06",
+        "value": 5,
+        "note": null
+      },
+      {
+        "date": "2026-08-07",
+        "value": 5,
+        "note": null
+      },
+      {
+        "date": "2026-08-08",
+        "value": 5,
+        "note": null
+      },
+      {
         "date": "2026-08-09",
         "value": 5,
         "note": null
@@ -251,6 +266,16 @@
     "label": "Queue efficiency composite",
     "source": "metrics/process-metrics.jsonl",
     "points": [
+      {
+        "date": "2026-08-06",
+        "value": null,
+        "note": "unavailable"
+      },
+      {
+        "date": "2026-08-08",
+        "value": null,
+        "note": "unavailable"
+      },
       {
         "date": "2026-08-09",
         "value": null,
