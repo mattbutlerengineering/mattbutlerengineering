@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // only place that legitimately mocks the module. Every other verification branch
 // is tested through the injected `verifier` seam in plugin.test.ts.
 const mockJwtVerify = vi.hoisted(() => vi.fn());
-const mockCreateRemoteJWKSet = vi.hoisted(() => vi.fn(() => "mock-jwks"));
+const mockCreateRemoteJWKSet = vi.hoisted(() => vi.fn((_url: URL) => "mock-jwks"));
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: mockCreateRemoteJWKSet,
@@ -28,14 +28,14 @@ describe("createJoseVerifier (default OIDC/JWKS adapter, ADR-010)", () => {
     createJoseVerifier("https://test.auth0.com", "https://api.example.com");
 
     expect(mockCreateRemoteJWKSet).toHaveBeenCalledTimes(1);
-    const url = mockCreateRemoteJWKSet.mock.calls[0][0] as URL;
+    const url = mockCreateRemoteJWKSet.mock.calls[0]![0];
     expect(url.toString()).toBe("https://test.auth0.com/.well-known/jwks.json");
   });
 
   it("normalizes a trailing slash on the authority before building the JWKS URI", () => {
     createJoseVerifier("https://test.auth0.com/", "https://api.example.com");
 
-    const url = mockCreateRemoteJWKSet.mock.calls[0][0] as URL;
+    const url = mockCreateRemoteJWKSet.mock.calls[0]![0];
     expect(url.toString()).toBe("https://test.auth0.com/.well-known/jwks.json");
   });
 

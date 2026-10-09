@@ -93,7 +93,11 @@ function countMatches(content, regex) {
  * @param {string} block - test block body text (as sliced by the caller)
  * @returns {boolean}
  */
-const ASSERTION_CALL_RE = /\b(?:expect|assert|t\.assert)(?:\.\w+)*\s*\(/;
+// `expectTypeOf` / `assertType` are vitest's type-level assertions, enforced by
+// tsc wherever a package's tsconfig includes its tests; the optional `<...>`
+// admits a type argument before the call (`assertType<string>(value)`).
+const ASSERTION_CALL_RE =
+  /\b(?:expect|expectTypeOf|assert|assertType|t\.assert)(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(/;
 
 export function blockHasAssertion(block) {
   return ASSERTION_CALL_RE.test(block);

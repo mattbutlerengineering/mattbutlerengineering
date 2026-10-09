@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-06T00:28:06.237Z",
+  "generated_at": "2026-10-08T18:04:14.813Z",
   "period": {
-    "start": "2026-09-29",
-    "end": "2026-10-06"
+    "start": "2026-10-01",
+    "end": "2026-10-08"
   },
   "sensors": {
     "acmm": {
@@ -42,19 +42,19 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 1.36,
-          "latest": "2026-10-04T15:53:03.183Z",
+          "age_days": 0.01,
+          "latest": "2026-10-08T17:55:39.357Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-04T15:53:03.183Z",
+      "collected_at": "2026-10-08T17:55:39.357Z",
       "window_days": 7,
-      "total_closed_prs": 92,
+      "total_closed_prs": 100,
       "total_reviewers": 1,
-      "total_reviews": 1,
+      "total_reviews": 2,
       "overall_rubber_stamp_ratio": 0,
       "overall_approvals": 0,
       "overall_rubber_stamps": 0,
@@ -73,32 +73,32 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 7265188,
-      "output_tokens": 31059,
-      "cache_creation_tokens": 214093,
-      "cache_hit_rate": 0.9714,
+      "cache_read_tokens": 1065176,
+      "output_tokens": 1433,
+      "cache_creation_tokens": 83420,
+      "cache_hit_rate": 0.9274,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 72,
-          "output_tokens": 31059,
-          "cache_read_tokens": 7265188,
-          "cache_creation_tokens": 214093
+          "input_tokens": 18,
+          "output_tokens": 1433,
+          "cache_read_tokens": 1065176,
+          "cache_creation_tokens": 83420
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 18,
-      "failed": 3,
-      "pass_rate_pct": 86,
+      "completed": 29,
+      "passed": 24,
+      "failed": 0,
+      "pass_rate_pct": 100,
       "most_recent": {
-        "conclusion": "skipped",
-        "createdAt": "2026-10-06T00:25:08Z",
-        "name": "claude",
-        "status": "completed"
+        "conclusion": "",
+        "createdAt": "2026-10-08T17:59:42Z",
+        "name": "Push on main",
+        "status": "in_progress"
       }
     },
     "lighthouse": {
@@ -106,12 +106,12 @@
     },
     "issues": {
       "available": false,
-      "error": "Command failed: gh issue list --state all --search created:>=2026-09-29 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh issue list --state all --search created:>=2026-10-01 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     },
     "issueFeedback": {
       "available": false,
       "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
-      "collected_at": "2026-10-04T18:06:46.992Z",
+      "collected_at": "2026-10-07T18:08:03.435Z",
       "stale": false
     },
     "sessionLogs": {
@@ -124,9 +124,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.006,
-      "total_lines_added_7d": 701224,
-      "lines_churned_7d": 3982,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 700868,
+      "lines_churned_7d": 417,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -136,17 +136,10 @@
     },
     "flakyTests": {
       "available": true,
-      "flaky_count": 1,
-      "flaky_tests": [
-        {
-          "testName": "scripts/__tests__/visual-defect-reproduction.test.mjs > marketing — the declared visual sensitivity can see defect.md § A's reproduction > metrics-1280x720.png",
-          "sha": "adf63987a9179dfd8968d36b2094765450a613c5",
-          "passCount": 1,
-          "failCount": 1
-        }
-      ],
-      "total_runs": 1919114,
-      "window_shas": 55
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 909432,
+      "window_shas": 62
     },
     "e2eStability": {
       "available": false
@@ -154,7 +147,7 @@
     "queueEfficiency": {
       "available": false,
       "reason": "query_error",
-      "error": "Command failed: gh pr list --search merged:>=2026-09-28 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
+      "error": "Command failed: gh pr list --search merged:>=2026-09-30 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     }
   },
   "thresholds": {
@@ -167,20 +160,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 86,
-      "previous": 100,
-      "delta": -14,
-      "severity": "high"
-    }
-  ],
+  "regressions": [],
   "summary": {
     "sensors_available": 9,
     "sensors_total": 17,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }

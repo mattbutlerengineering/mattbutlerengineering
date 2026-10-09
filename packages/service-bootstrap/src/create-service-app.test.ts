@@ -27,7 +27,13 @@ vi.mock("@fastify/rate-limit", async () => {
 });
 vi.mock("@fastify/swagger", () => ({
   default: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
-    fastify.decorate("swagger", () => ({}));
+    // A minimal valid document: the real decorator's getter returns an OpenAPI
+    // document, and the mocked Scalar plugin never reads it.
+    fastify.decorate("swagger", () => ({
+      openapi: "3.1.0",
+      info: { title: "mock", version: "0.0.0" },
+      paths: {},
+    }));
   }),
 }));
 vi.mock("@fastify/swagger-ui", () => ({

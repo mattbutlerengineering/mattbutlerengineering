@@ -59,7 +59,7 @@ describe("GateResult.output typed field", () => {
     const runner = new GateRunner([gate]);
     const result = await runner.run(makeContext());
 
-    expect(result.results[0].output).toEqual(domainData);
+    expect(result.results[0]!.output).toEqual(domainData);
   });
 
   it("GateResult.output is optional — gates without output still work", async () => {
@@ -75,7 +75,7 @@ describe("GateResult.output typed field", () => {
     const runner = new GateRunner([gate]);
     const result = await runner.run(makeContext());
 
-    expect(result.results[0].output).toBeUndefined();
+    expect(result.results[0]!.output).toBeUndefined();
   });
 });
 
@@ -155,7 +155,7 @@ describe("LlmEvaluationGate.evaluate — output field carries EvaluationResult",
     const gate = new LlmEvaluationGate();
 
     // lastResult should not exist on the gate instance
-    expect((gate as Record<string, unknown>)["lastResult"]).toBeUndefined();
+    expect(Reflect.get(gate, "lastResult")).toBeUndefined();
   });
 });
 
@@ -192,13 +192,13 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
     await runner.run(makeContext());
 
     expect(capturedArgs).toHaveLength(1);
-    expect(capturedArgs[0].previousResults).toHaveLength(1);
-    expect(capturedArgs[0].previousResults[0].gateName).toBe("first");
-    expect(capturedArgs[0].previousResults[0].passed).toBe(false);
+    expect(capturedArgs[0]!.previousResults).toHaveLength(1);
+    expect(capturedArgs[0]!.previousResults[0]!.gateName).toBe("first");
+    expect(capturedArgs[0]!.previousResults[0]!.passed).toBe(false);
   });
 
   it("first gate receives empty previousResults array", async () => {
-    const capturedPrevious: readonly GateResult[][] = [];
+    const capturedPrevious: (readonly GateResult[])[] = [];
 
     const gate: QualityGate = {
       name: "gate-a",
@@ -283,7 +283,7 @@ describe("SecurityReviewGate skip via previousResults", () => {
   });
 
   it("SecurityReviewGate runs when static-analysis gate passed in previousResults", async () => {
-    analyzeDiff.mockReturnValue({ clean: true, violations: [] });
+    analyzeDiff.mockReturnValue({ clean: true, violations: [], durationMs: 0 });
     reviewDiff.mockResolvedValue({ approved: true, issues: [] });
 
     const { StaticAnalysisGate } = await import("../gates/static-analysis-gate.js");
@@ -321,7 +321,11 @@ describe("post-commit-gateway extracts evaluation from GateResult output", () =>
     vi.mocked(evalMod.evaluateSuccess).mockResolvedValue(evalResult);
 
     const staticMod = await import("../diff-static-analyzer.js");
-    vi.mocked(staticMod.analyzeDiff).mockReturnValue({ clean: true, violations: [] });
+    vi.mocked(staticMod.analyzeDiff).mockReturnValue({
+      clean: true,
+      violations: [],
+      durationMs: 0,
+    });
 
     const { LlmEvaluationGate } = await import("../gates/llm-evaluation-gate.js");
     const gate = new LlmEvaluationGate();

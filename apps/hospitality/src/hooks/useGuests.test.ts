@@ -8,6 +8,7 @@ import {
   useGuestSearch,
   useLapsingGuests,
   useSendWinBack,
+  useAddGuest,
 } from "./useGuests.js";
 import type { Guest, GuestSegment, LapsingGuest } from "@mbe/types";
 
@@ -18,6 +19,7 @@ const mockSearch = vi.fn();
 const mockGetSegments = vi.fn();
 const mockGetLapsing = vi.fn();
 const mockSendWinBack = vi.fn();
+const mockFindOrCreate = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -27,6 +29,7 @@ vi.mock("./useApiClient.js", () => ({
       getSegments: mockGetSegments,
       getLapsing: mockGetLapsing,
       sendWinBack: mockSendWinBack,
+      findOrCreate: mockFindOrCreate,
     },
   }),
 }));
@@ -47,6 +50,11 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     venueId: "venue-1",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    noShowCount: 0,
+    riskScore: "standard",
+    dietaryRestrictions: [],
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }
@@ -117,8 +125,8 @@ describe("useGuestSegments", () => {
 
   it("returns segments on success", async () => {
     const segments: GuestSegment[] = [
-      { name: "VIP", count: 5 },
-      { name: "Regular", count: 20 },
+      { name: "VIP", description: "Most frequent guests", count: 5 },
+      { name: "Regular", description: "Repeat guests", count: 20 },
     ];
     mockGetSegments.mockResolvedValue(segments);
 
@@ -226,5 +234,32 @@ describe("useSendWinBack", () => {
 
     await result.current.mutateAsync("g-1");
     expect(mockSendWinBack).toHaveBeenCalledWith("g-1");
+  });
+});
+
+/* ── Tests: useAddGuest invalidates the segments cache entry ── */
+
+describe("useAddGuest", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("invalidates the cached useGuestSegments entry for the venue", async () => {
+    // The exact key useGuestSegments("venue-1") caches under (createQueryHook: [key, params]).
+    const segmentsKey = ["guestSegments", { venueId: "venue-1" }];
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(segmentsKey, []);
+    mockFindOrCreate.mockResolvedValue(makeGuest());
+
+    const { result } = renderHook(() => useAddGuest(), {
+      wrapper: ({ children }: { children: ReactNode }) =>
+        createElement(QueryClientProvider, { client: queryClient }, children),
+    });
+
+    await result.current.mutateAsync({ venueId: "venue-1", name: "Jane Doe" });
+
+    expect(queryClient.getQueryState(segmentsKey)?.isInvalidated).toBe(true);
   });
 });

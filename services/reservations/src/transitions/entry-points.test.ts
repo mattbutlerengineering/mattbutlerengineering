@@ -23,6 +23,9 @@ const h = vi.hoisted(() => ({
   prisma: {
     floorPlan: { findUnique: vi.fn(), findMany: vi.fn() },
     guest: { findMany: vi.fn() },
+    // The staff hold routes resolve the hold's venue for requireVenueAccess
+    // and the confirm's venue context (holdService.getVenueId).
+    reservationHold: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -589,6 +592,7 @@ describe("reservation transitions — effects per entry point", () => {
 
     function arrangeConfirm(overrides: Partial<Reservation> = {}) {
       vi.mocked(resolveGuestLink).mockResolvedValue({ ok: true, guestId: null } as never);
+      h.prisma.reservationHold.findUnique.mockResolvedValue({ venueId: "venue-1" });
       vi.mocked(confirmHold).mockResolvedValue({
         success: true,
         reservation: makeReservation(overrides),

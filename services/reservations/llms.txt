@@ -438,18 +438,6 @@
         generateUnsubscribeToken: (guestId: string) => string;
       }> { /* ... */ }
     </item>
-    <item priority="high">
-      type HeadersOrFactory = Record<string, string> | ((ctx: SweepContext) => Record;
-    </item>
-    <item priority="medium">
-      function brokenPublic(
-        blocker: string,
-        method: "GET" | "POST" | "PATCH" | "DELETE",
-        urlFor: (ctx: SweepContext) => string,
-        payloadFor?: PayloadOrFactory,
-        options: { headersFor?: HeadersOrFactory; expectBrokenOptions?: ExpectBrokenOptions } = {}
-      ): RouteFixture { /* ... */ }
-    </item>
     <item priority="low">
       async function createDisposablePublicHold(
         ctx: SweepContext,
@@ -593,6 +581,12 @@
         guestEmail = `rls-sweep-disposable-${randomUUID()}@example.com`
       ): Promise<string> { /* ... */ }
     </item>
+    <item priority="high">
+      export async function createDisposableStaffHold(
+        ctx: SweepContext,
+        venueId: string
+      ): Promise<{ id: string; sessionId: string }> { /* ... */ }
+    </item>
     <item priority="low">
       async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
     </item>
@@ -682,6 +676,96 @@
         load: () => Promise<T>,
         fallback: T
       ): Promise<T> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      type VenueSource = "query" | "body" | "params" | { readonly from: "query" | "bo | {
+            readonly entity: Entit | {
+            readonly resolve: (req;
+    </item>
+    <item priority="low">
+      type VenueAccess = "member" | "authenticated" | { readonly owner: (entity: E) ;
+    </item>
+    <item priority="low">
+      interface VenueScope {
+        venueId: string;
+        entity: E;
+        isAdmin: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface VenueScopeSpec {
+        venue: VenueSource<RG, E>;
+        access?: VenueAccess<E>;
+      }
+    </item>
+    <item priority="low">
+      type ScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export const VENUE_SCOPE: unique symbol;
+    </item>
+    <item priority="high">
+      export const venueScopeHooks: unknown;
+    </item>
+    <item priority="high">
+      export function venueScopeOf(handler: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type DirectSource = { readonly from: "query" | "body" | "params"; readonly fi...;
+    </item>
+    <item priority="high">
+      type EntitySource = Extract<
+        VenueSource<RG, E>,
+        { readonly entity: Entit...;
+    </item>
+    <item priority="high">
+      type ResolveSource = Extract<
+        VenueSource<RG, E>,
+        { readonly resolve: unkn...;
+    </item>
+    <item priority="medium">
+      function directSource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): DirectSource | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isEntitySource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): source is EntitySource<RG, E> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describe<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>,
+        access: VenueAccess<E>
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readField(request: FastifyRequest, { from, field }: DirectSource): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueScoped<
+        RG extends RouteGenericInterface = RouteGenericInterface,
+        E = undefined,
+      >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/venues.ts">
@@ -2314,6 +2398,9 @@
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
       }
+    </item>
+    <item priority="medium">
+      function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> { /* ... */ }
     </item>
     <item priority="high">
       export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }

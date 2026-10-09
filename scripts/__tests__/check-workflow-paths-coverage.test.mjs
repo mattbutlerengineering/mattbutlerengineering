@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,6 +30,7 @@ import {
   listTrackedFiles,
   discoverPackageDirs,
   runAudit,
+  verifyAllowlistGuards,
 } from "../check-workflow-paths-coverage.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -358,6 +360,88 @@ describe("the real repo tree", () => {
     expect(
       staleAllowlist,
       "ALLOWLIST entries that no longer correspond to a real gap must be removed."
+    ).toEqual([]);
+  });
+});
+
+/**
+ * An ALLOWLIST entry is "debt with paperwork" — but until now the paperwork
+ * was prose nobody checked. The `require-deploy-secrets.mjs` entry claims a
+ * specific compensating control ("scripts/__tests__/require-deploy-secrets.
+ * test.mjs reads the real deploy-services.yml ... so a break is caught before
+ * merge"); that claim is load-bearing, because it is the whole reason the gap
+ * is accepted. Nothing verified the named test existed, still read that
+ * workflow, or still mentioned the guarded script — so the claim could rot
+ * into false confidence silently, which is the same decorative-gate shape the
+ * surrounding checker exists to catch, one level up.
+ */
+describe("verifyAllowlistGuards", () => {
+  const guard = { reason: "r", guardedBy: "scripts/__tests__/g.test.mjs" };
+
+  it("passes a claim whose test exists and reads both the workflow and the script", () => {
+    const findings = verifyAllowlistGuards(
+      { "wf.yml": { "scripts/a.mjs": guard } },
+      {
+        exists: () => true,
+        read: () => 'readFileSync(".github/workflows/wf.yml")\nimport "../a.mjs"',
+      }
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("fails a claim naming a test file that does not exist", () => {
+    const findings = verifyAllowlistGuards(
+      { "wf.yml": { "scripts/a.mjs": guard } },
+      { exists: () => false, read: () => "" }
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatch(/does not exist/);
+  });
+
+  it("fails a claim whose test never reads the workflow it vouches for", () => {
+    const findings = verifyAllowlistGuards(
+      { "wf.yml": { "scripts/a.mjs": guard } },
+      { exists: () => true, read: () => 'import "../a.mjs"' }
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatch(/does not read/);
+  });
+
+  it("fails a claim whose test never mentions the guarded path", () => {
+    const findings = verifyAllowlistGuards(
+      { "wf.yml": { "scripts/a.mjs": guard } },
+      { exists: () => true, read: () => 'readFileSync(".github/workflows/wf.yml")' }
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatch(/does not reference/);
+  });
+
+  it("accepts an honest `guardedBy: null` — explicit debt, not a false claim", () => {
+    const findings = verifyAllowlistGuards(
+      { "wf.yml": { "scripts/a.mjs": { reason: "r", guardedBy: null } } },
+      {
+        exists: () => {
+          throw new Error("must not touch the filesystem for an unguarded entry");
+        },
+        read: () => {
+          throw new Error("must not touch the filesystem for an unguarded entry");
+        },
+      }
+    );
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("the real ALLOWLIST's compensating-guard claims", () => {
+  it("every entry claiming a guard names one that really reads that workflow", () => {
+    expect(
+      verifyAllowlistGuards(ALLOWLIST, {
+        exists: (p) => existsSync(join(ROOT, p)),
+        read: (p) => readFileSync(join(ROOT, p), "utf-8"),
+      }),
+      "An ALLOWLIST entry's `guardedBy` must name a test that actually reads the " +
+        "workflow and mentions the guarded path. Use `guardedBy: null` to record an " +
+        "honestly unwatched gap rather than pointing at a test that does not cover it."
     ).toEqual([]);
   });
 });

@@ -82,7 +82,7 @@ describe("scanPackage (fixture integration)", () => {
 
   it("reports findings with a 1-indexed line and relative file path", () => {
     const result = scan("malicious-high");
-    const finding = result.findings[0];
+    const finding = result.findings[0]!;
     expect(finding.line).toBeGreaterThan(0);
     expect(finding.file).not.toContain(fixtures);
   });

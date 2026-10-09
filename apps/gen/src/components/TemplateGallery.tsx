@@ -327,6 +327,17 @@ const TEMPLATES: readonly Template[] = [
       "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
   },
 
+  // Data Display (continued)
+  {
+    id: "live-departures-board",
+    title: "Live Departures Board",
+    description:
+      "Transit-style departures board cycling status announcements with mechanical flaps",
+    category: "Data Display",
+    prompt:
+      "Live departures board for a transit terminal built from a DepartureBoard split-flap display that cycles through a sequence of short status announcements — boarding times, gate changes, and delay notices — styled like an airport or train station board with a mechanical flap animation between each line",
+  },
+
   // Forms (continued)
   {
     id: "modal-form-dialog",
@@ -336,6 +347,17 @@ const TEMPLATES: readonly Template[] = [
     category: "Forms",
     prompt:
       "Create-a-new-guest flow where an Add Guest button opens a Dialog containing an editable form — name, email, phone, and a notes field — with Cancel and Save buttons in the dialog footer, the dialog title naming the record being created, and validation errors shown inline beneath each field while the dialog stays open",
+  },
+
+  // Data Display (continued)
+  {
+    id: "activity-log-panel",
+    title: "Activity Log Panel",
+    description:
+      "Scrollable activity feed inside a fixed-height panel that scrolls independently of the page",
+    category: "Data Display",
+    prompt:
+      "Activity log panel showing a long feed of recent events inside a fixed-height ScrollArea, so the feed scrolls independently without scrolling the page itself",
   },
 ] as const;
 

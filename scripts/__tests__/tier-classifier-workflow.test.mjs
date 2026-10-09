@@ -258,3 +258,34 @@ describe("tier-classifier bypass rule: a request escalates, a description does n
     expect(tier).not.toBe(4);
   });
 });
+
+// #5854 review: acmm-regression.yml's daily PR touches only
+// .claude/acmm/state.json and apps/marketing/public/acmm-report.json on a
+// no-op day, and those two paths matched no rule -- "unmatched paths
+// default to T2", which blocks auto-merge on every run (prior
+// automation/acmm-regression PRs #5497/#5305/#5056/#4461 all closed
+// unmerged). Both are automation-only, non-source output -- the same class
+// `metrics/**` already gets T1 for -- so they get the same classification.
+describe("tier-classifier path rules: ACMM automation output", () => {
+  it("classifies .claude/acmm/state.json alone as tier:trivial", () => {
+    const { tier, label } = runClassifier({
+      title: "chore(acmm): daily audit 2026-09-29",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json"],
+    });
+
+    expect(tier).toBe(1);
+    expect(label).toBe("tier:trivial");
+  });
+
+  it("classifies the state.json + acmm-report.json pair (a real daily-audit diff) as tier:trivial", () => {
+    const { tier, label } = runClassifier({
+      title: "chore(acmm): daily audit 2026-09-29",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json", "apps/marketing/public/acmm-report.json"],
+    });
+
+    expect(tier).toBe(1);
+    expect(label).toBe("tier:trivial");
+  });
+});

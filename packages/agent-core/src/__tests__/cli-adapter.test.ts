@@ -32,6 +32,9 @@ import { ClaudeAdapter } from "../adapters/claude-adapter.js";
 
 type ExecFileCallback = (err: Error | null, result: { stdout: string; stderr: string }) => void;
 
+// Keys of T that are not optional — the fields every result must carry.
+type RequiredKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? never : K }[keyof T];
+
 function setupExecFileMock(
   responses: Record<string, { stdout?: string; stderr?: string; error?: boolean }[]>
 ) {
@@ -50,8 +53,8 @@ function setupExecFileMock(
 
     callCounts[key] = (callCounts[key] ?? 0) + 1;
     const responseList = responses[key] ?? [{ stdout: "", stderr: "" }];
-    const idx = Math.min(callCounts[key] - 1, responseList.length - 1);
-    const response = responseList[idx];
+    const idx = Math.min(callCounts[key]! - 1, responseList.length - 1);
+    const response = responseList[idx]!;
 
     if (response.error) {
       const err = new Error("command failed") as Error & { stdout: string; stderr: string };
@@ -124,7 +127,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
       hasChanges: expect.any(Boolean),
       rateLimited: expect.any(Boolean),
       durationMs: expect.any(Number),
-    } satisfies Record<keyof AdapterResult, unknown>);
+    } satisfies Record<RequiredKeys<AdapterResult>, unknown>);
   });
 
   it("result.error is undefined on success", async () => {

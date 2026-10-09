@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Table, type ColumnDef } from "../../components/Table/Table";
+import { Table } from "../../components/Table/Table";
 import { DataList } from "../../components/DataList/DataList";
 import { Tabs } from "../../components/Tabs/Tabs";
 import { Accordion } from "../../components/Accordion/Accordion";
@@ -11,21 +11,26 @@ import { Card } from "../../components/Card/Card";
 import { Text } from "../../components/Text/Text";
 import css from "../showcase.module.css";
 
-interface SampleRow {
+// A type alias, not an interface: Table requires `T extends Record<string, unknown>`,
+// which interfaces (no implicit index signature) do not satisfy.
+type SampleRow = {
   id: number;
   name: string;
   role: string;
   status: string;
-}
+};
 
-const SAMPLE_DATA: readonly SampleRow[] = [
+/** Table's column type is not exported; derive it from the component's own props. */
+type SampleColumn = Parameters<typeof Table<SampleRow>>[0]["columns"][number];
+
+const SAMPLE_DATA: SampleRow[] = [
   { id: 1, name: "Alice Chen", role: "Engineer", status: "Active" },
   { id: 2, name: "Bob Martinez", role: "Designer", status: "Active" },
   { id: 3, name: "Carol Smith", role: "PM", status: "Away" },
   { id: 4, name: "Dave Wilson", role: "Engineer", status: "Offline" },
 ];
 
-const COLUMNS: ReadonlyArray<ColumnDef<SampleRow>> = [
+const COLUMNS: SampleColumn[] = [
   { key: "name", header: "Name", sortable: true },
   { key: "role", header: "Role", sortable: true },
   { key: "status", header: "Status" },
@@ -33,17 +38,17 @@ const COLUMNS: ReadonlyArray<ColumnDef<SampleRow>> = [
 
 const TAB_ITEMS = [
   {
-    value: "overview",
+    id: "overview",
     label: "Overview",
     content: <Text variant="body">Overview content goes here.</Text>,
   },
   {
-    value: "details",
+    id: "details",
     label: "Details",
     content: <Text variant="body">Detailed information and settings.</Text>,
   },
   {
-    value: "history",
+    id: "history",
     label: "History",
     content: <Text variant="body">Activity history and logs.</Text>,
   },
@@ -51,18 +56,18 @@ const TAB_ITEMS = [
 
 const ACCORDION_ITEMS = [
   {
-    value: "q1",
+    id: "q1",
     title: "What is Rialto?",
     content: "Rialto is a React component library built with material honesty principles.",
   },
   {
-    value: "q2",
+    id: "q2",
     title: "How do vibes work?",
     content:
       "Vibes are CSS custom property override presets that shift the design language to match user intent.",
   },
   {
-    value: "q3",
+    id: "q3",
     title: "Is Rialto accessible?",
     content:
       "Yes. All interactive components meet WCAG AA standards with keyboard navigation and screen reader support.",
@@ -119,7 +124,7 @@ export function DataSection() {
         >
           Table
         </Text>
-        <Table data={SAMPLE_DATA} columns={COLUMNS} />
+        <Table data={SAMPLE_DATA} columns={COLUMNS} rowKey={(row) => row.id} />
       </div>
 
       {/* DataList */}
@@ -170,7 +175,7 @@ export function DataSection() {
         >
           Tabs
         </Text>
-        <Tabs items={TAB_ITEMS} defaultValue="overview" />
+        <Tabs tabs={TAB_ITEMS} defaultTab="overview" />
       </div>
 
       {/* Accordion */}
@@ -206,7 +211,7 @@ export function DataSection() {
         >
           Pagination
         </Text>
-        <Pagination currentPage={page} totalPages={10} onPageChange={setPage} />
+        <Pagination page={page} totalPages={10} onChange={setPage} />
       </div>
     </div>
   );

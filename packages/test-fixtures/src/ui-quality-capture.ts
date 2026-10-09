@@ -57,8 +57,14 @@ export type CapturePageLike = Pick<
   Page,
   "emulateMedia" | "setViewportSize" | "goto" | "waitForLoadState" | "evaluate" | "screenshot"
 > & {
-  on(event: string, handler: (arg: never) => void): unknown;
-  off(event: string, handler: (arg: never) => void): unknown;
+  // `any`, not `never`: a real Page's `on` is overloaded per event, and TS checks
+  // callback parameters one way only, so each payload (`Page`, `Error`, ...) must
+  // be assignable to this param; `never` rejected every real Page (found when
+  // apps' e2e/ joined typecheck), `unknown` would reject the typed handlers below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, handler: (arg: any) => void): unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  off(event: string, handler: (arg: any) => void): unknown;
 };
 
 interface RawAxe {
@@ -290,7 +296,7 @@ function listen(page: CapturePageLike, origin: string) {
       return false;
     }
   };
-  const handlers: Record<string, (arg: never) => void> = {
+  const handlers: Record<string, Parameters<CapturePageLike["on"]>[1]> = {
     pageerror: (err: Error) => page_errors.push(err.message),
     console: (msg: { type(): string; text(): string }) => {
       if (msg.type() === "error") console_errors.push(msg.text());

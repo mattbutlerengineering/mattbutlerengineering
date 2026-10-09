@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "//": "typecheck: root inputs (inherited via $TURBO_EXTENDS$, so later root edits still apply) plus infrastructure/worker/csp.js, which e2e/csp.spec.ts and e2e/support/edge-csp.ts import as @mbe/edge-worker/csp.js. @mbe/edge-worker has no build task, so ^build adds nothing to this hash; tsconfig.e2e.json type-checks e2e/ with allowJs, so the .js file's JSDoc types are part of the program and an edit to it alone would otherwise replay a cached green (docs/fixes/test-typecheck-coverage).",
+  "tasks": {
+    "typecheck": {
+      "inputs": ["$TURBO_EXTENDS$", "$TURBO_ROOT$/infrastructure/worker/csp.js"]
+    }
+  }
+}

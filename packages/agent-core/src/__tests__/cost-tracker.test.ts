@@ -53,7 +53,10 @@ function createMockErrorResult(): SDKResultMessage {
     modelUsage: {},
     permission_denials: [],
     errors: ["Maximum turns exceeded"],
-  } as SDKResultMessage;
+    // Cast through unknown: `usage` carries only the four token fields the
+    // cost tracker reads; the SDK's NonNullableUsage requires six more
+    // (cache_creation, server_tool_use, ...) that are irrelevant here.
+  } as unknown as SDKResultMessage;
 }
 
 describe("extractTokenUsage", () => {
@@ -74,7 +77,9 @@ describe("extractTokenUsage", () => {
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
       },
-    } as Partial<SDKResultMessage>);
+      // Cast through unknown: null token counts are outside the SDK's
+      // NonNullableUsage type on purpose — this pins the runtime `?? 0` default.
+    } as unknown as Partial<SDKResultMessage>);
     const usage = extractTokenUsage(result);
     expect(usage).toEqual({ inputTokens: 0, outputTokens: 0 });
   });

@@ -71,39 +71,115 @@ const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * Exercised paths a workflow's trigger filter deliberately does not cover.
- * Key: workflow filename. Value: map of exercised path -> one-line reason.
+ * Key: workflow filename. Value: map of exercised path -> accepted gap.
  * Every entry is a real, accepted instance of the defect class — each has a
  * docs/backlog.md seed so it is a debt with paperwork, not a silent pass.
  * A stale entry (gap no longer present) fails the check until removed.
+ *
+ * `guardedBy` is the compensating control: a test that reads the real
+ * workflow, so a break is still caught before merge even though this
+ * workflow's own trigger can never fire on the change. It is verified
+ * (`verifyAllowlistGuards`) rather than taken on trust — an unchecked claim
+ * of protection is the same decorative-gate shape this module exists to
+ * catch, one level up. Use `guardedBy: null` to record an honestly unwatched
+ * gap; never point at a test that does not actually cover the surface.
+ *
+ * @type {Record<string, Record<string, {reason: string, guardedBy: string|null}>>}
  */
 export const ALLOWLIST = {
   "deploy-services.yml": {
-    "scripts/deploy-ci-precondition.mjs":
-      "deploy gate helper; a change to it does not redeploy services — accepted, seeded in docs/backlog.md (session:2026-08-28)",
-    "scripts/require-deploy-secrets.mjs":
-      "deploy gate helper, same shape as deploy-ci-precondition.mjs above; adding it to the filter would make editing a script trigger a production deploy, which is not how a script change should be validated. Unlike the other entries here the guarded surface is NOT unwatched: scripts/__tests__/require-deploy-secrets.test.mjs reads the real deploy-services.yml and asserts the guard's env, its invocation and its per-service routing, and runs on every PR — so a break is caught before merge, just not by this workflow. Recorded in docs/fixes/backend-observability-blackout/breakdown.md (session:2026-09-02)",
+    "scripts/deploy-ci-precondition.mjs": {
+      reason:
+        "deploy gate helper; a change to it does not redeploy services — accepted, seeded in docs/backlog.md (session:2026-08-28)",
+      guardedBy: "scripts/__tests__/deploy-ci-precondition.test.mjs",
+    },
+    "scripts/require-deploy-secrets.mjs": {
+      reason:
+        "deploy gate helper, same shape as deploy-ci-precondition.mjs above; adding it to the filter would make editing a script trigger a production deploy, which is not how a script change should be validated. Recorded in docs/fixes/backend-observability-blackout/breakdown.md (session:2026-09-02)",
+      guardedBy: "scripts/__tests__/require-deploy-secrets.test.mjs",
+    },
   },
   "deploy-static.yml": {
-    "scripts/collect-repo-stats.mjs":
-      "always-exit-0 stats refresh; a change to it does not redeploy marketing — accepted, seeded in docs/backlog.md (session:2026-08-28)",
-    "scripts/require-deploy-secrets.mjs":
-      "deploy gate helper, same reasoning as the deploy-services.yml entry above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. The guarded surface is NOT unwatched: scripts/__tests__/deploy-static-sentry-env.test.mjs reads the real deploy-static.yml and asserts the VITE_SENTRY_DSN_MBE guard's env and invocation ahead of the marketing and rialto-web builds, and scripts/__tests__/require-deploy-secrets.test.mjs covers the script itself, both on every PR. Recorded in docs/fixes/static-sentry-dsn-routing/defect.md (maintenance:static-sentry-dsn-routing)",
-    "scripts/verify-sentry-sourcemaps.mjs":
-      "post-build deploy gate, same reasoning as require-deploy-secrets.mjs above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. The guarded surface is NOT unwatched: scripts/__tests__/verify-sentry-sourcemaps.test.mjs unit-tests the script against fixture dist trees and reads the real deploy-static.yml to assert the step runs between each app's build and its wrangler deploy, on every PR. Recorded in docs/fixes/static-sourcemaps-confirm/defect.md (maintenance:static-sourcemaps-confirm)",
+    "scripts/collect-repo-stats.mjs": {
+      reason:
+        "always-exit-0 stats refresh; a change to it does not redeploy marketing — accepted, seeded in docs/backlog.md (session:2026-08-28)",
+      guardedBy: "scripts/__tests__/deploy-static-repo-stats.test.mjs",
+    },
+    "scripts/require-deploy-secrets.mjs": {
+      reason:
+        "deploy gate helper, same reasoning as the deploy-services.yml entry above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. Recorded in docs/fixes/static-sentry-dsn-routing/defect.md (maintenance:static-sentry-dsn-routing)",
+      // Two tests cover this surface; guardedBy names the one that reads THIS
+      // workflow. require-deploy-secrets.test.mjs covers the script itself but
+      // never opens deploy-static.yml, so it cannot vouch for this entry — it
+      // is the guard for the deploy-services.yml entry above.
+      guardedBy: "scripts/__tests__/deploy-static-sentry-env.test.mjs",
+    },
+    "scripts/verify-sentry-sourcemaps.mjs": {
+      reason:
+        "post-build deploy gate, same reasoning as require-deploy-secrets.mjs above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. Recorded in docs/fixes/static-sourcemaps-confirm/defect.md (maintenance:static-sourcemaps-confirm)",
+      guardedBy: "scripts/__tests__/verify-sentry-sourcemaps.test.mjs",
+    },
   },
   "instruction-regression.yml": {
-    "plugins/acmm/scripts/evals/index.js":
-      "the eval harness itself is outside the filter; a harness change runs no eval — seeded in docs/backlog.md (session:2026-08-28)",
+    "plugins/acmm/scripts/evals/index.js": {
+      reason:
+        "the eval harness itself is outside the filter; a harness change runs no eval — seeded in docs/backlog.md (session:2026-08-28)",
+      guardedBy: null,
+    },
   },
   "preview-deploy.yml": {
-    "scripts/preview-comment.mjs":
-      "comment-upsert helper; a change to it deploys no preview — accepted, seeded in docs/backlog.md (session:2026-08-28)",
+    "scripts/preview-comment.mjs": {
+      reason:
+        "comment-upsert helper; a change to it deploys no preview — accepted, seeded in docs/backlog.md (session:2026-08-28)",
+      guardedBy: "scripts/__tests__/preview-deploy-sticky-comment.test.mjs",
+    },
   },
   "rialto-web-e2e.yml": {
-    "scripts/publish-visual-diffs.mjs":
-      "diff publisher (contents: write); a change to it runs no visual job — seeded in docs/backlog.md (session:2026-08-28)",
+    "scripts/publish-visual-diffs.mjs": {
+      reason:
+        "diff publisher (contents: write); a change to it runs no visual job — seeded in docs/backlog.md (session:2026-08-28)",
+      guardedBy: "scripts/__tests__/publish-visual-diffs.test.mjs",
+    },
   },
 };
+
+/**
+ * Pure: every ALLOWLIST entry whose compensating-guard claim does not hold.
+ *
+ * A `guardedBy` test must exist, must read the workflow it vouches for, and
+ * must mention the guarded path's basename — otherwise the entry asserts a
+ * protection that is not there, which is worse than recording none. An entry
+ * with `guardedBy: null` is explicit, honest debt and passes without any
+ * filesystem access.
+ *
+ * @param {Record<string, Record<string, {reason: string, guardedBy: string|null}>>} allowlist
+ * @param {{ exists: (path: string) => boolean, read: (path: string) => string }} io
+ * @returns {string[]} one line per broken claim
+ */
+export function verifyAllowlistGuards(allowlist, { exists, read }) {
+  const findings = [];
+  for (const [workflow, paths] of Object.entries(allowlist)) {
+    for (const [path, entry] of Object.entries(paths)) {
+      const guardedBy = entry?.guardedBy;
+      if (!guardedBy) continue;
+      const where = `${workflow}: ${path} — guardedBy ${guardedBy}`;
+      if (!exists(guardedBy)) {
+        findings.push(`${where} does not exist`);
+        continue;
+      }
+      const text = read(guardedBy);
+      if (!text.includes(workflow)) {
+        findings.push(`${where} does not read ${workflow}`);
+        continue;
+      }
+      const basename = path.split("/").pop();
+      if (!text.includes(basename)) {
+        findings.push(`${where} does not reference ${basename}`);
+      }
+    }
+  }
+  return findings;
+}
 
 /** Directory prefixes excluded from the exercised surface (see docblock). */
 const EXCLUDED_PREFIXES = [".github/"];
@@ -416,13 +492,14 @@ export function discoverPackageDirs(root = DEFAULT_ROOT) {
  *   root: string,
  *   trackedFiles: string[],
  *   packageDirs: Record<string, string>,
- *   allowlist?: Record<string, Record<string, string>>,
+ *   allowlist?: Record<string, Record<string, {reason: string, guardedBy: string|null}>>,
  * }} input
  * @returns {{
  *   findings: { workflow: string, path: string, via: string }[],
  *   staleAllowlist: string[],
  *   notAnalyzable: { workflow: string, reason: string }[],
- *   allowlisted: { workflow: string, path: string, reason: string }[],
+ *   allowlisted: { workflow: string, path: string, reason: string, guardedBy: string|null }[],
+ *   brokenGuardClaims: string[],
  *   analyzed: string[],
  * }}
  */
@@ -454,9 +531,14 @@ export function runAudit({ root, trackedFiles, packageDirs, allowlist = ALLOWLIS
     }
     analyzed.push(workflow);
     for (const gap of result.gaps) {
-      const reason = allowlist[workflow]?.[gap.path];
-      if (reason) {
-        allowlisted.push({ workflow, path: gap.path, reason });
+      const entry = allowlist[workflow]?.[gap.path];
+      if (entry) {
+        allowlisted.push({
+          workflow,
+          path: gap.path,
+          reason: entry.reason,
+          guardedBy: entry.guardedBy,
+        });
         liveAllowlistHits.add(`${workflow}::${gap.path}`);
       } else {
         findings.push({ workflow, path: gap.path, via: gap.via });
@@ -470,16 +552,22 @@ export function runAudit({ root, trackedFiles, packageDirs, allowlist = ALLOWLIS
       .map((path) => `${workflow}: ${path}`)
   );
 
-  return { findings, staleAllowlist, notAnalyzable, allowlisted, analyzed };
+  const brokenGuardClaims = verifyAllowlistGuards(allowlist, {
+    exists: (path) => existsSync(join(root, path)),
+    read: (path) => readFileSync(join(root, path), "utf-8"),
+  });
+
+  return { findings, staleAllowlist, notAnalyzable, allowlisted, analyzed, brokenGuardClaims };
 }
 
 function main() {
   const root = DEFAULT_ROOT;
-  const { findings, staleAllowlist, notAnalyzable, allowlisted, analyzed } = runAudit({
-    root,
-    trackedFiles: listTrackedFiles(root),
-    packageDirs: discoverPackageDirs(root),
-  });
+  const { findings, staleAllowlist, notAnalyzable, allowlisted, analyzed, brokenGuardClaims } =
+    runAudit({
+      root,
+      trackedFiles: listTrackedFiles(root),
+      packageDirs: discoverPackageDirs(root),
+    });
 
   console.log(`Analyzed (filter verified against exercised surface): ${analyzed.join(", ")}`);
   const unfiltered = notAnalyzable.filter((n) => n.reason.startsWith("an unfiltered"));
@@ -499,8 +587,11 @@ function main() {
   }
   if (allowlisted.length > 0) {
     console.log("Known, accepted gaps (ALLOWLIST — each has a docs/backlog.md seed):");
-    for (const { workflow, path, reason } of allowlisted) {
-      console.log(`  ${workflow}: ${path} — ${reason}`);
+    for (const { workflow, path, reason, guardedBy } of allowlisted) {
+      // The compensating control is printed next to the gap it excuses, so an
+      // UNWATCHED line is visible rather than buried in the reason prose.
+      const cover = guardedBy ? `guarded by ${guardedBy}` : "UNWATCHED (no compensating test)";
+      console.log(`  ${workflow}: ${path} [${cover}] — ${reason}`);
     }
   }
 
@@ -510,6 +601,11 @@ function main() {
         `${f.workflow} exercises ${f.path} (via ${f.via}) but its paths filter can never fire on a change to it — the guard will not run when the guarded surface changes`
     ),
     ...staleAllowlist.map((s) => `stale ALLOWLIST entry (gap no longer present): ${s}`),
+    ...brokenGuardClaims.map(
+      (c) =>
+        `ALLOWLIST guard claim does not hold: ${c} — the entry asserts a compensating test that ` +
+        `does not cover the surface. Fix the test, repoint guardedBy, or set it to null.`
+    ),
   ];
   process.exit(
     runCheck({

@@ -43,6 +43,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const TURBO_BIN = join(ROOT, "node_modules", ".bin", "turbo");
 const PLAYWRIGHT_CONFIG = join(ROOT, "apps/rialto-web/playwright.config.ts");
 const OWN_SOURCE = join(ROOT, "scripts/visual-tolerance.mjs");
+// typecheck-covers-tests.test.mjs reads every package's tsconfig*.json.
+const PACKAGE_TSCONFIG = join(ROOT, "packages/jobs/tsconfig.test.json");
 
 /**
  * Paths that build/test tooling writes into while a concurrent `turbo run` is
@@ -158,10 +160,97 @@ describe("@mbe/scripts turbo task hashes see the suite's real inputs", () => {
     }
   );
 
+  it(
+    "test and test:coverage respond to a package tsconfig (typecheck-covers-tests reads them)",
+    { timeout: 120_000 },
+    () => {
+      const mutated = withAppendedProbe(PACKAGE_TSCONFIG, taskHashes);
+      expect(mutated.test).not.toBe(baseline.test);
+      expect(mutated.coverage).not.toBe(baseline.coverage);
+      expect(taskHashes()).toEqual(baseline);
+    }
+  );
+
   it("test and test:coverage respond to the package's own sources", { timeout: 120_000 }, () => {
     const mutated = withAppendedProbe(OWN_SOURCE, taskHashes);
     expect(mutated.test).not.toBe(baseline.test);
     expect(mutated.coverage).not.toBe(baseline.coverage);
     expect(taskHashes()).toEqual(baseline);
+  });
+});
+
+/** `<pkg>#typecheck`'s dry-run hash (nothing executes, nothing caches). */
+function typecheckHash(pkg) {
+  const env = { ...process.env, TURBO_TELEMETRY_DISABLED: "1" };
+  delete env.TURBO_TOKEN;
+  delete env.TURBO_TEAM;
+  const stdout = execFileSync(
+    TURBO_BIN,
+    ["run", "typecheck", `--filter=${pkg}`, "--dry-run=json"],
+    { cwd: ROOT, encoding: "utf8", env, maxBuffer: 64 * 1024 * 1024 }
+  );
+  const task = JSON.parse(stdout).tasks.find((t) => t.taskId === `${pkg}#typecheck`);
+  if (!task) throw new Error(`dry-run has no task ${pkg}#typecheck`);
+  return task.hash;
+}
+
+/**
+ * docs/fixes/test-typecheck-coverage PR5 brought apps' e2e/ and root-level
+ * tests under `typecheck` (each app's tsconfig.e2e.json). Root inputs used to
+ * be src/scripts only, so an edit to just an e2e spec replayed a cached green
+ * typecheck (measured: hash unchanged). Root turbo.json now adds `e2e/**` and
+ * `*.ts`; hospitality and rialto-web add the out-of-package JS their e2e
+ * imports via allowJs (apps/<app>/turbo.json). gen exercises the root config,
+ * the other two their package configs.
+ */
+describe("app typecheck hashes see e2e/, root-level tests, and allowJs imports", () => {
+  it.each([
+    ["@mbe/gen", "apps/gen/e2e/auth.spec.ts"],
+    ["@mbe/hospitality", "apps/hospitality/e2e/auth.spec.ts"],
+    ["@mbe/hospitality", "apps/hospitality/vite.manualChunks.test.ts"],
+    ["@mbe/hospitality", "scripts/venue-journey/report.mjs"],
+    ["@mbe/rialto-web", "apps/rialto-web/e2e/theme.spec.ts"],
+    ["@mbe/rialto-web", "apps/rialto-web/token-count.config.test.ts"],
+    ["@mbe/rialto-web", "infrastructure/worker/csp.js"],
+  ])("%s#typecheck responds to %s", { timeout: 120_000 }, (pkg, file) => {
+    const before = typecheckHash(pkg);
+    const mutated = withAppendedProbe(join(ROOT, file), () => typecheckHash(pkg));
+    expect(mutated).not.toBe(before);
+    expect(typecheckHash(pkg)).toBe(before);
+  });
+});
+
+/**
+ * A Package Configuration's `inputs` REPLACES the root array unless it opts in
+ * with `$TURBO_EXTENDS$`. The overrides above (hospitality, rialto-web,
+ * rialto-catalog) only add out-of-package files, so a copied root list would
+ * silently stop tracking root changes: add a test location to root
+ * `tasks.typecheck.inputs` and those packages keep the old list, and a cached
+ * (or CI remote-cached) green typecheck replays over an unhashed edit. Today's
+ * file hashes cannot show that future drift, so this one check reads the
+ * config: every package-level typecheck override must extend the root list.
+ */
+describe("package-level typecheck inputs extend the root list", () => {
+  const overrides = execFileSync("git", ["ls-files", "-z", "--", "*turbo.json"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter((f) => f && f !== "turbo.json")
+    .map((f) => [f, JSON.parse(readFileSync(join(ROOT, f), "utf8")).tasks?.typecheck?.inputs])
+    .filter(([, inputs]) => inputs !== undefined);
+
+  it("finds the known overrides (the probe itself works)", () => {
+    expect(overrides.map(([f]) => f)).toEqual(
+      expect.arrayContaining([
+        "apps/hospitality/turbo.json",
+        "apps/rialto-web/turbo.json",
+        "packages/rialto-catalog/turbo.json",
+      ])
+    );
+  });
+
+  it.each(overrides)("%s starts its typecheck inputs with $TURBO_EXTENDS$", (_file, inputs) => {
+    expect(inputs[0]).toBe("$TURBO_EXTENDS$");
   });
 });

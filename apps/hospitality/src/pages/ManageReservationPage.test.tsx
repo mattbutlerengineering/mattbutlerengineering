@@ -46,7 +46,7 @@ const validReservation = {
   guestName: "Jane Doe",
   guestEmail: "jane@example.com",
   status: "PENDING",
-  notes: null,
+  notes: null as string | null,
 };
 
 function makeManagedPayload(
@@ -117,7 +117,7 @@ describe("ManageReservationPage", () => {
     await waitFor(() => expect(screen.getByText("Jane Doe")).toBeDefined());
 
     // ApiClient constructs the URL from baseUrl + path
-    const calledUrl: string = mockFetch.mock.calls[0][0] as string;
+    const calledUrl: string = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/public/v1/reservations/manage");
     expect(calledUrl).toContain("token=valid-token-abc");
   });
