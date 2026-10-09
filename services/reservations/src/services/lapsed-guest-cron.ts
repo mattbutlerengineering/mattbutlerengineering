@@ -4,6 +4,7 @@ import type { PrismaClient } from "../generated/prisma/index.js";
 import type { LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { assumeAppRole } from "./assume-app-role.js";
 
 const DEFAULT_STARTUP_DELAY_MS = 60_000;
 const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -121,18 +122,21 @@ export function findGuestsForVenue(
  * against real Postgres as a non-owner role under FORCE in
  * `../routes/rls-isolation.integration.test.ts`.
  *
- * `$queryRaw` (not a model delegate) is deliberate twice over: Prisma cannot
- * call a set-returning function through a delegate, and `$`-prefixed methods
- * pass through `./venue-scoped-prisma.ts`'s wrapper unwrapped, so this runs as
- * its own single statement with no surrounding transaction — which is exactly
- * the marker's lifetime. The venue-group filter is left `NULL` here: the cron
- * scans every venue.
+ * `$queryRaw` (not a model delegate) is deliberate: Prisma cannot call a
+ * set-returning function through a delegate. The read sits in its own
+ * transaction whose first statement is `assumeAppRole`, because `$`-prefixed
+ * methods pass through `./venue-scoped-prisma.ts` unwrapped and would
+ * otherwise keep running as the table owner. The venue-group filter is left
+ * `NULL` here: the cron scans every venue.
  *
  * Exported for the same reason `findGuestsForVenue` is: so the integration
  * suites can pin this behavior against a real Postgres instance.
  */
 export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
-  const venues = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+  const venues = await prisma.$transaction(async (tx) => {
+    await assumeAppRole(tx);
+    return tx.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+  });
   return venues.map((venue) => venue.id);
 }
 

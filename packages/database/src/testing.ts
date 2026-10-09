@@ -2,15 +2,16 @@ import { vi, type Mock } from "vitest";
 import type { PoolMetrics, SlowQueryStats, ServiceStatus } from "./index.js";
 
 /**
- * Minimal typed prisma stub — always includes $queryRaw for health checks
- * and $executeRaw for the ADR-026 venue-context preHandler's `set_config()`
- * call (services/reservations/src/middleware/venue-context.ts), which every
- * request now issues via the global preHandler in services/reservations'
- * app bootstrap.
+ * Minimal typed prisma stub — always includes $queryRaw for health checks,
+ * $executeRaw for `set_config()`, and $executeRawUnsafe plus a default
+ * `$transaction` so `assumeAppRole` (`SET LOCAL ROLE`) can run against the
+ * same `$queryRaw` the test stubbed.
  */
 export interface MockPrisma {
   $queryRaw: Mock;
   $executeRaw: Mock;
+  $executeRawUnsafe: Mock;
+  $transaction: Mock;
   [key: string]: unknown;
 }
 
@@ -87,8 +88,16 @@ export function createMockDatabaseService(
   const defaultPrisma: MockPrisma = {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn().mockResolvedValue(0),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    $transaction: vi.fn(),
   };
   const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
+  // A caller-supplied `$transaction` stays. Otherwise the callback sees this
+  // same stub, so a query moved inside the transaction still hits the
+  // overridden `$queryRaw`.
+  if (overrides?.prisma?.$transaction === undefined) {
+    mergedPrisma.$transaction = vi.fn(async (fn: (tx: MockPrisma) => unknown) => fn(mergedPrisma));
+  }
 
   const getSlowQueryStats =
     overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS);

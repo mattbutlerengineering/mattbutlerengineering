@@ -1,4 +1,5 @@
 import { prisma } from "./database.js";
+import { assumeAppRole } from "./assume-app-role.js";
 
 /**
  * Mirrors `app_resolve_venue_id`'s own allowlist CASE exactly
@@ -29,13 +30,13 @@ interface ResolvedVenueIdRow {
  * cannot run inside the scope it is computing".
  *
  * Calls the `SECURITY DEFINER` `app_resolve_venue_id` Postgres function
- * through the RAW (unscoped) Prisma client — `$queryRaw` tagged-template
- * parameters, never string interpolation, so `kind`/`key`/`group` can never
- * reach SQL unparameterized — rather than a venue-scoped
- * `prisma.<model>.findUnique(...)` call, which is exactly the "unscoped read
- * of an RLS table" trap this function exists to close (it would resolve
- * `null` under `FORCE ROW LEVEL SECURITY` for the same reason the entity
- * lookup it replaces did).
+ * inside a transaction that has assumed `app_reservations`. `$queryRaw`
+ * tagged-template parameters, never string interpolation, so `kind`/`key`/
+ * `group` can never reach SQL unparameterized. A venue-scoped
+ * `prisma.<model>.findUnique(...)` is the "unscoped read of an RLS table"
+ * trap this function exists to close (it would resolve `null` under
+ * `FORCE ROW LEVEL SECURITY` for the same reason the entity lookup it
+ * replaces did).
  *
  * Returns `null` when the key does not resolve to exactly one venue — the
  * entity is missing, has no venue (ADR-026 §2's nullable-`venue_id` case),
@@ -48,8 +49,11 @@ export async function resolveVenueId(
   key: string,
   group?: string | null
 ): Promise<string | null> {
-  const rows = await prisma.$queryRaw<ResolvedVenueIdRow[]>`
-    SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
-  `;
+  const rows = await prisma.$transaction(async (tx) => {
+    await assumeAppRole(tx);
+    return tx.$queryRaw<ResolvedVenueIdRow[]>`
+      SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
+    `;
+  });
   return rows[0]?.app_resolve_venue_id ?? null;
 }

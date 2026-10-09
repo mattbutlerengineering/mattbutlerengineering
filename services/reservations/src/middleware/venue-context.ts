@@ -1,17 +1,20 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { VenueIdResolver } from "@mbe/auth/fastify";
+import { assumeAppRole } from "../services/assume-app-role.js";
 import { enterVenueContext } from "../services/venue-context-store.js";
 import { recordUnscopedRlsQuery } from "../services/rls-context-mode.js";
 
 /**
  * Postgres RLS venue-scoping backstop (ADR-026), part 5/7.
  *
- * Minimal shape needed to issue the `set_config()` call — any of the
- * top-level `PrismaClient` or a `Prisma.TransactionClient` — that exposes
+ * Minimal shape needed to assume `app_reservations` and issue the
+ * `set_config()` call — any of the top-level `PrismaClient` or a
+ * `Prisma.TransactionClient` — that exposes `$executeRawUnsafe` and
  * tagged-template `$executeRaw`.
  */
 export interface VenueContextClient {
   $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+  $executeRawUnsafe: (query: string) => Promise<number>;
 }
 
 export interface SetVenueContextOptions {
@@ -49,13 +52,14 @@ export interface SetVenueContextOptions {
  * literal — it's not attacker-controlled — only the venue id needs
  * parameterization, and it still gets it.
  *
- * When `venueId` is `null`/`undefined`, this is a deliberate no-op:
- * `app.venue_id` stays unset, so every ADR-026 RLS policy's
- * `current_setting('app.venue_id', true)` evaluates to SQL `NULL`, which per
- * ADR-026 §4 is default-deny (zero rows visible or writable) — not an error
- * and not "every venue". This is the correct behavior for requests with no
- * resolved venue context (public routes, the platform-admin cross-venue
- * escape hatch, etc).
+ * The first statement is always `SET LOCAL ROLE "app_reservations"`
+ * (`assumeAppRole`), including when `venueId` is `null`/`undefined`.
+ * `set_config` is still skipped in that case: `app.venue_id` stays unset, so
+ * every ADR-026 RLS policy's `current_setting('app.venue_id', true)` evaluates
+ * to SQL `NULL`, which per ADR-026 §4 is default-deny (zero rows visible or
+ * writable) — not an error and not "every venue". This is the correct
+ * behavior for requests with no resolved venue context (public routes, the
+ * platform-admin cross-venue escape hatch, etc).
  *
  * Correctness note (ADR-026 §4): the `is_local = true` argument makes this
  * transaction-scoped in Postgres, identical to `SET LOCAL`. Callers MUST
@@ -77,6 +81,7 @@ export async function setVenueContext(
   venueId: string | null | undefined,
   options: SetVenueContextOptions = {}
 ): Promise<void> {
+  await assumeAppRole(client);
   if (!venueId) {
     if (!options.skipUnscopedQueryCheck) {
       // `model: null` — this function doesn't know which table its caller's
@@ -106,8 +111,8 @@ export async function setVenueContext(
  * Unauthenticated/public routes (no venue context resolved yet, e.g.
  * `/public/v1/venues/:slug/*` before the slug is resolved) are handled by
  * simply stashing `null`: `getCurrentVenueId` then returns `null`, and
- * `setVenueContext` no-ops on it — the ADR-026 §4 default-deny behavior,
- * not an error.
+ * `setVenueContext` skips `set_config` — the ADR-026 §4 default-deny
+ * behavior, not an error. The role is still assumed inside that transaction.
  *
  * Calls `enterVenueContext` SYNCHRONOUSLY whenever `resolveVenueId` resolves
  * to a plain (non-Promise) value — never via `await resolveVenueId(request)`

@@ -123,6 +123,8 @@
       interface MockPrisma {
         $queryRaw: Mock;
         $executeRaw: Mock;
+        $executeRawUnsafe: Mock;
+        $transaction: Mock;
       }
     </item>
     <item priority="low">

@@ -599,15 +599,17 @@ actual Postgres session variable is set later, inside the transaction that
 issues the query: `src/services/venue-scoped-prisma.ts`'s
 `withVenueScopedQueries` wraps the exported `prisma` client so every
 model-delegate call (`prisma.table.findMany(...)`, etc.) automatically opens
-a `$transaction` and calls `setVenueContext(tx, ...)` — `SELECT
-set_config('app.venue_id', <id>, true)`, the parameterized equivalent of
-`SET LOCAL` — as that transaction's first statement, before the wrapped
-query runs. A handful of call sites that already manage their own explicit
+a `$transaction` and calls `setVenueContext(tx, ...)`. That helper's first
+statement is `SET LOCAL ROLE "app_reservations"` (`assumeAppRole`); when a
+venue id is set it then runs `SELECT set_config('app.venue_id', <id>, true)`,
+the parameterized equivalent of `SET LOCAL`, before the wrapped query runs.
+A handful of call sites that already manage their own explicit
 `$transaction` (`reservation.ts`, `floor-plan.ts`, `book-slot.ts`,
 `waitlist.ts`) call `setVenueContext` directly instead. When no venue id is
-resolved (public routes, background jobs), `app.venue_id` stays unset and
-every policy's `current_setting('app.venue_id', true)` evaluates to `NULL`
-— default-deny, not an error and not "every venue".
+resolved (public routes, background jobs), the role is still assumed,
+`set_config` is skipped, and `app.venue_id` stays unset so every policy's
+`current_setting('app.venue_id', true)` evaluates to `NULL` — default-deny,
+not an error and not "every venue".
 
 **Venue-self-addressed routes — closed (ADR-026 §3.3 item 5 / #5369 PR 7).**
 The global resolver (`resolveGlobalVenueId` in `app.ts`) only reads a
@@ -634,7 +636,9 @@ still receives the same `databaseUrl` secret and does not assume the runtime
 role. The role is `app_reservations` (`NOLOGIN NOINHERIT`,
 `20261009000000_create_app_reservations_role`), granted to the migrate user
 so a transaction can `SET LOCAL ROLE`. The service process still connects as
-the owner until that assumption is wired. The role is not a member of the
+the owner. Each app transaction assumes `app_reservations` via
+`assumeAppRole` before its first query, including when no venue id is set.
+Health and readiness `SELECT 1` do not. The role is not a member of the
 owner. Cross-tenant proof against a separate non-owner probe role remains in
 `src/routes/rls-isolation.integration.test.ts`.
 

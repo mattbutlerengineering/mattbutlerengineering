@@ -5,6 +5,7 @@ vi.mock("./database.js", async () => {
   return createMockDatabaseService({
     prisma: {
       $queryRaw: vi.fn(),
+      $transaction: vi.fn(),
     },
   });
 });
@@ -12,15 +13,34 @@ vi.mock("./database.js", async () => {
 import { resolveVenueId } from "./resolve-venue.js";
 import { prisma } from "./database.js";
 
+/** The role statements issued inside the transaction `resolveVenueId` opens. */
+let roleStatements: string[] = [];
+
+function useAppRoleQuery(): void {
+  roleStatements = [];
+  vi.mocked(prisma.$transaction).mockImplementation((async (
+    fn: (tx: unknown) => Promise<unknown>
+  ) => {
+    const unsafe = vi.fn(async (sql: string) => {
+      roleStatements.push(sql);
+      return 0;
+    });
+    return fn({ $executeRawUnsafe: unsafe, $queryRaw: prisma.$queryRaw });
+  }) as never);
+}
+
 describe("resolveVenueId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useAppRoleQuery();
   });
 
   it("resolves the venue id for an entity key via the raw $queryRaw call", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ app_resolve_venue_id: "venue-1" }]);
 
     await expect(resolveVenueId("table", "table-123")).resolves.toBe("venue-1");
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(roleStatements).toEqual(['SET LOCAL ROLE "app_reservations"']);
   });
 
   it("passes kind, key, and group as parameterized values, never string interpolation", async () => {

@@ -27,6 +27,7 @@ function createFakeBaseClient() {
     lastTxExecuteRaw = txExecuteRaw;
     lastTxFindMany = txFindMany;
     const tx = {
+      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
       $executeRaw: txExecuteRaw,
       table: { findMany: txFindMany, create: txCreate },
     };
@@ -145,7 +146,11 @@ describe("withVenueScopedQueries", () => {
     };
     const txExecuteRaw = vi.fn().mockResolvedValue(0);
     const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
-      fn({ $executeRaw: txExecuteRaw, tracingHelper })
+      fn({
+        $executeRaw: txExecuteRaw,
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        tracingHelper,
+      })
     );
     const client = { $transaction, tracingHelper } as unknown as PrismaClient;
     const wrapped = withVenueScopedQueries(client) as unknown as {
@@ -203,6 +208,7 @@ describe("RLS_CONTEXT_MODE tripwire (ADR-026 §3.3 / #5369 PR 1)", () => {
     const venueGroupFindMany = vi.fn().mockResolvedValue([]);
     const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
       fn({
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
         $executeRaw: vi.fn().mockResolvedValue(0),
         venueGroup: { findMany: venueGroupFindMany },
       })

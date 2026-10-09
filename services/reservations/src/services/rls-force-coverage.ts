@@ -26,8 +26,9 @@ import { fileURLToPath } from "node:url";
  * `20261009000100_grant_app_reservations_and_force_rls`. The non-owner role
  * `app_reservations` (`NOLOGIN NOINHERIT`) is created in
  * `20261009000000_create_app_reservations_role`. Migrate stays the table
- * owner on `DATABASE_URL`. Assuming the role inside app transactions is a
- * later step; this module only checks migration text.
+ * owner on `DATABASE_URL`. App transactions assume `app_reservations` via
+ * `assumeAppRole` (`SET LOCAL ROLE`) before their first query. This module
+ * only checks migration text.
  *
  * An RLS-enabled table must be forced, or appear in {@link PENDING_FORCE_TABLES}
  * with the reason recorded. A name in that list that the migrations already

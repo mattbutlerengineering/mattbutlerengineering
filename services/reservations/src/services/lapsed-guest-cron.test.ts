@@ -20,8 +20,12 @@ function makeLogger(): FastifyBaseLogger {
 type MockTx = {
   /** `setVenueContext`'s `set_config` call, recorded per transaction. */
   executeRaw: ReturnType<typeof vi.fn>;
+  /** `assumeAppRole`'s `SET LOCAL ROLE`, recorded per transaction. */
+  executeRawUnsafe: ReturnType<typeof vi.fn>;
   /** The guest query, as invoked on THIS transaction's own client. */
   guestFindMany: ReturnType<typeof vi.fn>;
+  /** Cross-venue venue-id read, when this transaction is `getAllVenueIds`. */
+  queryRaw: ReturnType<typeof vi.fn>;
 };
 
 /**
@@ -61,15 +65,22 @@ function makePrisma(
   // won't let us invoke directly — narrow it once, here, to the call shape a
   // Prisma delegate method actually has.
   const callGuestFindMany = guestFindMany as unknown as (...args: unknown[]) => Promise<unknown>;
+  const callQueryRawVenueIds = queryRawVenueIds as unknown as (
+    ...args: unknown[]
+  ) => Promise<unknown>;
   const bareGuestFindMany = vi.fn().mockResolvedValue([]);
   const txs: MockTx[] = [];
 
   const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) => {
     const executeRaw = vi.fn().mockResolvedValue(0);
+    const executeRawUnsafe = vi.fn().mockResolvedValue(0);
     const txGuestFindMany = vi.fn((...args: unknown[]) => callGuestFindMany(...args));
-    txs.push({ executeRaw, guestFindMany: txGuestFindMany });
+    const queryRaw = vi.fn((...args: unknown[]) => callQueryRawVenueIds(...args));
+    txs.push({ executeRaw, executeRawUnsafe, guestFindMany: txGuestFindMany, queryRaw });
     return fn({
       $executeRaw: executeRaw,
+      $executeRawUnsafe: executeRawUnsafe,
+      $queryRaw: queryRaw,
       guest: { findMany: txGuestFindMany },
     });
   });
@@ -138,9 +149,11 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
 
     await runOneScan(client);
 
-    // One transaction per venue — the venue-list read is not transacted.
-    expect(txs).toHaveLength(1);
-    const tx = txs[0];
+    // One guest-scan transaction per venue. The venue-list read is its own
+    // transaction and is not one of these.
+    const scanTxs = txs.filter((tx) => tx.guestFindMany.mock.calls.length > 0);
+    expect(scanTxs).toHaveLength(1);
+    const tx = scanTxs[0];
     if (!tx) throw new Error("expected the venue scan to open a transaction");
 
     // The guest query ran on the transaction client, never on the bare
@@ -149,8 +162,10 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     expect(tx.guestFindMany).toHaveBeenCalledTimes(1);
     expect(bareGuestFindMany).not.toHaveBeenCalled();
 
-    // `setVenueContext`'s parameterized `set_config` — the venue id arrives
-    // as a bound value of the tagged template, never interpolated into SQL.
+    // `assumeAppRole` then `setVenueContext`'s parameterized `set_config`.
+    // The venue id arrives as a bound value, never interpolated into SQL.
+    expect(tx.executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
+    const roleOrder = tx.executeRawUnsafe.mock.invocationCallOrder[0] ?? Infinity;
     expect(tx.executeRaw).toHaveBeenCalledTimes(1);
     const call = tx.executeRaw.mock.calls[0];
     if (!call) throw new Error("expected a set_config call on the transaction");
@@ -158,10 +173,9 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     expect(strings.join("")).toContain("set_config('app.venue_id'");
     expect(values).toEqual(["venue-1"]);
 
-    // Ordering: `set_config` must be the transaction's FIRST statement, so
-    // the guest query it scopes runs after it (same idiom as
-    // `venue-scoped-prisma.test.ts`).
+    // Ordering: the role statement, then `set_config`, then the guest query.
     const setConfigOrder = tx.executeRaw.mock.invocationCallOrder[0] ?? Infinity;
+    expect(roleOrder).toBeLessThan(setConfigOrder);
     const guestQueryOrder = tx.guestFindMany.mock.invocationCallOrder[0] ?? -Infinity;
     expect(setConfigOrder).toBeLessThan(guestQueryOrder);
   });
@@ -173,15 +187,16 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
 
     await runOneScan(client);
 
-    // Two venues, two independent transactions — a single shared
+    // Two venues, two independent scan transactions — a single shared
     // transaction would make one venue's `set_config` overwrite the other's.
-    expect(txs).toHaveLength(2);
-    const venueIds = txs.map((tx) => tx.executeRaw.mock.calls[0]?.[1]);
+    const scanTxs = txs.filter((tx) => tx.guestFindMany.mock.calls.length > 0);
+    expect(scanTxs).toHaveLength(2);
+    const venueIds = scanTxs.map((tx) => tx.executeRaw.mock.calls[0]?.[1]);
     expect(venueIds).toEqual(expect.arrayContaining(["venue-1", "venue-2"]));
 
     // Each transaction issued exactly one guest query, after its own
     // `set_config`.
-    for (const tx of txs) {
+    for (const tx of scanTxs) {
       expect(tx.executeRaw).toHaveBeenCalledTimes(1);
       expect(tx.guestFindMany).toHaveBeenCalledTimes(1);
       const setConfigOrder = tx.executeRaw.mock.invocationCallOrder[0] ?? Infinity;
@@ -190,20 +205,29 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     }
   });
 
-  it("reads the venue list through the cross-venue escape hatch, WITHOUT a transaction (ADR-026 §3)", async () => {
-    const { client, queryRawVenueIds, bareVenueFindMany, $transaction } = makePrisma();
+  it("reads the venue list through the cross-venue escape hatch inside a transaction that assumes app_reservations first", async () => {
+    const { client, queryRawVenueIds, bareVenueFindMany, $transaction, txs } = makePrisma();
 
     await runOneScan(client);
 
     // `venues` is keyed on the row's own id, so there is no single venue id
     // to scope this read to — it goes through `app_cross_venue_venues()`
-    // instead, as one statement whose own lifetime is the marker's lifetime
-    // (issue #5369). A bare delegate read would be the owner-bypass shape.
+    // after SET LOCAL ROLE (issue #5369). A bare delegate read would be the
+    // owner-bypass shape.
+    const listTxs = txs.filter((tx) => tx.queryRaw.mock.calls.length > 0);
+    expect(listTxs).toHaveLength(1);
+    const listTx = listTxs[0];
+    if (!listTx) throw new Error("expected the venue-list transaction");
+    expect(listTx.executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
+    const roleOrder = listTx.executeRawUnsafe.mock.invocationCallOrder[0] ?? Infinity;
+    const queryOrder = listTx.queryRaw.mock.invocationCallOrder[0] ?? -Infinity;
+    expect(roleOrder).toBeLessThan(queryOrder);
     const [strings] = (queryRawVenueIds.mock.calls[0] ?? []) as [string[]];
     expect(strings?.join("")).toContain("app_cross_venue_venues()");
     expect(bareVenueFindMany).not.toHaveBeenCalled();
     expect(queryRawVenueIds).toHaveBeenCalledTimes(1);
-    expect($transaction).toHaveBeenCalledTimes(1);
+    // Venue list plus one per-venue guest scan.
+    expect($transaction).toHaveBeenCalledTimes(2);
   });
 
   it("logs when lapsing guests are found via prisma", async () => {
