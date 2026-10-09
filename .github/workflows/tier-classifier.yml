@@ -121,6 +121,7 @@ jobs:
             { tier: T1, when: (f) => /^\.changeset\//.test(f), why: 'changeset' },
             { tier: T1, when: (f) => f === '.editorconfig' || /^\.vscode\//.test(f), why: 'editor config' },
             { tier: T1, when: (f) => /^metrics\//.test(f), why: 'metrics append' },
+            { tier: T1, when: (f) => f === '.claude/acmm/state.json' || f === 'apps/marketing/public/acmm-report.json', why: 'automation-only ACMM audit output (same class as metrics/** above)' },
             { tier: T1, when: (f) => /^(llms|llms-full)\.txt$/.test(f) || /\/(llms|llms-full)\.txt$/.test(f), why: 'auto-generated llms.txt' },
             { tier: T1, when: (f) => /\.test\.[tj]sx?$/.test(f), why: 'test-only' },
           ];

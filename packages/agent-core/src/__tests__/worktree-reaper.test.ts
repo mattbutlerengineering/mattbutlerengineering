@@ -51,7 +51,7 @@ describe("scheduleWorktreeReap", () => {
     // maxRetries: 3 → 1 initial + 3 retries = 4 attempts.
     expect(removeFn).toHaveBeenCalledTimes(4);
     expect(errorLog).toHaveBeenCalledTimes(1);
-    const [message] = errorLog.mock.calls[0];
+    const [message] = errorLog.mock.calls[0]!;
     expect(message).toContain("/repo/.agent-worktrees/agent-fix-bug-abc123");
     expect(message).toContain("fatal: worktree is locked");
   });

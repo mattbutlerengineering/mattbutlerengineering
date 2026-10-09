@@ -55,7 +55,7 @@ describe("ghPrFeedbackPort", () => {
 
     expect(result.reviewDecision).toBe("CHANGES_REQUESTED");
     expect(result.threads).toHaveLength(1);
-    expect(result.threads[0].id).toBe("thread-1");
+    expect(result.threads[0]!.id).toBe("thread-1");
   });
 
   it("fetchChecks parses the checks JSON array", async () => {

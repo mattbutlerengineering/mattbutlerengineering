@@ -8,7 +8,7 @@ import {
   useGuestSearch,
   useGuestSegments,
   GUESTS_QUERY_KEY,
-  GUEST_SEGMENTS_QUERY_KEY,
+  guestSegmentsQueryKey,
 } from "./useGuests.js";
 
 /* ── Types ───────────────────────────────────────────── */
@@ -98,9 +98,7 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
     mutationFn: (data: FindOrCreateGuestRequest) => api.guests.findOrCreate(data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-      queryClient.invalidateQueries({
-        queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId],
-      });
+      queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
     },
   });
 

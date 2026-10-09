@@ -31,40 +31,6 @@ vi.mock("../services/reservation.js", () => ({
   },
 }));
 
-vi.mock("../services/deposit.js", () => ({
-  depositService: {
-    getByReservationId: vi.fn(),
-    create: vi.fn(),
-    getById: vi.fn(),
-    apply: vi.fn(),
-    refund: vi.fn(),
-    forfeit: vi.fn(),
-  },
-  calculateDepositAmount: vi.fn(),
-  setDepositServiceLogger: vi.fn(),
-}));
-
-const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({
-  mockPaymentIntents: {
-    create: vi.fn(),
-    capture: vi.fn(),
-    cancel: vi.fn(),
-  },
-  mockCustomers: {
-    create: vi.fn(),
-  },
-}));
-
-vi.mock("stripe", () => {
-  class MockStripe {
-    paymentIntents = mockPaymentIntents;
-    customers = mockCustomers;
-    webhooks = { constructEvent: vi.fn() };
-    constructor(_key: string) {}
-  }
-  return { default: MockStripe };
-});
-
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
@@ -82,9 +48,21 @@ import { venueService } from "../services/venue.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import type { VenuePolicy } from "../services/venue.js";
 import { reservationService } from "../services/reservation.js";
-import { depositService, calculateDepositAmount } from "../services/deposit.js";
+import type { DepositService } from "../services/deposit.js";
+import { createInMemoryPayments, type InMemoryPayments } from "../transitions/in-memory.js";
 import type { Reservation } from "@mbe/types";
 import type { Deposit } from "../generated/prisma/index.js";
+
+/** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
+const depositService = {
+  getByReservationId: vi.fn(),
+  create: vi.fn(),
+  getById: vi.fn(),
+  apply: vi.fn(),
+  refund: vi.fn(),
+  forfeit: vi.fn(),
+};
+const injectedDeposits = depositService as unknown as DepositService;
 
 const TEST_URL = "/public/v1/venues/test-venue/deposits/payment-intent";
 
@@ -144,15 +122,28 @@ const mockDeposit: Deposit = {
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
+/** In-memory payments injected as `buildApp({ payments })` — the Stripe SDK module is not mocked. */
+let payments: InMemoryPayments;
+const opCalls = (op: string) => payments.calls.filter((call) => call.op === op);
+/** The first `createPaymentIntent` / `createCustomer` call's options (idempotency key included). */
+const intentOptions = () =>
+  opCalls("createPaymentIntent")[0]?.args[0] as
+    { customerId?: string; idempotencyKey?: string } | undefined;
+
 describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    payments = createInMemoryPayments();
   });
 
   it("returns 404 when venue is not found", async () => {
     vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -173,7 +164,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       depositEnabled: false,
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -196,7 +191,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       venueId: "other-venue",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -215,7 +214,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -229,7 +232,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("rejects an empty {} payload with 400", async () => {
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -243,7 +250,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("rejects an empty-string reservationId with 400", async () => {
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -261,7 +272,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(mockDeposit);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -280,18 +295,21 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
-    mockPaymentIntents.create.mockResolvedValueOnce({
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_test_abc",
       status: "requires_payment_method",
-      client_secret: "pi_test_abc_secret",
-    });
+      clientSecret: "pi_test_abc_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_abc",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -320,21 +338,26 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
     // Stripe customer creation fails
-    mockCustomers.create.mockRejectedValueOnce(new Error("Stripe customer error"));
+    payments.respond("createCustomer", () => {
+      throw new Error("Stripe customer error");
+    });
     // PaymentIntent still succeeds (no customerId attached)
-    mockPaymentIntents.create.mockResolvedValueOnce({
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_test_xyz",
       status: "requires_payment_method",
-      client_secret: "pi_test_xyz_secret",
-    });
+      clientSecret: "pi_test_xyz_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_xyz",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -351,10 +374,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(body.data.clientSecret).toBe("pi_test_xyz_secret");
 
     // PaymentIntent was created without a customer
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
-      { customer?: string } | undefined;
+    const piCreateCall = intentOptions();
     if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
-    expect(piCreateCall.customer).toBeUndefined();
+    expect(piCreateCall.customerId).toBeUndefined();
     await app.close();
   });
 
@@ -362,24 +384,27 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
-    mockCustomers.create.mockResolvedValueOnce({
+    payments.respond("createCustomer", () => ({
       id: "cus_abc",
       email: "jane@example.com",
       name: "Jane Doe",
-    });
-    mockPaymentIntents.create.mockResolvedValueOnce({
+    }));
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_test_cus",
       status: "requires_payment_method",
-      client_secret: "pi_test_cus_secret",
-    });
+      clientSecret: "pi_test_cus_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_cus",
       stripeCustomerId: "cus_abc",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -391,10 +416,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(response.statusCode).toBe(201);
 
     // PaymentIntent was created with the customer ID
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
-      { customer?: string } | undefined;
+    const piCreateCall = intentOptions();
     if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
-    expect(piCreateCall.customer).toBe("cus_abc");
+    expect(piCreateCall.customerId).toBe("cus_abc");
 
     // The customer id is written atomically in the single deposit create.
     const createCall = vi.mocked(depositService.create).mock.calls[0]?.[0];
@@ -408,15 +432,18 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
-    mockPaymentIntents.create.mockResolvedValueOnce({
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_test_idem",
       status: "requires_payment_method",
-      client_secret: "pi_test_idem_secret",
-    });
+      clientSecret: "pi_test_idem_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -426,8 +453,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     });
 
     expect(response.statusCode).toBe(201);
-    const requestOptions = mockPaymentIntents.create.mock.calls[0]?.[1] as
-      { idempotencyKey?: string } | undefined;
+    const requestOptions = intentOptions();
     if (!requestOptions) throw new Error("expected PaymentIntent create request options");
     expect(requestOptions.idempotencyKey).toBe("res-1:paymentIntent:2500");
     await app.close();
@@ -442,25 +468,28 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
-    vi.mocked(calculateDepositAmount).mockReturnValue(2500);
     // Stripe dedupes on the stable idempotency key: same customer + PI both times.
-    mockCustomers.create.mockResolvedValue({
+    payments.respond("createCustomer", () => ({
       id: "cus_stable",
       email: "jane@example.com",
       name: "Jane Doe",
-    });
-    mockPaymentIntents.create.mockResolvedValue({
+    }));
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_stable",
       status: "requires_payment_method",
-      client_secret: "pi_stable_secret",
-    });
+      clientSecret: "pi_stable_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValue({
       ...mockDeposit,
       stripePaymentIntentId: "pi_stable",
       stripeCustomerId: "cus_stable",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const payload = {
@@ -475,10 +504,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(second.statusCode).toBe(201);
 
     // Both attempts sent the SAME stable customer idempotency key.
-    const firstOptions = mockCustomers.create.mock.calls[0]?.[1] as
-      { idempotencyKey?: string } | undefined;
-    const secondOptions = mockCustomers.create.mock.calls[1]?.[1] as
-      { idempotencyKey?: string } | undefined;
+    const [firstOptions, secondOptions] = opCalls("createCustomer").map(
+      (call) => call.args[0] as { idempotencyKey?: string } | undefined
+    );
     if (!firstOptions || !secondOptions) {
       throw new Error("expected two customer create calls");
     }
@@ -498,14 +526,14 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
     // Stripe PaymentIntent creation fails with a Stripe error
-    const stripeError = Object.assign(new Error("Stripe is down"), {
-      type: "StripeConnectionError",
-    });
-    mockPaymentIntents.create.mockRejectedValueOnce(stripeError);
+    payments.failNext("createPaymentIntent", "StripeConnectionError");
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -528,17 +556,17 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
     // A retriable transient Stripe failure (connection error) must NOT be
     // swallowed — swallowing would mint a customer-less PaymentIntent under the
     // shared idempotency key, so a later retry that succeeds at customer-create
     // would 502 on the param mismatch. Fail-fast so the retry re-attempts cleanly.
-    const stripeError = Object.assign(new Error("Stripe is unreachable"), {
-      type: "StripeConnectionError",
-    });
-    mockCustomers.create.mockRejectedValueOnce(stripeError);
+    payments.failNext("createCustomer", "StripeConnectionError");
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -552,7 +580,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(body.status).toBe(502);
     expect(body.detail).toBeTruthy();
     // Must not mint a PaymentIntent nor a dangling deposit on a retriable failure.
-    expect(mockPaymentIntents.create).not.toHaveBeenCalled();
+    expect(opCalls("createPaymentIntent")).toEqual([]);
     expect(depositService.create).not.toHaveBeenCalled();
     await app.close();
   });
@@ -561,24 +589,24 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
-    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
     // A permanent customer error (invalid request) stays gracefully degraded:
     // the deposit is still worth taking without a Stripe customer attached.
-    const stripeError = Object.assign(new Error("No such customer field"), {
-      type: "StripeInvalidRequestError",
-    });
-    mockCustomers.create.mockRejectedValueOnce(stripeError);
-    mockPaymentIntents.create.mockResolvedValueOnce({
+    payments.failNext("createCustomer", "StripeInvalidRequestError");
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_test_noncust",
       status: "requires_payment_method",
-      client_secret: "pi_test_noncust_secret",
-    });
+      clientSecret: "pi_test_noncust_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_noncust",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -591,10 +619,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const body = response.json<{ data: { clientSecret: string } }>();
     expect(body.data.clientSecret).toBe("pi_test_noncust_secret");
     // PaymentIntent minted without a customer — the intentional graceful path.
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
-      { customer?: string } | undefined;
+    const piCreateCall = intentOptions();
     if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
-    expect(piCreateCall.customer).toBeUndefined();
+    expect(piCreateCall.customerId).toBeUndefined();
     await app.close();
   });
 
@@ -602,29 +629,32 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
-    vi.mocked(calculateDepositAmount).mockReturnValue(2500);
     // Attempt 1: customer-create hits a transient failure → route 502s (no PI minted).
     // Attempt 2 (the retry): customer-create succeeds → PI minted WITH the customer.
     // Because attempt 1 never minted a customer-less PI under the shared key, the
     // single PI create carries the customer with no param mismatch and no 502.
-    const stripeError = Object.assign(new Error("Stripe is unreachable"), {
-      type: "StripeConnectionError",
-    });
-    mockCustomers.create
-      .mockRejectedValueOnce(stripeError)
-      .mockResolvedValueOnce({ id: "cus_retry", email: "jane@example.com", name: "Jane Doe" });
-    mockPaymentIntents.create.mockResolvedValue({
+    payments.failNext("createCustomer", "StripeConnectionError");
+    payments.respond("createCustomer", () => ({
+      id: "cus_retry",
+      email: "jane@example.com",
+      name: "Jane Doe",
+    }));
+    payments.respond("createPaymentIntent", () => ({
       id: "pi_retry",
       status: "requires_payment_method",
-      client_secret: "pi_retry_secret",
-    });
+      clientSecret: "pi_retry_secret",
+    }));
     vi.mocked(depositService.create).mockResolvedValue({
       ...mockDeposit,
       stripePaymentIntentId: "pi_retry",
       stripeCustomerId: "cus_retry",
     });
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const payload = {
@@ -640,16 +670,19 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
 
     // The PaymentIntent was created exactly once (only on the successful retry)
     // and carried the customer — no earlier customer-less PI under the same key.
-    expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
-      { customer?: string } | undefined;
+    expect(opCalls("createPaymentIntent")).toHaveLength(1);
+    const piCreateCall = intentOptions();
     if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
-    expect(piCreateCall.customer).toBe("cus_retry");
+    expect(piCreateCall.customerId).toBe("cus_retry");
     await app.close();
   });
 
   it("returns 400 when reservationId is missing from body", async () => {
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const response = await app.inject({
@@ -669,7 +702,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // downstream business logic would have returned.
     vi.mocked(resolveVenueId).mockResolvedValue(null);
 
-    const app = await buildApp({ logger: false });
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
     await app.ready();
 
     const responses = [];

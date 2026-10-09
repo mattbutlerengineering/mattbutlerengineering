@@ -126,7 +126,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
@@ -452,6 +451,12 @@
         options: CreateQueryHookOptions<TData, TParams, TResult>
       ): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildQueryKey<TParams>(
+        key: string,
+        params?: (TParams & { enabled?: boolean }) | undefined
+      ): readonly unknown[] { /* ... */ }
+    </item>
     <item priority="medium">
       function resolveEnabled<TParams>(
         params: (TParams & { enabled?: boolean }) | undefined,
@@ -462,6 +467,11 @@
       function stripEnabled<TParams>(
         params: (TParams & { enabled?: boolean }) | undefined
       ): TParams | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/sse-query-keys.ts">
+    <item priority="high">
+      export const SSE_INVALIDATION_QUERY_KEYS: unknown;
     </item>
   </file>
   <file path="src/hooks/use-command-palette.ts">
@@ -653,10 +663,15 @@
       }
     </item>
     <item priority="high">
-      type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+      type ReservationStats = Omit<
+        DashboardStats,
+        "waitlistCount" | "longestWaitM...;
     </item>
     <item priority="high">
       type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="high">
+      type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposu...;
     </item>
     <item priority="medium">
       function getTodayString(): string { /* ... */ }
@@ -671,6 +686,9 @@
     </item>
     <item priority="high">
       export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeDepositStats(deposits: readonly Deposit[]): DepositStats { /* ... */ }
     </item>
     <item priority="high">
       export function useDashboardStatsQuery(): UseDashboardStatsQueryResult { /* ... */ }
@@ -727,6 +745,9 @@
     </item>
     <item priority="high">
       export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="high">
       export const useCloneFloorPlan: unknown;
@@ -881,6 +902,9 @@
     </item>
     <item priority="high">
       export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestSegmentsQueryKey(venueId: string | null | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="low">
       interface UseLapsingGuestsResult {

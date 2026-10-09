@@ -1,25 +1,20 @@
 import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { StripeService, StripeOperationError } from "./stripe.js";
+import { StripeOperationError } from "./stripe.js";
+import type { PaymentsPort } from "../transitions/ports.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { DepositType } from "@mbe/cancellation-policy";
 
 /**
- * The subset of {@link StripeService} that DepositService depends on. Keeping
- * this narrow (rather than depending on the whole class) makes the seam
- * explicit and lets tests inject a plain object of `vi.fn()`s instead of
- * mocking the `stripe` SDK module.
+ * The subset of {@link StripeService} that DepositService depends on: the
+ * transitions module's `PaymentsPort` minus `createPaymentIntent`, which only
+ * the public deposit route calls. Keeping this narrow (rather than depending
+ * on the whole class) makes the seam explicit and lets tests inject
+ * `createInMemoryPayments` (or a plain object of `vi.fn()`s) instead of
+ * mocking the `stripe` SDK module. Same six methods as before PaymentsPort.
  */
-export type StripePort = Pick<
-  StripeService,
-  | "cancelPaymentIntent"
-  | "capturePaymentIntent"
-  | "createPartialRefund"
-  | "createCustomer"
-  | "retrievePaymentIntent"
-  | "findDepositRefund"
->;
+export type StripePort = Omit<PaymentsPort, "createPaymentIntent">;
 
 /**
  * Which flow produced a `forfeited` deposit — `DepositService#forfeit` is
@@ -1209,12 +1204,6 @@ export class DepositService {
     return deposit;
   }
 }
-
-// Singleton. StripeService construction happens here, at the composition
-// root — DepositService itself only ever depends on the narrower StripePort.
-export const depositService = new DepositService(
-  new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder")
-);
 
 // Re-export error class from state machine for convenience
 export { DepositTransitionError };

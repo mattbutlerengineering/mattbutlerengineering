@@ -14,7 +14,7 @@
     "db:push": "pnpm --filter './services/*' exec prisma db push",
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "node scripts/run-repo-audit.mjs",
-    "check:prettier": "prettier --check . \".claude/**/*.md\"",
+    "check:prettier": "prettier --experimental-cli --check . \".claude/**/*.md\"",
     "check:boundaries": "depcruise apps services packages tools infrastructure/worker plugins scripts infrastructure/pulumi --config .dependency-cruiser.cjs",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
@@ -31,6 +31,7 @@
     "check:deploy-secret-provisioning": "node scripts/check-deploy-secret-provisioning.mjs",
     "check:orphaned-tests": "node scripts/check-orphaned-tests.mjs",
     "check:orphaned-collectors": "node scripts/check-orphaned-collectors.mjs",
+    "check:orphaned-cli-commands": "node scripts/check-orphaned-cli-commands.mjs",
     "check:audit-persistence-caller": "node scripts/check-audit-persistence-caller.mjs",
     "check:story-coverage": "node scripts/check-story-coverage.mjs",
     "check:rialto-changeset": "node scripts/check-rialto-changeset.mjs",
@@ -113,8 +114,8 @@
       "@babel/plugin-transform-modules-systemjs": ">=7.29.4 <8",
       "@babel/preset-env": ">=7.29.5 <8",
       "basic-ftp@<6.2.1": "^6.2.1",
-      "ip-address@<10.1.1": ">=10.1.1 <11",
-      "fast-uri@<3.1.6": ">=3.1.6 <4",
+      "ip-address@<10.7.1": ">=10.7.1 <11",
+      "fast-uri@<3.1.8": ">=3.1.8 <4",
       "fast-uri@>=4.0.0 <4.1.1": ">=4.1.1 <5",
       "hono@<4.13.5": "^4.13.5",
       "@hono/node-server@<2.0.12": "^2.0.12",
@@ -142,7 +143,12 @@
       "@puppeteer/browsers@<3.2.0": "^3.2.0",
       "deepmerge-ts@<8.0.0": "^8.0.0",
       "browserslist@<4.28.7": "^4.28.7",
-      "mysql2@<3.22.0": "^3.22.0"
+      "mysql2@<3.22.0": "^3.22.0",
+      "proxy-addr@<2.0.8": "^2.0.8",
+      "source-map-js@<1.2.2": "^1.2.2",
+      "compression@<1.8.2": "^1.8.2",
+      "shell-quote@<1.11.0": "^1.11.0",
+      "@modelcontextprotocol/sdk@<1.31.0": "^1.31.0"
     },
     "patchedDependencies": {
       "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator__vitest-runner@10.0.0.patch"

@@ -61,7 +61,7 @@ function walkEagerGraph(entryFiles: readonly string[]): Map<string, string> {
     visited.set(file, content);
 
     for (const match of content.matchAll(RELATIVE_IMPORT)) {
-      const resolved = resolveRelativeImport(file, match[1]);
+      const resolved = resolveRelativeImport(file, match[1]!);
       if (resolved && !visited.has(resolved)) queue.push(resolved);
     }
   }

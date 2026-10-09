@@ -23,6 +23,7 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     lastVisit: "2026-04-01T00:00:00.000Z",
     tags: ["vip"],
     dietaryRestrictions: ["shellfish", "vegetarian"],
+    communicationPreference: "both",
     staffNotes: [],
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2026-04-01T00:00:00.000Z",

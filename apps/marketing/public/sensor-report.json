@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-30T18:06:34.492Z",
+  "generated_at": "2026-10-08T18:04:14.813Z",
   "period": {
-    "start": "2026-09-23",
-    "end": "2026-09-30"
+    "start": "2026-10-01",
+    "end": "2026-10-08"
   },
   "sensors": {
     "acmm": {
@@ -18,6 +18,14 @@
     "prMetrics": {
       "available": true,
       "latest": {
+        "date": "2026-10-05",
+        "window_days": 30,
+        "total_ai_prs": 123,
+        "merged": 114,
+        "rejected": 9,
+        "acceptance_rate": 0.93
+      },
+      "previous": {
         "date": "2026-09-28",
         "window_days": 30,
         "total_ai_prs": 150,
@@ -25,15 +33,7 @@
         "rejected": 5,
         "acceptance_rate": 0.97
       },
-      "previous": {
-        "date": "2026-09-21",
-        "window_days": 30,
-        "total_ai_prs": 172,
-        "merged": 170,
-        "rejected": 2,
-        "acceptance_rate": 0.99
-      },
-      "entry_count": 11
+      "entry_count": 12
     },
     "metricsFreshness": {
       "available": true,
@@ -42,58 +42,28 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.05,
-          "latest": "2026-09-30T16:53:34.786Z",
+          "age_days": 0.01,
+          "latest": "2026-10-08T17:55:39.357Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-09-30T16:53:34.786Z",
+      "collected_at": "2026-10-08T17:55:39.357Z",
       "window_days": 7,
       "total_closed_prs": 100,
-      "total_reviewers": 0,
-      "total_reviews": 0,
+      "total_reviewers": 1,
+      "total_reviews": 2,
       "overall_rubber_stamp_ratio": 0,
       "overall_approvals": 0,
       "overall_rubber_stamps": 0,
-      "review_coverage": "no-formal-review-stage",
-      "no_formal_review_stage": true
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
     },
     "prCategoryMetrics": {
-      "available": true,
-      "total_prs": 95,
-      "total_merged": 95,
-      "total_closed_without_merge": 0,
-      "by_category": {
-        "tier:trivial": {
-          "merged": 55,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 18,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:standard": {
-          "merged": 14,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:critical": {
-          "merged": 7,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        }
-      },
-      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
+      "available": false,
+      "error": "Command failed: gh pr list --state all --limit 100 --json number,state,headRefName,mergedAt,closedAt,labels\nHTTP 403: GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft. (https://api.github.com/graphql)\n"
     },
     "agentCost": {
       "available": false
@@ -103,35 +73,32 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 3340730,
-      "output_tokens": 7917,
-      "cache_creation_tokens": 117076,
-      "cache_hit_rate": 0.9661,
+      "cache_read_tokens": 1065176,
+      "output_tokens": 1433,
+      "cache_creation_tokens": 83420,
+      "cache_hit_rate": 0.9274,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 50,
-          "output_tokens": 7917,
-          "cache_read_tokens": 3340730,
-          "cache_creation_tokens": 117076
+          "input_tokens": 18,
+          "output_tokens": 1433,
+          "cache_read_tokens": 1065176,
+          "cache_creation_tokens": 83420
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 27,
+      "completed": 29,
+      "passed": 24,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 36755066493,
-        "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-09-30T17:57:04Z",
+        "conclusion": "",
+        "createdAt": "2026-10-08T17:59:42Z",
         "name": "Push on main",
-        "headBranch": "main",
-        "headSha": "cf87df7bcfb8067b1c3586ef4f7ac809ab7d5c9f"
+        "status": "in_progress"
       }
     },
     "lighthouse": {
@@ -139,12 +106,12 @@
     },
     "issues": {
       "available": false,
-      "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls"
+      "error": "Command failed: gh issue list --state all --search created:>=2026-10-01 --limit 200 --json number,createdAt\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     },
     "issueFeedback": {
       "available": false,
-      "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-29T18:05:21.120Z",
+      "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
+      "collected_at": "2026-10-07T18:08:03.435Z",
       "stale": false
     },
     "sessionLogs": {
@@ -157,9 +124,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.03,
-      "total_lines_added_7d": 681109,
-      "lines_churned_7d": 20530,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 700868,
+      "lines_churned_7d": 417,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -168,16 +135,19 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 909432,
+      "window_shas": 62
     },
     "e2eStability": {
       "available": false
     },
     "queueEfficiency": {
       "available": false,
-      "reason": "credential_rejected",
-      "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls"
+      "reason": "query_error",
+      "error": "Command failed: gh pr list --search merged:>=2026-09-30 --limit 500 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n"
     }
   },
   "thresholds": {

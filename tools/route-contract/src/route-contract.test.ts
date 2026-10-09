@@ -20,6 +20,12 @@ import {
 } from "./route-contract.js";
 import type { RouteContractReport } from "./route-contract.js";
 import { vacuityFailures } from "./vacuity.js";
+import {
+  PARITY_DOMAINS,
+  schemaParityReport,
+  parityVacuityFailures,
+  formatParityFailures,
+} from "./route-contract.js";
 import { PLACEHOLDER } from "./types.js";
 
 let report: RouteContractReport;
@@ -70,5 +76,19 @@ describe("findings this guard produced on its first run", () => {
 
     expect(verdict?.pair.path).toBe(`/api/v1/venues/by-slug/${PLACEHOLDER}`);
     expect(verdict?.owners).toEqual(["reservations"]);
+  });
+});
+
+describe("schema parity — client-declared vs route-registered body, query and response", () => {
+  it("compared something in every parity domain", () => {
+    const parity = schemaParityReport(report, PARITY_DOMAINS);
+    expect(parityVacuityFailures(parity, PARITY_DOMAINS)).toEqual([]);
+  });
+
+  it("has client↔route parity on every compared body, query and response", () => {
+    const parity = schemaParityReport(report, PARITY_DOMAINS);
+    const measured = parity.failures.map((f) => `${f.clientMethod} ${f.facet}`);
+
+    expect(measured, formatParityFailures(parity.failures)).toEqual([]);
   });
 });

@@ -246,8 +246,8 @@ describe("BookingWidgetDemoPage", () => {
 
     const options = screen.getByTestId("select-Venue").querySelectorAll("option");
     expect(options).toHaveLength(2);
-    expect(options[0].textContent).toBe("Downtown Grill");
-    expect(options[1].textContent).toBe("Uptown Bistro");
+    expect(options[0]!.textContent).toBe("Downtown Grill");
+    expect(options[1]!.textContent).toBe("Uptown Bistro");
   });
 
   it("shows info alert when no venues found", async () => {

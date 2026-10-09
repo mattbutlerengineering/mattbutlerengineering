@@ -1,4 +1,3 @@
-/// <reference types="node" />
 // @vitest-environment node
 /**
  * theme-color pin test (#4858).

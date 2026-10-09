@@ -116,6 +116,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      # Fail closed before any install/build work. An absent or empty secret
+      # interpolates as "", and packages/sentry enables itself on DSN length
+      # alone, so the build would ship a Sentry SDK that reports nothing with
+      # no error. Presence only: scripts/require-deploy-secrets.mjs never
+      # echoes the value. Same guard as deploy-services.yml. An empty
+      # SENTRY_ORG makes sentryVitePlugin skip the source-map upload with only
+      # a warning, which verify-sentry-sourcemaps.mjs cannot see, so it is
+      # required here too.
+      - name: Require deploy secrets
+        env:
+          VITE_SENTRY_DSN_MBE: ${{ secrets.VITE_SENTRY_DSN_MBE }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        run: |
+          set -euo pipefail
+          node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE SENTRY_AUTH_TOKEN SENTRY_ORG
+
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -142,13 +159,26 @@ jobs:
           # nothing — silently. The three SENTRY_* vars drive
           # sentryVitePlugin's source-map upload (it self-disables without
           # SENTRY_AUTH_TOKEN), so without them any report that does arrive
-          # has a minified stack trace. Kept in step with the hospitality
-          # build below; scripts/__tests__/deploy-static-sentry-env.test.mjs
-          # fails if any static app's build step drifts out of step again.
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # has a minified stack trace. All four are required here just as
+          # for hospitality, but the DSN and project differ: marketing and
+          # rialto-web report to the `mattbutlerengineering` Sentry project
+          # (where scripts/sentry-heartbeat-targets.mjs expects them), while
+          # the shared VITE_SENTRY_DSN / SENTRY_PROJECT secrets belong to
+          # `hospitality`. scripts/__tests__/deploy-static-sentry-env.test.mjs
+          # pins both the presence and the per-app routing.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN_MBE }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/marketing/dist
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/marketing/wrangler.toml
@@ -178,6 +208,20 @@ jobs:
             *) echo "::error::VITE_STRIPE_PUBLISHABLE_KEY is not a publishable key (must start with pk_)"; exit 1;;
           esac
 
+      # Fail closed before any install/build work. An empty SENTRY_ORG or
+      # SENTRY_PROJECT makes sentryVitePlugin skip the source-map upload with
+      # only a warning, while still injecting debug IDs and deleting the maps,
+      # so verify-sentry-sourcemaps.mjs passes. Presence only: the script never
+      # echoes the value.
+      - name: Require deploy secrets
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          set -euo pipefail
+          node scripts/require-deploy-secrets.mjs SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT
+
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -201,6 +245,15 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/hospitality/dist
+
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/hospitality/wrangler.toml
         env:
@@ -215,6 +268,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      # Fail closed before any install/build work. An absent or empty secret
+      # interpolates as "", and packages/sentry enables itself on DSN length
+      # alone, so the build would ship a Sentry SDK that reports nothing with
+      # no error. Presence only: scripts/require-deploy-secrets.mjs never
+      # echoes the value. Same guard as deploy-services.yml. An empty
+      # SENTRY_ORG makes sentryVitePlugin skip the source-map upload with only
+      # a warning, which verify-sentry-sourcemaps.mjs cannot see, so it is
+      # required here too.
+      - name: Require deploy secrets
+        env:
+          VITE_SENTRY_DSN_MBE: ${{ secrets.VITE_SENTRY_DSN_MBE }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        run: |
+          set -euo pipefail
+          node scripts/require-deploy-secrets.mjs VITE_SENTRY_DSN_MBE SENTRY_AUTH_TOKEN SENTRY_ORG
+
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -227,12 +297,22 @@ jobs:
       - run: pnpm build --filter=@mbe/rialto-web
         env:
           # See the marketing build step above for why all four are required
-          # together; rialto-web had no build env at all, so its Sentry SDK
-          # has shipped inert since 2026-04-02.
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # together and why this app reports to `mattbutlerengineering`, not
+          # `hospitality`; rialto-web had no build env at all, so its Sentry
+          # SDK shipped inert from 2026-04-02 until the shared DSN was wired.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN_MBE }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: mattbutlerengineering
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      # Fail closed if sentryVitePlugin did not run: every chunk must carry a
+      # debug ID and no .map may remain. A tokenless or cache-replayed build
+      # otherwise deploys unsymbolicated bundles with nothing red
+      # (maintenance:static-sourcemaps-confirm).
+      - name: Verify Sentry source maps uploaded
+        run: |
+          set -euo pipefail
+          node scripts/verify-sentry-sourcemaps.mjs apps/rialto-web/dist
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3.114.17 deploy --config apps/rialto-web/wrangler.toml

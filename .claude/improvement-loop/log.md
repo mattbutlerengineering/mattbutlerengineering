@@ -2555,6 +2555,16 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 
 **Observed but not filable (no rubric v1 tell covers them)** — recorded here so a future rubric bump has evidence, not filed as findings: horizontal overflow on marketing `weekly` at 375 px (capture came back 415 px wide); breadcrumb label/separator collision on rialto-web `components/breadcrumb` at 375 px; colour swatches rendering as transparency checkerboard rather than the token colour on rialto-web `components/color`; several rialto-web component pages reporting roughly double their content height, leaving a large blank region below the fold.
 
+## 2026-10-01 (mbe-learning-loop)
+
+**Sensors:** 8/17 available (acmm L6 97/114 criteria, prMetrics 11 entries, metricsFreshness 0 unhealthy — review-burden=fresh 1.05d, reviewBurden no formal review stage (100 PRs, 0 review submissions), ccusageCost $0 30d/7d/today cache_hit 92%, ciHealth 100% pass rate 19/19, sessionLogs 0 sessions/7d 0 commits, codeChurn 3% churn rate 20871 deleted/705161 added). `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available this run. `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed — every `gh issue list --json`/`gh pr list --json` call in this session now 403s with `GitHub GraphQL is not available from Claude Code sessions`, a harder/broader block than yesterday's run (which attributed a similar failure to a transient REST hiccup). Today the same error also took down `verify-fixes.mjs` and `collect-ai-issue-feedback.mjs` outright (both previously worked via `gh issue list`), not just the three sensors above — this is now two bad days running, not a one-off. This is already filed and scoped correctly: **#5958** (opened earlier today by the `mbe-monthly-meta-audit` routine) measures the exact same constraint independently and proposes rewriting the stale `gotchas.md` § Claude Code Remote entry (which still claims `gh` doesn't exist at all, rather than "GraphQL blocked, REST via `gh api` works"). Not duplicating that issue here.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — Sentry MCP tools are connected this session but querying was out of scope for this run; not attempted.
+**Verifications:** `verify-fixes.mjs` could not run (see above). Manual cross-check via `mcp__github__list_issues`: 4 sensor-labelled issues closed since yesterday's verification batch — #5826 (`audit`, mutation-testing vitest pin), #5929 (`ci-fix`, routine mbe-ui-quality dark), #5933 (`ci-fix`/`priority:critical`, broken main at `fda7ff1`), #5603 (`ci-fix`, routine mbe-evening dark). `ciHealth` reporting 100% (19/19) on current main is consistent with #5933/#5603's fixes holding, but none of these have a crisp sensor metric to verify against mechanically (routine-liveness and mutation-score sensors aren't in this run's available set) — did not post verification comments given the uncertainty; no `wontfix`/reopen signal either way.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL 403 (see above) — budgets carried over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 (not Friday — skill-extraction step skipped)
+**Threshold notes:** Self-tuning computed from `metrics/verifications.jsonl` directly (30d window, 138 entries, 11 non-skip/scored): fix-effectiveness rate 100% (11/11 verified, 0 reopened) — above the 50% floor, no action. False-positive rate not computed — requires issue close-reason (`wontfix`/`invalid`) data via `gh issue list`, blocked by the same #5958 constraint; moot since 0 issues were created or reopened this run either way.
+
 ## 2026-10-02 (mbe-evening)
 
 ### Metrics
@@ -2593,3 +2603,526 @@ No `gh` binary in this cloud session (gotchas.md § Claude Code Remote) — all 
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-10-02 (mbe-weekly-improve)
+
+**Skills:** `/improve` and `/improve-codebase-architecture` are user-level-only (retired from `.claude/skills/` by #3323, per CLAUDE.md § Skills), so this run did the equivalent analysis directly rather than reporting them as missing.
+
+**Environment note:** `gh` **is** present in this session (`/usr/local/bin/gh`) and its REST calls authenticate as `mattbutlerengineering`, contrary to gotchas.md § Claude Code Remote. Two caveats measured: `gh auth status` reports `The token in GH_TOKEN is invalid` while `gh api` works anyway, and every **GraphQL**-backed subcommand (`gh issue list`, `gh pr list`) returns `403 GitHub GraphQL is not available from Claude Code sessions`. `search/issues` is also refused (`sessions are bound to their configured repositories`). So the working path is repo-scoped REST only — `gh api repos/{owner}/{repo}/...` — and duplicate-checking had to be done by listing all 68 open issues and grepping locally rather than by search query. Worth a gotchas amendment: the entry's "no `gh` binary, nothing runs at all" framing did not hold here.
+
+### PR opened (step 2)
+
+**#5982 — `test(ci): weekly improve 2026-10-02 — verify ALLOWLIST compensating-guard claims`.** Branch `fix/weekly-improve-allowlist-guard-claims`, 3 files, scripts-only.
+
+`scripts/check-workflow-paths-coverage.mjs` ALLOWLISTs six exercised paths whose own workflow's `paths:` filter can never fire on a change to them, and the module's docblock calls each entry "a debt with paperwork, not a silent pass". The paperwork was prose nobody checked. One entry (`require-deploy-secrets.mjs`) justified itself by naming a specific compensating control — a test that reads the real `deploy-services.yml` — and that claim is load-bearing, because it is the entire reason the gap is accepted. Nothing verified the named test existed, still read that workflow, or still mentioned the guarded script. An unchecked claim of protection is the same decorative-gate shape the module exists to catch, one level up.
+
+Measured all six: four genuinely covered (`deploy-ci-precondition`, `require-deploy-secrets`, `collect-repo-stats` via the differently-named `deploy-static-repo-stats.test.mjs`, `publish-visual-diffs`), two not. `preview-deploy.yml` had **no test reading it anywhere in the repo** — the three tests that mention it pin wrangler's version pin, dependabot secretless jobs, and production-deploy classification, none the sticky comment.
+
+Fix: `ALLOWLIST` entries became `{ reason, guardedBy }`; `verifyAllowlistGuards()` (pure, injected io) fails any entry whose `guardedBy` test is missing, does not read the workflow it vouches for, or does not mention the guarded path, wired into `runAudit` and the exit code; `main()` now prints the control beside the gap it excuses so the one remaining `UNWATCHED` entry is visible instead of buried in prose. New `scripts/__tests__/preview-deploy-sticky-comment.test.mjs` pins the four preconditions `preview-comment.mjs` documents.
+
+**Deliberately did NOT widen any workflow trigger.** The `require-deploy-secrets` entry already records why: adding a deploy helper to the deploy filter makes editing a script trigger a production deploy. Zero CI minutes added.
+
+**Guard proven to fail** (the `docs/backlog.md` seed, honoured rather than cited): each of the four new assertions was mutated against the exact regression it claims to catch — author-blind jq-only `contains()` lookup (3 failed/1 passed), dropped `login` projection (1/3), removed `set -euo pipefail` (1/3), `GH_TOKEN` swapped to a PAT (1/3) — then `preview-deploy.yml` restored byte-identically (`git diff` empty). The TDD arc was real RED: the new suite failed `verifyAllowlistGuards is not a function` (6 failed/20 passed) before implementation, and after it 25/26 passed with the one remaining failure being the actual gap (`guardedBy ... does not exist`), which is what drove writing the test.
+
+Gates: scripts suite **247 files / 4757 tests passed**; `pnpm typecheck` **52/52 tasks** (2m15s, exit 0); `pnpm repo-audit` exit 0; `check-workflow-paths-coverage` exit 0; prettier clean. 28 check runs fired on the `pull_request` event — not the `GITHUB_TOKEN` anti-recursion trap.
+
+### Weekly eval checkpoint (step 4) — **first scored run in the metric's history**
+
+`pnpm build --filter @mbe/cli... && node tools/cli/dist/index.js agent eval --adapter claude-cli` → **exit 0**.
+
+```
+✓ example-bugfix [test-writing] — score 100% (8 turns, $0.65)
+Tasks: 1 / Pass rate: 100.0% / Mean score: 100.0% / Failed to complete: 0
+Cost basis: api-equivalent — CLI-reported, not billed; budget cost arm not applied
+```
+
+`metrics/eval-reports.jsonl` went from **0 bytes to 566** — the first row it has ever held, after being empty since #4116. A genuine pass, not a scored-failure row: `passed: true`, all four deterministic gates true (`testsPass`, `typecheckPass`, `lintPass`, `withinBudget`), no `sessionErrors`, `nonRunCount: 0`, `stuckCount: 0`. No `session errors:` line to quote.
+
+This retires the top `docs/backlog.md` seed's premise. That seed said no caller could ever reach the scored path and listed three candidate fixes needing a human decision; the `--adapter claude-cli` arm now in the routine prompt **is** one of them (a CLI-subprocess adapter), and it works on the sandbox's subscription login. The seed should be rewritten to the remaining question (suite breadth, #5981) rather than re-asserting that nothing can score.
+
+Committed as **#5984** (`chore(metrics): eval baseline 2026-10-02`), `metrics/eval-reports.jsonl` only and unedited — the run also dirtied `.claude/agent-spend/sessions.jsonl`, deliberately left out. Committed because this checkout is ephemeral: unpushed, the first baseline dies with the container.
+
+**This fire was the designated first real test of that adapter in this sandbox**, and it lands on the "Expected pass" branch of `docs/fixes/agent-eval-claude-cli-caller/release.md`'s post-release checks (that run shipped the adapter as #5914 on 2026-09-30 and wrote "the first row is the Friday routine's to write"; its own release notes list `claude`-on-PATH and a subscription login in the sandbox as **unmeasured**). All four of its stated pass conditions are met: step 4 exited 0; a PR titled exactly `chore(metrics): eval baseline 2026-10-02` exists (#5984) carrying one `metrics/eval-reports.jsonl` row; the row shows `"adapter":"claude-cli"` and `"costBasis":"api-equivalent"`; `turns` is 8 (> 0) and `withinBudget` was judged on turns only. So the two open environment questions are now answered empirically: `claude` **is** on PATH at `/opt/node22/bin/claude`, and it **does** have a working subscription login. Nothing here hit that file's "Actual failure" branch — exit 2 was not logged as fine, the baseline PR carries a scored row rather than an exit-2 row, and step 4 was not skipped.
+
+Caveat recorded for future readers: `withinBudget: true` coexists with `costUsd` 0.649 against the task's `maxCostUsd` 0.5. That is not a budget breach that slipped through — under a non-`billed` cost basis only the `maxTurns` arm is enforced, documented in `packages/agent-core/eval-suite/README.md`. Do not read `costUsd` as billed or plan spend.
+
+### Issues filed (step 3)
+
+- **#5979** `test(ci): instruction-regression.yml never runs when the ACMM eval harness it invokes changes` (`ready`, `test-coverage`, `area:infra`, `size:s`) — the one genuinely `UNWATCHED` ALLOWLIST entry this run's PR surfaces. The workflow runs `plugins/acmm/scripts/evals/index.js` with `--dry-run` and `--report`, its `paths:` filter covers only `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, and no test anywhere reads that workflow — so a harness change ships unexercised and a break surfaces on the next unrelated instruction-file edit with the wrong PR blamed. Corroborated by #5858's record that the evals "have not really run since 2026-05-10". Criteria offer both fixes (wiring test, as four siblings have, or widening `paths:`) and require proving the guard fails.
+- **#5981** `test(agent-core): the weekly eval checkpoint scores one task, so it cannot detect drift` (`ready`, `test-coverage`, `area:agent`, `size:m`) — newly actionable _because_ step 4 now scores. The default suite is a single file, `example-bugfix.json`, which is the authoring example the README tells authors to copy, and whose `category` (`test-writing`) disagrees with its `id` (`bugfix`) — a sample, not chosen coverage. Pass rate is a 1-bit signal, and `exit 1` (the routine's "regressed" branch) fires on one task failing. Four of the five schema categories have zero default-suite coverage. Lineage matters for review: this is **not** a duplicate of the in-flight work that shipped the adapter. `docs/fixes/agent-eval-claude-cli-caller/architecture.md:235` deliberately declined to add a `--threshold` this run precisely because "zero rows exist and the default suite has one task, so any value is a coin-flip policy", and kept it as an **Operate seed**. #5981 is the promotion of that deferred seed, now that a row exists and the premise can be tested. Criteria require ≥4 tasks over ≥3 categories with budgets set from measured runs.
+
+### Negative results (measured, deliberately NOT filed)
+
+Recording so next week does not re-derive them:
+
+- **`preview-deploy.yml`'s pipefail is present and correct.** `preview-comment.mjs`'s `parseCommentLines` docblock claims its throw is loud "under `set -euo pipefail` in the workflow step"; that claim was checked, not assumed — line 178 sets it, with an explanatory comment, above the pipe. gotchas.md § CI names this workflow as the in-repo pipefail reference and that remains accurate. The gap was the _absence of a pin_, not a missing pipefail.
+- **`collect-repo-stats.mjs` is already guarded**, by `scripts/__tests__/deploy-static-repo-stats.test.mjs` — which asserts `deploy-static.yml` still runs it _and_ that its job grants `pull-requests: read`. Found only by grepping for tests that read the workflow rather than for tests named after the script; a per-script name grep reports it as unguarded, which is how this nearly became a false finding.
+- **The allowlist meta-class is contained.** Swept every other exception list in `scripts/` (`check-orphaned-tests`, `check-hook-wiring`, `check-issue-filing-seam`, `check-ai-antipatterns`, `audit-markdown`, `secret-scan`, `stale-human-blocked`, `check-dep-versions`). `check-orphaned-tests`'s `ALLOWLIST` is `[]` and `check-hook-wiring`'s is `{}` — both empty, so no unverified claims; `check-issue-filing-seam`'s `EXEMPT_FILES` is a plain path set asserting no compensating control elsewhere. Only `check-workflow-paths-coverage` had entries vouching for protection, so the fix is scoped correctly rather than under-generalised.
+- **No orphaned check scripts.** All 39 `scripts/check-*.{mjs,js}` are referenced by `run-repo-audit.mjs`, a workflow, `package.json`, or `.husky/`. That discipline holds.
+- **`cost/` is not orphaned coverage.** Its 3 tasks are a deliberately registered separate suite (`src/eval/cost-suite.ts`, `--suite cost`), and the eval-suite README explicitly warns about the unregistered-subdirectory trap. Counting them as default-suite breadth in #5981 would have been wrong.
+- **`metrics-freshness` passes** and `pnpm repo-audit` was green both before and after the change, so the baseline was clean rather than assumed clean.
+
+### Notes
+
+- Baseline discipline paid off differently from last week: a fresh `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/cli...` was enough for the whole scripts suite to go 4757/4757 green, so there was no 31-file pre-existing-failure baseline to diff against this time.
+- The pre-push hook's `pnpm regen --check` arm takes several minutes per push (28 packages, each via `tsx`), which read as a hung push twice. `verify-push-sha.sh` fires **before** the push finishes in that window and reports `branch not found on origin after push` — a false alarm both times; both pushes exited 0 and both branches landed. Worth a gotchas line: do not re-push on that hook's say-so, confirm with `git ls-remote` first.
+- Did not merge anything, per the routine. #5982 and #5984 are both left for review.
+
+### Addendum — found after the entry above was first committed
+
+Both items came out of watching this run's own PRs, so they are recorded here rather than left in a PR thread.
+
+- **Third issue filed: #5986** `docs(claude-md): tier-classifier does escalate on title/body text, contradicting CLAUDE.md` (`ready`, `documentation`, `claude-md-sync`, `size:xs`). CLAUDE.md § PR merge gates states `tier:*` is applied "by changed **file path**, not by title/body text". That parenthetical is measurably wrong, and #5982 is the live counter-example: it was classified `tier:critical` with `scripts/check-workflow-paths-coverage.mjs -> T3: gate-enforcement script · escalate to T4: title/body mentions secrets or incident (sensitive path already matched)` — the word `secrets` appearing in the PR body, inside `secrets.AUTOMATION_PAT` in the mutation table. The classifier is behaving exactly as designed (`tier-classifier.yml`'s #5082 comment: a prose keyword bumps one tier via `Math.min(T4, highest + 1)` **unless** a changed file already matched a T3/T4 sensitive path, which hard-sets T4), so the defect is in the documentation, not the workflow. The issue says so explicitly, to stop anyone "fixing" it by weakening the escalation rule. The PR body was deliberately **not** reworded to dodge the keyword — editing prose to lower a tier undermines the gate rather than satisfying it.
+
+- **`Build` was red repo-wide on a live advisory, and the fix was already sitting green.** `pnpm audit --audit-level=high` fails on [GHSA-c475-qrg2-pj4r](https://github.com/advisories/GHSA-c475-qrg2-pj4r) (`basic-ftp`, quadratic-time CPU DoS in `Client.list()`'s Unix listing parser), reached via `@lhci/cli > @lhci/utils > lighthouse > puppeteer-core > @puppeteer/browsers > proxy-agent > pac-proxy-agent > get-uri > basic-ftp`. Measured `Build: failure` on **seven** unrelated open PRs (#5980, #5967, #5881, #5977, #5972, #5965, and this run's own #5984), several of them pure metrics or docs diffs touching no dependency — textbook gotchas.md § Dependencies live-advisory class. Root cause is the existing override `"basic-ftp@<6.0.1": "^6.0.1"`, added for an earlier narrower advisory, pinning the resolved version to exactly `6.0.1`, which sits inside the new advisory's `<=6.2.0` range.
+
+  **#5966** (opened 2026-10-01, `Build: success`, `mergeable_state: clean`) already widens it to `"basic-ftp@<6.2.1": "^6.2.1"` and had been waiting a day. Per the drive-to-green rule that porting beats waiting, its change was ported into #5982 as `1e484ea` rather than leaving that branch red; the lockfile diff is the same 5 `basic-ftp` lines with the same integrity hash, and it no-ops once `main` carries it. Verified before and after rather than assumed: CI run `37021457355` reported `10 vulnerabilities / 9 moderate | 1 high` → exit 1, and `pnpm run audit:security` after the port reports `9 vulnerabilities / 9 moderate` → exit 0 — the high gone, the nine moderates unchanged, so nothing was suppressed.
+
+  Deliberately **not** ported into #5984 (the eval baseline), because the routine instructs that `metrics/eval-reports.jsonl` be the only committed path there; that PR carries a standing-down comment naming #5966 instead. #5985 (this log entry) is unaffected — its `Build` is `skipped`, since `detect-changes` routes markdown-only PRs to `docs-format` instead of the Build chain (#5787).
+
+  **The signal worth keeping:** a single live advisory silently reddened every open PR in the repo for over a day while a correct, green, one-line fix sat unmerged. The per-PR symptom (`Build` red on a diff that touches no dependency) is individually easy to dismiss as someone else's problem, which is how it survived seven PRs. A cheap detector would be to read "the same job is failing on N unrelated open PRs" as its own alarm, the way gotchas.md § Metrics already argues for reading a burst of identical auto-filed issues as an alarm before deduping it.
+
+- **Automated-review findings on #5982, both verified as false positives for that file** and answered on the PR rather than silently ignored: the 1 added `console.log` is in `main()`'s report loop, where `stdout` is the module's only output mechanism and ~8 siblings already exist; the 4 "potential mutations" are `findings.push(...)`/`allowlisted.push(...)` accumulators, the established idiom throughout that same file (`runAudit` builds all five return arrays that way). Neither changed.
+
+- **`auto-merge.yml` armed auto-merge on #5984 unasked, and it was disabled.** `github-actions[bot]` enabled squash auto-merge on the eval-baseline PR at 14:45:34Z — correctly per repo policy, since `tier-classifier` labelled it `tier:trivial` (`metrics/eval-reports.jsonl -> T1: metrics append`) and CLAUDE.md § PR merge gates makes T1 auto-mergeable on green CI. Nothing in this run applied an `auto-merge` label; the `has-pr` label the routine asks for is not what triggers it. But this routine's own prompt says "Do not merge anything — every change lands as a reviewable PR", and leaving an armed mechanism that would squash-merge this run's output unreviewed the moment `Build` goes green contradicts that, so auto-merge was disabled via `disable_pr_auto_merge` and a note left on the PR. Flagging the general shape rather than just the instance: **a routine instructed not to merge still has to check whether the repo merged for it.** Any `tier:trivial` PR a routine opens is auto-merge-eligible by default here, so "I did not merge" is not the same as "it will not merge", and the two routines that open `tier:trivial` metrics PRs nightly are in the same position.
+
+- **`codecov/patch` reported 83.33% on #5982 (5 lines missing) — checked, not waved away.** The uncovered lines are 550-600, entirely inside `main()`, which is not exported and runs only on direct execution; it was equally uncovered before this change. Every decision path is covered — `verifyAllowlistGuards`'s four failure branches plus its `guardedBy: null` path, and `runAudit` against the real tree, 26 tests in that file. This matches the module's documented design (the pure functions carry the logic so the suite can run them against fixtures and the real tree alike) and `codecov/patch` is advisory, not a required check, per gotchas.md § CI.
+
+## 2026-10-02 (mbe-learning-loop)
+
+**Sensors:** 8/17 available (acmm L6 97/114 criteria, prMetrics 11 entries, metricsFreshness 0 unhealthy — review-burden=fresh 2.05d, reviewBurden no formal review stage [100 PRs, 0 review submissions], ccusageCost $0 30d/7d/today cache_hit 92%, ciHealth 95% pass rate 18/19, sessionLogs 0 sessions/7d 0 commits, codeChurn 3% churn rate). `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available this run; `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` (the `gh pr/issue list --json` forms these sensors use resolve via GraphQL under the hood, which this session's `gh` cannot reach — distinct from, and not yet covered by, the existing gotchas.md § Claude Code Remote entry about the `gh` binary being entirely absent; here the binary works fine for REST-shaped calls like `gh api repos/{owner}/{repo}/issues`, just not for GraphQL-backed `--json` list queries). `e2eStability` separately skipped 12 CI run head SHAs not in the local git object store (stale/squash-deleted branches).
+**Regressions:** 0 detected, 0 issues created.
+**Sentry triage:** skipped — `sentry.io` is not on this environment's network egress allowlist (403 "Host not in allowlist"), consistent with the no-egress-to-production constraint (#2920) this routine's own prompt calls out.
+**Verifications:** `verify-fixes.mjs` failed outright this run (same GraphQL-403 as above, on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked by hand instead: of the 169 rows in `metrics/verifications.jsonl` within the last 30 days, 122 are `confidence: skip` (Lighthouse/sentry unavailable in this environment) and 11 are real verifications (all ACMM-based, `confidence: low`) — 11/11 verified, 0 reopened. No issues closed in the verification window needed reopening.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — budgets carry over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is the configured Friday extraction day, but `.claude/session-logs/` has 0 files (matches the `sessionLogs` sensor's `0 sessions (7d)`), so there is nothing to mine a pattern from.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/.../issues?labels=<sensor-label>&since=2026-09-02` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 196 closed in the last 30 days, 168 `completed` / 16 `duplicate` / 12 `not_planned` → 14.3% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (excluding `skip` rows, per above) is 100% (11/11) but on a thin, ACMM-only sample — Lighthouse/Sentry/mutation/flaky/e2e sensors have been unavailable in this cloud checkout for multiple consecutive runs now, so effectiveness here isn't yet a reliable signal across sensor categories. No threshold changes applied this run.
+
+## 2026-10-02 — mbe-ui-quality
+
+State: `source: branch` (`ui-quality/ledger` @ `023942f9`, merged `origin/main` `1a6082f4`, 0 conflicts resolved).
+
+- **Routes:** 40 due / 40 captured / 40 audited. 18 hospitality rows `unreachable:auth` (never captured); 0 `unreachable:build` — all three app builds succeeded. Only `rialto-web` was due this fire; marketing and hospitality had no planned routes, so their capture runs skipped as designed.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration stamp: `stale`.** `calibration-status` returned exit 3 (the one calibration trigger), but `rate.mjs pairs --calibration` exited 2: `docs/ui-quality/calibration.json` has **zero labelled pairs** (`pairs: []`) — Matt must label ≥ 10 pairs once at the Verify stage before the rater can be calibrated. Logged and not retried, per the never-retry rule; the re-query still returned `stale`. Consequence: agent-built findings stay suppressed in the plan. **This is the one human-blocking item in the loop** — it has now been `stale` since the loop began and nothing the routine can do will clear it.
+- **Rating:** ran anyway (an exit 3 calibration could not clear). 6 pairs over 1 app vs. the Mantine/Chakra references → `rialto-web 4.58`.
+- **Issues:** 4 created (all came back correctly labelled `ui-quality`, so filing continued) — #5973 `components/flip-dot` axe-critical (P1), #5974 `components/footer` axe-moderate, #5975 `components/hover-card` axe-serious, #5976 `components/navigation-menu` axe-moderate. 0 reopened, 0 commented, 0 adopted. Pre-existing ledger issues #5943/#5944/#5945 all still open.
+- **Seeds:** 9 P2 overflow seeds appended to `docs/backlog.md` (navigation-menu, neon-sign, page-header, pagination ×2, popover, scroll-area ×2, segmented-control).
+- **Fix PR: none** — the plan carried no action with `fix_pr_candidate: true` (0 candidates), so there was nothing to open one for. Not a gate failure.
+- **P1 breaches escalated:** 0. One open `ui-quality:p1` (#5973, filed today); 0 of 1 older than the 7-day SLA.
+- **Coverage before this fire:** 30.3% (provisional, 40/132 covered, first run 2026-10-01).
+- **Blockers:** none — browser resolved (`chromium_headless_shell-1194`), no `blocker: no-browser`, no stopped filing, no pipeline bug. Every script exited 0 except the two expected non-zero reads (`calibration-status` 3, `pairs --calibration` 2), both handled by rule.
+
+Note: all 40 judged routes came back clean on the judged tells — the rialto-web component docs are token-consistent, use a distinctive display face, and show real component demos rather than the agent-built face. Every finding this fire is mechanical (axe).
+
+## 2026-10-03 — mbe-ui-quality
+
+State: `source: branch` (`ui-quality/ledger` @ `8305f116`, merged `origin/main` `bd764550`, 1 conflict resolved by rule: `docs/backlog.md`).
+
+- **Routes:** 40 due / 40 captured / 40 audited. 18 hospitality rows `unreachable:auth` (never captured); 0 `unreachable:build` — all three app builds succeeded. Only `rialto-web` was due; marketing and hospitality had no planned routes, so their capture runs skipped as designed.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration stamp: `stale`.** Same human-blocked state as 2026-10-02: `calibration-status` exit 3, then `rate.mjs pairs --calibration` exit 2 — `docs/ui-quality/calibration.json` still has **zero labelled pairs**. Matt must label ≥ 10 pairs once at the Verify stage before the rater can be calibrated. Logged, not retried; the re-query still returned `stale`. Consequence: agent-built findings stay suppressed in the plan. **Third consecutive fire blocked on this one human-owned input.**
+- **Rating:** ran anyway (an exit 3 calibration could not clear). 6 pairs over 1 app → `rialto-web 0` (down from 4.58 on 2026-10-02). Our fold lost all six pairs against the Chakra/Mantine/shadcn/Tremor references. The recurring reason across pairs: the `examples/*` fold is spent on a grey explanatory prose panel so the actual component demo sits below the fold, while every reference leads with the product itself. Note the pair sample differs day to day, so this is one sample, not a measured regression.
+- **Issues:** 5 created (the first came back correctly labelled `ui-quality`, so filing continued) — #6002 `components/table` axe-serious, #6003 `components/tag` axe-serious, #6004 `components/tape-chart` axe-moderate, #6005 `demos/drivers` axe-critical (P1), #6006 `demos/visual-test` axe-critical (P1). 0 reopened, 0 commented, 0 adopted. All 7 pre-existing ledger issues (#5943/#5944/#5945/#5973/#5974/#5975/#5976) still open.
+- **Seeds:** 39 P2 overflow seeds appended to `docs/backlog.md`.
+- **Fix PR: none** — the plan carried no action with `fix_pr_candidate: true` (0 candidates), so there was nothing to open one for. Not a gate failure.
+- **P1 breaches escalated:** 0. Three open `ui-quality:p1` (#5973 filed 10-02, #6005/#6006 filed today); 0 of 3 older than the 7-day SLA.
+- **Coverage before this fire:** 60.6% (provisional, 80/132 covered, first run 2026-10-01). Up from 30.3% yesterday.
+- **Blockers:** none — browser resolved (`chromium_headless_shell-1194`), no `blocker: no-browser`, no stopped filing, no pipeline bug. Every script exited 0 except the two expected non-zero reads (`calibration-status` 3, `pairs --calibration` 2), both handled by rule.
+
+Tool note: the step-(6b) exhaustive label sweep used `mcp__github__list_issues` with `labels: ["ui-quality"]` rather than `mcp__github__search_issues`. This session's `search_issues` is natural-language semantic matching, which cannot guarantee the "every page, or do not write the file" completeness the plan depends on; the label listing returned `totalCount: 7, hasNextPage: false` — an exact, complete set. Same for the step-(6h) `ui-quality:p1` sweep.
+
+Observation (not filed — no rubric v1 tell covers it): on mobile (375×812) the cookie-consent banner renders _inside_ the page flow and overlaps body content illegibly on every `demos/*` route captured (auth-flow, dashboard, drivers, drivers/:id, drivers/:id/edit, drivers/new, layouts, login, session-expired, signup, teams/new, telemetry). Separately, `demos/dashboard` shows skeleton cards that never resolve at both viewports. Both are real defects that the judged tells (agent-built face, semantic a11y) and the mechanical detectors (`blank-render` needs an almost-empty main landmark) are all structurally blind to. The routine does not edit the rubric and filed nothing for these; recorded here so the gap is visible to whoever next considers a `rubric_version` bump.
+
+## 2026-10-03 (mbe-learning-loop)
+
+**Sensors:** 8/17 available (acmm L6 97/114 criteria, prMetrics 11 entries, metricsFreshness 0 unhealthy — review-burden=fresh 0.12d, reviewBurden 1 reviewers/1 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 95%, ciHealth 95% pass rate 21/22, sessionLogs 1 session (7d) 6 commits, codeChurn 0% churn rate [1166 deleted/686935 added, 7d]). `agentCost`, `lighthouse`, `mutationScore`, `flakyTests`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store — stale/squash-deleted branches). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as the last several runs (#5958 tracks the gotchas.md fix for this).
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — `sentry.io` is not on this environment's network egress allowlist (403 "Host not in allowlist"), consistent with the no-egress-to-production constraint (#2920) this routine's own prompt calls out.
+**Verifications:** `verify-fixes.mjs` failed outright this run (same GraphQL-403, on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked by hand instead: of the 128 rows in `metrics/verifications.jsonl` within the last 30 days, 117 are `confidence: skip` (Lighthouse/Sentry/no-matching-verifier unavailable) and 11 are real verifications (all ACMM-based, `confidence: low`) — 11/11 verified, 0 reopened.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — budgets carry over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&since=2026-09-03` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 204 closed in the last 30 days (one paginated page lost to an unrelated proxy restriction on numeric-ID follow-up links, dropping 1 malformed row), 170 `completed` / 15 `duplicate` / 12 `not_planned` / 7 other → 13.2% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (excluding `skip` rows, per above) is 100% (11/11), same thin ACMM-only sample as prior runs — Lighthouse/Sentry/mutation/flaky/e2e sensors remain unavailable in this cloud checkout. No threshold changes applied this run.
+
+## 2026-10-04
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
+## 2026-10-04 (mbe-evening)
+
+### Metrics
+
+| Metric                               | Value                                                                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d-touched, audit+ci-fix)   | 15 audit + 16 ci-fix = 31 (via `since` on `updated_at`, not `created_at` — GraphQL-403 blocks the exact `--json createdAt` form; see note below)                  |
+| Closed (same window, audit+ci-fix)   | 8/15 audit + 7/16 ci-fix = 15/31                                                                                                                                  |
+| Closure Rate                         | ~48% — red (target >80%, same GraphQL-403 caveat)                                                                                                                 |
+| Agent Success                        | n/a this run — 0 issues claimed (Phase 0 consumed the iteration, see Patterns)                                                                                    |
+| CI Pass (main)                       | Red at Phase 0 pre-flight (commit 163e724/#6009, run 37133983642, job "Test (Node 22)" timeout) — **not fixed this iteration**, see Patterns                      |
+| Queue (ready)                        | 56 — deep red (target <5), up from 40 two nights ago (2026-10-02)                                                                                                 |
+| In-progress                          | 0                                                                                                                                                                 |
+| has-pr                               | 0                                                                                                                                                                 |
+| Blocked (agent-failed)               | 0                                                                                                                                                                 |
+| Skipped (agent-skip)                 | 4 (#5895, #5748, #5608, #5604) — not individually reviewed this run, carried over                                                                                 |
+| Daily/7d Spend                       | not measured — `.claude/agent-spend/sessions.jsonl` is empty (0 lines); matches the standing #5885 defect ("still empty N days after #5696 closed"), not re-filed |
+| Reverts (7d, local checkout git log) | 1 merged (`revert: #5949`, #5960, merged 2026-10-02) — tonight's #6012 is open, unmerged, and per Patterns should not be merged as-is                             |
+
+### Patterns
+
+- **Phase 0 pre-flight found main red, and — unlike the 2026-10-02 precedent — did not get fixed this iteration.** Commit `163e72421` (#6009, "bump @sentry/node and @sentry/react to v11") is the named culprit on CI run `37133983642`, but the actual failing job (`Test (Node 22)`) timed out in `scripts/__tests__/visual-defect-reproduction.test.mjs`, a visual-diff test with no relationship to Sentry code. Lint/Typecheck/Build/Architecture-Audit/Integrity/RLS/Migrations all passed on that run; 4752/4753 other tests passed. #6009 does touch `pnpm-lock.yaml` (Sentry version bump), which per the existing gotchas.md § CI entry forces a cold, fully-parallel CI run that has previously tipped marginal-timeout suites — this reads as that same class of flake, not a real regression from the Sentry bump.
+- Could not confirm the flake theory by re-running: this session's GitHub token lacks `actions:write` (`rerun_failed_jobs` and `run_workflow` both returned 403 "Resource not accessible by integration"). Unlike 2026-10-02, this session cannot self-resolve the red-main state.
+- **The auto-opened revert PR (#6012, `revert: #6009`) is broken — its diff does not revert #6009 at all.** It deletes only the last line of `metrics/production-health/2026-10-03.jsonl` (a health-check heartbeat row); none of #6009's Sentry/package.json/pnpm-lock.yaml changes are touched. This is a meaningful contrast with the 2026-10-02 precedent, where the equivalent auto-revert PR (#5960) was verified correct and merged directly. Posted findings on issue #6011 and PR #6012 recommending #6012 be closed without merging (merging it would not fix CI and would destroy a metrics data point for nothing); left both for human resolution rather than guessing at a hand-authored revert or merging a no-op.
+- No issue batch was claimed, no worker was dispatched (Phase 1/2/3 skipped, same posture as 2026-10-02's red-main iteration) — but this time the iteration ends without main having been fixed.
+- Two commits merged onto `main` after the break (`89d5927`, `81da6b0`) with **no CI run at all** — consistent with the documented `GITHUB_TOKEN`-authored-push anti-recursion gap, not a second break. Main's last real CI signal remains the `163e724` failure.
+- **Queue is deeper red: 56 `ready` issues**, up from 40 on 2026-10-02 and 24 before that — three consecutive nights of growth with no corresponding implement-queue throughput (0 claimed tonight, red-main also blocked 2026-10-02's early phase). The backlog is outpacing the queue's drain rate.
+- `agent-skip` sits at 4 (#5895, #5748, #5608, #5604), unchanged composition from recent nights — these are the same routine-liveness "unverifiable signature" issues flagged on 2026-10-02 as a configuration gap rather than one-off flakes.
+
+### Recommendations
+
+- **#6011/#6012 need a human (or a session with `actions:write`) before the next implement-queue iteration can proceed** — re-run `Test (Node 22)` on main's current head to confirm the flake, or hand-author a real revert of #6009 if the v11 bump turns out to be suspect. Until main goes green, Phase 0 will keep blocking new queue work.
+- Queue depth (56 ready, red, third consecutive night of growth) now clearly warrants the Queue Adjust rule's `/loop 15m /implement-queue` escalation — but only once main is confirmed green again; running it against a red main would just accumulate more blocked iterations.
+- Consider whether tonight's and 2026-10-02's back-to-back red-main incidents (both landing via automated `mbe-daily-issue` PRs, both flagged only after merge) warrant a `meta-improvement` issue on pre-merge flake detection for lockfile-touching PRs — not filed tonight pending confirmation of the flake theory itself.
+
+### Skipped Issues
+
+4 `agent-skip` issues open (#5895, #5748, #5608, #5604) — same set as 2026-10-02, not re-triaged this run; routine-liveness signature gap, candidate for a dedicated pass rather than per-night retry.
+
+## 2026-10-04 — mbe-ui-quality
+
+State: `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ f48155cb, merged `origin/main` 18353b4a, 0 conflicts resolved). All four builds green (`@mbe/cli...`, rialto, and the three apps) — no `unreachable:build` rows.
+
+**Routes** — 12 due, 12 captured, 12 audited, 0 unjudged, 0 dropped tells. All 12 were `rialto-web` (`examples/guest-checkin`, `examples/guest-profile`, `examples/invoice`, `examples/notification-center`, `examples/onboarding`, `examples/pricing-table`, `examples/reservation-kanban`, `examples/reservation-timeline`, `examples/reservations`, `examples/settings`, `privacy`, `visual-test`); the marketing and hospitality capture runs both reported "no routes planned" and wrote no manifest. 18 hospitality rows stayed `unreachable:auth`.
+
+**Coverage before this fire:** 90.9% (120/132, provisional, first run 2026-10-01). The 12 uncovered rows were exactly this fire's due set.
+
+**Browser:** resolved to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell` — no `blocker: no-browser`.
+
+**Judging:** 17 mechanical findings; 1 judged finding — `agent-built/inter-headline` on `rialto-web privacy`, where the `h1`/`h2`s render in the body sans with no display voice (`PrivacyPage.tsx` hand-rolls raw headings inline and pins the wrapper to `--rialto-font-sans` instead of using rialto's `Heading`). It was dropped at plan time by the calibration gate, as intended.
+
+**Calibration stamp: `stale`.** `rate.mjs calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` then exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`, so the stamp stands and agent-built findings stay suppressed. Rating proceeded under the "exit 3 that calibration could not clear" branch: 6 pairs rated, `rate.mjs record` → rialto-web 0.42.
+
+**Filing:** 4 issues created, 0 reopened, 0 commented, 0 adopted — #6022 (`examples/guest-checkin` axe-moderate, P2), #6023 (`examples/guest-profile` axe-moderate, P2), #6024 (`examples/invoice` axe-moderate, P2), #6025 (`visual-test` axe-critical, P1). All came back carrying `ui-quality`, so filing continued. 13 P2 overflow seeds appended to `docs/backlog.md`. Checkpoint `7101f1de` pushed to `ui-quality/ledger` before anything else.
+
+**Fix PR: none** — no planned action carried `fix_pr_candidate: true`.
+
+**P1 SLA:** 0 of 4 open P1 issues older than 7 days (#6025, #6006, #6005, #5973 — oldest 2 days). No escalations.
+
+No pipeline bugs, no stopped filing, no blockers this fire.
+
+## 2026-10-04 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 11 entries, metricsFreshness 0 unhealthy — review-burden=fresh 0.09d, reviewBurden 1 reviewers/1 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 92%, ciHealth 100% pass rate 21/21, sessionLogs 0 sessions (7d)/0 commits, codeChurn 0% churn rate [1120 deleted/688959 added, 7d], flakyTests 0 flaky [968900 runs, 45 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store — stale/squash-deleted branches). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as the last several runs (#5958 tracks the gotchas.md fix for this). Fresh checkout this run needed `pnpm install --frozen-lockfile` plus `pnpm --filter @mbe/gh-client build` before `sensor-report.mjs` would even start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout, not a regression.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — stored Sentry MCP access token rejected ("Authorization Expired"), distinct from the usual no-egress constraint; no Sentry query was possible.
+**Verifications:** `verify-fixes.mjs` failed outright this run (same GraphQL-403, on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked by hand instead: of the 123 rows in `metrics/verifications.jsonl` within the last 30 days, 112 are `confidence: skip` and 11 are real verifications (all ACMM-based, `confidence: low`) — 11/11 verified, 0 reopened.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — budgets carry over unchanged from the last successful collection. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Sunday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-04` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 237 closed in the last 30 days, 202 `completed` / 11 `not_planned` / 15 `duplicate` / 9 `null` → 11.0% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (excluding `skip` rows, per above) is 100% (11/11), same thin ACMM-only sample as prior runs — Lighthouse/Sentry/mutation/e2e sensors remain unavailable in this cloud checkout. No threshold changes applied this run.
+
+## 2026-10-05 (issue #5954 investigation)
+
+**Finding:** `.github/workflows/auto-rollback.yml`'s "missed its scheduled run" report (filed 2026-10-01T15:16:41Z, claiming the last run was 2026-09-07T15:53:10Z, 575.39h prior) was a false positive from a transient GitHub Actions API read, not a real missed run or a cron/trigger defect.
+
+- The cron (`17 10 * * 1`, weekly Monday 10:17 UTC) is correct and `estimateCronPeriodDays` resolves it to 7 days as intended.
+- `gh api repos/.../actions/workflows/auto-rollback.yml/runs?event=schedule` shows **zero gaps**: successful schedule-triggered runs landed every single Monday from 2026-06-15 through 2026-09-28 (and continuing), including three runs (2026-09-14, 2026-09-21, 2026-09-28) that the detector's query apparently missed when it ran on 2026-10-01.
+- There is exactly one registered workflow with this name/path (`id=269708133`, `state=active`) — ruled out a duplicate/stale workflow-id match.
+- Reproduced the underlying flakiness live during this investigation: `gh api ".../auto-rollback.yml/runs?event=schedule&per_page=5"` returned a list whose newest entry was 2026-09-21 (omitting the already-several-days-old 2026-09-28 run) on one call, then returned the correct, complete list (2026-09-28 first) on every subsequent identical call seconds later — a one-off stale/incomplete read of the GitHub Actions runs-list endpoint, self-correcting on retry. This matches the "GitHub dropped it under load" class already documented in `.claude/rules/gotchas.md` § Metrics / staleness detection, just manifesting as a stale list read rather than a dropped execution.
+- No code or config change made: `scripts/scheduled-workflow-health.mjs`'s `classifyRunRecency`/`estimateCronPeriodDays` logic is correct and already covered by `scripts/__tests__/scheduled-workflow-health.test.mjs`; the workflow's own trigger config is correct and has a clean weekly run history. Manual re-dispatch was judged unnecessary: the real schedule already produced three more runs after the stale read (09-14, 09-21, 09-28), and the next natural run lands today (2026-10-05, 10:17 UTC) — the detector's next daily pass will see fresh data either way. Closing via `Closes #5954` on the documentation PR instead.
+
+## 2026-10-05 (mbe-evening — progress-tracker)
+
+### Metrics
+
+| Metric                                | Value                                                          | Status                 |
+| ------------------------------------- | -------------------------------------------------------------- | ---------------------- |
+| Created (7d, audit+ci-fix)            | 25                                                             | -                      |
+| Closed (7d, same cohort)              | 11                                                             | -                      |
+| Closure Rate                          | 44% (11/25)                                                    | 🔴 Red (<50%)          |
+| Time-to-Close (mean, 11 closed)       | ~37h                                                           | 🟡 Yellow (24-72h)     |
+| Agent Success (this iteration)        | 3/3 PRs merged, 0 failed = 100%                                | 🟢 Green               |
+| CI Pass (main, last 20 `ci.yml` runs) | 80% (16/20)                                                    | 🔴 Red (<85%)          |
+| Queue (open `ready`)                  | 59                                                             | 🔴 Red (>10)           |
+| Stale (ready>7d)                      | not computed this run                                          | -                      |
+| Blocked (`agent-failed`, open)        | 0                                                              | 🟢 Green               |
+| Skipped (`agent-skip`, open)          | 0                                                              | 🟢 Green               |
+| Daily/7d Spend, Cost/Issue            | insufficient data (`.claude/agent-spend/sessions.jsonl` empty) | -                      |
+| Reverts (7d)                          | 3                                                              | at threshold, not over |
+
+This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), #5993 (ci-fix) — zone-spread across root/.github, services/reservations+users, apps/rialto-web. All 3 landed PRs (#6043, #6044, #6046), all CI-first-pass, all merged clean (0 rework cycles). Two went through the low-risk fast path (docs-only / test-only diffs); #5993's visual-baseline regen PR went through the full Reviewer + `e2e-selector-drift-reviewer` gate (both pass, 10/10 from the main Reviewer after independently re-verifying the bisection against live GitHub Actions data).
+
+### Patterns
+
+- **Three `🚨 CRITICAL: Broken Main` issues closed this week** (#5933, #5959, #6011) — the recurring main-breakage class already tracked in `gotchas.md` § CI (cold-cache lockfile-touching PRs tipping marginal-timeout suites, `GITHUB_TOKEN`-authored-push anti-recursion gaps masking the real CI signal). The 80% CI-pass rate on main's last 20 runs is this same pattern showing up in the rollup, not a new regression.
+- **Queue depth (59 `ready`) continues the multi-night growth trend** flagged in the 2026-10-03/04 entries (24 → 40 → 56 → 59) despite tonight's 3 merges — intake (site-audit, ci-fix auto-filing, decompose) is outpacing the batch-of-3-per-iteration drain rate.
+- Two of tonight's three closed issues had sat open well past a day before being picked up (#5954: ~81.5h since filing; #5890: ~135h/5.6 days) — both are lower-priority tiers (ci-fix investigation-only, audit) that waited behind newer/higher-tier arrivals under the documented priority sort. Working as designed, not starvation, but worth watching as queue depth grows further.
+- **Positive shift:** the 4 issues logged as `agent-skip` in both the 2026-10-03 and 2026-10-04 entries (#5895, #5748, #5608, #5604) no longer carry that label — all 4 now carry `has-pr` instead, meaning they were retried and have open PRs. `agent-skip` and `agent-failed` are both at 0 open tonight, a clean state on that front.
+
+### Recommendations
+
+- Queue depth (59, 🔴, 4th consecutive night of growth) now clearly meets the Queue Adjust rule's threshold for `/loop 15m /implement-queue` escalation, and main is green tonight so nothing blocks raising cadence — worth considering for the next scheduling change.
+- Check the 4 `has-pr` issues (#5895, #5748, #5608, #5604) for stuck PRs at the top of the next `/implement-queue` iteration's Phase 0 (open PRs come before new issues) — their having sat in `agent-skip` for multiple nights before this makes it worth confirming they're not now stuck in review/CI instead.
+- No new `meta-improvement` filed this run — the broken-main pattern and CI pass-rate dip are already tracked by the existing CRITICAL issues and `gotchas.md` entries; a duplicate wouldn't add signal.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review (the 4 from the last two entries have since progressed to `has-pr`).
+
+## 2026-10-05
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
+## 2026-10-05 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `3526097`, merged `origin/main` `17b1edc`, `docs/backlog.md` conflict resolved by rule). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 2 due / 2 captured / 2 audited, both `hospitality` (`book/:venueSlug`, `reservations/manage`). `marketing` and `rialto-web` had nothing due; their capture runs skipped with "no routes planned". 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered.
+
+**Judge:** rubric v1, model `claude-opus-5`. Both routes judged clean (`tells: []`) on the judged tells — no agent-built face, no semantic-accessibility faults that axe missed. Note for a human: the booking page's "Date & Party" stepper label visually collides with the "Date" field label at both 1280x720 and 375x812; no rubric v1 tell covers text overlap, so it was deliberately not filed as a Finding.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, but `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage set Matt owns; ≥10 pairs needed). Logged, not retried; status re-queried and still `stale`. Rating proceeded anyway per the unclearable-stale rule: 4 pairs rated against the medusa references, recorded. Agent-built findings stay suppressed while the stamp is `stale` — intended.
+
+**Filing:** 3 mechanical findings, all recurrences against still-open issues → 3 `skip`, 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. Issue states fetched for all 16 ledger issues (all open); the `ui-quality` label enumeration returned 16 with `hasNextPage: false`, exactly matching the ledger — no orphan labelled issues, no escalation. Checkpoint commit pushed to `ui-quality/ledger`.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate` (every finding was a `skip`).
+
+**P1 SLA:** 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), 0 past the 7-day SLA (oldest 3 days). 0 escalations.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved), no stopped filing, no script exit 2 other than the expected unlabelled-calibration-set one above.
+
+## 2026-10-05 (mbe-evening, second fire — implement-queue + progress-tracker)
+
+### Metrics
+
+| Metric                         | Value                                                                  | Status                                |
+| ------------------------------ | ---------------------------------------------------------------------- | ------------------------------------- |
+| Agent Success (this iteration) | 0/0 — no issues claimed, Phase 0 blocked                               | n/a                                   |
+| CI Pass (main)                 | Red at Phase 0 pre-flight                                              | 🔴 Red                                |
+| Queue (open `ready`)           | 60                                                                     | 🔴 Red (>10), up from 59 this morning |
+| has-pr (open)                  | 4 (#5895, #5748, #5608, #5604)                                         | unchanged from this morning's flag    |
+| Blocked (`agent-failed`)       | 0                                                                      | 🟢 Green                              |
+| Skipped (`agent-skip`)         | 0                                                                      | 🟢 Green                              |
+| Daily/7d Spend                 | insufficient data — `.claude/agent-spend/sessions.jsonl` still 0 lines | matches standing #5885                |
+| Reverts pending (unmerged)     | 1 (#6076, see Patterns)                                                | -                                     |
+
+### Patterns
+
+- **Main broke again this evening (push 18:57:55Z, commit `87a9e4724`/#6072, run [37359920871](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/37359920871)) — third occurrence this week of the exact class #6041 already root-caused and left unfixed.** Failing job `Test (Node 22)` timed out (`Error: Test timed out in 60000ms`, 1 failed/4780 passed) in a `scripts`-package screenshot-snapshot test; #6072's diff is reservations-only and does not touch that package. revert-watchdog auto-filed critical issue #6075 and opened revert PR #6076 (branch/culprit SHA correctly matches #6072 this time — no intervening main commit landed in the ~28-minute gap before the watchdog ran, so #6040's reverts-HEAD-not-culprit bug did not additionally misfire here). Unlike #6012 (10-04), #6076's diff is a genuine revert of #6072.
+- **This is not a case for a mechanical flake-vs-real-regression call: #6072 is a security fix** (closes an anonymous/non-member write hole on `POST /api/v1/reservations`), and a second security fix (#6079, cross-tenant table write) is already built on top of it and currently blocked/red because its base is the disputed commit. Merging #6076 would reopen the original hole and orphan #6079. Posted findings + evidence on #6041 (third-occurrence comment) and #6075 (recommend against merging #6076 pending human/CI confirmation); did not merge, close, or edit either PR. Notified the user directly via push notification — this combines a CI-infra judgment call (confirmed-flake root cause already on file in #6041) with a security tradeoff (reverting a vulnerability fix), which reads as a decision for a human, not a default action, especially since this session has no `actions:write` to even re-run the job itself (`rerun_failed_jobs`/`run_workflow` both 403).
+- Per Phase 0 ("no open PR may sit in a failed state before claiming new work"), #6079 is independently also CI-red right now (blocked by the same disputed base) — this alone would have blocked claiming new `ready` issues this iteration even setting the security question aside. 0 issues claimed, 0 workers dispatched, nothing to commit to `metrics/queue-telemetry.jsonl`.
+- **Queue ticked up again (60, vs 59 this morning)** — fifth consecutive count-over-count increase across the last few nights (24 → 40 → 56 → 59 → 60) with zero drain tonight. The growth driver remains intake (ui-quality/audit filing, decompose features) outpacing a 3-per-iteration batch cap, now compounded by two separate main-red iterations in one day.
+
+### Recommendations
+
+- Same as repeated in the 2026-10-04 entry, now a third time: **#6041 (root cause: no `testTimeout` on the root `vitest.config.ts`, so `scripts/__tests__/` trips vitest's 5s default under any cold/parallel CI run) needs to actually land.** It has sat `ready`/unfixed for 36h+ and has now caused two separate false "broken main" + auto-revert cycles (10-04 and tonight). This is the single highest-leverage fix available — landing it removes the recurring trigger rather than re-litigating each incident by hand.
+- #6075/#6076 need a human call: confirm green via re-run (this session cannot), then close #6076 without merging and let #6079 proceed. Flagged, not actioned.
+- Not re-filing a `meta-improvement` for the broken-main pattern itself — #6040 and #6041 already cover both halves (wrong-commit revert; flaky root cause) and a third tracking issue would be a dupe, not new signal.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
+
+## 2026-10-06
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
+## 2026-10-06 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `65b271b9`, merged `origin/main` `c3cd85b2`, `resolved: []` — no conflicts). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 0 due / 0 captured / 0 audited. This is the 28-day TTL working as designed, not a defect: the ledger holds 154 rows, the loop's first fire was 2026-10-01, so every reachable route was captured within the last 5 days and nothing comes due again until ~2026-10-29. 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered, 18 `unreachable:auth`.
+
+**Capture:** all three capture runs were still executed rather than skipped on the empty plan, as a liveness check on the harness — `marketing`, `rialto-web` and `hospitality` each booted their `vite preview` (ports 4175/4176/4177) and exited 0 with the single "no routes planned" skip. The capture path is alive; it simply had nothing planned.
+
+**Judge:** nothing to judge — no manifest rows, so no screenshots. `detect.mjs mechanical` and `detect.mjs judged` both exited 2 with "no capture manifest under .ui-quality/captures/". That is each script's documented refusal on zero captures, **not** a pipeline bug: with 0 due routes there is no manifest for them to read. No judged files were written and no Finding was invented to fill the gap.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, and `rate.mjs pairs --calibration` exited 2 for the fourth consecutive fire — `docs/ui-quality/calibration.json` still has no labelled pairs. This is the Verify-stage set Matt owns (≥10 pairs, labelled once); no agent action can clear it, so it was logged and not retried, and the status re-query returned `stale` again. `rate.mjs pairs` then planned 0 rating pairs (no captures to pair), so `rate.mjs record` was not called. Stamp for this fire: `stale`.
+
+**Filing:** stopped at the plan. `findings.mjs plan` exited 2 with `ENOENT: .ui-quality/findings.mechanical.json` — the direct downstream consequence of the zero-capture refusal above, not incomplete GitHub state. It named no `ui-quality`-labelled issues the findings ledger does not know, and it wrote no `.ui-quality/findings.escalation.json`, so no escalation issue was opened. 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. No checkpoint commit was needed (nothing was filed).
+
+Issue reconciliation was still completed before the plan and came back clean: all 16 ledger issues fetched individually (#5943, #5944, #5945, #5973, #5974, #5975, #5976, #6002, #6003, #6004, #6005, #6006, #6022, #6023, #6024, #6025) — every one `open`, none `missing`. The `ui-quality` label enumeration returned `totalCount: 16` with `hasNextPage: false`, exactly matching the findings ledger: no orphan labelled issues, nothing to adopt. Rubric migration not needed — every ledger key is `r1` and `rubric.json` is still v1.
+
+**Fix PR:** none — filing stopped at the plan exit 2, so no action could carry `fix_pr_candidate`, and there were no findings to fix.
+
+**P1 SLA:** step (6h) was skipped by the plan's exit-2 stop, but the ages were measured read-only (no `--escalate`) so the fact is on the record: 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), **0 past the 7-day SLA** (oldest #5973 at 4 days). The skipped step would have been a no-op — no escalation was missed.
+
+**Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: update`) instead. For the exhaustive `ui-quality` label enumeration, `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal depends on.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). Filing stopped, but for the benign reason above rather than unreadable state. A genuinely quiet fire: nothing was due, so nothing was judged or filed.
+
+## 2026-10-06 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 12 entries, metricsFreshness 0 unhealthy — review-burden=fresh 2.09d, reviewBurden 1 reviewers/1 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 93%, ciHealth 100% pass rate 21/21, sessionLogs 0 sessions (7d)/0 commits, codeChurn 1% churn rate [3883 deleted/702279 added, 7d], flakyTests 1 flaky [2489249 runs, 64 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as every recent run — still open and tracked by #5958 and #6039 (gh-client never falls back to REST on the GraphQL 403), not re-filed here. Fresh checkout this run needed `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` would start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — optional step, not exercised this run (no Sentry-specific signal to chase and the GraphQL block already constrains the GitHub-issue-filing half of triage).
+**Verifications:** `verify-fixes.mjs` failed outright (same GraphQL-403 on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked `metrics/verifications.jsonl` by hand instead: of 113 rows in the last 30 days, 102 are `confidence: skip` (sensor data unavailable, not real verifications) and 11 are real (all ACMM-based, `confidence: low`) — 11/11 verified true, 0 reopened. Fix-effectiveness rate (excluding skip rows): 100% (11/11), same thin ACMM-only sample as the last successful manual check (2026-10-04).
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` still carries no `budgets` key (error-state since before 2026-10-04); default budget of 3 applies per the skill's fallback rule. Moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Tuesday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-06` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 226 closed in the window, 191 `completed` / 15 `duplicate` / 11 `not_planned` / 9 `null` → 11.5% false-positive rate (duplicate+not_planned/total), well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above. No threshold changes applied this run.
+
+## 2026-10-07
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
+## 2026-10-07 — mbe-evening /implement-queue + /progress-tracker
+
+### Metrics (7d window, 2026-09-30 → 2026-10-07)
+
+| Metric        | Value                                                          | Status |
+| ------------- | -------------------------------------------------------------- | ------ |
+| Created       | 32 (audit+ci-fix)                                              | -      |
+| Closed        | 23 (audit+ci-fix)                                              | -      |
+| Closure Rate  | 71.9%                                                          | Yellow |
+| Time-to-Close | 42.8h mean                                                     | Yellow |
+| Agent Success | 12/12 open has-pr (100%)                                       | Green  |
+| CI Pass       | 29/29 success main (100%)                                      | Green  |
+| Queue (ready) | 58                                                             | Red    |
+| Stale (>7d)   | 14                                                             | Red    |
+| Blocked       | 0 agent-failed                                                 | Green  |
+| Skipped       | 0 agent-skip                                                   | Green  |
+| Reverts (7d)  | 0                                                              | Green  |
+| Merged PRs    | 108 (7d)                                                       | -      |
+| Spend         | unattributed — `.claude/agent-spend/sessions.jsonl` is 0 bytes | N/A    |
+
+### Patterns
+
+- **Diff-independent `pnpm audit` CVE fire drills recurred again** — this session closed 3 stale/resolved audit-tracking issues (#6101, #6084, #5997) that were already fixed by earlier commits (#6104, and an intervening dep bump), plus landed a genuine new one (#6065 → PR #6123, ip-address/fast-uri floor bump). This is the same documented class in `gotchas.md` § Dependencies — the backlog accumulates duplicate/stale tracking issues faster than anyone re-verifies them against current `main`.
+- **Scheduled-workflow "missed its run" false positives, twice in one pass** — #6096 (sentry-triage) and #6031 (acmm-regression) were both closed as self-healed: each workflow had already run successfully 5 days straight by the time this session looked, confirming the documented GitHub-drops-scheduled-runs class rather than a real cron/config bug. #6030 (auto-qa-tune) was the real one — missing a `pnpm build --filter @mbe/cli...` step sibling workflows already have, now fixed via PR #6119.
+- **New this run: PR merging is blocked at the CCR session's own permission-classifier level, independent of tier/review/CI state.** Filed as #6125 (meta-improvement) — see that issue for full detail. All 3 issue-PRs from this iteration (#6119, #6121, #6123) are CI-green and review-passed but stuck on a human merge click; the 3 metrics-only telemetry PRs only merged because the repo's own `auto-merge.yml` automation (not this session) completed them.
+- **Queue bottleneck:** 58 `ready` issues, 14 stale >7 days, against a nightly cap of 3 per `/implement-queue` iteration. At the current rate this backlog grows faster than it drains.
+
+### Recommendations
+
+- Per the skill's own Queue Adjust rule (queue >10, success >70%) — increase implement-queue cadence/batch size if budget allows, since the backlog is growing faster than one 3-issue nightly pass can drain it. Not actioned here — outside this routine's mandate (capped at one iteration, batch ≤3) and the merge-permission finding above means more claimed issues would just pile up more unmerged, reviewed-but-stuck PRs.
+- Sweep the `audit`/`ci-fix` backlog for other stale/already-resolved tracking issues like #6101/#6084/#5997 — a quick re-verify-against-main pass before claiming new work caught 3 in this session alone.
+- `.claude/agent-spend/sessions.jsonl` is completely empty (0 bytes) — cost attribution is dark across the whole fleet, not just this session. Worth a dedicated check on whether `recordSpend` is actually wired up anywhere.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
+
+## 2026-10-07 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `7f802d56`, merged `origin/main` `e1723f94`, `resolved: []` — no conflicts). All builds green — CLI, rialto and all three apps — so no `unreachable:build` rows.
+
+**Routes:** 0 due / 0 captured / 0 audited. Second consecutive zero-due fire, and still the 28-day TTL working as designed rather than a defect: the ledger refreshed to 154 rows, every reachable route was captured during fires 1-4 (2026-10-01 → 10-04), and nothing comes due again until ~2026-10-29. 18 rows `unreachable:auth` (all hospitality). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional), 132/132 covered, 0 uncovered, 18 `unreachable:auth`.
+
+**Capture:** all three capture runs were executed rather than skipped on the empty plan, as a liveness check on the harness — `marketing`, `rialto-web` and `hospitality` each booted their `vite preview` and exited 0 with the single "no routes planned" skip. The capture path is alive; it simply had nothing planned.
+
+**Judge:** nothing to judge — no manifest rows, so no screenshots. `detect.mjs mechanical` and `detect.mjs judged` both exited 2 with "no capture manifest under `.ui-quality/captures/`". That is each script's documented refusal on zero captures, **not** a pipeline bug. No judged files were written and no Finding was invented to fill the gap.
+
+**Calibration:** `stale`. The only trigger (exit 3) fired, and `rate.mjs pairs --calibration` exited 2 for the **fifth** consecutive fire — `docs/ui-quality/calibration.json` still has no labelled pairs. This is the Verify-stage set Matt owns (≥ 10 pairs, labelled once); no agent action can clear it, so it was logged and not retried, and the status re-query returned `stale` again. `rate.mjs pairs` then planned 0 rating pairs (no captures to pair), so `rate.mjs record` was not called. Stamp for this fire: `stale`. Standing consequence worth restating: `metrics/ui-quality-calibrations.jsonl` is still 0 bytes, so the judged half of the loop has never contributed a finding — every one of the 16 filed issues is mechanical (axe). The mechanical half is unaffected by the stamp.
+
+**Filing:** nothing to file, and the plan was therefore not run. `findings.mjs plan` requires at least one `--findings <json>`, and both detector outputs are absent for the benign zero-capture reason above — so filing was skipped at its input rather than refused on incomplete GitHub state. No `.ui-quality/findings.escalation.json` was written and no escalation issue was opened. 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds. No checkpoint commit was needed (nothing was filed). Rubric migration not needed — all 42 ledger keys are `r1` and `rubric.json` is still v1.
+
+Issue reconciliation was still completed read-only, since the skipped plan is the step that would normally catch an orphan labelled issue: the findings ledger references 16 distinct issues (#5943, #5944, #5945, #5973, #5974, #5975, #5976, #6002, #6003, #6004, #6005, #6006, #6022, #6023, #6024, #6025) plus one `null` carrier (a P2 overflow seed, no issue); the `ui-quality` label enumeration returned `totalCount: 16`, `hasNextPage: false`, and every issue is `open`. The two sets match exactly — no orphan labelled issues, nothing to adopt, nothing `missing`.
+
+**Fix PR:** none — there were no findings this fire, so no action could carry `fix_pr_candidate: true`.
+
+**P1 SLA:** run with `--escalate` and it was a genuine no-op: 4 open `ui-quality:p1` issues (#5973, #6005, #6006, #6025), **0 past the 7-day SLA**, oldest #5973 at 5 days. `p1-age.mjs` exited 0 and wrote 0 escalation actions, so nothing was executed over MCP and no `escalated_at` stamp was needed. Forward note: #5973 (created 2026-10-02) breaches on 2026-10-09 and #6005/#6006 on 2026-10-10, so the 10-09 and 10-10 fires should expect their first real escalations unless those axe-critical issues are fixed first.
+
+**Tooling note:** the routine prompt names `mcp__github__get_issue` / `mcp__github__update_issue` / `mcp__github__create_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: get`/`create`/`update`) instead. For both exhaustive label enumerations (`ui-quality`, `ui-quality:p1`), `mcp__github__list_issues` with a label filter was used rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal and the SLA check depend on.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). A genuinely quiet fire: nothing was due, so nothing was judged or filed. The only thing waiting on a human is the unlabelled calibration set.
+
+## 2026-10-07 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 12 entries, metricsFreshness 0 unhealthy — review-burden=fresh, reviewBurden 1 reviewers/2 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 93%, ciHealth 100% pass rate 24/24, sessionLogs 0 sessions (7d)/0 commits, codeChurn 1% churn rate [3778 deleted/703163 added, 7d], flakyTests 0 flaky [1440035 runs, 68 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store — stale main or squash-deleted branches). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as every recent run — still tracked by #5958/#6039 (gh-client never falls back to REST on the GraphQL 403), not re-filed here. Fresh checkout needed `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` would start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); optional step, not re-authorized here.
+**Verifications:** `verify-fixes.mjs` failed outright (same GraphQL-403 on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked `metrics/verifications.jsonl` by hand instead: of 113 rows in the last 30 days, 102 are `confidence: skip` (sensor data unavailable) and 11 are real (all ACMM-based, `confidence: low`) — 11/11 verified true, 0 reopened. Fix-effectiveness rate (excluding skip rows): 100% (11/11) — same thin ACMM-only sample as the 2026-10-06 run.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` still carries no `budgets` key. Default budget of 3 applies per the skill's fallback rule; moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Wednesday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-07` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 230 closed in the window (audit capped at the 100-per-page REST limit — pagination to a second page 403'd on a `repositories/{id}/...` link path the proxy blocks, so the audit count is a floor, not exact), 195 `completed` / 15 `duplicate` / 11 `not_planned` / 9 `null` → 11.3% false-positive rate (duplicate+not_planned/total), consistent with the 2026-10-06 run's 11.5% and well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above (thin sample, ACMM-only). No threshold changes applied this run.
+
+## 2026-10-08 — mbe-evening
+
+**State:** No `gh` binary in this CCR session (confirmed per `.claude/rules/gotchas.md`); all queries below ran through `mcp__github__*` MCP tools instead of the skill's documented `gh` commands, plus a local `git log`/`.claude/agent-spend/sessions.jsonl` read.
+
+### Metrics (7d: 2026-10-01 → 2026-10-08)
+
+| Metric        | Value                                                                                                                       | Status |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Created (7d)  | 30 (9 audit + 21 ci-fix)                                                                                                    | -      |
+| Closed (7d)   | 20 (6 audit + 14 ci-fix)                                                                                                    | -      |
+| Closure Rate  | 66.7%                                                                                                                       | Yellow |
+| Time-to-Close | ~43h mean (6 audit ≈67.5h, 14 ci-fix ≈32.9h) — heavily skewed by #5955 (153h, sat unclaimed until tonight) and #5890 (135h) | Yellow |
+| Agent Success | 8 has-pr / 0 agent-failed / 0 agent-skip (open, current snapshot)                                                           | Green  |
+| CI Pass       | 16/18 non-cancelled main runs in last 20 ≈ 88.9%                                                                            | Yellow |
+| Queue (ready) | 56                                                                                                                          | Red    |
+| Stale (>7d)   | ≥19 (oldest: #5369, 24 days, security/needs-review)                                                                         | Red    |
+| Blocked       | 0 agent-failed                                                                                                              | Green  |
+| Skipped       | 0 agent-skip                                                                                                                | Green  |
+| Reverts (7d)  | 0 (merged); 2 revert PRs opened and closed unmerged this week                                                               | Green  |
+| Spend         | unattributed — `.claude/agent-spend/sessions.jsonl` is 0 bytes on main (known gap, #5885, 5th+ occurrence)                  | N/A    |
+
+### This iteration's `/implement-queue` run
+
+Claimed 3 issues (zone-spread batch): #5955 (ci-fix, root zone), #5840 (feature, apps/gen), #5981 (feature, packages/agent-core).
+
+- **#5840 → PR #6142: merged.** Reviewer pass, 10/10, clean DepartureBoard template addition.
+- **#5955 → PR #6144: merged.** Reviewer pass, 8/10. Root-caused the issue as misattributed liveness signature (acmm-regression.yml's reused-PR artifact being read as mbe-morning's), not a real dark routine — retired the duplicate/broken ACMM step from mbe-morning's doc rather than patching the symptom.
+- **#5981 → PR #6146: reviewer flagged (4/10) a real hallucination** — the renamed `example-test-writing.json` eval task targeted `services/reservations/src/services/booking-notifications.ts`/`cancelBookingNotifications`, both deleted from `main` in #6055 before this PR opened. Verified independently (`git log`, `ls`, `grep` against current `main`) before acting — confirmed, not a false positive. Dispatched the one allowed retry worker to rewrite the task against a real fixture; it ran ~2 hours (likely cycling real `agent eval` invocations) without pushing a fix or reporting back. Stood down per the cutoff: labeled issue #5981 `needs-review`, left PR #6146 open/unmerged with a comment summarizing the finding for a human to pick up. The other 4 new eval tasks in that PR were confirmed sound by the reviewer.
+
+### Patterns
+
+- **The reviewer→retry→cutoff safety net worked exactly as designed tonight**, including the "don't wait forever on a stuck retry" judgment call — but a 2-hour unresolved retry on a single eval-authoring task is a real cost (background agent time) worth noting if this recurs. Worth a `/gotcha-harvest` pass on: (a) why the retry ran long without reporting, (b) two new environment frictions discovered live — `SKIP_PUSH_TYPECHECK=1` set inline on the same shell command as `git push` does NOT reach `.claude/hooks/pre-push-typecheck.sh` (the hook reads its own process env, not the command string's inline assignment), and `CLAUDE_PROJECT_DIR` being unset in a fresh worktree misdirects `pre-bash-guard.sh`'s `node_modules` check at the main checkout instead of the worktree, blocking `pnpm test`/`build`/`typecheck` entirely until worked around with a wrapper script.
+- **Queue backlog is Red and growing**: 56 ready issues, oldest 24 days (#5369, a real Postgres RLS protection gap, carries `needs-review` so not auto-claimable). At a 3-issue/iteration cap this backlog outpaces drain rate — consistent with last night's same finding.
+- **ci-fix issue volume this week (21 created) is dominated by a cluster of 6 "Broken Main" incidents** (most resolved same-day to within ~1 day) plus 3 still-open duplicate tracking issues for the same `GHSA-ch52-4w7c-c8xp` advisory (#5995/#5997/#5998) that an open PR (#5999, CI-green) already addresses but hasn't merged — the same stale-duplicate-tracking-issue class last night's log flagged for #6101/#6084/#5997.
+- **`.claude/agent-spend/sessions.jsonl` is still 0 bytes on `main`** — the #5981 worker's own verification runs wrote 13 real rows to it, but they're stranded on the flagged, unmerged PR #6146. Cost/spend metrics in this report (and every recent one) are not trustworthy; this is now a recurring, open, named gap (#5885).
+
+### Recommendations
+
+- A human needs to look at PR #6146 / issue #5981 (now `needs-review`) and either finish the fixture rewrite or close it out.
+- The live `mbe-morning` RemoteTrigger prompt (`trig_01QYoHCMjUgJybAoXUvjjrWX`) still runs its retired ACMM-audit step against a since-moved script path — PR #6144 fixed the doc/manifest side only (by design, per `docs/scheduled-tasks.md#editing-a-routine`'s two-step process); the matching live-trigger prompt edit is a separate, deliberately-not-automated step this session did not take.
+- Queue-adjust per the skill's own rule (queue >10, success high) would call for more frequent/larger `/implement-queue` runs, but that's outside this routine's mandate (one iteration, batch ≤3) — flagging rather than acting.
+- `node scripts/reap-worktrees.mjs` failed closed this run (GraphQL 403 blocks its `gh pr list` call in this CCR session) — retained all 4 worktrees rather than guessing. Same GraphQL-blocked-in-CCR class as #5958/#6039; no action taken here since fail-closed is the correct/safe behavior.
+
+### Skipped Issues
+
+0 `agent-skip` open — nothing to review.
+
+## 2026-10-08 — mbe-ui-quality
+
+**State:** `state.mjs checkout` → `source: branch` (`ui-quality/ledger` @ `86a56bec`, merged `origin/main` `865d8b28`, `resolved: []` — no conflicts). All builds green — CLI, rialto and all three apps (`@mbe/marketing`, `@mbe/rialto-web`, `@mbe/hospitality`) — so no `unreachable:build` rows.
+
+**Routes:** 0 due / 0 captured / 0 audited. Third consecutive zero-due fire, and still the 28-day TTL behaving as designed, not a defect: `ledger.mjs refresh` resolved 154 rows (`git_depth: full`), every reachable route was captured during fires 1-4 (2026-10-01 → 10-04), and nothing comes due again until ~2026-10-29. 18 rows `unreachable:auth` (all hospitality, including `*`). Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire:** 100% (provisional, `first_run_at: 2026-10-01`), 132/132 covered, 0 uncovered, 18 `unreachable:auth`. `coverage.mjs --json` exited 0 — no coverage breach.
+
+**Capture:** all three capture runs were executed rather than skipped on the empty plan, as a liveness check on the harness. Each booted its `vite preview` and exited 0 with the single "no routes planned" skip (`marketing`, `rialto-web`, `hospitality`). The capture path is alive; it simply had nothing planned.
+
+**Judge:** nothing to judge — no manifest rows, so no screenshots and no images opened. `detect.mjs mechanical` and `detect.mjs judged` both exited 2 with "no capture manifest under `.ui-quality/captures/`". That is each script's documented refusal on zero captures, **not** a pipeline bug (same as 10-06 and 10-07). No `.ui-quality/judged/<app>.json` was written, no `tells: []` was claimed for a route nobody saw, and no Finding was invented to fill the gap. `ledger.mjs record` correspondingly warned that `.ui-quality/judge-status.json` is missing and recorded `audited: 0` — correct for zero captures.
+
+**Calibration:** `stale`. Exit 3 on the first `calibration-status --model-id claude-opus-5` (key `set_sha256: 9b0ad625…`, `agreement: null`, pass mark 0.8 / 0 inversions) fired the one allowed calibration attempt, and `rate.mjs pairs --calibration` exited 2 for the **sixth** consecutive fire — `docs/ui-quality/calibration.json` still carries `pairs: []` with `labelled_at`/`labelled_by` unset. This is the Verify-stage set Matt owns (≥ 10 pairs, labelled once); no agent action can clear it, so it was logged and not retried, and the status re-query returned `stale` again. Stamp for this fire: **`stale`**. `rate.mjs pairs` then planned 0 rating pairs over 0 apps (no captures to pair), so `rate.mjs record` was not called and no verdict file was written. Standing consequence worth restating: `metrics/ui-quality-calibrations.jsonl` is still 0 bytes, so the judged half of the loop has never contributed a finding — all 16 filed issues are mechanical (axe). The mechanical half is unaffected by the stamp.
+
+**Filing:** nothing to file, and the plan was therefore not run. `findings.mjs plan` requires at least one `--findings <json>`, and both detector outputs are absent for the benign zero-capture reason above — so filing was skipped at its input rather than refused on incomplete GitHub state. No `.ui-quality/findings.escalation.json` was written and no escalation issue was opened. 0 created, 0 reopened, 0 commented, 0 adopted, 0 seeds (`findings.mjs seeds` not run — no plan). No checkpoint commit was needed (nothing was filed). Rubric migration not needed: all 42 keys in `metrics/ui-quality-findings.json` are `r1` and `docs/ui-quality/rubric.json` is still `rubric_version: 1` (18 tells).
+
+Issue reconciliation was still completed read-only, since the skipped plan is the step that would normally catch an orphan labelled issue. The findings ledger references 16 distinct issues (#5943, #5944, #5945, #5973, #5974, #5975, #5976, #6002, #6003, #6004, #6005, #6006, #6022, #6023, #6024, #6025) plus one `null` carrier (a P2 overflow seed, no issue). The `ui-quality` label enumeration returned `totalCount: 16`, `hasNextPage: false`, every issue `OPEN`. A set diff of the two lists matched exactly — no orphan labelled issues, nothing to adopt, nothing `missing`. `.ui-quality/issue-states.json` and `.ui-quality/labelled-issues.json` were written from that enumeration for the record (unconsumed this fire).
+
+**Fix PR:** none — there were no findings this fire, so no action could carry `fix_pr_candidate: true` (and no entry in the findings ledger carries it either).
+
+**P1 SLA:** run with `--escalate` and it was a genuine no-op for the second fire running: 4 open `ui-quality:p1` issues (#6025, #6006, #6005, #5973 — unchanged from 10-07), **0 past the 7-day SLA**. `p1-age.mjs` exited 0 and wrote `{"actions": []}`, so nothing was executed over MCP and no `escalated_at` stamp was needed. Oldest is #5973 at 6.0 days (created 2026-10-02T07:37:31Z). Forward note, now one day out: **#5973 breaches tomorrow (2026-10-09)**, and #6005/#6006 on 2026-10-10, #6025 on 2026-10-11 — so the 10-09 fire should expect this loop's first real P1 escalation unless those axe-critical issues are fixed first. All four are `ready`-labelled and have been sitting in the implement-queue backlog (56 ready issues as of the 10-08 evening report), so a fix landing first is not the likely outcome.
+
+**Tooling note:** unchanged from 10-07 — the routine prompt names `mcp__github__get_issue` / `update_issue` / `create_issue`; this session exposes those operations as `mcp__github__issue_read` (`method: get`) and `mcp__github__issue_write` (`method: get`/`create`/`update`). Both exhaustive label enumerations (`ui-quality`, `ui-quality:p1`) used `mcp__github__list_issues` with a `labels` filter rather than `search_issues`, whose MCP surface here is natural-language semantic matching and cannot be trusted to enumerate a label completely — and completeness is exactly what the plan's refusal and the SLA check depend on. Both returned `hasNextPage: false`, so the enumerations are complete.
+
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). No stopped filing. A genuinely quiet fire: nothing was due, so nothing was judged or filed, and the only thing waiting on a human is the unlabelled calibration set (six fires now) plus the four axe-critical P1s about to start breaching.
+
+## 2026-10-08 (mbe-learning-loop)
+
+**Sensors:** 9/17 available (acmm L6 97/114 criteria, prMetrics 12 entries, metricsFreshness 0 unhealthy — review-burden=fresh [0.01d], reviewBurden 1 reviewers/2 reviews/0% rubber-stamped, ccusageCost $0 30d/7d/today cache_hit 93%, ciHealth 100% pass rate 24/24, sessionLogs 0 sessions [7d]/0 commits, codeChurn 0% churn rate [417 deleted/700868 added, 7d], flakyTests 0 flaky [909432 runs, 62 SHAs]). `agentCost`, `lighthouse`, `mutationScore`, `e2eStability` not available this run (`e2eStability` additionally skipped 12 CI run head SHAs not in the local git object store). `prCategoryMetrics`, `issues`, `issueFeedback`, `queueEfficiency` query failed with the same persistent `HTTP 403: GitHub GraphQL is not available from Claude Code sessions` as every recent run — still tracked by open issues #5958/#6039 (gh-client never falls back to REST on the GraphQL 403), not re-filed here. Fresh checkout needed `pnpm install --frozen-lockfile` plus `pnpm --dir packages/gh-client build` before `sensor-report.mjs` would start (`ERR_MODULE_NOT_FOUND @mbe/gh-client`) — expected for an isolated cloud checkout.
+**Regressions:** 0 detected (sensor-report.mjs exited 0, `regressions: []`), 0 issues created.
+**Sentry triage:** skipped — Sentry MCP's stored access token is still expired (`find_organizations` returned "Authorization Expired"); optional step, not re-authorized here.
+**Verifications:** `verify-fixes.mjs` failed outright (same GraphQL-403 on `gh issue list --state closed --json ...`) — 0 checked via the script. Cross-checked `metrics/verifications.jsonl` by hand instead: of 108 rows in the last 30 days, 97 are `confidence: skip` (sensor data unavailable, mostly Lighthouse-dependent `audit` entries) and 11 are real (all ACMM-based, `confidence: low`) — 11/11 verified true, 0 reopened. Fix-effectiveness rate (excluding skip rows): 100% (11/11) — same thin ACMM-only sample as the prior two runs.
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` unchanged, still no `budgets` key populated this run. Default budget of 3 applies per the skill's fallback rule; moot this run since 0 regressions means no issue creation was gated on it.
+**Skill proposals:** 0 — today is Thursday, not the configured Friday extraction day; step skipped per schedule.
+**Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-08&per_page=100 --paginate` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 221 closed in the 30-day window, 15 `duplicate` + 10 `not_planned` (ci-fix) + 1 `not_planned` (bug) = 26 → 11.8% false-positive rate, consistent with the 2026-10-06/07 runs (11.5%, 11.3%) and well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% per above (thin sample, ACMM-only). No threshold changes applied this run.

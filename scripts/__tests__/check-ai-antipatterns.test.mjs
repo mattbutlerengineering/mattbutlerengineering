@@ -229,6 +229,21 @@ describe("check-ai-antipatterns", () => {
       expect(blockHasAssertion(block)).toBe(true);
     });
 
+    test("recognizes vitest's type-level expectTypeOf(...)", async () => {
+      // Checked by tsc wherever the package's tsconfig includes its tests —
+      // e.g. services/reservations/src/routes/venue-scope.types.test.ts, whose
+      // assertions turn `pnpm typecheck` red when the inferred type is wrong.
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"infers params", () => { expectTypeOf(req.params.id).toEqualTypeOf<string>(); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes vitest's assertType<T>(...)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      expect(blockHasAssertion('"narrows", () => { assertType<string>(value); }')).toBe(true);
+    });
+
     test("does not recognize a block with neither expect() nor any assertion", async () => {
       const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
       const block = '"renders without crashing", () => { render(<Widget />); }';

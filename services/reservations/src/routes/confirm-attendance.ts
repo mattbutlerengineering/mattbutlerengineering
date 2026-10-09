@@ -48,9 +48,7 @@ export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(401).type("text/html").send(invalidHtml);
         }
 
-        if (reservation.status === "PENDING") {
-          await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
-        }
+        await fastify.transitions.confirmAttendance(reservation);
 
         return reply.status(200).type("text/html").send(successHtml);
       });

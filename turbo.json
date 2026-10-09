@@ -34,7 +34,8 @@
         "prisma/schema.prisma"
       ],
       "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"],
-      "env": ["VITE_*", "PUBLIC_*"]
+      "env": ["VITE_*", "PUBLIC_*"],
+      "passThroughEnv": ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"]
     },
     "dev": {
       "cache": false,
@@ -55,6 +56,9 @@
       "dependsOn": ["^build", "db:generate"],
       "inputs": [
         "src/**",
+        "scripts/**",
+        "e2e/**",
+        "*.ts",
         "package.json",
         "tsconfig*.json",
         "$TURBO_ROOT$/packages/config/typescript/**"

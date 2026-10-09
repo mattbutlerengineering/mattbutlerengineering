@@ -42,6 +42,7 @@ function makeAlice(overrides: Partial<Guest> = {}): Guest {
     lastVisit: "2026-05-10T18:00:00.000Z",
     tags: ["VIP", "regular"],
     dietaryRestrictions: ["vegetarian"],
+    communicationPreference: "both",
     staffNotes: [],
     createdAt: "2025-06-01T00:00:00.000Z",
     updatedAt: "2026-05-10T18:00:00.000Z",
@@ -75,6 +76,17 @@ function conflictError(detail: string): ApiClientError {
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
+/** Table fields the dialog never reads, at the values a freshly created table carries. */
+const TABLE_DEFAULTS = {
+  tableNumber: null,
+  minCovers: 1,
+  maxCovers: null,
+  location: null,
+  priority: 0,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+} satisfies Partial<Table>;
+
 function makeTables(overrides: Partial<Table>[] = []): Table[] {
   const defaults: Table[] = [
     {
@@ -83,12 +95,8 @@ function makeTables(overrides: Partial<Table>[] = []): Table[] {
       capacity: 2,
       isActive: true,
       status: "AVAILABLE",
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 0, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -98,12 +106,8 @@ function makeTables(overrides: Partial<Table>[] = []): Table[] {
       capacity: 4,
       isActive: true,
       status: "AVAILABLE",
-      x: 200,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 200, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -113,12 +117,8 @@ function makeTables(overrides: Partial<Table>[] = []): Table[] {
       capacity: 6,
       isActive: true,
       status: "OCCUPIED",
-      x: 400,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 400, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -128,12 +128,8 @@ function makeTables(overrides: Partial<Table>[] = []): Table[] {
       capacity: 8,
       isActive: true,
       status: "AVAILABLE",
-      x: 600,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 600, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -268,7 +264,7 @@ describe("WalkInDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data.partySize).toBe(2);
     expect(data.tableId).toBe("table-1");
     expect(data.venueId).toBe("venue-1");
@@ -284,7 +280,7 @@ describe("WalkInDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data.guestName).toBeUndefined();
   });
 
@@ -299,7 +295,7 @@ describe("WalkInDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data.guestName).toBeUndefined();
   });
 
@@ -385,11 +381,6 @@ describe("WalkInDialog", () => {
   });
 
   it("should show error when no table is selected", async () => {
-    // Provide tables but make none available so tableId stays empty
-    const _noAvailable = makeTables().map((t) => ({
-      ...t,
-      status: "OCCUPIED" as const,
-    }));
     const smallTables: Table[] = [
       {
         id: "table-tiny",
@@ -397,12 +388,8 @@ describe("WalkInDialog", () => {
         capacity: 1,
         isActive: true,
         status: "AVAILABLE",
-        x: 0,
-        y: 0,
-        width: 50,
-        height: 50,
-        shape: "RECTANGLE",
-        rotation: 0,
+        ...TABLE_DEFAULTS,
+        shapeMetadata: { x: 0, y: 0, width: 50, height: 50, shape: "rectangle", rotation: 0 },
         venueId: "venue-1",
         floorPlanId: "fp-1",
       },
@@ -427,7 +414,7 @@ describe("WalkInDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data.partySize).toBe(6);
     // Best fit for 6: Table 4 (cap 8, AVAILABLE) — Table 3 (cap 6) is OCCUPIED
     expect(data.tableId).toBe("table-4");
@@ -561,7 +548,7 @@ describe("WalkInDialog", () => {
       await waitFor(() => {
         expect(onConfirm).toHaveBeenCalledTimes(2);
       });
-      expect(onConfirm.mock.calls[1][0]).toMatchObject({ partySize: 6, tableId: "table-4" });
+      expect(onConfirm.mock.calls[1]![0]).toMatchObject({ partySize: 6, tableId: "table-4" });
     });
   });
 
@@ -616,7 +603,7 @@ describe("WalkInDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+      expect(defaultProps.onConfirm.mock.calls[0]![0]).toStrictEqual({
         partySize: 2,
         tableId: "table-1",
         venueId: "venue-1",
@@ -646,7 +633,7 @@ describe("WalkInDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      expect(defaultProps.onConfirm.mock.calls[0][0]).not.toHaveProperty("guestId");
+      expect(defaultProps.onConfirm.mock.calls[0]![0]).not.toHaveProperty("guestId");
     });
 
     it("leaves today's payload byte-for-byte when the lookup is ignored (SC7)", async () => {
@@ -657,7 +644,7 @@ describe("WalkInDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+      expect(defaultProps.onConfirm.mock.calls[0]![0]).toStrictEqual({
         partySize: 2,
         tableId: "table-1",
         venueId: "venue-1",
