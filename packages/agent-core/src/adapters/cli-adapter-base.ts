@@ -152,7 +152,7 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
   /**
    * Run a full agent session (worktree → CLI dispatch → gates → publish)
    * through the shared `runCliAdapterSession()` pipeline — the seam
-   * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+   * `runAgentSession()` calls for the CLI backends,
    * mirroring `ClaudeAdapter.runSession()` (#2973).
    */
   async runSession(

@@ -43,9 +43,9 @@ const VALID_ADAPTERS: readonly AdapterType[] = [
   "auto",
   "claude",
   "claude-cli",
-  "gemini",
   "opencode",
   "grok",
+  "omp",
 ];
 
 function isAdapterType(value: string): value is AdapterType {
@@ -68,7 +68,7 @@ export const agentEvalCommand = new Command("eval")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
   .option(
     "--adapter <type>",
-    "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+    "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
     "claude"
   )
   .option("--json", "Emit the EvalReport as JSON", false)
@@ -113,9 +113,8 @@ export const agentEvalCommand = new Command("eval")
       // Read baseline before appending the current run so the most recent
       // prior entry is used, not the one we're about to write. Scoped to
       // this run's own adapter (#4218 rework) — comparing cost across
-      // adapters is meaningless, and a $0 baseline from a structurally
-      // cost-blind adapter (gemini) must never silently disable the gate
-      // for a different adapter's genuine cost.
+      // adapters is meaningless, and a $0 report from one adapter must
+      // never silently disable the gate for a different adapter.
       const costBaseline =
         options.maxCostRegression !== undefined
           ? loadCostBaseline(findLogFile(), adapterType)
@@ -229,10 +228,8 @@ function findLogFile(): string {
  * unparseable).
  *
  * Scoped by adapter (#4218 rework): comparing cost across adapters is
- * meaningless regardless of value, and — concretely — gemini's `CliUsage`
- * never carries a cost figure (see `parseGeminiUsage` in
- * cli-usage-parser.ts), so an unscoped "last entry in the file" read let a
- * genuine gemini run's $0 report silently become any other adapter's
+ * meaningless regardless of value. An unscoped "last entry in the file"
+ * read let one adapter's $0 report silently become any other adapter's
  * baseline, permanently short-circuiting `checkCostRegression`'s
  * `baseline === 0` case regardless of how far that other adapter's real
  * spend moved. A line with no `adapter` field at all (a pre-#4218 legacy
@@ -297,27 +294,12 @@ function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: 
  * task, then verify its change inside the session's kept worktree
  * ({@link verifyInWorktree}).
  *
- * Cost-absent CLI adapters (#4199, option (a)): Gemini's `CliUsage` never
- * carries a cost figure (see `parseGeminiUsage` in cli-usage-parser.ts —
- * "Gemini CLI's stats never carry a USD figure") — that is a permanent,
- * structural property of the Gemini CLI's own JSON output, unlike
- * OpenCode's costUsd, which is genuinely populated from its `step_finish`
- * events and so is never a silent zero.
- *
- * Prior to #4208, the shared CLI-subprocess session runner
- * (`runCliAdapterSession` in agent-core) ALSO always reported `numTurns: 0`
- * for gemini/opencode, so a genuinely-executed gemini task was
- * indistinguishable from a non-run — both were `{ costUsd: 0, numTurns: 0 }`,
- * the exact shape `taskDidNotRun`/`suiteDidNotRun`
- * (agent-core/eval/run-detection.ts) treat as "the suite never ran". #4208
- * fixed numTurns to be derived from real subprocess activity, so a genuine
- * gemini run now has real turns and DOES reach `persistReport` — costUsd
- * stays structurally 0, but the run is no longer treated as a non-run.
- * That means a gemini run's $0 report is a real, persistable baseline entry
- * for *gemini itself* — it must never be read as a baseline for a different
- * adapter's genuine cost. `loadCostBaseline`/`persistReport` (#4218 rework)
- * tag every persisted report with its adapter and only match same-adapter
- * baselines for exactly this reason.
+ * A persisted $0 report is a real baseline for that adapter only.
+ * `loadCostBaseline`/`persistReport` (#4218 rework) tag every persisted
+ * report with its adapter and only match same-adapter baselines, so one
+ * adapter's $0 row cannot silence another's cost gate. A session that
+ * reports `{ costUsd: 0, numTurns: 0 }` is still a non-run
+ * (`taskDidNotRun` / `suiteDidNotRun`).
  *
  * `costBasis` (from `costBasisForAdapter`) decides whether the budget's cost
  * arm applies at all: `claude-cli` reports a real API-equivalent figure that

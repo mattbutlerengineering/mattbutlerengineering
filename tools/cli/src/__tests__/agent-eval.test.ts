@@ -221,7 +221,7 @@ describe("agent eval command", () => {
   });
 
   describe("--adapter selection", () => {
-    it.each([["auto"], ["claude"], ["gemini"], ["opencode"], ["grok"]] as const)(
+    it.each([["auto"], ["claude"], ["opencode"], ["grok"], ["omp"]] as const)(
       "resolves the %s adapter and passes it to runAgentSession",
       async (adapter) => {
         mockLoadSuite.mockResolvedValue([task]);
@@ -260,24 +260,15 @@ describe("agent eval command", () => {
     });
   });
 
-  describe("gemini CLI-adapter path (#4208: real numTurns, cost still structurally absent)", () => {
-    // Gemini's CliUsage never carries a cost figure (cli-usage-parser.ts:
-    // "Gemini CLI's stats never carry a USD figure") — that is a permanent,
-    // structural property of the Gemini CLI's own JSON output and out of
-    // scope here. Prior to #4208, the shared CLI-subprocess session runner
-    // (run-cli-adapter-session.ts) ALSO always reported numTurns: 0 for
-    // gemini/opencode regardless of what actually happened, so a genuinely
-    // successful gemini run was indistinguishable from a credential-less one:
-    // both produced `{ costUsd: 0, numTurns: 0 }`. #4208 fixed numTurns to be
-    // derived from real subprocess activity (see
-    // packages/agent-core/src/adapters/cli-usage-parser.ts), so only the
-    // genuine "nothing happened" case still looks like this — a real gemini
-    // run now reports real turns even though costUsd stays 0.
-    it("still reports a non-run when the gemini adapter genuinely never ran (no credentials — 0 turns, $0 cost)", async () => {
+  describe("CLI-adapter non-run detection", () => {
+    // `{ costUsd: 0, numTurns: 0 }` is a non-run. Turns with a $0 cost are a
+    // scored run — the cost figure can be absent or zero without meaning the
+    // suite never started.
+    it("still reports a non-run when the opencode adapter genuinely never ran (0 turns, $0 cost)", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
 
-      await agentEvalCommand.parseAsync(["--adapter", "gemini", "--max-cost-regression", "20"], {
+      await agentEvalCommand.parseAsync(["--adapter", "opencode", "--max-cost-regression", "20"], {
         from: "user",
       });
 
@@ -285,11 +276,11 @@ describe("agent eval command", () => {
       expect(mockAppendFileSync).not.toHaveBeenCalled();
     });
 
-    it("scores a successful gemini run instead of treating it as a non-run, even though costUsd stays 0", async () => {
+    it("scores a successful opencode run instead of treating it as a non-run, even though costUsd stays 0", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 7 }));
 
-      await agentEvalCommand.parseAsync(["--adapter", "gemini", "--max-cost-regression", "20"], {
+      await agentEvalCommand.parseAsync(["--adapter", "opencode", "--max-cost-regression", "20"], {
         from: "user",
       });
 
@@ -323,6 +314,23 @@ describe("agent eval command", () => {
       expect(record.costBasis).toBe("api-equivalent");
       expect(record.tasks[0].deterministic.withinBudget).toBe(true);
       // Not zeroed — the per-adapter cost trend (--max-cost-regression) stays meaningful.
+      expect(record.tasks[0].costUsd).toBe(1.37);
+    });
+
+    it("labels an omp row as api-equivalent and does not fail the cost arm", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 1.37, numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "omp", "--threshold", "50"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).toBe(0);
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.adapter).toBe("omp");
+      expect(record.costBasis).toBe("api-equivalent");
+      expect(record.tasks[0].deterministic.withinBudget).toBe(true);
       expect(record.tasks[0].costUsd).toBe(1.37);
     });
 
@@ -392,15 +400,15 @@ describe("agent eval command", () => {
     it("appends the sessions' errors to today's sentence for a non-claude-cli non-run", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(
-        fakeSession({ numTurns: 0, costUsd: 0, errors: ["gemini: 401 Unauthorized"] })
+        fakeSession({ numTurns: 0, costUsd: 0, errors: ["opencode: 401 Unauthorized"] })
       );
 
-      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+      await agentEvalCommand.parseAsync(["--adapter", "opencode"], { from: "user" });
 
       expect(process.exitCode).toBe(2);
       const errOut = errSpy.mock.calls.flat().join("\n");
       expect(errOut).toContain(
-        'No task executed: every task reported 0 turns and $0.00 cost via the "gemini" adapter. This is not a scored regression — the suite never ran. The sessions reported — t1: gemini: 401 Unauthorized'
+        'No task executed: every task reported 0 turns and $0.00 cost via the "opencode" adapter. This is not a scored regression — the suite never ran. The sessions reported — t1: opencode: 401 Unauthorized'
       );
     });
 
@@ -750,7 +758,7 @@ describe("agent eval command", () => {
     // reverting the adapter-scoping fix in agent-eval.ts must turn this RED,
     // because it is the actual production loadCostBaseline/persistReport
     // code being exercised, not a re-assertion of a mocked baseline.
-    it("does not let a $0 gemini report become claude's cost-regression baseline", async () => {
+    it("does not let a $0 opencode report become claude's cost-regression baseline", async () => {
       let fakeLog = "";
       mockAppendFileSync.mockImplementation((_path: unknown, data: unknown) => {
         fakeLog += String(data);
@@ -763,15 +771,14 @@ describe("agent eval command", () => {
       await agentEvalCommand.parseAsync(["--adapter", "claude"], { from: "user" });
       expect(process.exitCode).toBe(0);
 
-      // 2. A genuine gemini run — real turns (#4208), structurally-$0 cost —
-      // is no longer a non-run, so it persists and becomes the newest line
-      // in the shared log file.
+      // 2. An opencode run with real turns and a $0 cost persists and becomes
+      // the newest line in the shared log file.
       mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 0, numTurns: 7 }));
-      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+      await agentEvalCommand.parseAsync(["--adapter", "opencode"], { from: "user" });
       expect(process.exitCode).toBe(0);
 
       // 3. claude's cost genuinely spikes. Unfixed: loadCostBaseline reads
-      // the last line in the file regardless of adapter, i.e. gemini's $0
+      // the last line in the file regardless of adapter, i.e. opencode's $0
       // entry -> checkCostRegression(baseline === 0) short-circuits "no
       // regression" -> exit 0, hiding a real 4900% cost spike. Fixed: the
       // baseline is scoped to claude's own prior entry ($0.10), so the gate

@@ -24,7 +24,7 @@ vi.mock("../session-runner.js", () => ({
 
 import { execFile } from "node:child_process";
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
-import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
+import { OmpCliAdapter } from "../adapters/omp-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
 
@@ -82,8 +82,8 @@ function makeConfig(overrides: Partial<AdapterConfig> = {}): AdapterConfig {
 // ── AgentAdapter interface contract ───────────────────────────────────
 
 describe("AgentAdapter interface — contract shape", () => {
-  it("GeminiCliAdapter satisfies AgentAdapter", () => {
-    const adapter: AgentAdapter = new GeminiCliAdapter();
+  it("OmpCliAdapter satisfies AgentAdapter", () => {
+    const adapter: AgentAdapter = new OmpCliAdapter();
     expect(typeof adapter.name).toBe("string");
     expect(typeof adapter.isAvailable).toBe("function");
     expect(typeof adapter.run).toBe("function");
@@ -107,16 +107,16 @@ describe("AgentAdapter interface — contract shape", () => {
 // ── AdapterResult shape ───────────────────────────────────────────────
 
 describe("AdapterResult — shape from concrete adapter", () => {
-  let adapter: GeminiCliAdapter;
+  let adapter: OmpCliAdapter;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    adapter = new GeminiCliAdapter();
+    adapter = new OmpCliAdapter();
   });
 
   it("result has all required fields: success, hasChanges, rateLimited, durationMs", async () => {
     setupExecFileMock({
-      gemini: [{ stdout: "done" }],
+      omp: [{ stdout: "done" }],
       "git-status": [{ stdout: "" }],
     });
 
@@ -132,7 +132,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
 
   it("result.error is undefined on success", async () => {
     setupExecFileMock({
-      gemini: [{ stdout: "done" }],
+      omp: [{ stdout: "done" }],
       "git-status": [{ stdout: "" }],
     });
 
@@ -142,7 +142,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
 
   it("result.error is a string on failure", async () => {
     setupExecFileMock({
-      gemini: [{ error: true, stderr: "gemini crashed" }],
+      omp: [{ error: true, stderr: "omp crashed" }],
       "git-status": [{ stdout: "" }],
     });
 
@@ -154,8 +154,8 @@ describe("AdapterResult — shape from concrete adapter", () => {
 // ── Adapter selection — names ─────────────────────────────────────────
 
 describe("adapter names (selection keys)", () => {
-  it("GeminiCliAdapter.name === 'gemini'", () => {
-    expect(new GeminiCliAdapter().name).toBe("gemini");
+  it("OmpCliAdapter.name === 'omp'", () => {
+    expect(new OmpCliAdapter().name).toBe("omp");
   });
 
   it("OpenCodeAdapter.name === 'opencode'", () => {
@@ -164,62 +164,6 @@ describe("adapter names (selection keys)", () => {
 
   it("ClaudeAdapter.name === 'claude'", () => {
     expect(new ClaudeAdapter().name).toBe("claude");
-  });
-});
-
-// ── GeminiCliAdapter — argument construction ──────────────────────────
-
-describe("GeminiCliAdapter — argument construction", () => {
-  let adapter: GeminiCliAdapter;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    adapter = new GeminiCliAdapter();
-  });
-
-  it("constructs args as [-p, taskDescription, --yolo, --output-format, json]", async () => {
-    setupExecFileMock({
-      gemini: [{ stdout: "" }],
-      "git-status": [{ stdout: "" }],
-    });
-
-    await adapter.run(makeConfig({ taskDescription: "add feature X" }));
-
-    const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "gemini");
-    expect(call).toBeDefined();
-    expect(call![1]).toEqual(["-p", "add feature X", "--yolo", "--output-format", "json"]);
-  });
-
-  it("invokes 'gemini' binary", async () => {
-    setupExecFileMock({
-      gemini: [{ stdout: "" }],
-      "git-status": [{ stdout: "" }],
-    });
-
-    await adapter.run(makeConfig());
-
-    const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "gemini");
-    expect(call).toBeDefined();
-    expect(call![0]).toBe("gemini");
-  });
-
-  it("passes worktreePath as cwd", async () => {
-    setupExecFileMock({
-      gemini: [{ stdout: "" }],
-      "git-status": [{ stdout: "" }],
-    });
-
-    await adapter.run(makeConfig({ worktreePath: "/tmp/my-worktree" }));
-
-    const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "gemini");
-    expect(call![2]).toMatchObject({ cwd: "/tmp/my-worktree" });
-  });
-
-  it("checks availability via 'which gemini'", async () => {
-    setupExecFileMock({ which: [{ stdout: "/usr/bin/gemini" }] });
-    const available = await adapter.isAvailable();
-    expect(available).toBe(true);
-    expect(execFile).toHaveBeenCalledWith("which", ["gemini"], expect.any(Function));
   });
 });
 

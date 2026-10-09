@@ -1,113 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
-  parseGeminiUsage,
   parseOpenCodeUsage,
   parseClaudeCliUsage,
   parseGrokUsage,
-  extractGeminiError,
+  parseOmpUsage,
   extractOpenCodeError,
   extractClaudeCliError,
   extractGrokError,
+  extractOmpError,
 } from "../cli-usage-parser.js";
-
-describe("parseGeminiUsage", () => {
-  it("sums input/output tokens across models from a `--output-format json` blob", () => {
-    const stdout = JSON.stringify({
-      session_id: "abc123",
-      response: "Done.",
-      stats: {
-        models: {
-          "gemini-2.5-pro": {
-            tokens: { prompt: 1200, candidates: 340, total: 1540, cached: 0 },
-          },
-          "gemini-2.5-flash": {
-            tokens: { prompt: 300, candidates: 60, total: 360, cached: 0 },
-          },
-        },
-      },
-    });
-
-    const usage = parseGeminiUsage(stdout);
-
-    expect(usage.tokenUsage).toEqual({ inputTokens: 1500, outputTokens: 400 });
-    // Gemini CLI's stats never carry a USD figure — cost is always undefined.
-    expect(usage.costUsd).toBeUndefined();
-  });
-
-  it("returns no usage fields for Gemini's default (non-JSON) text output", () => {
-    const usage = parseGeminiUsage("All changes applied.\n");
-
-    expect(usage.tokenUsage).toBeUndefined();
-    expect(usage.costUsd).toBeUndefined();
-  });
-
-  it("returns no usage fields when the JSON blob has no stats", () => {
-    const usage = parseGeminiUsage(JSON.stringify({ session_id: "abc", response: "Done." }));
-
-    expect(usage.tokenUsage).toBeUndefined();
-  });
-
-  // #4208: numTurns must be derived from real subprocess activity, never a
-  // hardcoded 0. `stats.models[*].api.totalRequests` is the real field Gemini
-  // CLI's own JSON formatter emits for this — verified against the installed
-  // @google/gemini-cli@0.49.0 package's bundled CLI output (`UiTelemetryService`,
-  // whose upstream source is `packages/core/src/telemetry/uiTelemetry.ts`),
-  // which feeds its JSON formatter's `stats` field. `api.totalRequests` is
-  // incremented on both a successful API call and a failed/retried one, so
-  // it counts API-call attempts, not strictly logical turns — see the
-  // caveat in cli-usage-parser.ts. A live successful capture could not be
-  // obtained in this environment (the account behind the locally-installed
-  // CLI returns `IneligibleTierError`, a server-side account-tier
-  // deprecation unrelated to missing credentials), so this fixture
-  // reproduces that real, cited schema rather than inventing a
-  // plausible-looking shape.
-  it("sums api.totalRequests across models into numTurns", () => {
-    const stdout = JSON.stringify({
-      session_id: "abc123",
-      response: "Done.",
-      stats: {
-        models: {
-          "gemini-2.5-pro": {
-            api: { totalRequests: 3 },
-            tokens: { prompt: 1200, candidates: 340 },
-          },
-          "gemini-2.5-flash": {
-            api: { totalRequests: 1 },
-            tokens: { prompt: 300, candidates: 60 },
-          },
-        },
-      },
-    });
-
-    const usage = parseGeminiUsage(stdout);
-
-    expect(usage.numTurns).toBe(4);
-  });
-
-  // Real captured stdout: an actual `gemini -p "..." --yolo --output-format
-  // json` invocation against a genuinely unusable account (server-side tier
-  // deprecation, functionally identical to "no credentials" for this
-  // adapter) — the CLI exits non-zero with every diagnostic on stderr and
-  // emits nothing on stdout at all. This is the real shape a credential-less
-  // run produces, not a hand-built empty string.
-  it("returns no numTurns for a real captured no-credentials failure (empty stdout)", () => {
-    const usage = parseGeminiUsage("");
-
-    expect(usage.numTurns).toBeUndefined();
-    expect(usage.costUsd).toBeUndefined();
-    expect(usage.tokenUsage).toBeUndefined();
-  });
-
-  it("returns no numTurns when no model reports api.totalRequests", () => {
-    const usage = parseGeminiUsage(
-      JSON.stringify({
-        stats: { models: { "gemini-2.5-pro": { tokens: { prompt: 10, candidates: 5 } } } },
-      })
-    );
-
-    expect(usage.numTurns).toBeUndefined();
-  });
-});
 
 describe("parseOpenCodeUsage", () => {
   it("sums cost/tokens across step_finish NDJSON events from `--format json`", () => {
@@ -195,27 +96,6 @@ describe("parseOpenCodeUsage", () => {
 });
 
 // ── Soft-error extraction from JSON stdout (#3019) ───────────────────
-
-describe("extractGeminiError", () => {
-  it("recovers the error message from a `--output-format json` error blob", () => {
-    const stdout = JSON.stringify({
-      session_id: "abc123",
-      error: { type: "FatalError", message: "Something went fatally wrong", code: 1 },
-    });
-
-    expect(extractGeminiError(stdout)).toBe("Something went fatally wrong");
-  });
-
-  it("returns undefined when stdout is not JSON", () => {
-    expect(extractGeminiError("plain text stderr-style output")).toBeUndefined();
-  });
-
-  it("returns undefined when the JSON blob has no error field", () => {
-    expect(
-      extractGeminiError(JSON.stringify({ session_id: "abc", response: "Done." }))
-    ).toBeUndefined();
-  });
-});
 
 describe("extractOpenCodeError", () => {
   it("recovers the error message from a `type: error` NDJSON event", () => {
@@ -415,5 +295,114 @@ describe("extractGrokError", () => {
       extractGrokError(JSON.stringify({ text: "Done.", stopReason: "end_turn" }))
     ).toBeUndefined();
     expect(extractGrokError("plain text stderr-style output")).toBeUndefined();
+  });
+});
+
+describe("parseOmpUsage", () => {
+  it("sums assistant message_end usage and folds cache buckets into input", () => {
+    const stdout = [
+      JSON.stringify({ type: "session", version: 3 }),
+      JSON.stringify({
+        type: "message_update",
+        usage: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1, cost: { total: 9 } },
+      }),
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "user", usage: { input: 999, output: 999, cost: { total: 9 } } },
+      }),
+      JSON.stringify({ type: "turn_end", message: { role: "assistant" } }),
+      JSON.stringify({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 100, output: 20, cacheRead: 50, cacheWrite: 4, cost: { total: 0.004 } },
+        },
+      }),
+      JSON.stringify({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 10, output: 5, cost: { total: 0.001 } },
+        },
+      }),
+    ].join("\n");
+
+    const usage = parseOmpUsage(stdout);
+
+    expect(usage.tokenUsage).toEqual({ inputTokens: 164, outputTokens: 25 });
+    expect(usage.costUsd).toBeCloseTo(0.005, 6);
+    expect(usage.numTurns).toBe(1);
+  });
+
+  it("falls back to assistant message_end count when no turn_end is present", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "assistant", usage: { input: 1, output: 1 } },
+      }),
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "assistant", usage: { input: 2, output: 2 } },
+      }),
+    ].join("\n");
+
+    expect(parseOmpUsage(stdout).numTurns).toBe(2);
+    expect(parseOmpUsage(stdout).costUsd).toBeUndefined();
+  });
+
+  it("records a numeric zero cost and omits cost when the field is absent", () => {
+    const zero = parseOmpUsage(
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "assistant", usage: { input: 1, output: 1, cost: { total: 0 } } },
+      })
+    );
+    expect(zero.costUsd).toBe(0);
+
+    const absent = parseOmpUsage(
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "assistant", usage: { input: 1, output: 1 } },
+      })
+    );
+    expect(absent.costUsd).toBeUndefined();
+  });
+
+  it("returns {} for plain text, broken JSON, and empty stdout", () => {
+    expect(parseOmpUsage("All changes applied.\n")).toEqual({});
+    expect(parseOmpUsage("{broken")).toEqual({});
+    expect(parseOmpUsage("")).toEqual({});
+  });
+});
+
+describe("extractOmpError", () => {
+  it("recovers finalError from a failed auto_retry_end", () => {
+    expect(
+      extractOmpError(
+        JSON.stringify({ type: "auto_retry_end", success: false, finalError: "not logged in" })
+      )
+    ).toBe("not logged in");
+  });
+
+  it("keeps the last matching error in the stream", () => {
+    const stdout = [
+      JSON.stringify({ type: "auto_retry_end", success: false, finalError: "first" }),
+      JSON.stringify({ type: "compaction_end", errorMessage: "compaction failed" }),
+      JSON.stringify({
+        type: "message_update",
+        assistantMessageEvent: { type: "error", error: "stream failed" },
+      }),
+      JSON.stringify({ type: "extension_error", error: "extension failed" }),
+      JSON.stringify({ type: "error", message: "last" }),
+    ].join("\n");
+
+    expect(extractOmpError(stdout)).toBe("last");
+  });
+
+  it("returns undefined for a success stream or plain text", () => {
+    expect(
+      extractOmpError(JSON.stringify({ type: "auto_retry_end", success: true, finalError: "nope" }))
+    ).toBeUndefined();
+    expect(extractOmpError("plain text stderr-style output")).toBeUndefined();
   });
 });

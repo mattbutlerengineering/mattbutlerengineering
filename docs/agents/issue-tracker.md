@@ -30,7 +30,7 @@ An issue body may carry a fenced yaml block tagged `agent` declaring per-issue o
 model: haiku # haiku | sonnet | opus — overrides the model router
 budget: 0.50 # max USD (capped at 5.00)
 max_turns: 30 # positive integer
-adapter: auto # claude | claude-cli | gemini | opencode | grok | auto
+adapter: auto # claude | claude-cli | opencode | grok | omp | auto
 verify: pnpm test # shell command; must exit 0 before issue-worker opens a PR
 ```
 ````

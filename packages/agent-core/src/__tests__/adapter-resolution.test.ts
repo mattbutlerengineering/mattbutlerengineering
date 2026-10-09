@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { resolveSessionAdapter } from "../adapter-resolution.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
 import { ClaudeCliAdapter } from "../adapters/claude-cli-adapter.js";
-import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
 import { GrokCliAdapter } from "../adapters/grok-adapter.js";
+import { OmpCliAdapter } from "../adapters/omp-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { FailoverSessionAdapter } from "../adapters/failover-session-adapter.js";
 
@@ -18,8 +18,8 @@ describe("resolveSessionAdapter", () => {
     expect(adapter).not.toBeInstanceOf(ClaudeAdapter);
   });
 
-  it("resolves 'gemini' to a GeminiCliAdapter", () => {
-    expect(resolveSessionAdapter("gemini")).toBeInstanceOf(GeminiCliAdapter);
+  it("resolves 'omp' to an OmpCliAdapter and keeps it out of auto", () => {
+    expect(resolveSessionAdapter("omp")).toBeInstanceOf(OmpCliAdapter);
   });
 
   it("resolves 'opencode' to an OpenCodeAdapter", () => {
@@ -30,12 +30,12 @@ describe("resolveSessionAdapter", () => {
     expect(resolveSessionAdapter("grok")).toBeInstanceOf(GrokCliAdapter);
   });
 
-  it("resolves 'auto' to a FailoverSessionAdapter cascading claude -> gemini -> opencode", () => {
+  it("resolves 'auto' to a FailoverSessionAdapter cascading claude -> opencode", () => {
     const adapter = resolveSessionAdapter("auto");
     expect(adapter).toBeInstanceOf(FailoverSessionAdapter);
   });
 
-  it("'auto' cascade tries claude first, then gemini, then opencode", async () => {
+  it("'auto' cascade tries claude first, then opencode", async () => {
     const adapter = resolveSessionAdapter("auto") as FailoverSessionAdapter;
     // Force every adapter to report unavailable so we can observe cascade
     // order via isAvailable() call sequence without invoking real CLIs.
@@ -69,6 +69,6 @@ describe("resolveSessionAdapter", () => {
       })
     ).rejects.toThrow();
 
-    expect(order).toEqual(["claude", "gemini", "opencode"]);
+    expect(order).toEqual(["claude", "opencode"]);
   });
 });

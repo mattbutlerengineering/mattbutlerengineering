@@ -68,6 +68,18 @@ describe("parseAgentFrontmatter", () => {
     expect(result.overrides).toEqual({ adapter: "grok" });
   });
 
+  it("accepts omp as an adapter override", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nadapter: omp\n```"));
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ adapter: "omp" });
+  });
+
+  it("rejects gemini now that it is not an adapter", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nadapter: gemini\n```"));
+    expect(result.overrides).toBeNull();
+    expect(result.warnings.some((w) => w.includes("adapter"))).toBe(true);
+  });
+
   it("rejects an unknown adapter with a warning", () => {
     const result = parseAgentFrontmatter(body("```yaml agent\nadapter: copilot\n```"));
     expect(result.overrides).toBeNull();
