@@ -88,6 +88,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-orphaned-collectors.mjs"],
   },
   {
+    name: "check-orphaned-cli-commands",
+    command: "node",
+    args: ["scripts/check-orphaned-cli-commands.mjs"],
+  },
+  {
     name: "check-audit-persistence-caller",
     command: "node",
     args: ["scripts/check-audit-persistence-caller.mjs"],

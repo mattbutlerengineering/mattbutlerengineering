@@ -88,7 +88,7 @@ describe("TemplateGallery", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
     expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("10");
-    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("11");
+    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("12");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("6");
     expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("7");
   });
@@ -274,6 +274,20 @@ describe("TemplateGallery", () => {
     // ConfirmDialog, which is why Dialog still reads uncovered. This prompt only
     // counts if it steers somewhere a confirmation prompt would not.
     expect(onSelect).not.toHaveBeenCalledWith(expect.stringMatching(/confirmation dialog/i));
+  });
+
+  it("includes a Row Actions Menu template that elicits DropdownMenu usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "row actions" } });
+
+    const card = screen.getByRole("button", { name: /use row actions menu template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Data Display");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DropdownMenu/));
   });
 
   it("includes a Live Departures Board template that elicits DepartureBoard usage", () => {

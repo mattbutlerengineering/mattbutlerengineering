@@ -329,6 +329,14 @@ const TEMPLATES: readonly Template[] = [
 
   // Data Display (continued)
   {
+    id: "row-actions-menu",
+    title: "Row Actions Menu",
+    description: "Data table with a per-row overflow button opening a dropdown of row actions",
+    category: "Data Display",
+    prompt:
+      'Data table where each row has a trailing "..." overflow button that opens a DropdownMenu listing row actions like Edit, Duplicate, and Delete',
+  },
+  {
     id: "live-departures-board",
     title: "Live Departures Board",
     description:

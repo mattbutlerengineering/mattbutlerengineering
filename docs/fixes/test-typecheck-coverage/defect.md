@@ -4,7 +4,7 @@ run: maintenance:test-typecheck-coverage
 date: 2026-10-08
 re-entry: implement
 origin: Review stage of maintenance:floor-plan-cache-keys (2026-10-07) — no backlog seed, no tracker issue
-status: implementing — Matt chose option A (real fixes, 5 PRs) on 2026-10-08; see autorun-brief.md § Decisions after Capture
+status: implemented — all six PRs opened (PR6 last); Matt chose option A (real fixes) on 2026-10-08, see autorun-brief.md § Decisions after Capture
 assumptions:
   - "Volume policy (brief, orchestrator default): measured total is 679 errors, over the ~500 trigger. Capture STOPPED here and surfaced the counts. Resolved 2026-10-08: Matt chose option A (real fixes everywhere, the 5-PR plan below)."
   - "Measurement method (Capture's choice, the brief is silent): per package, a throwaway tsconfig.ttc-tmp.json extending ./tsconfig.json with every escaped test file's directory added to include, the non-test excludes kept, rootDir widened to ../.. (the api-client/types precedent), then tsc --noEmit -p on it. The file was deleted right after each run and never committed. Counts are TS diagnostics (`error TSxxxx` lines), not distinct root causes."
@@ -241,7 +241,7 @@ Measured 679 > ~500. Choices for Matt:
 
 **PR 6: `packages/rialto` showcase test (1 test, 27 non-test errors)** — added 2026-10-08 (Matt)
 
-- [ ] **Config + fixes** — bring `packages/rialto/src/showcase/App.vibes.test.tsx` under a
+- [x] **Config + fixes** — bring `packages/rialto/src/showcase/App.vibes.test.tsx` under a
       typecheck project and fix the 27 showcase-source errors it pulls in (TS2322 ×15, TS2353
       ×7, TS4104 ×2, TS7006 ×2, TS2305 ×1). Showcase demo-app source edits are allowed (not
       type-only, unpublished demo code), each called out in the PR body.
@@ -249,14 +249,14 @@ Measured 679 > ~500. Choices for Matt:
 
 **Final (in the last PR)**
 
-- [ ] **Empty and delete `PENDING_IN_THIS_RUN`** in the guard test (added at PR1, see
+- [x] **Empty and delete `PENDING_IN_THIS_RUN`** in the guard test (added at PR1, see
       Notes). Each later PR removes its own entries; the guard's stale-entry test forces it.
   - Accept: the constant no longer exists.
-- [ ] **gotchas.md** — rewrite the "Vitest does NOT typecheck" bullet: the trap still exists
+- [x] **gotchas.md** — rewrite the "Vitest does NOT typecheck" bullet: the trap still exists
       in vitest, but `pnpm typecheck` now covers tests and the guard test enforces it. Also
       record the TS `exclude`-inheritance trap that broke api-client.
   - Accept: the bullet names the guard file.
-- [ ] **Gates** — `pnpm lint`, `pnpm typecheck`, `pnpm test` (including the scripts suite),
+- [x] **Gates** — `pnpm lint`, `pnpm typecheck`, `pnpm test` (including the scripts suite),
       `pnpm regen --check`, all green per PR.
   - Accept: `CI Gate` green on each PR's final head.
 
@@ -540,3 +540,52 @@ typecheck --dry=json`) before widening: unchanged for e2e spec, root test, root 
     code in `dist`.
   - **Adjacent (logged, not fixed):** app `lint` scripts are `eslint src/`, so e2e files
     are type-checked now but still not linted.
+- 2026-10-08 Implement PR6 (branch `fix/test-typecheck-coverage-6`, from `origin/main`
+  `1cd09d0e6`), the final PR:
+  - **Config.** `packages/rialto/tsconfig.showcase.json` (`extends ./tsconfig.json`,
+    `noEmit`, `include: [src/showcase, src/vite-env.d.ts, src/styles-entry.d.ts]`,
+    `exclude: []`), chained into `typecheck` as a third `tsc --noEmit -p`. `tsconfig.json`
+    (still excluding `src/showcase`) and `tsconfig.lib.json` are unchanged. Turbo inputs
+    already cover it (`src/**`, `tsconfig*.json`).
+  - **RED.** With the `PENDING_IN_THIS_RUN` entry removed and no config, the guard failed with
+    `{ "packages/rialto": ["src/showcase/App.vibes.test.tsx"] }`. With the config and no
+    fixes, `tsc` exited 2 with 27 errors (TS2322 15, TS2353 7, TS4104 2, TS7006 2, TS2305 1),
+    matching PR1's count. After the fixes: 0.
+  - **Showcase source edits (unpublished demo, toward current component APIs).** Several were
+    runtime-broken, not just mistyped: a throwaway (uncommitted) `render(<App />)` on the base
+    showcase threw `TypeError: Cannot read properties of undefined (reading 'map')` (an
+    old-API prop left a required array undefined), so the showcase app could not mount at
+    all. After the fixes the same probe renders with 0 `console.error` calls.
+    - `App.tsx`: both header `SegmentedControl`s use `segments` (via a `toSegments` helper, so
+      `VIBES` keeps the `{label, value}` shape its test reads) and `onChange`.
+    - `DataSection.tsx`: `ColumnDef` (never exported) → a `SampleColumn` derived from
+      `Table`'s own props; `SampleRow` interface → type alias (Table needs
+      `T extends Record<string, unknown>`); mutable arrays; the required `rowKey`; `Tabs`
+      `items/defaultValue/value` → `tabs/defaultTab/id`; `Accordion` items `value` → `id`;
+      `Pagination` `currentPage/onPageChange` → `page/onChange`.
+    - `FeedbackSection.tsx`: `Skeleton variant="circular"` → `"circle"`; `Steps activeStep` →
+      `currentStep` (the active step now highlights).
+    - `FoundationSection.tsx`: the Tags row maps a new `TAG_VARIANTS`
+      (`default/accent/success/error`) instead of the Badge list (Tag has no `neutral`/`warning`);
+      `removable/onRemove` → `dismissible/onDismiss` (the dismiss button now renders).
+    - `LayoutSection.tsx`: `Collapsible title` → `trigger`; `SegmentedControl` → `segments`/`onChange`.
+    - `OverlaySection.tsx`: `HoverCard` `trigger` prop/children → children (trigger) + `content`;
+      DropdownMenu/ContextMenu entries gain `id`, `onClick` → `onSelect`, `separator` →
+      `divider`; `ConfirmDialog onClose` → `onCancel` (Cancel/Escape now close it).
+    - Published `src/components/**`: unchanged. Casts introduced: none.
+  - **Guard final shape.** `PENDING_IN_THIS_RUN`, `pendingKeyMatches`, `isPendingFile` and the
+    stale-entry test are deleted; any uncovered file now fails directly. Probes with nothing
+    pending: moving `packages/gh-client/tsconfig.test.json` aside → RED
+    (`tsconfig.test.json does not exist (18 tests)`); dropping the showcase segment from
+    rialto's `typecheck` → RED (`src/showcase/App.vibes.test.tsx`). Both restored → GREEN.
+  - **Changeset: none.** rialto's `files` is `["dist/lib", "dist/manifest.json"]`, and the
+    showcase is outside `tsconfig.lib.json` and the lib entry. Clean `rm -rf dist && pnpm build`
+    before/after: same 736-file set, all 735 `dist/lib` files byte-identical (shasum); only
+    `dist/manifest.json` differs, by its per-run `generatedAt`.
+  - **gotchas.md.** The "Vitest does NOT typecheck" bullet now describes the guarded state:
+    the per-package test config shape, the guard and its `--showConfig` method, the inherited
+    `exclude` and same-basename `.ts`/`.tsx` traps, the turbo-inputs rule, what is still
+    uncovered (JS tests, `tests/smoke/`, e2e lint), and the unchanged pre-push gap.
+  - **Gates.** Guard 5/5; rialto `typecheck`/`test` (153 files, 2358 tests)/`lint` (0 errors)/
+    `build` green; `pnpm turbo typecheck --force` 52/52, 0 cached, 0 errors;
+    `pnpm --dir scripts test` 255 files, 4852 tests; `pnpm regen --check` up to date.
