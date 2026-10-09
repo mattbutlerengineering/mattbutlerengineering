@@ -408,7 +408,6 @@ export interface UseBookingFlowDeps {
 
 export function useBookingFlow({
   api,
-  venueId,
   venueSlug,
   stripePublishableKey,
   onHoldChange,
@@ -439,15 +438,18 @@ export function useBookingFlow({
   // Fetch available time slots for the currently selected date/party size.
   // Owned here (not the component) so it can be driven headlessly and reused
   // by both goToTimeSlot and the hold-expiry timer below.
+  // Slots come from the slug-scoped public route: the widget's api client is
+  // tokenless, so the staff /api/v1/availability route would 401 every guest.
+  // goToTimeSlot reports the missing-slug dead end before calling this, so the
+  // slug guard is just for the type.
   const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
-    if (!flowState.data.selectedDate) return [];
-    const response = await api.availability.getTimeSlots({
-      venueId,
+    if (!flowState.data.selectedDate || !venueSlug) return [];
+    const response = await api.availability.getTimeSlotsForVenue(venueSlug, {
       date: flowState.data.selectedDate,
       partySize: flowState.data.partySize,
     });
     return response.filter((slot) => slot.available);
-  }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
+  }, [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]);
 
   // Release a hold by ID — errors are ignored, the hold expires anyway.
   // Goes through the slug-scoped public route (#4487); a hold can only exist
@@ -528,12 +530,16 @@ export function useBookingFlow({
       releaseHold(holdId);
     }
     dispatch({ type: "GO_TO_TIME_SLOT" });
+    if (!venueSlug) {
+      dispatch({ type: "SET_SLOTS_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+      return;
+    }
     fetchSlots()
       .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
       .catch((err: unknown) => {
         dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
-  }, [flowState.data.hold, releaseHold, fetchSlots]);
+  }, [flowState.data.hold, releaseHold, fetchSlots, venueSlug]);
 
   const goToDateParty = useCallback(() => {
     const holdId = flowState.data.hold?.id;

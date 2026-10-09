@@ -1,6 +1,6 @@
 import type { Guest, GuestSegment, LapsingGuest, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
-import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const GUESTS_QUERY_KEY = "guests" as const;
@@ -78,6 +78,11 @@ export function useGuestSegments(venueId: string | null | undefined): UseGuestSe
   return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
 }
 
+/** The cache key useGuestSegments(venueId) reads from — invalidate through this, never a hand-built array. */
+export function guestSegmentsQueryKey(venueId: string | null | undefined): readonly unknown[] {
+  return buildQueryKey(GUEST_SEGMENTS_QUERY_KEY, { venueId });
+}
+
 /* ── useLapsingGuests ─────────────────────────────────── */
 
 export interface UseLapsingGuestsResult {
@@ -135,7 +140,7 @@ export const useAddGuest = createMutationHook<FindOrCreateGuestRequest>({
   invalidateKeys: GUESTS_QUERY_KEY,
   mutationFn: (api, data) => api.guests.findOrCreate(data),
   onSuccess: (queryClient, _data, variables) => {
-    queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
+    queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
   },
 });
 

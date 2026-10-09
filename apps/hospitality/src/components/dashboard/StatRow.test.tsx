@@ -63,6 +63,8 @@ const STATS: DashboardStats = {
   cancellationTrend: "neutral",
   waitlistCount: 4,
   longestWaitMinutes: 25,
+  depositAtRiskCount: 0,
+  noShowExposureCents: 0,
 };
 
 describe("StatRow", () => {

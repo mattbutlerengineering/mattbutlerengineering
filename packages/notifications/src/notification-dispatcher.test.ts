@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NotificationDispatcher } from "./notification-dispatcher.js";
-import type { BookingNotificationInput } from "./port.js";
+import type { BookingNotificationInput, NotificationPort } from "./port.js";
+import type { SmsPort } from "./sms-port.js";
 
 const SMS_MANAGE_BASE_URL = "https://app.mbe.dev/reservations/manage";
 
@@ -9,13 +10,18 @@ const mockEmailAdapter = {
   sendBookingReminder: vi.fn().mockResolvedValue(undefined),
   sendBookingModified: vi.fn().mockResolvedValue(undefined),
   sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
-};
+  sendWinBack: vi.fn().mockResolvedValue(undefined),
+  sendThankYouEmail: vi.fn().mockResolvedValue(undefined),
+} satisfies NotificationPort;
 
 const mockSmsAdapter = {
   sendBookingReminder: vi.fn().mockResolvedValue(undefined),
   sendWaitlistUpdate: vi.fn().mockResolvedValue(undefined),
   sendWinbackMessage: vi.fn().mockResolvedValue(undefined),
-};
+  sendWaitlistAdded: vi.fn().mockResolvedValue(undefined),
+  sendWaitlistPositionUpdate: vi.fn().mockResolvedValue(undefined),
+  sendWaitlistTableReady: vi.fn().mockResolvedValue(undefined),
+} satisfies SmsPort;
 
 const emailInput: BookingNotificationInput = {
   reservationId: "res_abc123",

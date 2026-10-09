@@ -371,7 +371,7 @@ describe("getGitDiff", () => {
     await getGitDiff("/repo");
 
     expect(mockExecFile).toHaveBeenCalledTimes(1);
-    const options = mockExecFile.mock.calls[0][2] as { timeout?: number };
+    const options = mockExecFile.mock.calls[0]![2] as { timeout?: number };
     expect(typeof options.timeout).toBe("number");
     expect(options.timeout).toBeGreaterThan(0);
   });

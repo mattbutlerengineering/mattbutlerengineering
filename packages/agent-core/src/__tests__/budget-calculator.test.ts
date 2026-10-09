@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   classifyTaskComplexity,
   resolveBudget,
@@ -118,7 +118,7 @@ describe("budget-calculator", () => {
   describe("fetchRecentPrExamples", () => {
     it("returns examples on success", async () => {
       const mockPr = { title: "P1", body: "B1", filesChanged: 1 };
-      vi.mocked(execFile).mockImplementation((cmd, args, options, callback) => {
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _options, callback) => {
         (callback as any)(null, { stdout: JSON.stringify(mockPr) });
         return {} as any;
       });
@@ -128,7 +128,7 @@ describe("budget-calculator", () => {
     });
 
     it("returns empty array on failure", async () => {
-      vi.mocked(execFile).mockImplementation((cmd, args, options, callback) => {
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _options, callback) => {
         (callback as any)(new Error("fail"));
         return {} as any;
       });

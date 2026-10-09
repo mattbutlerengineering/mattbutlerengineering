@@ -30,6 +30,20 @@ function mockGitFailure(err: {
   }) as typeof execFile);
 }
 
+/** The GitCommandError a runGit call rejected with; throws if it resolved or rejected with anything else. */
+async function gitErrorFrom(pending: Promise<string>): Promise<GitCommandError> {
+  const error = await pending.then(
+    () => {
+      throw new Error("expected runGit to reject");
+    },
+    (e: unknown) => e
+  );
+  if (!(error instanceof GitCommandError)) {
+    throw new Error(`expected a GitCommandError, got ${String(error)}`);
+  }
+  return error;
+}
+
 describe("runGit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +54,7 @@ describe("runGit", () => {
 
     await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: "/repo" });
 
-    const call = vi.mocked(execFile).mock.calls[0];
+    const call = vi.mocked(execFile).mock.calls[0]!;
     expect(call[0]).toBe("git");
     expect(call[1]).toEqual(["rev-parse", "--abbrev-ref", "HEAD"]);
   });
@@ -51,7 +65,7 @@ describe("runGit", () => {
 
     await runGit(["branch", "-D", "--", maliciousBranch], { cwd: "/repo" });
 
-    const call = vi.mocked(execFile).mock.calls[0];
+    const call = vi.mocked(execFile).mock.calls[0]!;
     // The dangerous string must arrive as a single argv element, not be
     // concatenated into a shell command string that a shell would parse.
     expect(call[1]).toEqual(["branch", "-D", "--", maliciousBranch]);
@@ -71,7 +85,7 @@ describe("runGit", () => {
 
     await runGit(["status"], { cwd: "/some/worktree" });
 
-    const call = vi.mocked(execFile).mock.calls[0];
+    const call = vi.mocked(execFile).mock.calls[0]!;
     const opts = call[2] as { cwd?: string };
     expect(opts.cwd).toBe("/some/worktree");
   });
@@ -81,7 +95,7 @@ describe("runGit", () => {
 
     await runGit(["status"]);
 
-    const call = vi.mocked(execFile).mock.calls[0];
+    const call = vi.mocked(execFile).mock.calls[0]!;
     const opts = call[2] as { timeout?: number };
     expect(opts.timeout).toBe(DEFAULT_GIT_TIMEOUT_MS);
   });
@@ -91,7 +105,7 @@ describe("runGit", () => {
 
     await runGit(["status"], { timeoutMs: 5_000 });
 
-    const call = vi.mocked(execFile).mock.calls[0];
+    const call = vi.mocked(execFile).mock.calls[0]!;
     const opts = call[2] as { timeout?: number };
     expect(opts.timeout).toBe(5_000);
   });
@@ -105,7 +119,7 @@ describe("runGit", () => {
   it("captures exit code and stderr on the typed error", async () => {
     mockGitFailure({ message: "Command failed", code: 128, stderr: "fatal: bad revision" });
 
-    const error = await runGit(["rev-parse", "nonexistent"]).catch((e) => e as GitCommandError);
+    const error = await gitErrorFrom(runGit(["rev-parse", "nonexistent"]));
 
     expect(error).toBeInstanceOf(GitCommandError);
     expect(error.exitCode).toBe(128);
@@ -117,7 +131,7 @@ describe("runGit", () => {
   it("surfaces a timeout as a typed error", async () => {
     mockGitFailure({ message: "Command timed out", killed: true });
 
-    const error = await runGit(["fetch"], { timeoutMs: 1 }).catch((e) => e as GitCommandError);
+    const error = await gitErrorFrom(runGit(["fetch"], { timeoutMs: 1 }));
 
     expect(error).toBeInstanceOf(GitCommandError);
     expect(error.message.toLowerCase()).toContain("timed out");

@@ -169,7 +169,7 @@ Two families, and they do different jobs. The **issue-state** labels below drive
 
 #### PR merge gates
 
-These are the labels that actually decide whether a PR merges. `tier:*` is applied by `.github/workflows/tier-classifier.yml` (by changed **file path**, not by title/body text); the tier policy itself lives in [docs/change-tiers.md](./docs/change-tiers.md), and the eligibility decision is the pure, unit-tested `scripts/merge-queue-eligibility.mjs`.
+These are the labels that actually decide whether a PR merges. `tier:*` is applied by `.github/workflows/tier-classifier.yml`: the **base** tier comes from changed file paths, but title/body prose can **escalate** it — a bare-word match on `secret(s)`, `credential(s)`, `rotate`, `leak`/`leaked`/`leaking`/`leaks`, or `incident(s)` bumps the tier by one, or hard-sets T4 if a changed file already matched a T3/T4 sensitive-path rule. Boilerplate checklist lines (`- [ ]`/`- [x]`) are stripped before this scan, so filling in `PULL_REQUEST_TEMPLATE.md`'s "No hardcoded secrets or credentials" item does not by itself escalate a PR. The tier policy itself lives in [docs/change-tiers.md](./docs/change-tiers.md), and the eligibility decision is the pure, unit-tested `scripts/merge-queue-eligibility.mjs`.
 
 | Label            | Meaning                                                                                                                                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -234,7 +234,9 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 
 ## Session Learning & Feedback Loop
 
-Three `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance. See `.claude/memory/README.md` and `.claude/reflections/README.md` for local documentation.
+Four `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance: `.claude/memory/`, `.claude/reflections/`, `.claude/improvement-loop/`, and `.claude/sessions/`. See `.claude/memory/README.md`, `.claude/reflections/README.md`, and `.claude/sessions/README.md` for local documentation.
+
+(`.claude/agent-spend/` and `.claude/state/` also live under `.claude/` but are plain data caches — agent spend telemetry and a Dependabot cache respectively, neither read nor written as part of the learning loop — so they're deliberately out of scope here.)
 
 ### `.claude/memory/` — Corrections and Reinforcements
 
@@ -306,6 +308,18 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 
 **Purpose:** Append-only record of autonomous-loop health and sensor trends. Used to detect regressions, discover repeat problems, and bootstrap new gotchas. The log does **not** contain detailed reasoning (that goes to reflections); it's a summary of facts and thresholds.
 
+### `.claude/sessions/` — Per-Session Summaries
+
+**Holds:** one archived summary per session, named `YYYY-MM-DD-<slug>.md`.
+
+**What writes to it:** during a session, the agent maintains `.claude/session-summary.md` as a scratchpad (started from `.claude/session-summary.template.md`). At session end, the `session-archive.sh` Stop hook copies it here as `YYYY-MM-DD-HHMMSS.md` unless it's still byte-identical to the template; renaming to the slug convention is a manual step the hook can't do for you.
+
+**What reads it:** `plugins/acmm/scripts/substance.js`, for the `acmm:session-summary` and `acmm:session-continuity` criteria — both read the frontmatter `date:` only (never a body date) and require an entry within the last 90 days.
+
+**Distinct from `.claude/session-logs/`** — a similarly-named but unrelated directory holding JSON session transcripts written by the `session-logger.sh` hook and pruned by the `session-log-rotate.sh` SessionStart hook (90-day/500-file cap). Nothing cross-references the two.
+
+Full mechanics, including a guard bug that silently disabled the archive hook for most of its life (#910 → #5598): [`.claude/sessions/README.md`](./.claude/sessions/README.md).
+
 ### Promotion Path: Corrections → Gotchas
 
 The `.claude/rules/gotchas.md` file is the canonical source for project-specific traps. Entries come from two sources:
@@ -321,7 +335,7 @@ The `.claude/rules/gotchas.md` file is the canonical source for project-specific
 
 ### Capturing a correction by hand
 
-`.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, which is why the corpus stops growing the moment nobody remembers to write one (newest entry `2026-05-10`, the defect [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) is about). Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
+`.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, so growing the corpus depends entirely on someone remembering to do it. [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) found the corpus had sat frozen for four months while `plugins/acmm/scripts/substance.js`'s `acmm:correction-capture` check kept scoring it as healthy; the fix (#5593) made that check require a qualifying entry within the last 90 days, not merely one that exists — it does not make the writing itself automatic. Verify the corpus's actual freshness with `ls .claude/memory/corrections/ | sort | tail -3` rather than trusting a date pinned here, since any date in this sentence goes stale the day after the next entry lands. Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
 
 ## Cross-Session Memory & Knowledge Graph
 

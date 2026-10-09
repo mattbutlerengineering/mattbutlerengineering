@@ -51,7 +51,7 @@ export function createQueryHook<TData, TParams = undefined, TResult = TData>(
     const queryParams = stripEnabled(params);
 
     const query = useQuery({
-      queryKey: queryParams !== undefined ? [key, queryParams] : [key],
+      queryKey: buildQueryKey(key, params),
       queryFn: () => fetcher(queryParams as TParams | undefined, api),
       enabled,
     });
@@ -65,6 +65,20 @@ export function createQueryHook<TData, TParams = undefined, TResult = TData>(
       refetch: query.refetch,
     };
   };
+}
+
+/**
+ * The single owner of query-key shape for hooks built by createQueryHook:
+ * `[key, params]` with `enabled` stripped, or `[key]` when no params remain.
+ * Mutations that invalidate one parameterized entry must build the key here
+ * too, so the invalidation can never drift from the cached key.
+ */
+export function buildQueryKey<TParams>(
+  key: string,
+  params?: (TParams & { enabled?: boolean }) | undefined
+): readonly unknown[] {
+  const queryParams = stripEnabled(params);
+  return queryParams !== undefined ? [key, queryParams] : [key];
 }
 
 /* ── Private helpers ─────────────────────────────────── */

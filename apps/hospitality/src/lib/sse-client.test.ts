@@ -42,7 +42,7 @@ function makeFetchImpl(): { impl: FetchEventSourceFn; calls: FakeCall[] } {
 }
 
 function latest(calls: FakeCall[]): FakeCall {
-  return calls[calls.length - 1];
+  return calls[calls.length - 1]!;
 }
 
 function okResponse(): Response {
@@ -89,7 +89,7 @@ describe("SseClient — connection lifecycle", () => {
     client.connect();
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe("http://localhost/stream");
+    expect(calls[0]!.url).toBe("http://localhost/stream");
   });
 
   it("aborts the in-flight request on disconnect()", () => {
@@ -185,7 +185,7 @@ describe("SseClient — Authorization header", () => {
 
 describe("SseClient — backoff progression", () => {
   function makeClient(
-    calls: FakeCall[],
+    _calls: FakeCall[],
     impl: FetchEventSourceFn,
     opts?: Partial<SseClientOptions>
   ): SseClient {
@@ -364,7 +364,7 @@ describe("SseClient — parse errors surfaced via onError", () => {
     latest(calls).onmessage({ event: "reservation:created", data: "not-json{{", id: "" });
 
     expect(onError).toHaveBeenCalledOnce();
-    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(onError.mock.calls[0]![0]).toBeInstanceOf(Error);
   });
 
   it("does NOT call onEvent when event data is invalid JSON", () => {

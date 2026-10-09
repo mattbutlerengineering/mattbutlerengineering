@@ -126,7 +126,6 @@
     <item priority="high">
       export function useBookingFlow({
         api,
-        venueId,
         venueSlug,
         stripePublishableKey,
         onHoldChange,
@@ -452,6 +451,12 @@
         options: CreateQueryHookOptions<TData, TParams, TResult>
       ): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildQueryKey<TParams>(
+        key: string,
+        params?: (TParams & { enabled?: boolean }) | undefined
+      ): readonly unknown[] { /* ... */ }
+    </item>
     <item priority="medium">
       function resolveEnabled<TParams>(
         params: (TParams & { enabled?: boolean }) | undefined,
@@ -742,6 +747,9 @@
       export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
     </item>
     <item priority="high">
+      export function floorPlanQueryKey(id: string | undefined): readonly unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
       export const useCloneFloorPlan: unknown;
     </item>
     <item priority="high">
@@ -894,6 +902,9 @@
     </item>
     <item priority="high">
       export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestSegmentsQueryKey(venueId: string | null | undefined): readonly unknown[] { /* ... */ }
     </item>
     <item priority="low">
       interface UseLapsingGuestsResult {
