@@ -132,6 +132,22 @@ vi.mock("../components/dashboard", () => ({
       ))}
     </div>
   ),
+  DepositExposureWidget: ({
+    depositAtRiskCount,
+    noShowExposureCents,
+    currency,
+  }: {
+    depositAtRiskCount: number;
+    noShowExposureCents: number;
+    currency: string;
+  }) => (
+    <div
+      data-testid="deposit-exposure-widget"
+      data-at-risk={depositAtRiskCount}
+      data-exposure-cents={noShowExposureCents}
+      data-currency={currency}
+    />
+  ),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -209,6 +225,10 @@ describe("HomePage", () => {
         upcomingCount: 3,
         cancellationRate: 10,
         cancellationTrend: "neutral",
+        waitlistCount: 0,
+        longestWaitMinutes: 0,
+        depositAtRiskCount: 2,
+        noShowExposureCents: 4500,
       },
       isLoading: false,
       error: null,
@@ -272,6 +292,10 @@ describe("HomePage", () => {
         upcomingCount: 0,
         cancellationRate: 0,
         cancellationTrend: "neutral",
+        waitlistCount: 0,
+        longestWaitMinutes: 0,
+        depositAtRiskCount: 0,
+        noShowExposureCents: 0,
       },
       isLoading: true,
       error: null,
@@ -293,6 +317,10 @@ describe("HomePage", () => {
         upcomingCount: 0,
         cancellationRate: 0,
         cancellationTrend: "neutral",
+        waitlistCount: 0,
+        longestWaitMinutes: 0,
+        depositAtRiskCount: 0,
+        noShowExposureCents: 0,
       },
       isLoading: false,
       error: serverError("GET", "/api/v1/reservations"),
@@ -327,6 +355,45 @@ describe("HomePage", () => {
     renderPage();
     expect(screen.getByTestId("reservation-list")).toBeDefined();
     expect(screen.getByTestId("activity-feed")).toBeDefined();
+  });
+
+  it("renders DepositExposureWidget with stats and venue currency when not loading", () => {
+    vi.mocked(useVenue).mockReturnValue(venueContextValue(VENUE));
+
+    renderPage();
+    const widget = screen.getByTestId("deposit-exposure-widget");
+    expect(widget.getAttribute("data-at-risk")).toBe("2");
+    expect(widget.getAttribute("data-exposure-cents")).toBe("4500");
+    expect(widget.getAttribute("data-currency")).toBe("USD");
+  });
+
+  it("defaults DepositExposureWidget currency to USD when no venue is selected", () => {
+    renderPage();
+    const widget = screen.getByTestId("deposit-exposure-widget");
+    expect(widget.getAttribute("data-currency")).toBe("USD");
+  });
+
+  it("hides DepositExposureWidget while stats are loading", () => {
+    vi.mocked(useDashboardStatsQuery).mockReturnValue({
+      reservations: [],
+      stats: {
+        totalReservations: 0,
+        expectedCovers: 0,
+        upcomingCount: 0,
+        cancellationRate: 0,
+        cancellationTrend: "neutral",
+        waitlistCount: 0,
+        longestWaitMinutes: 0,
+        depositAtRiskCount: 0,
+        noShowExposureCents: 0,
+      },
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    expect(screen.queryByTestId("deposit-exposure-widget")).toBeNull();
   });
 
   it("renders LapsingGuestsWidget fed by useLapsingGuests", () => {

@@ -196,6 +196,47 @@
       export const registerReadinessRoutes: unknown;
     </item>
   </file>
+  <file path="src/register-endpoint.ts">
+    <item priority="low">
+      interface EndpointDocs {
+        summary?: string;
+        operationId?: string;
+        description?: string;
+        tags?: readonly string[];
+        security?: ReadonlyArray<Record<string, readonly string[]>>;
+      }
+    </item>
+    <item priority="high">
+      type RouteGenericOf = EndpointRouteGeneric<D> extends RouteGenericInterface ? E...;
+    </item>
+    <item priority="low">
+      interface RegisterEndpointOptions {
+        docs: EndpointDocs;
+        preHandler?: RouteShorthandOptions<
+          RawServerDefault,
+          RawReque...;
+        handler: RouteHandlerMethod<
+          RawServerDefault,
+          RawRequestD...;
+      }
+    </item>
+    <item priority="medium">
+      function relativeUrl(prefix: string, def: AnyEndpointDefinition): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assertParamsMatchPath(def: AnyEndpointDefinition): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function responseSchemas(responses: EndpointResponses): Record<string, Record<string, unknown>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function registerEndpoint<D extends AnyEndpointDefinition>(
+        fastify: FastifyInstance,
+        def: D,
+        options: RegisterEndpointOptions<D>
+      ): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/start-service-server.ts">
     <item priority="low">
       interface StartServiceServerOptions {

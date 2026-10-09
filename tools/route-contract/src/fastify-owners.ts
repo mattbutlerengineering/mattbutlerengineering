@@ -77,6 +77,13 @@ export interface FastifyOwnerTables {
    * `NODE_ENV` at all.
    */
   envConditionalRoutes(): EnvConditionalRoute[];
+  /**
+   * `owner`'s OpenAPI document from the `test` boot (`app.swagger()`), read
+   * after `ready()`. The route side of schema parity: it is exactly the
+   * artifact the "OpenAPI output unchanged" constraint protects, and Fastify's
+   * `findRoute` exposes no route schema to read instead.
+   */
+  openApiDocument(owner: FastifyOwner): unknown;
   close(): Promise<void>;
 }
 
@@ -343,6 +350,7 @@ export async function bootFastifyOwners(): Promise<FastifyOwnerTables> {
     routeCount: (owner) => counts[owner],
     testBootRouteCount: (owner) => testEntries[owner].length,
     envConditionalRoutes,
+    openApiDocument: (owner) => apps[owner].swagger(),
     close: async () => {
       for (const owner of FASTIFY_OWNERS) {
         await apps[owner].close();

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createProblemDetails } from "@mbe/types";
-import { depositService, DepositTransitionError } from "../services/deposit.js";
+import { DepositTransitionError, type DepositService } from "../services/deposit.js";
 import { loadInVenueContext } from "./venue-access.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -42,13 +42,16 @@ type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
 type TransitionResult =
   { kind: "not-found" } | { kind: "invalid"; message: string } | { kind: "ok"; deposit: Deposit };
 
-export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
+export function depositTransitionHandler(
+  deposits: DepositService,
+  transition: (id: string) => Promise<Deposit>
+) {
   return async (request: DepositTransitionRequest, reply: FastifyReply) => {
     const result = await loadInVenueContext<TransitionResult>(
       "deposit",
       request.params.id,
       async () => {
-        const existing = await depositService.getById(request.params.id);
+        const existing = await deposits.getById(request.params.id);
         if (!existing) {
           return { kind: "not-found" };
         }

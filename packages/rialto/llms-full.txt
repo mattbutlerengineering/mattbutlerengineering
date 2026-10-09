@@ -3532,7 +3532,7 @@
         const name = exp.getName();
     
         // Skip non-component exports (types, hooks, lowercase utilities)
-        if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
+        if (name.startsWith("use") || name[0] !== name[0]!.toUpperCase()) continue;
         if (name.endsWith("Props") || name.endsWith("Context")) continue;
     
         // Resolve aliased symbols

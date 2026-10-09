@@ -38,12 +38,12 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toBe("src/app.ts");
-    expect(result.files[0].addedLines).toEqual([
+    expect(result.files[0]!.path).toBe("src/app.ts");
+    expect(result.files[0]!.addedLines).toEqual([
       { line: 11, content: 'console.log("added at 11");' },
       { line: 13, content: 'console.log("added at 13");' },
     ]);
-    expect(result.files[0].removedLineCount).toBe(1);
+    expect(result.files[0]!.removedLineCount).toBe(1);
     expect(result.totalAddedLines).toBe(2);
     expect(result.totalRemovedLines).toBe(1);
     // totalChangedLines includes the `+++`/`---` header lines (2 extra),
@@ -68,10 +68,10 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(2);
-    expect(result.files[0].path).toBe("src/a.ts");
-    expect(result.files[0].addedLines).toEqual([{ line: 1, content: 'console.log("a");' }]);
-    expect(result.files[1].path).toBe("src/b.ts");
-    expect(result.files[1].addedLines).toEqual([{ line: 5, content: 'const c = "b";' }]);
+    expect(result.files[0]!.path).toBe("src/a.ts");
+    expect(result.files[0]!.addedLines).toEqual([{ line: 1, content: 'console.log("a");' }]);
+    expect(result.files[1]!.path).toBe("src/b.ts");
+    expect(result.files[1]!.addedLines).toEqual([{ line: 5, content: 'const c = "b";' }]);
     expect(result.totalAddedLines).toBe(2);
   });
 
@@ -86,9 +86,9 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toBe("new-name.ts");
-    expect(result.files[0].addedLines).toEqual([]);
-    expect(result.files[0].removedLineCount).toBe(0);
+    expect(result.files[0]!.path).toBe("new-name.ts");
+    expect(result.files[0]!.addedLines).toEqual([]);
+    expect(result.files[0]!.removedLineCount).toBe(0);
   });
 
   it("attributes lines to the post-rename path when a rename carries content changes", () => {
@@ -108,9 +108,9 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toBe("new-name.ts");
-    expect(result.files[0].removedLineCount).toBe(1);
-    expect(result.files[0].addedLines).toHaveLength(1);
+    expect(result.files[0]!.path).toBe("new-name.ts");
+    expect(result.files[0]!.removedLineCount).toBe(1);
+    expect(result.files[0]!.addedLines).toHaveLength(1);
   });
 
   it("registers a binary file with zero added/removed lines", () => {
@@ -123,9 +123,9 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toBe("logo.png");
-    expect(result.files[0].addedLines).toEqual([]);
-    expect(result.files[0].removedLineCount).toBe(0);
+    expect(result.files[0]!.path).toBe("logo.png");
+    expect(result.files[0]!.addedLines).toEqual([]);
+    expect(result.files[0]!.removedLineCount).toBe(0);
     expect(result.totalAddedLines).toBe(0);
     expect(result.totalRemovedLines).toBe(0);
   });
@@ -143,9 +143,9 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toBe("src/dead.ts");
-    expect(result.files[0].addedLines).toEqual([]);
-    expect(result.files[0].removedLineCount).toBe(2);
+    expect(result.files[0]!.path).toBe("src/dead.ts");
+    expect(result.files[0]!.addedLines).toEqual([]);
+    expect(result.files[0]!.removedLineCount).toBe(2);
     expect(result.totalAddedLines).toBe(0);
     expect(result.totalRemovedLines).toBe(2);
   });

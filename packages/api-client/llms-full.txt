@@ -66,6 +66,10 @@
       partySize: number;
       duration?: number;
     }
+    export interface GetVenueTimeSlotsParams {
+      date: string;
+      partySize: number;
+    }
     export interface GetDatesParams {
       venueId: string;
       startDate: string;
@@ -81,6 +85,20 @@
       async getTimeSlots(params: GetTimeSlotsParams): Promise<TimeSlot[]> {
         const { venueId, ...query } = params;
         return this.client.getOne<TimeSlot[]>(`/api/v1/availability/${venueId}`, query as QueryParams);
+      }
+    
+      /**
+       * Get available time slots for a venue addressed by slug — the public,
+       * unauthenticated route the anonymous booking widget must use. Unlike
+       * {@link getTimeSlots} (staff, JWT-gated), the server resolves the venue
+       * from the slug and returns only available slots; `duration` is not
+       * accepted because the venue's own turn-time rules decide it.
+       */
+      async getTimeSlotsForVenue(slug: string, params: GetVenueTimeSlotsParams): Promise<TimeSlot[]> {
+        return this.client.getOne<TimeSlot[]>(publicAvailabilityPath(slug), {
+          date: params.date,
+          partySize: params.partySize,
+        });
       }
     
       /**
@@ -259,6 +277,9 @@
         return { "x-session-id": this.sessionId };
       }
     }
+    function publicAvailabilityPath(slug: string): string {
+      return `/public/v1/venues/${slug}/availability`;
+    }
     function publicHoldsPath(slug: string): string {
       return `/public/v1/venues/${slug}/holds`;
     }
@@ -325,6 +346,18 @@
       }
       const s = sp.toString();
       return s ? `?${s}` : "";
+    }
+    function interpolatePath(path: string, params: Record<string, unknown> | undefined): string {
+      return path.replace(/:([A-Za-z0-9_]+)/g, (_segment, name: string) =>
+        encodeURIComponent(String(params?.[name]))
+      );
+    }
+    function successBodySchema(def: AnyEndpointDefinition): z.ZodType | undefined {
+      for (const [status, response] of Object.entries(def.responses)) {
+        const code = Number(status);
+        if (code >= 200 && code < 300 && "body" in response) return response.body ?? undefined;
+      }
+      return undefined;
     }
     export interface ClientConfig {
       baseUrl: string;
@@ -422,6 +455,41 @@
         }
     
         return data as T;
+      }
+    
+      /**
+       * Execute one endpoint definition (`@mbe/types` `defineEndpoint`):
+       * interpolates `:params` (URL-encoded), appends `query` via
+       * {@link buildQueryString}, serializes a declared `body` on any method
+       * (`{}` for a body-less POST/PATCH/PUT), takes the method — and therefore the retry policy —
+       * from the definition, and validates the success body with the
+       * definition's own schema. Returns the full wire body (no `.data` unwrap);
+       * `undefined` for a 204.
+       */
+      call<D extends AnyEndpointDefinition>(
+        def: D,
+        input: EndpointInput<D>,
+        override?: PerRequestOptions
+      ): Promise<EndpointSuccess<D>> {
+        const { params, query, body } = input as {
+          params?: Record<string, unknown>;
+          query?: QueryParams;
+          body?: unknown;
+        };
+        const path = `${interpolatePath(def.path, params)}${query ? buildQueryString(query) : ""}`;
+        // A declared body is sent on any method (a DELETE can carry one); a
+        // body-less POST/PATCH/PUT still sends `{}`.
+        const options: RequestOptions = def.body
+          ? { method: def.method, body: JSON.stringify(body) }
+          : BODY_METHODS.has(def.method)
+            ? { method: def.method, body: "{}" }
+            : { method: def.method };
+        return this.request(
+          path,
+          options,
+          successBodySchema(def) as z.ZodSchema<EndpointSuccess<D>> | undefined,
+          override
+        );
       }
     
       get<T>(
@@ -847,13 +915,7 @@
     }
   </file>
   <file path="src/guests.ts">
-    export interface FindOrCreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      dietaryRestrictions?: string[];
-    }
+    export type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
     export interface ListGuestsParams {
       page?: number;
       limit?: number;
@@ -871,89 +933,84 @@
        * List guests for a venue
        */
       async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
-        return this.client.get<PaginatedResponse<Guest>>(
-          "/api/v1/guests",
-          params as unknown as QueryParams,
-          guestListSchema
-        );
+        const { venueId, page, limit } = params;
+        return this.client.call(guestsEndpoints.list, {
+          query: { venueId, page: page?.toString(), limit: limit?.toString() },
+        });
       }
     
       /**
        * Search guests
        */
       async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
-        return this.client.get<PaginatedResponse<Guest>>(
-          "/api/v1/guests/search",
-          params as unknown as QueryParams,
-          guestListSchema
-        );
+        const { venueId, query, hasNotVisitedInDays } = params;
+        return this.client.call(guestsEndpoints.search, {
+          query: { venueId, query, hasNotVisitedInDays: hasNotVisitedInDays?.toString() },
+        });
       }
     
       /**
        * Get guest segments for a venue
        */
       async getSegments(venueId: string): Promise<GuestSegment[]> {
-        return this.client.getOne<GuestSegment[]>(
-          `/api/v1/guests/segments?venueId=${venueId}`,
-          undefined,
-          z.array(GuestSegmentSchema)
-        );
+        return (await this.client.call(guestsEndpoints.getSegments, { query: { venueId } })).data;
       }
     
       /**
        * Get a guest by ID
        */
       async get(id: string): Promise<Guest> {
-        return this.client.getOne<Guest>(`/api/v1/guests/${id}`, undefined, GuestSchema);
+        return (await this.client.call(guestsEndpoints.get, { params: { id } })).data;
       }
     
       /**
        * Create a new guest
        */
       async create(data: CreateGuestRequest): Promise<Guest> {
-        return this.client.postOne<Guest>("/api/v1/guests", data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.create, { body: data })).data;
       }
     
       /**
        * Find or create a guest by email/phone
        */
       async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
-        return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.findOrCreate, { body: data })).data;
       }
     
       /**
        * Update a guest
        */
       async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
-        return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data, GuestSchema);
+        return (await this.client.call(guestsEndpoints.update, { params: { id }, body: data })).data;
       }
     
       /**
        * Delete a guest
        */
       async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/guests/${id}`);
+        await this.client.call(guestsEndpoints.delete, { params: { id } });
       }
     
       /**
        * Add a staff note to a guest
        */
       async addNote(id: string, text: string): Promise<Guest> {
-        return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text }, GuestSchema);
+        return (await this.client.call(guestsEndpoints.addNote, { params: { id }, body: { text } }))
+          .data;
       }
     
       /**
        * Get lapsing guests for a venue (on-demand scan)
        */
       async getLapsing(venueId: string): Promise<LapsingGuest[]> {
-        return this.client.getOne<LapsingGuest[]>(`/api/v1/guests/lapsing?venueId=${venueId}`);
+        return (await this.client.call(guestsEndpoints.getLapsing, { query: { venueId } })).data;
       }
     
       /**
        * Send a win-back message to a guest
        */
       async sendWinBack(id: string): Promise<{ sent: boolean }> {
-        return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
+        return (await this.client.call(guestsEndpoints.sendWinBack, { params: { id } })).data;
       }
     }
   </file>

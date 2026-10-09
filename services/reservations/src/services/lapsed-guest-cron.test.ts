@@ -102,6 +102,7 @@ const PAST_NEXT_INTERVAL_MS = 120;
 async function runOneScan(prisma: unknown): Promise<FastifyBaseLogger> {
   const monitor = createLapsedGuestMonitor({
     prisma: prisma as never,
+    emitLapsingGuests: vi.fn(),
     startupDelayMs: 0,
     intervalMs: 100,
   });
@@ -250,6 +251,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     const { client, queryRawVenueIds } = makePrisma();
     const monitor = createLapsedGuestMonitor({
       prisma: client as never,
+      emitLapsingGuests: vi.fn(),
       startupDelayMs: 0,
       intervalMs: 50,
     });

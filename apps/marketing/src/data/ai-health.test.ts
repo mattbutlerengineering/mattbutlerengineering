@@ -301,3 +301,211 @@ describe("normalizeSensorReport — reviewBurden", () => {
     expect(metrics.reviewBurden.totalReviews).toBeNull();
   });
 });
+
+describe("normalizeSensorReport — prCategoryBreakdown", () => {
+  // Matches scripts/sensors-registry.mjs's prCategoryMetrics registry entry,
+  // which reads scripts/collect-pr-metrics.mjs's computePrCategoryMetrics().
+  const PR_CATEGORY_REPORT = {
+    generated_at: "2026-09-30T12:00:00.000Z",
+    sensors: {
+      prCategoryMetrics: {
+        available: true,
+        total_prs: 95,
+        total_merged: 95,
+        total_closed_without_merge: 0,
+        by_category: {
+          "tier:trivial": { merged: 55, closed_without_merge: 0, acceptance_rate: 1 },
+          "tier:sensitive": { merged: 18, closed_without_merge: 0, acceptance_rate: 1 },
+          dependencies: { merged: 1, closed_without_merge: 0, acceptance_rate: 1 },
+        },
+      },
+    },
+    regressions: [],
+    summary: { sensors_available: 1, sensors_total: 1, regressions_detected: 0 },
+  };
+
+  it("extracts totals and per-category breakdown when available", () => {
+    const metrics = normalizeSensorReport(PR_CATEGORY_REPORT);
+
+    expect(metrics.prCategoryBreakdown.available).toBe(true);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBe(95);
+    expect(metrics.prCategoryBreakdown.totalMerged).toBe(95);
+    expect(metrics.prCategoryBreakdown.totalClosedWithoutMerge).toBe(0);
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      [
+        "tier:trivial",
+        {
+          merged: 55,
+          closedWithoutMerge: 0,
+          acceptanceRate: 1,
+          totalDecided: 55,
+          lowSample: false,
+        },
+      ],
+      [
+        "tier:sensitive",
+        {
+          merged: 18,
+          closedWithoutMerge: 0,
+          acceptanceRate: 1,
+          totalDecided: 18,
+          lowSample: false,
+        },
+      ],
+      [
+        "dependencies",
+        { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1, totalDecided: 1, lowSample: true },
+      ],
+    ]);
+  });
+
+  it("degrades to unavailable without throwing when the sensor key is absent", () => {
+    const metrics = normalizeSensorReport({ sensors: {} });
+    expect(metrics.prCategoryBreakdown.available).toBe(false);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBeNull();
+    expect(metrics.prCategoryBreakdown.totalMerged).toBeNull();
+    expect(metrics.prCategoryBreakdown.totalClosedWithoutMerge).toBeNull();
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("degrades to unavailable when the collector reports available: false", () => {
+    const metrics = normalizeSensorReport({
+      sensors: { prCategoryMetrics: { available: false } },
+    });
+    expect(metrics.prCategoryBreakdown.available).toBe(false);
+    expect(metrics.prCategoryBreakdown.totalPrs).toBeNull();
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("tolerates an empty by_category map without throwing", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          total_prs: 0,
+          total_merged: 0,
+          total_closed_without_merge: 0,
+          by_category: {},
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.available).toBe(true);
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([]);
+  });
+
+  it("passes unknown/future category keys through untouched without dropping others", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          total_prs: 3,
+          total_merged: 2,
+          total_closed_without_merge: 1,
+          by_category: {
+            "priority:critical": { merged: 1, closed_without_merge: 0, acceptance_rate: 1 },
+            "some-future-category": { merged: 1, closed_without_merge: 1, acceptance_rate: 0.5 },
+          },
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      [
+        "priority:critical",
+        { merged: 1, closedWithoutMerge: 0, acceptanceRate: 1, totalDecided: 1, lowSample: true },
+      ],
+      [
+        "some-future-category",
+        { merged: 1, closedWithoutMerge: 1, acceptanceRate: 0.5, totalDecided: 2, lowSample: true },
+      ],
+    ]);
+  });
+
+  it("does not invent numbers from a malformed category entry", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:trivial": { merged: "fifty-five", closed_without_merge: null },
+          },
+        },
+      },
+    });
+    expect(metrics.prCategoryBreakdown.byCategory).toEqual([
+      [
+        "tier:trivial",
+        {
+          merged: null,
+          closedWithoutMerge: null,
+          acceptanceRate: null,
+          totalDecided: null,
+          lowSample: true,
+        },
+      ],
+    ]);
+  });
+
+  it("flags lowSample true for a category with a single decided PR (n=1)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            audit: { merged: 0, closed_without_merge: 1, acceptance_rate: 0 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(1);
+    expect(stats.lowSample).toBe(true);
+  });
+
+  it("flags lowSample false at exactly the threshold (n=5)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:standard": { merged: 3, closed_without_merge: 2, acceptance_rate: 0.6 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(5);
+    expect(stats.lowSample).toBe(false);
+  });
+
+  it("flags lowSample true one below the threshold (n=4)", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:standard": { merged: 2, closed_without_merge: 2, acceptance_rate: 0.5 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(4);
+    expect(stats.lowSample).toBe(true);
+  });
+
+  it("flags lowSample false well above the threshold", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        prCategoryMetrics: {
+          available: true,
+          by_category: {
+            "tier:trivial": { merged: 55, closed_without_merge: 0, acceptance_rate: 1 },
+          },
+        },
+      },
+    });
+    const [, stats] = metrics.prCategoryBreakdown.byCategory[0]!;
+    expect(stats.totalDecided).toBe(55);
+    expect(stats.lowSample).toBe(false);
+  });
+});

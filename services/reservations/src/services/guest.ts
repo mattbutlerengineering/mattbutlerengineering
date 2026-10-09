@@ -12,8 +12,7 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
-import { emitLapsingGuests } from "./events.js";
+import { runLapsedGuestScan, type LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { buildGuestUpdateData } from "./guest-identity.js";
 import { assessGuestReliability } from "./guest-reliability.js";
 
@@ -398,7 +397,11 @@ export const guestService = {
     });
   },
 
-  async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
+  /** `emitLapsingGuests` publishes the result to live SSE clients (the caller's live emitter). */
+  async scanLapsedGuests(
+    venueId: string,
+    emitLapsingGuests: LapsedGuestScanDeps["emitLapsingGuests"]
+  ): Promise<LapsingGuest[]> {
     return runLapsedGuestScan(venueId, {
       findGuestsForScan: (vid) =>
         prisma.guest.findMany({

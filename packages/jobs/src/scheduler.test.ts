@@ -63,7 +63,7 @@ describe("JobScheduler", () => {
     new JobScheduler({ redisUrl: "redis://localhost:6379" });
 
     expect(mocks.redisCtor).toHaveBeenCalledOnce();
-    const [url, opts] = mocks.redisCtor.mock.calls[0];
+    const [url, opts] = mocks.redisCtor.mock.calls[0]!;
     expect(url).toBe("redis://localhost:6379");
     // lazyConnect defers the connection to the first command, so a JobScheduler
     // can be constructed in tests / app wiring without a Redis server present.
@@ -76,7 +76,7 @@ describe("JobScheduler", () => {
     await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000);
 
     expect(mocks.add).toHaveBeenCalledOnce();
-    const [jobName, data, opts] = mocks.add.mock.calls[0];
+    const [jobName, data, opts] = mocks.add.mock.calls[0]!;
     expect(jobName).toBe(JOB_TYPES.BOOKING_REMINDER);
     expect(data).toEqual(bookingPayload);
     expect(opts).toMatchObject({ delay: 3600000 });
@@ -88,7 +88,7 @@ describe("JobScheduler", () => {
     await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 0);
 
     expect(mocks.add).toHaveBeenCalledOnce();
-    const [, , opts] = mocks.add.mock.calls[0];
+    const [, , opts] = mocks.add.mock.calls[0]!;
     expect(opts).toMatchObject({ delay: 0 });
   });
 
@@ -98,7 +98,7 @@ describe("JobScheduler", () => {
     await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
 
     expect(mocks.upsertJobScheduler).toHaveBeenCalledOnce();
-    const [schedulerId, opts] = mocks.upsertJobScheduler.mock.calls[0];
+    const [schedulerId, opts] = mocks.upsertJobScheduler.mock.calls[0]!;
     expect(schedulerId).toContain(JOB_TYPES.LAPSED_GUEST_SCAN);
     expect(opts).toMatchObject({ pattern: "0 9 * * *" });
   });
@@ -108,7 +108,7 @@ describe("JobScheduler", () => {
 
     await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
 
-    const [, , template] = mocks.upsertJobScheduler.mock.calls[0];
+    const [, , template] = mocks.upsertJobScheduler.mock.calls[0]!;
     expect(template.data).toEqual(lapsedPayload);
   });
 
@@ -136,7 +136,7 @@ describe("JobScheduler", () => {
 
     await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000, knownId);
 
-    const [, , opts] = mocks.add.mock.calls[0];
+    const [, , opts] = mocks.add.mock.calls[0]!;
     expect(opts).toMatchObject({ jobId: knownId });
   });
 
@@ -166,6 +166,24 @@ describe("JobScheduler", () => {
     expect(mocks.remove).toHaveBeenCalledWith(knownId);
   });
 
+  it("cancel() reports true when the queue removed a job", async () => {
+    mocks.remove.mockResolvedValueOnce(1);
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(true);
+  });
+
+  it("cancel() reports false when there was no job to remove", async () => {
+    mocks.remove.mockResolvedValueOnce(0);
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(false);
+  });
+
+  it("cancel() reports false instead of throwing when removal fails", async () => {
+    mocks.remove.mockRejectedValueOnce(new Error("job is locked"));
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    await expect(scheduler.cancel("booking-reminder:res_abc")).resolves.toBe(false);
+  });
+
   it("DEFAULT_QUEUE_NAME is exported from job-types and equals 'mbe-notifications'", () => {
     expect(DEFAULT_QUEUE_NAME).toBe("mbe-notifications");
   });
@@ -182,7 +200,7 @@ describe("JobScheduler", () => {
 
     await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000);
 
-    const [, , opts] = mocks.add.mock.calls[0];
+    const [, , opts] = mocks.add.mock.calls[0]!;
     expect(opts).toMatchObject({ attempts: 3, backoff: { type: "exponential", delay: 1000 } });
   });
 
@@ -191,7 +209,7 @@ describe("JobScheduler", () => {
 
     await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
 
-    const [, , template] = mocks.upsertJobScheduler.mock.calls[0];
+    const [, , template] = mocks.upsertJobScheduler.mock.calls[0]!;
     expect(template.opts).toMatchObject({
       attempts: 3,
       backoff: { type: "exponential", delay: 1000 },

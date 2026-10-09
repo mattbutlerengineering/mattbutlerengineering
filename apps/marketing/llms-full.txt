@@ -152,6 +152,18 @@
       readonly review_coverage?: string;
       readonly no_formal_review_stage?: boolean;
     }
+    export interface PrCategoryStats {
+      readonly merged: number;
+      readonly closed_without_merge: number;
+      readonly acceptance_rate: number;
+    }
+    export interface PrCategoryMetrics {
+      readonly available: boolean;
+      readonly total_prs?: number;
+      readonly total_merged?: number;
+      readonly total_closed_without_merge?: number;
+      readonly by_category?: Record<string, PrCategoryStats>;
+    }
     export interface AcmmFailingGate {
       readonly name: string;
       readonly description: string;
@@ -179,6 +191,7 @@
         readonly queueEfficiency?: QueueEfficiencySensor;
         readonly reviewBurden?: ReviewBurdenSensor;
         readonly acmm?: AcmmSensor;
+        readonly prCategoryMetrics?: PrCategoryMetrics;
       };
       readonly thresholds?: Record<string, number>;
       readonly regressions: readonly unknown[];
@@ -214,6 +227,27 @@
        */
       readonly noFormalReviewStage: boolean;
     }
+    export const PR_CATEGORY_LOW_SAMPLE_THRESHOLD = 5;
+    export interface PrCategoryBreakdownStats {
+      readonly merged: number | null;
+      readonly closedWithoutMerge: number | null;
+      readonly acceptanceRate: number | null;
+      /** `merged + closedWithoutMerge`. Null when either input isn't a valid number. */
+      readonly totalDecided: number | null;
+      /**
+       * True when `totalDecided` is below `PR_CATEGORY_LOW_SAMPLE_THRESHOLD`, OR
+       * when `totalDecided` itself couldn't be determined — an unknown sample
+       * size is never presented as reliable either (#5901).
+       */
+      readonly lowSample: boolean;
+    }
+    export interface PrCategoryBreakdownMetrics {
+      readonly available: boolean;
+      readonly totalPrs: number | null;
+      readonly totalMerged: number | null;
+      readonly totalClosedWithoutMerge: number | null;
+      readonly byCategory: ReadonlyArray<readonly [string, PrCategoryBreakdownStats]>;
+    }
     export interface AcmmMetrics {
       readonly available: boolean;
       readonly level: number | null;
@@ -238,6 +272,7 @@
       readonly queueEfficiency: QueueEfficiencyMetrics;
       readonly reviewBurden: ReviewBurdenMetrics;
       readonly acmm: AcmmMetrics;
+      readonly prCategoryBreakdown: PrCategoryBreakdownMetrics;
     }
     function asRecord(value: unknown): Record<string, unknown> {
       return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -284,6 +319,35 @@
         rubberStampRatio: readNumber(reviewBurden.overall_rubber_stamp_ratio),
         reviewCoverage: readString(reviewBurden.review_coverage),
         noFormalReviewStage: reviewBurden.no_formal_review_stage === true,
+      };
+    }
+    function normalizePrCategoryStats(stats: unknown): PrCategoryBreakdownStats {
+      const s = asRecord(stats);
+      const merged = readNumber(s.merged);
+      const closedWithoutMerge = readNumber(s.closed_without_merge);
+      const totalDecided =
+        merged !== null && closedWithoutMerge !== null ? merged + closedWithoutMerge : null;
+    
+      return {
+        merged,
+        closedWithoutMerge,
+        acceptanceRate: readNumber(s.acceptance_rate),
+        totalDecided,
+        lowSample: totalDecided === null || totalDecided < PR_CATEGORY_LOW_SAMPLE_THRESHOLD,
+      };
+    }
+    function normalizePrCategoryMetrics(sensors: Record<string, unknown>): PrCategoryBreakdownMetrics {
+      const prCategoryMetrics = asRecord(sensors.prCategoryMetrics);
+      const byCategory = asRecord(prCategoryMetrics.by_category);
+    
+      return {
+        available: prCategoryMetrics.available === true,
+        totalPrs: readNumber(prCategoryMetrics.total_prs),
+        totalMerged: readNumber(prCategoryMetrics.total_merged),
+        totalClosedWithoutMerge: readNumber(prCategoryMetrics.total_closed_without_merge),
+        byCategory: Object.entries(byCategory).map(
+          ([category, stats]) => [category, normalizePrCategoryStats(stats)] as const
+        ),
       };
     }
     function normalizeFailingGate(gate: unknown): AcmmFailingGate {
@@ -336,6 +400,7 @@
         queueEfficiency: normalizeQueueEfficiency(sensors),
         reviewBurden: normalizeReviewBurden(sensors),
         acmm: normalizeAcmm(sensors),
+        prCategoryBreakdown: normalizePrCategoryMetrics(sensors),
       };
     }
   </file>

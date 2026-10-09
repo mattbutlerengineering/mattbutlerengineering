@@ -87,7 +87,10 @@ describe("ci.yml docs-only formatting gate", () => {
     // asserted here too so this job's own purpose cannot be quietly defeated.
     const gate = jobBlock(WORKFLOW, "ci-gate");
     expect(gate).toContain(JOB);
-    expect(gate).toMatch(/DOCS_FORMAT:\s*\$\{\{\s*needs\.docs-format\.result\s*\}\}/);
-    expect(gate).toContain('"$DOCS_FORMAT"');
+    // The result check hands the whole `needs` context to the fail-closed
+    // module (scripts/ci-gate-required-results.mjs), so being in `needs:` is
+    // what makes docs-format's result gate the merge.
+    expect(gate).toMatch(/NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}/);
+    expect(gate).toContain("node scripts/ci-gate-required-results.mjs");
   });
 });

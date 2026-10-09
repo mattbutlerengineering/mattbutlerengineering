@@ -291,7 +291,7 @@ describe("runHardenedQuery", () => {
     await vi.runAllTimersAsync();
     await resultPromise;
 
-    const callArgs = vi.mocked(query).mock.calls[0];
+    const callArgs = vi.mocked(query).mock.calls[0]!;
     expect(callArgs[0].options?.outputFormat).toEqual(outputFormat);
   });
 
@@ -305,7 +305,7 @@ describe("runHardenedQuery", () => {
     await vi.runAllTimersAsync();
     await resultPromise;
 
-    const callArgs = vi.mocked(query).mock.calls[0];
+    const callArgs = vi.mocked(query).mock.calls[0]!;
     expect(callArgs[0].options?.outputFormat).toBeUndefined();
   });
 

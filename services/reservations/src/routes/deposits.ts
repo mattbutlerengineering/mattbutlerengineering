@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
-import { depositService, DepositNotFoundError } from "../services/deposit.js";
+import { DepositNotFoundError } from "../services/deposit.js";
 import { resolveReservationVenueId } from "../services/deposit-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
 import { loadInVenueContext } from "./venue-access.js";
@@ -76,6 +76,8 @@ const depositProperties = {
  * definer body rather than as a separate unscoped Prisma read.
  */
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+  const { depositService } = fastify.services;
+
   // POST /api/v1/deposits — create a deposit
   fastify.post<{
     Body: { reservationId: string; amountCents: number; currency?: string };
@@ -296,7 +298,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    depositTransitionHandler((id) => depositService.apply(id))
+    depositTransitionHandler(depositService, (id) => depositService.apply(id))
   );
 
   // POST /api/v1/deposits/:id/refund — refund a held deposit
@@ -331,7 +333,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    depositTransitionHandler((id) => depositService.refund(id))
+    depositTransitionHandler(depositService, (id) => depositService.refund(id))
   );
 
   // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
@@ -366,7 +368,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    depositTransitionHandler((id) => depositService.forfeit(id, "staff"))
+    depositTransitionHandler(depositService, (id) => depositService.forfeit(id, "staff"))
   );
 };
 

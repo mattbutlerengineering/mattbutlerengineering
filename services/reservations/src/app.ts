@@ -31,23 +31,17 @@ import { briefingRoutes } from "./routes/briefing.js";
 import { bookingMetricsRoutes } from "./routes/booking-metrics.js";
 import { createNotificationPort } from "./notifications.js";
 import {
-  createDefaultBookingNotifier,
-  type BookingNotifier,
-} from "./services/booking-notifications.js";
-import {
   createDefaultWaitlistNotifier,
   type WaitlistNotifier,
 } from "./services/waitlist-notifier.js";
-import {
-  createDefaultPostVisitNotifier,
-  type PostVisitNotifier,
-} from "./services/post-visit-notifier.js";
+import { createDefaultPostVisitNotifier } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { db, prisma } from "./services/database.js";
+import { venueScopeOf } from "./routes/venue-scope.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
@@ -64,6 +58,13 @@ import { venueContextPreHandler } from "./middleware/venue-context.js";
 import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/venue-access.js";
 import { setRlsTripwireLogger } from "./services/rls-context-mode.js";
 import { setDepositServiceLogger } from "./services/deposit.js";
+import { createReservationTransitions, type ReservationTransitions } from "./transitions/index.js";
+import { createDispatcherMessaging } from "./transitions/adapters/dispatcher-messaging.js";
+import { createEmitterEvents } from "./transitions/adapters/emitter-events.js";
+import { allOutboundLive } from "./transitions/venue-policy.js";
+import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
+import { StripeService } from "./services/stripe.js";
+import { DepositService } from "./services/deposit.js";
 
 /**
  * Best-effort venue-id resolution for the global venue-context preHandler
@@ -87,8 +88,16 @@ const resolveGlobalVenueId: VenueIdResolver = (request) =>
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
-  bookingNotifier?: BookingNotifier;
-  postVisitNotifier?: PostVisitNotifier;
+  /**
+   * Reminder-job scheduler the reservation transitions use. Defaults to the
+   * notifier runtime's lazily connected scheduler; tests inject a recorder.
+   */
+  jobs?: JobsPort;
+  /**
+   * Stripe operations. Defaults to one `StripeService` built here from
+   * `STRIPE_SECRET_KEY`; tests inject `createInMemoryPayments`.
+   */
+  payments?: PaymentsPort;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
@@ -100,6 +109,24 @@ export interface ReservationsAppOptions extends AppOptions {
    * `fastify.services` decoration, so an override here is the single seam.
    */
   services?: Partial<DomainServices>;
+}
+
+/** A view of `map` with no mutators, so callers cannot rewrite the registry. */
+function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
+  const view: ReadonlyMap<K, V> = {
+    get size() {
+      return map.size;
+    },
+    get: (key) => map.get(key),
+    has: (key) => map.has(key),
+    keys: () => map.keys(),
+    values: () => map.values(),
+    entries: () => map.entries(),
+    forEach: (callback, thisArg) =>
+      map.forEach((value, key) => callback.call(thisArg, value, key, view)),
+    [Symbol.iterator]: () => map[Symbol.iterator](),
+  };
+  return view;
 }
 
 /**
@@ -134,6 +161,23 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     options
   );
 
+  // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
+  // records every route's `venueScoped` descriptor, or null, keyed
+  // "METHOD /url" (trailing slash stripped, as the RLS sweep keys routes).
+  // Installed before the first route plugin registers, so child plugins
+  // inherit the hook; routes/venue-scope-coverage.test.ts reads it with no
+  // database.
+  const venueScopes = new Map<string, string | null>();
+  fastify.addHook("onRoute", (route) => {
+    const url =
+      route.url.length > 1 && route.url.endsWith("/") ? route.url.slice(0, -1) : route.url;
+    const methods = Array.isArray(route.method) ? route.method : [route.method];
+    for (const method of methods) {
+      venueScopes.set(`${method} ${url}`, venueScopeOf(route.handler));
+    }
+  });
+  fastify.decorate("venueScopes", readOnlyView(venueScopes));
+
   // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
   // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real
   // shadow telemetry in production rather than logging into the module's
@@ -157,23 +201,13 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // buildApp() stays side-effect-free.
   const notifierRuntime = createNotifierRuntime();
 
-  // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-  const bookingNotifier =
-    options.bookingNotifier ??
-    createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
-  fastify.decorate("bookingNotifier", bookingNotifier);
-
-  // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-  const postVisitNotifier =
-    options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
-  fastify.decorate("postVisitNotifier", postVisitNotifier);
-
   // Wire waitlist notifier — injectable for testing, default env-backed for production
   const waitlistNotifier =
     options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
   fastify.decorate("waitlistNotifier", waitlistNotifier);
 
-  // Wire reservation events emitter — injectable for testing, default singleton for production
+  // Wire the live reservation events emitter — the single instance SSE clients
+  // subscribe to (routes/events.ts); injectable for testing
   const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
   fastify.decorate("reservationEvents", reservationEvents);
 
@@ -199,8 +233,45 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // decorate them so route plugins resolve dependencies from `fastify.services`
   // instead of importing the sibling singleton at module scope. Decorated before
   // route registration so child route plugins inherit it.
-  const services: DomainServices = { ...defaultDomainServices, ...options.services };
+  //
+  // Payments are constructed exactly once, here: one StripeService (same env
+  // name and placeholder fallback as before; getStripeConfig above still
+  // validates it) unless a test injects `options.payments`, and one
+  // DepositService over it.
+  const payments: PaymentsPort =
+    options.payments ?? new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder");
+  fastify.decorate("payments", payments);
+  const services: DomainServices = {
+    ...defaultDomainServices,
+    ...options.services,
+    depositService: options.services?.depositService ?? new DepositService(payments),
+  };
   fastify.decorate("services", services);
+
+  // Wire the reservation transitions (maintenance:reservation-transition-effects):
+  // the one module that decides what a transition sets off. Every effect
+  // adapter is constructed exactly once, here — messaging over the single
+  // NotificationDispatcher, jobs over the notifier runtime's scheduler (or an
+  // injected one), events over the single live emitter — and the venue effect
+  // policy source is chosen in this one place. Decorated before route
+  // registration so child route plugins inherit it.
+  const transitions = createReservationTransitions({
+    ports: {
+      messaging: createDispatcherMessaging({
+        dispatcher: notificationPort,
+        postVisitNotifier: createDefaultPostVisitNotifier(notificationPort),
+        getVenue: (venueId) => services.venueService.getById(venueId),
+        logger: fastify.log,
+      }),
+      jobs: options.jobs ?? notifierRuntime.scheduler,
+      events: createEmitterEvents(reservationEvents),
+    },
+    policy: allOutboundLive,
+    reservationService: services.reservationService,
+    deposits: services.depositService,
+    logger: fastify.log,
+  });
+  fastify.decorate("transitions", transitions);
 
   // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
   // (#5469). `@mbe/database`'s createDatabase() registers its own
@@ -276,7 +347,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(stripeWebhookRoutes);
 
   // Wire lapsed-guest monitor with lifecycle hooks
-  const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+  const lapsedGuestMonitor = createLapsedGuestMonitor({
+    prisma,
+    emitLapsingGuests: (venueId, guests) => reservationEvents.emitLapsingGuests(venueId, guests),
+  });
 
   if (process.env.NODE_ENV !== "test") {
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
@@ -319,13 +393,17 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
-    bookingNotifier: BookingNotifier;
     waitlistNotifier: WaitlistNotifier;
-    postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
+    /** Stripe operations — the one StripeService (or an injected fake). */
+    payments: PaymentsPort;
+    /** Reservation transitions — one verb per transition, effects planned in one table. */
+    transitions: ReservationTransitions;
     venueMembershipLookup: VenueMembershipLookup;
     hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
     services: DomainServices;
+    /** Every route's `venueScoped` descriptor, or null (see `venueScopeOf`). */
+    venueScopes: ReadonlyMap<string, string | null>;
   }
 }

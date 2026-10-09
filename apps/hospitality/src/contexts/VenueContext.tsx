@@ -51,9 +51,10 @@ export function VenueProvider({ children }: VenueProviderProps) {
   const queryClient = useQueryClient();
 
   // Venues are owned by the shared react-query hook — no bespoke effect,
-  // fetchVersionRef, or manual loading state. SSE venue mutations and the
-  // useUpdateVenue mutation both invalidate VENUES_QUERY_KEY, so this list
-  // stays fresh without any imperative refetch plumbing here.
+  // fetchVersionRef, or manual loading state. The useUpdateVenue mutation
+  // invalidates VENUES_QUERY_KEY, so this list stays fresh without any
+  // imperative refetch plumbing here. (No SSE event refreshes venues — the
+  // catalog in @mbe/types has no venue event.)
   const { data: fetchedVenues, isLoading } = useVenues({ limit: 100 });
   const venues = useMemo<readonly Venue[]>(() => fetchedVenues ?? [], [fetchedVenues]);
 
