@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
@@ -41,12 +41,17 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
+    lifetimeSpend: null,
+    noShowCount: 0,
+    riskScore: "standard",
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }
 
 function makeSegment(overrides: Partial<GuestSegment> = {}): GuestSegment {
-  return { name: "VIP", count: 5, ...overrides };
+  return { name: "VIP", description: "Most frequent guests", count: 5, ...overrides };
 }
 
 function createWrapper() {
@@ -338,7 +343,7 @@ describe("useGuestDirectory — segments", () => {
     });
 
     expect(result.current.segments?.length).toBe(2);
-    expect(result.current.segments?.[0].name).toBe("VIP");
+    expect(result.current.segments?.[0]!.name).toBe("VIP");
   });
 });
 

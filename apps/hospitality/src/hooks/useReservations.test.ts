@@ -47,6 +47,8 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     guestPhone: null,
     guestId: null,
     userId: null,
+    occasion: null,
+    seatingPreference: null,
     tableId: "table-1",
     venueId: "venue-1",
     createdAt: "2026-01-15T00:00:00Z",
@@ -64,6 +66,7 @@ function makePaginatedResponse(reservations: Reservation[]): PaginatedResponse<R
       total: reservations.length,
       totalPages: 1,
       hasNext: false,
+      hasPrev: false,
     },
   };
 }

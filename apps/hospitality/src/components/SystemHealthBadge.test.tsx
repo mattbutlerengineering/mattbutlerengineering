@@ -71,6 +71,10 @@ function makeAuthResult(overrides: Partial<AuthReturnType> = {}): AuthReturnType
     signOut: vi.fn(),
     signInSilent: vi.fn(),
     error: undefined,
+    activeNavigator: undefined,
+    isRefreshing: false,
+    sessionExpired: false,
+    refreshError: null,
     ...overrides,
   };
 }

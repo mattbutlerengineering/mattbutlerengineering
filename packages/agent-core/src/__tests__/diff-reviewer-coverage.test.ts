@@ -36,7 +36,7 @@ function frontmatterName(markdown: string): string | null {
     return null;
   }
 
-  const nameLine = block[1].split(/\r?\n/).find((line) => line.startsWith("name:"));
+  const nameLine = block[1]!.split(/\r?\n/).find((line) => line.startsWith("name:"));
   return nameLine ? nameLine.slice("name:".length).trim() : null;
 }
 

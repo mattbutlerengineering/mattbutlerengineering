@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "ts": "2026-10-04T11:47:35Z",
+    "install_seconds": 20,
+    "test_seconds": 359,
+    "total_seconds": 379,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "cac6ea8746fa8aade187908a881ca81932266dea"
+  }
+]

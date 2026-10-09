@@ -988,6 +988,12 @@
     <item priority="high">
       export function extractClaudeCliError(stdout: string): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function parseGrokUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractGrokError(stdout: string): string | undefined { /* ... */ }
+    </item>
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
     <item priority="high">
@@ -1009,6 +1015,16 @@
   <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
     <item priority="high">
       class GeminiCliAdapter {
+        name: unknown;
+        cliBinary: unknown;
+        async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapters/grok-adapter.ts">
+    <item priority="high">
+      class GrokCliAdapter {
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
@@ -1575,11 +1591,6 @@
     </item>
     <item priority="high">
       export const cleanupWorktreesCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/compound.ts">
-    <item priority="high">
-      export const compoundCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/generate.ts">
@@ -6615,6 +6626,96 @@
       ): Promise<T> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      type VenueSource = "query" | "body" | "params" | { readonly from: "query" | "bo | {
+            readonly entity: Entit | {
+            readonly resolve: (req;
+    </item>
+    <item priority="low">
+      type VenueAccess = "member" | "authenticated" | { readonly owner: (entity: E) ;
+    </item>
+    <item priority="low">
+      interface VenueScope {
+        venueId: string;
+        entity: E;
+        isAdmin: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface VenueScopeSpec {
+        venue: VenueSource<RG, E>;
+        access?: VenueAccess<E>;
+      }
+    </item>
+    <item priority="low">
+      type ScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export const VENUE_SCOPE: unique symbol;
+    </item>
+    <item priority="high">
+      export const venueScopeHooks: unknown;
+    </item>
+    <item priority="high">
+      export function venueScopeOf(handler: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type DirectSource = { readonly from: "query" | "body" | "params"; readonly fi...;
+    </item>
+    <item priority="high">
+      type EntitySource = Extract<
+        VenueSource<RG, E>,
+        { readonly entity: Entit...;
+    </item>
+    <item priority="high">
+      type ResolveSource = Extract<
+        VenueSource<RG, E>,
+        { readonly resolve: unkn...;
+    </item>
+    <item priority="medium">
+      function directSource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): DirectSource | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isEntitySource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): source is EntitySource<RG, E> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describe<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>,
+        access: VenueAccess<E>
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readField(request: FastifyRequest, { from, field }: DirectSource): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueScoped<
+        RG extends RouteGenericInterface = RouteGenericInterface,
+        E = undefined,
+      >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     <item priority="high">
       export const VENUE_CREATE_RATE_LIMIT: unknown;
@@ -9696,7 +9797,7 @@
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode";
+      type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode" | "grok";
     </item>
     <item priority="high">
       export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }
@@ -12900,8 +13001,8 @@
   <file path="packages/database/src/testing.ts">
     <item priority="low">
       interface MockPrisma {
-        $queryRaw: ReturnType<typeof vi.fn>;
-        $executeRaw: ReturnType<typeof vi.fn>;
+        $queryRaw: Mock;
+        $executeRaw: Mock;
       }
     </item>
     <item priority="low">
@@ -12909,19 +13010,20 @@
         prisma: MockPrisma;
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
+          getSlowQueryStats: Mock;
+        ...;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
       }
     </item>
     <item priority="low">
       interface MockDatabaseServiceOverrides {
         prisma?: Record<string, unknown>;
-        getSlowQueryStats?: ReturnType<typeof vi.fn>;
-        getServiceStatus?: ReturnType<typeof vi.fn>;
-        getPoolMetrics?: ReturnType<typeof vi.fn>;
-        shutdown?: ReturnType<typeof vi.fn>;
+        getSlowQueryStats?: Mock;
+        getServiceStatus?: Mock;
+        getPoolMetrics?: Mock;
+        shutdown?: Mock;
       }
     </item>
     <item priority="high">
@@ -12933,7 +13035,8 @@
       interface MockDatabaseModule {
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
+          getSlowQueryStats: Mock;
+        ...;
         prisma: MockPrisma;
       }
     </item>
@@ -15584,6 +15687,9 @@
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
       }
+    </item>
+    <item priority="medium">
+      function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> { /* ... */ }
     </item>
     <item priority="high">
       export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }

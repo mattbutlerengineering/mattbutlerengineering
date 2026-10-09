@@ -52,7 +52,7 @@ describe("JobWorker lifecycle", () => {
     });
 
     expect(mocks.redisCtor).toHaveBeenCalledOnce();
-    const [url, opts] = mocks.redisCtor.mock.calls[0];
+    const [url, opts] = mocks.redisCtor.mock.calls[0]!;
     expect(url).toBe("redis://localhost:6379");
     // lazyConnect defers the connection to the first command — prevents
     // ECONNREFUSED unhandled rejections in test/CI envs with no Redis.

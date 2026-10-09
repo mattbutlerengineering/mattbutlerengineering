@@ -23,7 +23,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 function makeSession(overrides: Partial<SessionResult> = {}): SessionResult {
   return {
     sessionId: "s1",
-    status: "completed",
+    status: "succeeded",
     branchName: "b",
     prUrl: null,
     costUsd: 0.2,

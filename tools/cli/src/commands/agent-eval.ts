@@ -45,6 +45,7 @@ const VALID_ADAPTERS: readonly AdapterType[] = [
   "claude-cli",
   "gemini",
   "opencode",
+  "grok",
 ];
 
 function isAdapterType(value: string): value is AdapterType {
@@ -65,7 +66,11 @@ export const agentEvalCommand = new Command("eval")
   .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
   .option("--task <id>", "Run only the task with this id")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
-  .option("--adapter <type>", "Agent adapter: auto, claude, claude-cli, gemini, opencode", "claude")
+  .option(
+    "--adapter <type>",
+    "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+    "claude"
+  )
   .option("--json", "Emit the EvalReport as JSON", false)
   .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
   .option(

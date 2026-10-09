@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-08T04:56:42.177Z",
+  "generated_at": "2026-10-08T18:04:14.813Z",
   "period": {
     "start": "2026-10-01",
     "end": "2026-10-08"
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.46,
-          "latest": "2026-10-07T17:52:38.627Z",
+          "age_days": 0.01,
+          "latest": "2026-10-08T17:55:39.357Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-07T17:52:38.627Z",
+      "collected_at": "2026-10-08T17:55:39.357Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 1,
@@ -73,31 +73,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 221725520,
-      "output_tokens": 529710,
-      "cache_creation_tokens": 9077389,
-      "cache_hit_rate": 0.9607,
+      "cache_read_tokens": 1065176,
+      "output_tokens": 1433,
+      "cache_creation_tokens": 83420,
+      "cache_hit_rate": 0.9274,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 2579,
-          "output_tokens": 450870,
-          "cache_read_tokens": 220096360,
-          "cache_creation_tokens": 7379841
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 330,
-          "output_tokens": 64802,
-          "cache_read_tokens": 662766,
-          "cache_creation_tokens": 1468848
-        },
-        "claude-haiku-5-5": {
-          "cost": 0,
-          "input_tokens": 32,
-          "output_tokens": 14038,
-          "cache_read_tokens": 966394,
-          "cache_creation_tokens": 228700
+          "input_tokens": 18,
+          "output_tokens": 1433,
+          "cache_read_tokens": 1065176,
+          "cache_creation_tokens": 83420
         }
       }
     },
@@ -105,13 +91,13 @@
       "available": true,
       "total_runs": 30,
       "completed": 29,
-      "passed": 18,
+      "passed": 24,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
         "conclusion": "",
-        "createdAt": "2026-10-08T04:56:46Z",
-        "name": "Auto-Merge Policy",
+        "createdAt": "2026-10-08T17:59:42Z",
+        "name": "Push on main",
         "status": "in_progress"
       }
     },
@@ -130,17 +116,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 47,
-      "logs_7d": 47,
-      "total_commits_7d": 308,
-      "unique_branches_7d": 1,
-      "branches_7d": ["main"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.002,
-      "total_lines_added_7d": 701609,
-      "lines_churned_7d": 1283,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 700868,
+      "lines_churned_7d": 417,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -152,15 +138,11 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 901985,
+      "total_runs": 909432,
       "window_shas": 62
     },
     "e2eStability": {
-      "available": true,
-      "consecutive_failures": 8,
-      "total_runs": 12,
-      "total_non_frontend_runs": 11,
-      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
+      "available": false
     },
     "queueEfficiency": {
       "available": false,
@@ -180,7 +162,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 10,
+    "sensors_available": 9,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"

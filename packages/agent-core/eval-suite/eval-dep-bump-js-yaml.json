@@ -1,0 +1,20 @@
+{
+  "id": "eval-dep-bump-js-yaml",
+  "category": "dep-bump",
+  "prompt": "Bump the js-yaml dependency declared in tools/cli/package.json to the latest 5.x patch release. Find the target version in one step with `pnpm view js-yaml versions --json` (or `npm view js-yaml versions --json`), picking the highest version matching the current major.minor (the currently pinned version is a caret range on a 5.x version — only bump the patch digit, never the minor or major). Edit only that one version string in tools/cli/package.json, then run pnpm install so pnpm-lock.yaml is regenerated to reflect the new resolved version. Do not change any other dependency, any application code, or any other package's package.json. Scope your own verification to tools/cli (e.g. `pnpm --filter @mbe/cli test`) — do not run the full monorepo lint/typecheck/test suite yourself, the harness verifies that separately. The existing test suite in tools/cli already exercises js-yaml (via adr.ts and issue-frontmatter.ts) and must continue to pass unchanged. If tools/cli/package.json already pins the latest 5.x patch release, leave it unchanged and note that in your summary — this is a correct no-op, not a failure.",
+  "fixtureRef": "tools/cli",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "tools/cli/package.json's js-yaml dependency is at the latest 5.x patch release (or was already there, confirmed as a no-op)",
+      "pnpm-lock.yaml reflects whatever resolved js-yaml version tools/cli/package.json now declares",
+      "No application code or other package's dependencies are changed"
+    ]
+  },
+  "budget": {
+    "maxTurns": 28,
+    "maxCostUsd": 1.3
+  }
+}

@@ -3,9 +3,11 @@ import {
   parseGeminiUsage,
   parseOpenCodeUsage,
   parseClaudeCliUsage,
+  parseGrokUsage,
   extractGeminiError,
   extractOpenCodeError,
   extractClaudeCliError,
+  extractGrokError,
 } from "../cli-usage-parser.js";
 
 describe("parseGeminiUsage", () => {
@@ -345,5 +347,73 @@ describe("extractClaudeCliError", () => {
 
   it("returns undefined when stdout is not JSON", () => {
     expect(extractClaudeCliError("plain text stderr-style output")).toBeUndefined();
+  });
+});
+
+describe("parseGrokUsage", () => {
+  it("folds cache buckets into inputTokens and reports cost and turns", () => {
+    const stdout = JSON.stringify({
+      text: "Done.",
+      stopReason: "end_turn",
+      num_turns: 7,
+      usage: {
+        input_tokens: 7210,
+        cache_read_input_tokens: 41000,
+        cache_creation_input_tokens: 12,
+        output_tokens: 1893,
+        reasoning_tokens: 412,
+      },
+      total_cost_usd: 0.01268905,
+    });
+
+    expect(parseGrokUsage(stdout)).toEqual({
+      costUsd: 0.01268905,
+      numTurns: 7,
+      tokenUsage: { inputTokens: 48222, outputTokens: 1893 },
+    });
+  });
+
+  it("omits costUsd when total_cost_usd is absent", () => {
+    const stdout = JSON.stringify({
+      text: "Done.",
+      num_turns: 2,
+      usage: { input_tokens: 10, output_tokens: 4 },
+    });
+
+    const usage = parseGrokUsage(stdout);
+    expect(usage.costUsd).toBeUndefined();
+    expect(usage.numTurns).toBe(2);
+    expect(usage.tokenUsage).toEqual({ inputTokens: 10, outputTokens: 4 });
+  });
+
+  it("returns {} for plain text or malformed JSON", () => {
+    expect(parseGrokUsage("All changes applied.\n")).toEqual({});
+    expect(parseGrokUsage("{broken")).toEqual({});
+    expect(parseGrokUsage("")).toEqual({});
+  });
+
+  it("returns no tokenUsage when the spend object has no usage", () => {
+    const usage = parseGrokUsage(JSON.stringify({ text: "Done.", sessionId: "abc" }));
+    expect(usage.tokenUsage).toBeUndefined();
+    expect(usage.numTurns).toBeUndefined();
+    expect(usage.costUsd).toBeUndefined();
+  });
+});
+
+describe("extractGrokError", () => {
+  it("recovers the message from a type:error object", () => {
+    const stdout = JSON.stringify({
+      type: "error",
+      message: "Couldn't start session: not logged in",
+    });
+
+    expect(extractGrokError(stdout)).toBe("Couldn't start session: not logged in");
+  });
+
+  it("returns undefined for a success object or plain text", () => {
+    expect(
+      extractGrokError(JSON.stringify({ text: "Done.", stopReason: "end_turn" }))
+    ).toBeUndefined();
+    expect(extractGrokError("plain text stderr-style output")).toBeUndefined();
   });
 });

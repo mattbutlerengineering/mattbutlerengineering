@@ -6,13 +6,7 @@ import pg from "pg";
 import type { FastifyInstance } from "fastify";
 import { jwtVerify } from "jose";
 import { MIGRATIONS_DIR, parseRlsDeclarations } from "../services/rls-force-coverage.js";
-import {
-  FIXTURES as STAFF_FIXTURES,
-  INFRA_ROUTES,
-  normalizeRouteKey,
-  parsePrintedRoutes,
-  type SweepContext,
-} from "./rls-route-sweep.fixtures.js";
+import { FIXTURES as STAFF_FIXTURES, type SweepContext } from "./rls-route-sweep.fixtures.js";
 import { PUBLIC_FIXTURES } from "./rls-route-sweep.fixtures-public.js";
 
 const FIXTURES = { ...STAFF_FIXTURES, ...PUBLIC_FIXTURES };
@@ -424,34 +418,9 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     await lockClient.end();
   }, 30_000);
 
-  it("has a fixture for every registered route (drift guard)", () => {
-    // HEAD is Fastify's auto-mirror of GET (`exposeHeadRoutes`, default on) —
-    // same handler, same guards, same RLS behavior. It needs no fixture of
-    // its own; the GET entry already proves it.
-    const registered = new Set(
-      parsePrintedRoutes(app.printRoutes({ commonPrefix: false }))
-        .filter((route) => !route.startsWith("HEAD "))
-        .map(normalizeRouteKey)
-    );
-
-    const uncovered = [...registered].filter(
-      (route) => !INFRA_ROUTES.has(route) && !(normalizeRouteKey(route) in FIXTURES)
-    );
-
-    expect(
-      uncovered,
-      "every non-infra registered route needs an RLS-sweep fixture (or an INFRA_ROUTES entry)"
-    ).toEqual([]);
-  });
-
-  it("every declared fixture actually corresponds to a live route", () => {
-    const registered = new Set(
-      parsePrintedRoutes(app.printRoutes({ commonPrefix: false })).map(normalizeRouteKey)
-    );
-    const stale = Object.keys(FIXTURES).filter((key) => !registered.has(normalizeRouteKey(key)));
-
-    expect(stale, "a fixture whose route no longer exists — remove or rename it").toEqual([]);
-  });
+  // The two-way fixture completeness checks (every route has a fixture, every
+  // fixture names a live route) moved to venue-scope-coverage.test.ts, which
+  // runs them with no database on every test job.
 
   for (const [routeKey, fixture] of Object.entries(FIXTURES)) {
     it(`[${fixture.kind}${fixture.blocker ? `/${fixture.blocker}` : ""}] ${routeKey}`, async () => {

@@ -9,7 +9,6 @@ import type {
   TagProps,
   TextProps,
 } from "@mattbutlerengineering/rialto";
-import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children }: BadgeProps) => <span data-testid="badge">{children}</span>,
@@ -38,6 +37,10 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     updatedAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
     lifetimeSpend: null,
+    noShowCount: 0,
+    riskScore: "standard",
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }
