@@ -460,7 +460,7 @@ describe("useTimelineData", () => {
       });
 
       expect(mockReservationsWalkIn).toHaveBeenCalledOnce();
-      expect(mockReservationsWalkIn.mock.calls[0][0]).not.toHaveProperty("guestId");
+      expect(mockReservationsWalkIn.mock.calls[0]![0]).not.toHaveProperty("guestId");
     });
 
     it("resolves to the created reservation so the page can select and focus it (item 15)", async () => {

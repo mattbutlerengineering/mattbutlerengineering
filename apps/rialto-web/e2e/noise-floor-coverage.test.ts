@@ -31,7 +31,7 @@ function subjectExpressions(source: string): string[] {
 
   for (let idx = source.indexOf(MARKER); idx !== -1; idx = source.indexOf(MARKER, idx + 1)) {
     let i = idx - 1;
-    while (i >= 0 && /\s/.test(source[i])) i -= 1;
+    while (i >= 0 && /\s/.test(source[i]!)) i -= 1;
 
     // Anything that is not a balanced `expect( … )` is recorded verbatim so it
     // reaches the classifier as unrecognised, rather than being skipped.
@@ -72,14 +72,14 @@ function resolveSubject(expression: string, source: string): string {
   const match = source.match(declaration);
   // An unresolved name stays a bare name, which no recognised form matches —
   // so it surfaces as a violation instead of vanishing.
-  return match ? match[1].trim() : expression;
+  return match ? match[1]!.trim() : expression;
 }
 
 /** The CSS selector that must perturb this subject, or `null` if unrecognised. */
 function selectorFor(expression: string): string | null {
   if (/^page\.getByTestId\([\s\S]*\)$/.test(expression)) return "[data-testid]";
   const locator = expression.match(/^page\.locator\(\s*(["'`])([^"'`]*)\1\s*\)$/);
-  if (locator) return locator[2];
+  if (locator) return locator[2]!;
   return null;
 }
 
@@ -91,7 +91,7 @@ function cssRules(css: string): string {
 /** Selectors declared by a CSS file, one entry per comma-separated selector. */
 function cssSelectors(css: string): string[] {
   return [...cssRules(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((block) =>
-    block[1]
+    block[1]!
       .split(",")
       .map((selector) => selector.trim())
       .filter(Boolean)

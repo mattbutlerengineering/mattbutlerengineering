@@ -2,19 +2,33 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
-import { useFloorPlans, useFloorPlan } from "./useFloorPlans.js";
+import {
+  useFloorPlans,
+  useFloorPlan,
+  useActivateFloorPlan,
+  useBulkUpdatePositions,
+  useAddTable,
+} from "./useFloorPlans.js";
 import type { FloorPlan } from "@mbe/types";
 
 /* ── Mocks ──────────────────────────────────────────── */
 
 const mockList = vi.fn();
 const mockGetById = vi.fn();
+const mockSetActive = vi.fn();
+const mockBulkUpdatePositions = vi.fn();
+const mockCreateTable = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
     floorPlans: {
       list: mockList,
       getById: mockGetById,
+      setActive: mockSetActive,
+      bulkUpdatePositions: mockBulkUpdatePositions,
+    },
+    tables: {
+      create: mockCreateTable,
     },
   }),
 }));
@@ -27,6 +41,7 @@ function makeFloorPlan(overrides: Partial<FloorPlan> = {}): FloorPlan {
     name: "Main Floor",
     venueId: "venue-1",
     isActive: true,
+    layoutJson: { width: 800, height: 600 },
     tables: [],
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
@@ -135,5 +150,56 @@ describe("useFloorPlan", () => {
       wrapper: createWrapper(),
     });
     expect(result.current.data).toBeNull();
+  });
+});
+
+/* ── Tests: mutations invalidate the detail query's real cache key ── */
+
+describe("floor-plan mutations invalidate the cached useFloorPlan entry", () => {
+  // The exact key useFloorPlan("fp-1") caches under (createQueryHook: [key, params]).
+  const detailKey = ["floorPlan", { id: "fp-1" }];
+
+  function seededClient() {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(detailKey, makeFloorPlan({ id: "fp-1", isActive: false }));
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    return { queryClient, wrapper };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("useActivateFloorPlan invalidates the detail entry", async () => {
+    mockSetActive.mockResolvedValue(undefined);
+    const { queryClient, wrapper } = seededClient();
+    const { result } = renderHook(() => useActivateFloorPlan(), { wrapper });
+
+    await result.current.mutateAsync("fp-1");
+
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
+  });
+
+  it("useBulkUpdatePositions invalidates the detail entry", async () => {
+    mockBulkUpdatePositions.mockResolvedValue(undefined);
+    const { queryClient, wrapper } = seededClient();
+    const { result } = renderHook(() => useBulkUpdatePositions(), { wrapper });
+
+    await result.current.mutateAsync({ floorPlanId: "fp-1", positions: [] });
+
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
+  });
+
+  it("useAddTable invalidates the detail entry", async () => {
+    mockCreateTable.mockResolvedValue({ id: "t-1" });
+    const { queryClient, wrapper } = seededClient();
+    const { result } = renderHook(() => useAddTable(), { wrapper });
+
+    await result.current.mutateAsync({ name: "T1", capacity: 2, floorPlanId: "fp-1" });
+
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
   });
 });

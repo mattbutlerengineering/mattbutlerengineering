@@ -336,6 +336,15 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       'Data table where each row has a trailing "..." overflow button that opens a DropdownMenu listing row actions like Edit, Duplicate, and Delete',
   },
+  {
+    id: "live-departures-board",
+    title: "Live Departures Board",
+    description:
+      "Transit-style departures board cycling status announcements with mechanical flaps",
+    category: "Data Display",
+    prompt:
+      "Live departures board for a transit terminal built from a DepartureBoard split-flap display that cycles through a sequence of short status announcements — boarding times, gate changes, and delay notices — styled like an airport or train station board with a mechanical flap animation between each line",
+  },
 
   // Forms (continued)
   {
@@ -346,6 +355,17 @@ const TEMPLATES: readonly Template[] = [
     category: "Forms",
     prompt:
       "Create-a-new-guest flow where an Add Guest button opens a Dialog containing an editable form — name, email, phone, and a notes field — with Cancel and Save buttons in the dialog footer, the dialog title naming the record being created, and validation errors shown inline beneath each field while the dialog stays open",
+  },
+
+  // Data Display (continued)
+  {
+    id: "activity-log-panel",
+    title: "Activity Log Panel",
+    description:
+      "Scrollable activity feed inside a fixed-height panel that scrolls independently of the page",
+    category: "Data Display",
+    prompt:
+      "Activity log panel showing a long feed of recent events inside a fixed-height ScrollArea, so the feed scrolls independently without scrolling the page itself",
   },
 ] as const;
 

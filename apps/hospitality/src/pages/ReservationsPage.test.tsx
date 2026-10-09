@@ -386,14 +386,14 @@ describe("ReservationsPage", () => {
       renderPage();
       const stats = screen.getAllByTestId("stat");
       expect(stats).toHaveLength(4);
-      expect(stats[0].textContent).toContain("Total");
-      expect(stats[0].textContent).toContain("3");
-      expect(stats[1].textContent).toContain("Confirmed");
-      expect(stats[1].textContent).toContain("1");
-      expect(stats[2].textContent).toContain("Pending");
-      expect(stats[2].textContent).toContain("1");
-      expect(stats[3].textContent).toContain("Cancelled");
-      expect(stats[3].textContent).toContain("1");
+      expect(stats[0]!.textContent).toContain("Total");
+      expect(stats[0]!.textContent).toContain("3");
+      expect(stats[1]!.textContent).toContain("Confirmed");
+      expect(stats[1]!.textContent).toContain("1");
+      expect(stats[2]!.textContent).toContain("Pending");
+      expect(stats[2]!.textContent).toContain("1");
+      expect(stats[3]!.textContent).toContain("Cancelled");
+      expect(stats[3]!.textContent).toContain("1");
     });
 
     it("shows zero totals when no reservations", () => {
@@ -425,7 +425,7 @@ describe("ReservationsPage", () => {
       mockDisplayHook({
         data: defaultReservations,
         stats: defaultStats,
-        filteredData: [defaultReservations[0]], // only Alice
+        filteredData: [defaultReservations[0]!], // only Alice
       });
 
       fireEvent.click(screen.getByTestId("segment-CONFIRMED"));
@@ -443,7 +443,7 @@ describe("ReservationsPage", () => {
       mockDisplayHook({
         data: defaultReservations,
         stats: defaultStats,
-        filteredData: [defaultReservations[1]], // only Bob
+        filteredData: [defaultReservations[1]!], // only Bob
       });
 
       fireEvent.click(screen.getByTestId("segment-PENDING"));
@@ -460,7 +460,7 @@ describe("ReservationsPage", () => {
       mockDisplayHook({
         data: defaultReservations,
         stats: defaultStats,
-        filteredData: [defaultReservations[0]],
+        filteredData: [defaultReservations[0]!],
       });
       renderPage();
 
@@ -493,11 +493,11 @@ describe("ReservationsPage", () => {
       mockDisplayHook({
         data: defaultReservations,
         stats: defaultStats,
-        filteredData: [defaultReservations[1]], // only Bob
+        filteredData: [defaultReservations[1]!], // only Bob
       });
 
       const searchInput = screen.getAllByTestId("search-input")[0];
-      fireEvent.change(searchInput, { target: { value: "Bob" } });
+      fireEvent.change(searchInput!, { target: { value: "Bob" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Alice")).toBeNull();
@@ -516,7 +516,7 @@ describe("ReservationsPage", () => {
       });
 
       const searchInput = screen.getAllByTestId("search-input")[0];
-      fireEvent.change(searchInput, { target: { value: "Zzznotfound" } });
+      fireEvent.change(searchInput!, { target: { value: "Zzznotfound" } });
 
       await waitFor(() => {
         expect(screen.getByTestId("empty-state")).toBeDefined();
@@ -539,7 +539,11 @@ describe("ReservationsPage", () => {
     });
 
     it("shows returning-guest badge with visit count when guest.visitCount > 1", () => {
-      const dave = makeReservation({ id: "r1", guestName: "Dave", guest: { visitCount: 4 } });
+      const dave = makeReservation({
+        id: "r1",
+        guestName: "Dave",
+        guest: { visitCount: 4, communicationPreference: null },
+      });
       mockDisplayHook({
         data: [dave],
         stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
@@ -569,7 +573,11 @@ describe("ReservationsPage", () => {
     });
 
     it("does not show returning-guest badge when guest.visitCount is 1", () => {
-      const frank = makeReservation({ id: "r1", guestName: "Frank", guest: { visitCount: 1 } });
+      const frank = makeReservation({
+        id: "r1",
+        guestName: "Frank",
+        guest: { visitCount: 1, communicationPreference: null },
+      });
       mockDisplayHook({
         data: [frank],
         stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
@@ -584,8 +592,8 @@ describe("ReservationsPage", () => {
     });
 
     it("displays notes or dash when no notes", () => {
-      const withNote = { ...defaultReservations[0], notes: "Window seat please" };
-      const noNote = { ...defaultReservations[1], notes: null };
+      const withNote = { ...defaultReservations[0]!, notes: "Window seat please" };
+      const noNote = { ...defaultReservations[1]!, notes: null };
       mockDisplayHook({
         data: [withNote, noNote],
         stats: { total: 2, confirmed: 1, pending: 1, cancelled: 0 },
@@ -599,7 +607,7 @@ describe("ReservationsPage", () => {
     });
 
     it("shows guest email when present", () => {
-      const withEmail = { ...defaultReservations[0], guestEmail: "alice@example.com" };
+      const withEmail = { ...defaultReservations[0]!, guestEmail: "alice@example.com" };
       mockDisplayHook({
         data: [withEmail],
         stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
@@ -628,7 +636,7 @@ describe("ReservationsPage", () => {
       // The action is a second "New reservation" button; it opens the same dialog.
       const actions = screen.getAllByRole("button", { name: "New reservation" });
       expect(actions).toHaveLength(2);
-      fireEvent.click(actions[1]);
+      fireEvent.click(actions[1]!);
       expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
     });
 
@@ -959,7 +967,7 @@ describe("ReservationsPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "View Alice reservation on timeline" }));
 
       expect(mockNavigate).toHaveBeenCalledWith(
-        `/timeline?date=${defaultReservations[0].date}&selected=${defaultReservations[0].id}`
+        `/timeline?date=${defaultReservations[0]!.date}&selected=${defaultReservations[0]!.id}`
       );
     });
 
@@ -969,7 +977,7 @@ describe("ReservationsPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "View Bob reservation on timeline" }));
 
       expect(mockNavigate).toHaveBeenCalledWith(
-        `/timeline?date=${defaultReservations[1].date}&selected=${defaultReservations[1].id}`
+        `/timeline?date=${defaultReservations[1]!.date}&selected=${defaultReservations[1]!.id}`
       );
     });
   });

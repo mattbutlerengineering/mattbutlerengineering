@@ -6051,75 +6051,6 @@
         console.log(`\nCleaned up ${toRemove.length} worktrees.`);
       });
   </file>
-  <file path="tools/cli/src/commands/compound.ts">
-    export const compoundCommand = new Command("compound")
-      .description("Perform the final Compounding phase: Identify and codify task learnings")
-      .action(async () => {
-        const root = findMonorepoRoot(process.cwd());
-        console.log("🧠 Starting Compounding Phase...");
-    
-        try {
-          // Get the staged changes or last commit
-          const diff = execSync("git diff HEAD", { cwd: root, encoding: "utf8" });
-    
-          if (!diff) {
-            console.log("No changes detected since last commit. Have you committed your work yet?");
-            console.log("If so, try checking the last commit: git show HEAD");
-          }
-    
-          console.log("\nAnalyzing changes for compoundable knowledge...");
-    
-          const suggestions: string[] = [];
-    
-          // 1. Check for new packages or structural changes
-          if (
-            diff.includes("package.json") &&
-            (diff.includes('+  "name":') || diff.includes('+    "@mbe/'))
-          ) {
-            suggestions.push(
-              "New internal package detected. ACTION: Add its core purpose to AGENTS.md #Project Structure."
-            );
-          }
-    
-          // 2. Check for API changes
-          if (diff.includes("services/") && diff.includes("routes/") && diff.includes("+  fastify.")) {
-            suggestions.push(
-              "New API endpoints detected. ACTION: Run 'mbe pack' on the service to update llms.txt."
-            );
-          }
-    
-          // 3. Check for pattern establishing (ADRs)
-          if (diff.includes("ADR-") && diff.includes("+status: active")) {
-            suggestions.push(
-              "New architectural decision established. ACTION: Run 'mbe sync-rules' to propagate to all AI tools."
-            );
-          }
-    
-          // 4. Check for UI patterns
-          if (diff.includes("packages/rialto") && diff.includes("+export function")) {
-            suggestions.push(
-              "New design system component detected. ACTION: Update packages/rialto/CLAUDE.md with the new component spec."
-            );
-          }
-    
-          if (suggestions.length === 0) {
-            console.log(
-              "✅ No obvious compounding tasks found. Consider if any tribal knowledge should be moved to AGENTS.md."
-            );
-          } else {
-            console.log("\nCompounding Recommendations:");
-            suggestions.forEach((s, i) => console.log(`${i + 1}. ${s}`));
-          }
-    
-          console.log("\nRemember: A task is not done until the knowledge gained has been codified.");
-        } catch (error) {
-          console.error(
-            "Error during compounding analysis:",
-            error instanceof Error ? error.message : String(error)
-          );
-        }
-      });
-  </file>
   <file path="tools/cli/src/commands/generate.ts">
     function writeFile(filePath: string, content: string): void {
       const dir = resolve(filePath, "..");
@@ -9017,7 +8948,7 @@
       return response.json() as Promise<TokenResponse>;
     }
     function decodeJwtPayload(token: string): Record<string, unknown> {
-      const base64 = token.split(".")[1];
+      const base64 = token.split(".")[1]!;
       const json = Buffer.from(base64, "base64url").toString("utf-8");
       return JSON.parse(json) as Record<string, unknown>;
     }
@@ -10022,7 +9953,7 @@
       );
     }
     function decodeJwtPayload(token: string): Record<string, unknown> {
-      const base64 = token.split(".")[1];
+      const base64 = token.split(".")[1]!;
       const json = Buffer.from(base64, "base64url").toString("utf-8");
       return JSON.parse(json) as Record<string, unknown>;
     }
@@ -12968,7 +12899,7 @@
         const queryParams = stripEnabled(params);
     
         const query = useQuery({
-          queryKey: queryParams !== undefined ? [key, queryParams] : [key],
+          queryKey: buildQueryKey(key, params),
           queryFn: () => fetcher(queryParams as TParams | undefined, api),
           enabled,
         });
@@ -12982,6 +12913,13 @@
           refetch: query.refetch,
         };
       };
+    }
+    export function buildQueryKey<TParams>(
+      key: string,
+      params?: (TParams & { enabled?: boolean }) | undefined
+    ): readonly unknown[] {
+      const queryParams = stripEnabled(params);
+      return queryParams !== undefined ? [key, queryParams] : [key];
     }
     function resolveEnabled<TParams>(
       params: (TParams & { enabled?: boolean }) | undefined,
@@ -13534,6 +13472,9 @@
     export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
       return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
     }
+    export function floorPlanQueryKey(id: string | undefined): readonly unknown[] {
+      return buildQueryKey(FLOOR_PLAN_QUERY_KEY, { id });
+    }
     export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
       invalidateKeys: FLOOR_PLANS_QUERY_KEY,
       mutationFn: (api, id) => api.floorPlans.clone(id),
@@ -13542,7 +13483,7 @@
       invalidateKeys: FLOOR_PLANS_QUERY_KEY,
       mutationFn: (api, id) => api.floorPlans.setActive(id),
       onSuccess: (queryClient, _data, id) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
       },
     });
     export interface BulkUpdatePositionsPayload {
@@ -13554,14 +13495,14 @@
       mutationFn: (api, { floorPlanId, positions }) =>
         api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
     export const useAddTable = createMutationHook<CreateTableRequest, Table>({
       invalidateKeys: [],
       mutationFn: (api, data) => api.tables.create(data),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+        queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(variables.floorPlanId) });
       },
     });
     export const useDeleteTable = createMutationHook<string>({
@@ -13694,9 +13635,7 @@
         mutationFn: (data: FindOrCreateGuestRequest) => api.guests.findOrCreate(data),
         onSuccess: (_data, variables) => {
           queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-          queryClient.invalidateQueries({
-            queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId],
-          });
+          queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
         },
       });
     
@@ -13888,6 +13827,9 @@
     export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
       return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
     }
+    export function guestSegmentsQueryKey(venueId: string | null | undefined): readonly unknown[] {
+      return buildQueryKey(GUEST_SEGMENTS_QUERY_KEY, { venueId });
+    }
     export interface UseLapsingGuestsResult {
       data: LapsingGuest[] | undefined;
       isLoading: boolean;
@@ -13914,7 +13856,7 @@
       invalidateKeys: GUESTS_QUERY_KEY,
       mutationFn: (api, data) => api.guests.findOrCreate(data),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
+        queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(variables.venueId) });
       },
     });
     export const useUpdateGuest = createMutationHook<{ guestId: string; data: UpdateGuestRequest }>({
@@ -25979,6 +25921,205 @@
       return runWithVenueContext(venueId, load);
     }
   </file>
+  <file path="services/reservations/src/routes/venue-scope.ts">
+    type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
+      RawServerDefault,
+      RawRequestDefaultExpression,
+      RawReplyDefaultExpression,
+      RG
+    >;
+    type RequestOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[0];
+    type ReplyOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[1];
+    export type VenueSource<RG extends RouteGenericInterface, E> =
+      /** Reads `venueId` from the query string, body or route params. */
+      | "query"
+      | "body"
+      | "params"
+      /** The same, for a key not named `venueId` (e.g. venues' own `:id`). */
+      | { readonly from: "query" | "body" | "params"; readonly field: string }
+      /** The venue owning an entity, through the SECURITY DEFINER resolver. */
+      | {
+          readonly entity: EntityKind;
+          readonly key: (request: RequestOf<RG>) => unknown;
+          /**
+           * Runs INSIDE the venue context; `null` answers 404 `notFound`. Must be a
+           * read with no side effects: for owner access it runs before the
+           * ownership decision, so a non-owner reaches it.
+           */
+          readonly load?: (key: string) => Promise<E | null>;
+          /** 404 `detail`, today's exact text for that route. */
+          readonly notFound: string;
+        }
+      /** Escape hatch for tables with no RLS policy, or composite resolution. */
+      | {
+          readonly resolve: (request: RequestOf<RG>) => Promise<string | null>;
+          /** Names the source in the coverage registry's descriptor. */
+          readonly label: string;
+          readonly notFound: string;
+        };
+    export type VenueAccess<E> =
+      /** Default: ADR-020 venue membership (`requireVenueAccess`). Admins pass. */
+      | "member"
+      /** RLS context only; relies on `requireAuth` in the route's preHandler. */
+      | "authenticated"
+      /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
+      | { readonly owner: (entity: E) => string | null };
+    export interface VenueScope<E> {
+      readonly venueId: string;
+      readonly entity: E;
+      readonly isAdmin: boolean;
+    }
+    export interface VenueScopeSpec<RG extends RouteGenericInterface, E> {
+      readonly venue: VenueSource<RG, E>;
+      readonly access?: VenueAccess<E>;
+    }
+    export type ScopedHandler<RG extends RouteGenericInterface, E> = (
+      request: RequestOf<RG>,
+      reply: ReplyOf<RG>,
+      scope: VenueScope<E>
+    ) => ReturnType<Handler<RG>>;
+    export const VENUE_SCOPE: unique symbol = Symbol.for("mbe.reservations.venueScope");
+    export const venueScopeHooks = {
+      admitIdentity(
+        _user: AuthUser | undefined,
+        _venueId: string,
+        _method: string,
+        _routeKey: string
+      ): ProblemDetails | null {
+        return null;
+      },
+    };
+    export function venueScopeOf(handler: unknown): string | null {
+      if (typeof handler !== "function") return null;
+      const descriptor = (handler as { [VENUE_SCOPE]?: unknown })[VENUE_SCOPE];
+      return typeof descriptor === "string" ? descriptor : null;
+    }
+    type DirectSource = { readonly from: "query" | "body" | "params"; readonly field: string };
+    type EntitySource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly entity: EntityKind }
+    >;
+    type ResolveSource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly resolve: unknown }
+    >;
+    function directSource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): DirectSource | null {
+      if (typeof source === "string") return { from: source, field: "venueId" };
+      return "from" in source ? source : null;
+    }
+    function isEntitySource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): source is EntitySource<RG, E> {
+      return typeof source === "object" && "entity" in source;
+    }
+    function describe<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>,
+      access: VenueAccess<E>
+    ): string {
+      const direct = directSource(source);
+      const from = direct
+        ? `${direct.from}.${direct.field}`
+        : isEntitySource(source)
+          ? `entity:${source.entity}`
+          : `resolve:${(source as ResolveSource<RG, E>).label}`;
+      return `${from}/${typeof access === "object" ? "owner" : access}`;
+    }
+    function readField(request: FastifyRequest, { from, field }: DirectSource): string | null {
+      const container = request[from] as Record<string, unknown> | null | undefined;
+      const value = container?.[field];
+      // "" is no venue: treating it as one would skip the missing-key cell.
+      return typeof value === "string" && value !== "" ? value : null;
+    }
+    function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply {
+      return reply.code(status).send(createProblemDetails(status, titleForStatus(status), detail));
+    }
+    export function venueScoped<
+      RG extends RouteGenericInterface = RouteGenericInterface,
+      E = undefined,
+    >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> {
+      const source = spec.venue;
+      const access: VenueAccess<E> = spec.access ?? "member";
+      const ownerAccess = typeof access === "object" ? access : null;
+      if (ownerAccess && !(isEntitySource(source) && source.load)) {
+        throw new Error("venueScoped: owner access needs an entity source with load");
+      }
+      const direct = directSource(source);
+      const notFound = direct ? null : (source as EntitySource<RG, E> | ResolveSource<RG, E>).notFound;
+    
+      /** Today's ADR-020 guards, applied to the venue already resolved here. */
+      async function decide(
+        request: FastifyRequest,
+        reply: FastifyReply,
+        venueId: string | null,
+        entity: E | null | undefined
+      ): Promise<boolean> {
+        if (ownerAccess) {
+          await requireOwnershipOrAdmin(
+            async () => (entity == null ? null : ownerAccess.owner(entity)),
+            resolveCurrentUserEmail
+          )(request, reply);
+        } else {
+          await requireVenueAccess(request.server.venueMembershipLookup, () => venueId)(request, reply);
+        }
+        return !reply.sent;
+      }
+    
+      async function scopedHandler(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
+        const isAdmin = hasPermission(request.user, "admin");
+    
+        let venueId: string | null;
+        let entityKey: string | null = null;
+        if (direct) {
+          venueId = readField(request, direct);
+        } else if (isEntitySource(source)) {
+          const key = source.key(request as RequestOf<RG>);
+          entityKey = typeof key === "string" ? key : null;
+          venueId = entityKey === null ? null : await resolveVenueId(source.entity, entityKey);
+        } else {
+          venueId = await (source as ResolveSource<RG, E>).resolve(request as RequestOf<RG>);
+        }
+    
+        if (venueId === null) {
+          // Admins and `authenticated` routes learn the honest answer; a
+          // non-admin gets the guard's own 401/403, so existence never leaks.
+          if (access === "authenticated" || isAdmin) {
+            return direct
+              ? sendProblem(reply, 400, `${direct.field} is required`)
+              : sendProblem(reply, 404, notFound!);
+          }
+          await decide(request, reply, null, null);
+          return reply;
+        }
+    
+        const problem = venueScopeHooks.admitIdentity(
+          request.user,
+          venueId,
+          request.method,
+          `${request.method} ${request.routeOptions.url}`
+        );
+        if (problem) return reply.code(problem.status).send(problem);
+    
+        if (access === "member" && !(await decide(request, reply, venueId, null))) return reply;
+    
+        const resolvedVenueId = venueId;
+        return runWithVenueContext(resolvedVenueId, async () => {
+          let entity: E | null | undefined = undefined;
+          if (isEntitySource(source) && source.load) {
+            entity = await source.load(entityKey!);
+            if (entity === null) return sendProblem(reply, 404, source.notFound);
+          }
+          if (ownerAccess && !(await decide(request, reply, resolvedVenueId, entity))) return reply;
+          const scope: VenueScope<E> = { venueId: resolvedVenueId, entity: entity as E, isAdmin };
+          return handler(request as RequestOf<RG>, reply as ReplyOf<RG>, scope);
+        });
+      }
+    
+      Object.defineProperty(scopedHandler, VENUE_SCOPE, { value: describe(source, access) });
+      return scopedHandler as unknown as Handler<RG>;
+    }
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
     function isWriteConflict(error: unknown): boolean {
@@ -29509,7 +29650,7 @@
         const name = exp.getName();
     
         // Skip non-component exports (types, hooks, lowercase utilities)
-        if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
+        if (name.startsWith("use") || name[0] !== name[0]!.toUpperCase()) continue;
         if (name.endsWith("Props") || name.endsWith("Context")) continue;
     
         // Resolve aliased symbols
@@ -50691,8 +50832,8 @@
   </file>
   <file path="packages/database/src/testing.ts">
     export interface MockPrisma {
-      $queryRaw: ReturnType<typeof vi.fn>;
-      $executeRaw: ReturnType<typeof vi.fn>;
+      $queryRaw: Mock;
+      $executeRaw: Mock;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -50701,25 +50842,25 @@
       /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
       db: {
         prisma: MockPrisma;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
-        shutdown: ReturnType<typeof vi.fn>;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
+        shutdown: Mock;
       };
       /** @deprecated Access via db.getSlowQueryStats instead. */
-      getSlowQueryStats: ReturnType<typeof vi.fn>;
+      getSlowQueryStats: Mock;
       /** @deprecated Access via db.getServiceStatus instead. */
-      getServiceStatus: ReturnType<typeof vi.fn>;
+      getServiceStatus: Mock;
       /** @deprecated Access via db.getPoolMetrics instead. */
-      getPoolMetrics: ReturnType<typeof vi.fn>;
+      getPoolMetrics: Mock;
     }
     export interface MockDatabaseServiceOverrides {
       /** Merged (not replaced) with the default prisma stub. */
       prisma?: Record<string, unknown>;
-      getSlowQueryStats?: ReturnType<typeof vi.fn>;
-      getServiceStatus?: ReturnType<typeof vi.fn>;
-      getPoolMetrics?: ReturnType<typeof vi.fn>;
-      shutdown?: ReturnType<typeof vi.fn>;
+      getSlowQueryStats?: Mock;
+      getServiceStatus?: Mock;
+      getPoolMetrics?: Mock;
+      shutdown?: Mock;
     }
     export function createMockDatabaseService(
       overrides?: MockDatabaseServiceOverrides
@@ -50754,10 +50895,10 @@
     export interface MockDatabaseModule {
       db: {
         prisma: MockPrisma;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
-        shutdown: ReturnType<typeof vi.fn>;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
+        shutdown: Mock;
       };
       prisma: MockPrisma;
     }
@@ -55526,8 +55667,14 @@
       Page,
       "emulateMedia" | "setViewportSize" | "goto" | "waitForLoadState" | "evaluate" | "screenshot"
     > & {
-      on(event: string, handler: (arg: never) => void): unknown;
-      off(event: string, handler: (arg: never) => void): unknown;
+      // `any`, not `never`: a real Page's `on` is overloaded per event, and TS checks
+      // callback parameters one way only, so each payload (`Page`, `Error`, ...) must
+      // be assignable to this param; `never` rejected every real Page (found when
+      // apps' e2e/ joined typecheck), `unknown` would reject the typed handlers below.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      on(event: string, handler: (arg: any) => void): unknown;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      off(event: string, handler: (arg: any) => void): unknown;
     };
     interface RawAxe {
       violations: Array<{
@@ -55661,7 +55808,7 @@
           return false;
         }
       };
-      const handlers: Record<string, (arg: never) => void> = {
+      const handlers: Record<string, Parameters<CapturePageLike["on"]>[1]> = {
         pageerror: (err: Error) => page_errors.push(err.message),
         console: (msg: { type(): string; text(): string }) => {
           if (msg.type() === "error") console_errors.push(msg.text());
@@ -56773,6 +56920,22 @@
        */
       services?: Partial<DomainServices>;
     }
+    function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
+      const view: ReadonlyMap<K, V> = {
+        get size() {
+          return map.size;
+        },
+        get: (key) => map.get(key),
+        has: (key) => map.has(key),
+        keys: () => map.keys(),
+        values: () => map.values(),
+        entries: () => map.entries(),
+        forEach: (callback, thisArg) =>
+          map.forEach((value, key) => callback.call(thisArg, value, key, view)),
+        [Symbol.iterator]: () => map[Symbol.iterator](),
+      };
+      return view;
+    }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
       // unconfigured optional deposits feature never takes down the whole service.
@@ -56801,6 +56964,23 @@
         },
         options
       );
+    
+      // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
+      // records every route's `venueScoped` descriptor, or null, keyed
+      // "METHOD /url" (trailing slash stripped, as the RLS sweep keys routes).
+      // Installed before the first route plugin registers, so child plugins
+      // inherit the hook; routes/venue-scope-coverage.test.ts reads it with no
+      // database.
+      const venueScopes = new Map<string, string | null>();
+      fastify.addHook("onRoute", (route) => {
+        const url =
+          route.url.length > 1 && route.url.endsWith("/") ? route.url.slice(0, -1) : route.url;
+        const methods = Array.isArray(route.method) ? route.method : [route.method];
+        for (const method of methods) {
+          venueScopes.set(`${method} ${url}`, venueScopeOf(route.handler));
+        }
+      });
+      fastify.decorate("venueScopes", readOnlyView(venueScopes));
     
       // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
       // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real

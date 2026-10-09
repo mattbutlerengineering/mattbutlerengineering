@@ -88,7 +88,7 @@ describe("TemplateGallery", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
     expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("10");
-    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("10");
+    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("12");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("6");
     expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("7");
   });
@@ -288,6 +288,34 @@ describe("TemplateGallery", () => {
 
     fireEvent.click(card);
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DropdownMenu/));
+  });
+
+  it("includes a Live Departures Board template that elicits DepartureBoard usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "departures board" } });
+
+    const card = screen.getByRole("button", { name: /use live departures board template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Data Display");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DepartureBoard/));
+  });
+
+  it("includes an Activity Log Panel template that elicits ScrollArea usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "activity log panel" } });
+
+    const card = screen.getByRole("button", { name: /use activity log panel template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Data Display");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/ScrollArea/));
   });
 
   it("resets to All category and clears search when reopened", () => {
