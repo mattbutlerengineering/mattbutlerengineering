@@ -5227,6 +5227,7 @@
     <item priority="low">
       interface VenueContextClient {
         $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+        $executeRawUnsafe: (query: string) => Promise<number>;
       }
     </item>
     <item priority="low">
@@ -8059,6 +8060,22 @@
     </item>
     <item priority="high">
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/assume-app-role.ts">
+    <item priority="high">
+      export const APP_RESERVATIONS_ROLE: unknown;
+    </item>
+    <item priority="low">
+      interface AppRoleClient {
+        $executeRawUnsafe: (query: string) => Promise<number>;
+      }
+    </item>
+    <item priority="high">
+      export function appRoleSetStatement(role: string = APP_RESERVATIONS_ROLE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability.ts">
@@ -13009,6 +13026,8 @@
       interface MockPrisma {
         $queryRaw: Mock;
         $executeRaw: Mock;
+        $executeRawUnsafe: Mock;
+        $transaction: Mock;
       }
     </item>
     <item priority="low">
