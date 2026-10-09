@@ -1,20 +1,20 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-10-08T11:13:02.213Z",
+  "generatedAt": "2026-10-09T11:12:09.374Z",
   "repo": {
     "currentLevel": 6,
     "levelName": "Fully Autonomous",
     "role": "Strategist",
-    "lastRun": "2026-10-08T11:13:00.732Z",
+    "lastRun": "2026-10-09T11:12:07.302Z",
     "summary": {
-      "detected": 77,
+      "detected": 78,
       "total": 84,
-      "coverage": 0.9166666666666666
+      "coverage": 0.9285714285714286
     },
     "behavioral": {
-      "ciFlakeRate": 0.002881844380403458,
-      "agentPrAcceptanceRate": 0.9935064935064936,
-      "agentPrRevertRate": 0.013071895424836602,
+      "ciFlakeRate": 0.0026455026455026454,
+      "agentPrAcceptanceRate": 0.9936708860759493,
+      "agentPrRevertRate": 0.012738853503184714,
       "evalPassRate": null,
       "evalsStale": true,
       "evalsLastRun": "2026-05-10T21:42:57.095Z"
@@ -270,7 +270,7 @@
         "passed": false
       },
       "meta:audit-freshness": {
-        "passed": false
+        "passed": true
       }
     },
     "behavioralGates": [
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.002881844380403458,
+        "value": 0.0026455026455026454,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9935064935064936,
+        "value": 0.9936708860759493,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -302,7 +302,7 @@
         "level": 6,
         "name": "agent-pr-revert-rate",
         "passed": true,
-        "value": 0.013071895424836602,
+        "value": 0.012738853503184714,
         "threshold": 0.1,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.013071895424836602,
+        "value": 0.03184713375796178,
         "threshold": 0.5,
         "unverifiable": false
       }
