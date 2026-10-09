@@ -19,12 +19,13 @@ Agent execution is built around a **shared execution unit** (`runSession`, in `@
 
 ### Multi-adapter abstraction
 
-`mbe agent run --adapter <auto|claude|gemini|opencode|grok>` selects the provider behind a common interface:
+`mbe agent run --adapter <auto|claude|opencode|grok|omp>` selects the provider behind a common interface:
 
 - `claude` — the default and the pinned adapter for deep/architecture work.
-- `gemini`, `opencode` — alternative back-ends.
+- `opencode` — an alternative back-end, and the `auto` failover after `claude`.
 - `grok` — explicit opt-in. Spawns the Grok CLI in headless mode. A Claude model id from the router is not forwarded; pass `--model grok-…` to pin one. Not part of the `auto` cascade.
-- `auto` — enables a rate-limit failover cascade (`claude → gemini → opencode` on 429), preventing stalls on busy days for routine tiers.
+- `omp` — explicit opt-in. Spawns Oh My Pi (`omp`) in headless JSON mode. A Claude model id from the router is not forwarded; pass `--model` with an omp catalog id to pin one. Not part of the `auto` cascade. The reported cost is an API-price figure, not a bill.
+- `auto` — enables a rate-limit failover cascade (`claude → opencode` on 429), preventing stalls on busy days for routine tiers.
 
 Adapter selection is orthogonal to the task logic: the same `runSession` pipeline runs regardless of which adapter is bound.
 
@@ -41,7 +42,7 @@ Subagent/model routing selects a **tier** (`opus`/`sonnet`/`haiku`/`fable`), res
 
 ### Adapter ports vs. internal phase collaborators
 
-_Amended 2026-07-05 (#3120)._ This ADR fixes the `runSession` **adapter port** at the process boundary: the external CLI / model back-end (`claude`/`gemini`/`opencode`/`grok`) is a genuine seam because production-vs-test — and one provider vs. another — bind different implementations behind it. That is distinct from an **internal phase-collaborator injection**: an in-process helper a single phase calls (failure-memory lookup, `git diff`, the post-commit quality gateway). Such collaborators have exactly one production implementation and vary only under test, so they are imported directly inside their owning phase and substituted with `vi.mock`, not threaded through an injected `PhaseDeps` port. Only the cross-process / spawn-session collaborators (worktree manager, query runner, PR creator, feedback loop) remain injected ports.
+_Amended 2026-07-05 (#3120)._ This ADR fixes the `runSession` **adapter port** at the process boundary: the external CLI / model back-end (`claude`/`opencode`/`grok`/`omp`) is a genuine seam because production-vs-test — and one provider vs. another — bind different implementations behind it. That is distinct from an **internal phase-collaborator injection**: an in-process helper a single phase calls (failure-memory lookup, `git diff`, the post-commit quality gateway). Such collaborators have exactly one production implementation and vary only under test, so they are imported directly inside their owning phase and substituted with `vi.mock`, not threaded through an injected `PhaseDeps` port. Only the cross-process / spawn-session collaborators (worktree manager, query runner, PR creator, feedback loop) remain injected ports.
 
 ## Consequences
 

@@ -23,7 +23,7 @@ export const waveCommand = new Command("wave")
   .option("--base-branch <branch>", "Base branch to branch from", "main")
   .option(
     "--adapter <type>",
-    "Agent adapter: auto, claude, claude-cli, gemini, opencode, grok",
+    "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
     "claude"
   )
   .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))

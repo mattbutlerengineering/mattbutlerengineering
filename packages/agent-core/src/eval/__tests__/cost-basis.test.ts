@@ -6,20 +6,16 @@ const budget: TaskBudget = { maxTurns: 20, maxCostUsd: 0.5 };
 
 describe("costBasisForAdapter", () => {
   it("treats the SDK adapter, opencode, and the auto cascade as billed money", () => {
-    // `auto`'s first cascade member is the billed SDK adapter; its gemini
-    // fallback reports $0, so the cost arm passes vacuously there anyway.
+    // `auto`'s first cascade member is the billed SDK adapter.
     expect(costBasisForAdapter("claude")).toBe("billed");
     expect(costBasisForAdapter("opencode")).toBe("billed");
     expect(costBasisForAdapter("grok")).toBe("billed");
     expect(costBasisForAdapter("auto")).toBe("billed");
   });
 
-  it("treats claude-cli as API-equivalent — a real figure the CLI reports, not billed under a subscription", () => {
+  it("treats claude-cli and omp as API-equivalent — a real figure the CLI reports, not a bill", () => {
     expect(costBasisForAdapter("claude-cli")).toBe("api-equivalent");
-  });
-
-  it("treats gemini as having no cost figure at all (its JSON never carries USD)", () => {
-    expect(costBasisForAdapter("gemini")).toBe("none");
+    expect(costBasisForAdapter("omp")).toBe("api-equivalent");
   });
 });
 

@@ -2,7 +2,7 @@
  * GrokCliAdapter — spawns the Grok CLI in headless mode inside an isolated worktree.
  *
  * Explicitly selectable only (`--adapter grok`). Not part of the ADR-017 `auto`
- * cascade (claude → gemini → opencode), same rule as `ClaudeCliAdapter`:
+ * cascade (claude → opencode), same rule as `ClaudeCliAdapter` and `OmpCliAdapter`:
  * inserting it would change what `auto` resolves to wherever `grok` is on PATH.
  * The caller creates the worktree, so this adapter must not pass `--worktree`.
  */

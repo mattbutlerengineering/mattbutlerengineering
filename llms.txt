@@ -971,13 +971,7 @@
       function safeJsonParse(text: string): unknown { /* ... */ }
     </item>
     <item priority="high">
-      export function parseGeminiUsage(stdout: string): CliUsage { /* ... */ }
-    </item>
-    <item priority="high">
       export function parseOpenCodeUsage(stdout: string): CliUsage { /* ... */ }
-    </item>
-    <item priority="high">
-      export function extractGeminiError(stdout: string): string | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function extractOpenCodeError(stdout: string): string | undefined { /* ... */ }
@@ -993,6 +987,15 @@
     </item>
     <item priority="high">
       export function extractGrokError(stdout: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseOmpUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ompErrorFromRecord(raw: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractOmpError(stdout: string): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
@@ -1012,9 +1015,9 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
+  <file path="packages/agent-core/src/adapters/grok-adapter.ts">
     <item priority="high">
-      class GeminiCliAdapter {
+      class GrokCliAdapter {
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
@@ -1022,9 +1025,12 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/adapters/grok-adapter.ts">
+  <file path="packages/agent-core/src/adapters/omp-adapter.ts">
     <item priority="high">
-      class GrokCliAdapter {
+      export function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      class OmpCliAdapter {
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
@@ -9797,7 +9803,7 @@
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode" | "grok";
+      type AdapterType = "auto" | "claude" | "claude-cli" | "opencode" | "grok" | "omp";
     </item>
     <item priority="high">
       export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }

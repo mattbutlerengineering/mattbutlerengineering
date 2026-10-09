@@ -92,12 +92,13 @@ describe("agent run --adapter", () => {
     expect(adapterOpt!.defaultValue).toBe("claude");
     expect(adapterOpt!.description).toContain("auto");
     expect(adapterOpt!.description).toContain("claude");
-    expect(adapterOpt!.description).toContain("gemini");
     expect(adapterOpt!.description).toContain("opencode");
     expect(adapterOpt!.description).toContain("grok");
+    expect(adapterOpt!.description).toContain("omp");
+    expect(adapterOpt!.description).not.toContain("gemini");
   });
 
-  it.each(["claude", "gemini", "opencode", "grok", "auto"] as const)(
+  it.each(["claude", "omp", "opencode", "grok", "auto"] as const)(
     "%s adapter resolves via resolveSessionAdapter and runs through runAgentSession",
     async (adapterType) => {
       mockRunAgentSession.mockResolvedValueOnce(makeSessionResult());
