@@ -2902,6 +2902,7 @@ This iteration's `/implement-queue` run: claimed #5954 (ci-fix), #5890 (audit), 
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 and overwrote `metrics/ai-issue-feedback.json` with an error object (timestamp only — the file was already in this error state since the 2026-10-04 run, so this is not a new loss). Budgets fall back to the skill's documented default (3) since no feedback data exists. Moot this run since 0 regressions means no issue creation was gated on it.
 **Skill proposals:** 0 — today is Monday, not the configured Friday extraction day; step skipped per schedule.
 **Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<label>&state=closed&since=2026-09-05T18:22:47Z` (REST, manually paginated by explicit `page=N` rather than `gh api --paginate`, which hit a proxy error resolving the audit label's numeric-ID `next` link) across all seven sensor-label categories (acmm, ci-fix, audit, sentry, security, bug, meta-improvement): 289 closed in the last 30 days, 259 `completed` / 15 `not_planned` / 15 `duplicate` → 10.4% false-positive rate, well under the 30% loosen-threshold trigger. Fix-effectiveness rate (per above) is 100% (11/11), same thin ACMM-only sample as prior runs — Lighthouse/Sentry/mutation/e2e sensors remain unavailable in this cloud checkout. No threshold changes applied this run.
+
 ## 2026-10-05 (mbe-evening, second fire — implement-queue + progress-tracker)
 
 ### Metrics
