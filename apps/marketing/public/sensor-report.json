@@ -73,17 +73,31 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1065176,
-      "output_tokens": 1433,
-      "cache_creation_tokens": 83420,
-      "cache_hit_rate": 0.9274,
+      "cache_read_tokens": 221725520,
+      "output_tokens": 529710,
+      "cache_creation_tokens": 9077389,
+      "cache_hit_rate": 0.9607,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1433,
-          "cache_read_tokens": 1065176,
-          "cache_creation_tokens": 83420
+          "input_tokens": 2579,
+          "output_tokens": 450870,
+          "cache_read_tokens": 220096360,
+          "cache_creation_tokens": 7379841
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 330,
+          "output_tokens": 64802,
+          "cache_read_tokens": 662766,
+          "cache_creation_tokens": 1468848
+        },
+        "claude-haiku-5-5": {
+          "cost": 0,
+          "input_tokens": 32,
+          "output_tokens": 14038,
+          "cache_read_tokens": 966394,
+          "cache_creation_tokens": 228700
         }
       }
     },
@@ -116,11 +130,11 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 47,
+      "logs_7d": 47,
+      "total_commits_7d": 308,
+      "unique_branches_7d": 1,
+      "branches_7d": ["main"]
     },
     "codeChurn": {
       "available": true,
@@ -142,7 +156,11 @@
       "window_shas": 62
     },
     "e2eStability": {
-      "available": false
+      "available": true,
+      "consecutive_failures": 8,
+      "total_runs": 12,
+      "total_non_frontend_runs": 11,
+      "summary": "E2E instability: 8 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
     },
     "queueEfficiency": {
       "available": false,

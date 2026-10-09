@@ -3058,6 +3058,7 @@ Issue reconciliation was still completed read-only, since the skipped plan is th
 
 **queueEfficiency:** unavailable (query_error)
 **Issues filed:** 0
+
 ## 2026-10-08 — mbe-evening
 
 **State:** No `gh` binary in this CCR session (confirmed per `.claude/rules/gotchas.md`); all queries below ran through `mcp__github__*` MCP tools instead of the skill's documented `gh` commands, plus a local `git log`/`.claude/agent-spend/sessions.jsonl` read.
