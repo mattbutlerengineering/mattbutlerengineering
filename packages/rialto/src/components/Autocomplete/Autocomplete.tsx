@@ -49,6 +49,8 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       id,
       required,
       placeholder,
+      "aria-label": ariaLabel,
+      "aria-describedby": ariaDescribedBy,
       ...props
     },
     ref
@@ -134,6 +136,9 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             e.preventDefault();
             close();
             break;
+          case "Tab":
+            close();
+            break;
         }
       },
       [open, focusedIndex, filtered, handleSelectOption, openWithFocus, close, setFocusedIndex]
@@ -146,13 +151,20 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       activeEl?.scrollIntoView({ block: "nearest" });
     }, [focusedIndex]);
 
-    const activeOptionId = focusedIndex >= 0 ? `${inputId}-option-${focusedIndex}` : undefined;
+    // Only reference an option that is actually rendered: the listbox is
+    // unmounted when closed, and the "No results" row has no id.
+    const activeOptionId =
+      open && focusedIndex >= 0 && focusedIndex < filtered.length
+        ? `${inputId}-option-${focusedIndex}`
+        : undefined;
     const hintId = hint ? `${inputId}-hint` : undefined;
+    const labelId = label ? `${inputId}-label` : undefined;
+    const describedBy = [ariaDescribedBy, hintId].filter(Boolean).join(" ") || undefined;
 
     return (
       <div ref={wrapperRef} className={cn(styles.wrapper, className)}>
         {label && (
-          <label htmlFor={inputId} className={styles.label}>
+          <label id={labelId} htmlFor={inputId} className={styles.label}>
             {label}
             {required && (
               <span className={styles.required} aria-hidden="true">
@@ -192,7 +204,8 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             aria-controls={listboxId}
             aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
-            aria-describedby={hintId}
+            aria-label={ariaLabel}
+            aria-describedby={describedBy}
             autoComplete="off"
             value={inputValue}
             onChange={handleInputChange}
@@ -209,6 +222,8 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             <motion.ul
               id={listboxId}
               role="listbox"
+              aria-labelledby={labelId}
+              aria-label={labelId ? undefined : ariaLabel}
               className={styles.dropdown}
               initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
