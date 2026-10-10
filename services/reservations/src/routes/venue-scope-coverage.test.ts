@@ -30,6 +30,7 @@ const FIXTURES = { ...STAFF_FIXTURES, ...PUBLIC_FIXTURES };
  */
 type UnscopedReason =
   | "cross-venue fan-out"
+  | "cross-venue fan-out (admin)"
   | "venue-create"
   | "venue-group (no RLS)"
   | "public slug"
@@ -53,9 +54,12 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/reservations/health": "infra (no venue data)",
   "POST /api/v1/events/test": "infra (no venue data)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
+  // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
+  // all-venue stream (#4016), which venueScoped cannot express. The route keeps
+  // its own requireVenueAccess guard.
+  "GET /api/v1/events/stream": "cross-venue fan-out (admin)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
-  "GET /api/v1/events/stream": "pending-migration",
 
   // PR 3: tables, floor plans, venues.
   "GET /api/v1/tables": "pending-migration",
