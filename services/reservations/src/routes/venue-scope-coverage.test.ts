@@ -55,15 +55,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
-  "GET /api/v1/waitlist": "pending-migration",
-  "POST /api/v1/waitlist": "pending-migration",
-  "GET /api/v1/waitlist/:id": "pending-migration",
-  "PUT /api/v1/waitlist/:id/seat": "pending-migration",
-  "PUT /api/v1/waitlist/:id/notify": "pending-migration",
-  "PUT /api/v1/waitlist/:id/cancel": "pending-migration",
-  "PUT /api/v1/waitlist/:id/expire": "pending-migration",
-  "GET /api/v1/briefing": "pending-migration",
-  "GET /api/v1/reservations/metrics/daily": "pending-migration",
   "GET /api/v1/events/stream": "pending-migration",
 
   // PR 3: tables, floor plans, venues.
@@ -193,6 +184,35 @@ describe("venue-scope coverage (no database)", () => {
       (route) => app.venueScopes.get(route) != null && FIXTURES[route]?.kind === "broken"
     );
     expect(mismatched, "declaring the scope should have fixed it: update the fixture").toEqual([]);
+  });
+
+  it("records the declared descriptor for each migrated route (stamp → registry)", () => {
+    const expected: Record<string, string> = {
+      "GET /api/v1/guests": "query.venueId/member",
+      "GET /api/v1/guests/search": "query.venueId/member",
+      "GET /api/v1/guests/segments": "query.venueId/member",
+      "GET /api/v1/guests/lapsing": "query.venueId/member",
+      "POST /api/v1/guests": "body.venueId/member",
+      "POST /api/v1/guests/find-or-create": "body.venueId/member",
+      "GET /api/v1/guests/:id": "entity:guest/member",
+      "PATCH /api/v1/guests/:id": "entity:guest/member",
+      "POST /api/v1/guests/:id/notes": "entity:guest/member",
+      "POST /api/v1/guests/:id/win-back": "entity:guest/member",
+      "DELETE /api/v1/guests/:id": "entity:guest/member",
+      "POST /api/v1/waitlist": "body.venueId/member",
+      "GET /api/v1/waitlist": "query.venueId/member",
+      "GET /api/v1/waitlist/:id": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/notify": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/seat": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/cancel": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/expire": "entity:waitlist_entry/member",
+      "GET /api/v1/briefing": "query.venueId/member",
+      "GET /api/v1/reservations/metrics/daily": "query.venueId/member",
+    };
+    const actual = Object.fromEntries(
+      Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])
+    );
+    expect(actual).toEqual(expected);
   });
 
   it("is read-only to callers", () => {
