@@ -108,6 +108,8 @@ import { tableService } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
+const POSITIONS_URL = "/api/v1/floor-plans/tables/positions";
+
 const mockTable = {
   id: "table-123",
   name: "Table 1",
@@ -707,7 +709,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans/tables/positions",
+        url: POSITIONS_URL,
         headers: { "x-auth-bypass": "true" },
         payload: {
           floorPlanId: "floor-plan-123",
@@ -736,7 +738,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans/tables/positions",
+        url: POSITIONS_URL,
         headers: { "x-auth-bypass": "true" },
         payload: {
           floorPlanId: "floor-plan-123",
@@ -766,7 +768,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans/tables/positions",
+        url: POSITIONS_URL,
         headers: { "x-auth-bypass": "true" },
         payload: {
           floorPlanId: "floor-plan-123",
