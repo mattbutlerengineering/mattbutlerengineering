@@ -39,6 +39,20 @@ export function TapeChartGrid(props: TapeChartGridProps) {
     return offset >= 0 && offset < layout.dayCount ? offset : null;
   }, [startDate, todayISO, layout.dayCount]);
 
+  // Stable reference so TapeChartDayHeader's memo can skip focus/selection re-renders.
+  const leadingHeader = useMemo(
+    () => (
+      <div
+        role="columnheader"
+        className={styles.roomHeader}
+        style={{ position: "sticky", insetInlineStart: 0, zIndex: 3 }}
+      >
+        <strong>{strings.roomsColumnLabel}</strong>
+      </div>
+    ),
+    [strings.roomsColumnLabel]
+  );
+
   const rootStyle: CSSProperties = {
     ["--tapechart-day-width" as string]: `${dayWidth}px`,
     ["--tapechart-day-count" as string]: layout.dayCount,
@@ -59,15 +73,7 @@ export function TapeChartGrid(props: TapeChartGridProps) {
           todayISO={todayISO}
           dailyCounts={layout.dailyCounts}
           strings={strings}
-          leadingHeader={
-            <div
-              role="columnheader"
-              className={styles.roomHeader}
-              style={{ position: "sticky", insetInlineStart: 0, zIndex: 3 }}
-            >
-              <strong>{strings.roomsColumnLabel}</strong>
-            </div>
-          }
+          leadingHeader={leadingHeader}
         />
 
         {rooms.map((room) => {
