@@ -91,6 +91,7 @@ function makePrismaTable() {
  */
 function makeTxMock(overrides: Record<string, unknown> = {}) {
   return {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     $executeRaw: vi.fn().mockResolvedValue(0),
     venue: {
       findUnique: vi.fn().mockResolvedValue({ settings: null }),
@@ -279,6 +280,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = makeTxMock({
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: executeRaw,
             reservation: {
               ...makeTxMock().reservation,

@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 // Zod schemas from @mbe/types (the api-client's source of truth)
@@ -104,11 +104,12 @@ describe("API Client ↔ Service Schema Contracts", () => {
     });
 
     it("GuestRiskResult schema properties match between @mbe/types and reservations service", () => {
-      assertKeysMatch(
-        "GuestRiskResult",
-        zodKeys(GuestRiskResultSchema),
-        jsonSchemaKeys(ServiceGuestRiskResultSchema)
-      );
+      const zod = zodKeys(GuestRiskResultSchema);
+      const json = jsonSchemaKeys(ServiceGuestRiskResultSchema);
+      assertKeysMatch("GuestRiskResult", zod, json);
+      expect([...zod].sort()).toEqual(["requiresDeposit"]);
+      expect(zod.has("riskScore")).toBe(false);
+      expect(json.has("riskScore")).toBe(false);
     });
 
     it("GuestRecognition schema properties match between @mbe/types and reservations service", () => {

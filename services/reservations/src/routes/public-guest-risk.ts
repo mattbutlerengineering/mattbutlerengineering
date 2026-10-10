@@ -25,9 +25,9 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: { max: 20, timeWindow: "1 minute" },
       },
       schema: {
-        summary: "Get guest risk score (public)",
+        summary: "Get guest deposit requirement (public)",
         description:
-          "Returns guest risk score for the booking widget. Used to determine if a deposit step should be shown. Rate-limited to 20 req/min per IP.",
+          "Returns whether the booking widget should show a deposit step. Rate-limited to 20 req/min per IP.",
         tags: ["Public"],
         params: {
           type: "object",
@@ -79,9 +79,9 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
             : null;
 
         if (!guest) {
-          // New guest — always trusted
+          // Unknown guest — no deposit. The named score stays off this public body.
           return reply.send({
-            data: { riskScore: "trusted", requiresDeposit: false },
+            data: { requiresDeposit: false },
           });
         }
 
@@ -89,7 +89,6 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.send({
           data: {
-            riskScore,
             requiresDeposit: riskScore === "risky",
           },
         });

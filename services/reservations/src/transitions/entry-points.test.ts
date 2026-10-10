@@ -783,6 +783,7 @@ describe("reservation transitions — effects per entry point", () => {
       h.prisma.floorPlan.findMany.mockResolvedValue([]);
       h.prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: vi.fn().mockResolvedValue(0),
           floorPlan: {
             create: vi.fn().mockResolvedValue({ id: "fp-2" }),

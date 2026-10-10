@@ -17,8 +17,14 @@ function fakeRequest(): FastifyRequest {
   return {} as unknown as FastifyRequest;
 }
 
-function fakeClient(): VenueContextClient & { $executeRaw: ReturnType<typeof vi.fn> } {
-  return { $executeRaw: vi.fn().mockResolvedValue(0) };
+function fakeClient(): VenueContextClient & {
+  $executeRaw: ReturnType<typeof vi.fn>;
+  $executeRawUnsafe: ReturnType<typeof vi.fn>;
+} {
+  return {
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+  };
 }
 
 describe("setVenueContext", () => {
@@ -47,6 +53,28 @@ describe("setVenueContext", () => {
     await setVenueContext(client, null);
 
     expect(client.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it("assumes app_reservations when venueId is null, and does not run set_config", async () => {
+    const client = fakeClient();
+
+    await setVenueContext(client, null);
+
+    expect(client.$executeRaw).not.toHaveBeenCalled();
+    expect(client.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(client.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
+  });
+
+  it("assumes app_reservations before set_config when a venue id is given", async () => {
+    const client = fakeClient();
+
+    await setVenueContext(client, "venue-1");
+
+    expect(client.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(client.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
+    const roleOrder = client.$executeRawUnsafe.mock.invocationCallOrder[0] ?? Infinity;
+    const setConfigOrder = client.$executeRaw.mock.invocationCallOrder[0] ?? -Infinity;
+    expect(roleOrder).toBeLessThan(setConfigOrder);
   });
 
   it("does not run set_config() when venueId is undefined", async () => {

@@ -806,9 +806,11 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm build --filter @mbe/reservations-service...
 
-      # All FIVE `DATABASE_URL`-gated suites, listed explicitly rather than
+      # All SIX `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
+      # rls-app-reservations.integration.test.ts proves SET LOCAL ROLE
+      # app_reservations against the same owner connection.
       # lapsed-guest-cron.rls.integration.test.ts was the third suite nobody
       # ran - it is named in both other suites' doc comments as the sibling
       # they coordinate the pg_advisory_lock(5369) key with, so leaving it
@@ -832,6 +834,7 @@ jobs:
           set -o pipefail
           pnpm --filter @mbe/reservations-service exec vitest run \
             src/routes/rls-owner-enforcement.integration.test.ts \
+            src/routes/rls-app-reservations.integration.test.ts \
             src/routes/rls-isolation.integration.test.ts \
             src/services/lapsed-guest-cron.rls.integration.test.ts \
             src/routes/rls-route-sweep.integration.test.ts \

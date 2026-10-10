@@ -9192,7 +9192,7 @@
       });
     }
     export function buildGuestRiskFixture(): GuestRiskResult {
-      return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+      return GuestRiskResultSchema.parse({ requiresDeposit: false });
     }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states
@@ -16706,6 +16706,7 @@
   <file path="services/reservations/src/middleware/venue-context.ts">
     export interface VenueContextClient {
       $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+      $executeRawUnsafe: (query: string) => Promise<number>;
     }
     export interface SetVenueContextOptions {
       /**
@@ -16728,6 +16729,7 @@
       venueId: string | null | undefined,
       options: SetVenueContextOptions = {}
     ): Promise<void> {
+      await assumeAppRole(client);
       if (!venueId) {
         if (!options.skipUnscopedQueryCheck) {
           // `model: null` — this function doesn't know which table its caller's
@@ -23421,9 +23423,9 @@
             rateLimit: { max: 20, timeWindow: "1 minute" },
           },
           schema: {
-            summary: "Get guest risk score (public)",
+            summary: "Get guest deposit requirement (public)",
             description:
-              "Returns guest risk score for the booking widget. Used to determine if a deposit step should be shown. Rate-limited to 20 req/min per IP.",
+              "Returns whether the booking widget should show a deposit step. Rate-limited to 20 req/min per IP.",
             tags: ["Public"],
             params: {
               type: "object",
@@ -23475,9 +23477,9 @@
                 : null;
     
             if (!guest) {
-              // New guest — always trusted
+              // Unknown guest — no deposit. The named score stays off this public body.
               return reply.send({
-                data: { riskScore: "trusted", requiresDeposit: false },
+                data: { requiresDeposit: false },
               });
             }
     
@@ -23485,7 +23487,6 @@
     
             return reply.send({
               data: {
-                riskScore,
                 requiresDeposit: riskScore === "risky",
               },
             });
@@ -28008,7 +28009,6 @@
       count: z.number(),
     });
     export const GuestRiskResultSchema = z.object({
-      riskScore: z.enum(["trusted", "standard", "risky"]),
       requiresDeposit: z.boolean(),
     });
     export const GuestRecognitionSchema = z.object({
@@ -31722,6 +31722,21 @@
       return undefined;
     }
   </file>
+  <file path="services/reservations/src/services/assume-app-role.ts">
+    export const APP_RESERVATIONS_ROLE = "app_reservations";
+    export interface AppRoleClient {
+      $executeRawUnsafe: (query: string) => Promise<number>;
+    }
+    export function appRoleSetStatement(role: string = APP_RESERVATIONS_ROLE): string {
+      if (!APP_ROLE_PATTERN.test(role)) {
+        throw new Error(`refusing SET LOCAL ROLE for ${role}`);
+      }
+      return `SET LOCAL ROLE "${role}"`;
+    }
+    export async function assumeAppRole(tx: AppRoleClient): Promise<void> {
+      await tx.$executeRawUnsafe(appRoleSetStatement());
+    }
+  </file>
   <file path="services/reservations/src/services/availability.ts">
     interface VenueWithSettings {
       id: string;
@@ -35334,7 +35349,10 @@
       });
     }
     export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
-      const venues = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+      const venues = await prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+      });
       return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
@@ -36618,9 +36636,11 @@
         page: number,
         limit: number
       ): Promise<PaginatedResponse<Reservation>> {
-        const venueRows = await prisma.$queryRaw<
-          { app_reservation_venue_ids_for_user: string }[]
-        >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+        const venueRows = await prisma.$transaction(async (tx) => {
+          await assumeAppRole(tx);
+          return tx.$queryRaw<{ app_reservation_venue_ids_for_user: string }[]>`
+            SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+        });
     
         const perVenue = await Promise.all(
           venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>
@@ -37180,9 +37200,12 @@
       key: string,
       group?: string | null
     ): Promise<string | null> {
-      const rows = await prisma.$queryRaw<ResolvedVenueIdRow[]>`
-        SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
-      `;
+      const rows = await prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<ResolvedVenueIdRow[]>`
+          SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
+        `;
+      });
       return rows[0]?.app_resolve_venue_id ?? null;
     }
   </file>
@@ -37244,15 +37267,7 @@
   </file>
   <file path="services/reservations/src/services/rls-force-coverage.ts">
     export const MIGRATIONS_DIR = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
-    export const PENDING_FORCE_TABLES = [
-      "deposits",
-      "floor_plans",
-      "guests",
-      "reservations",
-      "tables",
-      "venues",
-      "waitlist_entries",
-    ] as const;
+    export const PENDING_FORCE_TABLES = [] as const;
     export interface RlsDeclarations {
       readonly enabled: ReadonlySet<string>;
       readonly forced: ReadonlySet<string>;
@@ -37294,8 +37309,9 @@
         (table) => !declarations.forced.has(table) && !acknowledged.has(table)
       );
       const stale = [...acknowledged].filter((table) => !declarations.enabled.has(table));
+      const closed = [...acknowledged].filter((table) => declarations.forced.has(table));
     
-      return [...unaccounted, ...stale].sort();
+      return [...new Set([...unaccounted, ...stale, ...closed])].sort();
     }
   </file>
   <file path="services/reservations/src/services/serializers.ts">
@@ -38446,6 +38462,7 @@
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
       $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+      $executeRawUnsafe: (query: string) => Promise<number>;
     };
     export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
       return new Proxy(client, {
@@ -38742,19 +38759,25 @@
         const groupFilter = venueGroupId ?? null;
     
         const [rows, totals] = await Promise.all([
-          prisma.$queryRaw<CrossVenueVenueRow[]>`
-            SELECT v.*,
-                   g.id AS group_id,
-                   g.name AS group_name,
-                   g.slug AS group_slug,
-                   g.settings AS group_settings,
-                   g.created_at AS group_created_at
-            FROM app_cross_venue_venues(${groupFilter}::text) v
-            LEFT JOIN venue_groups g ON g.id = v.venue_group_id
-            ORDER BY v.name ASC
-            LIMIT ${take} OFFSET ${skip}`,
-          prisma.$queryRaw<{ total: number }[]>`
-            SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`,
+          prisma.$transaction(async (tx) => {
+            await assumeAppRole(tx);
+            return tx.$queryRaw<CrossVenueVenueRow[]>`
+              SELECT v.*,
+                     g.id AS group_id,
+                     g.name AS group_name,
+                     g.slug AS group_slug,
+                     g.settings AS group_settings,
+                     g.created_at AS group_created_at
+              FROM app_cross_venue_venues(${groupFilter}::text) v
+              LEFT JOIN venue_groups g ON g.id = v.venue_group_id
+              ORDER BY v.name ASC
+              LIMIT ${take} OFFSET ${skip}`;
+          }),
+          prisma.$transaction(async (tx) => {
+            await assumeAppRole(tx);
+            return tx.$queryRaw<{ total: number }[]>`
+              SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`;
+          }),
         ]);
     
         return {
@@ -49842,7 +49865,8 @@
       constructor(private client: ApiClient) {}
     
       /**
-       * Get a guest's risk score for a venue by email or phone.
+       * Whether this guest must pay a deposit, by email or phone.
+       * Unwraps `{ data }` and parses `GuestRiskResultSchema`.
        */
       async guestRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
         return this.client.getOne<GuestRiskResult>(
@@ -50956,6 +50980,8 @@
     export interface MockPrisma {
       $queryRaw: Mock;
       $executeRaw: Mock;
+      $executeRawUnsafe: Mock;
+      $transaction: Mock;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -50990,8 +51016,16 @@
       const defaultPrisma: MockPrisma = {
         $queryRaw: vi.fn(),
         $executeRaw: vi.fn().mockResolvedValue(0),
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $transaction: vi.fn(),
       };
       const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
+      // A caller-supplied `$transaction` stays. Otherwise the callback sees this
+      // same stub, so a query moved inside the transaction still hits the
+      // overridden `$queryRaw`.
+      if (overrides?.prisma?.$transaction === undefined) {
+        mergedPrisma.$transaction = vi.fn(async (fn: (tx: MockPrisma) => unknown) => fn(mergedPrisma));
+      }
     
       const getSlowQueryStats =
         overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS);
@@ -56381,8 +56415,7 @@
       guests?: Guest[];
     }
     export interface GuestRiskResult {
-      riskScore: GuestRiskScore;
-      /** True when the guest's risk score warrants an automatic deposit requirement. */
+      /** True only when the guest's reliability assessment is risky. */
       requiresDeposit: boolean;
     }
     export interface GuestRecognition {

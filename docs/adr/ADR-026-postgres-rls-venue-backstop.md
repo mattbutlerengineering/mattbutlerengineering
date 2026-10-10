@@ -799,5 +799,8 @@ decided — a backstop, not a second authority.
   per-venue `set_config` rather than a bypass role.
 - **Issue #5369**: the app connecting as the table owner, which made the whole
   backstop inert. Its first half — a cross-venue mechanism that does not depend
-  on owner-bypass — is §3.1; its sweep produced §3.2 and §3.3. Still open under
-  it: moving the service onto a non-owner role, and the FORCE flip itself.
+  on owner-bypass — is §3.1; its sweep produced §3.2 and §3.3. The non-owner
+  role `app_reservations` (`NOLOGIN NOINHERIT`) and `FORCE ROW LEVEL SECURITY`
+  on the seven venue tables are in the reservations migrations. Migrate stays
+  the table owner on `DATABASE_URL`. The service process still connects as that
+  owner until each app transaction assumes `app_reservations`.

@@ -15,6 +15,23 @@ describe("createMockDatabaseService", () => {
     expect(vi.isMockFunction(mock.prisma.$executeRaw)).toBe(true);
   });
 
+  it("runs a $transaction callback on the overridden $queryRaw and exposes $executeRawUnsafe", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([{ id: "venue-1" }]);
+    const mock = createMockDatabaseService({ prisma: { $queryRaw: queryRaw } });
+    const txCaller = mock.prisma.$transaction as (
+      fn: (tx: typeof mock.prisma) => Promise<unknown>
+    ) => Promise<unknown>;
+
+    const rows = await txCaller(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL ROLE "app_reservations"');
+      return tx.$queryRaw`SELECT 1`;
+    });
+
+    expect(rows).toEqual([{ id: "venue-1" }]);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(mock.prisma.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL ROLE "app_reservations"');
+  });
+
   it("returns getSlowQueryStats that returns default stats", () => {
     const mock = createMockDatabaseService();
     const stats: SlowQueryStats = mock.getSlowQueryStats();
