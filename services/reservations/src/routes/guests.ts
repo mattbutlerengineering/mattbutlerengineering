@@ -1,27 +1,20 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails, guestsEndpoints } from "@mbe/types";
 import { parsePaginationQuery } from "@mbe/database";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
-import {
-  venueIdFromQuery,
-  venueIdFromBody,
-  venueIdFromEntity,
-  loadInVenueContext,
-} from "./venue-access.js";
+import { venueScoped } from "./venue-scope.js";
 
 /**
- * Resolves the owning venue of a guest addressed by `:id`, so requireVenueAccess
- * can scope by-id operations to the guest's venue. Returns null when the guest
- * does not exist (→ 403, never leaking existence to non-members).
+ * 404 `detail` for a guest addressed by `:id`. `venueScoped` resolves the
+ * guest's venue once (a non-member, or anyone probing an unknown id without
+ * admin, gets 403, never leaking existence) and runs the handler inside that
+ * venue's RLS context.
  */
-const resolveGuestVenueId: VenueIdResolver = venueIdFromEntity(
-  "guest",
-  (request) => (request.params as { id?: unknown }).id
-);
+const GUEST_NOT_FOUND = "Guest not found";
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // List guests for a venue
@@ -34,17 +27,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-    handler: async (request, reply) => {
-      const { venueId } = request.query;
-      if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-      }
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
       const { page, limit } = parsePaginationQuery(request.query);
       return guestService.list(venueId, page, limit);
-    },
+    }),
   });
 
   // Search guests
@@ -56,21 +43,16 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-    handler: async (request, reply) => {
-      const { venueId, query, tags, hasNotVisitedInDays } = request.query;
-      if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-      }
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
+      const { query, tags, hasNotVisitedInDays } = request.query;
       return guestService.search({
         venueId,
         query,
         tags: tags ? tags.split(",") : undefined,
         hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
       });
-    },
+    }),
   });
 
   // Get guest segments
@@ -82,17 +64,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-    handler: async (request, reply) => {
-      const { venueId } = request.query;
-      if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-      }
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
       const segments = await guestService.getSegments(venueId);
       return { data: segments };
-    },
+    }),
   });
 
   // Get guest by ID
@@ -104,22 +80,18 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [
-      requireAuth,
-      requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-    ],
-    handler: async (request, reply) => {
-      const guest = await loadInVenueContext(
-        "guest",
-        request.params.id,
-        () => guestService.getById(request.params.id),
-        null
-      );
-      if (!guest) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-      }
-      return { data: guest };
-    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          entity: "guest",
+          key: (request) => request.params.id,
+          load: (id) => guestService.getById(id),
+          notFound: GUEST_NOT_FOUND,
+        },
+      },
+      async (_request, _reply, { entity }) => ({ data: entity })
+    ),
   });
 
   // Create guest
@@ -131,8 +103,8 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-    handler: async (request, reply) => {
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "body" }, async (request, reply) => {
       try {
         const guest = await guestService.create(request.body);
         return reply.code(201).send({ data: guest });
@@ -150,7 +122,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         }
         throw error;
       }
-    },
+    }),
   });
 
   // Find or create guest (identity resolution)
@@ -163,9 +135,9 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-    handler: async (request, reply) => {
-      const { venueId, email, phone, name, dietaryRestrictions } = request.body;
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
+      const { email, phone, name, dietaryRestrictions } = request.body;
       if (!email && !phone) {
         return reply
           .code(400)
@@ -178,7 +150,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         dietaryRestrictions,
       });
       return { data: guest };
-    },
+    }),
   });
 
   // Update guest
@@ -190,22 +162,19 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [
-      requireAuth,
-      requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-    ],
-    handler: async (request, reply) => {
-      const guest = await loadInVenueContext(
-        "guest",
-        request.params.id,
-        () => guestService.update(request.params.id, request.body),
-        null
-      );
-      if (!guest) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+      },
+      async (request, reply) => {
+        const guest = await guestService.update(request.params.id, request.body);
+        if (!guest) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+        }
+        return { data: guest };
       }
-      return { data: guest };
-    },
+    ),
   });
 
   // Add staff note to guest
@@ -218,27 +187,24 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [
-      requireAuth,
-      requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-    ],
-    handler: async (request, reply) => {
-      const { text } = request.body;
-      if (!text || text.trim().length === 0) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+      },
+      async (request, reply) => {
+        const { text } = request.body;
+        if (!text || text.trim().length === 0) {
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+        }
+        const createdBy = request.user?.id ?? "unknown";
+        const guest = await guestService.addNote(request.params.id, text, createdBy);
+        if (!guest) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+        }
+        return reply.code(201).send({ data: guest });
       }
-      const createdBy = request.user?.id ?? "unknown";
-      const guest = await loadInVenueContext(
-        "guest",
-        request.params.id,
-        () => guestService.addNote(request.params.id, text, createdBy),
-        null
-      );
-      if (!guest) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-      }
-      return reply.code(201).send({ data: guest });
-    },
+    ),
   });
 
   // Get lapsing guests for a venue (on-demand scan)
@@ -251,19 +217,13 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-    handler: async (request, reply) => {
-      const { venueId } = request.query;
-      if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-      }
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
       const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
         fastify.reservationEvents.emitLapsingGuests(vid, guests)
       );
       return { data: lapsing };
-    },
+    }),
   });
 
   // Send win-back message to a guest
@@ -276,28 +236,26 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [
-      requireAuth,
-      requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-    ],
-    handler: async (request, reply) => {
-      const found = await loadInVenueContext(
-        "guest",
-        request.params.id,
-        async () => {
-          const guest = await guestService.getById(request.params.id);
-          if (!guest) return null;
-          const venue = await venueService.getById(guest.venueId);
-          return { guest, venueName: venue?.name ?? guest.venueId };
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          entity: "guest",
+          key: (request) => request.params.id,
+          load: async (id) => {
+            const guest = await guestService.getById(id);
+            if (!guest) return null;
+            const venue = await venueService.getById(guest.venueId);
+            return { guest, venueName: venue?.name ?? guest.venueId };
+          },
+          notFound: GUEST_NOT_FOUND,
         },
-        null
-      );
-      if (!found) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+      },
+      async (_request, _reply, { entity }) => {
+        const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+        return { data: { sent } };
       }
-      const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
-      return { data: { sent } };
-    },
+    ),
   });
 
   // Delete guest
@@ -309,21 +267,18 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Guests"],
       security: [{ bearerAuth: [] }],
     },
-    preHandler: [
-      requireAuth,
-      requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-    ],
-    handler: async (request, reply) => {
-      const deleted = await loadInVenueContext(
-        "guest",
-        request.params.id,
-        () => guestService.delete(request.params.id),
-        false
-      );
-      if (!deleted) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+      },
+      async (request, reply) => {
+        const deleted = await guestService.delete(request.params.id);
+        if (!deleted) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+        }
+        return reply.code(204).send();
       }
-      return reply.code(204).send();
-    },
+    ),
   });
 };

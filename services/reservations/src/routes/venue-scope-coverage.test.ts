@@ -55,17 +55,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
-  "GET /api/v1/guests": "pending-migration",
-  "GET /api/v1/guests/search": "pending-migration",
-  "GET /api/v1/guests/segments": "pending-migration",
-  "GET /api/v1/guests/lapsing": "pending-migration",
-  "GET /api/v1/guests/:id": "pending-migration",
-  "POST /api/v1/guests": "pending-migration",
-  "POST /api/v1/guests/find-or-create": "pending-migration",
-  "PATCH /api/v1/guests/:id": "pending-migration",
-  "POST /api/v1/guests/:id/notes": "pending-migration",
-  "POST /api/v1/guests/:id/win-back": "pending-migration",
-  "DELETE /api/v1/guests/:id": "pending-migration",
   "GET /api/v1/waitlist": "pending-migration",
   "POST /api/v1/waitlist": "pending-migration",
   "GET /api/v1/waitlist/:id": "pending-migration",
