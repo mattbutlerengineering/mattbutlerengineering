@@ -45,7 +45,7 @@
   padding-inline: var(--rialto-space-lg);
   border-radius: var(--rialto-radius-default);
   background: var(--rialto-accent);
-  color: var(--rialto-surface);
+  color: var(--rialto-text-on-accent);
   font: inherit;
   text-decoration: none;
 }
