@@ -1,6 +1,6 @@
 import { forwardRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Alert.module.css";
 
@@ -102,6 +102,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
   ) => {
     const [visible, setVisible] = useState(true);
     const shouldReduceMotion = useReducedMotion();
+    const { precision } = useMotionPreset();
 
     function handleDismiss() {
       setVisible(false);
@@ -120,7 +121,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-            transition={shouldReduceMotion ? { duration: 0.1 } : precision}
+            transition={precision}
           >
             <div className={styles.icon}>{icons[variant]}</div>
 

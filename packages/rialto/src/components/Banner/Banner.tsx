@@ -1,6 +1,6 @@
 import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Banner.module.css";
 
@@ -102,6 +102,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
   ) => {
     const [visible, setVisible] = useState(true);
     const shouldReduceMotion = useReducedMotion();
+    const { precision } = useMotionPreset();
 
     const handleDismiss = () => {
       setVisible(false);

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { cn } from "../../utils/class-composer";
 import styles from "./Tooltip.module.css";
@@ -42,6 +42,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     const [open, setOpen] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const shouldReduceMotion = useReducedMotion();
+    const { precision } = useMotionPreset();
     const tooltipId = useId();
 
     // A single trigger fires both mouseEnter and focus (pointing at a button,
