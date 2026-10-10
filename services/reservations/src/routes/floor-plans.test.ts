@@ -161,6 +161,9 @@ const mockJWTPayload = {
   picture: "https://example.com/pic.jpg",
 };
 
+/** Route prefix the app registers these routes under (app.ts). */
+const FLOOR_PLANS_URL = "/api/v1/floor-plans";
+
 describe("Floor Plan Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
@@ -198,7 +201,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -235,7 +238,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
       });
 
       expect(response.statusCode).toBe(401);
@@ -262,7 +265,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -444,7 +447,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: {
           "x-auth-bypass": "true",
         },
@@ -466,7 +469,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         payload: {
           venueId: "venue-123",
           name: "Main Dining",
@@ -897,7 +900,6 @@ describe("Floor Plan Routes", () => {
  * honest 404.
  */
 describe("Floor Plan Routes — venue authorization pins (ADR-020)", () => {
-  const FLOOR_PLANS_URL = "/api/v1/floor-plans";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {

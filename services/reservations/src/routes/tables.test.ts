@@ -109,6 +109,9 @@ const mockJWTPayload = {
   picture: "https://example.com/pic.jpg",
 };
 
+/** Route prefix the app registers these routes under (app.ts). */
+const TABLES_URL = "/api/v1/tables";
+
 describe("Table Routes", () => {
   let app: FastifyInstance;
   let stubEvents: ReservationEventEmitter;
@@ -153,7 +156,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -252,7 +255,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: {
           "x-auth-bypass": "true",
         },
@@ -271,7 +274,7 @@ describe("Table Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         payload: {
           name: "Table 1",
           capacity: 4,
@@ -476,7 +479,7 @@ describe("Table Routes", () => {
 
   describe("auth enforcement on reads (#3103)", () => {
     it("returns 401 for anonymous GET /v1/tables", async () => {
-      const response = await app.inject({ method: "GET", url: "/api/v1/tables" });
+      const response = await app.inject({ method: "GET", url: TABLES_URL });
 
       expect(response.statusCode).toBe(401);
     });
@@ -502,7 +505,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -771,7 +774,6 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
  * the honest 404.
  */
 describe("Table Routes — venue authorization pins (ADR-020)", () => {
-  const TABLES_URL = "/api/v1/tables";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {
