@@ -30,7 +30,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { ROUTINE_MANIFEST } from "./routine-manifest.mjs";
+import { ROUTINE_MANIFEST, HEARTBEAT_ISSUE_NUMBER } from "./routine-manifest.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -47,10 +47,64 @@ export function matchesSignature(artifact, signature) {
   if (signature.type === "pr-title") {
     return artifact.type === "pr" && new RegExp(signature.pattern).test(artifact.title ?? "");
   }
+  if (signature.type === "heartbeat") {
+    return artifact.type === "heartbeat";
+  }
   if (signature.type === "issue-label") {
     return artifact.type === "issue" && (artifact.labels ?? []).includes(signature.label);
   }
   return false;
+}
+
+const HEARTBEAT_LINE_PATTERN =
+  /^heartbeat: (\S+) (\d{4}-\d{2}-\d{2}) (ok|noop|throttled|error)(?: (.+))?$/;
+
+/**
+ * Pure: parses one `heartbeat: <routine> <YYYY-MM-DD> <ok|noop|throttled|error> [note]`
+ * line (#6190). Returns null for anything malformed, so a stray comment on the
+ * heartbeat issue can never read as a fire.
+ *
+ * @param {string} line
+ * @returns {{routine: string, date: string, state: "ok"|"noop"|"throttled"|"error", note: string}|null}
+ */
+export function parseHeartbeatLine(line) {
+  const match = HEARTBEAT_LINE_PATTERN.exec(String(line ?? "").trim());
+  if (!match) return null;
+  return { routine: match[1], date: match[2], state: match[3], note: match[4] ?? "" };
+}
+
+/**
+ * Pure: classifies a heartbeat-signature routine from the NEWEST heartbeat
+ * only (an old `ok` never masks a newer `error`). `ok`/`noop` -> alive (a
+ * routine that found nothing to do is still alive), `throttled` -> its own
+ * non-dark state, `error` -> dark. Older than `periodDays` but within
+ * `2 * periodDays` reads `late` (never files), beyond that `dark`.
+ */
+function classifyHeartbeat({ heartbeats, nowMs, periodMs, period, activatedAt }) {
+  const newest = heartbeats
+    .map((artifact) => ({ artifact, ageMs: nowMs - new Date(artifact.observedAt ?? "").getTime() }))
+    .filter((entry) => Number.isFinite(entry.ageMs) && entry.ageMs >= 0)
+    .sort((a, b) => a.ageMs - b.ageMs)[0];
+
+  if (!newest) return noArtifactResult({ nowMs, periodMs, period, activatedAt });
+  const { artifact, ageMs } = newest;
+  if (ageMs > periodMs * 2) return { status: "dark", matched: artifact };
+  if (artifact.state === "error") return { status: "dark", matched: artifact };
+  if (ageMs > periodMs) return { status: "late", matched: artifact };
+  return { status: artifact.state === "throttled" ? "throttled" : "alive", matched: artifact };
+}
+
+/** Pure: the result when no usable artifact exists — `pending` inside the activatedAt grace, else `dark`. */
+function noArtifactResult({ nowMs, periodMs, period, activatedAt }) {
+  const activatedMs = activatedAt === undefined ? NaN : new Date(activatedAt).getTime();
+  if (Number.isFinite(activatedMs) && nowMs - activatedMs < periodMs * 2) {
+    return {
+      status: "pending",
+      matched: null,
+      reason: `activated ${activatedAt}, younger than 2 x ${period}-day period — no run expected yet`,
+    };
+  }
+  return { status: "dark", matched: null };
 }
 
 /**
@@ -78,7 +132,7 @@ export function matchesSignature(artifact, signature) {
  *   now: string|number|Date,
  *   activatedAt?: string,
  * }} args
- * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending", matched: object|null, reason?: string}}
+ * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending"|"throttled", matched: object|null, reason?: string}}
  */
 export function classifyRoutineLiveness({
   signature,
@@ -99,6 +153,11 @@ export function classifyRoutineLiveness({
   const period = Number.isFinite(periodDays) && periodDays > 0 ? periodDays : 1;
   const periodMs = period * DAY_MS;
 
+  if (signature.type === "heartbeat") {
+    const heartbeats = (observedArtifacts ?? []).filter((a) => matchesSignature(a, signature));
+    return classifyHeartbeat({ heartbeats, nowMs, periodMs, period, activatedAt });
+  }
+
   const matching = (observedArtifacts ?? [])
     .filter((artifact) => matchesSignature(artifact, signature))
     .map((artifact) => ({ artifact, ageMs: nowMs - new Date(artifact.observedAt ?? "").getTime() }))
@@ -106,17 +165,7 @@ export function classifyRoutineLiveness({
     .sort((a, b) => a.ageMs - b.ageMs);
 
   const mostRecent = matching[0];
-  if (!mostRecent) {
-    const activatedMs = activatedAt === undefined ? NaN : new Date(activatedAt).getTime();
-    if (Number.isFinite(activatedMs) && nowMs - activatedMs < periodMs * 2) {
-      return {
-        status: "pending",
-        matched: null,
-        reason: `activated ${activatedAt}, younger than 2 x ${period}-day period — no run expected yet`,
-      };
-    }
-    return { status: "dark", matched: null };
-  }
+  if (!mostRecent) return noArtifactResult({ nowMs, periodMs, period, activatedAt });
   if (mostRecent.ageMs <= periodMs) {
     return { status: "alive", matched: mostRecent.artifact };
   }
@@ -423,7 +472,7 @@ export function runRoutineLivenessCheck({
     }
     // late and pending never file or close anything: late is below the issue
     // threshold, and pending (#activatedAt grace) has no artifact yet.
-    if (result.status === "late" || result.status === "pending") {
+    if (result.status === "late" || result.status === "pending" || result.status === "throttled") {
       return { routine: entry.name, status: result.status };
     }
 
@@ -582,6 +631,34 @@ function fetchPrCommits(apiGet, pr, pattern) {
   return commits;
 }
 
+/** One comment fetch per client per run, shared by every heartbeat routine. */
+const heartbeatCommentCache = new WeakMap();
+
+/**
+ * Observed heartbeat artifacts for one routine: the valid
+ * `heartbeat: <routine> ...` lines on the heartbeat issue (#6211). Goes
+ * through `ghClient.issue.view`, whose REST fallback works where `gh` GraphQL
+ * does not (Claude Code Remote). REST comments carry `created_at`, `gh` ones
+ * `createdAt`; both are read.
+ */
+function fetchHeartbeatArtifacts(ghClient, routineName) {
+  if (!heartbeatCommentCache.has(ghClient)) {
+    const view = ghClient.issue.view(HEARTBEAT_ISSUE_NUMBER, ["--json", "comments"]);
+    heartbeatCommentCache.set(ghClient, Array.isArray(view?.comments) ? view.comments : []);
+  }
+  return heartbeatCommentCache.get(ghClient).flatMap((comment) => {
+    const beat = parseHeartbeatLine(comment?.body);
+    if (!beat || beat.routine !== routineName) return [];
+    return [
+      {
+        type: "heartbeat",
+        state: beat.state,
+        observedAt: comment.createdAt ?? comment.created_at,
+      },
+    ];
+  });
+}
+
 /**
  * Fetches observed artifacts for one manifest entry via a real `@mbe/gh-client`
  * instance. Search results are capped at 50 and not date-sorted server-side
@@ -601,6 +678,10 @@ function fetchPrCommits(apiGet, pr, pattern) {
 export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = ghApiGet } = {}) {
   const signature = entry.signature;
   if (!signature) return [];
+
+  if (signature.type === "heartbeat") {
+    return fetchHeartbeatArtifacts(ghClient, entry.name);
+  }
 
   if (signature.type === "pr-title") {
     const latestCommit = signature.observe === LATEST_MATCHING_COMMIT;

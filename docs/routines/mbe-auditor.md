@@ -34,4 +34,5 @@ Rules:
 3. If today's lens yields nothing new, report that and end — zero issues filed is success, not failure. Never pad findings.
 4. Never fetch live-site URLs — no egress to production (issue #2920); audit the repo, not the site.
 5. Never commit, push, or open PRs.
+6. FINAL STEP — heartbeat, on every fire without exception. As your very last action, post exactly one comment on issue #6211 (an intentionally CLOSED issue; comment anyway, do not reopen it) using `mcp__github__add_issue_comment`, with this exact body on a single line: `heartbeat: mbe-auditor <YYYY-MM-DD> <ok|noop|throttled|error> [note]` — `<YYYY-MM-DD>` is today's UTC date; use `ok` when you filed at least one issue, `noop` when the lens yielded nothing new (zero issues is success and still counts as alive), `error` if the audit could not complete, `throttled` if you were rate-limited; the optional note is free text. The liveness sensor (scripts/routine-liveness.mjs) reads these comments, so a fire that posts no line reads as dark.
 ```
