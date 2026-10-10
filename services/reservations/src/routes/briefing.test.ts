@@ -98,6 +98,8 @@ vi.mock("jose", () => ({
 import { briefingService } from "../services/briefing.js";
 import { jwtVerify } from "jose";
 
+const BRIEFING_URL = "/api/v1/briefing";
+
 const mockReservation = createMockReservation({ venueId: "venue-abc" });
 
 // Destructure to exclude PII fields (guestEmail, guestPhone) that the briefing service omits
@@ -147,7 +149,7 @@ describe("GET /api/v1/briefing", () => {
   it("returns 401 when not authenticated", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`,
     });
 
     expect(response.statusCode).toBe(401);
@@ -156,7 +158,7 @@ describe("GET /api/v1/briefing", () => {
   it("returns 400 when date param is missing", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?venueId=venue-abc",
+      url: `${BRIEFING_URL}?venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -166,7 +168,7 @@ describe("GET /api/v1/briefing", () => {
   it("returns 400 when venueId param is missing", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19",
+      url: `${BRIEFING_URL}?date=2026-06-19`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -178,7 +180,7 @@ describe("GET /api/v1/briefing", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -196,7 +198,7 @@ describe("GET /api/v1/briefing", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -211,7 +213,7 @@ describe("GET /api/v1/briefing", () => {
 
     await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -226,7 +228,7 @@ describe("GET /api/v1/briefing", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -242,7 +244,6 @@ describe("GET /api/v1/briefing", () => {
  * and problem `detail` byte-identical.
  */
 describe("GET /api/v1/briefing — venue authorization (ADR-020)", () => {
-  const BRIEFING_URL = "/api/v1/briefing";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const URL = `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`;

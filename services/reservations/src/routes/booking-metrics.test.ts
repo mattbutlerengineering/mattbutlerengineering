@@ -97,6 +97,8 @@ vi.mock("jose", () => ({
 import { bookingMetricsService } from "../services/booking-metrics.js";
 import { jwtVerify } from "jose";
 
+const METRICS_URL = "/api/v1/reservations/metrics/daily";
+
 const mockMetrics = {
   date: "2026-06-19",
   venueId: "venue-abc",
@@ -167,7 +169,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
   it("returns 401 when not authenticated", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc",
+      url: `${METRICS_URL}?venueId=venue-abc`,
     });
 
     expect(response.statusCode).toBe(401);
@@ -176,7 +178,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
   it("returns 400 problem-details when venueId param is missing", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily",
+      url: METRICS_URL,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -192,7 +194,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
   it("returns 400 when date param has an invalid format", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=06-19-2026",
+      url: `${METRICS_URL}?venueId=venue-abc&date=06-19-2026`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -205,7 +207,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc",
+      url: `${METRICS_URL}?venueId=venue-abc`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -220,7 +222,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19",
+      url: `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -235,7 +237,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19",
+      url: `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -249,7 +251,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19",
+      url: `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -264,7 +266,7 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19",
+      url: `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`,
       headers: { authorization: "Bearer valid-token" },
     });
 
@@ -279,7 +281,6 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
  * and problem `detail` byte-identical.
  */
 describe("GET /api/v1/reservations/metrics/daily — venue authorization (ADR-020)", () => {
-  const METRICS_URL = "/api/v1/reservations/metrics/daily";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const URL = `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`;
