@@ -127,19 +127,19 @@ describe("check-deps command", () => {
     expect(warnOutput).toContain("vitest");
   });
 
-  it("skips a deliberate INTENTIONAL_MISMATCHES entry instead of reporting it", async () => {
+  it("skips tools/mutation-testing's vitest now that it pins catalog: like everyone else", async () => {
     mockGlob.mockResolvedValue(["package.json", "tools/mutation-testing/package.json"] as never);
     mockReadFileSync.mockImplementation((filePath: unknown) => {
       const path = String(filePath);
       if (path.includes("tools/mutation-testing")) {
         return JSON.stringify({
           name: "@mbe/mutation-testing",
-          devDependencies: { vitest: "4.1.10" },
+          devDependencies: { vitest: "catalog:" },
         });
       }
       return JSON.stringify({
         name: "root",
-        devDependencies: { vitest: "^5.0.1" },
+        devDependencies: { vitest: "catalog:" },
       });
     });
 
@@ -149,7 +149,7 @@ describe("check-deps command", () => {
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  it("still reports a real vitest mismatch from a package NOT in INTENTIONAL_MISMATCHES", async () => {
+  it("reports a real vitest mismatch from any package (no INTENTIONAL_MISMATCHES entries remain)", async () => {
     mockGlob.mockResolvedValue(["package.json", "packages/a/package.json"] as never);
     mockReadFileSync.mockImplementation((filePath: unknown) => {
       const path = String(filePath);
