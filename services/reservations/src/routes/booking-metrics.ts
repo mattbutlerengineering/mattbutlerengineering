@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ProblemDetails } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
+import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString } from "@mbe/database";
-import { venueIdFromQuery } from "./venue-access.js";
+import { venueScoped } from "./venue-scope.js";
 import { bookingMetricsService, type DailyBookingMetrics } from "../services/booking-metrics.js";
 
 /** Today's date as YYYY-MM-DD (UTC), the default window when no `date` is given. */
@@ -18,10 +18,7 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/daily",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Get daily booking-funnel counts",
         operationId: "getDailyBookingMetrics",
@@ -52,26 +49,27 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      // Venue authorization is enforced by requireVenueAccess (ADR-020). The
-      // explicit check below only guards the platform-admin path, which
-      // bypasses venue resolution entirely and would otherwise reach here
-      // with venueId undefined.
-      const { venueId } = request.query;
-      if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
-      }
+    // Venue authorization (ADR-020) and RLS context (ADR-026) come from
+    // venueScoped. A platform admin who omits venueId gets this route's own
+    // 400 detail; a non-admin gets 403.
+    venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const date = request.query.date ?? todayDateString();
+        const dateResult = validateDateString(date);
+        if (!dateResult.valid) {
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+        }
 
-      const date = request.query.date ?? todayDateString();
-      const dateResult = validateDateString(date);
-      if (!dateResult.valid) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+        const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+        return { data };
       }
-
-      const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
-      return { data };
-    }
+    )
   );
 };

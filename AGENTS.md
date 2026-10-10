@@ -44,11 +44,9 @@ Quick reference:
 
 - `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
-- `/issue-worker` — pick up oldest `ready` issue and PR a fix
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
 - `/acmm-audit` — score repo against AI Codebase Maturity Model
-- `/token-report [daily|session|blocks]` — real-time token spend summary via ccusage
 
 ### ACMM Audit (All Agents)
 
@@ -165,15 +163,6 @@ Synonyms listed there as "avoid" must not appear in code or API responses.
 ## Security Scanning (Semgrep)
 
 Semgrep provides Static Application Security Testing (SAST) integrated into the AI development loop.
-
-### MCP Integration
-
-Semgrep MCP server (`@semgrep/mcp`) is configured in `.mcp.json`, giving agents access to:
-
-- Code scanning for 30+ languages
-- Security-focused rulesets (Code, Secrets, Supply Chain)
-- Natural language vulnerability explanations
-- CI/CD integration
 
 ### Pre-commit Security Checks
 

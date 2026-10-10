@@ -50,7 +50,6 @@ Quick reference:
 
 - `/ship-loop` — full local cycle (audit → fix → push → CI → deploy)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
-- `/issue-worker` — pick up oldest `ready` issue and PR a fix
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
 - `/acmm-audit` — score repo against AI Codebase Maturity Model
@@ -149,15 +148,6 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 ## Security Scanning (Semgrep)
 
 Semgrep provides Static Application Security Testing (SAST) integrated into the AI development loop.
-
-### MCP Integration
-
-Semgrep MCP server (`@semgrep/mcp`) is configured in `.mcp.json`, giving agents access to:
-
-- Code scanning for 30+ languages
-- Security-focused rulesets (Code, Secrets, Supply Chain)
-- Natural language vulnerability explanations
-- CI/CD integration
 
 ### Pre-commit Security Checks
 

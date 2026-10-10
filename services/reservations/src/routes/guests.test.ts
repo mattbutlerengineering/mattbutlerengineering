@@ -107,6 +107,8 @@ vi.mock("jose", () => ({
 import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { guestsEndpoints } from "@mbe/types";
 
 const mockGuest = {
   id: "guest-123",
@@ -760,5 +762,137 @@ describe("Guest Routes — staff authorization (issue #3101)", () => {
 
     expect(response.statusCode).toBe(200);
     expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-A");
+  });
+});
+
+/**
+ * Venue-scope pins (docs/fixes/venue-scoped-routes, PR 2): exact problem bodies
+ * for the entity and query shapes, written against the pre-`venueScoped`
+ * routes so the migration has to keep every status and `detail` byte-identical.
+ */
+describe("Guest Routes — venue-scope pins", () => {
+  /** The guests collection path, from the endpoint definitions the routes register. */
+  const GUESTS_URL = guestsEndpoints.list.path;
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockReset();
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  it("returns 403 to a non-member addressing a guest, scoped to the guest's venue", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${GUESTS_URL}/guest-123`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(resolveVenueId).toHaveBeenCalledWith("guest", "guest-123");
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+    expect(guestService.getById).not.toHaveBeenCalled();
+  });
+
+  it("returns 403, not 404, to a non-member probing an unknown guest", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    await buildAs(["staff"], lookup);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `${GUESTS_URL}/missing`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(guestService.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 with today's exact detail to an admin addressing an unknown guest", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `${GUESTS_URL}/missing`,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "New" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+      detail: "Guest not found",
+    });
+    expect(guestService.update).not.toHaveBeenCalled();
+  });
+
+  it("lets a member update a guest of their venue", async () => {
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-1");
+    await buildAs(["staff"], lookup);
+    vi.mocked(guestService.update).mockResolvedValueOnce(mockGuest as never);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `${GUESTS_URL}/guest-123`,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "New" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(guestService.update).toHaveBeenCalledWith("guest-123", { name: "New" });
+  });
+
+  it("answers an admin who sends an empty venueId with today's exact 400 detail", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${GUESTS_URL}/segments?venueId=`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "venueId is required",
+    });
+    expect(guestService.getSegments).not.toHaveBeenCalled();
   });
 });

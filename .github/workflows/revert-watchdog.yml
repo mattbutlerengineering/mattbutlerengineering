@@ -147,12 +147,36 @@ jobs:
           # it back out and auto-close this PR once that issue closes.
           ISSUE_NUMBER: ${{ steps.create_issue.outputs.issue_number || steps.create_issue_fallback.outputs.issue_number }}
         run: |
+          set -o pipefail
           BRANCH="revert-broken-main-$SHA"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Revert the culprit itself (#6040), never HEAD: the checkout is main's
+          # tip at workflow-run time, which may be several commits past $SHA.
+          TARGET=$(node scripts/revert-watchdog.mjs revert-target --sha "$SHA")
+
           git checkout -b "$BRANCH"
-          git revert --no-edit HEAD
+          CHANGED=0
+          if git revert --no-edit "$TARGET"; then
+            REVERT_RC=0
+            CHANGED=$(git diff --name-only HEAD~1 HEAD | wc -l | tr -d ' ')
+          else
+            REVERT_RC=1
+            git revert --abort || true
+          fi
+
+          OUTCOME=$(node scripts/revert-watchdog.mjs classify-revert --exit-code "$REVERT_RC" --changed-files "$CHANGED")
+          echo "$OUTCOME"
+          if [ "$(echo "$OUTCOME" | jq -r '.action')" != "open-pr" ]; then
+            REASON=$(echo "$OUTCOME" | jq -r '.reason')
+            echo "::warning::No revert PR opened for $SHA: $REASON"
+            if [ -n "$ISSUE_NUMBER" ]; then
+              gh issue comment "$ISSUE_NUMBER" --body "No automatic revert PR was opened for \`$SHA\`: $REASON. A manual revert or forward fix is needed." || true
+            fi
+            exit 0
+          fi
+
           git push origin "$BRANCH"
 
           BODY=$(node scripts/revert-watchdog.mjs revert-pr-body --pr "$PR" --issue "$ISSUE_NUMBER")

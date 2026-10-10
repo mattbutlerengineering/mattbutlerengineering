@@ -226,6 +226,35 @@ describe("venueScoped — direct sources (member)", () => {
     expect(res.json()).toMatchObject({ detail: "id is required" });
   });
 
+  it("uses a declared `missing` detail for the admin 400, and leaves the non-admin 403 alone", async () => {
+    const a = await buildTestApp((app) => {
+      app.get<{ Querystring: { venueId?: string } }>(
+        "/custom",
+        venueScoped(
+          {
+            venue: {
+              from: "query",
+              field: "venueId",
+              missing: "venueId query parameter is required",
+            },
+          },
+          async () => ({})
+        )
+      );
+    });
+    const admin = await a.inject({ url: "/custom", headers: { "x-user": "admin" } });
+    expect(admin.statusCode).toBe(400);
+    expect(admin.json()).toMatchObject({
+      status: 400,
+      title: "Bad Request",
+      detail: "venueId query parameter is required",
+    });
+
+    const member = await a.inject({ url: "/custom", headers: { "x-user": "member" } });
+    expect(member.statusCode).toBe(403);
+    expect(member.body).toBe(bodies.venue403);
+  });
+
   it("admits an admin to any venue with isAdmin set, without a membership lookup", async () => {
     const a = await app();
     const res = await a.inject({ url: `/q?venueId=${VENUE_B}`, headers: { "x-user": "admin" } });

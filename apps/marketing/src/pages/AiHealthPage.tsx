@@ -15,6 +15,8 @@ import {
   type QueueEfficiencyMetrics,
   type ReviewBurdenMetrics,
   type AcmmMetrics,
+  type PrCategoryBreakdownMetrics,
+  type PrCategoryBreakdownStats,
 } from "../data/ai-health.js";
 import { normalizeHealthTrends } from "../data/ai-health-trends.js";
 import { TrendChart } from "../components/TrendChart.js";
@@ -214,6 +216,60 @@ function AcmmPanel({ acmm }: { acmm: AcmmMetrics }) {
   );
 }
 
+function PrCategoryRate({
+  category,
+  stats,
+}: {
+  category: string;
+  stats: PrCategoryBreakdownStats;
+}) {
+  // A low-sample rate (e.g. 0% from one closed PR) overstates confidence, so
+  // it is replaced by an explicit label rather than shown as a bare percentage.
+  if (stats.lowSample) {
+    return (
+      <Text data-testid={`pr-category-low-sample-${category}`}>
+        {stats.totalDecided == null
+          ? "sample size unknown, too few to trust"
+          : `n=${stats.totalDecided}, too few to trust`}
+      </Text>
+    );
+  }
+  return (
+    <Text>{stats.acceptanceRate == null ? PLACEHOLDER : formatRatio(stats.acceptanceRate)}</Text>
+  );
+}
+
+function PrCategoryBreakdownPanel({ breakdown }: { breakdown: PrCategoryBreakdownMetrics }) {
+  const body = !breakdown.available ? (
+    <div className={styles.sensorRow}>
+      <Text className={styles.sensorName}>prCategoryMetrics</Text>
+      <div className={styles.sensorBadge}>
+        <Badge color="red" size="sm">
+          Unavailable
+        </Badge>
+      </div>
+    </div>
+  ) : breakdown.byCategory.length === 0 ? (
+    <Text className={styles.panelNote}>No categorized PRs reported.</Text>
+  ) : (
+    breakdown.byCategory.map(([category, stats]) => (
+      <div key={category} className={styles.sensorRow}>
+        <Text className={styles.sensorName}>{category}</Text>
+        <PrCategoryRate category={category} stats={stats} />
+        <Text className={styles.statNote}>
+          {formatCount(stats.merged)}/{formatCount(stats.totalDecided)} merged
+        </Text>
+      </div>
+    ))
+  );
+
+  return (
+    <div className={styles.sensorGrid} role="region" aria-label="PR categories">
+      {body}
+    </div>
+  );
+}
+
 async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
   const response = await fetch("/sensor-report.json", { signal });
   if (!response.ok) {
@@ -365,6 +421,11 @@ export function AiHealthPage() {
       <section className={styles.section}>
         <Heading level={2}>Review Burden</Heading>
         <ReviewBurdenPanel reviewBurden={metrics.reviewBurden} />
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>PR Categories</Heading>
+        <PrCategoryBreakdownPanel breakdown={metrics.prCategoryBreakdown} />
       </section>
 
       <section className={styles.section}>
