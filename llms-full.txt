@@ -35771,7 +35771,14 @@
     
       let stripeOp: DepositStripeOp;
       try {
-        if (feeResult.depositAction === "refund_full") {
+        // A 0%/null-fee late cancel still resolves to "refund_partial" from
+        // evaluateCancellationFee, with a refund equal to the whole deposit —
+        // which would needlessly capture the full deposit and refund all of it
+        // right back. Release the authorization instead (mirrors no-show, #5719).
+        const refundsWholeDeposit =
+          feeResult.depositAction === "refund_partial" &&
+          feeResult.refundAmountCents >= deposit.amountCents;
+        if (feeResult.depositAction === "refund_full" || refundsWholeDeposit) {
           await deposits.refund(deposit.id);
           stripeOp = "refund";
         } else if (feeResult.depositAction === "forfeit") {

@@ -1,6 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Reservation } from "@mbe/types";
 
+// Stateful in-memory `prisma.deposit` so the REAL DepositService can run
+// against `createInMemoryPayments()` (money-movement assertions below).
+const { depositRows } = vi.hoisted(() => ({
+  depositRows: new Map<string, Record<string, unknown>>(),
+}));
+
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      deposit: {
+        findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+          const row = depositRows.get(where.id);
+          return row ? { ...row } : null;
+        }),
+        updateMany: vi.fn(
+          async ({
+            where,
+            data,
+          }: {
+            where: { id: string; status: string };
+            data: Record<string, unknown>;
+          }) => {
+            const row = depositRows.get(where.id);
+            if (!row || row.status !== where.status) return { count: 0 };
+            depositRows.set(where.id, { ...row, ...data });
+            return { count: 1 };
+          }
+        ),
+      },
+    },
+  });
+});
+
 vi.mock("./reservation.js", () => ({
   reservationService: {
     update: vi.fn(),
@@ -21,8 +55,9 @@ import {
   DepositCaptureAmbiguousError,
   DepositWrittenOffUncollectableError,
   DepositConcurrentUpdateError,
-  type DepositService,
+  DepositService,
 } from "./deposit.js";
+import { createInMemoryPayments } from "../transitions/in-memory.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
   cancelReservationWithDeposit,
@@ -752,5 +787,51 @@ describe("cancelReservationWithDeposit", () => {
       expect(result.status).toBe(409);
     }
     expect(deps.logger.error).not.toHaveBeenCalled();
+  });
+
+  describe("late cancel where the late fee is 0 (real DepositService + in-memory payments)", () => {
+    it.each([
+      ["0", 0],
+      ["null", null],
+    ])(
+      "moves no money out of the guest's hold when lateCancellationFeePercent is %s",
+      async (_label, feePercent) => {
+        const reservation = makeReservation({
+          // Inside the 24h free-cancellation window: a late cancel.
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        });
+        depositRows.set("dep_1", { ...heldDeposit });
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce({
+          ...venuePolicy,
+          lateCancellationFeePercent: feePercent,
+        });
+        vi.mocked(reservationService.update).mockResolvedValueOnce({
+          ...reservation,
+          status: "CANCELLED",
+        } as never);
+        const payments = createInMemoryPayments();
+        const deps = {
+          ...makeDeps(),
+          deposits: new DepositService(payments),
+        } as unknown as CancelReservationDeps;
+        // Real service looks the deposit up by reservation id.
+        const realDeposits = deps.deposits;
+        vi.spyOn(realDeposits, "getByReservationId").mockResolvedValue({
+          ...heldDeposit,
+        } as never);
+
+        const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+        expect(result.success).toBe(true);
+        const ops = payments.calls.map((c) => c.op);
+        // No fee is owed, so nothing may be captured (capture-then-refund-all
+        // is needless and leaves a charge + refund on the guest's statement)...
+        expect(ops).not.toContain("capturePaymentIntent");
+        expect(ops).not.toContain("createPartialRefund");
+        // ...and the authorization is released instead.
+        expect(ops).toContain("cancelPaymentIntent");
+        expect(depositRows.get("dep_1")?.status).toBe("refunded");
+      }
+    );
   });
 });
