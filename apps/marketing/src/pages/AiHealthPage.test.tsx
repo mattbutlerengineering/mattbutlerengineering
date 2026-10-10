@@ -575,6 +575,68 @@ describe("AiHealthPage", () => {
     });
   });
 
+  describe("PR Categories panel (#5902)", () => {
+    const withCategories = {
+      ...MOCK_REPORT,
+      sensors: {
+        ...MOCK_REPORT.sensors,
+        prCategoryMetrics: {
+          available: true,
+          total_prs: 20,
+          total_merged: 17,
+          total_closed_without_merge: 3,
+          by_category: {
+            dependencies: { merged: 8, closed_without_merge: 2, acceptance_rate: 0.8 },
+            audit: { merged: 0, closed_without_merge: 1, acceptance_rate: 0 },
+            "future:unknown-key": { merged: 9, closed_without_merge: 0, acceptance_rate: 1 },
+          },
+        },
+      },
+    };
+
+    async function renderWith(report: unknown) {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => report });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("PR Categories")).toBeInTheDocument();
+      });
+      return within(screen.getByRole("region", { name: "PR categories" }));
+    }
+
+    it("renders every category from the data with rate and merged/total counts", async () => {
+      const panel = await renderWith(withCategories);
+      expect(panel.getByText("dependencies")).toBeInTheDocument();
+      expect(panel.getByText("80.0%")).toBeInTheDocument();
+      expect(panel.getByText("8/10 merged")).toBeInTheDocument();
+      expect(panel.getByText("future:unknown-key")).toBeInTheDocument();
+      expect(panel.getByText("100.0%")).toBeInTheDocument();
+    });
+
+    it("labels low-sample categories instead of showing a bare percentage", async () => {
+      const panel = await renderWith(withCategories);
+      expect(panel.getByTestId("pr-category-low-sample-audit")).toHaveTextContent(
+        "n=1, too few to trust"
+      );
+      expect(panel.queryByText("0.0%")).not.toBeInTheDocument();
+    });
+
+    it("says Unavailable when the sensor is missing", async () => {
+      const panel = await renderWith(NEW_SCHEMA_REPORT);
+      expect(panel.getByText("Unavailable")).toBeInTheDocument();
+    });
+
+    it("says no categories reported when available but empty", async () => {
+      const panel = await renderWith({
+        ...MOCK_REPORT,
+        sensors: {
+          ...MOCK_REPORT.sensors,
+          prCategoryMetrics: { available: true, by_category: {} },
+        },
+      });
+      expect(panel.getByText("No categorized PRs reported.")).toBeInTheDocument();
+    });
+  });
+
   // #5443: the page's whole stated purpose is honesty about self-improvement,
   // which a point-in-time snapshot cannot demonstrate. Both trends come from
   // one extra payload, fetched the same way the snapshot panels already are.
