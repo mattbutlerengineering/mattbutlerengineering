@@ -242,9 +242,10 @@ describe("GET /api/v1/briefing", () => {
  * and problem `detail` byte-identical.
  */
 describe("GET /api/v1/briefing — venue authorization (ADR-020)", () => {
+  const BRIEFING_URL = "/api/v1/briefing";
   let app: FastifyInstance;
   const originalEnv = process.env;
-  const URL = "/api/v1/briefing?date=2026-06-19&venueId=venue-abc";
+  const URL = `${BRIEFING_URL}?date=2026-06-19&venueId=venue-abc`;
 
   async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
     process.env = {
@@ -314,7 +315,7 @@ describe("GET /api/v1/briefing — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/briefing?date=2026-06-19&venueId=",
+      url: `${BRIEFING_URL}?date=2026-06-19&venueId=`,
       headers: { authorization: "Bearer t" },
     });
 

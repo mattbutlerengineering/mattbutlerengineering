@@ -279,9 +279,10 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
  * and problem `detail` byte-identical.
  */
 describe("GET /api/v1/reservations/metrics/daily — venue authorization (ADR-020)", () => {
+  const METRICS_URL = "/api/v1/reservations/metrics/daily";
   let app: FastifyInstance;
   const originalEnv = process.env;
-  const URL = "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19";
+  const URL = `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`;
 
   async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
     process.env = {
@@ -347,7 +348,7 @@ describe("GET /api/v1/reservations/metrics/daily — venue authorization (ADR-02
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily",
+      url: METRICS_URL,
       headers: { authorization: "Bearer t" },
     });
 
@@ -361,7 +362,7 @@ describe("GET /api/v1/reservations/metrics/daily — venue authorization (ADR-02
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations/metrics/daily",
+      url: METRICS_URL,
       headers: { authorization: "Bearer t" },
     });
 

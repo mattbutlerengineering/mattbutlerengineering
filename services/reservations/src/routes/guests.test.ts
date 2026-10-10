@@ -108,6 +108,7 @@ import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { resolveVenueId } from "../services/resolve-venue.js";
+import { guestsEndpoints } from "@mbe/types";
 
 const mockGuest = {
   id: "guest-123",
@@ -770,6 +771,8 @@ describe("Guest Routes — staff authorization (issue #3101)", () => {
  * routes so the migration has to keep every status and `detail` byte-identical.
  */
 describe("Guest Routes — venue-scope pins", () => {
+  /** The guests collection path, from the endpoint definitions the routes register. */
+  const GUESTS_URL = guestsEndpoints.list.path;
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {
@@ -806,7 +809,7 @@ describe("Guest Routes — venue-scope pins", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/guests/guest-123",
+      url: `${GUESTS_URL}/guest-123`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -824,7 +827,7 @@ describe("Guest Routes — venue-scope pins", () => {
 
     const response = await app.inject({
       method: "DELETE",
-      url: "/api/v1/guests/missing",
+      url: `${GUESTS_URL}/missing`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -840,7 +843,7 @@ describe("Guest Routes — venue-scope pins", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: "/api/v1/guests/missing",
+      url: `${GUESTS_URL}/missing`,
       headers: { authorization: "Bearer t" },
       payload: { name: "New" },
     });
@@ -864,7 +867,7 @@ describe("Guest Routes — venue-scope pins", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: "/api/v1/guests/guest-123",
+      url: `${GUESTS_URL}/guest-123`,
       headers: { authorization: "Bearer t" },
       payload: { name: "New" },
     });
@@ -879,7 +882,7 @@ describe("Guest Routes — venue-scope pins", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/guests/segments?venueId=",
+      url: `${GUESTS_URL}/segments?venueId=`,
       headers: { authorization: "Bearer t" },
     });
 

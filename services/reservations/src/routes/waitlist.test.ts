@@ -492,6 +492,7 @@ describe("Waitlist Routes", () => {
  * status and problem `detail` byte-identical.
  */
 describe("Waitlist Routes — venue authorization (ADR-020)", () => {
+  const WAITLIST_URL = "/api/v1/waitlist";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {
@@ -531,7 +532,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/waitlist?venueId=venue-1",
+      url: `${WAITLIST_URL}?venueId=venue-1`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -550,7 +551,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/waitlist?venueId=venue-1",
+      url: `${WAITLIST_URL}?venueId=venue-1`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -565,7 +566,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/api/v1/waitlist",
+      url: WAITLIST_URL,
       headers: { authorization: "Bearer t" },
       payload: { venueId: "venue-1", partySize: 2, guestName: "A", guestPhone: "555-1234" },
     });
@@ -581,7 +582,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "PUT",
-      url: "/api/v1/waitlist/entry-1/seat",
+      url: `${WAITLIST_URL}/entry-1/seat`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -599,7 +600,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/waitlist/missing",
+      url: `${WAITLIST_URL}/missing`,
       headers: { authorization: "Bearer t" },
     });
 
@@ -615,7 +616,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     const response = await app.inject({
       method: "PUT",
-      url: "/api/v1/waitlist/missing/expire",
+      url: `${WAITLIST_URL}/missing/expire`,
       headers: { authorization: "Bearer t" },
     });
 
