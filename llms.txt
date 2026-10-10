@@ -6646,7 +6646,8 @@
       type ReplyOf = Parameters<Handler<RG>>[1];
     </item>
     <item priority="low">
-      type VenueSource = "query" | "body" | "params" | { readonly from: "query" | "bo | {
+      type VenueSource = "query" | "body" | "params" | {
+            readonly from: "query" | {
             readonly entity: Entit | {
             readonly resolve: (req;
     </item>
@@ -6682,7 +6683,9 @@
       export function venueScopeOf(handler: unknown): string | null { /* ... */ }
     </item>
     <item priority="high">
-      type DirectSource = { readonly from: "query" | "body" | "params"; readonly fi...;
+      type DirectSource = {
+        readonly from: "query" | "body" | "params";
+        readonl...;
     </item>
     <item priority="high">
       type EntitySource = Extract<

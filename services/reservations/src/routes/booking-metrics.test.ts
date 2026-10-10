@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { createMockJWTPayload } from "../test/mocks.js";
 
 vi.mock("../services/booking-metrics.js", () => ({
@@ -269,5 +270,109 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
 
     const body = JSON.parse(response.body);
     expect(findForbiddenKey(body, FORBIDDEN_PII_KEYS)).toBeNull();
+  });
+});
+
+/**
+ * Venue-authorization gap tests (docs/fixes/venue-scoped-routes, PR 2), pinned
+ * against the pre-`venueScoped` route so the migration has to keep every status
+ * and problem `detail` byte-identical.
+ */
+describe("GET /api/v1/reservations/metrics/daily — venue authorization (ADR-020)", () => {
+  const METRICS_URL = "/api/v1/reservations/metrics/daily";
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const URL = `${METRICS_URL}?venueId=venue-abc&date=2026-06-19`;
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  it("returns 403 with requireVenueAccess's body for a non-member", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      detail: "You do not have access to this venue",
+    });
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-abc");
+    expect(bookingMetricsService.getDailyBookingMetrics).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for a member of the venue", async () => {
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-abc");
+    await buildAs(["staff"], lookup);
+    vi.mocked(bookingMetricsService.getDailyBookingMetrics).mockResolvedValueOnce(mockMetrics);
+
+    const response = await app.inject({
+      method: "GET",
+      url: URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data).toEqual(mockMetrics);
+  });
+
+  it("returns 403 for a non-member who omits venueId, without a membership lookup", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: METRICS_URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("answers an admin who omits venueId with today's exact 400 detail", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: METRICS_URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "venueId query parameter is required",
+    });
+    expect(lookup).not.toHaveBeenCalled();
   });
 });

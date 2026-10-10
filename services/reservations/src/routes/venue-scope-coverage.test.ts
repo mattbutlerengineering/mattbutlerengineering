@@ -30,6 +30,7 @@ const FIXTURES = { ...STAFF_FIXTURES, ...PUBLIC_FIXTURES };
  */
 type UnscopedReason =
   | "cross-venue fan-out"
+  | "cross-venue fan-out (admin)"
   | "venue-create"
   | "venue-group (no RLS)"
   | "public slug"
@@ -53,29 +54,12 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/reservations/health": "infra (no venue data)",
   "POST /api/v1/events/test": "infra (no venue data)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
+  // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
+  // all-venue stream (#4016), which venueScoped cannot express. The route keeps
+  // its own requireVenueAccess guard.
+  "GET /api/v1/events/stream": "cross-venue fan-out (admin)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
-  "GET /api/v1/guests": "pending-migration",
-  "GET /api/v1/guests/search": "pending-migration",
-  "GET /api/v1/guests/segments": "pending-migration",
-  "GET /api/v1/guests/lapsing": "pending-migration",
-  "GET /api/v1/guests/:id": "pending-migration",
-  "POST /api/v1/guests": "pending-migration",
-  "POST /api/v1/guests/find-or-create": "pending-migration",
-  "PATCH /api/v1/guests/:id": "pending-migration",
-  "POST /api/v1/guests/:id/notes": "pending-migration",
-  "POST /api/v1/guests/:id/win-back": "pending-migration",
-  "DELETE /api/v1/guests/:id": "pending-migration",
-  "GET /api/v1/waitlist": "pending-migration",
-  "POST /api/v1/waitlist": "pending-migration",
-  "GET /api/v1/waitlist/:id": "pending-migration",
-  "PUT /api/v1/waitlist/:id/seat": "pending-migration",
-  "PUT /api/v1/waitlist/:id/notify": "pending-migration",
-  "PUT /api/v1/waitlist/:id/cancel": "pending-migration",
-  "PUT /api/v1/waitlist/:id/expire": "pending-migration",
-  "GET /api/v1/briefing": "pending-migration",
-  "GET /api/v1/reservations/metrics/daily": "pending-migration",
-  "GET /api/v1/events/stream": "pending-migration",
 
   // PR 3: tables, floor plans, venues.
   "GET /api/v1/tables": "pending-migration",
@@ -204,6 +188,35 @@ describe("venue-scope coverage (no database)", () => {
       (route) => app.venueScopes.get(route) != null && FIXTURES[route]?.kind === "broken"
     );
     expect(mismatched, "declaring the scope should have fixed it: update the fixture").toEqual([]);
+  });
+
+  it("records the declared descriptor for each migrated route (stamp → registry)", () => {
+    const expected: Record<string, string> = {
+      "GET /api/v1/guests": "query.venueId/member",
+      "GET /api/v1/guests/search": "query.venueId/member",
+      "GET /api/v1/guests/segments": "query.venueId/member",
+      "GET /api/v1/guests/lapsing": "query.venueId/member",
+      "POST /api/v1/guests": "body.venueId/member",
+      "POST /api/v1/guests/find-or-create": "body.venueId/member",
+      "GET /api/v1/guests/:id": "entity:guest/member",
+      "PATCH /api/v1/guests/:id": "entity:guest/member",
+      "POST /api/v1/guests/:id/notes": "entity:guest/member",
+      "POST /api/v1/guests/:id/win-back": "entity:guest/member",
+      "DELETE /api/v1/guests/:id": "entity:guest/member",
+      "POST /api/v1/waitlist": "body.venueId/member",
+      "GET /api/v1/waitlist": "query.venueId/member",
+      "GET /api/v1/waitlist/:id": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/notify": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/seat": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/cancel": "entity:waitlist_entry/member",
+      "PUT /api/v1/waitlist/:id/expire": "entity:waitlist_entry/member",
+      "GET /api/v1/briefing": "query.venueId/member",
+      "GET /api/v1/reservations/metrics/daily": "query.venueId/member",
+    };
+    const actual = Object.fromEntries(
+      Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])
+    );
+    expect(actual).toEqual(expected);
   });
 
   it("is read-only to callers", () => {

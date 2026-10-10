@@ -1056,10 +1056,7 @@
       }>(
         "/daily",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get daily booking-funnel counts",
             operationId: "getDailyBookingMetrics",
@@ -1090,27 +1087,28 @@
             },
           },
         },
-        async (request, reply) => {
-          // Venue authorization is enforced by requireVenueAccess (ADR-020). The
-          // explicit check below only guards the platform-admin path, which
-          // bypasses venue resolution entirely and would otherwise reach here
-          // with venueId undefined.
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
-          }
+        // Venue authorization (ADR-020) and RLS context (ADR-026) come from
+        // venueScoped. A platform admin who omits venueId gets this route's own
+        // 400 detail; a non-admin gets 403.
+        venueScoped(
+          {
+            venue: {
+              from: "query",
+              field: "venueId",
+              missing: "venueId query parameter is required",
+            },
+          },
+          async (request, reply, { venueId }) => {
+            const date = request.query.date ?? todayDateString();
+            const dateResult = validateDateString(date);
+            if (!dateResult.valid) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+            }
     
-          const date = request.query.date ?? todayDateString();
-          const dateResult = validateDateString(date);
-          if (!dateResult.valid) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+            const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+            return { data };
           }
-    
-          const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
-          return { data };
-        }
+        )
       );
     };
   </file>
@@ -1122,10 +1120,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -1148,27 +1143,31 @@
             },
           },
         },
-        async (request, reply) => {
-          // Venue authorization is enforced by requireVenueAccess (ADR-020): the
-          // caller must be a platform admin or a member of `venueId`, so by the
-          // time this handler runs the operator is already scoped to this venue.
-          const { date, venueId } = request.query;
+        // Venue authorization (ADR-020) and RLS context (ADR-026) come from
+        // venueScoped: by the time the handler runs the caller is a platform admin
+        // or a member of `venueId`. The schema requires both params, so the admin
+        // 400 below is reached only by an empty `venueId`.
+        venueScoped(
+          {
+            venue: {
+              from: "query",
+              field: "venueId",
+              missing: "venueId query parameter is required",
+            },
+          },
+          async (request, reply, { venueId }) => {
+            const { date } = request.query;
     
-          if (!date) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
+            if (!date) {
+              return reply
+                .code(400)
+                .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
+            }
+    
+            const data = await briefingService.getBriefing({ date, venueId });
+            return { data };
           }
-    
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
-          }
-    
-          const data = await briefingService.getBriefing({ date, venueId });
-          return { data };
-        }
+        )
       );
     };
   </file>
@@ -2169,17 +2168,11 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
           const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
-        },
+        }),
       });
     
       // Search guests
@@ -2191,21 +2184,16 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId, query, tags, hasNotVisitedInDays } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
+          const { query, tags, hasNotVisitedInDays } = request.query;
           return guestService.search({
             venueId,
             query,
             tags: tags ? tags.split(",") : undefined,
             hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
           });
-        },
+        }),
       });
     
       // Get guest segments
@@ -2217,17 +2205,11 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
-        },
+        }),
       });
     
       // Get guest by ID
@@ -2239,22 +2221,18 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.getById(request.params.id),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-          }
-          return { data: guest };
-        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: {
+              entity: "guest",
+              key: (request) => request.params.id,
+              load: (id) => guestService.getById(id),
+              notFound: GUEST_NOT_FOUND,
+            },
+          },
+          async (_request, _reply, { entity }) => ({ data: entity })
+        ),
       });
     
       // Create guest
@@ -2266,8 +2244,8 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-        handler: async (request, reply) => {
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "body" }, async (request, reply) => {
           try {
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
@@ -2285,7 +2263,7 @@
             }
             throw error;
           }
-        },
+        }),
       });
     
       // Find or create guest (identity resolution)
@@ -2298,9 +2276,9 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-        handler: async (request, reply) => {
-          const { venueId, email, phone, name, dietaryRestrictions } = request.body;
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
+          const { email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
               .code(400)
@@ -2313,7 +2291,7 @@
             dietaryRestrictions,
           });
           return { data: guest };
-        },
+        }),
       });
     
       // Update guest
@@ -2325,22 +2303,19 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.update(request.params.id, request.body),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const guest = await guestService.update(request.params.id, request.body);
+            if (!guest) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return { data: guest };
           }
-          return { data: guest };
-        },
+        ),
       });
     
       // Add staff note to guest
@@ -2353,27 +2328,24 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const { text } = request.body;
-          if (!text || text.trim().length === 0) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const { text } = request.body;
+            if (!text || text.trim().length === 0) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+            }
+            const createdBy = request.user?.id ?? "unknown";
+            const guest = await guestService.addNote(request.params.id, text, createdBy);
+            if (!guest) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return reply.code(201).send({ data: guest });
           }
-          const createdBy = request.user?.id ?? "unknown";
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.addNote(request.params.id, text, createdBy),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-          }
-          return reply.code(201).send({ data: guest });
-        },
+        ),
       });
     
       // Get lapsing guests for a venue (on-demand scan)
@@ -2386,19 +2358,13 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
           return { data: lapsing };
-        },
+        }),
       });
     
       // Send win-back message to a guest
@@ -2411,28 +2377,26 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const found = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            async () => {
-              const guest = await guestService.getById(request.params.id);
-              if (!guest) return null;
-              const venue = await venueService.getById(guest.venueId);
-              return { guest, venueName: venue?.name ?? guest.venueId };
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: {
+              entity: "guest",
+              key: (request) => request.params.id,
+              load: async (id) => {
+                const guest = await guestService.getById(id);
+                if (!guest) return null;
+                const venue = await venueService.getById(guest.venueId);
+                return { guest, venueName: venue?.name ?? guest.venueId };
+              },
+              notFound: GUEST_NOT_FOUND,
             },
-            null
-          );
-          if (!found) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          },
+          async (_request, _reply, { entity }) => {
+            const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+            return { data: { sent } };
           }
-          const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
-          return { data: { sent } };
-        },
+        ),
       });
     
       // Delete guest
@@ -2444,22 +2408,19 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const deleted = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.delete(request.params.id),
-            false
-          );
-          if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const deleted = await guestService.delete(request.params.id);
+            if (!deleted) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return reply.code(204).send();
           }
-          return reply.code(204).send();
-        },
+        ),
       });
     };
   </file>
@@ -5958,8 +5919,16 @@
       | "query"
       | "body"
       | "params"
-      /** The same, for a key not named `venueId` (e.g. venues' own `:id`). */
-      | { readonly from: "query" | "body" | "params"; readonly field: string }
+      /**
+       * The same, for a key not named `venueId` (e.g. venues' own `:id`), or with
+       * the route's own admin-400 text: `missing` replaces the default
+       * "<field> is required" detail so a migrated route keeps today's bytes.
+       */
+      | {
+          readonly from: "query" | "body" | "params";
+          readonly field: string;
+          readonly missing?: string;
+        }
       /** The venue owning an entity, through the SECURITY DEFINER resolver. */
       | {
           readonly entity: EntityKind;
@@ -6017,7 +5986,11 @@
       const descriptor = (handler as { [VENUE_SCOPE]?: unknown })[VENUE_SCOPE];
       return typeof descriptor === "string" ? descriptor : null;
     }
-    type DirectSource = { readonly from: "query" | "body" | "params"; readonly field: string };
+    type DirectSource = {
+      readonly from: "query" | "body" | "params";
+      readonly field: string;
+      readonly missing?: string;
+    };
     type EntitySource<RG extends RouteGenericInterface, E> = Extract<
       VenueSource<RG, E>,
       { readonly entity: EntityKind }
@@ -6109,7 +6082,7 @@
           // non-admin gets the guard's own 401/403, so existence never leaks.
           if (access === "authenticated" || isAdmin) {
             return direct
-              ? sendProblem(reply, 400, `${direct.field} is required`)
+              ? sendProblem(reply, 400, direct.missing ?? `${direct.field} is required`)
               : sendProblem(reply, 404, notFound!);
           }
           await decide(request, reply, null, null);
@@ -6991,7 +6964,7 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           schema: {
             summary: "Add to waitlist",
             operationId: "createWaitlistEntry",
@@ -7007,7 +6980,7 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped({ venue: "body" }, async (request, reply) => {
           const { guestPhone } = request.body;
           if (!validatePhone(guestPhone)) {
             return reply
@@ -7031,7 +7004,7 @@
             });
     
           return reply.code(201).send({ data: entry });
-        }
+        })
       );
     
       // GET / — list waiting entries for venue
@@ -7040,10 +7013,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -7060,10 +7030,10 @@
             },
           },
         },
-        async (request, reply) => {
-          const entries = await waitlistService.listWaiting(request.query.venueId);
+        venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
+          const entries = await waitlistService.listWaiting(venueId);
           return reply.send({ data: entries });
-        }
+        })
       );
     
       // GET /:id — get single entry
@@ -7072,10 +7042,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -7094,20 +7061,10 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.getById(request.params.id),
-            null
-          );
-          if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
-          }
-          return reply.send({ data: entry });
-        }
+        venueScoped(
+          { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+          async (_request, reply, { entity }) => reply.send({ data: entity })
+        )
       );
     
       // PUT /:id/notify — send "table ready" SMS and schedule 5-min claim window
@@ -7116,10 +7073,7 @@
       }>(
         "/:id/notify",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -7138,28 +7092,19 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.getById(request.params.id),
-            null
-          );
-          if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+        venueScoped(
+          { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+          async (_request, reply, { entity: entry }) => {
+            await fastify.waitlistNotifier.notifyTableReady({
+              id: entry.id,
+              guestPhone: entry.guestPhone,
+              guestName: entry.guestName,
+              venueId: entry.venueId,
+            });
+    
+            return reply.send({ data: entry });
           }
-    
-          await fastify.waitlistNotifier.notifyTableReady({
-            id: entry.id,
-            guestPhone: entry.guestPhone,
-            guestName: entry.guestName,
-            venueId: entry.venueId,
-          });
-    
-          return reply.send({ data: entry });
-        }
+        )
       );
     
       // PUT /:id/seat — mark seated, recalculate remaining
@@ -7168,10 +7113,7 @@
       }>(
         "/:id/seat",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -7190,20 +7132,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.seat(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.seat(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     
       // PUT /:id/cancel — mark cancelled, recalculate remaining
@@ -7212,10 +7147,7 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -7234,20 +7166,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.cancel(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.cancel(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     
       // PUT /:id/expire — mark expired
@@ -7256,10 +7181,7 @@
       }>(
         "/:id/expire",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -7278,20 +7200,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.expire(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.expire(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     };
   </file>
