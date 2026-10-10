@@ -536,6 +536,48 @@ export function findPriorAuditCiFixIssue(candidates, ghsaIds) {
 // callbacks in runCloseStaleRevertPrs.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Revert target + outcome (#6040). The "Propose Revert PR" step used to revert
+// HEAD; the job checks out main's tip at workflow-run time, so any commit
+// landing during CI (~15+ min) became the target instead of the culprit
+// (PR #6012 reverted a heartbeat row, not #6009). The target is the culprit
+// sha the workflow already carries; these pure functions pin that and decide
+// whether the result is safe to present as a revert PR.
+// ---------------------------------------------------------------------------
+
+const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;
+
+/**
+ * Pure: the commit to revert. Always the culprit — never HEAD. Throws on
+ * anything that is not a full 40-hex sha so a blank/garbled value can never
+ * fall through to reverting something else.
+ */
+export function resolveRevertTarget({ culpritSha }) {
+  const sha = typeof culpritSha === "string" ? culpritSha.trim().toLowerCase() : "";
+  if (!FULL_SHA_PATTERN.test(sha)) {
+    throw new Error(`culprit sha is not a full 40-hex commit sha: "${culpritSha}"`);
+  }
+  return sha;
+}
+
+/**
+ * Pure: whether a finished revert attempt may become a revert PR. A non-zero
+ * exit (conflict, or culprit already reverted) or an empty diff must not be
+ * presented as a revert; the caller opens no PR and says why on the issue.
+ */
+export function classifyRevertAttempt({ exitCode, changedFileCount }) {
+  if (exitCode !== 0) {
+    return {
+      action: "skip",
+      reason: "revert of the culprit did not apply cleanly (conflict or already reverted)",
+    };
+  }
+  if (!Number.isInteger(changedFileCount) || changedFileCount <= 0) {
+    return { action: "skip", reason: "revert of the culprit produced an empty diff" };
+  }
+  return { action: "open-pr", reason: "culprit reverted cleanly with a non-empty diff" };
+}
+
 /** Pure: builds a revert PR body carrying a machine-readable link to the
  * breakage issue it was opened for, alongside the pre-existing culprit-PR
  * reference. `extractBreakageIssueNumber` parses the link back out — do not
@@ -1030,6 +1072,23 @@ async function closeStaleReverts(ghClient, args) {
   );
 }
 
+/** Prints the sha the revert must target (the culprit), never HEAD. */
+function revertTarget(args) {
+  try {
+    console.log(resolveRevertTarget({ culpritSha: readFlag(args, "--sha") }));
+  } catch (err) {
+    console.error(`[revert-watchdog] ${err.message}`);
+    process.exit(1);
+  }
+}
+
+/** Prints `{action, reason}` for a finished revert attempt. */
+function classifyRevert(args) {
+  const exitCode = Number(readFlag(args, "--exit-code"));
+  const changedFileCount = Number(readFlag(args, "--changed-files"));
+  console.log(JSON.stringify(classifyRevertAttempt({ exitCode, changedFileCount })));
+}
+
 async function main() {
   const [subcommand, ...rest] = process.argv.slice(2);
   const ghClient = createGhClient();
@@ -1044,9 +1103,13 @@ async function main() {
     revertPrBody(rest);
   } else if (subcommand === "close-stale-reverts") {
     await closeStaleReverts(ghClient, rest);
+  } else if (subcommand === "revert-target") {
+    revertTarget(rest);
+  } else if (subcommand === "classify-revert") {
+    classifyRevert(rest);
   } else {
     console.error(
-      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline|revert-pr-body|close-stale-reverts> [...args]"
+      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline|revert-pr-body|close-stale-reverts|revert-target|classify-revert> [...args]"
     );
     process.exit(1);
   }
