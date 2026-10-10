@@ -158,6 +158,8 @@ import { holdService } from "../services/hold.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { jwtVerify } from "jose";
 
+const WAITLIST_URL = "/api/v1/waitlist";
+
 const AUTH_HEADERS = { authorization: "Bearer valid-token", "x-auth-bypass": "true" };
 
 const mockEntry = {
@@ -218,7 +220,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -250,7 +252,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -270,7 +272,7 @@ describe("Waitlist Routes", () => {
     it("returns 400 when required fields missing", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -288,7 +290,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/waitlist?venueId=venue-1",
+        url: `${WAITLIST_URL}?venueId=venue-1`,
         headers: AUTH_HEADERS,
       });
 
@@ -302,7 +304,7 @@ describe("Waitlist Routes", () => {
     it("returns 400 when venueId missing", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
       });
 
@@ -316,7 +318,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/waitlist/entry-1",
+        url: `${WAITLIST_URL}/entry-1`,
         headers: AUTH_HEADERS,
       });
 
@@ -330,7 +332,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/waitlist/non-existent",
+        url: `${WAITLIST_URL}/non-existent`,
         headers: AUTH_HEADERS,
       });
 
@@ -349,7 +351,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/entry-1/seat",
+        url: `${WAITLIST_URL}/entry-1/seat`,
         headers: AUTH_HEADERS,
       });
 
@@ -364,7 +366,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/bad-id/seat",
+        url: `${WAITLIST_URL}/bad-id/seat`,
         headers: AUTH_HEADERS,
       });
 
@@ -381,7 +383,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/entry-1/cancel",
+        url: `${WAITLIST_URL}/entry-1/cancel`,
         headers: AUTH_HEADERS,
       });
 
@@ -396,7 +398,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/bad-id/cancel",
+        url: `${WAITLIST_URL}/bad-id/cancel`,
         headers: AUTH_HEADERS,
       });
 
@@ -413,7 +415,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/entry-1/expire",
+        url: `${WAITLIST_URL}/entry-1/expire`,
         headers: AUTH_HEADERS,
       });
 
@@ -428,7 +430,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/bad-id/expire",
+        url: `${WAITLIST_URL}/bad-id/expire`,
         headers: AUTH_HEADERS,
       });
 
@@ -442,7 +444,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/entry-1/notify",
+        url: `${WAITLIST_URL}/entry-1/notify`,
         headers: AUTH_HEADERS,
       });
 
@@ -456,7 +458,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "PUT",
-        url: "/api/v1/waitlist/bad-id/notify",
+        url: `${WAITLIST_URL}/bad-id/notify`,
         headers: AUTH_HEADERS,
       });
 
@@ -471,7 +473,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -492,7 +494,6 @@ describe("Waitlist Routes", () => {
  * status and problem `detail` byte-identical.
  */
 describe("Waitlist Routes — venue authorization (ADR-020)", () => {
-  const WAITLIST_URL = "/api/v1/waitlist";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {
