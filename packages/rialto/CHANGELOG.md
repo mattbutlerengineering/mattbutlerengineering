@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.3.2
+
+### Patch Changes
+
+- [#6197](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6197) [`0fdb5a4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0fdb5a4d35d9444cf713f98ba8fc6d1229205501) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y iteration 2 (form components): Select exposes `aria-required` and names its listbox from `aria-label`/`aria-labelledby`; NumberInput ignores arrow keys and disables its steppers when `readOnly`; PinInput cells carry `aria-invalid`/`aria-required`; Autocomplete names its listbox, clears `aria-activedescendant` when closed or empty, closes on Tab, and merges a consumer `aria-describedby` with its hint.
+
 ## 0.3.1
 
 ### Patch Changes
