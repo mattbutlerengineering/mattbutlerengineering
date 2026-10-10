@@ -52,6 +52,9 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Fail closed: without pipefail a failing `git diff` is masked by
+          # `| wc -l`, yielding CODE_CHANGES=0 -> has_code=false -> CI skipped.
+          set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "has_code=true" >> "$GITHUB_OUTPUT"
             exit 0
