@@ -64,7 +64,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /**
  * The metrics this check watches, and how to read a timestamp out of each.
  *
- * `maxAgeDays` is 3 for both: `metrics-collectors.yml` runs them daily, and
+ * `maxAgeDays` is 3 for all entries: `metrics-collectors.yml` runs them daily, and
  * the repo's convention for a staleness threshold is ~3x the collection
  * interval, so a single skipped or failed run is not an alert.
  *
@@ -76,6 +76,15 @@ export const FRESHNESS_POLICY = [
     timestampField: "timestamp",
     maxAgeDays: 3,
     producer: "scripts/acmm/review-burden-metrics.js",
+  },
+  {
+    // `claimed_at` is set on every row at claim time; `merged_at` is null until
+    // reconciled, so it would read as undated. 3 days = ~3x the daily
+    // metrics-collectors.yml cadence (#5921), same convention as above.
+    metric: "queue-telemetry",
+    timestampField: "claimed_at",
+    maxAgeDays: 3,
+    producer: "scripts/collect-queue-telemetry-from-github.mjs",
   },
 ];
 
