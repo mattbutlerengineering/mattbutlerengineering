@@ -157,13 +157,13 @@ jobs:
           TARGET=$(node scripts/revert-watchdog.mjs revert-target --sha "$SHA")
 
           git checkout -b "$BRANCH"
-          REVERT_RC=0
-          git revert --no-edit "$TARGET" || REVERT_RC=$?
           CHANGED=0
-          if [ "$REVERT_RC" -ne 0 ]; then
-            git revert --abort || true
-          else
+          if git revert --no-edit "$TARGET"; then
+            REVERT_RC=0
             CHANGED=$(git diff --name-only HEAD~1 HEAD | wc -l | tr -d ' ')
+          else
+            REVERT_RC=1
+            git revert --abort || true
           fi
 
           OUTCOME=$(node scripts/revert-watchdog.mjs classify-revert --exit-code "$REVERT_RC" --changed-files "$CHANGED")
