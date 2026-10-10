@@ -122,8 +122,8 @@ export function FormSections() {
       {/* ── Slider ─────────────────────────── */}
       <Section id="slider-states" title="Slider — States">
         <div className={styles.cardColumn}>
-          <Slider min={0} max={100} defaultValue={40} />
-          <Slider min={0} max={100} defaultValue={60} disabled />
+          <Slider min={0} max={100} defaultValue={40} aria-label="Volume" />
+          <Slider min={0} max={100} defaultValue={60} disabled aria-label="Volume (disabled)" />
         </div>
       </Section>
     </>
