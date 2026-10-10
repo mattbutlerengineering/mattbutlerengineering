@@ -16,39 +16,38 @@ import {
   updateTablePositionsBodyJsonSchema,
   assignTableBodyJsonSchema,
 } from "@mbe/types";
-import {
-  requireAuth,
-  requireVenueAccess,
-  hasPermission,
-  type VenueIdResolver,
-} from "@mbe/auth/fastify";
+import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
-import {
-  venueIdFromBody,
-  venueIdFromParams,
-  venueIdFromEntity,
-  loadInVenueContext,
-} from "./venue-access.js";
+import { venueScoped } from "./venue-scope.js";
 
-/** Resolves the venue owning a floor plan addressed by `:id` (→ 403 if absent). */
-const resolveFloorPlanVenueId: VenueIdResolver = venueIdFromEntity(
-  "floor_plan",
-  (request) => (request.params as { id?: unknown }).id
-);
+/** 404 `detail` for a floor plan addressed by `:id` or a body `floorPlanId`. */
+const FLOOR_PLAN_NOT_FOUND = "Floor plan not found";
+/** 404 `detail` for a table addressed by `:tableId`. */
+const TABLE_NOT_FOUND = "Table not found";
 
-/** Resolves the venue owning the floor plan named in the request body (`floorPlanId`). */
-const resolveFloorPlanBodyVenueId: VenueIdResolver = venueIdFromEntity(
-  "floor_plan",
-  (request) => (request.body as { floorPlanId?: unknown } | null | undefined)?.floorPlanId
-);
+/**
+ * The venue owning the floor plan addressed by `:id`: by-id actions are scoped
+ * to it, and an unknown id is a 403 for non-admins (never leaking existence)
+ * and a 404 for admins.
+ */
+const floorPlanVenue = {
+  entity: "floor_plan",
+  key: (request: { params: { id: string } }) => request.params.id,
+  notFound: FLOOR_PLAN_NOT_FOUND,
+} as const;
 
-/** Resolves the venue owning a table addressed by `:tableId` (→ 403 if absent/unassigned). */
-const resolveTableParamVenueId: VenueIdResolver = venueIdFromEntity(
-  "table",
-  (request) => (request.params as { tableId?: unknown }).tableId
-);
+/**
+ * The venue owning the table addressed by `:tableId` — the table being
+ * mutated, never the body's floor plan (#5008). No `load`: the service call is
+ * the read, and its own `null` keeps the route's 404.
+ */
+const tableParamVenue = {
+  entity: "table",
+  key: (request: { params: { tableId: string } }) => request.params.tableId,
+  notFound: TABLE_NOT_FOUND,
+} as const;
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
@@ -91,10 +90,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/venue/:venueId/active",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromParams),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Get active floor plan for venue",
         params: {
@@ -105,24 +101,21 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
+    venueScoped({ venue: "params" }, async (_request, reply, { venueId }) => {
+      const floorPlan = await floorPlanService.getActiveByVenueId(venueId);
       if (!floorPlan) {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
       }
       return { data: floorPlan };
-    }
+    })
   );
 
   fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Get floor plan by ID",
         params: {
@@ -133,42 +126,31 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const floorPlan = await loadInVenueContext(
-        "floor_plan",
-        request.params.id,
-        () => floorPlanService.getById(request.params.id),
-        null
-      );
-      if (!floorPlan) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-      }
-      return { data: floorPlan };
-    }
+    venueScoped(
+      { venue: { ...floorPlanVenue, load: (id) => floorPlanService.getById(id) } },
+      async (_request, _reply, { entity: floorPlan }) => ({ data: floorPlan })
+    )
   );
 
   fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: requireAuth,
       schema: {
         summary: "Create floor plan",
         body: createFloorPlanBodyJsonSchema,
       },
     },
-    async (request, reply) => {
+    venueScoped({ venue: "body" }, async (request, reply) => {
       const floorPlan = await floorPlanService.create(request.body);
       return reply.code(201).send({ data: floorPlan });
-    }
+    })
   );
 
   fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id/clone",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Clone floor plan",
         description: "Creates a copy of the floor plan and all its tables.",
@@ -180,19 +162,14 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const cloned = await loadInVenueContext(
-        "floor_plan",
-        request.params.id,
-        () => floorPlanService.clone(request.params.id),
-        null
-      );
+    venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+      const cloned = await floorPlanService.clone(request.params.id);
       if (!cloned) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
       }
       fastify.reservationEvents.emitFloorPlanCreated(cloned);
       return reply.code(201).send({ data: cloned });
-    }
+    })
   );
 
   fastify.patch<{
@@ -202,10 +179,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Update floor plan",
         params: {
@@ -217,27 +191,19 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         body: updateFloorPlanBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const floorPlan = await loadInVenueContext(
-        "floor_plan",
-        request.params.id,
-        () => floorPlanService.update(request.params.id, request.body),
-        null
-      );
+    venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+      const floorPlan = await floorPlanService.update(request.params.id, request.body);
       if (!floorPlan) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
       }
       return { data: floorPlan };
-    }
+    })
   );
 
   fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id/activate",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Set floor plan as active",
         description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -249,22 +215,16 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const updated = await loadInVenueContext(
-        "floor_plan",
-        request.params.id,
-        async () => {
-          const floorPlan = await floorPlanService.getById(request.params.id);
-          if (!floorPlan) return null;
-          return floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
-        },
-        null
-      );
-      if (!updated) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+    venueScoped(
+      { venue: { ...floorPlanVenue, load: (id) => floorPlanService.getById(id) } },
+      async (_request, reply, { entity: floorPlan }) => {
+        const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+        if (!updated) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
+        }
+        return { data: updated };
       }
-      return { data: updated };
-    }
+    )
   );
 
   fastify.post<{
@@ -273,70 +233,58 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/positions",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Bulk update table positions",
         description: "Updates the position and metadata for multiple tables in a floor plan.",
         body: updateTablePositionsBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const { floorPlanId, positions } = request.body;
-
-      // Everything below — the floor plan pre-check, the cross-venue table
-      // scan, and the bulk update itself (which does its own internal
-      // unscoped floor-plan read, see floor-plan.ts's bulkUpdateTablePositions)
-      // resolves and runs inside ONE venue context (ADR-026 §3.3 item 2 /
-      // #5369 PR 5), so all three succeed under FORCE instead of repeating
-      // the unscoped-read trap. Note: once scoped, a genuinely cross-venue
-      // `positions[].tableId` becomes invisible here rather than "found,
-      // wrong venue" — the 403 below no longer fires for that case, but the
-      // attempt still fails (404 "One or more tables not found") because
-      // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
-      // `t.venue_id = …` predicate independent of RLS.
-      const result = await loadInVenueContext(
-        "floor_plan",
-        floorPlanId,
-        async () => {
-          const floorPlan = await floorPlanService.getById(floorPlanId);
-          if (!floorPlan) return { kind: "not-found" as const };
-
-          const tables = await Promise.all(
-            positions.map((pos) => tableService.getById(pos.tableId))
-          );
-          const crossVenueTable = tables.find(
-            (table) => table !== null && table.venueId !== floorPlan.venueId
-          );
-          if (crossVenueTable) return { kind: "cross-venue" as const };
-
-          const updatedTables = await floorPlanService.bulkUpdateTablePositions(
-            floorPlanId,
-            positions
-          );
-          return { kind: "ok" as const, updatedTables };
+    venueScoped(
+      {
+        venue: {
+          entity: "floor_plan",
+          key: (request) => request.body.floorPlanId,
+          load: (id) => floorPlanService.getById(id),
+          notFound: FLOOR_PLAN_NOT_FOUND,
         },
-        { kind: "not-found" as const }
-      );
+      },
+      async (request, reply, { entity: floorPlan }) => {
+        const { floorPlanId, positions } = request.body;
 
-      if (result.kind === "not-found") {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+        // The floor plan load above, this cross-venue table scan, and the bulk
+        // update itself (which does its own internal floor-plan read, see
+        // floor-plan.ts's bulkUpdateTablePositions) all run inside the floor
+        // plan's venue context (ADR-026 §3.3 item 2 / #5369 PR 5), so all three
+        // succeed under FORCE. Note: once scoped, a genuinely cross-venue
+        // `positions[].tableId` becomes invisible here rather than "found,
+        // wrong venue" — the 403 below no longer fires for that case, but the
+        // attempt still fails (404 "One or more tables not found") because
+        // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
+        // `t.venue_id = …` predicate independent of RLS.
+        const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
+        const crossVenueTable = tables.find(
+          (table) => table !== null && table.venueId !== floorPlan.venueId
+        );
+        if (crossVenueTable) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                titleForStatus(403),
+                "One or more tables do not belong to the floor plan's venue"
+              )
+            );
+        }
+
+        const updatedTables = await floorPlanService.bulkUpdateTablePositions(
+          floorPlanId,
+          positions
+        );
+        return { data: updatedTables };
       }
-      if (result.kind === "cross-venue") {
-        return reply
-          .code(403)
-          .send(
-            createProblemDetails(
-              403,
-              titleForStatus(403),
-              "One or more tables do not belong to the floor plan's venue"
-            )
-          );
-      }
-      return { data: result.updatedTables };
-    }
+    )
   );
 
   fastify.post<{
@@ -347,15 +295,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/:tableId/assign",
     {
-      preHandler: [
-        requireAuth,
-        // Pinned to the *table* being mutated (:tableId), not the floor plan
-        // named in the body — see issue #5008. The body's floorPlanId can
-        // legitimately belong to the caller's own venue while :tableId
-        // belongs to someone else's; authorizing on the body let a caller
-        // re-point another venue's table onto their own floor plan.
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
-      ],
+      // Scoped to the *table* being mutated (:tableId), not the floor plan
+      // named in the body — see issue #5008. The body's floorPlanId can
+      // legitimately belong to the caller's own venue while :tableId belongs
+      // to someone else's; authorizing on the body let a caller re-point
+      // another venue's table onto their own floor plan.
+      preHandler: requireAuth,
       schema: {
         summary: "Assign table to floor plan",
         params: {
@@ -367,32 +312,23 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         body: assignTableBodyJsonSchema,
       },
     },
-    async (request, reply) => {
-      const table = await loadInVenueContext(
-        "table",
+    venueScoped({ venue: tableParamVenue }, async (request, reply) => {
+      const table = await floorPlanService.assignTableToFloorPlan(
         request.params.tableId,
-        () =>
-          floorPlanService.assignTableToFloorPlan(
-            request.params.tableId,
-            request.body.floorPlanId,
-            request.body.shapeMetadata
-          ),
-        null
+        request.body.floorPlanId,
+        request.body.shapeMetadata
       );
       if (!table) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", TABLE_NOT_FOUND));
       }
       return { data: table };
-    }
+    })
   );
 
   fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
     "/tables/:tableId/remove",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Remove table from floor plan",
         params: {
@@ -403,27 +339,19 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const table = await loadInVenueContext(
-        "table",
-        request.params.tableId,
-        () => floorPlanService.removeTableFromFloorPlan(request.params.tableId),
-        null
-      );
+    venueScoped({ venue: tableParamVenue }, async (request, reply) => {
+      const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
       if (!table) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", TABLE_NOT_FOUND));
       }
       return { data: table };
-    }
+    })
   );
 
   fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Delete floor plan",
         params: {
@@ -434,17 +362,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const success = await loadInVenueContext(
-        "floor_plan",
-        request.params.id,
-        () => floorPlanService.delete(request.params.id),
-        false
-      );
+    venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+      const success = await floorPlanService.delete(request.params.id);
       if (!success) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
       }
       return reply.code(204).send();
-    }
+    })
   );
 };
