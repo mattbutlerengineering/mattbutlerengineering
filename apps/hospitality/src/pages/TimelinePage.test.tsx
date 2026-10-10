@@ -958,6 +958,10 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.queryByTestId("cancel-dialog")).toBeNull();
       });
+      // WCAG 2.4.3: dismissing without confirming returns focus to the originating block.
+      await waitFor(() => {
+        expect(screen.getByTestId("reservation-block-r1")).toHaveFocus();
+      });
     });
 
     it("rethrows a failed cancel so the dialog owns the failure (item 12 bridge)", async () => {
@@ -1076,6 +1080,10 @@ describe("TimelinePage", () => {
       fireEvent.click(screen.getByTestId("no-show-close"));
       await waitFor(() => {
         expect(screen.queryByTestId("no-show-dialog")).toBeNull();
+      });
+      // WCAG 2.4.3: dismissing without confirming returns focus to the originating block.
+      await waitFor(() => {
+        expect(screen.getByTestId("reservation-block-r1")).toHaveFocus();
       });
     });
 
