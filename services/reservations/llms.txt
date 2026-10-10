@@ -650,6 +650,9 @@
     </item>
   </file>
   <file path="src/routes/tables.ts">
+    <item priority="medium">
+      function tableNotFound(): Error { /* ... */ }
+    </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
     </item>
