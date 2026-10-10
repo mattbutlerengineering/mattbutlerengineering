@@ -73,6 +73,34 @@ export function isAutoMergeEligible(labelNames = []) {
 }
 
 /**
+ * Action `merge-queue.yml` must take for one PR (#5983).
+ *
+ * `isAutoMergeEligible` alone is a race: the `has-pr` label can land before
+ * `tier-classifier` applies `tier:standard|sensitive|critical`, so the first
+ * run enables auto-merge and the second (correct) run only skips, leaving the
+ * earlier enable in place. Any ineligible PR that already has auto-merge
+ * enabled must actively have it DISABLED.
+ *
+ * @param {string[]} [labelNames] - the PR's label names.
+ * @param {boolean} [autoMergeEnabled] - whether GitHub auto-merge is currently enabled.
+ * @returns {{ action: "enable" | "disable" | "skip", reason: string }}
+ */
+export function decideAutoMergeAction(labelNames = [], autoMergeEnabled = false) {
+  const decision = isAutoMergeEligible(labelNames);
+  if (decision.eligible) {
+    // Fail closed: tier-classifier labels with GITHUB_TOKEN, which does not
+    // re-trigger this workflow's `labeled` event, so an enable made before
+    // classification could only be undone by the 30-minute cron.
+    const isClassified = labelNames.some((label) => label.startsWith(TIER_LABEL_PREFIX));
+    if (!isClassified) {
+      return { action: "skip", reason: "awaiting tier classification (no tier:* label yet)" };
+    }
+    return { action: "enable", reason: decision.reason };
+  }
+  return { action: autoMergeEnabled ? "disable" : "skip", reason: decision.reason };
+}
+
+/**
  * Automation carve-out for `.github/workflows/auto-merge.yml` (#3857).
  *
  * `auto-merge.yml` gates a *different* label (`auto-merge`) than
@@ -271,6 +299,12 @@ function main() {
     .map((label) => label.trim())
     .filter(Boolean);
   const mode = readFlag(rest, "--mode") ?? "queue";
+
+  const autoMergeFlag = readFlag(rest, "--auto-merge-enabled");
+  if (mode === "queue" && autoMergeFlag !== null) {
+    console.log(JSON.stringify(decideAutoMergeAction(labelNames, autoMergeFlag === "true")));
+    return;
+  }
 
   const decide = mode === "automation" ? isAutomationAutoMergeEligible : isAutoMergeEligible;
 
