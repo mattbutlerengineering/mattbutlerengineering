@@ -159,6 +159,7 @@ import { resolveVenueId } from "../services/resolve-venue.js";
 import { jwtVerify } from "jose";
 
 const AUTH_HEADERS = { authorization: "Bearer valid-token", "x-auth-bypass": "true" };
+const WAITLIST_URL = "/api/v1/waitlist";
 
 const mockEntry = {
   id: "entry-1",
@@ -218,7 +219,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -250,7 +251,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -270,7 +271,7 @@ describe("Waitlist Routes", () => {
     it("returns 400 when required fields missing", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -302,7 +303,7 @@ describe("Waitlist Routes", () => {
     it("returns 400 when venueId missing", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
       });
 
@@ -471,7 +472,7 @@ describe("Waitlist Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/waitlist",
+        url: WAITLIST_URL,
         headers: AUTH_HEADERS,
         payload: {
           venueId: "venue-1",
@@ -492,7 +493,6 @@ describe("Waitlist Routes", () => {
  * status and problem `detail` byte-identical.
  */
 describe("Waitlist Routes — venue authorization (ADR-020)", () => {
-  const WAITLIST_URL = "/api/v1/waitlist";
   let app: FastifyInstance;
   const originalEnv = process.env;
   const FORBIDDEN = {
