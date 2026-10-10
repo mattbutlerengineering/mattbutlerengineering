@@ -108,7 +108,10 @@ describe("classifyFreshness", () => {
 
 describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
-    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual(["review-burden"]);
+    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
+      "queue-telemetry",
+      "review-burden",
+    ]);
   });
 
   it("names only metrics the metrics-store registry actually knows", () => {
@@ -123,6 +126,9 @@ describe("FRESHNESS_POLICY", () => {
     const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
     // scripts/acmm/review-burden-metrics.js writes `timestamp`.
     expect(byMetric["review-burden"].timestampField).toBe("timestamp");
+    // scripts/collect-queue-telemetry.mjs rows carry `claimed_at` (always set);
+    // `merged_at` is null until reconciled, so it must not be the field.
+    expect(byMetric["queue-telemetry"].timestampField).toBe("claimed_at");
   });
 
   it("sets a threshold wider than the daily collection cadence", () => {
@@ -133,10 +139,31 @@ describe("FRESHNESS_POLICY", () => {
   });
 });
 
+describe("queue-telemetry policy entry", () => {
+  const readWith = (claimedAt) => (metric) =>
+    metric === "queue-telemetry"
+      ? [{ claimed_at: claimedAt, merged_at: null }]
+      : [{ timestamp: daysAgo(0) }];
+  const queueResult = (claimedAt) =>
+    assessFreshness({ readMetric: readWith(claimedAt), now: NOW }).find(
+      (r) => r.metric === "queue-telemetry"
+    );
+
+  it("is fresh when the newest claimed_at is within the threshold", () => {
+    expect(queueResult(daysAgo(2)).state).toBe("fresh");
+  });
+
+  it("is stale once the newest claimed_at exceeds the threshold", () => {
+    expect(queueResult(daysAgo(8)).state).toBe("stale");
+  });
+});
+
 describe("assessFreshness", () => {
   it("reports one result per policy entry", () => {
     const results = assessFreshness({
-      readMetric: () => [{ timestamp: daysAgo(0), collected_at: daysAgo(0) }],
+      readMetric: () => [
+        { timestamp: daysAgo(0), collected_at: daysAgo(0), claimed_at: daysAgo(0) },
+      ],
       now: NOW,
     });
     expect(results).toHaveLength(FRESHNESS_POLICY.length);
