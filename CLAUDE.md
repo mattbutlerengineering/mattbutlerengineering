@@ -62,39 +62,23 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 | `/ideate`                        | Autonomous feature ideation: advance the batch cycle (vetoes → decompose → completion sweep), then propose 4-5 charter-grounded features when the batch is done                                                                                                     |
 | `/implement-queue`               | Drain ready backlog: claim batch → parallel TDD worktree agents → PRs → serial merge train                                                                                                                                                                          |
 | `/site-audit`                    | Crawl live site with Playwright + Lighthouse, create issues                                                                                                                                                                                                         |
-| `/issue-worker`                  | Pick up ready issues, implement via `mbe agent run`, create PRs                                                                                                                                                                                                     |
 | `/ci-monitor`                    | Check CI health, auto-fix simple failures, escalate complex ones                                                                                                                                                                                                    |
 | `/progress-tracker`              | Metrics, self-tuning circuit breaker, trend analysis                                                                                                                                                                                                                |
 | `/learning-loop`                 | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune                                                                                                                                                          |
 | `/sentry-triage`                 | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for implement-queue                                                                                                                                             |
 | `/acmm-audit`                    | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge — now ships as the `plugins/acmm` plugin (extracted in #818), not a `.claude/skills/` entry       |
-| `/token-report`                  | Pull real-time token spend summary via ccusage: daily totals, session breakdown, block usage, per-model cost and cache-read/output/cache-creation breakdown                                                                                                         |
 | `/chaos-agent`                   | Seed non-breaking but detectable bugs (lint violations, dead links) to verify autonomous audit/lint loops catch and file issues; runs weekly                                                                                                                        |
 | `/claude-md-improver`            | Audit CLAUDE.md / AGENTS.md / `.claude/rules/*` for dangling paths, skill-table drift, mandates that don't resolve, and undocumented surfaces; runs monthly                                                                                                         |
 | `/claude-automation-recommender` | Audit `.claude/hooks`, `.claude/agents`, `.claude/skills`, `.github/workflows` for guards that never fire, fire wrongly, or are missing; runs monthly                                                                                                               |
-| `/codex`                         | Configure and use OpenAI Codex CLI (`.codex/config.toml`) for project-specific settings                                                                                                                                                                             |
 | `/decompose`                     | Break a feature into ordered, agent-sized GitHub issues implement-queue can work through sequentially                                                                                                                                                               |
 | `/dep-bump`                      | Batch-apply pnpm.overrides for CVE fixes across multiple Dependabot alerts in a single PR                                                                                                                                                                           |
-| `/deploy`                        | Check deploy status, trigger deploys, debug failures across static sites (Cloudflare Workers), API services (DO App Platform), infrastructure (Pulumi)                                                                                                              |
 | `/gotcha-harvest`                | Mine a session (or `--days N` history) for CI-failed-then-fixed arcs and recurring tool errors, propose entries for `.claude/rules/gotchas.md` or memory                                                                                                            |
-| `/graphify`                      | Turn any input (code, docs, papers, images, video) into a persistent knowledge graph with community detection and query/path/explain tools                                                                                                                          |
 | `/local-ci-precheck`             | Run lint + typecheck + architecture-audit + drift checks locally and in parallel before opening or pushing a PR                                                                                                                                                     |
 | `/md-audit`                      | Weekly semantic pass over human-facing markdown (README, CONTRIBUTING, docs/\*\*) — finds prose claims the repo no longer satisfies; the mechanical half is `pnpm check:markdown` (`scripts/audit-markdown.mjs`), both driven by `.github/workflows/docs-audit.yml` |
-| `/opencode`                      | Configure and use OpenCode AI coding assistant (`opencode.json`) for project-specific settings                                                                                                                                                                      |
 | `/optimize-implement-queue`      | Daily loop: measure implement-queue efficiency via the queueEfficiency sensor, log trend, file de-duplicated issues on regression                                                                                                                                   |
 | `/perf-budget`                   | Check bundle size impact of current changes against size-limit baselines                                                                                                                                                                                            |
 | `/prisma-migrations`             | Prisma Migrate best practices for dev/prod schema changes, baselining, and CI/CD deployment                                                                                                                                                                         |
 | `/revert-rca-loop`               | Detect AI-authored PR reverts, match to the original PR, trigger a Reflection session for root-cause analysis; runs hourly                                                                                                                                          |
-
-### Scaffolding Skills
-
-| Skill                | Purpose                                                                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `/new-adr`           | Scaffold a new ADR in docs/adr/ with canonical format and sequential numbering                                                           |
-| `/new-component`     | Scaffold rialto component with all required files (component, styles, test, story, export)                                               |
-| `/new-e2e-test`      | Scaffold Playwright E2E test matching existing fixtures and auth patterns                                                                |
-| `/new-service`       | Scaffold a new Fastify + Prisma backend service (dir, package.json, app bootstrap, Prisma schema, health route, tests, Turborepo config) |
-| `/new-service-route` | Scaffold Fastify route with validation, auth, ADR-002 error envelope, SSE (reservations), tests                                          |
 
 **User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and now live only as user-level installs (`~/.claude/skills/`) — don't expect them to resolve in-repo.
 
@@ -218,7 +202,7 @@ A hook that did not run must be stated as skipped, with the reason, in the stage
 
 ## Manual Deployment
 
-GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI/`/deploy`, deploy locally via:
+GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI, deploy locally via:
 
 - **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy` (wrangler auto-refreshes oauth on use)
 - **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (export `DO_APP_ID` from your local `.env` or shell — fork maintainers will use their own DigitalOcean app ID)
@@ -240,9 +224,9 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 ## MCP Servers & Observability
 
 - **Langfuse tracing:** Agent sessions traced to [Langfuse Cloud](https://cloud.langfuse.com). Requires `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` env vars; unset = zero overhead.
-- **Semgrep:** See [AGENTS.md](./AGENTS.md#security-scanning-semgrep). Available via `.mcp.json` for scans over `@semgrep/mcp`.
+- **Semgrep:** CLI only (pre-commit + CI) — see [AGENTS.md](./AGENTS.md#security-scanning-semgrep). There is no Semgrep MCP server.
 - **Playwright:** Shared browser tooling (`.mcp.json`) for `/site-audit` and E2E suite; no config needed beyond `.mcp.json` entry.
-- **Stripe (test-mode):** Set `STRIPE_SECRET_KEY` to test-mode key (`sk_test_…`) in `.mcp.json`; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
+- **Stripe (test-mode):** Stripe MCP comes from the user-level `stripe` plugin, not `.mcp.json`. Use a test-mode key (`sk_test_…`) only; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
 
 ## Session Learning & Feedback Loop
 
@@ -349,7 +333,6 @@ The `.claude/rules/gotchas.md` file is the canonical source for project-specific
 
 `.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, so growing the corpus depends entirely on someone remembering to do it. [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) found the corpus had sat frozen for four months while `plugins/acmm/scripts/substance.js`'s `acmm:correction-capture` check kept scoring it as healthy; the fix (#5593) made that check require a qualifying entry within the last 90 days, not merely one that exists — it does not make the writing itself automatic. Verify the corpus's actual freshness with `ls .claude/memory/corrections/ | sort | tail -3` rather than trusting a date pinned here, since any date in this sentence goes stale the day after the next entry lands. Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
 
-## Cross-Session Memory & Knowledge Graph
+## Cross-Session Memory
 
 - **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. **Unavailable by default** — not installed in this repo or in fresh checkouts; run `npx claude-mem install` first to make these commands resolve.
-- **graphify** (`/graphify`): Knowledge graph from repo (or folder/PDF/image/video). Vendored at `.claude/skills/graphify/SKILL.md`, self-bootstraps `graphifyy` PyPI package (needs Python 3.10+). Graph artifacts in `graphify-out/` (gitignored). Use for concept-level subsystem maps, architecture audits, and tracing dependency paths.
