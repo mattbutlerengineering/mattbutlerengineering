@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ProblemDetails } from "@mbe/types";
 import { createProblemDetails, briefingQueryJsonSchema } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
-import { venueScoped } from "./venue-scope.js";
+import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
+import { venueIdFromQuery } from "./venue-access.js";
 import { briefingService, type BriefingEntry } from "../services/briefing.js";
 
 export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
@@ -12,7 +12,10 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+      ],
       schema: {
         summary: "Get tonight's service briefing",
         operationId: "getServiceBriefing",
@@ -35,30 +38,26 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    // Venue authorization (ADR-020) and RLS context (ADR-026) come from
-    // venueScoped: by the time the handler runs the caller is a platform admin
-    // or a member of `venueId`. The schema requires both params, so the admin
-    // 400 below is reached only by an empty `venueId`.
-    venueScoped(
-      {
-        venue: {
-          from: "query",
-          field: "venueId",
-          missing: "venueId query parameter is required",
-        },
-      },
-      async (request, reply, { venueId }) => {
-        const { date } = request.query;
+    async (request, reply) => {
+      // Venue authorization is enforced by requireVenueAccess (ADR-020): the
+      // caller must be a platform admin or a member of `venueId`, so by the
+      // time this handler runs the operator is already scoped to this venue.
+      const { date, venueId } = request.query;
 
-        if (!date) {
-          return reply
-            .code(400)
-            .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
-        }
-
-        const data = await briefingService.getBriefing({ date, venueId });
-        return { data };
+      if (!date) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
       }
-    )
+
+      if (!venueId) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
+      }
+
+      const data = await briefingService.getBriefing({ date, venueId });
+      return { data };
+    }
   );
 };
