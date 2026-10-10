@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { createDatabase } from "@mbe/database";
+import { PrismaClient } from "../generated/prisma/index.js";
+import { setVenueContext } from "../middleware/venue-context.js";
+import { db, prisma } from "../services/database.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
+import { withVenueScopedQueries } from "../services/venue-scoped-prisma.js";
 
 /**
  * Issue #5369: the durable `app_reservations` session, assumed with
@@ -15,10 +21,29 @@ import pg from "pg";
  * 'MEMBER')` is false for the seven venue tables — the app role is not a
  * member of the owner.
  *
- * Skips when `DATABASE_URL` is unset. CI's `test` job has no Postgres, so
- * this file is not what makes `CI Gate` green. Shares `pg_advisory_lock`
- * key 5369 with the suites that toggle FORCE.
+ * The "service's real connection path" block below (#5369 AC3) never writes
+ * `SET LOCAL ROLE` by hand. It drives the service's own `prisma` export
+ * (`../services/database.ts`, connected with `DATABASE_URL`) through
+ * `setVenueContext` and the `withVenueScopedQueries` auto-wrap, with
+ * `app.cross_venue = 'on'` forged. Under FORCE the owner is already subject
+ * to the venue policies, so a plain cross-venue read cannot tell the role
+ * switch apart from its absence. The forged marker can: the
+ * `*_cross_venue_read` policies admit it for a member of the table owner
+ * only. Measured 2026-10-10: with `assumeAppRole` stubbed to a no-op, all six
+ * RLS suites CI runs still passed (155 tests); these tests fail.
+ *
+ * Skips when `DATABASE_URL` is unset. CI's `test` job has no Postgres; the
+ * `rls-integration` job in `.github/workflows/ci.yml` runs this file against
+ * a non-superuser owner role. Shares `pg_advisory_lock` key 5369 with the
+ * suites that toggle FORCE.
  */
+
+/** Same credentials, with a session-level `app.cross_venue = 'on'` forged in. */
+function withForgedCrossVenueMarker(url: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set("options", "-c app.cross_venue=on");
+  return parsed.toString();
+}
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -115,6 +140,8 @@ describe.skipIf(!DATABASE_URL)("RLS as app_reservations (#5369)", () => {
     });
 
     await app.end();
+    // The service singleton opens its own pool from DATABASE_URL.
+    await db.shutdown();
     await lockClient.query("SELECT pg_advisory_unlock($1)", [RLS_SUITE_LOCK_KEY]);
     await lockClient.end();
   });
@@ -187,5 +214,63 @@ describe.skipIf(!DATABASE_URL)("RLS as app_reservations (#5369)", () => {
     expect(found.crossVenue).toEqual([venueAId, venueBId].sort());
     expect(found.resolved).toBe(venueAId);
     expect(found.forUser).toEqual([venueAId]);
+  });
+
+  describe("through the service's real connection path (#5369 AC3)", () => {
+    const bothVenues = () => ({ id: { in: [venueAId, venueBId] } });
+
+    it("runs an explicit app transaction as app_reservations and ignores a forged marker", async () => {
+      const seen = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueBId);
+        await tx.$executeRaw`SELECT set_config('app.cross_venue', 'on', true)`;
+        const who = await tx.$queryRaw<{ current_user: string }[]>`SELECT current_user`;
+        const venues = await tx.venue.findMany({
+          where: bothVenues(),
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+        return { user: who[0]?.current_user, ids: venues.map((venue) => venue.id) };
+      });
+
+      expect(seen).toEqual({ user: "app_reservations", ids: [venueBId] });
+    });
+
+    describe("auto-wrapped delegate calls on a session with the marker forged", () => {
+      let forged: ReturnType<typeof createDatabase>;
+      let forgedPrisma: PrismaClient;
+
+      beforeAll(() => {
+        forged = createDatabase(
+          PrismaClient as never,
+          withForgedCrossVenueMarker(DATABASE_URL as string)
+        );
+        forgedPrisma = forged.prisma as unknown as PrismaClient;
+      });
+
+      afterAll(async () => {
+        await forged.shutdown();
+      });
+
+      it("really forges the marker on the session (guards against a vacuous pass)", async () => {
+        const rows = await forgedPrisma.$queryRaw<
+          { marker: string | null }[]
+        >`SELECT current_setting('app.cross_venue', true) AS marker`;
+
+        expect(rows[0]?.marker).toBe("on");
+      });
+
+      it("still sees only the context venue, because the wrap assumes app_reservations", async () => {
+        const scoped = withVenueScopedQueries(forgedPrisma);
+        const venues = await runWithVenueContext(venueBId, () =>
+          scoped.venue.findMany({
+            where: bothVenues(),
+            select: { id: true },
+            orderBy: { id: "asc" },
+          })
+        );
+
+        expect(venues.map((venue) => venue.id)).toEqual([venueBId]);
+      });
+    });
   });
 });
