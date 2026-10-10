@@ -307,6 +307,38 @@ describe("User routes — authorization branches", () => {
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Unauthorized");
     });
+
+    // Identity here is keyed on the JWT email (findOrCreate upsert), so an
+    // unverified email must never resolve or create a user record.
+    it.each([
+      ["false", { email_verified: false }],
+      ["absent", { email_verified: undefined }],
+    ])(
+      "returns 403 without touching the service when email_verified is %s",
+      async (_label, claim) => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...nonAdminPayload, ...claim },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/users/me",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = JSON.parse(response.body);
+        expect(body).toMatchObject({
+          type: "about:blank",
+          status: 403,
+          title: "Forbidden",
+          detail: "Email address must be verified",
+        });
+        expect(userService.findOrCreate).not.toHaveBeenCalled();
+        expect(userService.getByEmail).not.toHaveBeenCalled();
+      }
+    );
   });
 
   // ── PATCH /api/v1/users/me/preferences ───────────────────────────
@@ -346,6 +378,36 @@ describe("User routes — authorization branches", () => {
 
       expect(response.statusCode).toBe(401);
     });
+
+    it.each([
+      ["false", { email_verified: false }],
+      ["absent", { email_verified: undefined }],
+    ])(
+      "returns 403 without writing preferences when email_verified is %s",
+      async (_label, claim) => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...nonAdminPayload, ...claim },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/users/me/preferences",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { theme: "dark" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = JSON.parse(response.body);
+        expect(body).toMatchObject({
+          type: "about:blank",
+          status: 403,
+          title: "Forbidden",
+          detail: "Email address must be verified",
+        });
+        expect(userService.updatePreferencesByEmail).not.toHaveBeenCalled();
+      }
+    );
 
     it("returns 404 when user not found", async () => {
       vi.mocked(userService.updatePreferencesByEmail).mockResolvedValueOnce(null);
