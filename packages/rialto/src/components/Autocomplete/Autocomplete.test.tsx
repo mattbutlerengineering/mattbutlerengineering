@@ -242,3 +242,57 @@ describe("Autocomplete", () => {
     filterSpy.mockRestore();
   });
 });
+
+describe("Autocomplete — ARIA semantics audit", () => {
+  it("names the listbox from the visible label", async () => {
+    render(<Autocomplete label="Fruit" options={options} />);
+    await user.type(screen.getByRole("combobox"), "a");
+    expect(screen.getByRole("listbox", { name: "Fruit" })).toBeInTheDocument();
+  });
+
+  it("names the listbox from aria-label when no visible label is rendered", async () => {
+    render(<Autocomplete aria-label="Fruit" options={options} />);
+    await user.type(screen.getByRole("combobox"), "a");
+    expect(screen.getByRole("listbox", { name: "Fruit" })).toBeInTheDocument();
+  });
+
+  it("clears aria-activedescendant when the listbox closes", async () => {
+    render(<Autocomplete label="Fruit" options={options} />);
+    const input = screen.getByRole("combobox");
+    await user.type(input, "a");
+    await user.keyboard("{ArrowDown}");
+    expect(input).toHaveAttribute("aria-activedescendant");
+    await user.keyboard("{Escape}");
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(input).not.toHaveAttribute("aria-activedescendant");
+  });
+
+  it("never points aria-activedescendant at a missing element when nothing matches", async () => {
+    render(<Autocomplete label="Fruit" options={options} />);
+    const input = screen.getByRole("combobox");
+    await user.type(input, "zzz");
+    await user.keyboard("{ArrowDown}");
+    expect(input).not.toHaveAttribute("aria-activedescendant");
+  });
+
+  it("closes the listbox on Tab so it does not stay open after focus leaves", async () => {
+    render(<Autocomplete label="Fruit" options={options} />);
+    const input = screen.getByRole("combobox");
+    await user.type(input, "a");
+    expect(input).toHaveAttribute("aria-expanded", "true");
+    await user.tab();
+    await waitFor(() => expect(input).toHaveAttribute("aria-expanded", "false"));
+  });
+
+  it("keeps the hint in aria-describedby alongside a consumer-supplied id", () => {
+    render(
+      <Autocomplete label="Fruit" hint="Pick one" aria-describedby="extra" options={options} />
+    );
+    const ids = (screen.getByRole("combobox").getAttribute("aria-describedby") ?? "").split(" ");
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain("extra");
+    expect(document.getElementById(ids.find((i) => i !== "extra") as string)).toHaveTextContent(
+      "Pick one"
+    );
+  });
+});
