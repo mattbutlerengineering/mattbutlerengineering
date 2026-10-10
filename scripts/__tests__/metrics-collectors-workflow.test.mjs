@@ -119,7 +119,13 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
 
   it("never swallows an exit code with `|| true` or continue-on-error", () => {
     expect(WORKFLOW).not.toMatch(/\|\|\s*true/);
-    expect(WORKFLOW).not.toMatch(/continue-on-error:\s*true/);
+    // The one sanctioned exception is the best-effort queue-telemetry step
+    // (#5921), isolated so its failure can't skip the review-burden PR flow.
+    const withoutTelemetryStep = WORKFLOW.replace(
+      /- name: Collect queue telemetry from merged agent PRs\n(?:(?! {6}- name:).*\n)+/,
+      ""
+    );
+    expect(withoutTelemetryStep).not.toMatch(/continue-on-error:\s*true/);
   });
 
   it("acts on a non-zero freshness verdict instead of only printing it", () => {
