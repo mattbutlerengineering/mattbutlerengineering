@@ -9,7 +9,7 @@ import {
   type InputHTMLAttributes,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
 import styles from "./Autocomplete.module.css";
@@ -59,6 +59,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const inputId = id ?? autoId;
     const listboxId = `${inputId}-listbox`;
     const shouldReduceMotion = useReducedMotion();
+    const { precision } = useMotionPreset();
 
     const [internalValue, setInternalValue] = useState("");
     const inputValue = controlledValue ?? internalValue;

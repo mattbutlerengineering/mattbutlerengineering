@@ -1,7 +1,7 @@
 import { forwardRef, useState, useRef, useCallback, useEffect, useId } from "react";
-import { motion, useMotionValue, useReducedMotion } from "framer-motion";
+import { motion, useMotionValue } from "framer-motion";
 import { Lock } from "lucide-react";
-import { spring } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useDirection } from "../../hooks/useDirection";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
@@ -66,7 +66,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
     const trackRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [internalValue, setInternalValue] = useState(defaultValue ?? min);
-    const shouldReduceMotion = useReducedMotion();
+    const { spring } = useMotionPreset();
     const dir = useDirection(trackRef);
 
     const isControlled = controlledValue !== undefined;
@@ -209,7 +209,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
               className={styles.knobTrack}
               style={{ x: knobX }}
               animate={dragging ? undefined : { x: `${signedPercent}%` }}
-              transition={shouldReduceMotion || dragging ? { duration: 0 } : spring}
+              transition={dragging ? { duration: 0 } : spring}
             >
               <div className={styles.knob} data-dragging={dragging || undefined} />
             </motion.div>
