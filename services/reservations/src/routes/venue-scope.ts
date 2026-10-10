@@ -63,8 +63,16 @@ export type VenueSource<RG extends RouteGenericInterface, E> =
   | "query"
   | "body"
   | "params"
-  /** The same, for a key not named `venueId` (e.g. venues' own `:id`). */
-  | { readonly from: "query" | "body" | "params"; readonly field: string }
+  /**
+   * The same, for a key not named `venueId` (e.g. venues' own `:id`), or with
+   * the route's own admin-400 text: `missing` replaces the default
+   * "<field> is required" detail so a migrated route keeps today's bytes.
+   */
+  | {
+      readonly from: "query" | "body" | "params";
+      readonly field: string;
+      readonly missing?: string;
+    }
   /** The venue owning an entity, through the SECURITY DEFINER resolver. */
   | {
       readonly entity: EntityKind;
@@ -142,7 +150,11 @@ export function venueScopeOf(handler: unknown): string | null {
   return typeof descriptor === "string" ? descriptor : null;
 }
 
-type DirectSource = { readonly from: "query" | "body" | "params"; readonly field: string };
+type DirectSource = {
+  readonly from: "query" | "body" | "params";
+  readonly field: string;
+  readonly missing?: string;
+};
 type EntitySource<RG extends RouteGenericInterface, E> = Extract<
   VenueSource<RG, E>,
   { readonly entity: EntityKind }
@@ -240,7 +252,7 @@ export function venueScoped<
       // non-admin gets the guard's own 401/403, so existence never leaks.
       if (access === "authenticated" || isAdmin) {
         return direct
-          ? sendProblem(reply, 400, `${direct.field} is required`)
+          ? sendProblem(reply, 400, direct.missing ?? `${direct.field} is required`)
           : sendProblem(reply, 404, notFound!);
       }
       await decide(request, reply, null, null);
