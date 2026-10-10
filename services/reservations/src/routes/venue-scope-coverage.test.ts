@@ -64,10 +64,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // PR 3: tables, floor plans, venues.
   "GET /api/v1/tables": "pending-migration",
   "POST /api/v1/tables": "pending-migration",
-  "GET /api/v1/tables/:id": "pending-migration",
-  "PATCH /api/v1/tables/:id": "pending-migration",
-  "PATCH /api/v1/tables/:id/status": "pending-migration",
-  "DELETE /api/v1/tables/:id": "pending-migration",
 
   // PR 4: reservations and deposits.
   "GET /api/v1/reservations": "pending-migration",
@@ -212,6 +208,10 @@ describe("venue-scope coverage (no database)", () => {
       "GET /api/v1/venues/:id/table-statuses": "params.id/member",
       "PATCH /api/v1/venues/:id": "params.id/member",
       "DELETE /api/v1/venues/:id": "params.id/member",
+      "GET /api/v1/tables/:id": "entity:table/member",
+      "PATCH /api/v1/tables/:id": "entity:table/member",
+      "PATCH /api/v1/tables/:id/status": "entity:table/member",
+      "DELETE /api/v1/tables/:id": "entity:table/member",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])

@@ -864,6 +864,12 @@ describe("Table Routes — venue authorization pins (ADR-020)", () => {
     }
   );
 
+  // An unresolvable table is answered by venueScoped itself (architecture.md
+  // failure-mode table: admin → 404 `notFound`), so status, title and detail
+  // are unchanged but the body no longer carries the error handler's
+  // `instance` member, which the pre-venueScoped thrown 404 added. Recorded in
+  // breakdown.md Notes (2026-10-10). A missing row the handler reads itself
+  // still throws, and keeps `instance` (see "returns 404 when table not found").
   it.each(BY_ID_ROUTES)(
     "$method $path: 404 'Table not found' for an admin addressing an unknown table",
     async ({ method, path, payload }) => {
@@ -883,7 +889,6 @@ describe("Table Routes — venue authorization pins (ADR-020)", () => {
         title: "Not Found",
         status: 404,
         detail: "Table not found",
-        instance: `${TABLES_URL}${path}`,
       });
     }
   );
