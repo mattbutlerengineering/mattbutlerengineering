@@ -204,6 +204,18 @@ Use `/local-ci-precheck` before opening or pushing to a PR — it runs the same 
 
 **Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
+## Pipeline Stage Hooks (idea-to-prod / autorun)
+
+The `idea-to-prod` plugin's stage skills are generic and live in the plugin cache (overwritten on update), so repo-specific steps are attached here. Every stage — including autorun's per-stage subagents — must run the hook for its stage and record the outcome in that stage's artifact.
+
+| Stage                                       | Hook                                                                                                                                                                                                                                                                                 | Record in                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `implement` (before the first push of a PR) | Run the checks in [`.claude/skills/local-ci-precheck/SKILL.md`](./.claude/skills/local-ci-precheck/SKILL.md) — read the file and execute its steps directly (the skill is `disable-model-invocation`, so the `Skill` tool cannot call it). Fix every failure before pushing.         | PR body / `breakdown.md` note                   |
+| `ship` (pre-flight)                         | Same `local-ci-precheck` steps against the final branch head. A red check is a failed pre-flight, not a warning.                                                                                                                                                                     | `release.md` pre-flight list                    |
+| `operate` (retro)                           | Run [`/gotcha-harvest`](./.claude/skills/gotcha-harvest/SKILL.md) over the run's sessions (`--days N` covering idea→ship). Proposed `gotchas.md` entries go in the retro's follow-ups for human review — never written silently. Zero findings is a valid result; say so explicitly. | `retro.md` (a "Gotcha harvest" line or section) |
+
+A hook that did not run must be stated as skipped, with the reason, in the stage artifact — never omitted.
+
 ## Manual Deployment
 
 GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI/`/deploy`, deploy locally via:
