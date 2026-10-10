@@ -804,3 +804,144 @@ decided — a backstop, not a second authority.
   on the seven venue tables are in the reservations migrations. Migrate stays
   the table owner on `DATABASE_URL`. The service process still connects as that
   owner until each app transaction assumes `app_reservations`.
+
+## Amendment 2026-10-10: closing the owner-bypass gap (#5369)
+
+**Status of this amendment:** decided and shipped. PR #6185 (squash commit
+`dfae5518a`) merged on 2026-10-10, and `deploy-services.yml` deployed it
+successfully at 16:02Z. The sections above are unchanged. Where they describe
+RLS as inert against the app's own connection, or describe the `FORCE` flip as
+pending, this amendment supersedes them. §3.3 is now a historical record of
+what had to be fixed first.
+
+### The gap
+
+The service and its migrate job both used the same `DATABASE_URL`, so the
+service connected as the role that **owns** the seven venue tables. Postgres
+does not apply RLS to a table's owner unless the table also has
+`FORCE ROW LEVEL SECURITY`. Before this amendment, every policy in §5 was
+enabled and enforced nothing against the app's real connection. Every
+integration test that proved isolation did it through a separate probe role
+(#5369).
+
+### Decision
+
+Use a **separate `NOLOGIN` role that each app transaction assumes**, plus
+`FORCE ROW LEVEL SECURITY`. Migrate stays the owner.
+
+1. **Role.** `20261009000000_create_app_reservations_role` creates
+   `app_reservations NOLOGIN NOINHERIT`. Creation is idempotent: the
+   migration swallows `duplicate_object`, because roles are cluster-global
+   and a shadow-database replay would otherwise fail with `42710`. A
+   non-superuser `CREATEROLE` role can create an ordinary role like this one
+   (§3.1). The superuser wall applied only to `BYPASSRLS`.
+2. **Grants.** `20261009000100_grant_app_reservations_and_force_rls`:
+   - `GRANT app_reservations TO CURRENT_USER` (line 5). The migrate/owner
+     role becomes a member of the app role so that it can `SET ROLE` to it.
+     The grant never goes the other way. If `app_reservations` were a member
+     of the owner, `pg_has_role(current_user, relowner, 'USAGE')` would be
+     true for it, and the `*_cross_venue_read` policies would admit a
+     caller-forged `app.cross_venue` marker.
+   - `USAGE` on schema `public`. DML on ten named tables: the seven venue
+     tables plus `venue_groups`, `reservation_holds`, and
+     `venue_memberships` (lines 7-20). `EXECUTE` on `app_cross_venue_venues`,
+     `app_resolve_venue_id`, and `app_reservation_venue_ids_for_user`
+     (lines 22-24).
+   - No `ALTER DEFAULT PRIVILEGES`. A new table has to be granted
+     explicitly. Until it is, the app gets `permission denied` the first time
+     it uses the table. That failure is loud, not a silent bypass.
+3. **FORCE.** The same migration runs `ALTER TABLE … FORCE ROW LEVEL
+SECURITY` on `venues`, `floor_plans`, `tables`, `guests`, `reservations`,
+   `deposits`, and `waitlist_entries` (lines 28-34) under a 5s
+   `lock_timeout`.
+4. **Per-transaction role switch.** `assumeAppRole`
+   (`services/reservations/src/services/assume-app-role.ts:28-30`) issues
+   `SET LOCAL ROLE "app_reservations"`, built only from a constant that has
+   matched `^[a-z_]+$`. It is the first statement of `setVenueContext`
+   (`services/reservations/src/middleware/venue-context.ts:84`). That runs
+   even when no venue id is resolved, in which case `app.venue_id` stays
+   unset and the policies default-deny (§4). Every query path reaches it in
+   one of two ways:
+   - the `withVenueScopedQueries` auto-wrap
+     (`services/reservations/src/services/venue-scoped-prisma.ts`), or
+   - an explicit `$transaction` that calls `setVenueContext` itself
+     (`reservation.ts`, `floor-plan.ts`, `book-slot.ts`, `waitlist.ts`,
+     `venue.ts`, `lapsed-guest-cron.ts`).
+
+   `SET LOCAL` resets at commit or rollback, so a pooled connection never
+   leaks the role into the next transaction. A missing role (`42704`) or a
+   missing grant (`42501`) must propagate and never be caught. Catching it
+   would leave the transaction running as the owner. The health and readiness
+   `SELECT 1` probes do not assume the role.
+
+**Why both halves are needed.** With `FORCE` on, the owner is subject to the
+`*_isolation` policies too, so `FORCE` alone does stop ordinary cross-venue
+reads. It does not stop the owner from setting `app.cross_venue = 'on'`
+itself. The `*_cross_venue_read` policies (§3.1) admit that marker for any
+member of the table owner, and the marker is meant to be set only inside the
+`SECURITY DEFINER` functions. The role switch turns the owner conjunct into a
+real gate: `app_reservations` is not a member of the owner.
+
+**Alternatives rejected here.**
+
+- `FORCE` only, with no role switch. This leaves marker forgery open, as
+  explained above.
+- A separate `LOGIN` role with its own `DATABASE_URL`. That would need a new
+  production credential and a Pulumi apply to route the service and the
+  migrate job to different secrets. The `NOLOGIN` role needs neither, so
+  `db-migrate-reservations` and the service still receive the same
+  `databaseUrl` secret.
+
+### Deploy order
+
+From #6185:
+
+1. Deploy the hospitality widget before the reservations API. (That ordering
+   comes from the guest-risk change that shipped in the same release.)
+2. Deploy the reservations API image **in the same release as** the
+   migration. An old image combined with `FORCE` fails closed on every
+   venue-scoped read: the owner connection is subject to RLS and never runs
+   `SET LOCAL ROLE`.
+
+This is the "`FORCE` lands atomically with the plumbing" rule from #5369's
+earlier comments, now applied.
+
+### Rollback
+
+Run these as the migrate owner **before** restoring the previous reservations
+image:
+
+```sql
+ALTER TABLE "venues" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "floor_plans" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "tables" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "guests" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "reservations" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "deposits" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "waitlist_entries" NO FORCE ROW LEVEL SECURITY;
+```
+
+Then redeploy the previous image. Run `DROP ROLE app_reservations` only after
+nothing still runs `SET ROLE app_reservations`.
+
+### How it is verified
+
+The `rls-integration` job in `.github/workflows/ci.yml` (named "RLS
+Integration (owner role, #5369)", and listed in `ci-gate`'s `needs`) does the
+following:
+
+- provisions a non-superuser, non-`BYPASSRLS` owner role, which is the
+  production shape;
+- applies the migrations as that role;
+- runs the six `DATABASE_URL`-gated suites;
+- uses `scripts/assert-vitest-ran.mjs` to fail the job if any suite skipped.
+
+`rls-app-reservations.integration.test.ts` has a block, "through the
+service's real connection path", that drives the service's own `prisma`
+export through `setVenueContext` and the auto-wrap with `app.cross_venue`
+forged. It asserts `current_user = app_reservations` and that only the
+context venue is visible. This was measured on 2026-10-10: with
+`assumeAppRole` stubbed to a no-op, the other 155 tests in those six suites
+still passed, and this block failed with venue A leaking into venue B's
+context. `rls-force-coverage.ts` guards the `FORCE` set in the ordinary
+`test` job, with no database.
