@@ -1,4 +1,5 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { NavigationMenu } from "./NavigationMenu";
 import type { NavItem } from "./NavigationMenu";
@@ -76,6 +77,60 @@ describe("NavigationMenu", () => {
       fireEvent.keyDown(trigger, { key: "ArrowDown" });
 
       expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+    });
+  });
+
+  describe("keyboard focus stays inside the open dropdown", () => {
+    const CLOSE_DELAY_PLUS = 400;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    it("keeps the panel open and focus on the menuitem after ArrowDown past CLOSE_DELAY", async () => {
+      const user = userEvent.setup();
+      render(<NavigationMenu items={items} />);
+      await user.tab(); // Home link
+      await user.tab(); // Products trigger
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
+
+      await user.keyboard("{ArrowDown}");
+      await act(() => sleep(CLOSE_DELAY_PLUS));
+
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+
+      await user.keyboard("{ArrowDown}");
+      await act(() => sleep(CLOSE_DELAY_PLUS));
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Gadgets" }));
+      await user.keyboard("{Home}");
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+      await user.keyboard("{End}");
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Gadgets" }));
+      await user.keyboard("{ArrowUp}");
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+    });
+
+    it("closes when focus leaves the trigger and panel", async () => {
+      const user = userEvent.setup();
+      render(<NavigationMenu items={items} />);
+      await user.tab();
+      await user.tab();
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
+      await user.keyboard("{ArrowDown}");
+      await user.tab(); // Gadgets (tabIndex -1 skipped) -> leaves to About link
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
+        timeout: 1500,
+      });
+    });
+
+    it("closes on Escape", async () => {
+      const user = userEvent.setup();
+      render(<NavigationMenu items={items} />);
+      await user.tab();
+      await user.tab();
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
+      await user.keyboard("{ArrowDown}{Escape}");
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
+        timeout: 1500,
+      });
     });
   });
 

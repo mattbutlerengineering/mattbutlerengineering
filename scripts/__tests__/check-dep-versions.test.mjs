@@ -78,14 +78,14 @@ describe("check-dep-versions", () => {
       const packages = [
         { name: "@mbe/a", path: "packages/a/package.json", deps: { vitest: "^5.0.0" } },
         {
-          name: "@mbe/mutation-testing",
-          path: "tools/mutation-testing/package.json",
+          name: "@mbe/example",
+          path: "tools/example/package.json",
           deps: { vitest: "4.1.10" },
         },
       ];
 
       expect(
-        findVersionMismatches(packages, ["vitest"], ["tools/mutation-testing/package.json:vitest"])
+        findVersionMismatches(packages, ["vitest"], ["tools/example/package.json:vitest"])
       ).toHaveLength(0);
     });
 
@@ -95,8 +95,8 @@ describe("check-dep-versions", () => {
         { name: "@mbe/a", path: "packages/a/package.json", deps: { vitest: "^5.0.0" } },
         { name: "@mbe/b", path: "packages/b/package.json", deps: { vitest: "^4.0.0" } },
         {
-          name: "@mbe/mutation-testing",
-          path: "tools/mutation-testing/package.json",
+          name: "@mbe/example",
+          path: "tools/example/package.json",
           deps: { vitest: "4.1.10" },
         },
       ];
@@ -104,10 +104,34 @@ describe("check-dep-versions", () => {
       const mismatches = findVersionMismatches(
         packages,
         ["vitest"],
-        ["tools/mutation-testing/package.json:vitest"]
+        ["tools/example/package.json:vitest"]
       );
       expect(mismatches).toHaveLength(1);
       expect([...mismatches[0].versions.keys()].sort()).toEqual(["^4.0.0", "^5.0.0"]);
+    });
+
+    test("tools/mutation-testing's vitest is skipped as a plain catalog: reference, with no allowlist entry needed", async () => {
+      const { findVersionMismatches } = await import("../check-dep-versions.js");
+      const packages = [
+        { name: "@mbe/a", path: "packages/a/package.json", deps: { vitest: "catalog:" } },
+        {
+          name: "@mbe/mutation-testing",
+          path: "tools/mutation-testing/package.json",
+          deps: { vitest: "catalog:" },
+        },
+      ];
+
+      expect(findVersionMismatches(packages, ["vitest"], [])).toHaveLength(0);
+    });
+  });
+
+  describe("real workspace", () => {
+    test("tools/mutation-testing pins vitest via catalog:, not a hardcoded version (#5826)", async () => {
+      const { readFileSync } = await import("node:fs");
+      const pkg = JSON.parse(
+        readFileSync(new URL("../../tools/mutation-testing/package.json", import.meta.url), "utf8")
+      );
+      expect(pkg.devDependencies.vitest).toBe("catalog:");
     });
   });
 

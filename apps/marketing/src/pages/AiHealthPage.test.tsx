@@ -620,6 +620,12 @@ describe("AiHealthPage", () => {
       expect(panel.queryByText("0.0%")).not.toBeInTheDocument();
     });
 
+    it("exposes categories as a semantic list with one listitem per category", async () => {
+      const panel = await renderWith(withCategories);
+      const list = panel.getByRole("list", { name: "PR categories" });
+      expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    });
+
     it("says Unavailable when the sensor is missing", async () => {
       const panel = await renderWith(NEW_SCHEMA_REPORT);
       expect(panel.getByText("Unavailable")).toBeInTheDocument();

@@ -241,30 +241,36 @@ function PrCategoryRate({
 
 function PrCategoryBreakdownPanel({ breakdown }: { breakdown: PrCategoryBreakdownMetrics }) {
   const body = !breakdown.available ? (
-    <div className={styles.sensorRow}>
-      <Text className={styles.sensorName}>prCategoryMetrics</Text>
-      <div className={styles.sensorBadge}>
-        <Badge color="red" size="sm">
-          Unavailable
-        </Badge>
+    <div className={styles.sensorGrid}>
+      <div className={styles.sensorRow}>
+        <Text className={styles.sensorName}>prCategoryMetrics</Text>
+        <div className={styles.sensorBadge}>
+          <Badge color="red" size="sm">
+            Unavailable
+          </Badge>
+        </div>
       </div>
     </div>
   ) : breakdown.byCategory.length === 0 ? (
-    <Text className={styles.panelNote}>No categorized PRs reported.</Text>
+    <div className={styles.sensorGrid}>
+      <Text className={styles.panelNote}>No categorized PRs reported.</Text>
+    </div>
   ) : (
-    breakdown.byCategory.map(([category, stats]) => (
-      <div key={category} className={styles.sensorRow}>
-        <Text className={styles.sensorName}>{category}</Text>
-        <PrCategoryRate category={category} stats={stats} />
-        <Text className={styles.statNote}>
-          {formatCount(stats.merged)}/{formatCount(stats.totalDecided)} merged
-        </Text>
-      </div>
-    ))
+    <div className={styles.sensorGrid} role="list" aria-label="PR categories">
+      {breakdown.byCategory.map(([category, stats]) => (
+        <div key={category} className={styles.sensorRow} role="listitem">
+          <Text className={styles.sensorName}>{category}</Text>
+          <PrCategoryRate category={category} stats={stats} />
+          <Text className={styles.statNote}>
+            {formatCount(stats.merged)}/{formatCount(stats.totalDecided)} merged
+          </Text>
+        </div>
+      ))}
+    </div>
   );
 
   return (
-    <div className={styles.sensorGrid} role="region" aria-label="PR categories">
+    <div role="region" aria-label="PR categories">
       {body}
     </div>
   );

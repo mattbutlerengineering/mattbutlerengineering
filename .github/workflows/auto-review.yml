@@ -116,6 +116,10 @@ jobs:
           MISSING_TESTS=""
           while IFS= read -r FILE; do
             [ -z "$FILE" ] && continue
+            # Deleted files are listed by gh pr diff --name-only (it has no
+            # --diff-filter) but are absent from the checkout; their tests are
+            # usually deleted too, so skip them (#5957).
+            [ -f "$FILE" ] || continue
             case "$FILE" in
               *.test.*|*.spec.*|*.config.*|*.d.ts|*.md|*.json|*.yml|*.yaml) continue ;;
               *.ts|*.tsx|*.js|*.jsx) ;;

@@ -173,6 +173,8 @@ function NavTrigger({
             transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             onMouseEnter={cancelClose}
             onMouseLeave={startClose}
+            onFocus={cancelClose}
+            onBlur={startClose}
             onKeyDown={handlePanelKeyDown}
           >
             {item.children!.map((child) => (
