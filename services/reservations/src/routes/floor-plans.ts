@@ -262,10 +262,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         // attempt still fails (404 "One or more tables not found") because
         // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
         // `t.venue_id = …` predicate independent of RLS.
-        const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
-        const crossVenueTable = tables.find(
-          (table) => table !== null && table.venueId !== floorPlan.venueId
+        const foundTables = await tableService.listVenueIdsByIds(
+          positions.map((pos) => pos.tableId)
         );
+        // Ids that don't resolve are absent from `foundTables`, so a
+        // missing/deleted table is never treated as cross-venue.
+        const crossVenueTable = foundTables.find((table) => table.venueId !== floorPlan.venueId);
         if (crossVenueTable) {
           return reply
             .code(403)

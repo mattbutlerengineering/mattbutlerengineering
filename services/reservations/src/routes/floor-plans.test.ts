@@ -46,6 +46,7 @@ vi.mock("../services/table.js", () => ({
   tableService: {
     list: vi.fn(),
     getById: vi.fn(),
+    listVenueIdsByIds: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -108,6 +109,8 @@ import { tableService } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { resolveVenueId } from "../services/resolve-venue.js";
+
+const POSITIONS_URL = "/api/v1/floor-plans/tables/positions";
 
 const mockTable = {
   id: "table-123",
@@ -623,7 +626,9 @@ describe("Floor Plan Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
       vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
-      vi.mocked(tableService.getById).mockResolvedValueOnce(mockTable);
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([
+        { id: mockTable.id, venueId: mockTable.venueId },
+      ]);
       vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([mockTable]);
 
       const response = await app.inject({
@@ -660,7 +665,7 @@ describe("Floor Plan Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
       vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
-      vi.mocked(tableService.getById).mockResolvedValueOnce(null);
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([]);
       vi.mocked(floorPlanService.bulkUpdateTablePositions).mockRejectedValueOnce(
         Object.assign(new Error("One or more tables not found"), { code: "P2025" })
       );
@@ -691,6 +696,101 @@ describe("Floor Plan Routes", () => {
       expect(response.statusCode).toBe(404);
     });
 
+    it("pre-checks N positions with ONE batched lookup, not N getById calls (#6152)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      vi.mocked(tableService.listVenueIdsByIds).mockClear();
+      vi.mocked(tableService.getById).mockClear();
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([
+        { id: "t1", venueId: mockFloorPlan.venueId },
+        { id: "t2", venueId: mockFloorPlan.venueId },
+        { id: "t3", venueId: mockFloorPlan.venueId },
+      ]);
+      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([mockTable]);
+      const shapeMetadata = { x: 1, y: 2, width: 80, height: 80, shape: "rectangle" };
+
+      const response = await app.inject({
+        method: "POST",
+        url: POSITIONS_URL,
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          floorPlanId: "floor-plan-123",
+          positions: ["t1", "t2", "t3"].map((tableId) => ({ tableId, shapeMetadata })),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(tableService.listVenueIdsByIds).toHaveBeenCalledTimes(1);
+      expect(tableService.listVenueIdsByIds).toHaveBeenCalledWith(["t1", "t2", "t3"]);
+      expect(tableService.getById).not.toHaveBeenCalled();
+    });
+
+    it("tolerates duplicate tableIds in one request (single lookup, no cross-venue)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      vi.mocked(tableService.listVenueIdsByIds).mockClear();
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([
+        { id: "t1", venueId: mockFloorPlan.venueId },
+      ]);
+      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([mockTable]);
+      const shapeMetadata = { x: 1, y: 2, width: 80, height: 80, shape: "rectangle" };
+
+      const response = await app.inject({
+        method: "POST",
+        url: POSITIONS_URL,
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          floorPlanId: "floor-plan-123",
+          positions: [
+            { tableId: "t1", shapeMetadata },
+            { tableId: "t1", shapeMetadata },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(tableService.listVenueIdsByIds).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns 403 with the venue-mismatch detail when one of several tables is cross-venue", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([
+        { id: "t1", venueId: mockFloorPlan.venueId },
+        { id: "t2", venueId: "venue-other" },
+      ]);
+      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockClear();
+      const shapeMetadata = { x: 1, y: 2, width: 80, height: 80, shape: "rectangle" };
+
+      const response = await app.inject({
+        method: "POST",
+        url: POSITIONS_URL,
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          floorPlanId: "floor-plan-123",
+          positions: [
+            { tableId: "t1", shapeMetadata },
+            { tableId: "t2", shapeMetadata },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body).detail).toBe(
+        "One or more tables do not belong to the floor plan's venue"
+      );
+      expect(floorPlanService.bulkUpdateTablePositions).not.toHaveBeenCalled();
+    });
+
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
@@ -718,11 +818,9 @@ describe("Floor Plan Routes", () => {
         id: "floor-plan-own-venue",
         venueId: "venue-own",
       });
-      vi.mocked(tableService.getById).mockResolvedValueOnce({
-        ...mockTable,
-        id: "table-other-venue",
-        venueId: "venue-other",
-      });
+      vi.mocked(tableService.listVenueIdsByIds).mockResolvedValueOnce([
+        { id: "table-other-venue", venueId: "venue-other" },
+      ]);
       const lookup = vi
         .fn<VenueMembershipLookup>()
         .mockImplementation((_sub, venueId) => Promise.resolve(venueId === "venue-own"));

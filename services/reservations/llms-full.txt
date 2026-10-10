@@ -1970,10 +1970,12 @@
             // attempt still fails (404 "One or more tables not found") because
             // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
             // `t.venue_id = …` predicate independent of RLS.
-            const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
-            const crossVenueTable = tables.find(
-              (table) => table !== null && table.venueId !== floorPlan.venueId
+            const foundTables = await tableService.listVenueIdsByIds(
+              positions.map((pos) => pos.tableId)
             );
+            // Ids that don't resolve are absent from `foundTables`, so a
+            // missing/deleted table is never treated as cross-venue.
+            const crossVenueTable = foundTables.find((table) => table.venueId !== floorPlan.venueId);
             if (crossVenueTable) {
               return reply
                 .code(403)
@@ -13757,6 +13759,18 @@
       async getById(id: string): Promise<Table | null> {
         const table = await prisma.table.findUnique({ where: { id } });
         return table ? mapPrismaTable(table) : null;
+      },
+    
+      /**
+       * Batched venue lookup for a set of table ids (one `findMany`, not N
+       * `findUnique`s). Ids that don't resolve are simply absent from the result.
+       * Runs on the ambient Prisma client, so it honors the caller's venue context.
+       */
+      async listVenueIdsByIds(ids: string[]): Promise<Array<{ id: string; venueId: string | null }>> {
+        return prisma.table.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, venueId: true },
+        });
       },
     
       async create(data: CreateTableRequest): Promise<Table> {
