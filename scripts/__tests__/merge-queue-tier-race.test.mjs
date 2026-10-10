@@ -20,31 +20,50 @@ describe("tier-label race (#5983)", () => {
     expect(decideAutoMergeAction(["has-pr", "tier:trivial"], false).action).toBe("enable");
   });
 
-  it("race: has-pr lands first (skip), a blocking tier arriving while enabled -> disable", () => {
-    expect(decideAutoMergeAction(["has-pr"], false).action).toBe("skip");
-    // auto-merge enabled via another path; the tier label lands afterwards
+  it("never enables on a blocking tier, even with has-pr", () => {
     for (const tier of BLOCKED_TIER_LABELS) {
-      const second = decideAutoMergeAction(["has-pr", tier], true);
-      expect(second.action).toBe("disable");
-      expect(second.reason).toContain(tier);
+      expect(decideAutoMergeAction(["has-pr", tier], false).action).toBe("skip");
     }
   });
 
-  it("skips (no disable call) when blocked and auto-merge is not enabled", () => {
-    expect(decideAutoMergeAction(["has-pr", "tier:critical"], false).action).toBe("skip");
+  // Regression (2026-10-10): disabling on any ineligible PR switched off the
+  // auto-merge /implement-queue arms on reviewed PRs — worker PRs carry no
+  // `has-pr` label (their issues do) and tier never holds a reviewed PR
+  // (implement-queue SKILL.md "No tier hold"). Because enable now fails
+  // closed until a tier label exists, this workflow never arms auto-merge
+  // early, so a blocking tier or a missing has-pr is never a reason to
+  // undo someone else's enable.
+  it("never disables an auto-merge armed elsewhere for a blocking tier or a missing has-pr", () => {
+    for (const labels of [
+      ["agent-authored", "tier:standard"],
+      ["agent-authored", "tier:trivial"],
+      ["agent-authored"],
+      ...BLOCKED_TIER_LABELS.map((tier) => ["has-pr", tier]),
+    ]) {
+      expect(decideAutoMergeAction(labels, true).action).toBe("skip");
+    }
   });
 
-  it("disables stale auto-merge when needs-review appears", () => {
+  it("disables stale auto-merge when needs-review appears (an explicit human hold)", () => {
     expect(decideAutoMergeAction(["has-pr", "needs-review"], true).action).toBe("disable");
+    expect(
+      decideAutoMergeAction(["agent-authored", "tier:standard", "needs-review"], true).action
+    ).toBe("disable");
+  });
+
+  it("skips (no disable call) when held and auto-merge is not enabled", () => {
+    expect(decideAutoMergeAction(["has-pr", "needs-review"], false).action).toBe("skip");
   });
 
   it("CLI emits the action when --auto-merge-enabled is passed", () => {
-    const stdout = execFileSync(
-      "node",
-      [CLI, "check", "--labels", "has-pr,tier:standard", "--auto-merge-enabled", "true"],
-      { encoding: "utf8" }
-    );
-    expect(JSON.parse(stdout).action).toBe("disable");
+    const run = (labels) =>
+      JSON.parse(
+        execFileSync("node", [CLI, "check", "--labels", labels, "--auto-merge-enabled", "true"], {
+          encoding: "utf8",
+        })
+      ).action;
+    expect(run("has-pr,tier:standard")).toBe("skip");
+    expect(run("has-pr,needs-review")).toBe("disable");
   });
 
   it("seam: workflow reads autoMergeRequest, passes it in, and calls --disable-auto", () => {
