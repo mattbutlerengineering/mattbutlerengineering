@@ -10,13 +10,19 @@ const CLI = resolve(ROOT, "scripts/merge-queue-eligibility.mjs");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml"), "utf8");
 
 describe("tier-label race (#5983)", () => {
-  it("enables when eligible and nothing blocks", () => {
-    expect(decideAutoMergeAction(["has-pr"], false).action).toBe("enable");
+  it("fails closed: has-pr with no tier label is skip, never enable", () => {
+    const d = decideAutoMergeAction(["has-pr"], false);
+    expect(d.action).toBe("skip");
+    expect(d.reason).toMatch(/awaiting tier classification/);
   });
 
-  it("race: has-pr lands first (enable), then a blocking tier arrives -> disable", () => {
-    expect(decideAutoMergeAction(["has-pr"], false).action).toBe("enable");
-    // auto-merge is now enabled on GitHub; the tier label lands afterwards
+  it("enables has-pr + tier:trivial", () => {
+    expect(decideAutoMergeAction(["has-pr", "tier:trivial"], false).action).toBe("enable");
+  });
+
+  it("race: has-pr lands first (skip), a blocking tier arriving while enabled -> disable", () => {
+    expect(decideAutoMergeAction(["has-pr"], false).action).toBe("skip");
+    // auto-merge enabled via another path; the tier label lands afterwards
     for (const tier of BLOCKED_TIER_LABELS) {
       const second = decideAutoMergeAction(["has-pr", tier], true);
       expect(second.action).toBe("disable");
@@ -48,6 +54,9 @@ describe("tier-label race (#5983)", () => {
   });
 
   it("seam: workflow run block starts with pipefail", () => {
-    expect(WORKFLOW).toMatch(/run: \|\n\s+set -o pipefail/);
+    const stepAt = WORKFLOW.indexOf("- name: Enable auto-merge for verified agent PRs");
+    expect(stepAt).toBeGreaterThan(-1);
+    const step = WORKFLOW.slice(stepAt);
+    expect(step).toMatch(/run: \|\n\s+set -o pipefail/);
   });
 });

@@ -88,6 +88,13 @@ export function isAutoMergeEligible(labelNames = []) {
 export function decideAutoMergeAction(labelNames = [], autoMergeEnabled = false) {
   const decision = isAutoMergeEligible(labelNames);
   if (decision.eligible) {
+    // Fail closed: tier-classifier labels with GITHUB_TOKEN, which does not
+    // re-trigger this workflow's `labeled` event, so an enable made before
+    // classification could only be undone by the 30-minute cron.
+    const isClassified = labelNames.some((label) => label.startsWith(TIER_LABEL_PREFIX));
+    if (!isClassified) {
+      return { action: "skip", reason: "awaiting tier classification (no tier:* label yet)" };
+    }
     return { action: "enable", reason: decision.reason };
   }
   return { action: autoMergeEnabled ? "disable" : "skip", reason: decision.reason };
