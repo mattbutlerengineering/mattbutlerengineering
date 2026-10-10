@@ -2,8 +2,8 @@
 
 **Date:** 2026-10-10
 **Session:** https://claude.ai/code/session_01KMhhjK1PyCc6pgF4ffA9wE
-**Type:** debugging / CI
-**Status:** False-positive revert. The reverted change was not the cause of the red main run. Issue #5826 is still unfixed.
+**Type:** debugging
+**Status:** False-positive revert. The reverted change was not the cause of the red main run. Issue #5826 is still unfixed and has been reopened (label `ready`).
 
 ## Summary
 
@@ -83,8 +83,5 @@ run was cold, and the PR run, which also touched the lockfile, was not.
 
 ## Action items
 
-- [ ] Reopen #5826 (closed COMPLETED by a PR that was then reverted) and re-land the `catalog:` change.
-      Re-verify the vitest-runner patch (`patches/@stryker-mutator__vitest-runner@10.0.0.patch`) per the README
-      note in the original PR.
-- [ ] Seed the revert-watchdog test-path-overlap check and issue-reopen behavior in `docs/backlog.md` or as an
-      issue.
+- [x] Reopen #5826 (done by the orchestrator, labelled `ready`). The re-land should re-verify the vitest-runner patch (`patches/@stryker-mutator__vitest-runner@10.0.0.patch`) per the README note in the original PR.
+- [x] Seed the revert-watchdog test-path-overlap/rerun check and the revert-reopens-issues behavior: two seeds appended to `docs/backlog.md` (from: RCA-PR-5949).
