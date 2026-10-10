@@ -10,6 +10,7 @@ vi.mock("../services/floor-plan.js", () => ({
     getById: vi.fn(),
     getActiveByVenueId: vi.fn(),
     create: vi.fn(),
+    clone: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
     setActive: vi.fn(),
@@ -106,6 +107,7 @@ import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 const mockTable = {
   id: "table-123",
@@ -159,6 +161,9 @@ const mockJWTPayload = {
   picture: "https://example.com/pic.jpg",
 };
 
+/** Route prefix the app registers these routes under (app.ts). */
+const FLOOR_PLANS_URL = "/api/v1/floor-plans";
+
 describe("Floor Plan Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
@@ -196,7 +201,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -233,7 +238,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
       });
 
       expect(response.statusCode).toBe(401);
@@ -260,7 +265,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -442,7 +447,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         headers: {
           "x-auth-bypass": "true",
         },
@@ -464,7 +469,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/floor-plans",
+        url: FLOOR_PLANS_URL,
         payload: {
           venueId: "venue-123",
           name: "Main Dining",
@@ -884,5 +889,241 @@ describe("Floor Plan Routes", () => {
 
       expect(response.statusCode).toBe(404);
     });
+  });
+});
+
+/**
+ * Venue-authorization pins (docs/fixes/venue-scoped-routes, PR 3), written
+ * against the pre-`venueScoped` routes so the migration has to keep every
+ * status and problem `detail` byte-identical. Entity-addressed routes hide
+ * existence from non-members (403 for an unknown id) and give admins the
+ * honest 404.
+ */
+describe("Floor Plan Routes — venue authorization pins (ADR-020)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+  const notFound = (detail: string) => ({
+    type: "about:blank",
+    title: "Not Found",
+    status: 404,
+    detail,
+  });
+  const SHAPE = { x: 1, y: 2, width: 80, height: 80, shape: "rectangle" };
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  const memberOf = (venue: string) =>
+    vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, venueId) => venueId === venue);
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    // Earlier suites leave unconsumed mockResolvedValueOnce queues behind.
+    for (const fn of Object.values(floorPlanService)) vi.mocked(fn).mockReset();
+    for (const fn of Object.values(tableService)) vi.mocked(fn).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  const ENTITY_ROUTES = [
+    { method: "GET", path: "/fp-1", payload: undefined, kind: "floor_plan", key: "fp-1" },
+    { method: "PATCH", path: "/fp-1", payload: { name: "Patio" }, kind: "floor_plan", key: "fp-1" },
+    { method: "DELETE", path: "/fp-1", payload: undefined, kind: "floor_plan", key: "fp-1" },
+    { method: "POST", path: "/fp-1/clone", payload: undefined, kind: "floor_plan", key: "fp-1" },
+    { method: "POST", path: "/fp-1/activate", payload: undefined, kind: "floor_plan", key: "fp-1" },
+    {
+      method: "POST",
+      path: "/tables/positions",
+      payload: { floorPlanId: "fp-1", positions: [{ tableId: "t-1", shapeMetadata: SHAPE }] },
+      kind: "floor_plan",
+      key: "fp-1",
+    },
+    {
+      method: "POST",
+      path: "/tables/t-1/assign",
+      payload: { floorPlanId: "fp-1" },
+      kind: "table",
+      key: "t-1",
+    },
+    { method: "POST", path: "/tables/t-1/remove", payload: undefined, kind: "table", key: "t-1" },
+  ] as const;
+
+  const serviceWrites = () => [
+    floorPlanService.getById,
+    floorPlanService.update,
+    floorPlanService.delete,
+    floorPlanService.clone,
+    floorPlanService.setActive,
+    floorPlanService.bulkUpdateTablePositions,
+    floorPlanService.assignTableToFloorPlan,
+    floorPlanService.removeTableFromFloorPlan,
+  ];
+
+  it.each(ENTITY_ROUTES)(
+    "$method $path: 403 for a non-member of the entity's venue, service untouched",
+    async ({ method, path, payload, kind, key }) => {
+      const lookup = memberOf("venue-2");
+      await buildAs(["staff"], lookup);
+
+      const response = await app.inject({
+        method,
+        url: `${FLOOR_PLANS_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+      expect(resolveVenueId).toHaveBeenCalledWith(kind, key);
+      expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+      for (const fn of serviceWrites()) expect(fn).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(ENTITY_ROUTES)(
+    "$method $path: 403 (not 404) for a non-admin probing an unknown id",
+    async ({ method, path, payload }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      const lookup = memberOf("venue-1");
+      await buildAs(["staff"], lookup);
+
+      const response = await app.inject({
+        method,
+        url: `${FLOOR_PLANS_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+      expect(lookup).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(ENTITY_ROUTES)(
+    "$method $path: 404 for an admin addressing an unknown id",
+    async ({ method, path, payload, kind }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      await buildAs(["admin"], memberOf("none"));
+
+      const response = await app.inject({
+        method,
+        url: `${FLOOR_PLANS_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.body)).toEqual(
+        notFound(kind === "table" ? "Table not found" : "Floor plan not found")
+      );
+      for (const fn of serviceWrites()) expect(fn).not.toHaveBeenCalled();
+    }
+  );
+
+  it("GET /:id: 200 for a member of the floor plan's venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.getById).mockResolvedValue(mockFloorPlan);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${FLOOR_PLANS_URL}/fp-1`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.id).toBe("floor-plan-123");
+  });
+
+  it("POST /:id/activate: activates the loaded plan in its own venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.getById).mockResolvedValue(mockFloorPlan);
+    vi.mocked(floorPlanService.setActive).mockResolvedValue(mockFloorPlan);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `${FLOOR_PLANS_URL}/fp-1/activate`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(floorPlanService.setActive).toHaveBeenCalledWith("floor-plan-123", "venue-123");
+  });
+
+  it("POST /: 403 for a non-member of the body's venue, create untouched", async () => {
+    const lookup = memberOf("venue-1");
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: FLOOR_PLANS_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "venue-2", name: "Patio", layoutJson: {} },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-2");
+    expect(floorPlanService.create).not.toHaveBeenCalled();
+  });
+
+  it("POST /: 201 for a member of the body's venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.create).mockResolvedValue(mockFloorPlan);
+
+    const response = await app.inject({
+      method: "POST",
+      url: FLOOR_PLANS_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "venue-1", name: "Patio", layoutJson: {} },
+    });
+
+    expect(response.statusCode).toBe(201);
+  });
+
+  it("GET /venue/:venueId/active: 403 body for a non-member, 200 for a member", async () => {
+    const outsider = memberOf("venue-2");
+    await buildAs(["staff"], outsider);
+    const denied = await app.inject({
+      method: "GET",
+      url: `${FLOOR_PLANS_URL}/venue/venue-1/active`,
+      headers: { authorization: "Bearer t" },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(JSON.parse(denied.body)).toEqual(FORBIDDEN);
+    expect(floorPlanService.getActiveByVenueId).not.toHaveBeenCalled();
+    await app.close();
+
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.getActiveByVenueId).mockResolvedValue(mockFloorPlan);
+    const allowed = await app.inject({
+      method: "GET",
+      url: `${FLOOR_PLANS_URL}/venue/venue-1/active`,
+      headers: { authorization: "Bearer t" },
+    });
+    expect(allowed.statusCode).toBe(200);
+    expect(floorPlanService.getActiveByVenueId).toHaveBeenCalledWith("venue-1");
   });
 });

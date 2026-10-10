@@ -1477,3 +1477,218 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
     });
   });
 });
+
+/**
+ * Venue-authorization pins (docs/fixes/venue-scoped-routes, PR 3), written
+ * against the pre-`venueScoped` routes so the migration has to keep every
+ * status and problem `detail` byte-identical. The venue self-routes authorize
+ * on the raw `:id` (no resolve), so a non-member is denied before any read.
+ */
+describe("Venue Routes — venue authorization pins (ADR-020)", () => {
+  const VENUES_URL = "/api/v1/venues";
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+  const VENUE_NOT_FOUND = {
+    type: "about:blank",
+    title: "Not Found",
+    status: 404,
+    detail: "Venue not found",
+  };
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  const memberOf = (venue: string) =>
+    vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, venueId) => venueId === venue);
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+    // Earlier suites leave unconsumed mockResolvedValueOnce queues behind.
+    for (const fn of Object.values(venueService)) vi.mocked(fn).mockReset();
+    vi.mocked(tableStatusService.getSnapshot).mockReset();
+    vi.mocked(resolveVenueId).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-123");
+    process.env = originalEnv;
+  });
+
+  const MEMBER_ROUTES = [
+    { method: "GET", path: "/venue-1", payload: undefined },
+    { method: "GET", path: "/venue-1/table-statuses", payload: undefined },
+    { method: "PATCH", path: "/venue-1", payload: { name: "Renamed" } },
+  ] as const;
+
+  it.each(MEMBER_ROUTES)(
+    "$method $path: 403 for a non-member, decided on the raw :id before any read",
+    async ({ method, path, payload }) => {
+      const lookup = memberOf("venue-2");
+      await buildAs(["staff"], lookup);
+
+      const response = await app.inject({
+        method,
+        url: `${VENUES_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+      expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+      expect(resolveVenueId).not.toHaveBeenCalled();
+      expect(venueService.getById).not.toHaveBeenCalled();
+      expect(venueService.update).not.toHaveBeenCalled();
+      expect(tableStatusService.getSnapshot).not.toHaveBeenCalled();
+    }
+  );
+
+  it("GET /:id: 200 for a member", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(venueService.getById).mockResolvedValue({ ...mockVenue, id: "venue-1" });
+    await buildAs(["staff"], memberOf("venue-1"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${VENUES_URL}/venue-1`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.id).toBe("venue-1");
+    expect(venueService.getById).toHaveBeenCalledWith("venue-1");
+  });
+
+  it("GET /:id: 404 'Venue not found' for an admin addressing an unknown venue", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    vi.mocked(venueService.getById).mockResolvedValue(null);
+    await buildAs(["admin"], memberOf("none"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${VENUES_URL}/missing`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual(VENUE_NOT_FOUND);
+  });
+
+  it("GET /:id/table-statuses: 200 with an empty snapshot for an admin addressing an unknown venue", async () => {
+    // The real snapshot of a venue with no tables is [] (table-status.ts
+    // filters every read on venueId), so the mock answers what the service would.
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    vi.mocked(tableStatusService.getSnapshot).mockResolvedValue([]);
+    await buildAs(["admin"], memberOf("none"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${VENUES_URL}/missing/table-statuses`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ data: [] });
+  });
+
+  it("PATCH /:id: 404 'Venue not found' for an admin addressing an unknown venue", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    vi.mocked(venueService.update).mockResolvedValue(null);
+    await buildAs(["admin"], memberOf("none"));
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `${VENUES_URL}/missing`,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "Renamed" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual(VENUE_NOT_FOUND);
+  });
+
+  it("PATCH /:id: the non-admin venueGroupId 403 keeps its bytes", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(venueService.getById).mockResolvedValue({ ...mockVenue, id: "venue-1" });
+    await buildAs(["staff"], memberOf("venue-1"));
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `${VENUES_URL}/venue-1`,
+      headers: { authorization: "Bearer t" },
+      payload: { venueGroupId: "group-other" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      detail: "Admin role required to change a venue's venue group",
+    });
+    expect(venueService.update).not.toHaveBeenCalled();
+  });
+
+  it("DELETE /:id: requireAdmin's 403 for a non-admin member, delete untouched", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `${VENUES_URL}/venue-1`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).title).toBe("Forbidden");
+    expect(venueService.delete).not.toHaveBeenCalled();
+  });
+
+  it("DELETE /:id: 404 'Venue not found' for an admin addressing an unknown venue", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    vi.mocked(venueService.delete).mockResolvedValue("not_found");
+    await buildAs(["admin"], memberOf("none"));
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `${VENUES_URL}/missing`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual(VENUE_NOT_FOUND);
+  });
+
+  it("DELETE /:id: 204 for an admin, deleting inside the venue", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(venueService.delete).mockResolvedValue("deleted");
+    await buildAs(["admin"], memberOf("none"));
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `${VENUES_URL}/venue-1`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(venueService.delete).toHaveBeenCalledWith("venue-1");
+  });
+});

@@ -16,31 +16,41 @@ import {
   updateTableBodyJsonSchema,
   updateTableStatusBodyJsonSchema,
 } from "@mbe/types";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import {
-  venueIdFromBody,
-  venueIdFromQuery,
-  venueIdFromEntity,
-  loadInVenueContext,
-} from "./venue-access.js";
+import { venueIdFromBody, venueIdFromQuery } from "./venue-access.js";
+import { venueScoped } from "./venue-scope.js";
+
+/** 404 `detail` for a table addressed by `:id`. */
+const TABLE_NOT_FOUND = "Table not found";
+
+/**
+ * The venue owning the table addressed by `:id`: by-id actions are scoped to
+ * it, and an unknown or unassigned table is a 403 for non-admins (never
+ * leaking existence) and a 404 for admins. No `load`: each handler's own
+ * service call is the read, and its thrown 404 keeps the route's bytes.
+ */
+const tableVenue = {
+  venue: {
+    entity: "table",
+    key: (request: { params: { id: string } }) => request.params.id,
+    notFound: TABLE_NOT_FOUND,
+  },
+} as const;
+
+/** The 404 the table routes throw for a missing row (the error handler adds `instance`). */
+function tableNotFound(): Error {
+  const error = new Error(TABLE_NOT_FOUND) as Error & { statusCode?: number };
+  error.statusCode = 404;
+  return error;
+}
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
   // importing the sibling singleton directly — tests inject fakes via
   // buildApp({ services }).
   const { tableService, floorPlanService } = fastify.services;
-
-  /**
-   * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
-   * to that venue. Null when the table does not exist or is unassigned (→ 403 for
-   * non-admins; platform admins bypass the check).
-   */
-  const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
-    "table",
-    (request) => (request.params as { id?: unknown }).id
-  );
 
   // List tables
   fastify.get<{
@@ -86,10 +96,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Get table by ID",
         operationId: "getTableById",
@@ -124,20 +131,11 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
-      const table = await loadInVenueContext(
-        "table",
-        request.params.id,
-        () => tableService.getById(request.params.id),
-        null
-      );
-      if (!table) {
-        const error = new Error("Table not found") as Error & { statusCode?: number };
-        error.statusCode = 404;
-        throw error;
-      }
+    venueScoped(tableVenue, async (request) => {
+      const table = await tableService.getById(request.params.id);
+      if (!table) throw tableNotFound();
       return { data: table };
-    }
+    })
   );
 
   // Create table (requires auth)
@@ -203,10 +201,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Update a table",
         operationId: "updateTable",
@@ -252,74 +247,51 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    venueScoped(tableVenue, async (request, reply) => {
       const { floorPlanId } = request.body;
 
-      // ADR-026 §3.3 item 5 / #5369 PR 7 (PR 5 carry-forward): the
-      // floor-plan reassignment pre-check now runs INSIDE the table's
-      // resolved venue context, the way `floor-plans.ts`'s
-      // `/tables/positions` route does. Both reads used to run before any
-      // venue context was resolved — under FORCE they'd both return null,
-      // silently skipping this check (still refused, but as a 404 from the
-      // update's own nested `connect` instead of this 403).
-      const result = await loadInVenueContext(
-        "table",
-        request.params.id,
-        async () => {
-          if (floorPlanId) {
-            // The guard above only proves the caller belongs to the TABLE's
-            // own venue. `floorPlanId` is a client-supplied id that the
-            // update connects with no venue awareness of its own, so a
-            // member of the table's venue could otherwise re-point it onto
-            // ANOTHER venue's floor plan. Same bug class as #5008
-            // (/tables/:tableId/assign) and #5042 (/tables/positions) in
-            // floor-plans.ts. Checked here rather than in the DB layer
-            // because `Table` has no compound floorPlanId/venueId
-            // constraint, and ADR-026's RLS does not apply to the app's own
-            // role.
-            const [current, floorPlan] = await Promise.all([
-              tableService.getById(request.params.id),
-              floorPlanService.getById(floorPlanId),
-            ]);
-            // A missing table or floor plan is not a cross-venue
-            // reassignment — fall through so the update below surfaces the
-            // existing 404. Note (matching `floor-plans.ts`'s
-            // `/tables/positions` route): once this read runs inside the
-            // table's own resolved venue context, a GENUINELY cross-venue
-            // `floorPlanId` becomes invisible here under RLS rather than
-            // "found, wrong venue" — `floorPlan` resolves `null`, this 403
-            // never fires, and the attempt still fails, but as the 404 below
-            // (from `tableService.update`'s own nested `connect`) instead.
-            if (current && floorPlan && floorPlan.venueId !== current.venueId) {
-              return { kind: "cross-venue" as const };
-            }
-          }
-
-          const table = await tableService.update(request.params.id, request.body);
-          if (!table) return { kind: "not-found" as const };
-          return { kind: "ok" as const, table };
-        },
-        { kind: "not-found" as const }
-      );
-
-      if (result.kind === "cross-venue") {
-        return reply
-          .code(403)
-          .send(
-            createProblemDetails(
-              403,
-              titleForStatus(403),
-              "The requested floor plan does not belong to this table's venue"
-            )
-          );
+      // ADR-026 §3.3 item 5 / #5369 PR 7: the floor-plan reassignment
+      // pre-check runs INSIDE the table's venue context (venueScoped), the way
+      // `floor-plans.ts`'s `/tables/positions` route does, so both reads
+      // succeed under FORCE instead of silently skipping this check.
+      if (floorPlanId) {
+        // Venue scope only proves the caller belongs to the TABLE's own venue.
+        // `floorPlanId` is a client-supplied id that the update connects with
+        // no venue awareness of its own, so a member of the table's venue could
+        // otherwise re-point it onto ANOTHER venue's floor plan. Same bug class
+        // as #5008 (/tables/:tableId/assign) and #5042 (/tables/positions) in
+        // floor-plans.ts. Checked here rather than in the DB layer because
+        // `Table` has no compound floorPlanId/venueId constraint, and ADR-026's
+        // RLS does not apply to the app's own role.
+        const [current, floorPlan] = await Promise.all([
+          tableService.getById(request.params.id),
+          floorPlanService.getById(floorPlanId),
+        ]);
+        // A missing table or floor plan is not a cross-venue reassignment —
+        // fall through so the update below surfaces the existing 404. Note
+        // (matching `floor-plans.ts`'s `/tables/positions` route): inside the
+        // table's own venue context, a GENUINELY cross-venue `floorPlanId`
+        // becomes invisible here under RLS rather than "found, wrong venue" —
+        // `floorPlan` resolves `null`, this 403 never fires, and the attempt
+        // still fails, but as the 404 below (from `tableService.update`'s own
+        // nested `connect`) instead.
+        if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                titleForStatus(403),
+                "The requested floor plan does not belong to this table's venue"
+              )
+            );
+        }
       }
-      if (result.kind === "not-found") {
-        const error = new Error("Table not found") as Error & { statusCode?: number };
-        error.statusCode = 404;
-        throw error;
-      }
-      return { data: result.table };
-    }
+
+      const table = await tableService.update(request.params.id, request.body);
+      if (!table) throw tableNotFound();
+      return { data: table };
+    })
   );
 
   // Update table status (requires auth)
@@ -330,10 +302,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/status",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Update table status",
         operationId: "updateTableStatus",
@@ -379,19 +348,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
+    venueScoped(tableVenue, async (request) => {
       try {
-        const table = await loadInVenueContext(
-          "table",
-          request.params.id,
-          () => tableService.updateStatus(request.params.id, request.body.status),
-          null
-        );
-        if (!table) {
-          const error = new Error("Table not found") as Error & { statusCode?: number };
-          error.statusCode = 404;
-          throw error;
-        }
+        const table = await tableService.updateStatus(request.params.id, request.body.status);
+        if (!table) throw tableNotFound();
         fastify.reservationEvents.emitTableUpdated(table);
         return { data: table };
       } catch (err) {
@@ -402,7 +362,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         }
         throw err;
       }
-    }
+    })
   );
 
   // Delete table (requires auth)
@@ -411,10 +371,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Delete a table",
         operationId: "deleteTable",
@@ -456,19 +413,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const deleted = await loadInVenueContext(
-        "table",
-        request.params.id,
-        () => tableService.delete(request.params.id),
-        false
-      );
-      if (!deleted) {
-        const error = new Error("Table not found") as Error & { statusCode?: number };
-        error.statusCode = 404;
-        throw error;
-      }
+    venueScoped(tableVenue, async (request, reply) => {
+      const deleted = await tableService.delete(request.params.id);
+      if (!deleted) throw tableNotFound();
       return reply.code(204).send();
-    }
+    })
   );
 };
