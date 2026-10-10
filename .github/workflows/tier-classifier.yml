@@ -195,7 +195,19 @@ jobs:
           // scripts/__tests__/tier-classifier-workflow.test.mjs for both
           // directions (#3606, #4279, #4883 are the earlier fixes to this
           // same rule's keyword matching, not its escalation strength).
-          if (/\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b/i.test(title + ' ' + bodyProse)) {
+          // #5956: `\b` does NOT mean "whole identifier" when hyphens are in
+          // play — `-` is a non-word char, so `-secret-` in the repo's own
+          // script name `check-deploy-secret-provisioning` sits between two
+          // word boundaries and matched. Three fixes in a row (#3606, #4879,
+          // #5082) missed this. Two guards, both fail-safe (they can only
+          // suppress matches that are part of an identifier or code, never a
+          // keyword standing alone in prose): (1) mask fenced and inline
+          // code spans before scanning; (2) require the keyword not be
+          // flanked by `-` + a word char (a longer hyphenated identifier).
+          const scanText = (title + ' ' + bodyProse)
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/`[^`\n]*`/g, ' ');
+          if (/(?<!\w-)\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b(?!-\w)/i.test(scanText)) {
             if (pathTier >= T3) {
               highest = T4;
               reasons.add('escalate to T4: title/body mentions secrets or incident (sensitive path already matched)');
