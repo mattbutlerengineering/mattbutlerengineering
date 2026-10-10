@@ -58,12 +58,16 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // all-venue stream (#4016), which venueScoped cannot express. The route keeps
   // its own requireVenueAccess guard.
   "GET /api/v1/events/stream": "cross-venue fan-out (admin)",
+  // Matt ruling 2026-10-10 (same as the stream): venueId is optional on both,
+  // and an admin who names no venue gets an unfiltered all-venue list / creates
+  // a venue-less table, which venueScoped cannot express. Both keep their own
+  // requireVenueAccess guard.
+  "GET /api/v1/tables": "cross-venue fan-out (admin)",
+  "POST /api/v1/tables": "cross-venue fan-out (admin)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
 
   // PR 3: tables, floor plans, venues.
-  "GET /api/v1/tables": "pending-migration",
-  "POST /api/v1/tables": "pending-migration",
 
   // PR 4: reservations and deposits.
   "GET /api/v1/reservations": "pending-migration",
