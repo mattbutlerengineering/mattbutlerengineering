@@ -158,6 +158,35 @@ describe("queue-telemetry policy entry", () => {
   });
 });
 
+describe("queue-telemetry regression: rows stop landing silently (#5777)", () => {
+  // Every other metric fresh, so the verdict can only come from queue-telemetry.
+  const assess = (queueRows) =>
+    assessFreshness({
+      readMetric: (metric) =>
+        metric === "queue-telemetry" ? queueRows : [{ timestamp: daysAgo(0) }],
+      now: NOW,
+    });
+
+  it("fails the self-check (exit 1) when the newest row is older than the threshold", () => {
+    const results = assess([{ claimed_at: daysAgo(20), merged_at: null }]);
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(partitionFindings(results).failures.map((r) => r.metric)).toEqual(["queue-telemetry"]);
+  });
+
+  it("fails as `empty`, not a silent pass, when queue-telemetry.jsonl has no rows", () => {
+    const results = assess([]);
+    const queue = results.find((r) => r.metric === "queue-telemetry");
+    expect(queue.state).toBe("empty");
+    expect(freshnessExitCode(results)).toBe(1);
+    // A failure must never be routed into the human-blocked bucket (#5561).
+    expect(partitionFindings(results).blocked).toEqual([]);
+  });
+
+  it("passes (exit 0) once a recent row lands again", () => {
+    expect(freshnessExitCode(assess([{ claimed_at: daysAgo(1), merged_at: null }]))).toBe(0);
+  });
+});
+
 describe("assessFreshness", () => {
   it("reports one result per policy entry", () => {
     const results = assessFreshness({
