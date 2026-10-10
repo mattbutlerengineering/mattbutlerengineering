@@ -97,7 +97,14 @@ export function decideAutoMergeAction(labelNames = [], autoMergeEnabled = false)
     }
     return { action: "enable", reason: decision.reason };
   }
-  return { action: autoMergeEnabled ? "disable" : "skip", reason: decision.reason };
+  // Disable only on an explicit human hold. Enable above fails closed until a
+  // tier label exists, so this workflow never arms auto-merge early; a blocking
+  // tier or a missing `has-pr` therefore means someone else armed it, e.g.
+  // /implement-queue after its review gate, where tier does not hold a
+  // reviewed PR ("No tier hold" in its SKILL.md). Undoing that stalled the
+  // whole merge train on 2026-10-10.
+  const isHeld = labelNames.includes("needs-review");
+  return { action: autoMergeEnabled && isHeld ? "disable" : "skip", reason: decision.reason };
 }
 
 /**
