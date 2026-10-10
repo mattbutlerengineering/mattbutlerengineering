@@ -124,7 +124,7 @@ export const ALLOWLIST = {
     "plugins/acmm/scripts/evals/index.js": {
       reason:
         "the eval harness itself is outside the filter; a harness change runs no eval — seeded in docs/backlog.md (session:2026-08-28)",
-      guardedBy: null,
+      guardedBy: "scripts/__tests__/instruction-regression-evals.test.mjs",
     },
   },
   "preview-deploy.yml": {
