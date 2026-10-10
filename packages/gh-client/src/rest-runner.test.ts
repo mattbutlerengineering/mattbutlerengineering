@@ -54,4 +54,49 @@ describe("createRestRunner", () => {
     const run = makeRunner(http);
     expect(() => run("gh", ["repo", "clone"])).toThrow(/unsupported command/);
   });
+
+  it("warns (once per flag) instead of silently ignoring a flag REST does not emulate", () => {
+    const http = vi.fn().mockReturnValue({ status: 200, body: "[]" });
+    const warn = vi.fn();
+    const run = createRestRunner({
+      token: "gho_test",
+      owner: "owner",
+      repoName: "repo",
+      http,
+      warn,
+    });
+
+    run("gh", ["pr", "list", "--author", "someone", "--json", "number"]);
+    run("gh", ["pr", "list", "--author", "someone", "--json", "number"]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/--author/);
+  });
+
+  it("does not warn for flags the REST path does emulate", () => {
+    const http = vi.fn().mockReturnValue({ status: 200, body: "[]" });
+    const warn = vi.fn();
+    const run = createRestRunner({
+      token: "gho_test",
+      owner: "owner",
+      repoName: "repo",
+      http,
+      warn,
+    });
+
+    run("gh", [
+      "issue",
+      "list",
+      "--state",
+      "open",
+      "--label",
+      "ready",
+      "--limit",
+      "5",
+      "--json",
+      "number",
+    ]);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
 });

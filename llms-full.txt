@@ -52069,10 +52069,26 @@
       /** Injected in tests for git-derived defaults (repo slug, PR head branch). */
       exec?: (cmd: string, args: string[]) => string;
       env?: NodeJS.ProcessEnv;
+      /** Sink for unsupported-flag warnings — defaults to stderr. Injected in tests. */
+      warn?: (message: string) => void;
+    }
+    function defaultWarn(message: string): void {
+      process.stderr.write(`${message}\n`);
     }
     export function createRestRunner(
       opts: RestRunnerOptions = {}
     ): (cmd: string, args: string[]) => string {
+      const warn = opts.warn ?? defaultWarn;
+      const warned = new Set<string>();
+    
+      function warnUnemulated(parsed: ParsedArgs, command: string): void {
+        for (const name of Object.keys(parsed.flags)) {
+          if (EMULATED_FLAGS.has(name) || warned.has(name)) continue;
+          warned.add(name);
+          warn(`gh-client REST fallback: ignoring unsupported flag --${name} on "gh ${command}"`);
+        }
+      }
+    
       return function run(_cmd: string, args: string[]): string {
         const env = opts.env ?? process.env;
         const token = opts.token ?? resolveToken(env);
@@ -52085,6 +52101,7 @@
     
         const [resource, action, ...rest] = args;
         const parsed = parseArgs(rest);
+        warnUnemulated(parsed, `${resource} ${action}`);
         const number = Number(parsed.positional[0]);
     
         switch (`${resource} ${action}`) {
@@ -52213,11 +52230,53 @@
       /** Injected in tests to force the exec or REST path — see #3689. */
       probe?: GhProbe;
     }
-    export function createTransportRunner(
-      opts: TransportOptions = {}
-    ): (cmd: string, args: string[]) => string {
+    type Run = (cmd: string, args: string[]) => string;
+    export class GhGraphqlUnavailableError extends Error {
+      constructor(cause: unknown) {
+        super(
+          "gh-client: `gh` is present but GitHub GraphQL is unavailable in this session, " +
+            "and the REST fallback has no GITHUB_TOKEN/GH_TOKEN to use instead.",
+          { cause }
+        );
+        this.name = "GhGraphqlUnavailableError";
+      }
+    }
+    export function isGraphqlUnavailableError(err: unknown): boolean {
+      if (!(err instanceof Error)) return false;
+      const stderr = (err as { stderr?: unknown }).stderr;
+      const text = `${err.message}\n${typeof stderr === "string" ? stderr : ""}`;
+      return (
+        /HTTP 403/.test(text) &&
+        /api\.github\.com\/graphql/i.test(text) &&
+        /GraphQL is not available|use the REST API/i.test(text)
+      );
+    }
+    export function createTransportRunner(opts: TransportOptions = {}): Run {
       const probe = opts.probe ?? probeGh;
-      return probe() ? createExecRunner(opts) : createRestRunner(opts);
+      if (!probe()) return createRestRunner(opts);
+    
+      const exec = createExecRunner(opts);
+      const rest = createRestRunner(opts);
+      let latchedRest = false;
+    
+      return function run(cmd: string, args: string[]): string {
+        if (latchedRest) return rest(cmd, args);
+        try {
+          return exec(cmd, args);
+        } catch (err) {
+          if (!isGraphqlUnavailableError(err)) throw err;
+          latchedRest = true;
+          return runRestFallback(rest, cmd, args, err);
+        }
+      };
+    }
+    function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string {
+      try {
+        return rest(cmd, args);
+      } catch (err) {
+        if (err instanceof MissingGithubTokenError) throw new GhGraphqlUnavailableError(execErr);
+        throw err;
+      }
     }
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
