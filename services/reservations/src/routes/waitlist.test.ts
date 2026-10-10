@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { createMockJWTPayload } from "../test/mocks.js";
 
 // Mock the waitlist service
 vi.mock("../services/waitlist.js", () => ({
@@ -153,6 +155,8 @@ vi.mock("jose", () => ({
 
 import { waitlistService } from "../services/waitlist.js";
 import { holdService } from "../services/hold.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { jwtVerify } from "jose";
 
 const AUTH_HEADERS = { authorization: "Bearer valid-token", "x-auth-bypass": "true" };
 
@@ -479,5 +483,149 @@ describe("Waitlist Routes", () => {
 
       expect(response.statusCode).toBe(400);
     });
+  });
+});
+
+/**
+ * Venue-authorization gap tests (docs/fixes/venue-scoped-routes, PR 2), pinned
+ * against the pre-`venueScoped` routes so the migration has to keep every
+ * status and problem `detail` byte-identical.
+ */
+describe("Waitlist Routes — venue authorization (ADR-020)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(holdService.maybeCleanup).mockResolvedValue(false);
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    process.env = originalEnv;
+  });
+
+  it("returns 403 with requireVenueAccess's body when a non-member lists a venue's waitlist", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/waitlist?venueId=venue-1",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+    expect(waitlistService.listWaiting).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 when a member lists their venue's waitlist", async () => {
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-1");
+    await buildAs(["staff"], lookup);
+    vi.mocked(waitlistService.listWaiting).mockResolvedValue([mockEntry] as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/waitlist?venueId=venue-1",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data[0].id).toBe("entry-1");
+    expect(waitlistService.listWaiting).toHaveBeenCalledWith("venue-1");
+  });
+
+  it("returns 403 when a non-member adds to a venue's waitlist", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/waitlist",
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "venue-1", partySize: 2, guestName: "A", guestPhone: "555-1234" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(waitlistService.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when a non-member acts on an entry of another venue, scoped to the entry's venue", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/waitlist/entry-1/seat",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(resolveVenueId).toHaveBeenCalledWith("waitlist_entry", "entry-1");
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+    expect(waitlistService.seat).not.toHaveBeenCalled();
+  });
+
+  it("returns 403, not 404, to a non-member probing an unknown entry", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    await buildAs(["staff"], lookup);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/waitlist/missing",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 with today's exact detail to an admin addressing an unknown entry", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/waitlist/missing/expire",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+      detail: "Waitlist entry not found",
+    });
+    expect(waitlistService.expire).not.toHaveBeenCalled();
   });
 });

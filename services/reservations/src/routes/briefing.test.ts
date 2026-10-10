@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { createMockReservation, createMockJWTPayload } from "../test/mocks.js";
 
 // Mock the briefing service
@@ -232,5 +233,98 @@ describe("GET /api/v1/briefing", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.data).toEqual([]);
+  });
+});
+
+/**
+ * Venue-authorization gap tests (docs/fixes/venue-scoped-routes, PR 2), pinned
+ * against the pre-`venueScoped` route so the migration has to keep every status
+ * and problem `detail` byte-identical.
+ */
+describe("GET /api/v1/briefing — venue authorization (ADR-020)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const URL = "/api/v1/briefing?date=2026-06-19&venueId=venue-abc";
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+  }
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  it("returns 403 with requireVenueAccess's body for a non-member", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      detail: "You do not have access to this venue",
+    });
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-abc");
+    expect(briefingService.getBriefing).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for a member of the venue", async () => {
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-abc");
+    await buildAs(["staff"], lookup);
+    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ data: [] });
+    expect(briefingService.getBriefing).toHaveBeenCalledWith({
+      date: "2026-06-19",
+      venueId: "venue-abc",
+    });
+  });
+
+  it("answers an admin who sends an empty venueId with today's exact 400 detail", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/briefing?date=2026-06-19&venueId=",
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "venueId query parameter is required",
+    });
+    expect(briefingService.getBriefing).not.toHaveBeenCalled();
   });
 });
