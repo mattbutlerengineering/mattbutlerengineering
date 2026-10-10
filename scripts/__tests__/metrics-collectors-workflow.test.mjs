@@ -191,3 +191,17 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
     }
   });
 });
+
+describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
+  it("runs the GitHub-derived queue-telemetry collector before the PR step", () => {
+    const run = WORKFLOW.indexOf("node scripts/collect-queue-telemetry-from-github.mjs");
+    const pr = WORKFLOW.indexOf("peter-evans/create-pull-request");
+    expect(run).toBeGreaterThan(-1);
+    expect(run).toBeLessThan(pr);
+  });
+
+  it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {
+    const block = WORKFLOW.match(/add-paths: \|\n((?:\s+\S.*\n)+)/)?.[1] ?? "";
+    expect(block).toContain("metrics/queue-telemetry.jsonl");
+  });
+});

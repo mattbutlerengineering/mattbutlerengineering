@@ -234,6 +234,17 @@ jobs:
             --search-label "ci-fix" \
             --contains "Agent spend telemetry stopped"
 
+      # Scheduled backstop for metrics/queue-telemetry.jsonl (#5921): in-session
+      # rows are only persisted when a session follows SKILL.md Phase 4, so days
+      # with no session leave gaps. Derives pending rows for merged agent PRs
+      # the file does not already cover; reconcile fills outcomes later.
+      - name: Collect queue telemetry from merged agent PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          node scripts/collect-queue-telemetry-from-github.mjs --days 7 | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Open PR with collected metrics
         id: create-pr
         # `main` is protected and requires the CI Gate status check, which a
@@ -261,6 +272,7 @@ jobs:
           delete-branch: true
           add-paths: |
             metrics/review-burden.json
+            metrics/queue-telemetry.jsonl
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch
