@@ -95,7 +95,7 @@ Covers body-entity, `:tableId`, and venue self-route shapes.
 - [x] **Migrate venues `:id` routes + admin DELETE** — `{ from: "params", field: "id" }`; the `venueGroupId` rule uses `scope.isAdmin`; list, create, groups, by-slug go UNSCOPED with reasons.
   - Accept: `venues.test.ts` (:640, :700, :1018, :1405) passes unchanged; bespoke resolver `:48` deleted; UNSCOPED reasons present; bytes identical.
   - Blocked by: PR 2 gate
-- [ ] **PR 3 gate** — open PR, reviewer PASS, CI Gate genuinely green (core jobs executed, success), STOP for Matt. _Progress: PR opened (see Notes); reviewer pass and Matt's merge pending._
+- [ ] **PR 3 gate** — open PR, reviewer PASS, CI Gate genuinely green (core jobs executed, success), STOP for Matt. _Progress: PR opened as #6224 on 2026-10-10, rebased onto `bdb664d54`; reviewer pass, CI Gate and Matt's merge pending._
   - Accept: as PR 1 gate.
   - Blocked by: Migrate tables; Migrate floor plans; Migrate venues `:id` routes + admin DELETE
 
