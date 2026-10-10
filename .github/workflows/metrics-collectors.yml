@@ -239,6 +239,8 @@ jobs:
       # with no session leave gaps. Derives pending rows for merged agent PRs
       # the file does not already cover; reconcile fills outcomes later.
       - name: Collect queue telemetry from merged agent PRs
+        # A gh 5xx / rate limit here must not skip the review-burden PR flow.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -200,6 +200,14 @@ describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
     expect(run).toBeLessThan(pr);
   });
 
+  it("isolates the collector step's failure so the review-burden PR flow still runs", () => {
+    const step = WORKFLOW.match(
+      /- name: Collect queue telemetry from merged agent PRs\n((?:(?! {6}- name:).*\n)+)/
+    )?.[1];
+    expect(step).toBeDefined();
+    expect(step).toMatch(/^\s+continue-on-error: true$/m);
+  });
+
   it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {
     const block = WORKFLOW.match(/add-paths: \|\n((?:\s+\S.*\n)+)/)?.[1] ?? "";
     expect(block).toContain("metrics/queue-telemetry.jsonl");
