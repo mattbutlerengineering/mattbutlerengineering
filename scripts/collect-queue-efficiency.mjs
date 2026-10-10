@@ -19,6 +19,7 @@ import {
   createGhClient,
   describeGhError,
   GhAuthError,
+  GhGraphqlUnavailableError,
   GhRateLimitError,
   MissingGithubTokenError,
 } from "@mbe/gh-client";
@@ -76,10 +77,12 @@ const WORKER_BRANCH_RE = /^worktree-agent-/;
  * (`buildQueueEfficiencyProcessEntry`, the daily metrics row) can tell
  * "the sensor couldn't run, and here's why" apart from a silent boolean.
  *
- * `gh-client`'s REST fallback (#3689) only ever engages when the `gh` binary
- * is absent, so `MissingGithubTokenError` inherently means both "no gh
- * binary" and "no credential" at once — there is no code path where those
- * two are independently distinguishable, so they share one reason.
+ * `gh-client`'s REST fallback (#3689) engages when the `gh` binary is absent,
+ * so `MissingGithubTokenError` means both "no gh binary" and "no credential".
+ * It also engages when `gh` is present but GraphQL is blocked (#6039, Claude
+ * Code Remote); if that fallback has no token, gh-client throws
+ * `GhGraphqlUnavailableError` instead, reported as `graphql_unavailable` — a
+ * permanent environmental constraint, never `credential_rejected`.
  * `GhAuthError` is the credential-present-but-rejected case (#3937: a
  * Claude Code Remote session's `GITHUB_TOKEN`/`GH_TOKEN` is scoped for
  * git-over-HTTPS only, not direct REST API calls). A network failure
@@ -91,6 +94,7 @@ const WORKER_BRANCH_RE = /^worktree-agent-/;
  * @returns {string}
  */
 export function classifyUnavailableReason(err) {
+  if (err instanceof GhGraphqlUnavailableError) return "graphql_unavailable";
   if (err instanceof MissingGithubTokenError) return "gh_binary_absent_no_credential";
   if (err instanceof GhRateLimitError) return "rate_limited";
   if (err instanceof GhAuthError) return "credential_rejected";

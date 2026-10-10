@@ -50,6 +50,16 @@ callers never need to know or care which one they got:
    `(cmd, args)` call into GitHub REST (or Search) API calls, authenticated
    with `GITHUB_TOKEN` ?? `GH_TOKEN`. Missing both throws
    `MissingGithubTokenError` — naming the credential, not `spawn gh ENOENT`.
+4. `gh` present but GraphQL blocked (#6039, Claude Code Remote, where
+   `gh pr list --json` answers `HTTP 403` from `api.github.com/graphql`) →
+   that same call is retried through REST, and the runner latches to REST
+   for the rest of its life (one-way, so no flapping). Only that exact
+   403-on-GraphQL shape triggers it (`isGraphqlUnavailableError`); a 401 or
+   any other exec failure is rethrown unchanged. If REST then has no token,
+   `GhGraphqlUnavailableError` is thrown.
+
+The REST path warns on stderr (once per flag, per runner) when a caller
+passes a flag it does not emulate, instead of silently ignoring it.
 
 Node has no synchronous `fetch`; `sync-http.ts` spawns the current Node
 binary as a short-lived subprocess (request via stdin, response via stdout)

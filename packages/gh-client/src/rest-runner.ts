@@ -1,4 +1,5 @@
 import { parseArgs, flag, resolveToken } from "./rest-args.js";
+import type { ParsedArgs } from "./rest-args.js";
 import type { RestContext } from "./rest-http.js";
 import { resolveRepoSlug } from "./repo-resolver.js";
 import type { SyncHttp } from "./sync-http.js";
@@ -25,6 +26,38 @@ export interface RestRunnerOptions {
   /** Injected in tests for git-derived defaults (repo slug, PR head branch). */
   exec?: (cmd: string, args: string[]) => string;
   env?: NodeJS.ProcessEnv;
+  /** Sink for unsupported-flag warnings — defaults to stderr. Injected in tests. */
+  warn?: (message: string) => void;
+}
+
+/**
+ * Every flag some REST op actually reads (via `flag`/`flagAll`/`wantsJsonField`).
+ * Anything else is accepted by `parseArgs` but has no effect on the REST path,
+ * so it is reported rather than dropped silently — a divergence from `gh` must
+ * be visible (#6039).
+ */
+const EMULATED_FLAGS = new Set([
+  "add-label",
+  "base",
+  "body",
+  "branch",
+  "comment",
+  "commit",
+  "head",
+  "jq",
+  "json",
+  "label",
+  "limit",
+  "missing",
+  "remove-label",
+  "search",
+  "state",
+  "title",
+  "workflow",
+]);
+
+function defaultWarn(message: string): void {
+  process.stderr.write(`${message}\n`);
 }
 
 /**
@@ -38,6 +71,17 @@ export interface RestRunnerOptions {
 export function createRestRunner(
   opts: RestRunnerOptions = {}
 ): (cmd: string, args: string[]) => string {
+  const warn = opts.warn ?? defaultWarn;
+  const warned = new Set<string>();
+
+  function warnUnemulated(parsed: ParsedArgs, command: string): void {
+    for (const name of Object.keys(parsed.flags)) {
+      if (EMULATED_FLAGS.has(name) || warned.has(name)) continue;
+      warned.add(name);
+      warn(`gh-client REST fallback: ignoring unsupported flag --${name} on "gh ${command}"`);
+    }
+  }
+
   return function run(_cmd: string, args: string[]): string {
     const env = opts.env ?? process.env;
     const token = opts.token ?? resolveToken(env);
@@ -50,6 +94,7 @@ export function createRestRunner(
 
     const [resource, action, ...rest] = args;
     const parsed = parseArgs(rest);
+    warnUnemulated(parsed, `${resource} ${action}`);
     const number = Number(parsed.positional[0]);
 
     switch (`${resource} ${action}`) {
