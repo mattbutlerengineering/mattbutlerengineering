@@ -1,5 +1,19 @@
 # @mattbutlerengineering/rialto
 
+## 0.3.2
+
+### Patch Changes
+
+- [#6237](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6237) [`8332525`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/83325253c2686eddb9cb2c98a04f2aaaac282d14) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NavigationMenu: keep the dropdown open when keyboard focus moves from the trigger into the panel (previously the trigger blur armed a close timer that nothing cancelled, stranding focus on `<body>`).
+
+- [#6197](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6197) [`0fdb5a4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0fdb5a4d35d9444cf713f98ba8fc6d1229205501) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y iteration 2 (form components): Select exposes `aria-required` and names its listbox from `aria-label`/`aria-labelledby`; NumberInput ignores arrow keys and disables its steppers when `readOnly`; PinInput cells carry `aria-invalid`/`aria-required`; Autocomplete names its listbox, clears `aria-activedescendant` when closed or empty, closes on Tab, and merges a consumer `aria-describedby` with its hint.
+
+- [#6228](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6228) [`3f7f693`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3f7f693769aaf02c26b7b967bc4d4ee418bc11ab) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Memoize Combobox filtered options so they are not recomputed on unrelated re-renders.
+
+- [#6240](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6240) [`f8836d8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f8836d8698dfe2f4bb1c096a421a643e38cad09c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Resolve Alert, Autocomplete, Banner, Combobox, Tooltip, PinInput, ImageUpload and Slider motion configs through `useMotionPreset()` (ADR-025) instead of importing `tokens/motion` directly. Autocomplete and Banner dropdown/entrance transitions now collapse to an instant transition under reduced motion.
+
+- [#6232](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6232) [`d77ae3a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d77ae3a048d062d85ee4f4c77eef06f1d61e465b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart: stabilize the `leadingHeader` element passed to `TapeChartDayHeader` so its `memo` skips re-renders on focus/selection changes.
+
 ## 0.3.1
 
 ### Patch Changes
