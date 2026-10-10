@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-09T11:12:07.302Z",
+  "lastRun": "2026-10-10T10:28:41.639Z",
   "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "143 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "131 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "3 threshold adjustment(s) in last 30 days",
+      "evidence": "2 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1041,6 +1041,12 @@
       "level": 6,
       "detected": 78,
       "total": 84
+    },
+    {
+      "date": "2026-10-10",
+      "level": 6,
+      "detected": 78,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1182,26 +1188,26 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.0026455026455026454,
+        "value": 0.0027548209366391185,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 378
+        "sampleSize": 363
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9936708860759493,
+        "value": 0.9934640522875817,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 158
+        "sampleSize": 153
       },
       {
         "level": 5,
@@ -1221,51 +1227,51 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.012738853503184714,
+        "value": 0.006578947368421052,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 158
+        "sampleSize": 153
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.03184713375796178,
+        "value": 0.03289473684210526,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 158
+        "sampleSize": 153
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.0026455026455026454,
-      "sample_size": 378,
+      "rate_30d": 0.0027548209366391185,
+      "sample_size": 363,
       "flaky_shas": ["fe04834dcb1ad16eb303458caada749accc63f01"],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-09T01:00:42.000Z",
-      "measured_at": "2026-10-09T11:12:07.301Z"
+      "oldest_record_at": "2026-09-10T04:04:48.000Z",
+      "measured_at": "2026-10-10T10:28:41.638Z"
     },
     "agent_pr": {
-      "sample_size": 158,
-      "merged_count": 157,
+      "sample_size": 153,
+      "merged_count": 152,
       "closed_unmerged_count": 1,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9936708860759493,
-      "revert_rate_30d": 0.012738853503184714,
+      "acceptance_rate_30d": 0.9934640522875817,
+      "revert_rate_30d": 0.006578947368421052,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.38472222222222224,
-      "human_touch_ratio": 0.03184713375796178,
+      "median_time_to_merge_hours": 0.3840277777777778,
+      "human_touch_ratio": 0.03289473684210526,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-02T00:25:36.000Z",
+      "oldest_record_at": "2026-09-03T00:38:18.000Z",
       "recent_changes": [
         {
           "number": 5937,
@@ -1388,7 +1394,7 @@
           "mergedAt": "2026-10-01T15:20:52Z"
         }
       ],
-      "measured_at": "2026-10-09T11:12:07.301Z"
+      "measured_at": "2026-10-10T10:28:41.638Z"
     },
     "evals": {
       "n": 37,
@@ -1410,7 +1416,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 21,
-      "measured_at": "2026-10-09T11:12:07.301Z"
+      "measured_at": "2026-10-10T10:28:41.638Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
