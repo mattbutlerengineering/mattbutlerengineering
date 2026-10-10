@@ -154,7 +154,7 @@ export function DriverList() {
         </div>
         <div className={styles.filterGroup}>
           <Select
-            label=""
+            aria-label="Filter by team"
             value={teamFilter}
             onChange={(v) => {
               setTeamFilter(v);
@@ -166,7 +166,7 @@ export function DriverList() {
             ]}
           />
           <Select
-            label=""
+            aria-label="Filter by status"
             value={statusFilter}
             onChange={(v) => {
               setStatusFilter(v);

@@ -127,7 +127,17 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     HoverCard: Pass,
     Input: () => <input aria-label="Search" />,
     Pagination,
-    Select: () => null,
+    // Mirrors the real Select's naming contract: label="" renders no visible
+    // label, so only aria-label/aria-labelledby can name the trigger button.
+    Select: ({ label, "aria-label": ariaLabel }: { label?: string; "aria-label"?: string }) => (
+      <button
+        type="button"
+        role="combobox"
+        aria-controls="mock-listbox"
+        aria-expanded={false}
+        aria-label={label || ariaLabel}
+      />
+    ),
     Stat: () => null,
     Table,
     Text: Pass,
@@ -144,6 +154,17 @@ function renderDriverList() {
     </MemoryRouter>
   );
 }
+
+describe("DriverList — filter accessibility", () => {
+  it("gives both filter Select triggers an accessible name (axe button-name)", () => {
+    renderDriverList();
+
+    const triggers = screen.getAllByRole("combobox");
+    expect(triggers).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: "Filter by team" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Filter by status" })).toBeInTheDocument();
+  });
+});
 
 describe("DriverList — delete + undo", () => {
   beforeEach(() => {
