@@ -300,17 +300,12 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     expect(block).not.toMatch(/mattbutlerengineering\.com/);
   });
 
-  it("names a ledger PR title the manifest signature matches", () => {
-    const title = /`(chore\(ui-quality\): ledger <YYYY-MM-DD>)`/.exec(block);
-    expect(title).not.toBeNull();
+  it("still names the ledger PR title, and the manifest tracks it by heartbeat (#6190)", () => {
+    expect(/`chore\(ui-quality\): ledger <YYYY-MM-DD>`/.test(block)).toBe(true);
     const entry = ROUTINE_MANIFEST.find((e) => e.name === "mbe-ui-quality");
     expect(entry).toBeDefined();
     expect(entry.periodDays).toBe(1);
-    expect(entry.activatedAt).toBe("2026-09-30");
-    expect(entry.signature.type).toBe("pr-title");
-    const concrete = title[1].replace("<YYYY-MM-DD>", "2026-10-01");
-    expect(new RegExp(entry.signature.pattern).test(concrete)).toBe(true);
-    expect(concrete).toContain(entry.signature.searchTerm);
+    expect(entry.signature).toEqual({ type: "heartbeat" });
   });
 });
 

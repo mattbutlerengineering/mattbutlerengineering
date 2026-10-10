@@ -17,8 +17,13 @@ import {
   runRoutineLivenessCheck,
   isObservationBlackout,
   fetchObservedArtifactsViaGhClient,
+  parseHeartbeatLine,
 } from "../routine-liveness.mjs";
-import { ROUTINE_MANIFEST, parseRoutineCatalog } from "../routine-manifest.mjs";
+import {
+  ROUTINE_MANIFEST,
+  parseRoutineCatalog,
+  HEARTBEAT_ISSUE_NUMBER,
+} from "../routine-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -365,9 +370,7 @@ describe("mbe-evening liveness signature (#5603 investigation)", () => {
 // alive. Routines marked `unverifiable` in the manifest (mbe-night,
 // mbe-midday — each has a prompt-documented title now, neither confirmed
 // live at the trigger yet; mbe-monthly-meta-audit graduated in #5748;
-// mbe-morning — its ACMM-audit signature was retired in #5955 with no
-// replacement yet, see routine-manifest.mjs's unverifiableReason) are
-// asserted separately as `unverifiable`, not folded into the "every other
+// are asserted separately as `unverifiable`, not folded into the "every other
 // routine" alive claim — they are real, distinct findings the manifest
 // surfaces honestly rather than papering over with a fabricated signature.
 describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
@@ -401,7 +404,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
       },
     ],
     "mbe-auditor": [
-      { type: "issue", labels: ["ready", "audit"], observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
+      { type: "heartbeat", state: "noop", observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
     ],
     "mbe-daily-issue": [
       {
@@ -411,11 +414,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
       },
     ],
     "mbe-morning": [
-      {
-        type: "pr",
-        title: "chore(acmm): daily audit 2026-09-20",
-        observedAt: "2026-09-20T16:03:00Z", // cron 3 16 * * *
-      },
+      { type: "heartbeat", state: "ok", observedAt: "2026-09-20T16:03:00Z" }, // cron 3 16 * * *
     ],
     "mbe-learning-loop": [
       {
@@ -483,28 +482,19 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
   // `dark`, worse than `unverifiable`.
   const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = ["mbe-night", "mbe-midday"];
 
-  // #5955: mbe-morning's `chore(acmm): daily audit` signature was retired —
-  // it's acmm-regression.yml's artifact now, not mbe-morning's — with no
-  // replacement signature declared yet. Distinct from the two above
-  // (which have a declared-but-trigger-unconfirmed signature): mbe-morning
-  // has no signature at all, so it reports `unverifiable` regardless of
-  // what the fixture observes for it.
-  const RETIRED_SIGNATURE_NO_REPLACEMENT = ["mbe-morning"];
-
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
       if (
         name === "mbe-weekly-improve" ||
-        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name) ||
-        RETIRED_SIGNATURE_NO_REPLACEMENT.includes(name)
+        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
       )
         continue;
       expect(byRoutine[name]).toBe("alive");
     }
   });
 
-  it("reports mbe-morning as unverifiable, not silently omitted, now that its ACMM signature is retired", () => {
-    expect(byRoutine["mbe-morning"]).toBe("unverifiable");
+  it("reports mbe-morning alive from its heartbeat (#6157)", () => {
+    expect(byRoutine["mbe-morning"]).toBe("alive");
   });
 
   it("keeps every prompt-updated routine unverifiable until its live trigger is confirmed updated", () => {
@@ -1408,9 +1398,171 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     expect(logs.some((m) => m.includes("mbe-ui-quality") && m.includes("505,050"))).toBe(true);
   });
 
-  it("the mbe-ui-quality manifest entry opts in, and no other entry does", () => {
+  // #6190: mbe-ui-quality moved to a heartbeat signature, so no manifest entry
+  // opts in today; the mechanism stays for a future long-lived-PR routine.
+  it("no manifest entry opts in now that mbe-ui-quality uses a heartbeat", () => {
     const opted = ROUTINE_MANIFEST.filter((e) => e.signature?.observe !== undefined);
-    expect(opted.map((e) => e.name)).toEqual(["mbe-ui-quality"]);
-    expect(opted[0].signature.observe).toBe("latest-matching-commit");
+    expect(opted).toEqual([]);
   });
+});
+
+// #6190 / #6157: heartbeat signature. A routine that files nothing by design
+// (mbe-auditor on a clean day, mbe-morning's /ideate) posts one comment per
+// fire on the intentionally CLOSED issue #6211.
+describe("parseHeartbeatLine", () => {
+  it("parses a well-formed line, with and without a note", () => {
+    expect(parseHeartbeatLine("heartbeat: mbe-auditor 2026-10-10 noop")).toEqual({
+      routine: "mbe-auditor",
+      date: "2026-10-10",
+      state: "noop",
+      note: "",
+    });
+    expect(
+      parseHeartbeatLine("heartbeat: mbe-ui-quality 2026-10-10 throttled rate limited")
+    ).toEqual({
+      routine: "mbe-ui-quality",
+      date: "2026-10-10",
+      state: "throttled",
+      note: "rate limited",
+    });
+  });
+
+  it("ignores malformed lines", () => {
+    for (const bad of [
+      "",
+      "hello",
+      "heartbeat: mbe-auditor noop",
+      "heartbeat: mbe-auditor 2026-10-10 fine",
+      "heartbeat: mbe-auditor 10-10-2026 ok",
+      "Heartbeat: mbe-auditor 2026-10-10 ok",
+    ]) {
+      expect(parseHeartbeatLine(bad)).toBeNull();
+    }
+  });
+});
+
+describe("heartbeat classification (#6190)", () => {
+  const now = "2026-10-10T12:00:00Z";
+  const signature = { type: "heartbeat" };
+  const beat = (state, observedAt) => ({ type: "heartbeat", state, observedAt });
+  const classify = (observedArtifacts, extra = {}) =>
+    classifyRoutineLiveness({ signature, periodDays: 1, observedArtifacts, now, ...extra });
+
+  it("noop counts as alive", () => {
+    expect(classify([beat("noop", "2026-10-10T09:40:00Z")]).status).toBe("alive");
+  });
+
+  it("ok counts as alive", () => {
+    expect(classify([beat("ok", "2026-10-10T09:40:00Z")]).status).toBe("alive");
+  });
+
+  it("throttled is its own non-dark state", () => {
+    expect(classify([beat("throttled", "2026-10-10T09:40:00Z")]).status).toBe("throttled");
+  });
+
+  it("error is dark", () => {
+    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("dark");
+  });
+
+  it("the newest heartbeat wins over an older one", () => {
+    expect(
+      classify([beat("error", "2026-10-09T09:40:00Z"), beat("noop", "2026-10-10T09:40:00Z")]).status
+    ).toBe("alive");
+    expect(
+      classify([beat("ok", "2026-10-09T09:40:00Z"), beat("error", "2026-10-10T09:40:00Z")]).status
+    ).toBe("dark");
+  });
+
+  it("a stale heartbeat is dark", () => {
+    expect(classify([beat("ok", "2026-10-05T09:40:00Z")]).status).toBe("dark");
+  });
+
+  it("no heartbeat is dark", () => {
+    expect(classify([]).status).toBe("dark");
+  });
+
+  it("artifacts of other types never satisfy a heartbeat signature", () => {
+    expect(
+      classify([{ type: "issue", labels: ["audit"], observedAt: "2026-10-10T09:40:00Z" }]).status
+    ).toBe("dark");
+  });
+});
+
+describe("heartbeat manifest entries and checker (#6190, #6157)", () => {
+  const HEARTBEAT_ROUTINES = ["mbe-auditor", "mbe-morning", "mbe-ui-quality"];
+
+  it("switches mbe-auditor, mbe-morning and mbe-ui-quality to heartbeat", () => {
+    for (const name of HEARTBEAT_ROUTINES) {
+      const entry = ROUTINE_MANIFEST.find((e) => e.name === name);
+      expect(entry.signature).toEqual({ type: "heartbeat" });
+      expect(entry.unverifiable).toBeFalsy();
+    }
+  });
+
+  it("classifies mbe-auditor alive from a recent noop heartbeat with no audit artifact", () => {
+    const results = runRoutineLivenessCheck({
+      manifest: ROUTINE_MANIFEST.filter((e) => e.name === "mbe-auditor"),
+      fetchObservedArtifacts: () => [
+        { type: "heartbeat", state: "noop", observedAt: "2026-10-10T09:45:00Z" },
+      ],
+      now: "2026-10-10T12:00:00Z",
+      createIssue: () => {
+        throw new Error("must not file");
+      },
+    });
+    expect(results).toEqual([{ routine: "mbe-auditor", status: "alive" }]);
+  });
+
+  it("reports a throttled routine without filing a dark issue", () => {
+    const results = runRoutineLivenessCheck({
+      manifest: ROUTINE_MANIFEST.filter((e) => e.name === "mbe-ui-quality"),
+      fetchObservedArtifacts: () => [
+        { type: "heartbeat", state: "throttled", observedAt: "2026-10-10T09:45:00Z" },
+      ],
+      now: "2026-10-10T12:00:00Z",
+      createIssue: () => {
+        throw new Error("must not file");
+      },
+    });
+    expect(results).toEqual([{ routine: "mbe-ui-quality", status: "throttled" }]);
+  });
+});
+
+describe("fetchObservedArtifactsViaGhClient — heartbeat", () => {
+  const comments = [
+    { body: "heartbeat: mbe-auditor 2026-10-09 ok", created_at: "2026-10-09T09:40:00Z" },
+    { body: "heartbeat: mbe-auditor 2026-10-10 noop", createdAt: "2026-10-10T09:40:00Z" },
+    { body: "heartbeat: mbe-morning 2026-10-10 ok", created_at: "2026-10-10T16:00:00Z" },
+    { body: "not a heartbeat", created_at: "2026-10-10T17:00:00Z" },
+  ];
+
+  it("reads comments from the heartbeat issue and keeps only this routine's valid lines", () => {
+    const calls = [];
+    const ghClient = {
+      issue: {
+        view: (number, args) => {
+          calls.push([number, args]);
+          return { comments };
+        },
+      },
+    };
+    const entry = { name: "mbe-auditor", signature: { type: "heartbeat" } };
+    const out = fetchObservedArtifactsViaGhClient(ghClient, entry);
+    expect(calls).toEqual([[HEARTBEAT_ISSUE_NUMBER, ["--json", "comments"]]]);
+    expect(out).toEqual([
+      { type: "heartbeat", state: "ok", observedAt: "2026-10-09T09:40:00Z" },
+      { type: "heartbeat", state: "noop", observedAt: "2026-10-10T09:40:00Z" },
+    ]);
+  });
+});
+
+describe("heartbeat routines' prompts document the final-step comment (#6190, #6157)", () => {
+  for (const name of ["mbe-auditor", "mbe-morning", "mbe-ui-quality"]) {
+    it(`docs/routines/${name}.md tells the routine to post its heartbeat line on #${HEARTBEAT_ISSUE_NUMBER}`, () => {
+      const prompt = readFileSync(resolve(ROOT, "docs", "routines", `${name}.md`), "utf-8");
+      expect(prompt).toContain(`heartbeat: ${name} <YYYY-MM-DD> <ok|noop|throttled|error> [note]`);
+      expect(prompt).toContain(`#${HEARTBEAT_ISSUE_NUMBER}`);
+      expect(prompt).toContain("FINAL STEP");
+    });
+  }
 });
