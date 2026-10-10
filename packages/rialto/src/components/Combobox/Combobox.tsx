@@ -1,4 +1,12 @@
-import { forwardRef, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { precision } from "../../tokens/motion";
@@ -189,10 +197,13 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
     const query = inputValue ?? internalQuery ?? "";
 
     // Options visible in the listbox: filtered by label unless async filtering.
-    const visible =
-      filter && query
-        ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
-        : options;
+    const visible = useMemo(
+      () =>
+        filter && query
+          ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+          : options,
+      [filter, query, options]
+    );
 
     const { open, focusedIndex, openWithFocus, close, setFocusedIndex } = useCombobox({
       items: visible,
