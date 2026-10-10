@@ -83,6 +83,18 @@ export const tableService = {
     return table ? mapPrismaTable(table) : null;
   },
 
+  /**
+   * Batched venue lookup for a set of table ids (one `findMany`, not N
+   * `findUnique`s). Ids that don't resolve are simply absent from the result.
+   * Runs on the ambient Prisma client, so it honors the caller's venue context.
+   */
+  async listVenueIdsByIds(ids: string[]): Promise<Array<{ id: string; venueId: string | null }>> {
+    return prisma.table.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, venueId: true },
+    });
+  },
+
   async create(data: CreateTableRequest): Promise<Table> {
     const table = await prisma.table.create({
       data: {

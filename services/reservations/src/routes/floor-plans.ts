@@ -304,12 +304,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
           const floorPlan = await floorPlanService.getById(floorPlanId);
           if (!floorPlan) return { kind: "not-found" as const };
 
-          const tables = await Promise.all(
-            positions.map((pos) => tableService.getById(pos.tableId))
+          const foundTables = await tableService.listVenueIdsByIds(
+            positions.map((pos) => pos.tableId)
           );
-          const crossVenueTable = tables.find(
-            (table) => table !== null && table.venueId !== floorPlan.venueId
-          );
+          // Ids that don't resolve are absent from `foundTables`, so a
+          // missing/deleted table is never treated as cross-venue.
+          const crossVenueTable = foundTables.find((table) => table.venueId !== floorPlan.venueId);
           if (crossVenueTable) return { kind: "cross-venue" as const };
 
           const updatedTables = await floorPlanService.bulkUpdateTablePositions(
