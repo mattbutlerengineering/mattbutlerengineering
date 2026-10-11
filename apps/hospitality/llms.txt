@@ -614,12 +614,16 @@
     <item priority="medium">
       function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
     </item>
+    <item priority="low">
+      type CancellationInitiator = "staff" | "guest";
+    </item>
     <item priority="high">
       export function evaluateCancellationQuote(
         policy: CancellationPolicy | null,
         reservationTime: Date,
         currency = "usd",
-        now: Date = new Date()
+        now: Date = new Date(),
+        initiator: CancellationInitiator = "guest"
       ): CancellationQuote | null { /* ... */ }
     </item>
     <item priority="high">

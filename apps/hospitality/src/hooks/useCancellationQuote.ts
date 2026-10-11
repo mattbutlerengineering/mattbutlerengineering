@@ -11,6 +11,7 @@
 import { evaluateCancellationFee } from "@mbe/cancellation-policy";
 import type { CancellationPolicy, CancellationFeeResult } from "@mbe/cancellation-policy";
 import { formatCurrencyFromCents } from "../utils/format.js";
+import { useIsAdmin } from "./useIsAdmin.js";
 import { useVenuePolicy } from "./useVenuePolicy.js";
 
 export interface CancellationQuote {
@@ -36,9 +37,16 @@ function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
   }
 }
 
+/** Who is cancelling — mirrors the server's `initiator` (reservations.ts). */
+export type CancellationInitiator = "staff" | "guest";
+
 /**
  * Pure evaluation of the cancellation quote. Returns `null` when the venue has
  * no cancellation policy — callers hide the fee section entirely in that case.
+ *
+ * A `staff` initiator mirrors the server's staff branch
+ * (`reservation-cancellation.ts`): the fee is waived and the deposit refunded in
+ * full, so no fee is quoted or recorded. `guest` (default) applies the policy.
  *
  * `now` is injectable for deterministic testing; production callers omit it.
  */
@@ -46,10 +54,19 @@ export function evaluateCancellationQuote(
   policy: CancellationPolicy | null,
   reservationTime: Date,
   currency = "usd",
-  now: Date = new Date()
+  now: Date = new Date(),
+  initiator: CancellationInitiator = "guest"
 ): CancellationQuote | null {
   if (!policy) return null;
-  const fee = evaluateCancellationFee(policy, reservationTime, now);
+  const fee: CancellationFeeResult =
+    initiator === "staff"
+      ? {
+          feeType: "none",
+          feeAmountCents: 0,
+          refundAmountCents: policy.depositAmountCents,
+          depositAction: "refund_full",
+        }
+      : evaluateCancellationFee(policy, reservationTime, now);
   return { fee, label: buildFeeLabel(fee, currency), currency };
 }
 
@@ -90,8 +107,17 @@ export function useCancellationQuote({
   isLoading: boolean;
 } {
   const { policy, isLoading } = useVenuePolicy(slug);
+  // The server treats an admin canceller as `staff` (fee waived); a non-admin
+  // can only cancel their own reservation and gets guest rules.
+  const isAdmin = useIsAdmin();
   const quote = reservationTime
-    ? evaluateCancellationQuote(policy, reservationTime, currency)
+    ? evaluateCancellationQuote(
+        policy,
+        reservationTime,
+        currency,
+        undefined,
+        isAdmin ? "staff" : "guest"
+      )
     : null;
   return { quote, isLoading };
 }

@@ -13385,14 +13385,24 @@
           return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
       }
     }
+    export type CancellationInitiator = "staff" | "guest";
     export function evaluateCancellationQuote(
       policy: CancellationPolicy | null,
       reservationTime: Date,
       currency = "usd",
-      now: Date = new Date()
+      now: Date = new Date(),
+      initiator: CancellationInitiator = "guest"
     ): CancellationQuote | null {
       if (!policy) return null;
-      const fee = evaluateCancellationFee(policy, reservationTime, now);
+      const fee: CancellationFeeResult =
+        initiator === "staff"
+          ? {
+              feeType: "none",
+              feeAmountCents: 0,
+              refundAmountCents: policy.depositAmountCents,
+              depositAction: "refund_full",
+            }
+          : evaluateCancellationFee(policy, reservationTime, now);
       return { fee, label: buildFeeLabel(fee, currency), currency };
     }
     export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
@@ -13417,8 +13427,17 @@
       isLoading: boolean;
     } {
       const { policy, isLoading } = useVenuePolicy(slug);
+      // The server treats an admin canceller as `staff` (fee waived); a non-admin
+      // can only cancel their own reservation and gets guest rules.
+      const isAdmin = useIsAdmin();
       const quote = reservationTime
-        ? evaluateCancellationQuote(policy, reservationTime, currency)
+        ? evaluateCancellationQuote(
+            policy,
+            reservationTime,
+            currency,
+            undefined,
+            isAdmin ? "staff" : "guest"
+          )
         : null;
       return { quote, isLoading };
     }
