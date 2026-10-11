@@ -45,8 +45,8 @@ export function ExamplePageLayout({
               {description}
             </Text>
           </div>
-          <Button variant="secondary" size="sm" onClick={handleCopy}>
-            <Text aria-live="polite">{copyLabel}</Text>
+          <Button variant="secondary" size="sm" onClick={handleCopy} aria-live="polite">
+            {copyLabel}
           </Button>
         </Stack>
       </div>
