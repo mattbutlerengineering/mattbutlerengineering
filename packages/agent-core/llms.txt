@@ -8,14 +8,10 @@
   </section>
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
-    <item priority="medium">
-      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
-    </item>
     <item priority="high">
       class ClaudeAdapter {
         name: unknown;
         async isAvailable(): Promise<unknown>;
-        async run(): Promise<unknown>;
         async runSession(): Promise<unknown>;
       }
     </item>

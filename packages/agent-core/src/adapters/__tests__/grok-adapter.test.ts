@@ -79,7 +79,7 @@ describe("GrokCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    await adapter.run(makeConfig());
+    await adapter.dispatch(makeConfig());
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "grok");
     expect(call).toBeDefined();
@@ -96,7 +96,7 @@ describe("GrokCliAdapter", () => {
   it("forwards a grok model id and maxTurns", async () => {
     setupExecFileMock({ grok: [{ stdout: "" }], "git-status": [{ stdout: "" }] });
 
-    await adapter.run(makeConfig({ model: "grok-4.6", maxTurns: 12 }));
+    await adapter.dispatch(makeConfig({ model: "grok-4.6", maxTurns: 12 }));
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "grok");
     expect(call![1]).toEqual([
@@ -115,7 +115,7 @@ describe("GrokCliAdapter", () => {
   it("does not forward a Claude model id to grok -m", async () => {
     setupExecFileMock({ grok: [{ stdout: "" }], "git-status": [{ stdout: "" }] });
 
-    await adapter.run(makeConfig({ model: "claude-sonnet-5" }));
+    await adapter.dispatch(makeConfig({ model: "claude-sonnet-5" }));
 
     const args = vi.mocked(execFile).mock.calls.find((c) => c[0] === "grok")![1] as string[];
     expect(args).not.toContain("-m");
@@ -137,7 +137,7 @@ describe("GrokCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
 
     expect(result.success).toBe(true);
     expect(result.costUsd).toBe(0.004);
@@ -157,7 +157,7 @@ describe("GrokCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Couldn't start session");

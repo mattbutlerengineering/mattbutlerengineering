@@ -105,7 +105,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ taskDescription: shortTask }));
+      await adapter.dispatch(makeConfig({ taskDescription: shortTask }));
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       const passedTask = (cliCall![1] as string[])[1];
@@ -120,7 +120,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ taskDescription: longTask }));
+      await adapter.dispatch(makeConfig({ taskDescription: longTask }));
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       const passedTask = (cliCall![1] as string[])[1]!;
@@ -136,7 +136,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ taskDescription: longTask }));
+      await adapter.dispatch(makeConfig({ taskDescription: longTask }));
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       const passedTask = (cliCall![1] as string[])[1]!;
@@ -163,7 +163,7 @@ describe("CliAdapterBase", () => {
           "git-status": [{ stdout: "" }],
         });
 
-        const result = await adapter.run(makeConfig());
+        const result = await adapter.dispatch(makeConfig());
         expect(result.rateLimited).toBe(true);
       });
     }
@@ -174,65 +174,8 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.rateLimited).toBe(false);
-    });
-  });
-
-  // ── buildCommitMessage (via run + git commit) ────────────────────
-
-  describe("buildCommitMessage (via run commit path)", () => {
-    it("uses 'feat: ' prefix", async () => {
-      setupExecFileMock({
-        "test-cli": [{ stdout: "done" }],
-        "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
-      });
-
-      await adapter.run(makeConfig({ taskDescription: "add user authentication" }));
-
-      const commitCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("commit"));
-      const message = (commitCall![1] as string[])[(commitCall![1] as string[]).indexOf("-m") + 1];
-      expect(message).toMatch(/^feat: /);
-    });
-
-    it("truncates long task in commit message to 72 chars total", async () => {
-      const longTask = "A".repeat(200);
-
-      setupExecFileMock({
-        "test-cli": [{ stdout: "done" }],
-        "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
-      });
-
-      await adapter.run(makeConfig({ taskDescription: longTask }));
-
-      const commitCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("commit"));
-      const message = (commitCall![1] as string[])[(commitCall![1] as string[]).indexOf("-m") + 1]!;
-      expect(message.length).toBeLessThanOrEqual(72);
-    });
-
-    it("keeps short task description intact in commit message", async () => {
-      setupExecFileMock({
-        "test-cli": [{ stdout: "done" }],
-        "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
-      });
-
-      await adapter.run(makeConfig({ taskDescription: "fix auth bug" }));
-
-      const commitCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("commit"));
-      const message = (commitCall![1] as string[])[(commitCall![1] as string[]).indexOf("-m") + 1];
-      expect(message).toBe("feat: fix auth bug");
     });
   });
 
@@ -264,7 +207,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ timeoutMs: 30_000 }));
+      await adapter.dispatch(makeConfig({ timeoutMs: 30_000 }));
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       expect(cliCall![2]).toMatchObject({ timeout: 30_000 });
@@ -276,7 +219,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       expect(cliCall![2]).toMatchObject({ timeout: 600_000 });
@@ -288,7 +231,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.durationMs).toBeTypeOf("number");
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
@@ -299,7 +242,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.costUsd).toBeUndefined();
       expect(result.tokenUsage).toBeUndefined();
     });
@@ -321,7 +264,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await new UsageReportingAdapter().run(makeConfig());
+      const result = await new UsageReportingAdapter().dispatch(makeConfig());
       expect(result.costUsd).toBe(0.042);
       expect(result.tokenUsage).toEqual({ inputTokens: 100, outputTokens: 25 });
     });
@@ -332,7 +275,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
     });
@@ -343,7 +286,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.success).toBe(false);
     });
 
@@ -353,7 +296,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.success).toBe(false);
       // TestAdapter does not override displayName, so it defaults to `name`.
       expect(result.error).toBe("test-cli CLI exited with non-zero status");
@@ -363,35 +306,28 @@ describe("CliAdapterBase", () => {
       setupExecFileMock({
         "test-cli": [{ stdout: "done" }],
         "git-status": [{ stdout: " M src/auth.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.hasChanges).toBe(true);
     });
 
-    it("commits changes when they exist", async () => {
+    it("does not commit changes — commit is left to VerificationPhase", async () => {
       setupExecFileMock({
         "test-cli": [{ stdout: "done" }],
         "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
-      const addCall = vi
+      const mutating = vi
         .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("add"));
-      expect(addCall).toBeDefined();
-      expect(addCall![1]).toContain("-A");
-
-      const commitCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("commit"));
-      expect(commitCall).toBeDefined();
-      expect(commitCall![1]).toContain("-m");
+        .mock.calls.filter(
+          (call) =>
+            call[0] === "git" &&
+            ((call[1] as string[]).includes("add") || (call[1] as string[]).includes("commit"))
+        );
+      expect(mutating).toEqual([]);
     });
 
     it("does not commit when no changes", async () => {
@@ -400,7 +336,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const commitCall = vi
         .mocked(execFile)
@@ -414,7 +350,7 @@ describe("CliAdapterBase", () => {
         "git-status": [{ error: true, stderr: "not a git repo" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
       expect(result.hasChanges).toBe(false);
     });
 
@@ -424,22 +360,20 @@ describe("CliAdapterBase", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ taskDescription: "do something" }));
+      await adapter.dispatch(makeConfig({ taskDescription: "do something" }));
 
       const cliCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "test-cli");
       // TestAdapter.buildArgs returns ["run", taskDescription]
       expect(cliCall![1]).toEqual(["run", "do something"]);
     });
 
-    it("passes a numeric timeout on every git call (status/add/commit)", async () => {
+    it("passes a numeric timeout on every git call (status)", async () => {
       setupExecFileMock({
         "test-cli": [{ stdout: "done" }],
         "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
       expect(gitCalls.length).toBeGreaterThan(0);

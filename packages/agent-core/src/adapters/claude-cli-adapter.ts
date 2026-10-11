@@ -58,7 +58,7 @@ export class ClaudeCliAdapter extends CliAdapterBase {
   /**
    * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
    * the same JSON stdout blob, falling back to raw stderr in
-   * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+   * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
    * contract, mirrors opencode-adapter.ts).
    */
   protected override parseErrorFromStdout(stdout: string): string | undefined {

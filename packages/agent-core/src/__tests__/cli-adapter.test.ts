@@ -10,7 +10,7 @@
  * No real CLIs are spawned — child_process is mocked.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from "vitest";
 
 // Mock child_process before any adapter imports
 vi.mock("node:child_process", () => ({
@@ -27,6 +27,8 @@ import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.
 import { OmpCliAdapter } from "../adapters/omp-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
+import { ClaudeCliAdapter } from "../adapters/claude-cli-adapter.js";
+import { GrokCliAdapter } from "../adapters/grok-adapter.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -82,25 +84,23 @@ function makeConfig(overrides: Partial<AdapterConfig> = {}): AdapterConfig {
 // ── AgentAdapter interface contract ───────────────────────────────────
 
 describe("AgentAdapter interface — contract shape", () => {
-  it("OmpCliAdapter satisfies AgentAdapter", () => {
-    const adapter: AgentAdapter = new OmpCliAdapter();
-    expect(typeof adapter.name).toBe("string");
-    expect(typeof adapter.isAvailable).toBe("function");
-    expect(typeof adapter.run).toBe("function");
+  it("AgentAdapter keys are exactly name and isAvailable", () => {
+    expectTypeOf<keyof AgentAdapter>().toEqualTypeOf<"name" | "isAvailable">();
   });
 
-  it("OpenCodeAdapter satisfies AgentAdapter", () => {
-    const adapter: AgentAdapter = new OpenCodeAdapter();
-    expect(typeof adapter.name).toBe("string");
-    expect(typeof adapter.isAvailable).toBe("function");
-    expect(typeof adapter.run).toBe("function");
-  });
+  const adapters: ReadonlyArray<readonly [string, () => AgentAdapter]> = [
+    ["OmpCliAdapter", () => new OmpCliAdapter()],
+    ["OpenCodeAdapter", () => new OpenCodeAdapter()],
+    ["ClaudeAdapter", () => new ClaudeAdapter()],
+    ["ClaudeCliAdapter", () => new ClaudeCliAdapter()],
+    ["GrokCliAdapter", () => new GrokCliAdapter()],
+  ];
 
-  it("ClaudeAdapter satisfies AgentAdapter", () => {
-    const adapter: AgentAdapter = new ClaudeAdapter();
+  it.each(adapters)("%s satisfies AgentAdapter without a run() method", (_label, make) => {
+    const adapter = make();
     expect(typeof adapter.name).toBe("string");
     expect(typeof adapter.isAvailable).toBe("function");
-    expect(typeof adapter.run).toBe("function");
+    expect("run" in adapter).toBe(false);
   });
 });
 
@@ -120,7 +120,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
 
     expect(result).toMatchObject({
       success: expect.any(Boolean),
@@ -136,7 +136,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
     expect(result.error).toBeUndefined();
   });
 
@@ -146,7 +146,7 @@ describe("AdapterResult — shape from concrete adapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
     expect(result.error).toBeTypeOf("string");
   });
 });
@@ -183,7 +183,7 @@ describe("OpenCodeAdapter — argument construction", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    await adapter.run(makeConfig({ taskDescription: "refactor auth module" }));
+    await adapter.dispatch(makeConfig({ taskDescription: "refactor auth module" }));
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "opencode");
     expect(call).toBeDefined();
@@ -196,7 +196,7 @@ describe("OpenCodeAdapter — argument construction", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    await adapter.run(makeConfig());
+    await adapter.dispatch(makeConfig());
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "opencode");
     expect(call).toBeDefined();
@@ -209,7 +209,7 @@ describe("OpenCodeAdapter — argument construction", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    await adapter.run(makeConfig({ worktreePath: "/tmp/opencode-tree" }));
+    await adapter.dispatch(makeConfig({ worktreePath: "/tmp/opencode-tree" }));
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "opencode");
     expect(call![2]).toMatchObject({ cwd: "/tmp/opencode-tree" });

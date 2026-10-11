@@ -124,7 +124,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }], // no changes
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const claudeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "claude");
       expect(claudeCall).toBeDefined();
@@ -147,7 +147,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ model: "claude-sonnet-5" }));
+      await adapter.dispatch(makeConfig({ model: "claude-sonnet-5" }));
 
       const claudeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "claude");
       expect(claudeCall![1]).toContain("--model");
@@ -160,7 +160,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ maxTurns: 5 }));
+      await adapter.dispatch(makeConfig({ maxTurns: 5 }));
 
       const claudeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "claude");
       expect(claudeCall![1]).toContain("--max-turns");
@@ -173,7 +173,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
@@ -185,7 +185,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Something went wrong");
@@ -197,7 +197,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Claude CLI exited with non-zero status");
@@ -209,7 +209,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ timeoutMs: 30_000 }));
+      await adapter.dispatch(makeConfig({ timeoutMs: 30_000 }));
 
       const claudeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "claude");
       expect(claudeCall![2]).toMatchObject({ timeout: 30_000 });
@@ -221,7 +221,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const claudeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "claude");
       expect(claudeCall![2]).toMatchObject({ timeout: 600_000 });
@@ -253,7 +253,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.costUsd).toBeCloseTo(0.193839, 6);
       expect(result.numTurns).toBe(1);
@@ -266,7 +266,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.costUsd).toBeUndefined();
       expect(result.numTurns).toBeUndefined();
@@ -291,7 +291,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Agent stopped: unexpected tool failure.");
@@ -303,7 +303,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Something went wrong");
@@ -317,11 +317,9 @@ describe("ClaudeCliAdapter", () => {
       setupExecFileMock({
         claude: [{ stdout: JSON.stringify({ is_error: false, result: "Applied fix." }) }],
         "git-status": [{ stdout: " M src/auth.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.hasChanges).toBe(true);
     });
@@ -332,7 +330,7 @@ describe("ClaudeCliAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.hasChanges).toBe(false);
     });

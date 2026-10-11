@@ -124,7 +124,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }], // no changes
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       // Verify opencode was called with correct args
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
@@ -142,7 +142,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
@@ -154,7 +154,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Something went wrong");
@@ -166,7 +166,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("OpenCode CLI exited with non-zero status");
@@ -178,7 +178,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ timeoutMs: 30_000 }));
+      await adapter.dispatch(makeConfig({ timeoutMs: 30_000 }));
 
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
       expect(opencodeCall![2]).toMatchObject({ timeout: 30_000 });
@@ -190,7 +190,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
       expect(opencodeCall![2]).toMatchObject({ timeout: 600_000 });
@@ -202,7 +202,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.durationMs).toBeTypeOf("number");
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
@@ -218,7 +218,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.costUsd).toBeUndefined();
       expect(result.tokenUsage).toBeUndefined();
@@ -241,7 +241,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.costUsd).toBeCloseTo(0.015, 6);
       expect(result.tokenUsage).toEqual({ inputTokens: 500, outputTokens: 100 });
@@ -264,7 +264,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Unexpected server error.");
@@ -276,7 +276,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Something went wrong");
@@ -302,7 +302,7 @@ describe("OpenCodeAdapter", () => {
           "git-status": [{ stdout: "" }],
         });
 
-        const result = await adapter.run(makeConfig());
+        const result = await adapter.dispatch(makeConfig());
 
         expect(result.rateLimited).toBe(true);
       });
@@ -314,7 +314,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.rateLimited).toBe(false);
     });
@@ -327,11 +327,9 @@ describe("OpenCodeAdapter", () => {
       setupExecFileMock({
         opencode: [{ stdout: "Applied fix." }],
         "git-status": [{ stdout: " M src/auth.ts\n?? src/new-file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.hasChanges).toBe(true);
     });
@@ -342,34 +340,9 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.hasChanges).toBe(false);
-    });
-
-    it("commits changes when they exist", async () => {
-      setupExecFileMock({
-        opencode: [{ stdout: "Done." }],
-        "git-status": [{ stdout: " M file.ts\n" }],
-        "git-add": [{ stdout: "" }],
-        "git-commit": [{ stdout: "" }],
-      });
-
-      await adapter.run(makeConfig());
-
-      // Verify git add -A was called
-      const addCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("add"));
-      expect(addCall).toBeDefined();
-      expect(addCall![1]).toContain("-A");
-
-      // Verify git commit was called with a message
-      const commitCall = vi
-        .mocked(execFile)
-        .mock.calls.find((call) => call[0] === "git" && (call[1] as string[]).includes("commit"));
-      expect(commitCall).toBeDefined();
-      expect(commitCall![1]).toContain("-m");
     });
 
     it("does not commit when there are no changes", async () => {
@@ -378,7 +351,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig());
+      await adapter.dispatch(makeConfig());
 
       const commitCall = vi
         .mocked(execFile)
@@ -392,7 +365,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ error: true, stderr: "not a git repo" }],
       });
 
-      const result = await adapter.run(makeConfig());
+      const result = await adapter.dispatch(makeConfig());
 
       expect(result.hasChanges).toBe(false);
     });
@@ -409,7 +382,7 @@ describe("OpenCodeAdapter", () => {
         "git-status": [{ stdout: "" }],
       });
 
-      await adapter.run(makeConfig({ taskDescription: longTask }));
+      await adapter.dispatch(makeConfig({ taskDescription: longTask }));
 
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
       const passedTask = (opencodeCall![1] as string[])[1]!;

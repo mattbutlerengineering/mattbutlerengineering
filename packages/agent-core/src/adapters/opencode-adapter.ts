@@ -34,7 +34,7 @@ export class OpenCodeAdapter extends CliAdapterBase {
   /**
    * Recovers OpenCode's structured `type: "error"` event message from the
    * same NDJSON stdout stream on failure, falling back to raw stderr in
-   * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+   * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
    * contract, #3019).
    */
   protected override parseErrorFromStdout(stdout: string): string | undefined {

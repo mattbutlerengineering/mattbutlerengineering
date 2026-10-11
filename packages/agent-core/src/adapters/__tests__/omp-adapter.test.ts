@@ -79,7 +79,7 @@ describe("OmpCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    await adapter.run(makeConfig());
+    await adapter.dispatch(makeConfig());
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "omp");
     expect(call).toBeDefined();
@@ -98,7 +98,7 @@ describe("OmpCliAdapter", () => {
   it("forwards an omp model id", async () => {
     setupExecFileMock({ omp: [{ stdout: "" }], "git-status": [{ stdout: "" }] });
 
-    await adapter.run(makeConfig({ model: "openai/gpt-5.2" }));
+    await adapter.dispatch(makeConfig({ model: "openai/gpt-5.2" }));
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "omp");
     expect(call![1]).toEqual([
@@ -117,7 +117,7 @@ describe("OmpCliAdapter", () => {
   it("does not forward a Claude router model id to omp --model", async () => {
     setupExecFileMock({ omp: [{ stdout: "" }], "git-status": [{ stdout: "" }] });
 
-    await adapter.run(makeConfig({ model: "claude-sonnet-5" }));
+    await adapter.dispatch(makeConfig({ model: "claude-sonnet-5" }));
 
     const args = vi.mocked(execFile).mock.calls.find((c) => c[0] === "omp")![1] as string[];
     expect(args).not.toContain("--model");
@@ -147,7 +147,7 @@ describe("OmpCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
 
     expect(result.success).toBe(true);
     expect(result.costUsd).toBe(0.004);
@@ -166,7 +166,7 @@ describe("OmpCliAdapter", () => {
       "git-status": [{ stdout: "" }],
     });
 
-    const result = await adapter.run(makeConfig());
+    const result = await adapter.dispatch(makeConfig());
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("not logged in");
