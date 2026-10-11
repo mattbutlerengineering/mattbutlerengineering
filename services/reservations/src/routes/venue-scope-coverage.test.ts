@@ -64,14 +64,18 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // requireVenueAccess guard.
   "GET /api/v1/tables": "cross-venue fan-out (admin)",
   "POST /api/v1/tables": "cross-venue fan-out (admin)",
+  // Matt ruling 2026-10-11 (same as the stream and tables): venueId is
+  // optional on both, and an admin who names no venue gets an unfiltered
+  // all-venue list / creates a venue-less reservation, which venueScoped cannot
+  // express. Both keep their own requireVenueAccess guard.
+  "GET /api/v1/reservations": "cross-venue fan-out (admin)",
+  "POST /api/v1/reservations": "cross-venue fan-out (admin)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
 
   // PR 3: tables, floor plans, venues.
 
   // PR 4: reservations and deposits.
-  "GET /api/v1/reservations": "pending-migration",
-  "POST /api/v1/reservations": "pending-migration",
 
   // PR 5: Matt's security rulings (availability → member, holds re-expressed).
   "GET /api/v1/availability/:venueId": "pending-migration",
