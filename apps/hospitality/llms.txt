@@ -946,6 +946,12 @@
     </item>
   </file>
   <file path="src/hooks/useIsAdmin.ts">
+    <item priority="medium">
+      function accessTokenPermissions(accessToken: string | null): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function includesAdmin(permissions: unknown): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function useIsAdmin(): boolean { /* ... */ }
     </item>

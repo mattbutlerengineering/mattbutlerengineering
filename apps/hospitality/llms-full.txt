@@ -3109,10 +3109,24 @@
     });
   </file>
   <file path="src/hooks/useIsAdmin.ts">
-    export function useIsAdmin(): boolean {
-      const { user } = useAuth();
-      const permissions = user?.raw?.permissions;
+    function accessTokenPermissions(accessToken: string | null): unknown {
+      const payload = accessToken?.split(".")[1];
+      if (!payload) return undefined;
+      try {
+        const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+        return (JSON.parse(json) as { permissions?: unknown }).permissions;
+      } catch {
+        return undefined;
+      }
+    }
+    function includesAdmin(permissions: unknown): boolean {
       return Array.isArray(permissions) && permissions.includes("admin");
+    }
+    export function useIsAdmin(): boolean {
+      const { user, accessToken } = useAuth();
+      return (
+        includesAdmin(accessTokenPermissions(accessToken)) || includesAdmin(user?.raw?.permissions)
+      );
     }
   </file>
   <file path="src/hooks/useNow.ts">
