@@ -290,6 +290,8 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3). Do **not** re-check `tier:*` here; see [No tier hold](#no-tier-hold).
 
+   **If the merge call itself is denied by the session runtime** (`denied, reason: [Merge Without Review]` — seen in Claude Code Remote sessions, #6125): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](../../rules/gotchas.md#claude-code-remote--cloud-sessions).
+
 6. **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](./REVIEWER_CONTRACT.md) for the full policy.
 
    **Manual verification path (after `needs-review`):** the Reviewer's full output is in the PR comment. A human (or a new agent session pointed at the issue) reads the flagged issues, fixes the code, pushes to the branch, and manually enqueues with `gh pr merge <N> --auto --squash --delete-branch` once satisfied.
