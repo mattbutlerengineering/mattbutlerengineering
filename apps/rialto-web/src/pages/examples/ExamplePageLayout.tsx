@@ -46,7 +46,7 @@ export function ExamplePageLayout({
             </Text>
           </div>
           <Button variant="secondary" size="sm" onClick={handleCopy}>
-            <span aria-live="polite">{copyLabel}</span>
+            <Text aria-live="polite">{copyLabel}</Text>
           </Button>
         </Stack>
       </div>
@@ -92,11 +92,13 @@ export interface CompositionNoteProps {
 
 export function CompositionNote({ children }: CompositionNoteProps) {
   return (
-    <aside className={styles.compositionNote} aria-label="Composition note">
+    // role="note" (not <aside>): pages render several of these, and repeated
+    // same-named complementary landmarks fail axe landmark-unique.
+    <div className={styles.compositionNote} role="note" aria-label="Composition note">
       <Text variant="caption" color="secondary">
         {children}
       </Text>
-    </aside>
+    </div>
   );
 }
 
