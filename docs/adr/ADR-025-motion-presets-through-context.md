@@ -129,3 +129,57 @@ components standalone.
 - **`docs/features/rialto-game-ui/architecture.md`**: the feature run that
   surfaced the gap, including the measurements quoted above.
 - **Issue #3978**: the originating idea.
+
+## Amendment 2026-10-11: the hook owns reduced motion and boop (#6279)
+
+**Status of this amendment:** decided. It ships in PR #6328, which is batch 1
+of #6279. The sections above are unchanged. Where they describe the hook as
+returning only `precision` / `spring` / `springGentle`, or describe framer's
+`useReducedMotion()` as an acceptable signal during migration, this amendment
+supersedes them.
+
+### What the hook returns
+
+`useMotionPreset()` returns three more fields than the Decision lists:
+
+- **`tilt`**: the `useSpring` config `useTilt` reads. It has no instant form;
+  under reduced motion `useTilt` switches tilt off at the source instead. It
+  shipped in the same PR as this ADR (#4252), together with the `game` vibe
+  preset, but the Decision above never listed it.
+- **`reduced`** (new in #6328): whether the user prefers reduced motion.
+- **`boop`** (new in #6328): a `whileHover` target ready to pass as-is. Under
+  reduced motion it is `{ scale: 1, transition: { duration: 0 } }`.
+
+### One reduced-motion signal
+
+`reduced` is **the single source** for the reduced-motion preference. It comes
+from `useDeviceContext()`, the same read that resolves every transition field,
+so the no-throw contract holds unchanged. Transition fields already resolve
+reduced motion inside the hook, so callers never hand-build a
+`reduced ? { duration: 0 } : preset` fallback. A component that has to choose a
+keyframe target (for example, dropping a slide offset from `initial`) reads
+`reduced`. It **must not** call framer-motion's `useReducedMotion()`.
+
+### Sanctioned remainder (bounded, tracked under #6279)
+
+Batch 1 migrated 38 components and hooks. This ADR sanctions the following as
+a bounded transition, the same way the original Consequences sanctioned
+unmigrated importers. Each will be migrated in the #6279 follow-up:
+
+- The nine remaining `useReducedMotion()` call sites. Each uses the flag as a
+  behaviour gate (canvas/RAF loops, CSS classes, timers), not to pick a
+  transition config: `Avatar`, `DepartureBoard`, `Ferrofluid`, `Handshake`,
+  `NeonSign`, `SilkFlow`, `SplitFlap`, `WatchLoader`, and
+  `hooks/useScrollReveal.ts`.
+- `hooks/useBoop.ts`'s import of the deprecated `boop` token constant. It needs
+  the spring physics for `useSpring`, which the reduced `boop` field does not
+  carry. It already reads the reduced-motion preference from `reduced`.
+
+### Deprecations
+
+The `boop` and `reduced` exports of `tokens/motion.ts` (published as
+`./motion`) are deprecated in favour of `useMotionPreset().boop` and the hook's
+own instant transitions. They are deprecated, not removed. Removing them would
+be a breaking change for npm consumers. The `precision` / `spring` /
+`springGentle` statics are not deprecated. They remain the defaults the hook
+returns and may still be imported outside a component.
