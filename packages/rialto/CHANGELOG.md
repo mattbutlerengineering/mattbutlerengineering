@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.4.2
+
+### Patch Changes
+
+- [#6324](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6324) [`30f6f21`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/30f6f2128ca3058339990e93a9de98c0e4ad521b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Fix axe-serious findings on `TapeChart` and `SegmentedControl`: unselected `SegmentedControl` segments now use `--rialto-text-secondary` (was tertiary, 4.07:1 on the recessed track), checked-in `TapeChart` bar metadata uses primary text (was 4.33:1), and the horizontally scrolling `TapeChart` grid is keyboard-focusable.
+
 ## 0.4.1
 
 ### Patch Changes
