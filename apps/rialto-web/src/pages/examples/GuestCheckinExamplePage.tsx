@@ -212,7 +212,7 @@ function ArrivalStep({
   return (
     <Stack gap="lg">
       <Card className={styles.summary}>
-        <Text variant="label" as="h3" className={styles.summaryTitle}>
+        <Text variant="label" as="h2" className={styles.summaryTitle}>
           Reservation on file
         </Text>
         <DataList
