@@ -1979,6 +1979,12 @@
           "description": "Multi-column link groups (rich variant)."
         },
         {
+          "name": "linksLabel",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the link-columns nav (rich variant). Override to keep names unique when several footers share a page."
+        },
+        {
           "name": "copyright",
           "type": "string | undefined",
           "required": false,

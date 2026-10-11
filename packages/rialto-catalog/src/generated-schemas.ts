@@ -148,6 +148,7 @@ export const generatedSchemas = {
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
     logo: z.string().optional(),
+    linksLabel: z.string().optional(),
     copyright: z.string().max(80).optional(),
   }),
   Form: z.object({
