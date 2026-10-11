@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collectAgentCost } from "../collect-agent-cost.mjs";
+import { collectAgentCost, summarizeQueueSpend } from "../collect-agent-cost.mjs";
 
 // agent-spend.jsonl is per-issue attribution only (logged by `mbe agent run`).
 // It captures ~0.4% of actual Claude spend. Ground-truth totals come from the
@@ -146,5 +146,78 @@ describe("collectAgentCost", () => {
     expect(result.sessions_7d).toBe(1);
     expect(result.spend_7d_usd).toBe(0.1);
     expect(result.total_input_tokens_7d).toBe(100);
+  });
+});
+
+// #5885: /implement-queue workers are Agent-tool subagents that never reach
+// recordSpend; their usage lives in metrics/queue-telemetry.jsonl instead.
+describe("summarizeQueueSpend", () => {
+  const now = new Date("2026-10-11T12:00:00Z");
+  const row = (over) => ({
+    issue_number: 1,
+    claimed_at: "2026-10-10T12:00:00Z",
+    subagent_tokens: 1000,
+    cost_usd: null,
+    ...over,
+  });
+
+  it("returns null when no in-window row carries usage", () => {
+    expect(summarizeQueueSpend([], now)).toBeNull();
+    expect(summarizeQueueSpend([row({ subagent_tokens: null })], now)).toBeNull();
+    expect(summarizeQueueSpend([row({ claimed_at: "2026-09-01T00:00:00Z" })], now)).toBeNull();
+  });
+
+  it("sums tokens and keeps cost null when no row knows its cost", () => {
+    const result = summarizeQueueSpend([row(), row({ subagent_tokens: 500 })], now);
+    expect(result).toEqual({
+      sessions_7d: 2,
+      sessions_without_usage_7d: 0,
+      tokens_7d: 1500,
+      cost_7d_usd: null,
+      cost_known_sessions_7d: 0,
+    });
+  });
+
+  it("sums only known costs and counts rows that carry no usage", () => {
+    const result = summarizeQueueSpend(
+      [row({ cost_usd: 0.4 }), row({ cost_usd: 0.35 }), row({ subagent_tokens: null })],
+      now
+    );
+    expect(result.cost_7d_usd).toBe(0.75);
+    expect(result.cost_known_sessions_7d).toBe(2);
+    expect(result.sessions_without_usage_7d).toBe(1);
+  });
+
+  it("falls back to merged_at when claimed_at is absent", () => {
+    const result = summarizeQueueSpend(
+      [row({ claimed_at: undefined, merged_at: "2026-10-09T00:00:00Z" })],
+      now
+    );
+    expect(result.sessions_7d).toBe(1);
+  });
+});
+
+describe("collectAgentCost with queue telemetry", () => {
+  let dir;
+  beforeEach(() => {
+    dir = makeTmpDir();
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true });
+  });
+
+  it("is available from queue rows alone, with zero agent-core sessions", () => {
+    const now = new Date();
+    const queueRows = [{ issue_number: 1, claimed_at: now.toISOString(), subagent_tokens: 10 }];
+    const result = collectAgentCost(join(dir, "missing.jsonl"), now, queueRows);
+    expect(result.available).toBe(true);
+    expect(result.sessions_7d).toBe(0);
+    expect(result.spend_7d_usd).toBe(0);
+    expect(result.queue.tokens_7d).toBe(10);
+  });
+
+  it("omits the queue block when there are no queue rows", () => {
+    const result = collectAgentCost(join(dir, "missing.jsonl"), new Date(), []);
+    expect(result).toEqual({ available: false });
   });
 });

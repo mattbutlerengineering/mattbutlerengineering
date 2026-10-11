@@ -45,28 +45,70 @@ function readJsonl(filePath) {
     .filter(Boolean);
 }
 
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Aggregate `/implement-queue` worker usage from queue-telemetry rows (#5885).
+ *
+ * Queue workers are Claude Code Agent-tool subagents: they never enter
+ * agent-core, so `recordSpend` cannot see them and they never appear in the
+ * spend sink. Their per-worker usage is the queue-telemetry row the
+ * orchestrator already writes (`subagent_tokens`, `cost_usd`). It is read
+ * here rather than copied into the sink, so each source owns its own rows
+ * and nothing is counted twice.
+ *
+ * Cost is never estimated: the Agent tool reports tokens, not dollars, so
+ * `cost_7d_usd` is null unless at least one row recorded a real `cost_usd`.
+ *
+ * @param {Array<object>|null|undefined} rows - queue-telemetry rows.
+ * @param {Date} [now]
+ * @returns {object|null} null when no in-window row carries usage.
+ */
+export function summarizeQueueSpend(rows, now = new Date()) {
+  const since = now.getTime() - MS_PER_WEEK;
+  const inWindow = (rows ?? []).filter(
+    (r) => Date.parse(r?.claimed_at ?? r?.merged_at ?? "") >= since
+  );
+  const withUsage = inWindow.filter(
+    (r) => typeof r.subagent_tokens === "number" || typeof r.cost_usd === "number"
+  );
+  if (withUsage.length === 0) return null;
+
+  const costs = withUsage.filter((r) => typeof r.cost_usd === "number").map((r) => r.cost_usd);
+  const costSum = costs.reduce((sum, c) => sum + c, 0);
+  return {
+    sessions_7d: withUsage.length,
+    sessions_without_usage_7d: inWindow.length - withUsage.length,
+    tokens_7d: withUsage.reduce((sum, r) => sum + (r.subagent_tokens ?? 0), 0),
+    cost_7d_usd: costs.length > 0 ? Math.round(costSum * 100) / 100 : null,
+    cost_known_sessions_7d: costs.length,
+  };
+}
+
 /**
  * Aggregate per-issue attribution data from the spend sink.
  *
- * The returned `spend_*_usd` fields reflect the recorded agent runs
- * (per-issue attribution), NOT total Claude spend. Ground-truth totals
- * come from the ccusage sensor.
+ * The returned `spend_*_usd` fields reflect the recorded agent-core runs
+ * (per-issue attribution), NOT total Claude spend. `queue` — present only
+ * when queue-telemetry rows carry usage — attributes `/implement-queue`
+ * workers (#5885). Ground-truth totals come from the ccusage sensor.
  *
  * @param {string} spendPath - Absolute path to .claude/agent-spend/sessions.jsonl.
  * @param {Date} [now] - Reference timestamp (defaults to current time; injectable for tests).
+ * @param {Array<object>|null} [queueRows] - queue-telemetry rows (#5885).
  * @returns {object} Aggregated attribution metrics or { available: false } when no data.
  */
-export function collectAgentCost(spendPath, now = new Date()) {
-  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+export function collectAgentCost(spendPath, now = new Date(), queueRows = []) {
+  const sevenDaysAgo = new Date(now - MS_PER_WEEK);
   const entries = readJsonl(spendPath);
-  if (entries.length === 0) return { available: false };
+  const queue = summarizeQueueSpend(queueRows, now);
 
   const sevenDayEntries = entries.filter((e) => {
     const entryDate = new Date(e.date || e.timestamp);
     return entryDate >= sevenDaysAgo;
   });
 
-  if (sevenDayEntries.length === 0) return { available: false };
+  if (sevenDayEntries.length === 0 && queue === null) return { available: false };
 
   const todayStr = now.toISOString().slice(0, 10);
   const todayEntries = entries.filter((e) => (e.date || e.timestamp || "").startsWith(todayStr));
@@ -94,5 +136,6 @@ export function collectAgentCost(spendPath, now = new Date()) {
     total_input_tokens_7d: totalInputTokens7d,
     total_output_tokens_7d: totalOutputTokens7d,
     avg_turns_per_session: sevenDayEntries.length > 0 ? totalTurns7d / sevenDayEntries.length : 0,
+    ...(queue ? { queue } : {}),
   };
 }

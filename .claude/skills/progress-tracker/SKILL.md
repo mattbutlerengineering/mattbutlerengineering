@@ -24,7 +24,7 @@ gh issue list --label "meta-improvement" --state all --json number,title,state
 cat .claude/agent-spend/sessions.jsonl 2>/dev/null | tail -100
 ```
 
-Per-issue attribution: `.claude/agent-spend/sessions.jsonl` = `{date,timestamp,costUsd,model,adapter,status,issueNumber?,inputTokens?,outputTokens?,numTurns?}` (single spend sink owned by agent-core's recordSpend seam; NOT total Claude spend — use ccusage for ground-truth totals)
+Per-issue attribution: `.claude/agent-spend/sessions.jsonl` = `{date,timestamp,costUsd,model,adapter,status,issueNumber?,inputTokens?,outputTokens?,numTurns?}` (single spend sink owned by agent-core's recordSpend seam; NOT total Claude spend — use ccusage for ground-truth totals). It only holds `mbe agent run`/`mbe agent eval` sessions. `/implement-queue` workers never reach `recordSpend`, so their usage is `subagent_tokens`/`cost_usd` in `metrics/queue-telemetry.jsonl` (#5885). Read both with `node -e 'import("./scripts/sensors-registry.mjs").then(({SENSORS})=>{const s=SENSORS.find(x=>x.id==="agentCost");const d=s.collect({root:process.cwd(),now:new Date()});console.log(s.format(d,"agentCost"))})'`. If queue `cost_usd` is unknown, report the tokens and say the cost is unknown. Never report it as $0.
 
 ## Metrics
 
@@ -196,5 +196,5 @@ git log --oneline --grep="Revert" --since="7 days ago" | wc -l
 - Max 2 retry/run
 - Append-only log
 - Persist before finishing: `node scripts/persist-metrics.mjs --routine progress-tracker` (an uncommitted append is lost with the checkout)
-- Per-issue attribution: `.claude/agent-spend/sessions.jsonl` (single spend sink owned by agent-core's recordSpend seam; ccusage = ground-truth totals)
+- Per-issue attribution: `.claude/agent-spend/sessions.jsonl` (agent-core sessions, via recordSpend) + `metrics/queue-telemetry.jsonl` (queue workers), both read by the `agentCost` sensor; ccusage = ground-truth totals
 - Circuit: 50% over 3+ days
