@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.3.3
+
+### Patch Changes
+
+- [#6251](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6251) [`c4b91d4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c4b91d4debcbb81bb399a9e293ca063eefd195ce) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Footer: add `linksLabel` prop (default "Footer links") so the rich variant's link-columns nav can be given a unique accessible name when several footers share a page (axe `landmark-unique`).
+
 ## 0.3.2
 
 ### Patch Changes
