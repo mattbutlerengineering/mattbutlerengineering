@@ -10,6 +10,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { transformEvals } from "./generate-acmm-report.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_PATH = resolve(__dirname, "..", ".claude", "acmm", "state.json");
@@ -74,6 +75,26 @@ export function selectRecentAgentChanges(state, { limit = RECENT_CHANGES_LIMIT }
     .slice(0, limit);
 }
 
+/**
+ * Behavioral block for metrics.json. Eval figures are only live while the
+ * reading is inside the freshness window (same rule as /acmm, #5855);
+ * otherwise they are null so /metrics never prints a stale percentage.
+ * A null revert rate means unverifiable (#5852) and is never coerced to 0.
+ *
+ * @param {object} state - Root ACMM state.
+ * @param {{ now?: Date }} [opts]
+ */
+export function transformBehavioral(state, opts = {}) {
+  const evals = transformEvals(state.behavioral?.evals, opts);
+  return {
+    ciFlakeRate: state.behavioral?.flake?.rate_30d ?? 0,
+    agentPrAcceptanceRate: state.behavioral?.agent_pr?.acceptance_rate_30d ?? 0,
+    agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? null,
+    ...evals,
+    evalMedianScore: evals.evalsStale ? null : (state.behavioral?.evals?.medianScore ?? null),
+  };
+}
+
 // Run only when executed directly (`node generate-metrics-json.mjs`),
 // not when imported for unit testing.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -102,13 +123,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         : 0,
     },
     prerequisites: comp?.prerequisites ?? { met: 0, total: 0 },
-    behavioral: {
-      ciFlakeRate: state.behavioral?.flake?.rate_30d ?? 0,
-      agentPrAcceptanceRate: state.behavioral?.agent_pr?.acceptance_rate_30d ?? 0,
-      agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? 0,
-      evalPassRate: state.behavioral?.evals?.passRate ?? 0,
-      evalMedianScore: state.behavioral?.evals?.medianScore ?? 0,
-    },
+    behavioral: transformBehavioral(state),
     history: (state.history ?? []).map((h) => ({
       date: h.date,
       level: h.level,

@@ -304,6 +304,28 @@ describe("AcmmPage", () => {
     expect(screen.queryByText(/null/)).not.toBeInTheDocument();
   });
 
+  it("strips the local: source prefix from criteria ids like the other sources (#5858)", async () => {
+    const withLocal = {
+      ...STALE_EVALS_REPORT,
+      repo: {
+        ...STALE_EVALS_REPORT.repo,
+        checks: { ...STALE_EVALS_REPORT.repo.checks, "local:code-graph": { passed: true } },
+      },
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => withLocal });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+
+    const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("code-graph")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/local:/)).not.toBeInTheDocument();
+  });
+
   it("collapses on second toggle click", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);

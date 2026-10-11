@@ -540,8 +540,5 @@
       "limit": "2050 B"
     }
   ],
-  "license": "MIT",
-  "acmm": {
-    "inherit": true
-  }
+  "license": "MIT"
 }

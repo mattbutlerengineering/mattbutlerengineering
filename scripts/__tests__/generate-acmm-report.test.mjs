@@ -157,11 +157,22 @@ describe("transformRepoState", () => {
     expect(repo.summary).toEqual({ detected: 0, total: 0, coverage: 0 });
     expect(repo.behavioral.ciFlakeRate).toBe(0);
     expect(repo.behavioral.agentPrAcceptanceRate).toBe(0);
-    expect(repo.behavioral.agentPrRevertRate).toBe(0);
+    expect(repo.behavioral.agentPrRevertRate).toBeNull();
     expect(repo.behavioral.evalPassRate).toBeNull();
     expect(repo.behavioral.evalsStale).toBe(true);
     expect(repo.checks).toEqual({});
     expect(repo.behavioralGates).toEqual([]);
+  });
+
+  it("a null revert_rate_30d stays null instead of coercing to 0 (#5852)", () => {
+    const nullRevert = {
+      ...BASE_STATE,
+      behavioral: {
+        ...BASE_STATE.behavioral,
+        agent_pr: { acceptance_rate_30d: 0.9, revert_rate_30d: null },
+      },
+    };
+    expect(transformRepoState(nullRevert, { now: NOW }).behavioral.agentPrRevertRate).toBeNull();
   });
 
   it("coverage is 0 when no checks exist (avoids divide-by-zero)", () => {

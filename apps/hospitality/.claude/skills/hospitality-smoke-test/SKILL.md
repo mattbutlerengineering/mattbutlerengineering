@@ -15,9 +15,3 @@ Runs the Playwright E2E tests for the hospitality app as a pre-deploy gate.
 ```bash
 pnpm --dir apps/hospitality test:e2e
 ```
-
-## Verification
-
-```bash
-node plugins/acmm/scripts/audit.js --project apps/hospitality
-```

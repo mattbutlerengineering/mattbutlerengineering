@@ -8,8 +8,7 @@
       "Bash(pnpm --dir apps/hospitality lint)",
       "Bash(pnpm --dir apps/hospitality typecheck)",
       "Bash(wrangler deploy)",
-      "Bash(wrangler --config apps/hospitality/wrangler.canary.toml deploy)",
-      "Bash(node plugins/acmm/scripts/audit.js --project apps/hospitality)"
+      "Bash(wrangler --config apps/hospitality/wrangler.canary.toml deploy)"
     ],
     "deny": ["Bash(**drop**)", "Bash(**TRUNCATE**)", "Bash(**DELETE FROM**)"]
   }

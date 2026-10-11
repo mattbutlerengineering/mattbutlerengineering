@@ -50,8 +50,7 @@ capture of every upstream id, level, and scannable flag):
    existence.
 
 Everything else repo-invented lives in the non-gating `local:` source
-(`plugins/acmm/scripts/sources/local.js`) — visible in the headline count and
-`--project` reports, but never part of the level threshold walk.
+(`plugins/acmm/scripts/sources/local.js`) — visible in the headline count, but never part of the level threshold walk.
 
 **Refreshing the snapshot** when upstream changes (replace `<sha>` with the
 commit to snapshot against):
@@ -102,9 +101,6 @@ locally-derived from the source tree).
 # Dry run — score the repo, write report, create nothing
 node plugins/acmm/scripts/audit.js
 
-# Score a specific sub-project (app or package)
-node plugins/acmm/scripts/audit.js --project apps/marketing
-
 # + create deduplicated GitHub issues for next-level gaps
 node plugins/acmm/scripts/audit.js --apply
 
@@ -118,40 +114,9 @@ node plugins/acmm/scripts/audit.js --apply --badge
 node plugins/acmm/scripts/audit.js --trend
 ```
 
-## Monorepo vs Package implementation
+## Scope
 
-ACMM can be run at the root of the monorepo or scoped to a specific project using the `--project <path>` flag.
-
-### Inheritance logic
-
-Sub-projects can inherit global ACMM signals from the repo root (like CI/CD workflows or contributing guides) by configuring the `acmm` field in their `package.json`:
-
-```json
-{
-  "name": "@mbe/marketing",
-  "acmm": {
-    "inherit": true
-  }
-}
-```
-
-When `inherit: true` is set:
-
-1. The audit first checks the project directory for the criterion.
-2. If not found locally, it checks if the criterion's detection patterns are part of the `globalPaths` allowlist.
-3. If allowed, it checks the repo root for the signal.
-
-**Local-only criteria:** Certain criteria (like `CLAUDE.md` instructions, `llms.txt`, or `AGENTS.md`) MUST be present locally in the project directory to be detected, even if inheritance is enabled. This ensures every project has its own local context for AI agents.
-
-### Global Paths (Defaults)
-
-By default, the following paths are considered global and can be inherited:
-
-- `.github/` (Workflows, templates)
-- `docs/` (Runbooks, maturity model docs)
-- `plugins/acmm/scripts/` (Audit tools)
-- `CONTRIBUTING.md`
-- `package.json`, `pnpm-workspace.yaml`, `turbo.json` (Monorepo config)
+ACMM runs once, at the repo root, and scores the whole monorepo. There is no per-workspace audit: the former `--project <path>` flag and the `package.json` `acmm.inherit` / `globalPaths` configuration were removed (#5858) because per-workspace ACMM state no longer exists (#5855).
 
 ## Internally:
 
@@ -306,7 +271,7 @@ this repo, not a file's existence:
 
 **A criterion that's just a useful local signal, not worth gating the level
 over**, goes in `plugins/acmm/scripts/sources/local.js` instead — visible in
-the headline count and `--project` reports, never part of the threshold walk.
+the headline count, never part of the threshold walk.
 
 For repo-specific quality gates that aren't part of ACMM at all, use the
 existing systems: `/site-audit` for UX/perf, `/ci-monitor` for CI

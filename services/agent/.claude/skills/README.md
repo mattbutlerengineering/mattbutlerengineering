@@ -8,4 +8,4 @@ Service-scoped skills for the agent service (Fastify + Prisma agent session mana
 
 ## Root Skills
 
-See root `.claude/skills/` for cross-cutting skills inherited via `package.json` acmm.inherit.
+See root `.claude/skills/` for cross-cutting skills.
