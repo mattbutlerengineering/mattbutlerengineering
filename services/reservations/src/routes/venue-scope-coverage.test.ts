@@ -72,16 +72,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // PR 4: reservations and deposits.
   "GET /api/v1/reservations": "pending-migration",
   "POST /api/v1/reservations": "pending-migration",
-  "POST /api/v1/reservations/walk-in": "pending-migration",
-  "GET /api/v1/reservations/:id": "pending-migration",
-  "PATCH /api/v1/reservations/:id": "pending-migration",
-  "DELETE /api/v1/reservations/:id": "pending-migration",
-  "GET /api/v1/deposits": "pending-migration",
-  "POST /api/v1/deposits": "pending-migration",
-  "GET /api/v1/deposits/:id": "pending-migration",
-  "POST /api/v1/deposits/:id/capture": "pending-migration",
-  "POST /api/v1/deposits/:id/refund": "pending-migration",
-  "POST /api/v1/deposits/:id/forfeit": "pending-migration",
 
   // PR 5: Matt's security rulings (availability → member, holds re-expressed).
   "GET /api/v1/availability/:venueId": "pending-migration",
@@ -216,6 +206,16 @@ describe("venue-scope coverage (no database)", () => {
       "PATCH /api/v1/tables/:id": "entity:table/member",
       "PATCH /api/v1/tables/:id/status": "entity:table/member",
       "DELETE /api/v1/tables/:id": "entity:table/member",
+      "POST /api/v1/reservations/walk-in": "body.venueId/member",
+      "GET /api/v1/reservations/:id": "entity:reservation/owner",
+      "PATCH /api/v1/reservations/:id": "entity:reservation/owner",
+      "DELETE /api/v1/reservations/:id": "entity:reservation/owner",
+      "POST /api/v1/deposits": "entity:reservation/member",
+      "GET /api/v1/deposits": "resolve:reservationId|venueId/member",
+      "GET /api/v1/deposits/:id": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/capture": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/refund": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/forfeit": "entity:deposit/member",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])
