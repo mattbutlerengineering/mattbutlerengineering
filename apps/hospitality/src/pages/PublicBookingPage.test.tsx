@@ -235,6 +235,9 @@ describe("PublicBookingPage", () => {
         expect(screen.getByText("Venue not found")).toBeDefined();
       });
       expect(mockGetBySlug).not.toHaveBeenCalled();
+      // axe landmark-one-main: the no-slug state is also wrapped in one <main>.
+      expect(screen.getAllByRole("main")).toHaveLength(1);
+      expect(screen.getByRole("main").textContent).toContain("Venue not found");
     });
 
     it("offers a real navigable link, not a bare history.back() action, when there is no browser history", async () => {
