@@ -49,3 +49,24 @@ for (const { name, path } of PAGES_TO_AUDIT) {
     ).toHaveLength(0);
   });
 }
+
+// Colour contrast stays enabled here: the ui-quality loop's axe-serious tell
+// (#6300) caught SegmentedControl and TapeChart bar text below 4.5:1, which the
+// blanket color-contrast opt-out above cannot see.
+test("a11y: Tape Chart page has no serious axe violations (including contrast)", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("components/tape-chart");
+  await page.waitForLoadState("networkidle");
+
+  const results = await new AxeBuilder({ page }).analyze();
+  const serious = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious"
+  );
+
+  expect(
+    serious,
+    `Tape Chart page has ${serious.length} critical/serious a11y violations:\n${serious.map((v) => `  - ${v.id} (${v.nodes.length} instances)`).join("\n")}`
+  ).toHaveLength(0);
+});

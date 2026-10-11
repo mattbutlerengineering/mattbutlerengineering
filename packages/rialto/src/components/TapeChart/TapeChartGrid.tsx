@@ -59,7 +59,13 @@ export function TapeChartGrid(props: TapeChartGridProps) {
   };
 
   return (
-    <div className={styles.scroller} style={rootStyle} role="grid" aria-label={strings.regionLabel}>
+    <div
+      className={styles.scroller}
+      style={rootStyle}
+      role="grid"
+      aria-label={strings.regionLabel}
+      tabIndex={0}
+    >
       {/* Day header — spans full grid width (after the room column) */}
       <div
         className={styles.gridBody}
