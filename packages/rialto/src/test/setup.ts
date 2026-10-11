@@ -22,12 +22,16 @@ if (typeof HTMLCanvasElement !== "undefined") {
     null) as typeof HTMLCanvasElement.prototype.getContext;
 }
 
-// Mock matchMedia for jsdom
+// Mock matchMedia for jsdom. `prefers-reduced-motion: reduce` matches, so
+// `useDeviceContext()` — and through it `useMotionPreset()`, the one reduced-
+// motion signal components read (ADR-025) — agrees with the framer mock above:
+// tests run reduced by default. To exercise the animated path, mock
+// `providers/useDeviceContext` in the test file.
 if (typeof window !== "undefined")
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches: query === "(prefers-reduced-motion: reduce)",
       media: query,
       onchange: null,
       addListener: vi.fn(),

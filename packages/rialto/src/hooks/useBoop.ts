@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { MotionStyle } from "framer-motion";
-import { useMotionValue, useSpring, useReducedMotion } from "framer-motion";
+import { useMotionValue, useSpring } from "framer-motion";
+import { useMotionPreset } from "../providers/useMotionPreset";
 import { boop } from "../tokens/motion";
 
 const NOOP_STYLE: MotionStyle = {};
@@ -10,6 +11,9 @@ const noop = () => {};
  * Spring scale-up on hover ("boop"), returns to rest on leave.
  *
  * Respects `prefers-reduced-motion` — returns noops + empty style when active.
+ * The preference is read from {@link useMotionPreset}, the one reduced-motion
+ * signal every Rialto component resolves (ADR-025). For a plain `whileHover`
+ * target, prefer `useMotionPreset().boop`.
  *
  * @example
  * const { style, onMouseEnter, onMouseLeave } = useBoop();
@@ -22,7 +26,7 @@ export function useBoop(): {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 } {
-  const shouldReduceMotion = useReducedMotion();
+  const { reduced: shouldReduceMotion } = useMotionPreset();
   const scale = useMotionValue(1);
   const { stiffness, damping, mass } = boop.transition;
   const springScale = useSpring(scale, { stiffness, damping, mass });

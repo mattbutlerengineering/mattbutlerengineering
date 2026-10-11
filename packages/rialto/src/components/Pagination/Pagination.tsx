@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { boop } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Pagination.module.css";
 
@@ -116,10 +116,8 @@ const ChevronRight = (
 export const Pagination = forwardRef<HTMLElement, PaginationProps>(
   ({ page, totalPages, onChange, siblingCount = 1, className = "" }, ref) => {
     const pages = buildPages(page, totalPages, siblingCount);
-    const shouldReduceMotion = useReducedMotion();
-    const boopHover = shouldReduceMotion
-      ? undefined
-      : { scale: boop.scale, transition: boop.transition };
+    const motionPreset = useMotionPreset();
+    const boopHover = motionPreset.boop;
 
     return (
       <nav ref={ref} aria-label="Pagination" className={cn(styles.pagination, className)}>

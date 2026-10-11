@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, forwardRef, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { spring, reduced } from "../../tokens/motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useDirection } from "../../hooks/useDirection";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -62,7 +62,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   { open, onClose, title, description, children, footer, side = "right", size = "default" },
   ref
 ) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dir = useDirection(anchorRef);
@@ -89,7 +90,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   const panelInitial = shouldReduceMotion ? {} : slideHidden;
   const panelAnimate = shouldReduceMotion ? {} : slideOpen[side];
   const panelExit = shouldReduceMotion ? {} : slideHidden;
-  const panelTransition = shouldReduceMotion ? reduced : spring;
+  const panelTransition = motionPreset.spring;
 
   return (
     <>
@@ -104,7 +105,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={shouldReduceMotion ? reduced : { duration: 0.2 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
               onClick={onClose}
             />
 

@@ -27,7 +27,7 @@
 import { useContext, useMemo } from "react";
 import { useDeviceContext } from "./useDeviceContext";
 import { UIEnvironmentContext } from "./useUIEnvironment";
-import { precision, spring, springGentle, springTilt } from "../tokens/motion";
+import { boop, precision, spring, springGentle, springTilt } from "../tokens/motion";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -57,13 +57,28 @@ export interface SpringTransition {
   mass: number;
 }
 
+/** A `whileHover` target for the "boop" spring scale — ready to pass as-is. */
+export type BoopHover = {
+  scale: number;
+  transition: SpringTransition | InstantTransition;
+};
+
 export interface MotionPreset {
+  /**
+   * Whether the user prefers reduced motion — the same signal every field
+   * below is resolved from. Use it to choose keyframe targets (e.g. drop a
+   * slide offset from `initial`); never to choose a transition, which is
+   * already resolved.
+   */
+  reduced: boolean;
   /** Standard UI transitions, hover states, small movements. */
   precision: EasedTransition | InstantTransition;
   /** Toggles, AI elements, high-interaction components. */
   spring: SpringTransition | InstantTransition;
   /** Larger movements — dialog entrances, card expansions. */
   springGentle: SpringTransition | InstantTransition;
+  /** Brief spring scale on hover — pass to `whileHover`. At rest scale under reduced motion. */
+  boop: BoopHover;
   /** Cursor-tracking tilt — a `useSpring` config, not a transition. */
   tilt: SpringOptions;
 }
@@ -73,16 +88,27 @@ export interface MotionPreset {
 const INSTANT: InstantTransition = { duration: 0 };
 
 const REDUCED_PRESET: MotionPreset = {
+  reduced: true,
   precision: INSTANT,
   spring: INSTANT,
   springGentle: INSTANT,
+  boop: { scale: 1, transition: INSTANT },
   // Tilt has no instant form — a spring that settles in zero time is not a
   // spring. Reduced motion switches tilt off at the source instead: `useTilt`
   // returns a no-op style before it ever reads this value.
   tilt: springTilt,
 };
 
-const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle, tilt: springTilt };
+const BOOP: BoopHover = { scale: boop.scale, transition: boop.transition };
+
+const STANDARD_PRESET: MotionPreset = {
+  reduced: false,
+  precision,
+  spring,
+  springGentle,
+  boop: BOOP,
+  tilt: springTilt,
+};
 
 /**
  * Game-vibe motion: faster attack, stiffer springs, less mass. The
@@ -92,9 +118,11 @@ const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle, tilt: s
  * under the same vibe do not disagree about how fast "standard" is.
  */
 const GAME_PRESET: MotionPreset = {
+  reduced: false,
   precision: { duration: 0.09, ease: [0.16, 1, 0.3, 1] as const },
   spring: { type: "spring" as const, stiffness: 600, damping: 30, mass: 0.6 },
   springGentle: { type: "spring" as const, stiffness: 320, damping: 26, mass: 0.8 },
+  boop: BOOP,
   tilt: { stiffness: 500, damping: 22, mass: 0.35 },
 };
 

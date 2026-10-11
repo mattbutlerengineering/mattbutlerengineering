@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { spring, reduced } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset, type MotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useFlipDotSound } from "./use-flip-dot-sound";
 import styles from "./FlipDot.module.css";
@@ -89,10 +89,18 @@ interface FlipDotDotProps {
   on: boolean;
   delay: number;
   reduceMotion: boolean;
+  /** Resolved by the parent's `useMotionPreset()` — instant under reduced motion. */
+  spring: MotionPreset["spring"];
   onFlip?: () => void;
 }
 
-const FlipDotDot = memo(function FlipDotDot({ on, delay, reduceMotion, onFlip }: FlipDotDotProps) {
+const FlipDotDot = memo(function FlipDotDot({
+  on,
+  delay,
+  reduceMotion,
+  spring,
+  onFlip,
+}: FlipDotDotProps) {
   const prevOn = useRef(on);
 
   useEffect(() => {
@@ -107,7 +115,7 @@ const FlipDotDot = memo(function FlipDotDot({ on, delay, reduceMotion, onFlip }:
       <motion.div
         className={styles.dotInner}
         animate={{ rotateX: on ? 180 : 0 }}
-        transition={reduceMotion ? reduced : { ...spring, delay }}
+        transition={reduceMotion ? spring : { ...spring, delay }}
       >
         <div className={styles.dotOff} />
         <div className={styles.dotOn} />
@@ -137,7 +145,8 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion() ?? false;
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const { playBatchClick } = useFlipDotSound({
       enabled: enableSound,
       volume: soundVolume,
@@ -201,6 +210,7 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
                 staggerJitter
               )}
               reduceMotion={shouldReduceMotion}
+              spring={motionPreset.spring}
               onFlip={enableSound ? handleFlip : undefined}
             />
           ))

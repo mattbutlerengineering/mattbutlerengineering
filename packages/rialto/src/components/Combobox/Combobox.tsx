@@ -7,7 +7,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
@@ -184,8 +184,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
 
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const shouldReduceMotion = useReducedMotion();
-    const { precision } = useMotionPreset();
+    const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
     // ── Selection state (controlled or internal) ──
     const [internalValue, setInternalValue] = useState("");

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { RialtoProvider } from "../RialtoProvider";
 import { useMotionPreset } from "../useMotionPreset";
 import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
-import { precision, spring, springGentle } from "../../tokens/motion";
+import { boop, precision, spring, springGentle } from "../../tokens/motion";
 import { vibes } from "../vibes";
 
 vi.mock("../useDeviceContext", () => ({
@@ -100,5 +100,26 @@ describe("useMotionPreset — the JS motion channel", () => {
     setDevice({ reducedMotion: true });
     const { result } = renderHook(() => useMotionPreset());
     expect(result.current.precision).toEqual({ duration: 0 });
+  });
+  /* The deepened interface: every field the hook returns is ready to hand to
+   * framer-motion, so reduced motion is resolved here — once — and no caller
+   * builds its own fallback. `tilt` is the documented exception (a useSpring
+   * config has no instant form; useTilt switches off at the source instead). */
+  it("returns zero duration for every transition field under reduced motion", () => {
+    setDevice({ reducedMotion: true });
+    const { result } = renderHook(() => useMotionPreset());
+    const { reduced, tilt: _tilt, boop: boopHover, ...transitions } = result.current;
+    expect(reduced).toBe(true);
+    expect(Object.keys(transitions).length).toBeGreaterThan(0);
+    for (const transition of Object.values(transitions)) {
+      expect(transition).toEqual({ duration: 0 });
+    }
+    expect(boopHover).toEqual({ scale: 1, transition: { duration: 0 } });
+  });
+
+  it("returns the boop hover target and reports full motion by default", () => {
+    const { result } = renderHook(() => useMotionPreset());
+    expect(result.current.reduced).toBe(false);
+    expect(result.current.boop).toEqual({ scale: boop.scale, transition: boop.transition });
   });
 });

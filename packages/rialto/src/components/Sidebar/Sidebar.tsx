@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { spring, precision } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Sidebar.module.css";
 
@@ -72,7 +72,7 @@ export interface SidebarProps extends HTMLAttributes<HTMLElement> {
 }
 
 function CollapseIcon({ collapsed }: { collapsed: boolean }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <motion.svg
       width="16"
@@ -85,7 +85,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
       animate={{ rotate: collapsed ? 180 : 0 }}
-      transition={shouldReduceMotion ? { duration: 0 } : precision}
+      transition={motionPreset.precision}
     >
       <path d="M10 3L5 8l5 5" />
     </motion.svg>
@@ -93,7 +93,8 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
   const classes = cn(
     styles.item,
     item.active && styles.itemActive,
@@ -103,7 +104,7 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
   // Keep position/scale correction on the collapsing rail so text and icons
   // are never distorted by the parent nav's transform-based width animation.
   const layoutMode = shouldReduceMotion ? false : "position";
-  const layoutTransition = shouldReduceMotion ? { duration: 0 } : spring;
+  const layoutTransition = motionPreset.spring;
 
   const content = (
     <>
@@ -116,7 +117,7 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
         className={styles.itemLabel}
         layout={layoutMode}
         animate={{ opacity: collapsed ? 0 : 1 }}
-        transition={shouldReduceMotion ? { duration: 0 } : precision}
+        transition={motionPreset.precision}
       >
         {item.label}
       </motion.span>
@@ -156,7 +157,8 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ items, collapsed = false, onCollapse, className, ...props }, ref) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const renderItems = (list: SidebarItem[]) =>
       list.map((item) => <ItemElement key={item.id} item={item} collapsed={collapsed} />);
@@ -166,7 +168,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         aria-label="Sidebar navigation"
         layout={shouldReduceMotion ? false : true}
-        transition={shouldReduceMotion ? { duration: 0 } : spring}
+        transition={motionPreset.spring}
         {...(props as React.ComponentProps<typeof motion.nav>)}
         className={cn(styles.sidebar, className)}
         style={{ width: collapsed ? 56 : 240, ...props.style }}
@@ -194,7 +196,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             onClick={() => onCollapse(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             layout={shouldReduceMotion ? false : "position"}
-            transition={shouldReduceMotion ? { duration: 0 } : spring}
+            transition={motionPreset.spring}
           >
             <CollapseIcon collapsed={collapsed} />
           </motion.button>

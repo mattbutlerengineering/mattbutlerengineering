@@ -4,6 +4,10 @@
  * Two motion personalities:
  * - Precision: crisp, instant-feeling transitions ("rotary click")
  * - Spring: physical, organic movements with detent feel
+ *
+ * These are the static defaults. Inside a component, resolve motion through
+ * `useMotionPreset()` instead — it applies the active vibe and reduced motion
+ * from one signal (ADR-025). Import these directly only outside a component.
  */
 
 import type { MotionStyle } from "framer-motion";
@@ -49,7 +53,12 @@ export const springTilt = {
   mass: 0.5,
 };
 
-/** Boop — brief spring scale on hover, returns to rest. Light mass + low damping = snappy overshoot. */
+/**
+ * Boop — brief spring scale on hover, returns to rest. Light mass + low damping = snappy overshoot.
+ *
+ * @deprecated Inside a component use `useMotionPreset().boop` — a ready
+ * `whileHover` target that already honours reduced motion.
+ */
 export const boop = {
   scale: 1.03,
   transition: {
@@ -88,7 +97,12 @@ export const staggerReveal = {
   },
 };
 
-/** Reduced motion fallback — instant, no animation */
+/**
+ * Reduced motion fallback — instant, no animation
+ *
+ * @deprecated `useMotionPreset()` returns instant transitions under reduced
+ * motion itself; no caller needs to pick this fallback.
+ */
 export const reduced = {
   duration: 0,
 };

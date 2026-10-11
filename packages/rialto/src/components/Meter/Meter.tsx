@@ -1,5 +1,5 @@
 import { forwardRef, type HTMLAttributes } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Meter.module.css";
@@ -60,8 +60,8 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion();
     const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const indeterminate = value === null;
     const range = max - min;
     const fraction =

@@ -1,5 +1,5 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { spring } from "../../tokens/motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import type { ToastData, ToastVariant } from "./ToastContext";
 import styles from "./Toast.module.css";
@@ -56,7 +56,8 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
 }
 
 function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: string) => void }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
   const duration = t.duration ?? 4000;
 
   return (
@@ -66,7 +67,7 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 80, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.95 }}
-      transition={shouldReduceMotion ? { duration: 0.1 } : spring}
+      transition={motionPreset.spring}
     >
       <ToastIcon variant={t.variant ?? "default"} />
       {t.title && <p className={styles.title}>{t.title}</p>}

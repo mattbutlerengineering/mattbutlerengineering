@@ -7,8 +7,8 @@ import {
   forwardRef,
   type ReactNode,
 } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { spring, reduced } from "../../tokens/motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -103,7 +103,8 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     { open, onOpenChange, items, placeholder = "Search commands…", groups = [] },
     ref
   ) {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -249,7 +250,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={shouldReduceMotion ? reduced : { duration: 0.15 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
             onClick={() => onOpenChange(false)}
             onKeyDown={handleKeyDown}
           >
@@ -262,7 +263,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
               animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4 }}
-              transition={shouldReduceMotion ? reduced : spring}
+              transition={motionPreset.spring}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search */}
