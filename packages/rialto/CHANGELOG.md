@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.4.0
+
+### Minor Changes
+
+- [#6298](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6298) [`78a3a5a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/78a3a5abe633016405619a4d20fc1d8f36b799f9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add optional controlled `open` / `onOpenChange` props to `Popover` (uncontrolled behaviour is unchanged). `DatePicker`, `DateRangePicker` and `TimePicker` now close via controlled state instead of remounting the popover.
+
 ## 0.3.4
 
 ### Patch Changes
