@@ -357,6 +357,11 @@
   flex-shrink: 0;
 }
 
+/* Secondary text on the success-tinted bar is 4.33:1 — below WCAG AA. */
+.bar[data-status="checkedIn"] .barMeta {
+  color: var(--rialto-text-primary);
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .bar {

@@ -288,6 +288,14 @@ describe("<TapeChart /> rendering", () => {
     expect(screen.getByRole("region", { name: /reservations tape chart/i })).toBeInTheDocument();
   });
 
+  it("makes the horizontally scrolling grid keyboard-focusable (axe scrollable-region-focusable)", () => {
+    render(<TapeChart {...BASE} />);
+    expect(screen.getByRole("grid", { name: /reservations tape chart/i })).toHaveAttribute(
+      "tabindex",
+      "0"
+    );
+  });
+
   // Guards the "platform provenance" gap from #4450: without an explicit
   // timeZone, the day header falls back to the host machine's system
   // timezone, so a baseline captured on a non-UTC machine renders a
