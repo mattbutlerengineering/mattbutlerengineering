@@ -647,6 +647,7 @@
     export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
     export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
     export const modifyReservationBodyJsonSchema = toRequestJsonSchema(ModifyReservationBodySchema);
+    export const cancelReservationBodyJsonSchema = toRequestJsonSchema(CancelReservationBodySchema);
   </file>
   <file path="src/schemas/reservation-requests.ts">
     export const ListReservationsQuerySchema = z.object({
@@ -993,6 +994,12 @@
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
       })
       .describe("Fields to modify via guest self-service");
+    export const CancelReservationBodySchema = z
+      .object({
+        cancellationReason: z.string().max(500).describe("Why the guest is cancelling").optional(),
+        cancellationNote: z.string().max(500).describe("Free-text cancellation note").optional(),
+      })
+      .describe("Optional cancellation details supplied via guest self-service");
     export const PublicUnsubscribeQuerySchema = z.object({
       token: z.string().optional(),
     });

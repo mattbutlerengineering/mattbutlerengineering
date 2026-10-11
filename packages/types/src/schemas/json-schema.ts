@@ -83,6 +83,7 @@ import {
   PublicUnsubscribeQuerySchema,
   PublicWaitlistBodySchema,
   ModifyReservationBodySchema,
+  CancelReservationBodySchema,
 } from "./reservation-requests.js";
 
 /**
@@ -398,3 +399,4 @@ export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReserva
 export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
 export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
 export const modifyReservationBodyJsonSchema = toRequestJsonSchema(ModifyReservationBodySchema);
+export const cancelReservationBodyJsonSchema = toRequestJsonSchema(CancelReservationBodySchema);

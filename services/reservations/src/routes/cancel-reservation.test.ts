@@ -659,3 +659,40 @@ describe("DELETE /public/v1/reservations/manage — rate limiting", () => {
     expect(eleventh.statusCode).toBe(429);
   });
 });
+
+describe("DELETE /public/v1/reservations/manage — body validation", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      notificationPort: createStubNotificationDispatcher() as never,
+      jobs: createStubJobs(),
+    });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  it.each([
+    ["non-string cancellationReason", { cancellationReason: { evil: true } }],
+    ["non-string cancellationNote", { cancellationNote: { nested: "obj" } }],
+    ["over-length cancellationReason", { cancellationReason: "x".repeat(501) }],
+    ["over-length cancellationNote", { cancellationNote: "x".repeat(501) }],
+  ])("returns 400 for %s", async (_label, payload) => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload,
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+});
