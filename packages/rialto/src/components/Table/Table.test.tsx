@@ -62,6 +62,12 @@ describe("Table", () => {
       render(<Table columns={columns} data={[]} rowKey={(r) => (r as Driver).name} />);
       expect(screen.getByText("No data")).toBeInTheDocument();
     });
+
+    it("uses ariaLabel as the accessible name for a column with a visually empty header", () => {
+      const columnsWithActions = [...columns, { key: "actions", header: "", ariaLabel: "Actions" }];
+      render(<Table columns={columnsWithActions} data={data} rowKey={(r) => r.name} />);
+      expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    });
   });
 
   describe("custom render", () => {
