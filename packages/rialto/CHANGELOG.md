@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.4.1
+
+### Patch Changes
+
+- [#6309](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6309) [`638ea70`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/638ea70420ed12edf417e1ef4c7f8b24d6957bc4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add optional `ariaLabel` to `Table` column definitions, giving a visually empty header (e.g. a trailing actions column) an accessible name.
+
 ## 0.4.0
 
 ### Minor Changes
