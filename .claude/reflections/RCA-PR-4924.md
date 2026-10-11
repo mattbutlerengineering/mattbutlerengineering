@@ -130,3 +130,12 @@ its four unit tests) unchanged once **either**:
 No code change is needed to re-land — the program is already correct. The
 gate is entirely the M2M grant, which is why this RCA does not propose an
 alternate implementation.
+
+## Verification 2026-10 (monthly review)
+
+The "already documented" claim above was true when written and is now stale.
+The orphan-exclude bypass was retired by #5756 (2026-09-25, after the Auth0
+scopes were granted): `scripts/__tests__/pulumi-orphan-exclude-bypass.test.mjs`
+no longer exists and `gotchas.md` § "Pulumi / R2 state backend" no longer
+carries the bypass bullet. The analysis and retirement conditions above are
+kept as history; do not look for the guard or bullet in the tree.
