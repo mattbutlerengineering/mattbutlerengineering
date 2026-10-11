@@ -100,10 +100,57 @@ export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
   "skill-name": "placeholder in `/<skill-name>`, not a literal command",
 });
 
+/**
+ * Skills provided by an enabled plugin and invoked as `/plugin:skill`. Pure
+ * data — no network. Must be kept in step with the plugin by hand.
+ *
+ * idea-to-prod@skills: read from github.com/mattbutlerengineering/skills at
+ * commit 003ff3a86ea57afa70adbb9cd0c5a1e118101072 (`skills/*` directories).
+ * Enabled for project sessions in .claude/settings.json (#6332).
+ *
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
+export const PLUGIN_PROVIDED_SKILLS = Object.freeze({
+  "idea-to-prod": Object.freeze([
+    "address-pr-review",
+    "animated-diagram",
+    "architect",
+    "architecture-diagram",
+    "audit",
+    "automate",
+    "autorun",
+    "capture",
+    "conduct",
+    "decompose",
+    "deepen",
+    "doctor",
+    "factory-init",
+    "idea",
+    "implement",
+    "interactive-architecture-diagram",
+    "knowledge-base",
+    "launch-demo",
+    "lean",
+    "mermaid",
+    "next",
+    "operate",
+    "pipeline-board",
+    "polish",
+    "prd",
+    "review",
+    "ship",
+    "ux-design",
+    "ux-patterns",
+    "ux-writing",
+    "verify",
+    "work-queue",
+  ]),
+});
+
 /** Directories under .claude/ whose markdown is historical, not instructional. */
 const HISTORICAL_DIRS = Object.freeze(["improvement-loop", "reflections", "sessions", "memory"]);
 
-const REFERENCE_PATTERN = /`\/([a-z][a-z0-9-]*)`/g;
+const REFERENCE_PATTERN = /`\/([a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?)`/g;
 
 /**
  * Every `/name` reference in a markdown body, with the line it sits on.
@@ -127,9 +174,18 @@ export function extractSkillReferences(markdown) {
  *
  * @param {string} name
  * @param {{ repoSkills: ReadonlySet<string>, pluginSkills: ReadonlySet<string>, declared?: Readonly<Record<string, string>> }} world
- * @returns {{ kind: "repo" | "plugin" | "declared" | "unresolved", reason?: string }}
+ * @returns {{ kind: "repo" | "plugin" | "plugin-provided" | "declared" | "unresolved", reason?: string }}
  */
 export function classifySkillReference(name, { repoSkills, pluginSkills, declared }) {
+  const qualifier = name.indexOf(":");
+  if (qualifier !== -1) {
+    const provided = Object.hasOwn(PLUGIN_PROVIDED_SKILLS, name.slice(0, qualifier))
+      ? PLUGIN_PROVIDED_SKILLS[name.slice(0, qualifier)]
+      : [];
+    return provided.includes(name.slice(qualifier + 1))
+      ? { kind: "plugin-provided" }
+      : { kind: "unresolved" };
+  }
   if (repoSkills.has(name)) return { kind: "repo" };
   if (pluginSkills.has(name)) return { kind: "plugin" };
   const registry = declared ?? DECLARED_NON_REPO_REFERENCES;

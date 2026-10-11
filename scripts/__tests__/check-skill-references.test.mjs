@@ -70,6 +70,41 @@ describe("classifySkillReference", () => {
   });
 });
 
+describe("plugin-qualified references (#6332)", () => {
+  const world = { repoSkills: new Set(), pluginSkills: new Set() };
+
+  it("extracts a /plugin:skill reference as one name", () => {
+    expect(extractSkillReferences("run `/idea-to-prod:automate` now")).toEqual([
+      { name: "idea-to-prod:automate", line: 1 },
+    ]);
+  });
+
+  it("resolves a /idea-to-prod:<known-skill> reference", () => {
+    expect(classifySkillReference("idea-to-prod:automate", world)).toEqual({
+      kind: "plugin-provided",
+    });
+  });
+
+  it("reports a /idea-to-prod:<bogus> reference as unresolved", () => {
+    expect(classifySkillReference("idea-to-prod:bogus", world)).toEqual({ kind: "unresolved" });
+  });
+
+  it("reports an unknown plugin namespace as unresolved", () => {
+    expect(classifySkillReference("nope:automate", world)).toEqual({ kind: "unresolved" });
+  });
+
+  it("flags a bogus qualified ref end to end but passes a known one", () => {
+    const root = makeRepo();
+    writeFileSync(
+      join(root, "CLAUDE.md"),
+      ["use `/idea-to-prod:automate`", "and `/idea-to-prod:bogus`"].join("\n")
+    );
+    expect(findUnresolvedReferences(root)).toEqual([
+      { file: "CLAUDE.md", line: 2, name: "idea-to-prod:bogus" },
+    ]);
+  });
+});
+
 describe("extractSkillReferences", () => {
   it("finds backticked commands with their line numbers", () => {
     const md = ["intro", "run `/implement-queue` then `/site-audit`", "", "and `/deploy`"].join(

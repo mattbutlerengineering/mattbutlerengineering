@@ -53,6 +53,10 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 
 Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claude/skills/` and plugins). It holds both project-automation and general-engineering advisor skills. All skills are invocable via `/skill-name` and discoverable via the system's skill registry.
 
+### Plugin-provided skills
+
+Generic lifecycle skills (idea, prd, architect, implement, review, ship, automate, and the rest) come from the `idea-to-prod` plugin, enabled in `.claude/settings.json` and invoked as `/idea-to-prod:<name>`. Repo-local skills are kept only when repo-specific (#6332). `scripts/check-skill-references.mjs` resolves these qualified references against its declared plugin skill list.
+
 ### Skills
 
 **Project Automation** (`.claude/skills/`)
