@@ -1,4 +1,10 @@
 {
+  "extraKnownMarketplaces": {
+    "skills": {
+      "source": { "source": "github", "repo": "mattbutlerengineering/skills" }
+    }
+  },
+  "enabledPlugins": { "idea-to-prod@skills": true },
   "permissions": {
     "allow": [
       "Bash(pnpm test:*)",
