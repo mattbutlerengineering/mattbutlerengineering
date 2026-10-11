@@ -12,6 +12,7 @@ import {
   WaitlistJoinResultSchema,
   DepositPaymentIntentSchema,
 } from "@mbe/types";
+import { z } from "zod";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface GetGuestRiskParams {
@@ -63,15 +64,24 @@ export class PublicVenueClient {
 
   /**
    * Create a Stripe PaymentIntent for a reservation's deposit.
+   * `sessionId` is the booking session that confirmed the reservation
+   * (`api.holds.getSessionId()`), sent as `x-session-id` — the server's
+   * proof of ownership (#6304).
    */
   async depositIntent(
     slug: string,
-    data: CreateDepositPaymentIntentRequest
+    data: CreateDepositPaymentIntentRequest,
+    sessionId: string
   ): Promise<DepositPaymentIntent> {
-    return this.client.postOne<DepositPaymentIntent>(
+    const response = await this.client.request(
       `/public/v1/venues/${slug}/deposits/payment-intent`,
-      data,
-      DepositPaymentIntentSchema
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "x-session-id": sessionId },
+      },
+      z.object({ data: DepositPaymentIntentSchema })
     );
+    return response.data;
   }
 }

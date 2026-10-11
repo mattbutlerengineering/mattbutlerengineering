@@ -23045,6 +23045,16 @@
       amountCents: number;
       currency: string;
     }
+    function sessionIdsMatch(presented: string, stored: string): boolean {
+      const sha256 = (value: string) => createHash("sha256").update(value).digest();
+      return timingSafeEqual(sha256(presented), sha256(stored));
+    }
+    function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean {
+      const presented = request.headers[SESSION_ID_HEADER];
+      if (typeof presented !== "string" || presented.length === 0) return false;
+      if (originSessionId === null) return false;
+      return sessionIdsMatch(presented, originSessionId);
+    }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
       const { depositService } = fastify.services;
     
@@ -23117,6 +23127,21 @@
               return reply
                 .status(404)
                 .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
+            }
+    
+            // Ownership proof, checked before any Stripe call (#6304). 403, not
+            // 404: the 404 above is the enumeration path, this is the auth path.
+            const originSessionId = await reservationService.getOriginSessionId(reservationId);
+            if (!ownsReservation(request, originSessionId)) {
+              return reply
+                .status(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    "Forbidden",
+                    `Pass the booking session ID via the ${SESSION_ID_HEADER} header to pay a deposit for this reservation.`
+                  )
+                );
             }
     
             // Check no deposit already exists for this reservation
@@ -32268,6 +32293,8 @@
               guestId: guestDetails.guestId ?? null,
               notes: guestDetails.notes ?? null,
               userId: userId ?? null,
+              // Ownership proof for the public deposit route (#6304).
+              originSessionId: hold.sessionId,
               status: "CONFIRMED",
             },
             include: {
@@ -36413,6 +36440,20 @@
           },
         });
         return reservation ? toReservation(reservation) : null;
+      },
+    
+      /**
+       * The booking-widget session that confirmed this reservation (#6304), or
+       * `null` when the reservation does not exist or was created outside the
+       * widget. Kept off the serialized `Reservation` so the capability token is
+       * never echoed in an API response.
+       */
+      async getOriginSessionId(id: string): Promise<string | null> {
+        const row = await prisma.reservation.findUnique({
+          where: { id },
+          select: { originSessionId: true },
+        });
+        return row?.originSessionId ?? null;
       },
     
       async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
@@ -49648,16 +49689,25 @@
     
       /**
        * Create a Stripe PaymentIntent for a reservation's deposit.
+       * `sessionId` is the booking session that confirmed the reservation
+       * (`api.holds.getSessionId()`), sent as `x-session-id` — the server's
+       * proof of ownership (#6304).
        */
       async depositIntent(
         slug: string,
-        data: CreateDepositPaymentIntentRequest
+        data: CreateDepositPaymentIntentRequest,
+        sessionId: string
       ): Promise<DepositPaymentIntent> {
-        return this.client.postOne<DepositPaymentIntent>(
+        const response = await this.client.request(
           `/public/v1/venues/${slug}/deposits/payment-intent`,
-          data,
-          DepositPaymentIntentSchema
+          {
+            method: "POST",
+            body: JSON.stringify(data),
+            headers: { "x-session-id": sessionId },
+          },
+          z.object({ data: DepositPaymentIntentSchema })
         );
+        return response.data;
       }
     }
   </file>

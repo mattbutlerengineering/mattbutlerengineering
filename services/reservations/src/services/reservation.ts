@@ -190,6 +190,20 @@ export const reservationService = {
     return reservation ? toReservation(reservation) : null;
   },
 
+  /**
+   * The booking-widget session that confirmed this reservation (#6304), or
+   * `null` when the reservation does not exist or was created outside the
+   * widget. Kept off the serialized `Reservation` so the capability token is
+   * never echoed in an API response.
+   */
+  async getOriginSessionId(id: string): Promise<string | null> {
+    const row = await prisma.reservation.findUnique({
+      where: { id },
+      select: { originSessionId: true },
+    });
+    return row?.originSessionId ?? null;
+  },
+
   async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
     const reservation = await prisma.reservation.create({
       data: {
