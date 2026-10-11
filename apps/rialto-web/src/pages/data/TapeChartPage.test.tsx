@@ -38,7 +38,9 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     classifyOverlap,
     onReservationClick,
     selectedReservationId,
+    strings,
   }: {
+    strings?: { regionLabel?: string };
     reservations: { id: string; guestName?: string }[];
     classifyOverlap?: unknown;
     onReservationClick?: (r: { id: string; guestName?: string }) => void;
@@ -46,6 +48,8 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   }) => (
     <div
       data-testid="tapechart-stub"
+      role="region"
+      aria-label={strings?.regionLabel ?? "Reservations tape chart"}
       data-reservations={reservations.length}
       data-classifier={String(typeof classifyOverlap === "function")}
       data-selected={selectedReservationId ?? ""}
@@ -63,6 +67,16 @@ vi.mock("@mattbutlerengineering/rialto", () => {
 vi.mock("../components/PropsTable", () => ({
   PropsTable: () => <table />,
 }));
+
+describe("TapeChartPage — landmarks", () => {
+  // axe landmark-unique: every demo TapeChart is a role=region, so each needs its own name.
+  it("gives every demo chart a unique region name", () => {
+    render(<TapeChartPage />);
+    const names = screen.getAllByRole("region").map((el) => el.getAttribute("aria-label"));
+    expect(names.length).toBeGreaterThan(1);
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
 
 describe("TapeChartPage — Overlaps section", () => {
   it("renders the default and classified overlap charts over the same fixture", () => {
