@@ -165,6 +165,7 @@ appendTelemetryRow({
 - Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; `scripts/reconcile-queue-telemetry.mjs` (run by `/optimize-implement-queue` Step 0) fills them from GitHub later.
 - `metrics/queue-telemetry.jsonl` is a **tracked file** (merge=union) — rows appended in ephemeral checkouts must be committed before the session ends (see Phase 4).
 - `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
+- **This row is the worker's spend record (#5885).** Agent-tool workers never enter `@mbe/agent-core`, so `recordSpend` and `.claude/agent-spend/sessions.jsonl` never see them. The `agentCost` sensor (`scripts/sensors-registry.mjs`) reads `subagent_tokens`/`cost_usd` from this row instead. Always pass the completion `<usage>` tokens. Never also call `recordSpend` for a worker (that counts it twice), and never estimate `cost_usd` from tokens: leave it `null` when `<usage>` has no cost. `scripts/__tests__/queue-spend-attribution.test.mjs` runs the snippet above verbatim and fails if the row stops being attributed.
 
 ### Worker→train boundary (per PR, after CI green)
 
