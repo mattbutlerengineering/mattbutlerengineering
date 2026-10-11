@@ -231,4 +231,63 @@ describe("ManageReservationPage", () => {
       expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
     });
   });
+  describe("landmarks (axe landmark-one-main / page-has-heading-one)", () => {
+    function landmarks() {
+      return {
+        mains: screen.getAllByRole("main"),
+        h1s: screen.getAllByRole("heading", { level: 1 }),
+      };
+    }
+
+    it("no-token state has one main and an h1", () => {
+      renderPage();
+      const { mains, h1s } = landmarks();
+      expect(mains).toHaveLength(1);
+      expect(h1s).toHaveLength(1);
+    });
+
+    it("loading state has one main and an h1", () => {
+      mockSearchParams.set("token", "slow-token");
+      mockFetch.mockReturnValueOnce(new Promise<Response>(vi.fn()));
+      renderPage();
+      const { mains, h1s } = landmarks();
+      expect(mains).toHaveLength(1);
+      expect(h1s).toHaveLength(1);
+    });
+
+    it("error state has one main and an h1", async () => {
+      mockSearchParams.set("token", "bad-token");
+      mockFetch.mockResolvedValueOnce(
+        makeErrorResponse(401, { status: 401, detail: "Invalid token" })
+      );
+      renderPage();
+      await waitFor(() => expect(screen.getByText("Invalid Link")).toBeDefined());
+      const { mains, h1s } = landmarks();
+      expect(mains).toHaveLength(1);
+      expect(h1s).toHaveLength(1);
+      expect(within(screen.getByRole("main")).getByText("Invalid Link")).toBeDefined();
+    });
+
+    it("resolved state has one main and an h1", async () => {
+      mockSearchParams.set("token", "valid-token");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(makeManagedPayload()));
+      renderPage();
+      await waitFor(() => expect(screen.getByText("Jane Doe")).toBeDefined());
+      const { mains, h1s } = landmarks();
+      expect(mains).toHaveLength(1);
+      expect(h1s).toHaveLength(1);
+      expect(within(screen.getByRole("main")).getByText("Jane Doe")).toBeDefined();
+      expect(within(screen.getByRole("main")).getByRole("heading", { level: 1 })).toBeDefined();
+    });
+
+    it("resolved state without a venue still has an h1", async () => {
+      mockSearchParams.set("token", "valid-token");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(makeManagedPayload({ venue: null })));
+      renderPage();
+      await waitFor(() => expect(screen.getByText("Jane Doe")).toBeDefined());
+      const { mains, h1s } = landmarks();
+      expect(mains).toHaveLength(1);
+      expect(h1s).toHaveLength(1);
+    });
+  });
 });
