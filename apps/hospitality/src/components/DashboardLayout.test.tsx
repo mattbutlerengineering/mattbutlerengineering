@@ -93,7 +93,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Kbd: () => <div />,
-  WatchLoader: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
+  Handshake: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
     <div role="img" aria-label={ariaLabel} />
   ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
