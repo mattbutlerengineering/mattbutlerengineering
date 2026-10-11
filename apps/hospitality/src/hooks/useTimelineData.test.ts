@@ -218,7 +218,7 @@ describe("useTimelineData", () => {
       mockReservationsUpdate.mockRejectedValue(
         new Error("Invalid transition CONFIRMED -> CONFIRMED")
       );
-      mockTablesUpdateStatus.mockResolvedValue({});
+      mockTablesUpdateStatus.mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
         wrapper: createWrapper(),
