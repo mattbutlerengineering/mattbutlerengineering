@@ -169,4 +169,9 @@ describe("PropsTable", () => {
     expect(screen.queryByText(/\| undefined/)).toBeNull();
     expect(screen.getByText('"primary" | "secondary"')).toBeInTheDocument();
   });
+
+  it("does not use --rialto-accent as the prop-name text colour (2.79:1 on the muted tint)", () => {
+    render(<PropsTable props={MOCK_PROPS} />);
+    expect(screen.getByText("variant").style.color).not.toBe("var(--rialto-accent)");
+  });
 });
