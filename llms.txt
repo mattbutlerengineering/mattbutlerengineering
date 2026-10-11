@@ -3864,12 +3864,16 @@
     <item priority="medium">
       function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
     </item>
+    <item priority="low">
+      type CancellationInitiator = "staff" | "guest";
+    </item>
     <item priority="high">
       export function evaluateCancellationQuote(
         policy: CancellationPolicy | null,
         reservationTime: Date,
         currency = "usd",
-        now: Date = new Date()
+        now: Date = new Date(),
+        initiator: CancellationInitiator = "guest"
       ): CancellationQuote | null { /* ... */ }
     </item>
     <item priority="high">
@@ -4192,6 +4196,12 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useIsAdmin.ts">
+    <item priority="medium">
+      function accessTokenPermissions(accessToken: string | null): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function includesAdmin(permissions: unknown): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
