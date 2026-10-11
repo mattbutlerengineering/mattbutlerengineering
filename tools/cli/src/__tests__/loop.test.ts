@@ -149,4 +149,33 @@ describe("loop command", () => {
     expect(output).toContain("Starting session");
     expect(output).toContain("Session complete");
   });
+
+  it("uses an explicit --model verbatim instead of classifying it", async () => {
+    mockRunAgentSession.mockResolvedValue({
+      status: "succeeded",
+      costUsd: 0.1,
+      resultText: "<promise>COMPLETE</promise>",
+    });
+
+    await runLoop(["Fix the bug", "--model", "claude-opus-4-1"]);
+
+    const config = mockRunAgentSession.mock.calls[0]?.[0] as { model: string };
+    expect(config.model).toBe("claude-opus-4-1");
+    expect(mockResolveModel).not.toHaveBeenCalled();
+  });
+
+  it("classifies the directive when --model is not passed", async () => {
+    mockResolveModel.mockReturnValue("claude-haiku-4-5");
+    mockRunAgentSession.mockResolvedValue({
+      status: "succeeded",
+      costUsd: 0.1,
+      resultText: "<promise>COMPLETE</promise>",
+    });
+
+    await runLoop(["Fix the bug"]);
+
+    const config = mockRunAgentSession.mock.calls[0]?.[0] as { model: string };
+    expect(mockResolveModel).toHaveBeenCalledWith("Fix the bug");
+    expect(config.model).toBe("claude-haiku-4-5");
+  });
 });
