@@ -261,7 +261,8 @@ export function FooterPage() {
             { label: "Element", value: "<footer> landmark element" },
             {
               label: "Nav",
-              value: 'Rich variant wraps link columns in <nav aria-label="Footer links">',
+              value:
+                'Rich variant wraps link columns in <nav>, named "Footer links" by default; override with linksLabel when several footers share a page',
             },
             {
               label: "Links",
