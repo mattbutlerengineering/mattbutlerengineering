@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import type * as FramerMotion from "framer-motion";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { HomePage } from "./HomePage.js";
@@ -25,6 +25,43 @@ vi.mock("framer-motion", async (importOriginal) => ({
   useReducedMotion: mockUseReducedMotion,
 }));
 
+// Rialto's `useScrollReveal` reads reduced motion through `useMotionPreset`,
+// i.e. Rialto's own device store over `matchMedia` — not Framer's hook. That
+// store is also a module singleton, so flip the query and fire `change` the
+// way a real OS toggle does rather than re-stubbing per test.
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+let prefersReducedMotion = false;
+type MediaChangeListener = (event: Pick<MediaQueryListEvent, "matches" | "media">) => void;
+const reducedMotionListeners = new Set<MediaChangeListener>();
+
+window.matchMedia = (query: string) =>
+  ({
+    get matches() {
+      return query === REDUCED_MOTION_QUERY && prefersReducedMotion;
+    },
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: (_type: string, listener: MediaChangeListener) => {
+      if (query === REDUCED_MOTION_QUERY) reducedMotionListeners.add(listener);
+    },
+    removeEventListener: (_type: string, listener: MediaChangeListener) => {
+      reducedMotionListeners.delete(listener);
+    },
+    dispatchEvent: () => false,
+  }) as unknown as MediaQueryList;
+
+function setPrefersReducedMotion(reduced: boolean) {
+  mockUseReducedMotion.mockReturnValue(reduced);
+  prefersReducedMotion = reduced;
+  act(() =>
+    reducedMotionListeners.forEach((listener) =>
+      listener({ matches: reduced, media: REDUCED_MOTION_QUERY })
+    )
+  );
+}
+
 function renderHomePage() {
   return render(
     <RialtoProvider vibe="presenting">
@@ -42,7 +79,7 @@ const SCROLL_REVEALED_SECTIONS = ["proof", "projects", "machinery", "weekly", "c
 
 describe("HomePage entrance choreography", () => {
   afterEach(() => {
-    mockUseReducedMotion.mockReturnValue(false);
+    setPrefersReducedMotion(false);
   });
 
   it("wraps every scroll-entered landing section in a stagger reveal, once each", () => {
@@ -61,7 +98,7 @@ describe("HomePage entrance choreography", () => {
   });
 
   it("leaves no revealed content hidden under prefers-reduced-motion", async () => {
-    mockUseReducedMotion.mockReturnValue(true);
+    setPrefersReducedMotion(true);
     const { container } = renderHomePage();
 
     // `controls.set("visible")` writes through Framer's motion values, which
