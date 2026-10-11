@@ -76,7 +76,7 @@ describe("NeonSign", () => {
   });
 
   describe("reduced motion", () => {
-    it("flags the reduced-motion branch (setup.ts mocks useReducedMotion to true)", () => {
+    it("flags the reduced-motion branch (setup.ts reports prefers-reduced-motion)", () => {
       const { container } = render(<NeonSign state="open" aria-label="x" />);
       expect(container.firstElementChild).toHaveAttribute("data-reduced-motion", "true");
       expect(container.firstElementChild?.className).toMatch(/reduced/);

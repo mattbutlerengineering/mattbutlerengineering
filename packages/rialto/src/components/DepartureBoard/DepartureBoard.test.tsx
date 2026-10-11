@@ -1,25 +1,17 @@
 import { createRef } from "react";
 import { render, screen, act } from "@testing-library/react";
-import { useReducedMotion } from "framer-motion";
 import { DepartureBoard } from "./DepartureBoard";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
 
-// Control reduced-motion per test. The global setup mock forces it to `true`;
-// here it becomes a spy so both the static and the animated (flipping) paths
-// can be exercised in one file.
-import type * as FramerMotion from "framer-motion";
-
-vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
-  return { ...actual, useReducedMotion: vi.fn(() => false) };
-});
-
-const mockReducedMotion = vi.mocked(useReducedMotion);
+// Full motion by default — the global setup is reduced — so the flipping path
+// runs; reduced-motion tests flip the device signal useMotionPreset() reads.
+stubMatchMedia([]);
 
 const PHRASES = ["MAKE IT REAL", "SHIP THE FUTURE", "BUILD BOLDLY"];
 
 describe("DepartureBoard", () => {
   beforeEach(() => {
-    mockReducedMotion.mockReturnValue(false);
+    setMatchingMedia([]);
     vi.useRealTimers();
   });
 
@@ -107,19 +99,19 @@ describe("DepartureBoard", () => {
 
   describe("reduced motion", () => {
     it("renders the current phrase as readable static text", () => {
-      mockReducedMotion.mockReturnValue(true);
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
       render(<DepartureBoard phrases={PHRASES} />);
       expect(screen.getByText(PHRASES[0]!)).toBeInTheDocument();
     });
 
     it("does not render the flipping flap glyphs", () => {
-      mockReducedMotion.mockReturnValue(true);
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
       const { container } = render(<DepartureBoard phrases={PHRASES} />);
       expect(container.querySelector('[role="img"]')).toBeNull();
     });
 
     it("does not auto-advance through phrases", () => {
-      mockReducedMotion.mockReturnValue(true);
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
       vi.useFakeTimers();
       render(<DepartureBoard phrases={PHRASES} holdMs={1000} />);
       act(() => {

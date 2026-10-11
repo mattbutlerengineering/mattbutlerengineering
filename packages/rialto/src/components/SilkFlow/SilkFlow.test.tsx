@@ -1,19 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import { SilkFlow } from "./SilkFlow";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
 
 /**
- * `src/test/setup.ts` pins `useReducedMotion` to `true` for the whole suite.
- * This handle lets each test choose the branch it exercises.
+ * Each test chooses its branch through the device signal `useMotionPreset()`
+ * reads: reduced by default (as `src/test/setup.ts` is), full motion in the
+ * "animated" block.
  */
-const motionPreference = vi.hoisted(() => ({ reduce: true }));
-
-vi.mock("framer-motion", async () => {
-  const actual =
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() required for vi.importActual generic
-    await vi.importActual<typeof import("framer-motion")>("framer-motion");
-  return { ...actual, useReducedMotion: () => motionPreference.reduce };
-});
+stubMatchMedia([PREFERS_REDUCED_MOTION]);
 
 /* ── Canvas harness ─────────────────────────────────────────── */
 
@@ -92,7 +87,7 @@ function step() {
 }
 
 beforeEach(() => {
-  motionPreference.reduce = true;
+  setMatchingMedia([PREFERS_REDUCED_MOTION]);
   harness = createRecordingContext();
   frames = [];
   FakeIntersectionObserver.instances = [];
@@ -162,7 +157,7 @@ describe("SilkFlow", () => {
 
   describe("animated", () => {
     beforeEach(() => {
-      motionPreference.reduce = false;
+      setMatchingMedia([]);
     });
 
     it("mounts a canvas and starts the frame loop", () => {

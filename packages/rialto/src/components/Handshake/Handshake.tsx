@@ -1,5 +1,5 @@
 import { forwardRef, Fragment, type HTMLAttributes } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { StatusLED, type StatusLEDProps } from "../StatusLED/StatusLED";
 import styles from "./Handshake.module.css";
@@ -80,7 +80,7 @@ export const Handshake = forwardRef<HTMLDivElement, HandshakeProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion() ?? false;
+    const { reduced: shouldReduceMotion } = useMotionPreset();
     const lastLeg = stations.length - 2;
     const activeLane = Math.min(Math.max(lane, 0), lastLeg);
     const inFlight = state === "negotiating";

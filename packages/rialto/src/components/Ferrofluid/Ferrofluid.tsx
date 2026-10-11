@@ -1,5 +1,6 @@
 import { forwardRef, useId, useMemo, type HTMLAttributes } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Ferrofluid.module.css";
 
@@ -46,7 +47,7 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion();
+    const { reduced: shouldReduceMotion } = useMotionPreset();
     const filterId = useId();
     const duration = SPEED_DURATION[speed];
 

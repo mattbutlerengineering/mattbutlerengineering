@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useInView, useAnimation, useReducedMotion } from "framer-motion";
+import { useInView, useAnimation } from "framer-motion";
+import { useMotionPreset } from "../providers/useMotionPreset";
 
 const FALLBACK_TIMEOUT_MS = 3000;
 
@@ -35,7 +36,7 @@ export function useScrollReveal({
   fallbackTimeout = FALLBACK_TIMEOUT_MS,
 }: UseScrollRevealOptions = {}) {
   const controls = useAnimation();
-  const shouldReduceMotion = useReducedMotion();
+  const { reduced: shouldReduceMotion } = useMotionPreset();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { margin: margin as `${number}px`, once });
   const hasRevealedRef = useRef(false);
@@ -43,7 +44,7 @@ export function useScrollReveal({
 
   // Derived during render from the three reveal routes — never mirrored back
   // into state from an effect, which would re-render into the same effect.
-  const revealed = Boolean(shouldReduceMotion) || inView || fallbackElapsed;
+  const revealed = shouldReduceMotion || inView || fallbackElapsed;
 
   useEffect(() => {
     if (shouldReduceMotion) {

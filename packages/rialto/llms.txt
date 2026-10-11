@@ -1605,7 +1605,13 @@
       export const PREFERS_REDUCED_MOTION: unknown;
     </item>
     <item priority="high">
+      type ChangeListener = () => void;
+    </item>
+    <item priority="high">
       export function stubMatchMedia(matching: readonly string[]): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setMatchingMedia(matching: readonly string[]): void { /* ... */ }
     </item>
   </file>
   <file path="src/test/record-motion.ts">

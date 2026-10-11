@@ -1,16 +1,10 @@
-import type * as FramerMotion from "framer-motion";
 import { render } from "@testing-library/react";
 import { NeonSign } from "./NeonSign";
+import { stubMatchMedia } from "../../test/match-media";
 
-// setup.ts mocks framer-motion useReducedMotion => true globally. Override it
-// at file scope so this suite exercises the ANIMATED branch.
-vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
-  return {
-    ...actual,
-    useReducedMotion: () => false,
-  };
-});
+// setup.ts reports prefers-reduced-motion globally. Stub the device as full
+// motion at file scope so this suite exercises the ANIMATED branch.
+stubMatchMedia([]);
 
 describe("NeonSign — animated path (reduced motion off)", () => {
   it("does not flag reduced motion and lights the tube in the state the strike keys on", () => {

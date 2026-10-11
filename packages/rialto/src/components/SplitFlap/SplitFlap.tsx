@@ -7,7 +7,8 @@ import {
   useState,
   type HTMLAttributes,
 } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { CHARSETS, normalizeChar, nextChar, type CharsetName } from "./charset";
 import { cn } from "../../utils/class-composer";
 import styles from "./SplitFlap.module.css";
@@ -53,7 +54,7 @@ export const SplitFlap = forwardRef<HTMLDivElement, SplitFlapProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion();
+    const { reduced: shouldReduceMotion } = useMotionPreset();
     const charsetStr = CHARSETS[charset];
 
     // Compute the sequence of target chars — padded/truncated to `length`.
@@ -70,7 +71,7 @@ export const SplitFlap = forwardRef<HTMLDivElement, SplitFlapProps>(
             charset={charsetStr}
             flipInterval={flipInterval}
             startDelay={i * cascadeDelay}
-            instant={shouldReduceMotion ?? false}
+            instant={shouldReduceMotion}
           />
         ))}
 
