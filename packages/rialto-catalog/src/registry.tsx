@@ -179,6 +179,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           gap={props.gap}
           align={props.align}
           justify={props.justify}
+          wrap={props.wrap}
         >
           {children}
         </Stack>
@@ -203,7 +204,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       // ── Typography ────────────────────────────────────────────────
       Text: ({ props, children }: any) => (
-        <Text variant={props.variant} color={props.color} align={props.align} as={props.as}>
+        <Text
+          variant={props.variant}
+          color={props.color}
+          align={props.align}
+          as={props.as}
+          mono={props.mono}
+          truncate={props.truncate}
+        >
           {children}
         </Text>
       ),
@@ -269,6 +277,8 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           error={props.error}
           type={props.type}
           placeholder={props.placeholder}
+          disabledReason={props.disabledReason}
+          showOptional={props.showOptional}
         />
       ),
 
