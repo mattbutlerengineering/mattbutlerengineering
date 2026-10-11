@@ -62,8 +62,20 @@ function CardForm({
     setError(null);
 
     try {
+      // The booking session that confirmed the reservation is the server's
+      // proof of ownership for the deposit (#6304).
+      const sessionId = api.holds.getSessionId();
+      if (!sessionId) {
+        setError("Your booking session has expired. Please start your booking again.");
+        return;
+      }
+
       // Fetch the client secret from our backend
-      const paymentIntent = await api.publicVenue.depositIntent(venueSlug, { reservationId });
+      const paymentIntent = await api.publicVenue.depositIntent(
+        venueSlug,
+        { reservationId },
+        sessionId
+      );
 
       const result = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
         payment_method: { card: cardElement },

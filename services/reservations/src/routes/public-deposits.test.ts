@@ -28,6 +28,7 @@ vi.mock("../services/reservation.js", () => ({
     update: vi.fn(),
     delete: vi.fn(),
     listByUserId: vi.fn(),
+    getOriginSessionId: vi.fn(),
   },
 }));
 
@@ -65,6 +66,10 @@ const depositService = {
 const injectedDeposits = depositService as unknown as DepositService;
 
 const TEST_URL = "/public/v1/venues/test-venue/deposits/payment-intent";
+
+/** The booking-widget session that created (and so owns) `res-1` (#6304). */
+const SESSION_ID = "6f1c2d3e-4b5a-4c6d-8e7f-901a2b3c4d5e";
+const headers = { "x-session-id": SESSION_ID };
 
 const mockVenuePolicy: VenuePolicy = {
   id: "venue-1",
@@ -134,6 +139,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     payments = createInMemoryPayments();
+    vi.mocked(reservationService.getOriginSessionId).mockResolvedValue(SESSION_ID);
   });
 
   it("returns 404 when venue is not found", async () => {
@@ -149,6 +155,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -174,6 +181,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -201,6 +209,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -224,6 +233,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -242,6 +252,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: {},
     });
 
@@ -260,6 +271,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "" },
     });
 
@@ -282,6 +294,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -315,6 +328,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -363,6 +377,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
     });
 
@@ -410,6 +425,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
     });
 
@@ -449,6 +465,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -497,8 +514,8 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       guestEmail: "jane@example.com",
       guestName: "Jane Doe",
     };
-    const first = await app.inject({ method: "POST", url: TEST_URL, payload });
-    const second = await app.inject({ method: "POST", url: TEST_URL, payload });
+    const first = await app.inject({ method: "POST", url: TEST_URL, headers, payload });
+    const second = await app.inject({ method: "POST", url: TEST_URL, headers, payload });
 
     expect(first.statusCode).toBe(201);
     expect(second.statusCode).toBe(201);
@@ -539,6 +556,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1" },
     });
 
@@ -572,6 +590,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
     });
 
@@ -612,6 +631,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
     });
 
@@ -662,8 +682,8 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       guestEmail: "jane@example.com",
       guestName: "Jane Doe",
     };
-    const first = await app.inject({ method: "POST", url: TEST_URL, payload });
-    const second = await app.inject({ method: "POST", url: TEST_URL, payload });
+    const first = await app.inject({ method: "POST", url: TEST_URL, headers, payload });
+    const second = await app.inject({ method: "POST", url: TEST_URL, headers, payload });
 
     expect(first.statusCode).toBe(502);
     expect(second.statusCode).toBe(201);
@@ -688,6 +708,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const response = await app.inject({
       method: "POST",
       url: TEST_URL,
+      headers,
       payload: {},
     });
 
@@ -714,6 +735,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       const response = await app.inject({
         method: "POST",
         url: TEST_URL,
+        headers,
         payload: { reservationId: "res-1" },
       });
       responses.push(response);
@@ -736,5 +758,94 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(eleventh.statusCode).toBe(429);
 
     await app.close();
+  });
+});
+
+// #6304: the reservationId alone is not proof of ownership. The caller must
+// present the booking-widget session (`x-session-id`) that created the
+// reservation, checked BEFORE any Stripe call.
+describe("POST /public/v1/venues/:slug/deposits/payment-intent ownership proof", () => {
+  const OTHER_SESSION_ID = "0a9b8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    payments = createInMemoryPayments();
+    // The rate-limit test above leaves a persistent `null` implementation behind.
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(mockVenuePolicy);
+    vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
+    vi.mocked(depositService.create).mockResolvedValue({
+      ...mockDeposit,
+      stripePaymentIntentId: "pi_test_abc",
+    });
+    // res-1 was created by SESSION_ID; OTHER_SESSION_ID owns a different reservation.
+    vi.mocked(reservationService.getOriginSessionId).mockImplementation(async (id) =>
+      id === "res-1" ? SESSION_ID : OTHER_SESSION_ID
+    );
+  });
+
+  async function post(requestHeaders: Record<string, string>) {
+    const app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      payments,
+    });
+    await app.ready();
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      headers: requestHeaders,
+      payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane" },
+    });
+    await app.close();
+    return response;
+  }
+
+  function expectNoStripeCall() {
+    expect(opCalls("createCustomer")).toHaveLength(0);
+    expect(opCalls("createPaymentIntent")).toHaveLength(0);
+    expect(depositService.create).not.toHaveBeenCalled();
+  }
+
+  it("returns 403 problem-details and makes no Stripe call when x-session-id is missing", async () => {
+    const response = await post({});
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ status: number; title: string }>()).toMatchObject({
+      status: 403,
+      title: "Forbidden",
+    });
+    expectNoStripeCall();
+  });
+
+  it("returns 403 and makes no Stripe call when x-session-id belongs to a different reservation", async () => {
+    const response = await post({ "x-session-id": OTHER_SESSION_ID });
+
+    expect(response.statusCode).toBe(403);
+    expectNoStripeCall();
+  });
+
+  it("returns 403 and makes no Stripe call when the reservation has no originating session", async () => {
+    vi.mocked(reservationService.getOriginSessionId).mockResolvedValue(null);
+
+    const response = await post({ "x-session-id": SESSION_ID });
+
+    expect(response.statusCode).toBe(403);
+    expectNoStripeCall();
+  });
+
+  it("returns 201 when x-session-id matches the reservation's originating session", async () => {
+    payments.respond("createPaymentIntent", () => ({
+      id: "pi_test_abc",
+      status: "requires_payment_method",
+      clientSecret: "pi_test_abc_secret",
+    }));
+
+    const response = await post({ "x-session-id": SESSION_ID });
+
+    expect(response.statusCode).toBe(201);
+    expect(reservationService.getOriginSessionId).toHaveBeenCalledWith("res-1");
+    expect(opCalls("createPaymentIntent")).toHaveLength(1);
   });
 });

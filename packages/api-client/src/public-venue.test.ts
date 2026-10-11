@@ -223,7 +223,7 @@ describe("PublicVenueClient.depositIntent", () => {
   it("sends POST /public/v1/venues/:slug/deposits/payment-intent with the payload", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeIntent }));
 
-    await makeClient().depositIntent("the-oak-table", { reservationId: "res-123" });
+    await makeClient().depositIntent("the-oak-table", { reservationId: "res-123" }, "sess-123");
 
     const [url, options] = mockFetch.mock.calls[0]!;
     expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table/deposits/payment-intent");
@@ -231,12 +231,23 @@ describe("PublicVenueClient.depositIntent", () => {
     expect(JSON.parse(options?.body as string)).toEqual({ reservationId: "res-123" });
   });
 
+  it("sends the booking session id as the x-session-id ownership proof (#6304)", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeIntent }));
+
+    await makeClient().depositIntent("the-oak-table", { reservationId: "res-123" }, "sess-123");
+
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect((options?.headers as Record<string, string>)["x-session-id"]).toBe("sess-123");
+  });
+
   it("unwraps and returns the validated payment intent", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeIntent }));
 
-    const result = await makeClient().depositIntent("the-oak-table", {
-      reservationId: "res-123",
-    });
+    const result = await makeClient().depositIntent(
+      "the-oak-table",
+      { reservationId: "res-123" },
+      "sess-123"
+    );
     expect(result).toEqual(fakeIntent);
   });
 
@@ -244,7 +255,7 @@ describe("PublicVenueClient.depositIntent", () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: { clientSecret: "pi_secret_test" } }));
 
     await expect(
-      makeClient().depositIntent("the-oak-table", { reservationId: "res-123" })
+      makeClient().depositIntent("the-oak-table", { reservationId: "res-123" }, "sess-123")
     ).rejects.toBeInstanceOf(ApiValidationError);
   });
 
@@ -254,7 +265,7 @@ describe("PublicVenueClient.depositIntent", () => {
     );
 
     await expect(
-      makeClient().depositIntent("the-oak-table", { reservationId: "res-123" })
+      makeClient().depositIntent("the-oak-table", { reservationId: "res-123" }, "sess-123")
     ).rejects.toThrow();
   });
 });

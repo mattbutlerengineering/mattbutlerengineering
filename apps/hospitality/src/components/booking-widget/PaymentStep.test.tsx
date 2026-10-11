@@ -69,6 +69,9 @@ const mockApi = {
   publicVenue: {
     depositIntent: vi.fn(),
   },
+  holds: {
+    getSessionId: vi.fn(),
+  },
 };
 
 describe("PaymentStep", () => {
@@ -85,6 +88,7 @@ describe("PaymentStep", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockApi.holds.getSessionId.mockReturnValue("sess-123");
   });
 
   it("renders deposit amount for flat fee", () => {
@@ -220,5 +224,53 @@ describe("PaymentStep", () => {
     await waitFor(() => {
       expect(defaultProps.onSuccess).toHaveBeenCalledWith("pi_test_123");
     });
+  });
+
+  it("sends the booking session id as deposit ownership proof (#6304)", async () => {
+    const { useStripe, useElements } = await import("@stripe/react-stripe-js");
+    vi.mocked(useStripe).mockReturnValue({
+      confirmCardPayment: vi.fn().mockResolvedValue({
+        paymentIntent: { id: "pi_test_123", status: "requires_capture" },
+      }),
+    } as unknown as ReturnType<typeof useStripe>);
+    vi.mocked(useElements).mockReturnValue({
+      getElement: vi.fn().mockReturnValue({ mount: vi.fn() }),
+    } as unknown as ReturnType<typeof useElements>);
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-1",
+      amountCents: 2500,
+      currency: "usd",
+    });
+
+    render(<PaymentStep {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("pay-button"));
+
+    await waitFor(() => {
+      expect(mockApi.publicVenue.depositIntent).toHaveBeenCalledWith(
+        "test-venue",
+        { reservationId: "res-123" },
+        "sess-123"
+      );
+    });
+  });
+
+  it("shows an error and requests no payment intent when the booking session is gone", async () => {
+    const { useStripe, useElements } = await import("@stripe/react-stripe-js");
+    vi.mocked(useStripe).mockReturnValue({
+      confirmCardPayment: vi.fn(),
+    } as unknown as ReturnType<typeof useStripe>);
+    vi.mocked(useElements).mockReturnValue({
+      getElement: vi.fn().mockReturnValue({ mount: vi.fn() }),
+    } as unknown as ReturnType<typeof useElements>);
+    mockApi.holds.getSessionId.mockReturnValue(null);
+
+    render(<PaymentStep {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("pay-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("alert")).toBeDefined();
+    });
+    expect(mockApi.publicVenue.depositIntent).not.toHaveBeenCalled();
   });
 });

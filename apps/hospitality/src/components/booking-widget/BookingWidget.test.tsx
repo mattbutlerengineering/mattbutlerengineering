@@ -133,6 +133,9 @@ describe("BookingWidget", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    // resetAllMocks wipes the "s1" default; PaymentStep needs the booking
+    // session as deposit ownership proof (#6304).
+    mockApi.holds.getSessionId.mockReturnValue("s1");
     vi.mocked(usePublicApiClient).mockReturnValue(
       mockApi as unknown as ReturnType<typeof usePublicApiClient>
     );

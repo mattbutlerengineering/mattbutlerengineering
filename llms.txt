@@ -6295,6 +6295,12 @@
         currency: string;
       }
     </item>
+    <item priority="medium">
+      function sessionIdsMatch(presented: string, stored: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export const publicDepositRoutes: FastifyPluginAsync;
     </item>

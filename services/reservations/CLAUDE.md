@@ -389,6 +389,11 @@ Raw body access is required for HMAC signature verification — this route must 
 | GET    | `/public/v1/reservations/confirm`                 | Confirm attendance via token            |
 
 The public deposit route creates a Stripe PaymentIntent (manual capture) and a `Deposit` record in `pending` state, returning the `clientSecret` for Stripe.js to confirm on the frontend.
+It requires the `x-session-id` of the booking session that confirmed the
+reservation (`Reservation.originSessionId`, copied from the hold by
+`confirmHold`), compared in constant time before any Stripe call; a missing
+header, a mismatch, or a reservation with no originating session (created
+outside the widget) is a 403 (#6304).
 
 Every `/holds` route above requires the `x-session-id` returned at hold
 creation (a high-entropy capability token) for reads, releases and confirms —
