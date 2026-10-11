@@ -55,6 +55,16 @@
   background: rgb(196 146 42 / 0.15);
 }
 
+/* The global hover fill (surface-matte) drops error/success text below 4.5:1;
+   keep the variant tint so hover stays AA (success cannot get stronger). */
+.interactive.success:hover {
+  background: rgb(76 140 74 / 0.08);
+}
+
+.interactive.error:hover {
+  background: rgb(180 60 50 / 0.14);
+}
+
 /* ── Label button (interactive + dismissible chip) ── */
 .labelButton {
   composes: focusRing from "../../styles/surfaces.module.css";
