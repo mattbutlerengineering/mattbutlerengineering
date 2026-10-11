@@ -1,8 +1,8 @@
 import { forwardRef, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { Lock } from "lucide-react";
-import { springGentle } from "../../tokens/motion";
 import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useCombobox } from "../../hooks/useCombobox";
@@ -89,7 +89,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const wrapperRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const { open, focusedIndex, toggle, select, setFocusedIndex, handleKeyDown } = useCombobox({
       items: options,
@@ -190,7 +191,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
               strokeLinecap="round"
               aria-hidden="true"
               animate={{ rotate: open ? 180 : 0 }}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              transition={motionPreset.springGentle}
             >
               <path d="M2.5 4.5l3.5 3.5 3.5-3.5" />
             </motion.svg>
@@ -210,7 +211,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                 initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
                 animate={{ opacity: 1, scaleY: 1, y: 0 }}
                 exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
-                transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+                transition={motionPreset.springGentle}
               >
                 {options.map((option, index) => (
                   <div

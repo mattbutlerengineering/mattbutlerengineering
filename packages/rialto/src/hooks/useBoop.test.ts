@@ -5,7 +5,6 @@ vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion");
   return {
     ...actual,
-    useReducedMotion: () => false,
     useMotionValue: (initial: number) => {
       let val = initial;
       return {
@@ -20,6 +19,10 @@ vi.mock("framer-motion", async () => {
 });
 
 import { useBoop } from "./useBoop";
+import { stubMatchMedia } from "../test/match-media";
+
+// Full motion: no device preference matches (see test/match-media.ts).
+stubMatchMedia([]);
 
 describe("useBoop", () => {
   it("returns style with scale and event handlers", () => {

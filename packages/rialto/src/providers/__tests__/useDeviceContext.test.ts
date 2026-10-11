@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
+import type { DeviceContext } from "../useDeviceContext";
 
 /* ── Helpers ─────────────────────────────────── */
 
@@ -53,8 +53,11 @@ beforeEach(() => {
 /* ── Tests ───────────────────────────────────── */
 
 describe("useDeviceContext", () => {
-  it("returns SSR-safe defaults", () => {
-    const { result } = renderHook(() => useDeviceContext());
+  it("returns SSR-safe defaults", async () => {
+    const { mock } = createMatchMediaMock();
+    Object.defineProperty(window, "matchMedia", { value: mock, writable: true });
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
+    const { result } = renderHook(() => freshHook());
 
     expect(result.current).toEqual<DeviceContext>({
       pointer: "fine",

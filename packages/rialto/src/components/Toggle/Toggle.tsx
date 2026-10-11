@@ -1,7 +1,7 @@
 import { forwardRef, useId, useRef, type InputHTMLAttributes } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { Lock } from "lucide-react";
-import { spring, boop } from "../../tokens/motion";
 import { cn } from "../../utils/class-composer";
 import { useDirection } from "../../hooks/useDirection";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
@@ -29,7 +29,7 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
     const isControlled = checked !== undefined;
     const autoId = useId();
     const id = props.id ?? autoId;
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const dir = useDirection(wrapperRef);
 
@@ -63,12 +63,8 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
             <motion.div
               className={styles.knob}
               animate={{ x: (checked ?? false) ? (dir === "rtl" ? -20 : 20) : 0 }}
-              whileHover={
-                disabled || shouldReduceMotion
-                  ? undefined
-                  : { scale: boop.scale, transition: boop.transition }
-              }
-              transition={shouldReduceMotion ? { duration: 0 } : spring}
+              whileHover={disabled ? undefined : motionPreset.boop}
+              transition={motionPreset.spring}
             />
           </label>
           {label && (

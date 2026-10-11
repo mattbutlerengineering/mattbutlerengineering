@@ -9,8 +9,8 @@ import {
   type HTMLAttributes,
   type KeyboardEvent,
 } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { spring } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Tabs.module.css";
 
@@ -62,7 +62,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
     const [indicator, setIndicator] = useState({ left: 0, width: 0 });
     const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const listRef = useRef<HTMLDivElement>(null);
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const baseId = useId();
 
     const updateIndicator = useCallback(() => {
@@ -150,7 +151,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
             layout={shouldReduceMotion ? false : true}
             className={styles.indicator}
             style={{ left: indicator.left, width: indicator.width }}
-            transition={shouldReduceMotion ? { duration: 0 } : spring}
+            transition={motionPreset.spring}
           />
         </div>
 

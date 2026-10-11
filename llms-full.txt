@@ -14940,7 +14940,7 @@
       onMouseEnter: () => void;
       onMouseLeave: () => void;
     } {
-      const shouldReduceMotion = useReducedMotion();
+      const { reduced: shouldReduceMotion } = useMotionPreset();
       const scale = useMotionValue(1);
       const { stiffness, damping, mass } = boop.transition;
       const springScale = useSpring(scale, { stiffness, damping, mass });
@@ -15603,8 +15603,8 @@
       onMouseLeave: () => void;
     } {
       const elRef = useRef<HTMLDivElement | null>(null);
-      const shouldReduceMotion = useReducedMotion();
       const motionPreset = useMotionPreset();
+      const shouldReduceMotion = motionPreset.reduced;
     
       const rotateX = useMotionValue(0);
       const rotateY = useMotionValue(0);
@@ -18505,13 +18505,26 @@
       damping: number;
       mass: number;
     }
+    export type BoopHover = {
+      scale: number;
+      transition: SpringTransition | InstantTransition;
+    };
     export interface MotionPreset {
+      /**
+       * Whether the user prefers reduced motion — the same signal every field
+       * below is resolved from. Use it to choose keyframe targets (e.g. drop a
+       * slide offset from `initial`); never to choose a transition, which is
+       * already resolved.
+       */
+      reduced: boolean;
       /** Standard UI transitions, hover states, small movements. */
       precision: EasedTransition | InstantTransition;
       /** Toggles, AI elements, high-interaction components. */
       spring: SpringTransition | InstantTransition;
       /** Larger movements — dialog entrances, card expansions. */
       springGentle: SpringTransition | InstantTransition;
+      /** Brief spring scale on hover — pass to `whileHover`. At rest scale under reduced motion. */
+      boop: BoopHover;
       /** Cursor-tracking tilt — a `useSpring` config, not a transition. */
       tilt: SpringOptions;
     }
@@ -58807,6 +58820,50 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="packages/rialto/src/test/match-media.ts">
+    export const PREFERS_REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+    export function stubMatchMedia(matching: readonly string[]): void {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: matching.includes(query),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+  </file>
+  <file path="packages/rialto/src/test/record-motion.ts">
+    export async function recordingFramerMotion(): Promise<typeof FramerMotion> {
+      const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
+      const cache = new Map<PropertyKey, unknown>();
+      const motion = new Proxy(actual.motion, {
+        get(target, key) {
+          if (!cache.has(key)) {
+            const Inner = Reflect.get(target, key) as ElementType;
+            const Recorded = (props: { transition?: unknown; ref?: Ref<unknown> }) =>
+              createElement(Inner, {
+                ...props,
+                "data-motion-transition": JSON.stringify(props.transition ?? null),
+              });
+            Recorded.displayName = `Recorded(${String(key)})`;
+            cache.set(key, Recorded);
+          }
+          return cache.get(key);
+        },
+      });
+      // Overloaded signature: vi.fn() keeps only the last overload, so cast back.
+      const useSpring = vi.fn(actual.useSpring) as unknown as typeof actual.useSpring;
+      return { ...actual, motion, useSpring };
+    }
+    export function recordedTransitions(root: ParentNode = document): unknown[] {
+      return Array.from(root.querySelectorAll("[data-motion-transition]"))
+        .map((el) => JSON.parse(el.getAttribute("data-motion-transition") ?? "null") as unknown)
+        .filter((t) => t !== null);
+    }
+  </file>
   <file path="services/reservations/src/test/effects-harness.ts">
     export interface RecordedEvent {
       type: string;

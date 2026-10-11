@@ -9,8 +9,8 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -81,7 +81,8 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const open = openProp ?? internalOpen;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
   const panelId = useId();
 
   const setOpen = useCallback(
@@ -135,7 +136,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
             animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
-            transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
+            transition={motionPreset.springGentle}
           >
             {title && (
               <div className={styles.header}>

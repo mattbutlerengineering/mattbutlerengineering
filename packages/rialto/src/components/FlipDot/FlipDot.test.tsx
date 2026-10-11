@@ -1,6 +1,10 @@
 import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { FlipDot } from "./FlipDot";
+import { stubMatchMedia } from "../../test/match-media";
+
+// Full motion: no device preference matches (see test/match-media.ts).
+stubMatchMedia([]);
 
 // Mock framer-motion to avoid animation complexity in tests
 vi.mock("framer-motion", () => ({
@@ -9,7 +13,6 @@ vi.mock("framer-motion", () => ({
       <div {...props}>{children}</div>
     ),
   },
-  useReducedMotion: () => false,
 }));
 
 describe("FlipDot", () => {

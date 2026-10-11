@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { springGentle, reduced } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Hero.module.css";
 
@@ -75,8 +75,9 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
   ) => {
     // Avoid spreading arbitrary HTML attrs onto motion.section (type conflict)
     void rest;
-    const shouldReduceMotion = useReducedMotion();
-    const transition = shouldReduceMotion ? reduced : springGentle;
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
+    const transition = motionPreset.springGentle;
 
     const classes = cn(styles.hero, className);
 

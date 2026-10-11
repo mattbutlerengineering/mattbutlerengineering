@@ -7,8 +7,8 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Tree.module.css";
 
@@ -101,7 +101,7 @@ function flattenVisible(
 /* ── Chevron ──────────────────────────────────── */
 
 function TreeChevron({ open }: { open: boolean }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <motion.svg
       className={styles.chevron}
@@ -115,7 +115,7 @@ function TreeChevron({ open }: { open: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
       animate={{ rotate: open ? 90 : 0 }}
-      transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+      transition={motionPreset.springGentle}
     >
       <path d="M4 2l4 4-4 4" />
     </motion.svg>

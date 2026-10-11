@@ -9,8 +9,8 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
@@ -101,7 +101,8 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
 
   useReturnFocus(open);
 
@@ -220,7 +221,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
-            transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
+            transition={motionPreset.springGentle}
           >
             {items.map((entry, i) => {
               if (entry.type === "divider") {

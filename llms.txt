@@ -5627,11 +5627,17 @@
       }
     </item>
     <item priority="low">
+      type BoopHover = {
+        scale: number;
+        transition: SpringTransition | Insta...;
+    </item>
+    <item priority="low">
       interface MotionPreset {
+        reduced: boolean;
         precision: EasedTransition | InstantTransition;
         spring: SpringTransition | InstantTransition;
         springGentle: SpringTransition | InstantTransition;
-        tilt: SpringOptions;
+        boop: BoopHover;
       }
     </item>
     <item priority="high">
@@ -16363,6 +16369,22 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="packages/rialto/src/test/match-media.ts">
+    <item priority="high">
+      export const PREFERS_REDUCED_MOTION: unknown;
+    </item>
+    <item priority="high">
+      export function stubMatchMedia(matching: readonly string[]): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/test/record-motion.ts">
+    <item priority="high">
+      export async function recordingFramerMotion(): Promise<typeof FramerMotion> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recordedTransitions(root: ParentNode = document): unknown[] { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/test/effects-harness.ts">
     <item priority="low">
       interface RecordedEvent {

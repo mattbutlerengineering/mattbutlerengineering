@@ -6,7 +6,7 @@ import {
   type ClipboardEvent,
   type ChangeEvent,
 } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn, variantClass } from "../../utils/class-composer";
@@ -71,8 +71,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
 ) {
   const field = useField({ error, required, hint });
   const cellRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const shouldReduceMotion = useReducedMotion();
-  const { spring } = useMotionPreset();
+  const { spring, reduced: shouldReduceMotion } = useMotionPreset();
 
   const chars = Array.from({ length }, (_, i) => value[i] ?? "");
 

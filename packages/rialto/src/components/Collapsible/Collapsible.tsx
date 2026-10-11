@@ -1,6 +1,6 @@
 import { forwardRef, useState, useId, type ReactNode } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Collapsible.module.css";
 
@@ -34,7 +34,7 @@ export interface CollapsibleProps {
 }
 
 function Chevron({ open }: { open: boolean }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <motion.svg
       className={styles.chevron}
@@ -48,7 +48,7 @@ function Chevron({ open }: { open: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
       animate={{ rotate: open ? 180 : 0 }}
-      transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+      transition={motionPreset.springGentle}
     >
       <path d="M3 5.5l4 4 4-4" />
     </motion.svg>
@@ -72,7 +72,8 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
     const [internalOpen, setInternalOpen] = useState(defaultOpen);
     const isControlled = controlledOpen !== undefined;
     const isOpen = isControlled ? controlledOpen : internalOpen;
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const contentId = useId();
     const triggerId = useId();
@@ -95,7 +96,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
         aria-controls={contentId}
         data-open={isOpen}
         layout={shouldReduceMotion ? false : "position"}
-        transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+        transition={motionPreset.springGentle}
       >
         <span className={styles.triggerLabel}>{trigger}</span>
         <Chevron open={isOpen} />
@@ -107,7 +108,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
         ref={ref}
         className={cn(styles.collapsible, className)}
         layout={shouldReduceMotion ? false : true}
-        transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+        transition={motionPreset.springGentle}
       >
         {HeadingTag ? (
           <HeadingTag className={styles.heading}>{triggerButton}</HeadingTag>
@@ -126,7 +127,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
               initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              transition={motionPreset.springGentle}
             >
               <div className={styles.contentInner}>{children}</div>
             </motion.div>

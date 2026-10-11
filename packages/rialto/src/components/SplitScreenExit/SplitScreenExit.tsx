@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./SplitScreenExit.module.css";
 
@@ -45,7 +45,8 @@ export interface SplitScreenExitProps {
 
 export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
   ({ active, onExitComplete, announcement, children, className }, ref) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     // "idle" → "running" after first half completes → "fired" after both
     // (or immediately under reduced motion). Reset to "idle" when active flips
     // back to false so the component can be re-armed.
@@ -89,7 +90,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
               aria-hidden="true"
               initial={{ x: 0 }}
               animate={{ x: "-100%" }}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              transition={motionPreset.springGentle}
               onAnimationComplete={handleHalfComplete}
             >
               <div className={styles.content}>{children}</div>
@@ -99,7 +100,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
               aria-hidden="true"
               initial={{ x: 0 }}
               animate={{ x: "100%" }}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              transition={motionPreset.springGentle}
               onAnimationComplete={handleHalfComplete}
             >
               <div className={styles.content}>{children}</div>

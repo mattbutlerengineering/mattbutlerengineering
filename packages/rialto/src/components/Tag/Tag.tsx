@@ -1,6 +1,6 @@
 import { forwardRef, type ReactNode } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { spring, boop } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Tag.module.css";
 
@@ -48,7 +48,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
     ref
   ) => {
     const isInteractive = !!onClick;
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
     const classes = cn(
       styles.tag,
       variantClass(styles, variant, "default"),
@@ -57,9 +57,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
       className
     );
 
-    const hoverAnimation = shouldReduceMotion
-      ? undefined
-      : { scale: boop.scale, transition: boop.transition };
+    const hoverAnimation = motionPreset.boop;
 
     // Interactive + dismissible: render the clickable label and the dismiss
     // control as SIBLINGS inside a non-interactive chip wrapper so we never
@@ -168,7 +166,8 @@ export interface AnimatedTagProps extends TagProps {
 
 export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
   ({ id: _id, ...props }, ref) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     return (
       <motion.div
@@ -177,7 +176,7 @@ export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
-        transition={shouldReduceMotion ? { duration: 0.1 } : spring}
+        transition={motionPreset.spring}
         style={{ display: "inline-flex" }}
       >
         <Tag {...props} />

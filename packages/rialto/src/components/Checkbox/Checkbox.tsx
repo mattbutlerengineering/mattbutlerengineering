@@ -1,7 +1,7 @@
 import { forwardRef, useId, useState, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { Lock } from "lucide-react";
-import { spring, boop } from "../../tokens/motion";
 import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Checkbox.module.css";
@@ -53,7 +53,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
   ) => {
     const id = useId();
     const descId = useId();
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
     const [uncontrolledChecked, setUncontrolledChecked] = useState(defaultChecked);
     const isControlled = checkedProp !== undefined;
     const checked = isControlled ? checkedProp : uncontrolledChecked;
@@ -87,18 +87,14 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
             />
             <motion.span
               className={styles.box}
-              whileHover={
-                disabled || shouldReduceMotion
-                  ? undefined
-                  : { scale: boop.scale, transition: boop.transition }
-              }
+              whileHover={disabled ? undefined : motionPreset.boop}
             >
               <motion.span
                 className={styles.check}
                 animate={
                   checked || indeterminate ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }
                 }
-                transition={shouldReduceMotion ? { duration: 0 } : spring}
+                transition={motionPreset.spring}
               >
                 {indeterminate ? (
                   <svg
@@ -191,7 +187,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
   ) => {
     const id = useId();
     const descId = useId();
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -214,16 +210,12 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
             />
             <motion.span
               className={styles.circle}
-              whileHover={
-                disabled || shouldReduceMotion
-                  ? undefined
-                  : { scale: boop.scale, transition: boop.transition }
-              }
+              whileHover={disabled ? undefined : motionPreset.boop}
             >
               <motion.span
                 className={styles.dot}
                 animate={checked ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-                transition={shouldReduceMotion ? { duration: 0 } : spring}
+                transition={motionPreset.spring}
               />
             </motion.span>
             <span className={styles.radioText}>
