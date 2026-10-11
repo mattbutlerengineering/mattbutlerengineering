@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-11T00:52:56.607Z",
+  "generated_at": "2026-10-11T18:04:26.254Z",
   "period": {
     "start": "2026-10-04",
     "end": "2026-10-11"
@@ -11,7 +11,7 @@
       "level_name": "Fully Autonomous",
       "criteria_met": 78,
       "criteria_total": 84,
-      "last_run": "2026-10-10T10:28:41.639Z",
+      "last_run": "2026-10-11T10:41:15.645Z",
       "capped": false,
       "failing_gates": []
     },
@@ -42,72 +42,77 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.36,
-          "latest": "2026-10-10T16:17:55.290Z",
+          "age_days": 0.06,
+          "latest": "2026-10-11T16:41:22.285Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.03,
-          "latest": "2026-10-11T00:16:37.727Z",
+          "age_days": 0.14,
+          "latest": "2026-10-11T14:36:30.000Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-10T16:17:55.290Z",
+      "collected_at": "2026-10-11T16:41:22.285Z",
       "window_days": 7,
       "total_closed_prs": 100,
-      "total_reviewers": 1,
-      "total_reviews": 1,
+      "total_reviewers": 0,
+      "total_reviews": 0,
       "overall_rubber_stamp_ratio": 0,
       "overall_approvals": 0,
       "overall_rubber_stamps": 0,
-      "review_coverage": "measured",
-      "no_formal_review_stage": false
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 95,
-      "total_merged": 89,
-      "total_closed_without_merge": 6,
+      "total_prs": 98,
+      "total_merged": 93,
+      "total_closed_without_merge": 5,
       "by_category": {
-        "tier:trivial": {
-          "merged": 35,
+        "tier:standard": {
+          "merged": 31,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 13,
+          "merged": 20,
           "closed_without_merge": 3,
-          "acceptance_rate": 0.81
+          "acceptance_rate": 0.87
         },
-        "tier:standard": {
-          "merged": 33,
+        "tier:trivial": {
+          "merged": 32,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "unlabeled": {
+          "merged": 4,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.8
+        },
+        "meta-improvement": {
+          "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 5,
+          "merged": 4,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "priority:critical": {
           "merged": 0,
-          "closed_without_merge": 2,
+          "closed_without_merge": 1,
           "acceptance_rate": 0
         },
         "agent-authored": {
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 2,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.67
         }
       }
     },
@@ -127,24 +132,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 50017352,
-      "output_tokens": 77732,
-      "cache_creation_tokens": 581553,
-      "cache_hit_rate": 0.9885,
+      "cache_read_tokens": 1101699,
+      "output_tokens": 1313,
+      "cache_creation_tokens": 86983,
+      "cache_hit_rate": 0.9268,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 465,
-          "output_tokens": 75998,
-          "cache_read_tokens": 49085200,
-          "cache_creation_tokens": 435198
-        },
-        "claude-haiku-5-5": {
-          "cost": 0,
-          "input_tokens": 30,
-          "output_tokens": 1734,
-          "cache_read_tokens": 932152,
-          "cache_creation_tokens": 146355
+          "input_tokens": 18,
+          "output_tokens": 1313,
+          "cache_read_tokens": 1101699,
+          "cache_creation_tokens": 86983
         }
       }
     },
@@ -152,17 +150,17 @@
       "available": true,
       "total_runs": 30,
       "completed": 18,
-      "passed": 2,
+      "passed": 11,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 38099887671,
+        "databaseId": 38162268646,
         "status": "queued",
         "conclusion": null,
-        "createdAt": "2026-10-11T00:52:14Z",
-        "name": "Auto-Merge Policy",
+        "createdAt": "2026-10-11T18:04:22Z",
+        "name": "Drift Fix",
         "headBranch": "main",
-        "headSha": "bc4f92cc20e3fade846d19c1acc7d6c5837a8f9a"
+        "headSha": "73dc06091d92293c2ff9ce6d75b95f1e18f91b15"
       }
     },
     "lighthouse": {
@@ -180,17 +178,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 42,
-      "logs_7d": 42,
-      "total_commits_7d": 840,
-      "unique_branches_7d": 1,
-      "branches_7d": ["main"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.006,
-      "total_lines_added_7d": 714024,
-      "lines_churned_7d": 4108,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 712581,
+      "lines_churned_7d": 1440,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -199,8 +197,11 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 6977,
+      "window_shas": 1
     },
     "e2eStability": {
       "available": false
@@ -223,7 +224,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 10,
+    "sensors_available": 11,
     "sensors_total": 17,
     "regressions_detected": 0,
     "status": "healthy"
