@@ -155,6 +155,36 @@ describe("PublicBookingPage", () => {
     });
   });
 
+  describe("main landmark (axe landmark-one-main / region)", () => {
+    it("wraps the loading state in a single main landmark", () => {
+      mockGetBySlug.mockReturnValue(new Promise<Venue>(() => {}));
+      renderPage();
+      expect(screen.getAllByRole("main")).toHaveLength(1);
+      expect(screen.getByRole("main").textContent).toContain("Loading venue...");
+    });
+
+    it("wraps the not-found state in a single main landmark", async () => {
+      mockGetBySlug.mockRejectedValue(new Error("nope"));
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("main").textContent).toContain("Venue not found");
+      });
+      expect(screen.getAllByRole("main")).toHaveLength(1);
+    });
+
+    it("wraps the resolved page (heading + widget) in a single main landmark", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+      const main = screen.getByRole("main");
+      expect(screen.getAllByRole("main")).toHaveLength(1);
+      expect(main.contains(screen.getByTestId("booking-widget"))).toBe(true);
+      expect(main.textContent).toContain("The Grand Table");
+    });
+  });
+
   describe("loading state", () => {
     it("shows loading text while fetching venue", () => {
       // Never-resolving promise keeps the query pending.
