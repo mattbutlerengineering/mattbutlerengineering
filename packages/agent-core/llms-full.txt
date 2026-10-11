@@ -61,13 +61,6 @@
   </section>
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
-    function deriveHasChanges(result: SessionResult): boolean {
-      if (result.prUrl !== null) return true;
-      // If the session succeeded and produced a branch, there were likely changes
-      // even if the PR wasn't created (createPr: false path).
-      if (result.status === "succeeded" && result.branchName.length > 0) return true;
-      return false;
-    }
     export class ClaudeAdapter implements AgentAdapter {
       readonly name = "claude";
     
@@ -79,52 +72,6 @@
           typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
           process.env["ANTHROPIC_API_KEY"].length > 0
         );
-      }
-    
-      /**
-       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
-       * result back to AdapterResult.
-       */
-      async run(config: AdapterConfig): Promise<AdapterResult> {
-        const startTime = Date.now();
-    
-        try {
-          const sessionResult = await runSessionPipeline({
-            taskDescription: config.taskDescription,
-            repoPath: config.repoPath,
-            baseBranch: config.baseBranch,
-            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
-            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
-            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
-            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-            createPr: false, // Worktree lifecycle is managed by the caller / router
-          });
-    
-          const durationMs = Date.now() - startTime;
-          const rateLimited = sessionResult.failureCategory === "rate_limited";
-          const success = sessionResult.status === "succeeded";
-          const hasChanges = deriveHasChanges(sessionResult);
-    
-          return {
-            success,
-            hasChanges,
-            rateLimited,
-            durationMs,
-            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
-          };
-        } catch (err: unknown) {
-          const durationMs = Date.now() - startTime;
-          const message = err instanceof Error ? err.message : String(err);
-          const rateLimited = scanForRateLimitPatterns(message);
-    
-          return {
-            success: false,
-            hasChanges: false,
-            rateLimited,
-            durationMs,
-            error: message,
-          };
-        }
       }
     
       /**
@@ -186,7 +133,7 @@
       /**
        * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
        * the same JSON stdout blob, falling back to raw stderr in
-       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
        * contract, mirrors opencode-adapter.ts).
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
@@ -229,7 +176,7 @@
       /**
        * Recover a human-readable error message from the CLI's stdout when the
        * run failed, for backends that emit structured JSON there instead of (or
-       * in addition to) stderr. Base implementation reports none — `run()`
+       * in addition to) stderr. Base implementation reports none — `dispatch()`
        * falls through to the raw stderr text (see ADR-017 failure-PR-body
        * contract, #3019).
        */
@@ -252,28 +199,15 @@
       }
     
       /**
-       * Execute the shared CLI adapter lifecycle:
+       * Execute the shared CLI adapter lifecycle WITHOUT committing:
        *   1. Truncate task description
        *   2. Spawn the CLI subprocess via buildArgs
        *   3. Detect rate limiting in combined output
-       *   4. Check for git changes; commit if present
+       *   4. Check for git changes
        *   5. Return normalized AdapterResult
-       */
-      async run(config: AdapterConfig): Promise<AdapterResult> {
-        const result = await this.dispatch(config);
-        if (result.hasChanges) {
-          await this.commitChanges(config.worktreePath, config.taskDescription);
-        }
-        return result;
-      }
-    
-      /**
-       * Spawn the CLI subprocess and detect changes WITHOUT committing them.
-       * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
-       * contract used by `--adapter` dispatch); the Phase
-       * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
-       * leaves the commit to `VerificationPhase`, mirroring how Claude's
-       * QueryPhase never commits either (#3234).
+       * The Phase pipeline (`run-cli-adapter-session.ts`) calls this and leaves the
+       * commit to `VerificationPhase`, mirroring how Claude's QueryPhase never
+       * commits either (#3234).
        */
       async dispatch(config: AdapterConfig): Promise<AdapterResult> {
         const startTime = Date.now();
@@ -345,17 +279,6 @@
         return scanForRateLimitPatterns(output);
       }
     
-      /**
-       * Build a short conventional commit message from the task description.
-       */
-      protected buildCommitMessage(task: string): string {
-        const maxSubject = 72;
-        const prefix = "feat: ";
-        const available = maxSubject - prefix.length;
-        const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-        return `${prefix}${subject}`;
-      }
-    
       // ── Private helpers ──────────────────────────────────────────────
     
       /**
@@ -396,19 +319,6 @@
         } catch {
           return false;
         }
-      }
-    
-      /**
-       * Stage all changes and commit with a descriptive message.
-       */
-      private async commitChanges(worktreePath: string, task: string): Promise<void> {
-        const gitOpts = { cwd: worktreePath, timeout: GIT_TIMEOUT_MS };
-        await execFileAsync("git", ["-C", worktreePath, "add", "-A"], gitOpts);
-        await execFileAsync(
-          "git",
-          ["-C", worktreePath, "commit", "-m", this.buildCommitMessage(task)],
-          gitOpts
-        );
       }
     }
   </file>
@@ -768,7 +678,7 @@
       /**
        * Recovers OpenCode's structured `type: "error"` event message from the
        * same NDJSON stdout stream on failure, falling back to raw stderr in
-       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
        * contract, #3019).
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
@@ -3740,8 +3650,6 @@
       readonly name: string;
       /** Check whether the adapter's CLI / SDK dependency is installed and reachable. */
       isAvailable(): Promise<boolean>;
-      /** Execute the agent task and return a normalized result. */
-      run(config: AdapterConfig): Promise<AdapterResult>;
     }
   </file>
   <file path="src/context-budget.ts">

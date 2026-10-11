@@ -48,7 +48,6 @@ function makeMockAdapter(
   return {
     name,
     isAvailable: vi.fn<() => Promise<boolean>>().mockResolvedValue(available),
-    run: vi.fn(),
     runSession: vi.fn().mockResolvedValue(makeResult(result)),
   };
 }

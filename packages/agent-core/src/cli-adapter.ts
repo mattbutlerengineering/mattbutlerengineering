@@ -69,6 +69,4 @@ export interface AgentAdapter {
   readonly name: string;
   /** Check whether the adapter's CLI / SDK dependency is installed and reachable. */
   isAvailable(): Promise<boolean>;
-  /** Execute the agent task and return a normalized result. */
-  run(config: AdapterConfig): Promise<AdapterResult>;
 }
