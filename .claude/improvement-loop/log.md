@@ -3151,3 +3151,8 @@ Issue reconciliation was still completed read-only, since the skipped plan is th
 **AI issue feedback:** `collect-ai-issue-feedback.mjs` failed with the same GraphQL-403 — `metrics/ai-issue-feedback.json` unchanged except timestamp, still no `budgets` key populated this run. Default budget of 3 applies per the skill's fallback rule; moot this run since 0 regressions means no issue creation was gated on it.
 **Skill proposals:** 0 — today is Saturday, not the configured Friday extraction day; step skipped per schedule.
 **Threshold notes:** False-positive rate computed by hand via `gh api repos/mattbutlerengineering/mattbutlerengineering/issues?labels=<sensor-label>&state=closed&since=2026-09-10&per_page=100 --paginate` (REST, unaffected by the GraphQL block) across the five sensor-label categories (ci-fix, acmm, audit, sentry, bug): 216 closed in the 30-day window, 189 `completed` + 15 `duplicate` + 12 `not_planned` → 27 false positives → 12.5% false-positive rate, consistent with the 2026-10-06/07/08 runs (11.3-11.8%) and well under the 30% loosen-threshold trigger. Fix-effectiveness rate is 100% (11/11) per above — thin sample, ACMM-only. No threshold changes applied this run.
+
+## 2026-10-11
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
