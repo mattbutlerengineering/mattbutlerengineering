@@ -50,21 +50,24 @@ const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 /** No-dead-end error surface: every failure state offers a way out, not just prose (#4980). */
 function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
   return (
-    <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-      <EmptyState
-        variant="elevated"
-        heading={heading}
-        description={description}
-        action={
-          <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-            Back to Matt Butler Engineering
-          </a>
-        }
-      />
-      <Text variant="caption" color="secondary">
-        {SUPPORT_LINE}
-      </Text>
-    </Stack>
+    <main>
+      <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
+        <EmptyState
+          variant="elevated"
+          headingLevel={1}
+          heading={heading}
+          description={description}
+          action={
+            <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
+              Back to Matt Butler Engineering
+            </a>
+          }
+        />
+        <Text variant="caption" color="secondary">
+          {SUPPORT_LINE}
+        </Text>
+      </Stack>
+    </main>
   );
 }
 
@@ -113,11 +116,13 @@ export function ManageReservationPage() {
 
   if (isLoading) {
     return (
-      <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-        <Text variant="body" color="secondary">
-          Loading reservation...
-        </Text>
-      </Stack>
+      <main>
+        <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
+          <Text as="h1" variant="body" color="secondary">
+            Loading reservation...
+          </Text>
+        </Stack>
+      </main>
     );
   }
 
@@ -147,130 +152,130 @@ export function ManageReservationPage() {
   const canCancel = CANCELLABLE_STATUSES.has(reservation.status);
 
   return (
-    <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-      <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
-        {venue && (
+    <main>
+      <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
+        <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
           <Text as="h1" variant="display">
-            {venue.name}
+            {venue ? venue.name : "Your reservation"}
           </Text>
-        )}
 
-        <Card>
-          <Stack gap="md" style={{ padding: "1.5rem" }}>
-            <Text as="h2" variant="label">
-              Reservation Details
-            </Text>
-
-            <Stack gap="sm">
-              <Stack direction="row" justify="between">
-                <Text variant="body" color="secondary">
-                  Guest
-                </Text>
-                <Text variant="body">{reservation.guestName}</Text>
-              </Stack>
-
-              <Stack direction="row" justify="between">
-                <Text variant="body" color="secondary">
-                  Party Size
-                </Text>
-                <Text variant="body">{reservation.partySize} guests</Text>
-              </Stack>
-
-              <Stack direction="row" justify="between">
-                <Text variant="body" color="secondary">
-                  Date
-                </Text>
-                <Text variant="body">{formattedDate}</Text>
-              </Stack>
-
-              <Stack direction="row" justify="between">
-                <Text variant="body" color="secondary">
-                  Time
-                </Text>
-                <Text variant="body">
-                  {formattedStart} – {formattedEnd}
-                </Text>
-              </Stack>
-
-              {reservation.notes && (
-                <Stack direction="row" justify="between">
-                  <Text variant="body" color="secondary">
-                    Special Requests
-                  </Text>
-                  <Text variant="body">{reservation.notes}</Text>
-                </Stack>
-              )}
-            </Stack>
-          </Stack>
-        </Card>
-
-        {venue && (
           <Card>
             <Stack gap="md" style={{ padding: "1.5rem" }}>
               <Text as="h2" variant="label">
-                Add to Calendar
+                Reservation Details
               </Text>
-              <div className={styles.calendarActions}>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    downloadIcsFile(
-                      buildReservationIcs(reservation, venue),
-                      `reservation-${reservation.id.slice(-8)}.ics`
-                    )
-                  }
-                >
-                  Download .ics
-                </Button>
-                <a
-                  className={styles.calendarLink}
-                  href={buildGoogleCalendarUrl(reservation, venue)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Google Calendar
-                </a>
-                <a
-                  className={styles.calendarLink}
-                  href={buildOutlookCalendarUrl(reservation, venue)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Outlook
-                </a>
-              </div>
+
+              <Stack gap="sm">
+                <Stack direction="row" justify="between">
+                  <Text variant="body" color="secondary">
+                    Guest
+                  </Text>
+                  <Text variant="body">{reservation.guestName}</Text>
+                </Stack>
+
+                <Stack direction="row" justify="between">
+                  <Text variant="body" color="secondary">
+                    Party Size
+                  </Text>
+                  <Text variant="body">{reservation.partySize} guests</Text>
+                </Stack>
+
+                <Stack direction="row" justify="between">
+                  <Text variant="body" color="secondary">
+                    Date
+                  </Text>
+                  <Text variant="body">{formattedDate}</Text>
+                </Stack>
+
+                <Stack direction="row" justify="between">
+                  <Text variant="body" color="secondary">
+                    Time
+                  </Text>
+                  <Text variant="body">
+                    {formattedStart} – {formattedEnd}
+                  </Text>
+                </Stack>
+
+                {reservation.notes && (
+                  <Stack direction="row" justify="between">
+                    <Text variant="body" color="secondary">
+                      Special Requests
+                    </Text>
+                    <Text variant="body">{reservation.notes}</Text>
+                  </Stack>
+                )}
+              </Stack>
             </Stack>
           </Card>
-        )}
 
-        <Stack gap="sm">
-          {venue?.phone && (
-            <a className={styles.callLink} href={`tel:${venue.phone}`}>
-              Call {venue.name}
-            </a>
+          {venue && (
+            <Card>
+              <Stack gap="md" style={{ padding: "1.5rem" }}>
+                <Text as="h2" variant="label">
+                  Add to Calendar
+                </Text>
+                <div className={styles.calendarActions}>
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      downloadIcsFile(
+                        buildReservationIcs(reservation, venue),
+                        `reservation-${reservation.id.slice(-8)}.ics`
+                      )
+                    }
+                  >
+                    Download .ics
+                  </Button>
+                  <a
+                    className={styles.calendarLink}
+                    href={buildGoogleCalendarUrl(reservation, venue)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Google Calendar
+                  </a>
+                  <a
+                    className={styles.calendarLink}
+                    href={buildOutlookCalendarUrl(reservation, venue)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Outlook
+                  </a>
+                </div>
+              </Stack>
+            </Card>
           )}
-          {canCancel ? (
-            <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
-              Cancel Reservation
-            </Button>
-          ) : (
-            reservation.status === "CANCELLED" && (
-              <Text variant="caption" color="secondary" align="center">
-                This reservation has been cancelled.
-              </Text>
-            )
-          )}
+
+          <Stack gap="sm">
+            {venue?.phone && (
+              <a className={styles.callLink} href={`tel:${venue.phone}`}>
+                Call {venue.name}
+              </a>
+            )}
+            {canCancel ? (
+              <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
+                Cancel Reservation
+              </Button>
+            ) : (
+              reservation.status === "CANCELLED" && (
+                <Text variant="caption" color="secondary" align="center">
+                  This reservation has been cancelled.
+                </Text>
+              )
+            )}
+          </Stack>
         </Stack>
-      </Stack>
 
-      {showCancelDialog && (
-        <CancelReservationDialog
-          reservationId={reservation.id}
-          guestName={reservation.guestName}
-          onConfirm={handleCancelConfirm}
-          onClose={() => setShowCancelDialog(false)}
-        />
-      )}
-    </Stack>
+        {showCancelDialog && (
+          <CancelReservationDialog
+            reservationId={reservation.id}
+            guestName={reservation.guestName}
+            onConfirm={handleCancelConfirm}
+            onClose={() => setShowCancelDialog(false)}
+          />
+        )}
+      </Stack>
+    </main>
   );
 }
