@@ -90,7 +90,7 @@ export function PublicBookingPage() {
     // real navigable link instead of a JS-only back action in that case.
     const canGoBack = window.history.length > 1;
     return (
-      <div className={styles.page}>
+      <main className={styles.page}>
         <div className={styles.errorCenter}>
           <EmptyState
             variant="elevated"
@@ -109,7 +109,7 @@ export function PublicBookingPage() {
             }
           />
         </div>
-      </div>
+      </main>
     );
   };
 
@@ -117,28 +117,28 @@ export function PublicBookingPage() {
 
   if (isLoading) {
     return (
-      <div className={styles.page}>
+      <main className={styles.page}>
         <div className={styles.loadingCenter}>
           <Text variant="body" color="secondary">
             Loading venue...
           </Text>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (error || !venue) return renderNotFound();
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
+    <main className={styles.page}>
+      <header className={styles.header}>
         <Text variant="display" as="h1" align="center" color="primary">
           {venue.name}
         </Text>
         <Text variant="body" color="secondary" align="center">
           Reserve your table online
         </Text>
-      </div>
+      </header>
 
       <div className={styles.widgetWrapper}>
         <BookingWidget
@@ -160,6 +160,6 @@ export function PublicBookingPage() {
           Powered by Matt Butler Engineering
         </Text>
       </footer>
-    </div>
+    </main>
   );
 }
