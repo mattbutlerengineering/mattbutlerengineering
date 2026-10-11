@@ -2519,6 +2519,29 @@ describe("Reservation Routes — venue authorization pins (ADR-020)", () => {
     expect(reservationService.createWalkIn).not.toHaveBeenCalled();
   });
 
+  // Architecture failure-table cell "direct key missing, admin → 400"
+  // (breakdown.md Notes, 2026-10-11): `WalkInBodySchema` accepts `venueId: ""`.
+  // Before venueScoped an admin's "" walk-in reached createWalkIn (201); now it
+  // is a 400. Non-admins get 403 before and after.
+  it("POST /walk-in: an admin naming an empty venueId → 400 'venueId is required', nothing written", async () => {
+    await buildAs({ permissions: ["admin"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `${RESERVATIONS_URL}/walk-in`,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "", tableId: "table-1", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({
+      status: 400,
+      title: "Bad Request",
+      detail: "venueId is required",
+    });
+    expect(reservationService.createWalkIn).not.toHaveBeenCalled();
+  });
+
   it("POST /walk-in: a member's walk-in is written inside the body venue's RLS context", async () => {
     let observed: string | null = "unset";
     vi.mocked(reservationService.createWalkIn).mockImplementationOnce(async () => {
