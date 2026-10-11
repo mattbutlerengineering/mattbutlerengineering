@@ -1,21 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { useReducedMotion } from "framer-motion";
 import { WatchLoader } from "./WatchLoader";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
 
-// Control reduced-motion per test. The global setup mock forces it to `true`;
-// here we make it a spy so we can exercise both the animated and static paths.
-vi.mock("framer-motion", async () => {
-  const actual =
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() required for vi.importActual generic
-    await vi.importActual<typeof import("framer-motion")>("framer-motion");
-  return { ...actual, useReducedMotion: vi.fn(() => false) };
-});
-
-const mockReducedMotion = vi.mocked(useReducedMotion);
+// Full motion by default — the global setup is reduced — so both the animated
+// and static paths run; tests flip the device signal useMotionPreset() reads.
+stubMatchMedia([]);
 
 describe("WatchLoader", () => {
   beforeEach(() => {
-    mockReducedMotion.mockReturnValue(false);
+    setMatchingMedia([]);
   });
 
   describe("rendering", () => {
@@ -42,13 +35,13 @@ describe("WatchLoader", () => {
 
   describe("reduced motion", () => {
     it("pauses all animation and renders a static snapshot when preferred", () => {
-      mockReducedMotion.mockReturnValue(true);
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
       render(<WatchLoader aria-label="Loading" />);
       expect(screen.getByRole("img")).toHaveAttribute("data-reduced-motion", "true");
     });
 
     it("animates when reduced motion is not preferred", () => {
-      mockReducedMotion.mockReturnValue(false);
+      setMatchingMedia([]);
       render(<WatchLoader aria-label="Loading" />);
       expect(screen.getByRole("img")).toHaveAttribute("data-reduced-motion", "false");
     });

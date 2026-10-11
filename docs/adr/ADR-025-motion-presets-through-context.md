@@ -175,6 +175,18 @@ unmigrated importers. Each will be migrated in the #6279 follow-up:
   the spring physics for `useSpring`, which the reduced `boop` field does not
   carry. It already reads the reduced-motion preference from `reduced`.
 
+**2026-10-11, transition complete (batch 2 of #6279).** The sanctioned
+remainder above is gone. All nine call sites read `useMotionPreset().reduced`,
+and `useBoop` takes its spring from the preset's `boop` field instead of the
+deprecated token. No rialto source calls framer-motion's `useReducedMotion()`.
+`src/test/setup.ts` now mocks that hook to throw, so any component that calls
+it fails the tests that render it, and
+`src/test/motion/no-framer-reduced-motion.test.tsx` checks the tripwire is
+armed. Batch 2 also makes `useDeviceContext` read the media queries on its
+first snapshot instead of on its first subscribe, which happens after the first
+commit. framer's hook was synchronous, so without this change a reduced-motion
+user's first mount would have started a canvas loop or timer for one commit.
+
 ### Deprecations
 
 The `boop` and `reduced` exports of `tokens/motion.ts` (published as

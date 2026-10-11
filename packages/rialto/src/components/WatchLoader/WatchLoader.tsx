@@ -1,5 +1,5 @@
 import { forwardRef, useMemo, type CSSProperties, type HTMLAttributes } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./WatchLoader.module.css";
 import { ESCAPE_TEETH, MOVEMENT, PLATE_RADIUS, ROTOR_RADIUS, toothLength } from "./movement";
@@ -53,7 +53,7 @@ export const WatchLoader = forwardRef<HTMLDivElement, WatchLoaderProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion() ?? false;
+    const { reduced: shouldReduceMotion } = useMotionPreset();
 
     const isPreset = typeof size === "string";
     const sizeClass = isPreset ? SIZE_CLASS[size] : "";

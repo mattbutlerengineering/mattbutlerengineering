@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useState, type HTMLAttributes } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { SplitFlap } from "../SplitFlap/SplitFlap";
 import type { CharsetName } from "../SplitFlap/charset";
 import { cn } from "../../utils/class-composer";
@@ -51,7 +51,7 @@ export const DepartureBoard = forwardRef<HTMLDivElement, DepartureBoardProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion() ?? false;
+    const { reduced: shouldReduceMotion } = useMotionPreset();
     const [index, setIndex] = useState(0);
 
     const count = phrases.length;

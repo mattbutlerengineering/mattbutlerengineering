@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { startSilkFlow } from "./silk-flow-engine";
 import styles from "./SilkFlow.module.css";
@@ -29,7 +29,7 @@ export interface SilkFlowProps {
 }
 
 export const SilkFlow = forwardRef<HTMLDivElement, SilkFlowProps>(({ className }, ref) => {
-  const shouldReduceMotion = useReducedMotion();
+  const { reduced: shouldReduceMotion } = useMotionPreset();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

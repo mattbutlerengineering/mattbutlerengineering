@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { StatusLED } from "../StatusLED";
 import { cn } from "../../utils/class-composer";
 import styles from "./Avatar.module.css";
@@ -59,7 +60,7 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
     // Record which src failed so a new URL can try again without a cleanup
     // effect. Comparing against the current `src` is pure derivation.
     const [failedSrc, setFailedSrc] = useState<string | null>(null);
-    const shouldReduceMotion = useReducedMotion();
+    const { reduced: shouldReduceMotion } = useMotionPreset();
 
     // Track the last rendered src so we know what to "flip from" on change.
     const prevSrcRef = useRef<string | undefined>(src);

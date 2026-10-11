@@ -4,14 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const mockStart = vi.fn();
 const mockSet = vi.fn();
 const mockUseInView = vi.fn((_ref?: unknown, _options?: unknown) => false);
-const mockUseReducedMotion = vi.fn(() => false);
 const mockControls = { start: mockStart, set: mockSet };
 
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion");
   return {
     ...actual,
-    useReducedMotion: () => mockUseReducedMotion(),
     // Stable across renders, like the real `useAnimation` (which is a
     // `useConstant`) — a fresh object per render would make every effect
     // depending on `controls` re-run on any state change.
@@ -21,6 +19,12 @@ vi.mock("framer-motion", async () => {
 });
 
 import { useScrollReveal } from "./useScrollReveal";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../test/match-media";
+
+// Full motion by default — the global setup is reduced — so the in-view and
+// fallback routes run; the reduced-motion test flips the device signal
+// useMotionPreset() reads.
+stubMatchMedia([]);
 
 describe("useScrollReveal", () => {
   beforeEach(() => {
@@ -28,7 +32,7 @@ describe("useScrollReveal", () => {
     mockStart.mockClear();
     mockSet.mockClear();
     mockUseInView.mockReturnValue(false);
-    mockUseReducedMotion.mockReturnValue(false);
+    setMatchingMedia([]);
   });
 
   afterEach(() => {
@@ -87,7 +91,7 @@ describe("useScrollReveal revealed flag", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockUseInView.mockReturnValue(false);
-    mockUseReducedMotion.mockReturnValue(false);
+    setMatchingMedia([]);
   });
 
   afterEach(() => {
@@ -106,7 +110,7 @@ describe("useScrollReveal revealed flag", () => {
   });
 
   it("turns true immediately under prefers-reduced-motion", () => {
-    mockUseReducedMotion.mockReturnValue(true);
+    setMatchingMedia([PREFERS_REDUCED_MOTION]);
     const { result } = renderHook(() => useScrollReveal());
     expect(result.current.revealed).toBe(true);
   });

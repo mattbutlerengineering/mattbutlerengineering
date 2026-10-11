@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import type { MotionStyle } from "framer-motion";
 import { useMotionValue, useSpring } from "framer-motion";
 import { useMotionPreset } from "../providers/useMotionPreset";
-import { boop } from "../tokens/motion";
 
 const NOOP_STYLE: MotionStyle = {};
 const noop = () => {};
@@ -26,14 +25,20 @@ export function useBoop(): {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 } {
-  const { reduced: shouldReduceMotion } = useMotionPreset();
+  const { reduced: shouldReduceMotion, boop } = useMotionPreset();
   const scale = useMotionValue(1);
-  const { stiffness, damping, mass } = boop.transition;
-  const springScale = useSpring(scale, { stiffness, damping, mass });
+  // Under reduced motion `boop` carries an instant transition, not a spring.
+  // The spring is never rendered then (noop style below); `useSpring` is
+  // still called so the hook order stays fixed.
+  const spring = "stiffness" in boop.transition ? boop.transition : undefined;
+  const springScale = useSpring(
+    scale,
+    spring && { stiffness: spring.stiffness, damping: spring.damping, mass: spring.mass }
+  );
 
   const onMouseEnter = useCallback(() => {
     scale.set(boop.scale);
-  }, [scale]);
+  }, [scale, boop.scale]);
 
   const onMouseLeave = useCallback(() => {
     scale.set(1);

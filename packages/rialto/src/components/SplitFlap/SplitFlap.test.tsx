@@ -1,8 +1,37 @@
 import { render, screen, act } from "@testing-library/react";
 import { SplitFlap } from "./SplitFlap";
 import { normalizeChar, nextChar, CHARSETS } from "./charset";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
+
+// Full motion by default — the global setup is reduced — so cells flip; the
+// reduced-motion test flips the device signal useMotionPreset() reads.
+stubMatchMedia([]);
+
+/** The character each cell currently shows (its top half). */
+function cellChars(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('[data-position="top"] span')).map(
+    (span) => span.textContent ?? ""
+  );
+}
 
 describe("SplitFlap", () => {
+  beforeEach(() => {
+    setMatchingMedia([]);
+  });
+
+  describe("motion", () => {
+    it("flips cells toward the target one character at a time when motion is allowed", () => {
+      const { container } = render(<SplitFlap value="AB" aria-label="Gate" />);
+      expect(cellChars(container)).toEqual([" ", " "]);
+    });
+
+    it("lands on the target instantly under prefers-reduced-motion", () => {
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
+      const { container } = render(<SplitFlap value="AB" aria-label="Gate" />);
+      expect(cellChars(container)).toEqual(["A", "B"]);
+    });
+  });
+
   describe("charset helpers", () => {
     it("normalizeChar uppercases and filters unsupported characters", () => {
       expect(normalizeChar("a", CHARSETS.alpha)).toBe("A");
