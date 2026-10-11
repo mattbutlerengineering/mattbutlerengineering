@@ -265,7 +265,7 @@ describe("ManageReservationPage", () => {
       const { mains, h1s } = landmarks();
       expect(mains).toHaveLength(1);
       expect(h1s).toHaveLength(1);
-      expect(within(mains[0]).getByText("Invalid Link")).toBeDefined();
+      expect(within(screen.getByRole("main")).getByText("Invalid Link")).toBeDefined();
     });
 
     it("resolved state has one main and an h1", async () => {
@@ -276,8 +276,8 @@ describe("ManageReservationPage", () => {
       const { mains, h1s } = landmarks();
       expect(mains).toHaveLength(1);
       expect(h1s).toHaveLength(1);
-      expect(within(mains[0]).getByText("Jane Doe")).toBeDefined();
-      expect(within(mains[0]).getByRole("heading", { level: 1 })).toBeDefined();
+      expect(within(screen.getByRole("main")).getByText("Jane Doe")).toBeDefined();
+      expect(within(screen.getByRole("main")).getByRole("heading", { level: 1 })).toBeDefined();
     });
 
     it("resolved state without a venue still has an h1", async () => {
