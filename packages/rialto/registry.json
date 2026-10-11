@@ -3184,6 +3184,18 @@
           "description": "Placement relative to trigger"
         },
         {
+          "name": "open",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Controlled open state. When provided, the parent owns open/close and must\nupdate it in response to `onOpenChange`. Omit for uncontrolled behaviour."
+        },
+        {
+          "name": "onOpenChange",
+          "type": "((open: boolean) => void) | undefined",
+          "required": false,
+          "description": "Called with the requested next state on every open/close attempt (trigger, Escape, outside click, close button)."
+        },
+        {
           "name": "className",
           "type": "string | undefined",
           "required": false

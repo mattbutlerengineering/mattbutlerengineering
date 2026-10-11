@@ -40,6 +40,13 @@ export interface PopoverProps {
   children: ReactNode;
   /** Placement relative to trigger */
   placement?: Placement;
+  /**
+   * Controlled open state. When provided, the parent owns open/close and must
+   * update it in response to `onOpenChange`. Omit for uncontrolled behaviour.
+   */
+  open?: boolean;
+  /** Called with the requested next state on every open/close attempt (trigger, Escape, outside click, close button). */
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
@@ -66,16 +73,26 @@ function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) 
 
 /* ── Component ──────────────────────────────── */
 export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover(
-  { trigger, title, children, placement = "bottom", className = "" },
+  { trigger, title, children, placement = "bottom", open: openProp, onOpenChange, className = "" },
   ref
 ) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  // Render-time derivation: controlled when `open` is provided.
+  const open = openProp ?? internalOpen;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
   const panelId = useId();
 
-  const close = useCallback(() => setOpen(false), []);
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (openProp === undefined) setInternalOpen(next);
+      onOpenChange?.(next);
+    },
+    [openProp, onOpenChange]
+  );
+
+  const close = useCallback(() => setOpen(false), [setOpen]);
 
   useReturnFocus(open);
   useEscapeKey(close, open);
@@ -90,11 +107,11 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
         role="presentation"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setOpen((v) => !v);
+            setOpen(!open);
           }
         }}
       >
