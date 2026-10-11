@@ -599,15 +599,17 @@ actual Postgres session variable is set later, inside the transaction that
 issues the query: `src/services/venue-scoped-prisma.ts`'s
 `withVenueScopedQueries` wraps the exported `prisma` client so every
 model-delegate call (`prisma.table.findMany(...)`, etc.) automatically opens
-a `$transaction` and calls `setVenueContext(tx, ...)` — `SELECT
-set_config('app.venue_id', <id>, true)`, the parameterized equivalent of
-`SET LOCAL` — as that transaction's first statement, before the wrapped
-query runs. A handful of call sites that already manage their own explicit
+a `$transaction` and calls `setVenueContext(tx, ...)`. That helper's first
+statement is `SET LOCAL ROLE "app_reservations"` (`assumeAppRole`); when a
+venue id is set it then runs `SELECT set_config('app.venue_id', <id>, true)`,
+the parameterized equivalent of `SET LOCAL`, before the wrapped query runs.
+A handful of call sites that already manage their own explicit
 `$transaction` (`reservation.ts`, `floor-plan.ts`, `book-slot.ts`,
 `waitlist.ts`) call `setVenueContext` directly instead. When no venue id is
-resolved (public routes, background jobs), `app.venue_id` stays unset and
-every policy's `current_setting('app.venue_id', true)` evaluates to `NULL`
-— default-deny, not an error and not "every venue".
+resolved (public routes, background jobs), the role is still assumed,
+`set_config` is skipped, and `app.venue_id` stays unset so every policy's
+`current_setting('app.venue_id', true)` evaluates to `NULL` — default-deny,
+not an error and not "every venue".
 
 **Venue-self-addressed routes — closed (ADR-026 §3.3 item 5 / #5369 PR 7).**
 The global resolver (`resolveGlobalVenueId` in `app.ts`) only reads a
@@ -626,45 +628,41 @@ policy is keyed on the row's own `id`, so `"venue"` is the correct kind.
 resolved context too. Proved against a real, migrated, FORCE'd database as a
 non-superuser owner role in `src/routes/rls-route-sweep.integration.test.ts`.
 
-**Current caveat:** the tables above do not have `FORCE ROW LEVEL SECURITY`
-set, so RLS does not apply to the table **owner** — and the service's own
-`DATABASE_URL` role is that owner (it's also the role `prisma migrate
-deploy` runs as). Forcing RLS was tried and reverted (see PR #5370's commit
-history) because it would 500 any request whose venue id doesn't resolve,
-which was not yet guaranteed at the time; it must land atomically with the
-`SET LOCAL`/`set_config` plumbing above, not as an earlier, separate
-migration. In practice this means the policies are verified against a
-second, non-owner Postgres role rather than the app's own connection — see
-`src/routes/rls-isolation.integration.test.ts` for the real, migrated-database
-proof (cross-tenant reads on `reservations`, `guests`, `venues`, and the
-join-based `deposits` policy all return zero rows — or, for `venues`, no
-other venue's row — with the app-level `venueId`/`id` filter deliberately
-removed).
+**Current caveat:** the seven tables above carry `FORCE ROW LEVEL SECURITY`
+in `prisma/migrations/20261009000100_grant_app_reservations_and_force_rls`.
+FORCE subjects the table owner, so the policies apply to `DATABASE_URL` once
+that migration is applied. Migrate stays that owner: `db-migrate-reservations`
+still receives the same `databaseUrl` secret and does not assume the runtime
+role. The role is `app_reservations` (`NOLOGIN NOINHERIT`,
+`20261009000000_create_app_reservations_role`), granted to the migrate user
+so a transaction can `SET LOCAL ROLE`. The service process still connects as
+the owner. Each app transaction assumes `app_reservations` via
+`assumeAppRole` before its first query, including when no venue id is set.
+Health and readiness `SELECT 1` do not. The role is not a member of the
+owner. Cross-tenant proof against a separate non-owner probe role remains in
+`src/routes/rls-isolation.integration.test.ts`.
 
-**The gap that caveat describes is now guarded, and the guard runs in ordinary
-CI (#5369).** "No `FORCE`" is not a footnote — it means every policy above is
-provably inert against the one role the service actually connects as, so the
-backstop reads as protection while providing none. Two checks now keep that from
-recurring silently:
+**FORCE on those seven tables is guarded in ordinary CI (#5369).** An
+RLS-enabled table that is not forced is inert against the owning role. Two
+checks keep that from shipping again:
 
 - `src/services/rls-force-coverage.ts` parses the committed migration SQL and
-  fails if any RLS-**enabled** table is neither forced nor listed in
-  `PENDING_FORCE_TABLES` with its reason. It needs no database, so it runs in the
-  normal `test` job on every PR — add an eighth venue-scoped table with `ENABLE`
-  alone and it fails at the moment the migration is written. (It strips SQL
-  comments first: the one migration in this service that mentions FORCE mentions
-  it only in prose saying it does _not_ set it.)
+  fails if any RLS-enabled table is neither forced nor listed in
+  `PENDING_FORCE_TABLES`, and fails if a listed name is already forced.
+  `PENDING_FORCE_TABLES` is empty. It needs no database, so it runs in the
+  normal `test` job on every PR. (It strips SQL comments first: an earlier
+  migration mentions FORCE only in prose saying it does not set it.)
 - `src/routes/rls-owner-enforcement.integration.test.ts` is the real-Postgres
   proof, and deliberately uses **no probe role** — it asserts its connection is
   owner-privileged for all seven tables (checked against `pg_class.relowner`) and
   is neither `SUPERUSER` nor `BYPASSRLS`, then measures enforcement. Both guards
   are assertions, not comments, so a run that could not prove anything fails
   instead of passing. Its expectations are derived from the migrations, so it
-  keeps working unchanged across the flip.
+  keeps working when the migrations declare FORCE.
 
-ADR-026 §3.3 carries the measured route-by-route breakage (8 of 17 probed routes
-404 under FORCE, including `GET /public/v1/venues/:slug` — the first call of
-every public booking) and is the list to close before the flip.
+ADR-026 §3.3 records the route-by-route breakage measured on 2026-09-21, before
+the `SECURITY DEFINER` resolvers and this FORCE migration. That measurement is
+history.
 
 **If you ever smoke-test the FORCE flip, do NOT do it as a platform admin — the
 damage is a 404, not the 403 the ADR predicts, and an admin sees neither.**
@@ -716,10 +714,11 @@ transaction-local marker it sets and restores around its own `venues` scan
 (ADR-026 §3.1). Before adding a third caller, read §3.1: the hatch is
 `SELECT`-only on purpose, `grep -rn app_cross_venue_venues` is the whole review
 surface, and a read that CAN name its venue must use `setVenueContext` instead.
-ADR-026 §3.3 lists what still blocks the FORCE flip — including that every
-entity-addressed `/:id` route and the entire `/public/v1/venues/:slug/*` funnel
-would break under it, because the lookup that resolves their venue is itself an
-unscoped read.
+Venue lookup for those routes goes through `app_resolve_venue_id`, and the
+cross-venue list goes through `app_cross_venue_venues`. The seven venue tables
+are forced in `20261009000100_grant_app_reservations_and_force_rls`. The
+2026-09-21 measurement that the `/public/v1/venues/:slug/*` funnel 404'd under
+FORCE was taken while those lookups were still unscoped reads.
 
 ## Commands
 

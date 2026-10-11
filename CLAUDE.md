@@ -62,39 +62,23 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 | `/ideate`                        | Autonomous feature ideation: advance the batch cycle (vetoes → decompose → completion sweep), then propose 4-5 charter-grounded features when the batch is done                                                                                                     |
 | `/implement-queue`               | Drain ready backlog: claim batch → parallel TDD worktree agents → PRs → serial merge train                                                                                                                                                                          |
 | `/site-audit`                    | Crawl live site with Playwright + Lighthouse, create issues                                                                                                                                                                                                         |
-| `/issue-worker`                  | Pick up ready issues, implement via `mbe agent run`, create PRs                                                                                                                                                                                                     |
 | `/ci-monitor`                    | Check CI health, auto-fix simple failures, escalate complex ones                                                                                                                                                                                                    |
 | `/progress-tracker`              | Metrics, self-tuning circuit breaker, trend analysis                                                                                                                                                                                                                |
 | `/learning-loop`                 | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune                                                                                                                                                          |
 | `/sentry-triage`                 | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for implement-queue                                                                                                                                             |
 | `/acmm-audit`                    | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge — now ships as the `plugins/acmm` plugin (extracted in #818), not a `.claude/skills/` entry       |
-| `/token-report`                  | Pull real-time token spend summary via ccusage: daily totals, session breakdown, block usage, per-model cost and cache-read/output/cache-creation breakdown                                                                                                         |
 | `/chaos-agent`                   | Seed non-breaking but detectable bugs (lint violations, dead links) to verify autonomous audit/lint loops catch and file issues; runs weekly                                                                                                                        |
 | `/claude-md-improver`            | Audit CLAUDE.md / AGENTS.md / `.claude/rules/*` for dangling paths, skill-table drift, mandates that don't resolve, and undocumented surfaces; runs monthly                                                                                                         |
 | `/claude-automation-recommender` | Audit `.claude/hooks`, `.claude/agents`, `.claude/skills`, `.github/workflows` for guards that never fire, fire wrongly, or are missing; runs monthly                                                                                                               |
-| `/codex`                         | Configure and use OpenAI Codex CLI (`.codex/config.toml`) for project-specific settings                                                                                                                                                                             |
 | `/decompose`                     | Break a feature into ordered, agent-sized GitHub issues implement-queue can work through sequentially                                                                                                                                                               |
 | `/dep-bump`                      | Batch-apply pnpm.overrides for CVE fixes across multiple Dependabot alerts in a single PR                                                                                                                                                                           |
-| `/deploy`                        | Check deploy status, trigger deploys, debug failures across static sites (Cloudflare Workers), API services (DO App Platform), infrastructure (Pulumi)                                                                                                              |
 | `/gotcha-harvest`                | Mine a session (or `--days N` history) for CI-failed-then-fixed arcs and recurring tool errors, propose entries for `.claude/rules/gotchas.md` or memory                                                                                                            |
-| `/graphify`                      | Turn any input (code, docs, papers, images, video) into a persistent knowledge graph with community detection and query/path/explain tools                                                                                                                          |
 | `/local-ci-precheck`             | Run lint + typecheck + architecture-audit + drift checks locally and in parallel before opening or pushing a PR                                                                                                                                                     |
 | `/md-audit`                      | Weekly semantic pass over human-facing markdown (README, CONTRIBUTING, docs/\*\*) — finds prose claims the repo no longer satisfies; the mechanical half is `pnpm check:markdown` (`scripts/audit-markdown.mjs`), both driven by `.github/workflows/docs-audit.yml` |
-| `/opencode`                      | Configure and use OpenCode AI coding assistant (`opencode.json`) for project-specific settings                                                                                                                                                                      |
 | `/optimize-implement-queue`      | Daily loop: measure implement-queue efficiency via the queueEfficiency sensor, log trend, file de-duplicated issues on regression                                                                                                                                   |
 | `/perf-budget`                   | Check bundle size impact of current changes against size-limit baselines                                                                                                                                                                                            |
 | `/prisma-migrations`             | Prisma Migrate best practices for dev/prod schema changes, baselining, and CI/CD deployment                                                                                                                                                                         |
 | `/revert-rca-loop`               | Detect AI-authored PR reverts, match to the original PR, trigger a Reflection session for root-cause analysis; runs hourly                                                                                                                                          |
-
-### Scaffolding Skills
-
-| Skill                | Purpose                                                                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `/new-adr`           | Scaffold a new ADR in docs/adr/ with canonical format and sequential numbering                                                           |
-| `/new-component`     | Scaffold rialto component with all required files (component, styles, test, story, export)                                               |
-| `/new-e2e-test`      | Scaffold Playwright E2E test matching existing fixtures and auth patterns                                                                |
-| `/new-service`       | Scaffold a new Fastify + Prisma backend service (dir, package.json, app bootstrap, Prisma schema, health route, tests, Turborepo config) |
-| `/new-service-route` | Scaffold Fastify route with validation, auth, ADR-002 error envelope, SSE (reservations), tests                                          |
 
 **User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and now live only as user-level installs (`~/.claude/skills/`) — don't expect them to resolve in-repo.
 
@@ -169,7 +153,7 @@ Two families, and they do different jobs. The **issue-state** labels below drive
 
 #### PR merge gates
 
-These are the labels that actually decide whether a PR merges. `tier:*` is applied by `.github/workflows/tier-classifier.yml` (by changed **file path**, not by title/body text); the tier policy itself lives in [docs/change-tiers.md](./docs/change-tiers.md), and the eligibility decision is the pure, unit-tested `scripts/merge-queue-eligibility.mjs`.
+These are the labels that actually decide whether a PR merges. `tier:*` is applied by `.github/workflows/tier-classifier.yml`: the **base** tier comes from changed file paths, but title/body prose can **escalate** it — a bare-word match on `secret(s)`, `credential(s)`, `rotate`, `leak`/`leaked`/`leaking`/`leaks`, or `incident(s)` bumps the tier by one, or hard-sets T4 if a changed file already matched a T3/T4 sensitive-path rule. Boilerplate checklist lines (`- [ ]`/`- [x]`) are stripped before this scan, so filling in `PULL_REQUEST_TEMPLATE.md`'s "No hardcoded secrets or credentials" item does not by itself escalate a PR. The tier policy itself lives in [docs/change-tiers.md](./docs/change-tiers.md), and the eligibility decision is the pure, unit-tested `scripts/merge-queue-eligibility.mjs`.
 
 | Label            | Meaning                                                                                                                                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -204,9 +188,21 @@ Use `/local-ci-precheck` before opening or pushing to a PR — it runs the same 
 
 **Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
+## Pipeline Stage Hooks (idea-to-prod / autorun)
+
+The `idea-to-prod` plugin's stage skills are generic and live in the plugin cache (overwritten on update), so repo-specific steps are attached here. Every stage — including autorun's per-stage subagents — must run the hook for its stage and record the outcome in that stage's artifact.
+
+| Stage                                       | Hook                                                                                                                                                                                                                                                                                 | Record in                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `implement` (before the first push of a PR) | Run the checks in [`.claude/skills/local-ci-precheck/SKILL.md`](./.claude/skills/local-ci-precheck/SKILL.md) — read the file and execute its steps directly (the skill is `disable-model-invocation`, so the `Skill` tool cannot call it). Fix every failure before pushing.         | PR body / `breakdown.md` note                   |
+| `ship` (pre-flight)                         | Same `local-ci-precheck` steps against the final branch head. A red check is a failed pre-flight, not a warning.                                                                                                                                                                     | `release.md` pre-flight list                    |
+| `operate` (retro)                           | Run [`/gotcha-harvest`](./.claude/skills/gotcha-harvest/SKILL.md) over the run's sessions (`--days N` covering idea→ship). Proposed `gotchas.md` entries go in the retro's follow-ups for human review — never written silently. Zero findings is a valid result; say so explicitly. | `retro.md` (a "Gotcha harvest" line or section) |
+
+A hook that did not run must be stated as skipped, with the reason, in the stage artifact — never omitted.
+
 ## Manual Deployment
 
-GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI/`/deploy`, deploy locally via:
+GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI, deploy locally via:
 
 - **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy` (wrangler auto-refreshes oauth on use)
 - **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (export `DO_APP_ID` from your local `.env` or shell — fork maintainers will use their own DigitalOcean app ID)
@@ -228,13 +224,15 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 ## MCP Servers & Observability
 
 - **Langfuse tracing:** Agent sessions traced to [Langfuse Cloud](https://cloud.langfuse.com). Requires `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` env vars; unset = zero overhead.
-- **Semgrep:** See [AGENTS.md](./AGENTS.md#security-scanning-semgrep). Available via `.mcp.json` for scans over `@semgrep/mcp`.
+- **Semgrep:** CLI only (pre-commit + CI) — see [AGENTS.md](./AGENTS.md#security-scanning-semgrep). There is no Semgrep MCP server.
 - **Playwright:** Shared browser tooling (`.mcp.json`) for `/site-audit` and E2E suite; no config needed beyond `.mcp.json` entry.
-- **Stripe (test-mode):** Set `STRIPE_SECRET_KEY` to test-mode key (`sk_test_…`) in `.mcp.json`; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
+- **Stripe (test-mode):** Stripe MCP comes from the user-level `stripe` plugin, not `.mcp.json`. Use a test-mode key (`sk_test_…`) only; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
 
 ## Session Learning & Feedback Loop
 
-Three `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance. See `.claude/memory/README.md` and `.claude/reflections/README.md` for local documentation.
+Four `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance: `.claude/memory/`, `.claude/reflections/`, `.claude/improvement-loop/`, and `.claude/sessions/`. See `.claude/memory/README.md`, `.claude/reflections/README.md`, and `.claude/sessions/README.md` for local documentation.
+
+(`.claude/agent-spend/` and `.claude/state/` also live under `.claude/` but are plain data caches — agent spend telemetry and a Dependabot cache respectively, neither read nor written as part of the learning loop — so they're deliberately out of scope here.)
 
 ### `.claude/memory/` — Corrections and Reinforcements
 
@@ -306,6 +304,18 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 
 **Purpose:** Append-only record of autonomous-loop health and sensor trends. Used to detect regressions, discover repeat problems, and bootstrap new gotchas. The log does **not** contain detailed reasoning (that goes to reflections); it's a summary of facts and thresholds.
 
+### `.claude/sessions/` — Per-Session Summaries
+
+**Holds:** one archived summary per session, named `YYYY-MM-DD-<slug>.md`.
+
+**What writes to it:** during a session, the agent maintains `.claude/session-summary.md` as a scratchpad (started from `.claude/session-summary.template.md`). At session end, the `session-archive.sh` Stop hook copies it here as `YYYY-MM-DD-HHMMSS.md` unless it's still byte-identical to the template; renaming to the slug convention is a manual step the hook can't do for you.
+
+**What reads it:** `plugins/acmm/scripts/substance.js`, for the `acmm:session-summary` and `acmm:session-continuity` criteria — both read the frontmatter `date:` only (never a body date) and require an entry within the last 90 days.
+
+**Distinct from `.claude/session-logs/`** — a similarly-named but unrelated directory holding JSON session transcripts written by the `session-logger.sh` hook and pruned by the `session-log-rotate.sh` SessionStart hook (90-day/500-file cap). Nothing cross-references the two.
+
+Full mechanics, including a guard bug that silently disabled the archive hook for most of its life (#910 → #5598): [`.claude/sessions/README.md`](./.claude/sessions/README.md).
+
 ### Promotion Path: Corrections → Gotchas
 
 The `.claude/rules/gotchas.md` file is the canonical source for project-specific traps. Entries come from two sources:
@@ -321,9 +331,8 @@ The `.claude/rules/gotchas.md` file is the canonical source for project-specific
 
 ### Capturing a correction by hand
 
-`.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, which is why the corpus stops growing the moment nobody remembers to write one (newest entry `2026-05-10`, the defect [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) is about). Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
+`.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, so growing the corpus depends entirely on someone remembering to do it. [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) found the corpus had sat frozen for four months while `plugins/acmm/scripts/substance.js`'s `acmm:correction-capture` check kept scoring it as healthy; the fix (#5593) made that check require a qualifying entry within the last 90 days, not merely one that exists — it does not make the writing itself automatic. Verify the corpus's actual freshness with `ls .claude/memory/corrections/ | sort | tail -3` rather than trusting a date pinned here, since any date in this sentence goes stale the day after the next entry lands. Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
 
-## Cross-Session Memory & Knowledge Graph
+## Cross-Session Memory
 
 - **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. **Unavailable by default** — not installed in this repo or in fresh checkouts; run `npx claude-mem install` first to make these commands resolve.
-- **graphify** (`/graphify`): Knowledge graph from repo (or folder/PDF/image/video). Vendored at `.claude/skills/graphify/SKILL.md`, self-bootstraps `graphifyy` PyPI package (needs Python 3.10+). Graph artifacts in `graphify-out/` (gitignored). Use for concept-level subsystem maps, architecture audits, and tracing dependency paths.

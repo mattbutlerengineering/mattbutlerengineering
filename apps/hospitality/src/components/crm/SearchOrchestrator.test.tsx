@@ -8,7 +8,6 @@ import type {
   InputProps,
   TextProps,
 } from "@mattbutlerengineering/rialto";
-import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick }: ButtonProps) => <button onClick={onClick}>{children}</button>,

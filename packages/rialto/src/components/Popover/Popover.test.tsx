@@ -1,7 +1,7 @@
 /**
  * Unit tests for the Popover component.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Popover } from "./Popover";
@@ -200,5 +200,78 @@ describe("Popover", () => {
       </Popover>
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+  describe("controlled", () => {
+    it("shows content when open is true", () => {
+      render(
+        <Popover open trigger={<Button>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      expect(screen.getByText("Content")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /open/i })).toHaveAttribute(
+        "aria-expanded",
+        "true"
+      );
+    });
+
+    it("hides content when open is false", () => {
+      render(
+        <Popover open={false} trigger={<Button>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    });
+
+    it("calls onOpenChange(true) on trigger click without opening itself", async () => {
+      const onOpenChange = vi.fn();
+      render(
+        <Popover open={false} onOpenChange={onOpenChange} trigger={<Button>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      await user.click(screen.getByRole("button", { name: /open/i }));
+      expect(onOpenChange).toHaveBeenCalledWith(true);
+      expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    });
+
+    it("calls onOpenChange(false) on Escape and stays open until the parent updates", async () => {
+      const onOpenChange = vi.fn();
+      render(
+        <Popover open onOpenChange={onOpenChange} trigger={<Button>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      await user.keyboard("{Escape}");
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(screen.getByText("Content")).toBeInTheDocument();
+    });
+
+    it("calls onOpenChange(false) on outside click", async () => {
+      const onOpenChange = vi.fn();
+      render(
+        <div>
+          <button type="button">Outside</button>
+          <Popover open onOpenChange={onOpenChange} trigger={<Button>Open</Button>}>
+            <p>Content</p>
+          </Popover>
+        </div>
+      );
+      await user.click(screen.getByRole("button", { name: "Outside" }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it("calls onOpenChange in uncontrolled mode too", async () => {
+      const onOpenChange = vi.fn();
+      render(
+        <Popover onOpenChange={onOpenChange} trigger={<Button>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      await user.click(screen.getByRole("button", { name: /open/i }));
+      expect(onOpenChange).toHaveBeenCalledWith(true);
+      expect(screen.getByText("Content")).toBeInTheDocument();
+    });
   });
 });

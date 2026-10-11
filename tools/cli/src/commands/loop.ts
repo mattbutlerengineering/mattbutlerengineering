@@ -37,7 +37,7 @@ export const loopCommand = new Command("loop")
         ...DEFAULT_SESSION_CONFIG,
         taskDescription: directive,
         repoPath: process.cwd(),
-        model: resolveModel(options.model || directive),
+        model: options.model ?? resolveModel(directive),
         maxBudgetUsd: maxBudgetUsd - totalCost,
         maxTurns: options.maxTurns,
       };

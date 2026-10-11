@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.e2e.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
@@ -62,7 +62,7 @@
     {
       "name": "JSON Render Vendor (@json-render/react)",
       "path": "dist/assets/json-render-vendor-*.js",
-      "limit": "36 kB"
+      "limit": "42 kB"
     },
     {
       "name": "Auth Vendor (@mbe/auth)",
@@ -76,7 +76,7 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.20.0",
+    "@json-render/react": "^0.21.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
@@ -86,14 +86,14 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
-    "@stripe/react-stripe-js": "^6.10.0",
-    "@stripe/stripe-js": "^9.16.0",
-    "@tanstack/react-query": "^5.103.1",
+    "@stripe/react-stripe-js": "^7.0.0",
+    "@stripe/stripe-js": "^10.0.0",
+    "@tanstack/react-query": "^5.104.1",
     "idb": "^8.0.3",
-    "konva": "^10.5.0",
+    "konva": "^10.7.1",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-hook-form": "^7.88.0",
+    "react-hook-form": "^7.89.0",
     "react-konva": "^19.3.0",
     "react-router": "catalog:"
   },
@@ -106,6 +106,7 @@
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.7",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
@@ -113,38 +114,9 @@
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-pwa": "^1.3.0",
+    "vite-plugin-pwa": "^2.0.0",
     "vitest": "catalog:",
     "zod": "^4.6.5"
   },
-  "license": "MIT",
-  "acmm": {
-    "inherit": true,
-    "globalPaths": [
-      ".github/workflows/",
-      ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/pull_request_template.md",
-      ".github/ISSUE_TEMPLATE/",
-      ".github/policies/",
-      ".github/auto-qa-tuning.json",
-      ".github/risk-assessment.yml",
-      ".github/labeler.yml",
-      "CONTRIBUTING.md",
-      "SECURITY-AI.md",
-      "docs/ai-ops-runbook.md",
-      "docs/rollback-drill.md",
-      "docs/reflections/",
-      "docs/autonomous-work-log.md",
-      "scripts/acmm/",
-      "scripts/build-accm-history.mjs",
-      "scripts/orchestrate.mjs",
-      ".claude/settings.json",
-      ".claude/risk-config.json",
-      "memory/",
-      "knowledge.jsonl",
-      "CODEOWNERS",
-      ".github/CODEOWNERS",
-      "risk-config.json"
-    ]
-  }
+  "license": "MIT"
 }

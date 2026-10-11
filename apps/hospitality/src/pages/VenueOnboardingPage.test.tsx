@@ -941,7 +941,7 @@ describe("VenueOnboardingPage", () => {
     expect(mockSetVenueId).toHaveBeenCalledWith("venue-new");
     const setVenueIdOrder = mockSetVenueId.mock.invocationCallOrder[0];
     const navigateOrder = mockNavigate.mock.invocationCallOrder[0];
-    expect(setVenueIdOrder).toBeLessThan(navigateOrder);
+    expect(setVenueIdOrder).toBeLessThan(navigateOrder!);
   });
 
   it("stays on the celebration and never navigates if refetchVenues never returns the new venue", async () => {

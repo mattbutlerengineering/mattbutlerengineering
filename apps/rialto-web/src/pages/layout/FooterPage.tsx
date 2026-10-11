@@ -82,6 +82,7 @@ function FooterPlayground() {
         ) : (
           <Footer
             variant="rich"
+            linksLabel="Playground footer links"
             columns={showColumns ? DEMO_COLUMNS : undefined}
             copyright={showCopyright ? "\u00a9 2026 Rialto Design System" : undefined}
           />
@@ -185,6 +186,7 @@ export function FooterPage() {
           >
             <Footer
               variant="rich"
+              linksLabel="Rich footer links"
               columns={DEMO_COLUMNS}
               copyright="&copy; 2026 Rialto Design System"
             />
@@ -207,6 +209,7 @@ export function FooterPage() {
         >
           <Footer
             variant="rich"
+            linksLabel="Acme footer links"
             logo={
               <Text variant="display" color="primary" as="span">
                 Acme
@@ -258,7 +261,8 @@ export function FooterPage() {
             { label: "Element", value: "<footer> landmark element" },
             {
               label: "Nav",
-              value: 'Rich variant wraps link columns in <nav aria-label="Footer links">',
+              value:
+                'Rich variant wraps link columns in <nav>, named "Footer links" by default; override with linksLabel when several footers share a page',
             },
             {
               label: "Links",

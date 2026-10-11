@@ -62,6 +62,7 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     lastVisit: "2026-04-01T00:00:00.000Z",
     tags: ["vip"],
     dietaryRestrictions: ["shellfish"],
+    communicationPreference: "both",
     staffNotes: [],
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2026-04-01T00:00:00.000Z",
@@ -205,7 +206,7 @@ describe("NewReservationDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data).toMatchObject({
       date: "2026-04-10",
       startTime: "2026-04-10T18:30:00",
@@ -234,7 +235,7 @@ describe("NewReservationDialog", () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
     });
 
-    const data = defaultProps.onConfirm.mock.calls[0][0];
+    const data = defaultProps.onConfirm.mock.calls[0]![0];
     expect(data.startTime).toBe("2026-04-10T23:15:00");
     expect(data.endTime).toBe("2026-04-11T00:45:00");
     expect(new Date(data.endTime).getTime()).toBeGreaterThan(new Date(data.startTime).getTime());
@@ -372,7 +373,7 @@ describe("NewReservationDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      expect(defaultProps.onConfirm.mock.calls[0][0]).toMatchObject({
+      expect(defaultProps.onConfirm.mock.calls[0]![0]).toMatchObject({
         guestId: "gst_priya",
         guestName: "Priya Shah",
         guestEmail: "priya@example.com",
@@ -403,7 +404,7 @@ describe("NewReservationDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      const data = defaultProps.onConfirm.mock.calls[0][0];
+      const data = defaultProps.onConfirm.mock.calls[0]![0];
       expect(data).not.toHaveProperty("guestId");
       expect(data).toMatchObject({ guestEmail: "new@example.com", guestPhone: "(555) 999-0000" });
     });
@@ -415,7 +416,7 @@ describe("NewReservationDialog", () => {
       await waitFor(() => {
         expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
       });
-      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+      expect(defaultProps.onConfirm.mock.calls[0]![0]).toStrictEqual({
         date: "2026-04-10",
         startTime: "2026-04-10T18:30:00",
         endTime: "2026-04-10T20:00:00",

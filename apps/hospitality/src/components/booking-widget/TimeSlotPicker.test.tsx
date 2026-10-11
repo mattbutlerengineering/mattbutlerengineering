@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TimeSlotPicker } from "./TimeSlotPicker.js";
 import type { TimeSlot } from "@mbe/types";
-import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, size, variant, ...props }: any) => (

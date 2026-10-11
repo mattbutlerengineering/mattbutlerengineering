@@ -194,9 +194,11 @@ function resolveLatestCheckRun(checkRuns, name) {
  *
  * @param {Array<{name?: string, context?: string, status?: string, conclusion?: string|null}>} [statusCheckRollup]
  * @param {Array<{name?: string, status?: string, conclusion?: string|null, started_at?: string|null, completed_at?: string|null}>} [headShaCheckRuns]
- * @returns {{ state: "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed", reason: string }}
+ * @param {{ checkRunsFetchFailed?: boolean }} [options] `checkRunsFetchFailed` means the
+ *   head-SHA check-runs could not be fetched, so their absence is not evidence of anything
+ * @returns {{ state: "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed"|"unknown", reason: string }}
  */
-export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
+export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns, options = {}) {
   const rollup = Array.isArray(statusCheckRollup) ? statusCheckRollup : [];
   const checkRuns = Array.isArray(headShaCheckRuns) ? headShaCheckRuns : [];
   // `statusCheckRollup` mixes two GraphQL shapes — CheckRun (`.name`) and
@@ -245,6 +247,18 @@ export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
       };
     }
 
+    // #6290: with the check-runs fetch failed we cannot tell gate-missing
+    // (act: re-dispatch) from gate-unattributed (abstain), so abstain too.
+    if (options.checkRunsFetchFailed) {
+      return {
+        state: "unknown",
+        reason:
+          `"${CI_GATE_CHECK_NAME}" is absent from the rollup and the head-SHA check-runs fetch ` +
+          `failed, so gate-missing and gate-unattributed cannot be told apart. Do not enqueue ` +
+          `and do not re-dispatch; re-poll, and escalate if it persists.`,
+      };
+    }
+
     return {
       state: "gate-missing",
       reason: `no "${CI_GATE_CHECK_NAME}" check found on this SHA in the rollup or head-SHA check-runs — CI likely never ran`,
@@ -274,11 +288,23 @@ export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
 }
 
 /**
- * CLI entry: fetches the rollup and head-SHA check-runs for `--pr <N>` and
- * prints the classification. If the check-runs fetch fails (network/API
- * error), degrades to rollup-only classification — the safe direction,
- * since it can only under-report `gate-unattributed` as `gate-missing`,
- * never mis-report `gate-unattributed`/`gate-missing` as `green`.
+ * Classify one PR. Fetchers are injected so the wiring is testable without
+ * GitHub. A check-runs fetch failure (fetcher returns `null`) is surfaced to
+ * the classifier as `checkRunsFetchFailed` — never silently as "no runs".
+ *
+ * @param {string} prNumber
+ * @param {{ viewPr: (pr: string) => {statusCheckRollup?: unknown[], headRefOid: string}, fetchCheckRuns: (sha: string) => unknown[]|null }} deps
+ */
+export function evaluatePr(prNumber, { viewPr, fetchCheckRuns }) {
+  const prView = viewPr(prNumber);
+  const checkRuns = fetchCheckRuns(prView.headRefOid);
+  return classifyCiGateStatus(prView.statusCheckRollup, checkRuns ?? [], {
+    checkRunsFetchFailed: checkRuns === null,
+  });
+}
+
+/**
+ * CLI entry: prints the classification for `--pr <N>`.
  */
 function run() {
   const args = process.argv.slice(3);
@@ -290,22 +316,24 @@ function run() {
     process.exit(1);
   }
 
-  const prView = JSON.parse(
-    execFileSync("gh", ["pr", "view", prNumber, "--json", "statusCheckRollup,headRefOid"], {
-      encoding: "utf-8",
-    })
-  );
+  const result = evaluatePr(prNumber, {
+    viewPr: (pr) =>
+      JSON.parse(
+        execFileSync("gh", ["pr", "view", pr, "--json", "statusCheckRollup,headRefOid"], {
+          encoding: "utf-8",
+        })
+      ),
+    fetchCheckRuns: fetchHeadShaCheckRuns,
+  });
 
-  const checkRuns = fetchHeadShaCheckRuns(prView.headRefOid);
-
-  console.log(JSON.stringify(classifyCiGateStatus(prView.statusCheckRollup, checkRuns)));
+  console.log(JSON.stringify(result));
 }
 
 /**
  * Fetches the head SHA's raw check-runs (up to 100 — comfortably above the
- * ~31-job CI suite even doubled by a couple of dispatches). Returns `[]` on
- * any fetch failure rather than throwing, so a transient API error degrades
- * to rollup-only classification instead of crashing the CLI.
+ * ~31-job CI suite even doubled by a couple of dispatches). Returns `null` on
+ * any fetch failure rather than throwing; `evaluatePr` turns that into the
+ * `unknown` state when it matters (#6290).
  *
  * `per_page` is embedded in the URL, not passed via `-F` — `gh api` switches
  * a GET to POST the moment any `-f`/`-F` field is present, and `POST
@@ -323,9 +351,9 @@ function fetchHeadShaCheckRuns(headSha) {
         }
       )
     );
-    return Array.isArray(response.check_runs) ? response.check_runs : [];
+    return Array.isArray(response.check_runs) ? response.check_runs : null;
   } catch {
-    return [];
+    return null;
   }
 }
 

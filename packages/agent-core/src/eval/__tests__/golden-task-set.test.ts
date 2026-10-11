@@ -30,10 +30,10 @@ describe("loadSuite", () => {
     const tasks = await loadSuite(dir);
 
     expect(tasks).toHaveLength(1);
-    expect(tasks[0].id).toBe("fix-login");
+    expect(tasks[0]!.id).toBe("fix-login");
     // defaults applied
-    expect(tasks[0].rubric.testsMustPass).toBe(true);
-    expect(tasks[0].budget.maxTurns).toBe(50);
+    expect(tasks[0]!.rubric.testsMustPass).toBe(true);
+    expect(tasks[0]!.budget.maxTurns).toBe(50);
   });
 
   it("rejects a task with an invalid category", async () => {
@@ -77,7 +77,7 @@ describe("loadSuite", () => {
 
     const tasks = await loadSuite(dir);
     expect(tasks).toHaveLength(1);
-    expect(tasks[0].id).toBe("fix-login");
+    expect(tasks[0]!.id).toBe("fix-login");
   });
 });
 

@@ -130,9 +130,7 @@ function makeFakeApi() {
       getPublicConfig: vi.fn().mockResolvedValue(makePublicVenueConfig()),
     },
     publicVenue: {
-      guestRisk: vi
-        .fn()
-        .mockResolvedValue({ riskScore: "trusted", noShowCount: 0, requiresDeposit: false }),
+      guestRisk: vi.fn().mockResolvedValue({ requiresDeposit: false }),
     },
   };
 }
@@ -609,8 +607,6 @@ describe("useBookingFlow", () => {
       // the config's own `enabled` flag.
       const fakeApi = makeFakeApi();
       fakeApi.publicVenue.guestRisk.mockResolvedValue({
-        riskScore: "risky",
-        noShowCount: 3,
         requiresDeposit: true,
       });
       const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };
@@ -641,8 +637,6 @@ describe("useBookingFlow", () => {
     it("non-risky guest at a venue with a disabled deposit policy: stepKeys stays deposit-free", async () => {
       const fakeApi = makeFakeApi();
       fakeApi.publicVenue.guestRisk.mockResolvedValue({
-        riskScore: "trusted",
-        noShowCount: 0,
         requiresDeposit: false,
       });
       const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };

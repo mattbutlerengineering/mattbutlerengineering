@@ -608,7 +608,10 @@ export function TimelinePage() {
           reservationId={selectedReservation.id}
           guestName={selectedReservation.guestName}
           onConfirm={handleCancel}
-          onClose={() => setShowCancelDialog(false)}
+          onClose={() => {
+            setShowCancelDialog(false);
+            focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
+          }}
           quote={cancellationQuote}
         />
       )}
@@ -616,7 +619,10 @@ export function TimelinePage() {
         <MarkNoShowDialog
           guestName={selectedReservation.guestName}
           onConfirm={handleMarkNoShow}
-          onClose={() => setShowNoShowDialog(false)}
+          onClose={() => {
+            setShowNoShowDialog(false);
+            focusAfter({ kind: "testId", testId: blockTestId(selectedReservation.id) });
+          }}
         />
       )}
       {showEditDrawer && selectedReservation && (

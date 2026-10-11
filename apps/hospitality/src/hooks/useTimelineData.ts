@@ -138,7 +138,11 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
   };
 
   const seatGuest = async (reservation: Reservation): Promise<Reservation> => {
-    const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
+    // The server state machine has no CONFIRMED -> CONFIRMED edge, so only PENDING needs the update.
+    const updated =
+      reservation.status === "CONFIRMED"
+        ? reservation
+        : await api.reservations.update(reservation.id, { status: "CONFIRMED" });
     await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
     invalidateAll();
     return updated;

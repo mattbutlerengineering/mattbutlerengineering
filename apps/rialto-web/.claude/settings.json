@@ -8,8 +8,7 @@
       "Bash(pnpm --dir apps/rialto-web typecheck)",
       "Bash(pnpm --dir apps/rialto-web test:a11y)",
       "Bash(pnpm test:visual)",
-      "Bash(pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml)",
-      "Bash(node plugins/acmm/scripts/audit.js --project apps/rialto-web)"
+      "Bash(pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml)"
     ],
     "deny": ["Bash(**import** from ../../packages/rialto/src/**)"]
   }

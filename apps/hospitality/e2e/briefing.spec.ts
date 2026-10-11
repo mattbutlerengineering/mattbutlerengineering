@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "./fixtures.js";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import { atLocal, localDay } from "./local-day.js";
 import { SERVER_ERROR_BODY } from "./problem-details.js";
 

@@ -4,24 +4,24 @@ import {
   createWaitlistBodyJsonSchema,
   listWaitlistQueryJsonSchema,
 } from "@mbe/types";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import { requireAuth } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
-import {
-  venueIdFromQuery,
-  venueIdFromBody,
-  venueIdFromEntity,
-  loadInVenueContext,
-} from "./venue-access.js";
+import { venueScoped } from "./venue-scope.js";
+
+/** 404 `detail` for a waitlist entry addressed by `:id`. */
+const ENTRY_NOT_FOUND = "Waitlist entry not found";
 
 /**
- * Resolves the venue owning a waitlist entry addressed by `:id`, scoping by-id
- * actions to that venue. Null when the entry does not exist (→ 403).
+ * The venue owning the waitlist entry addressed by `:id`: by-id actions are
+ * scoped to it, and an unknown id is a 403 for non-admins (never leaking
+ * existence) and a 404 for admins.
  */
-const resolveWaitlistVenueId: VenueIdResolver = venueIdFromEntity(
-  "waitlist_entry",
-  (request) => (request.params as { id?: unknown }).id
-);
+const entryVenue = {
+  entity: "waitlist_entry",
+  key: (request: { params: { id: string } }) => request.params.id,
+  notFound: ENTRY_NOT_FOUND,
+} as const;
 
 /** Shared schema for a WaitlistEntry response object */
 const WaitlistEntrySchema = {
@@ -58,7 +58,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: requireAuth,
       schema: {
         summary: "Add to waitlist",
         operationId: "createWaitlistEntry",
@@ -74,7 +74,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    venueScoped({ venue: "body" }, async (request, reply) => {
       const { guestPhone } = request.body;
       if (!validatePhone(guestPhone)) {
         return reply
@@ -98,7 +98,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
       return reply.code(201).send({ data: entry });
-    }
+    })
   );
 
   // GET / — list waiting entries for venue
@@ -107,10 +107,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "List waitlist entries",
         operationId: "listWaitlistEntries",
@@ -127,10 +124,10 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entries = await waitlistService.listWaiting(request.query.venueId);
+    venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
+      const entries = await waitlistService.listWaiting(venueId);
       return reply.send({ data: entries });
-    }
+    })
   );
 
   // GET /:id — get single entry
@@ -139,10 +136,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Get waitlist entry",
         operationId: "getWaitlistEntry",
@@ -161,20 +155,10 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entry = await loadInVenueContext(
-        "waitlist_entry",
-        request.params.id,
-        () => waitlistService.getById(request.params.id),
-        null
-      );
-      if (!entry) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
-      }
-      return reply.send({ data: entry });
-    }
+    venueScoped(
+      { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+      async (_request, reply, { entity }) => reply.send({ data: entity })
+    )
   );
 
   // PUT /:id/notify — send "table ready" SMS and schedule 5-min claim window
@@ -183,10 +167,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/notify",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Notify guest table is ready",
         operationId: "notifyWaitlistEntry",
@@ -205,28 +186,19 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entry = await loadInVenueContext(
-        "waitlist_entry",
-        request.params.id,
-        () => waitlistService.getById(request.params.id),
-        null
-      );
-      if (!entry) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+    venueScoped(
+      { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+      async (_request, reply, { entity: entry }) => {
+        await fastify.waitlistNotifier.notifyTableReady({
+          id: entry.id,
+          guestPhone: entry.guestPhone,
+          guestName: entry.guestName,
+          venueId: entry.venueId,
+        });
+
+        return reply.send({ data: entry });
       }
-
-      await fastify.waitlistNotifier.notifyTableReady({
-        id: entry.id,
-        guestPhone: entry.guestPhone,
-        guestName: entry.guestName,
-        venueId: entry.venueId,
-      });
-
-      return reply.send({ data: entry });
-    }
+    )
   );
 
   // PUT /:id/seat — mark seated, recalculate remaining
@@ -235,10 +207,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/seat",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Mark guest as seated",
         operationId: "seatWaitlistEntry",
@@ -257,20 +226,13 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entry = await loadInVenueContext(
-        "waitlist_entry",
-        request.params.id,
-        () => waitlistService.seat(request.params.id),
-        null
-      );
+    venueScoped({ venue: entryVenue }, async (request, reply) => {
+      const entry = await waitlistService.seat(request.params.id);
       if (!entry) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
       }
       return reply.send({ data: entry });
-    }
+    })
   );
 
   // PUT /:id/cancel — mark cancelled, recalculate remaining
@@ -279,10 +241,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/cancel",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Cancel waitlist entry",
         operationId: "cancelWaitlistEntry",
@@ -301,20 +260,13 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entry = await loadInVenueContext(
-        "waitlist_entry",
-        request.params.id,
-        () => waitlistService.cancel(request.params.id),
-        null
-      );
+    venueScoped({ venue: entryVenue }, async (request, reply) => {
+      const entry = await waitlistService.cancel(request.params.id);
       if (!entry) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
       }
       return reply.send({ data: entry });
-    }
+    })
   );
 
   // PUT /:id/expire — mark expired
@@ -323,10 +275,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/expire",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-      ],
+      preHandler: requireAuth,
       schema: {
         summary: "Mark waitlist entry as expired",
         operationId: "expireWaitlistEntry",
@@ -345,19 +294,12 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const entry = await loadInVenueContext(
-        "waitlist_entry",
-        request.params.id,
-        () => waitlistService.expire(request.params.id),
-        null
-      );
+    venueScoped({ venue: entryVenue }, async (request, reply) => {
+      const entry = await waitlistService.expire(request.params.id);
       if (!entry) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
       }
       return reply.send({ data: entry });
-    }
+    })
   );
 };

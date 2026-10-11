@@ -51,11 +51,25 @@ import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 
+/** Role statements from `listByUserId`'s venue-id transaction. */
+let roleStatements: string[] = [];
+
 /** Mocks the `app_reservation_venue_ids_for_user` SECURITY DEFINER call. */
 function mockUserVenueIds(venueIds: string[]): void {
+  roleStatements = [];
   vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(
     venueIds.map((venueId) => ({ app_reservation_venue_ids_for_user: venueId })) as never
   );
+  vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+    fn: (tx: unknown) => Promise<unknown>
+  ) =>
+    fn({
+      $executeRawUnsafe: vi.fn(async (sql: string) => {
+        roleStatements.push(sql);
+        return 0;
+      }),
+      $queryRaw: prisma.$queryRaw,
+    })) as never);
 }
 
 const NOW = new Date("2026-05-05T18:00:00Z");
@@ -115,6 +129,7 @@ function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()): void 
     fn: (client: unknown) => Promise<unknown>
   ) => {
     const tx = {
+      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
       $executeRaw: vi.fn().mockResolvedValue(0),
       venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
       reservation: {
@@ -269,6 +284,8 @@ describe("reservationService", () => {
       const result = await reservationService.listByUserId("user-1", 1, 10);
 
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(roleStatements).toEqual(['SET LOCAL ROLE "app_reservations"']);
       expect(result.data).toHaveLength(1);
       expect(prisma.reservation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -589,6 +606,7 @@ describe("reservationService", () => {
         fn: (client: unknown) => Promise<unknown>
       ) => {
         const tx = {
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: vi.fn().mockResolvedValue(0),
           venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
           reservation: {
@@ -717,6 +735,8 @@ describe("reservationService", () => {
         fn: (client: unknown) => Promise<unknown>
       ) => {
         const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: {
             updateMany: vi.fn().mockResolvedValue({ count: 1 }),
             findUnique: vi.fn().mockResolvedValue(makePrismaReservation({ status: "NO_SHOW" })),
@@ -762,6 +782,8 @@ describe("reservationService", () => {
         fn: (client: unknown) => Promise<unknown>
       ) => {
         const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           reservation: {
             updateMany: txUpdateMany,
             findUnique: vi.fn().mockResolvedValue(makePrismaReservation({ status: "NO_SHOW" })),
@@ -1031,6 +1053,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1060,6 +1083,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1092,6 +1116,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1127,6 +1152,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1176,6 +1202,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1267,6 +1294,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict" }),
@@ -1296,6 +1324,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1342,6 +1371,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: executeRaw,
             reservation: {
               findFirst: vi.fn().mockImplementation(() => {
@@ -1383,6 +1413,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1424,6 +1455,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -1465,6 +1497,7 @@ describe("reservationService", () => {
         fn: (client: unknown) => Promise<unknown>
       ) => {
         const tx = {
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: vi.fn().mockResolvedValue(0),
           reservation: {
             findFirst: vi.fn().mockResolvedValue(null),

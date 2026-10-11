@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { createMockClaudeClient, createMockQueryStream } from "../mock-claude-client.js";
+
+/**
+ * Replay fixtures here are deliberately partial SDK messages: the mock yields
+ * them verbatim and reads only `type`, `total_cost_usd` and `usage` from them.
+ * The real SDK shapes (`SDKSystemMessage`, `SDKResultSuccess`) carry dozens of
+ * required fields irrelevant to these tests, so the cast is the one boundary
+ * where the partial shape is admitted.
+ */
+function asFixture(messages: readonly object[]): readonly SDKMessage[] {
+  return messages as unknown as readonly SDKMessage[];
+}
 
 async function drainGenerator(gen: AsyncGenerator<unknown>): Promise<unknown[]> {
   const results: unknown[] = [];
@@ -26,9 +38,9 @@ describe("createMockClaudeClient", () => {
       await drainGenerator(client.query({ prompt: "Task two" }));
 
       expect(client.calls).toHaveLength(2);
-      expect(client.calls[0].prompt).toBe("Task one");
-      expect(client.calls[0].model).toBe("claude-haiku-4-5");
-      expect(client.calls[1].prompt).toBe("Task two");
+      expect(client.calls[0]!.prompt).toBe("Task one");
+      expect(client.calls[0]!.model).toBe("claude-haiku-4-5");
+      expect(client.calls[1]!.prompt).toBe("Task two");
     });
 
     it("accumulates total cost across calls", async () => {
@@ -94,7 +106,7 @@ describe("createMockClaudeClient", () => {
         },
       ];
 
-      const client = createMockClaudeClient({ mode: "replay", fixtures: [fixture1] });
+      const client = createMockClaudeClient({ mode: "replay", fixtures: [asFixture(fixture1)] });
       const messages = await drainGenerator(client.query({ prompt: "replay test" }));
 
       expect(messages).toHaveLength(2);
@@ -126,7 +138,7 @@ describe("createMockClaudeClient", () => {
           permission_denials: [],
         },
       ];
-      const client = createMockClaudeClient({ mode: "replay", fixtures: [fixture] });
+      const client = createMockClaudeClient({ mode: "replay", fixtures: [asFixture(fixture)] });
 
       await drainGenerator(client.query({ prompt: "call 1" }));
       await drainGenerator(client.query({ prompt: "call 2" }));
@@ -206,7 +218,7 @@ describe("createMockClaudeClient", () => {
       ];
       const client = createMockClaudeClient({
         mode: "replay",
-        fixtures: [fixture],
+        fixtures: [asFixture(fixture)],
         simulatedLatencyMs: 1,
       });
       const messages = await drainGenerator(client.query({ prompt: "with latency" }));

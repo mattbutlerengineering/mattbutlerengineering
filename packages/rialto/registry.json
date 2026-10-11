@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "components": [
     {
       "name": "Accordion",
@@ -1979,6 +1979,12 @@
           "description": "Multi-column link groups (rich variant)."
         },
         {
+          "name": "linksLabel",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the link-columns nav (rich variant). Override to keep names unique when several footers share a page."
+        },
+        {
           "name": "copyright",
           "type": "string | undefined",
           "required": false,
@@ -3176,6 +3182,18 @@
           "type": "Placement | undefined",
           "required": false,
           "description": "Placement relative to trigger"
+        },
+        {
+          "name": "open",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Controlled open state. When provided, the parent owns open/close and must\nupdate it in response to `onOpenChange`. Omit for uncontrolled behaviour."
+        },
+        {
+          "name": "onOpenChange",
+          "type": "((open: boolean) => void) | undefined",
+          "required": false,
+          "description": "Called with the requested next state on every open/close attempt (trigger, Escape, outside click, close button)."
         },
         {
           "name": "className",

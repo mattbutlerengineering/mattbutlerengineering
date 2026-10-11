@@ -115,6 +115,43 @@ describe("useFocusTrap", () => {
     expect(e.defaultPrevented).toBe(false);
   });
 
+  it("does not throw and leaves focus untouched when all elements are disabled", () => {
+    const panel = makePanel("button", "input");
+    for (const el of Array.from(panel.children)) {
+      el.setAttribute("disabled", "true");
+    }
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+
+    expect(() => {
+      renderHook(() => useFocusTrap(makeRef(panel), true));
+    }).not.toThrow();
+
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it("skips disabled elements for initial focus and Tab-wrap", () => {
+    const panel = makePanel("button", "button", "button");
+    const [disabledFirst, enabled, disabledLast] = Array.from(
+      panel.querySelectorAll<HTMLElement>("button")
+    );
+    disabledFirst!.setAttribute("disabled", "true");
+    disabledLast!.setAttribute("disabled", "true");
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    // Initial focus skips the disabled first element and lands on the only enabled one
+    expect(document.activeElement).toBe(enabled);
+
+    // Tab from the enabled (last focusable) element wraps to itself (only enabled element)
+    enabled!.focus();
+    const e = tabKeyDown(false);
+
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(enabled);
+  });
+
   it("cleans up listeners when disabled", () => {
     const panel = makePanel("button", "button");
     const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button"));

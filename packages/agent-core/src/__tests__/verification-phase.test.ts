@@ -168,7 +168,7 @@ describe("VerificationPhase", () => {
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);
-    expect((resultEvents[0].data as { message: string }).message).toContain("No changes");
+    expect((resultEvents[0]!.data as { message: string }).message).toContain("No changes");
   });
 
   // Non-publishing session rule (amendment 2026-09-29): createPr: false commits

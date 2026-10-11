@@ -358,3 +358,34 @@ describe("Select — required marker + aria-live announcements", () => {
     expect(screen.getAllByText("Selection required")).toHaveLength(1);
   });
 });
+
+describe("Select — ARIA semantics audit", () => {
+  const u = userEvent.setup();
+
+  it("exposes required to assistive tech via aria-required on the combobox", () => {
+    render(<Select label="Country" required options={options} />);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("does not set aria-required when not required", () => {
+    render(<Select label="Country" options={options} />);
+    expect(screen.getByRole("combobox")).not.toHaveAttribute("aria-required");
+  });
+
+  it("names the listbox from aria-label when no visible label is rendered", async () => {
+    render(<Select aria-label="Country" options={options} />);
+    await u.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("listbox", { name: "Country" })).toBeInTheDocument();
+  });
+
+  it("names the listbox from aria-labelledby", async () => {
+    render(
+      <>
+        <span id="ext-label">Region</span>
+        <Select aria-labelledby="ext-label" options={options} />
+      </>
+    );
+    await u.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("listbox", { name: "Region" })).toBeInTheDocument();
+  });
+});

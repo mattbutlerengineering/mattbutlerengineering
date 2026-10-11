@@ -10,6 +10,27 @@ import { App } from "./App.js";
 import React from "react";
 import type * as AuthReact from "@mbe/auth/react";
 
+type AuthState = ReturnType<typeof useAuth>;
+
+/** A signed-out, settled auth state; each test overrides only what it is about. */
+function authState(overrides: Partial<AuthState> = {}): AuthState {
+  return {
+    isLoading: false,
+    activeNavigator: undefined,
+    isRefreshing: false,
+    sessionExpired: false,
+    isAuthenticated: false,
+    user: null,
+    accessToken: null,
+    signIn: vi.fn<AuthState["signIn"]>(),
+    signOut: vi.fn<AuthState["signOut"]>(),
+    signInSilent: vi.fn<AuthState["signInSilent"]>(),
+    error: undefined,
+    refreshError: null,
+    ...overrides,
+  };
+}
+
 vi.mock("@mbe/auth/react", async (importOriginal) => ({
   ...(await importOriginal<typeof AuthReact>()),
   useAuth: vi.fn(),
@@ -102,11 +123,9 @@ describe("App", () => {
   });
 
   it("renders login gate when not authenticated", () => {
-    vi.mocked(useAuth).mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      signIn: vi.fn(),
-    } as ReturnType<typeof useAuth>);
+    vi.mocked(useAuth).mockReturnValue(
+      authState({ isLoading: false, isAuthenticated: false, signIn: vi.fn<AuthState["signIn"]>() })
+    );
     renderApp();
     expect(screen.getByTestId("login-prompt")).toBeDefined();
     expect(screen.getByText("Sign In")).toBeDefined();
@@ -120,11 +139,13 @@ describe("App", () => {
     });
 
     it("titles the unauthenticated landing 'Hospitality', not 'Dashboard'", () => {
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: false,
-        signIn: vi.fn(),
-      } as ReturnType<typeof useAuth>);
+      vi.mocked(useAuth).mockReturnValue(
+        authState({
+          isLoading: false,
+          isAuthenticated: false,
+          signIn: vi.fn<AuthState["signIn"]>(),
+        })
+      );
       renderApp();
       expect(document.title).toBe("Hospitality - Matt Butler Engineering");
     });
@@ -163,11 +184,8 @@ describe("App", () => {
   describe("failed exchange", () => {
     it("renders the failure page in place on a failed callback exchange (lane 1)", () => {
       window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
-      const err = new Error("Auth Failed");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        error: err,
-      } as ReturnType<typeof useAuth>);
+      const err = Object.assign(new Error("Auth Failed"), { source: "signinCallback" as const });
+      vi.mocked(useAuth).mockReturnValue(authState({ isLoading: false, error: err }));
       renderApp("/callback");
       const failure = screen.getByTestId("auth-failure");
       expect(failure).toBeDefined();
@@ -179,11 +197,11 @@ describe("App", () => {
 
     it("renders the failure page in place on a failed interactive sign-in (lane 0)", () => {
       window.history.replaceState({}, "", "/hospitality/reservations");
-      const err = Object.assign(new Error("not permitted"), { error: "access_denied" });
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        error: err,
-      } as ReturnType<typeof useAuth>);
+      const err = Object.assign(new Error("not permitted"), {
+        error: "access_denied",
+        source: "signinCallback" as const,
+      });
+      vi.mocked(useAuth).mockReturnValue(authState({ isLoading: false, error: err }));
       renderApp("/reservations");
       const failure = screen.getByTestId("auth-failure");
       expect(failure).toBeDefined();
@@ -229,11 +247,13 @@ describe("App", () => {
 
     it("renders the signed-out login gate when a sign-out round-trip lands on /callback with no OIDC params", () => {
       window.history.replaceState({}, "", "/hospitality/callback");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: false,
-        signIn: vi.fn(),
-      } as ReturnType<typeof useAuth>);
+      vi.mocked(useAuth).mockReturnValue(
+        authState({
+          isLoading: false,
+          isAuthenticated: false,
+          signIn: vi.fn<AuthState["signIn"]>(),
+        })
+      );
       renderApp("/callback");
       expect(screen.getByTestId("login-prompt")).toBeDefined();
       expect(

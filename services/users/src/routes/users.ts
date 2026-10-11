@@ -29,6 +29,15 @@ async function resolveCurrentUserId(request: FastifyRequest): Promise<string | n
   return user?.id ?? null;
 }
 
+/**
+ * /me and /me/preferences key identity on the JWT email, so — like
+ * resolveCurrentUserId above — they must fail closed unless the email is
+ * verified, or a token carrying someone else's unverified address would
+ * read or write that user's record.
+ */
+const unverifiedEmailProblem = (): ProblemDetails =>
+  createProblemDetails(403, "Forbidden", "Email address must be verified");
+
 /** Returns the target user id from the route param `:id`. */
 function resolveTargetUserId(request: FastifyRequest): Promise<string | null> {
   const params = request.params as { id?: string };
@@ -359,6 +368,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           .code(401)
           .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
+      if (authUser.emailVerified !== true) {
+        return reply.code(403).send(unverifiedEmailProblem());
+      }
 
       // Use findOrCreate (upsert) to prevent race conditions when two
       // concurrent first-login requests both try to create the same user
@@ -434,6 +446,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .code(401)
           .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+      }
+      if (authUser.emailVerified !== true) {
+        return reply.code(403).send(unverifiedEmailProblem());
       }
 
       const user = await userService.updatePreferencesByEmail(authUser.email, request.body);

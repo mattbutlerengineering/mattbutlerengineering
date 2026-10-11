@@ -5,7 +5,7 @@ import { useEffect, type RefObject } from "react";
  * Used by Dialog, Drawer, and CommandPalette to query trap candidates.
  */
 export const FOCUSABLE_SELECTOR =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Attribute a panel can put on an element (e.g. a dismiss/Close button) to

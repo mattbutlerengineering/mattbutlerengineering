@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { FloorPlan, Table } from "@mbe/types";
+import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
 
 /* ── Mock react-konva ─────────────────────────────────────────── */
 
@@ -204,7 +204,7 @@ describe("FloorPlanCanvas", () => {
 
   describe("live status threading", () => {
     it("passes each table's status from tableStatuses to its TableShape", () => {
-      const tableStatuses = new Map([
+      const tableStatuses = new Map<string, TableDisplayStatus>([
         ["t1", "seated"],
         ["t2", "needs-bussing"],
       ]);
@@ -217,7 +217,7 @@ describe("FloorPlanCanvas", () => {
     });
 
     it("leaves status undefined for a table with no entry in tableStatuses", () => {
-      const tableStatuses = new Map([["t1", "seated"]]);
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
       render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
 
       expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
@@ -347,7 +347,7 @@ describe("FloorPlanCanvas", () => {
     });
 
     it("keeps rendering last-known table statuses while stale", () => {
-      const tableStatuses = new Map([["t1", "seated"]]);
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "seated"]]);
       render(<FloorPlanCanvas {...defaultProps} isStale tableStatuses={tableStatuses} />);
 
       expect(screen.getByTestId("floor-plan-stale-indicator")).toBeDefined();

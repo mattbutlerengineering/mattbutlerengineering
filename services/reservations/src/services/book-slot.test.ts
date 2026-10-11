@@ -35,6 +35,7 @@ const END = new Date("2026-05-05T19:30:00Z");
 /** Builds a partial transaction-client mock with all methods bookSlot may call. */
 function makeTx(overrides: Record<string, unknown> = {}) {
   return {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     $executeRaw: vi.fn().mockResolvedValue(0),
     venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
     reservation: {
@@ -245,6 +246,7 @@ describe("bookSlot", () => {
       fn: (client: unknown) => Promise<unknown>
     ) => {
       const tx = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
         $executeRaw: vi.fn().mockResolvedValue(0),
         venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
         reservation: {

@@ -77,22 +77,22 @@ export function OverlaySection() {
           Hover Card
         </Text>
         <HoverCard
-          trigger={
-            <Text
-              variant="body"
-              color="accent"
-              style={{ cursor: "pointer", textDecoration: "underline" }}
-            >
-              Hover for details
-            </Text>
+          content={
+            <div style={{ padding: "var(--rialto-space-sm)", width: 280 }}>
+              <Text variant="label">Matt Butler</Text>
+              <Text variant="caption" color="secondary">
+                Full-stack engineer working on hospitality tech.
+              </Text>
+            </div>
           }
         >
-          <div style={{ padding: "var(--rialto-space-sm)", width: 280 }}>
-            <Text variant="label">Matt Butler</Text>
-            <Text variant="caption" color="secondary">
-              Full-stack engineer working on hospitality tech.
-            </Text>
-          </div>
+          <Text
+            variant="body"
+            color="accent"
+            style={{ cursor: "pointer", textDecoration: "underline" }}
+          >
+            Hover for details
+          </Text>
         </HoverCard>
       </div>
 
@@ -112,11 +112,11 @@ export function OverlaySection() {
             </Button>
           }
           items={[
-            { label: "Edit", onClick: () => {} },
-            { label: "Duplicate", onClick: () => {} },
-            { label: "Archive", onClick: () => {} },
-            { type: "separator" },
-            { label: "Delete", onClick: () => {}, destructive: true },
+            { id: "edit", label: "Edit", onSelect: () => {} },
+            { id: "duplicate", label: "Duplicate", onSelect: () => {} },
+            { id: "archive", label: "Archive", onSelect: () => {} },
+            { type: "divider" },
+            { id: "delete", label: "Delete", onSelect: () => {}, destructive: true },
           ]}
         />
       </div>
@@ -132,10 +132,10 @@ export function OverlaySection() {
         </Text>
         <ContextMenu
           items={[
-            { label: "Copy", onClick: () => {} },
-            { label: "Paste", onClick: () => {} },
-            { type: "separator" },
-            { label: "Select all", onClick: () => {} },
+            { id: "copy", label: "Copy", onSelect: () => {} },
+            { id: "paste", label: "Paste", onSelect: () => {} },
+            { type: "divider" },
+            { id: "select-all", label: "Select all", onSelect: () => {} },
           ]}
         >
           <div
@@ -214,7 +214,7 @@ export function OverlaySection() {
 
         <ConfirmDialog
           open={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
+          onCancel={() => setConfirmOpen(false)}
           onConfirm={() => setConfirmOpen(false)}
           title="Delete item?"
           description="This action cannot be undone. The item will be permanently removed."

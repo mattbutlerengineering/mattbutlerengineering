@@ -1,0 +1,21 @@
+{
+  "id": "eval-bugfix-party-size",
+  "category": "bugfix",
+  "prompt": "In packages/database/src/validators.ts, validatePartySize currently uses parseInt(value, 10) to parse the party size, which silently ignores trailing non-numeric characters — so validatePartySize(\"5abc\") incorrectly returns { valid: true, value: 5 } even though \"5abc\" is not a valid positive integer per the function's own documented contract (\"Must be a positive integer (no decimals, no Infinity, >= 1)\"). Fix validatePartySize so trailing garbage after the digits is rejected (for example, by checking that the parsed number round-trips back to the original string, or by using a stricter digits-only regex), while continuing to accept plain non-negative integer strings like \"1\", \"4\", \"100\". Add a regression test in packages/database/src/validators.test.ts, in the existing validatePartySize describe block, asserting that validatePartySize(\"5abc\") returns { valid: false }. Do not change validateDateString, validateDateRange, or validateEnum.",
+  "fixtureRef": "packages/database",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "validatePartySize(\"5abc\") (and similar trailing-garbage strings) now returns valid: false",
+      "Plain integer strings like \"1\", \"4\", \"100\" still return valid: true with the correct numeric value",
+      "A new regression test in validators.test.ts covers the trailing-garbage case",
+      "validateDateString, validateDateRange, and validateEnum are unchanged"
+    ]
+  },
+  "budget": {
+    "maxTurns": 15,
+    "maxCostUsd": 0.6
+  }
+}

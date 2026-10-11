@@ -1,5 +1,5 @@
 /**
- * runCliAdapterSession — routes gemini/opencode Sessions through the SAME
+ * runCliAdapterSession — routes CLI-subprocess sessions through the SAME
  * Phase pipeline the Claude adapter uses: WorktreePhase → [CLI dispatch] →
  * VerificationPhase → PublishPhase → FeedbackPhase (#3234). Replaces the
  * hand-rolled worktree/gateway/publish-decision tree that used to live in
@@ -231,7 +231,7 @@ export async function runCliAdapterSession(
   const numTurns = adapterResult?.numTurns ?? 0;
 
   // Record spend through the single seam — the ONLY spend write for a
-  // gemini/opencode run, mirroring session-runner's write for the claude
+  // CLI-subprocess run, mirroring session-runner's write for the claude
   // path. Best-effort: never fail a session over spend logging.
   try {
     recordSpend(config.repoPath, {

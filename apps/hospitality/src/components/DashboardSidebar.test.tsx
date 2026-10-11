@@ -3,25 +3,22 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { BrowserRouter } from "react-router";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import type { NavSection } from "../nav-sections.js";
-import React from "react";
 
 describe("DashboardSidebar", () => {
   const mockSections: NavSection[] = [
     {
-      id: "main",
       label: "Main",
       items: [
-        { id: "dashboard", label: "Dashboard", href: "/dashboard", type: "nav" },
-        { id: "timeline", label: "Timeline", href: "/timeline", type: "nav" },
+        { id: "dashboard", label: "Dashboard", path: "/dashboard" },
+        { id: "timeline", label: "Timeline", path: "/timeline" },
       ],
     },
     {
-      id: "setup",
       label: "Setup",
       items: [
-        { id: "hours", label: "Hours", href: "/hours", type: "step", status: "completed" },
-        { id: "tables", label: "Tables", href: "/tables", type: "step", status: "current" },
-        { id: "publish", label: "Publish", href: "/publish", type: "step", status: "locked" },
+        { id: "hours", label: "Hours", path: "/hours", stepStatus: "completed" },
+        { id: "tables", label: "Tables", path: "/tables", stepStatus: "current" },
+        { id: "publish", label: "Publish", path: "/publish", stepStatus: "locked" },
       ],
     },
   ];
@@ -35,6 +32,8 @@ describe("DashboardSidebar", () => {
       <BrowserRouter>
         <DashboardSidebar
           sections={mockSections}
+          activePath="/dashboard"
+          onNavigate={vi.fn()}
           isMobileOpen={false}
           onMobileClose={vi.fn()}
           {...props}

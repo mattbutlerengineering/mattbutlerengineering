@@ -33,8 +33,8 @@ describe("useApiClient", () => {
     );
 
     // Verify the getAccessToken function returns the token
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0];
-    expect(callArgs.getAccessToken()).toBe("test-token-123");
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0];
+    expect(callArgs.getAccessToken!()).toBe("test-token-123");
   });
 
   it("memoizes the client across renders with same token", () => {
@@ -74,7 +74,7 @@ describe("useApiClient", () => {
 
     renderHook(() => useApiClient());
 
-    const callArgs = vi.mocked(createApiClient).mock.calls[0][0];
+    const callArgs = vi.mocked(createApiClient).mock.calls[0]![0];
     expect(callArgs.onError).toBe(reportApiError);
   });
 });

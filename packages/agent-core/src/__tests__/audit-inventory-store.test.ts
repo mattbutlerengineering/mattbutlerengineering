@@ -20,7 +20,7 @@ describe("loadInventory", () => {
     vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"));
     const inv = await loadInventory("/repo");
     expect(inv.surfaces.length).toBeGreaterThan(0);
-    expect(inv.surfaces[0].lastChecked).toBeNull();
+    expect(inv.surfaces[0]!.lastChecked).toBeNull();
   });
 
   it("merges with existing inventory", async () => {

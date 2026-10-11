@@ -52,6 +52,9 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Fail closed: without pipefail a failing `git diff` is masked by
+          # `| wc -l`, yielding CODE_CHANGES=0 -> has_code=false -> CI skipped.
+          set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "has_code=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -203,7 +206,7 @@ jobs:
           output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
 
       - name: Upload Trivy SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         if: always()
         # Best-effort: the Trivy scan above is the actual gate (exit-code 1 on
         # CRITICAL/HIGH). The Security-tab upload is a convenience; if it fails
@@ -806,9 +809,11 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm build --filter @mbe/reservations-service...
 
-      # All FIVE `DATABASE_URL`-gated suites, listed explicitly rather than
+      # All SIX `DATABASE_URL`-gated suites, listed explicitly rather than
       # globbed: a glob fails silently in both directions (quietly picking up
       # or dropping files), and the coverage test below pins this list.
+      # rls-app-reservations.integration.test.ts proves SET LOCAL ROLE
+      # app_reservations against the same owner connection.
       # lapsed-guest-cron.rls.integration.test.ts was the third suite nobody
       # ran - it is named in both other suites' doc comments as the sibling
       # they coordinate the pg_advisory_lock(5369) key with, so leaving it
@@ -832,6 +837,7 @@ jobs:
           set -o pipefail
           pnpm --filter @mbe/reservations-service exec vitest run \
             src/routes/rls-owner-enforcement.integration.test.ts \
+            src/routes/rls-app-reservations.integration.test.ts \
             src/routes/rls-isolation.integration.test.ts \
             src/services/lapsed-guest-cron.rls.integration.test.ts \
             src/routes/rls-route-sweep.integration.test.ts \

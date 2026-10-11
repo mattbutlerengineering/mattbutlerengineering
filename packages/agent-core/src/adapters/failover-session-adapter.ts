@@ -5,7 +5,7 @@
  * Runs the cascade directly (skip unavailable/cooling-down adapters, mark
  * rate-limited results, throw `AllAdaptersUnavailableError` when all are
  * exhausted) over the SessionConfig/SessionResult seam, so every backend —
- * including gemini and opencode — runs through the same gate/publish pipeline
+ * including opencode — runs through the same gate/publish pipeline
  * as `claude` (#2973). The CLI resolves this adapter via `resolveSessionAdapter`
  * for `--adapter auto` instead of constructing adapters itself.
  */

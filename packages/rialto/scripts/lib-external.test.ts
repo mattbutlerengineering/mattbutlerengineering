@@ -64,7 +64,7 @@ function findWorkspaceImports(): Set<string> {
   for (const file of listSourceFiles(SRC_DIR)) {
     const content = fs.readFileSync(file, "utf-8");
     for (const match of content.matchAll(WORKSPACE_IMPORT)) {
-      specifiers.add(match[1]);
+      specifiers.add(match[1]!);
     }
   }
   return specifiers;

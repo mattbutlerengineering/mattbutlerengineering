@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import React from "react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { NewFloorPlanDialog } from "./NewFloorPlanDialog.js";
 

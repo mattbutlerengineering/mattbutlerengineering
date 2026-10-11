@@ -46,6 +46,14 @@ jobs:
       # commit because `add-paths` below scopes it to the one file.
       - uses: ./.github/actions/setup-workspace
 
+      - name: Build the CLI
+        # NOT optional: the create-pull-request step below triggers a git
+        # commit, which runs this repo's husky pre-commit hook. That hook's
+        # check-adr imports @mbe/gh-client, which needs @mbe/cli built (the
+        # `...` suffix builds it as a transitive dep). Without this step the
+        # commit dies with ERR_MODULE_NOT_FOUND and the whole run fails.
+        run: pnpm build --filter @mbe/cli...
+
       - name: Run auto-qa-tune
         run: node plugins/acmm/scripts/auto-qa-tune.js
 

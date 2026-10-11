@@ -24,7 +24,7 @@ interface RepoEntry {
   readonly behavioral: {
     readonly ciFlakeRate: number;
     readonly agentPrAcceptanceRate: number;
-    readonly agentPrRevertRate: number;
+    readonly agentPrRevertRate: number | null;
     readonly evalPassRate: number | null;
     readonly evalsStale: boolean;
     readonly evalsLastRun: string | null;
@@ -217,7 +217,7 @@ export function AcmmPage() {
                       {check.passed ? "✓" : "✗"}
                     </Text>
                     <Text className={styles.criteriaId}>
-                      {id.replace(/^(?:acmm|fullsend|aef|claude-reflect|meta):/, "")}
+                      {id.replace(/^(?:acmm|fullsend|aef|claude-reflect|meta|local):/, "")}
                     </Text>
                   </div>
                 ))}

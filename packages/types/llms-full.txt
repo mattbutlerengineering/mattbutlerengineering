@@ -392,7 +392,6 @@
       count: z.number(),
     });
     export const GuestRiskResultSchema = z.object({
-      riskScore: z.enum(["trusted", "standard", "risky"]),
       requiresDeposit: z.boolean(),
     });
     export const GuestRecognitionSchema = z.object({
@@ -1534,8 +1533,7 @@
       guests?: Guest[];
     }
     export interface GuestRiskResult {
-      riskScore: GuestRiskScore;
-      /** True when the guest's risk score warrants an automatic deposit requirement. */
+      /** True only when the guest's reliability assessment is risky. */
       requiresDeposit: boolean;
     }
     export interface GuestRecognition {

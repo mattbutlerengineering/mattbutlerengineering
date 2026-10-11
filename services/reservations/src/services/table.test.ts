@@ -147,6 +147,24 @@ describe("tableService", () => {
     });
   });
 
+  describe("listVenueIdsByIds", () => {
+    it("resolves N ids with ONE findMany and no findUnique (#6152)", async () => {
+      vi.mocked(prisma.table.findMany).mockClear();
+      vi.mocked(prisma.table.findUnique).mockClear();
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce([{ id: "a", venueId: "v1" }] as never);
+
+      const result = await tableService.listVenueIdsByIds(["a", "b", "a"]);
+
+      expect(result).toEqual([{ id: "a", venueId: "v1" }]);
+      expect(prisma.table.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.table.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["a", "b", "a"] } },
+        select: { id: true, venueId: true },
+      });
+      expect(prisma.table.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
   describe("create", () => {
     it("creates a table with all fields", async () => {
       const dbTable = makePrismaTable();

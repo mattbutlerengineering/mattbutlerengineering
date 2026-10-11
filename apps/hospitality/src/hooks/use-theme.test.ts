@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolveTheme } from "./use-theme.ts";
+import { resolveTheme } from "./use-theme.js";
 
 describe("resolveTheme", () => {
   beforeEach(() => {

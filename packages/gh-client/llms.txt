@@ -433,6 +433,9 @@
         exec?: (cmd: string, args: string[]) => string;
       }
     </item>
+    <item priority="medium">
+      function defaultWarn(message: string): void { /* ... */ }
+    </item>
     <item priority="high">
       export function createRestRunner(
         opts: RestRunnerOptions = {}
@@ -508,9 +511,21 @@
       }
     </item>
     <item priority="high">
-      export function createTransportRunner(
-        opts: TransportOptions = {}
-      ): (cmd: string, args: string[]) => string { /* ... */ }
+      type Run = (cmd: string, args: string[]) => string;
+    </item>
+    <item priority="high">
+      class GhGraphqlUnavailableError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function isGraphqlUnavailableError(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createTransportRunner(opts: TransportOptions = {}): Run { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string { /* ... */ }
     </item>
   </file>
   </section>

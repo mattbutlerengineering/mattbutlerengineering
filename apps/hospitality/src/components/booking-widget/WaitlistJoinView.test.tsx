@@ -4,7 +4,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
 import { WaitlistJoinView } from "./WaitlistJoinView.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
-import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, disabled, ...props }: any) => (

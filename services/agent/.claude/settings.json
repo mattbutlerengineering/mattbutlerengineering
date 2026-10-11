@@ -18,8 +18,7 @@
       "Bash(pnpm --dir services/agent db:studio)",
       "Bash(pnpm --dir services/agent agent:run)",
       "Bash(mbe agent run*)",
-      "Bash(mbe agent orchestrate*)",
-      "Bash(node scripts/accm/audit.js --project services/agent)"
+      "Bash(mbe agent orchestrate*)"
     ]
   }
 }

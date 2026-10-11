@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useState } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
@@ -66,35 +66,15 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
   },
   ref
 ) {
-  // Bumping the token remounts the Popover closed — the only external way to
-  // dismiss the self-managed Popover on select/Escape.
-  const [closeToken, setCloseToken] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const didMountRef = useRef(false);
-
-  // Return focus to the trigger after a close — a mount-guarded effect, never
-  // requestAnimationFrame (which testing-library does not await).
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    inputRef.current?.focus();
-  }, [closeToken]);
+  const [open, setOpen] = useState(false);
 
   const handleSelect = useCallback(
     (next: string | null) => {
       onChange(next);
-      setCloseToken((token) => token + 1);
+      setOpen(false);
     },
     [onChange]
   );
-
-  const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      setCloseToken((token) => token + 1);
-    }
-  };
 
   const parsed = value ? parseIsoDate(value) : null;
   const display = parsed
@@ -108,7 +88,6 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
 
   const trigger = (
     <Input
-      ref={inputRef}
       id={id}
       label={label}
       value={display}
@@ -122,8 +101,8 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
 
   return (
     <div ref={ref} className={cn(styles.wrapper, className)}>
-      <Popover key={closeToken} trigger={trigger} placement={placement}>
-        <div role="presentation" className={styles.panel} onKeyDown={handlePanelKeyDown}>
+      <Popover open={open} onOpenChange={setOpen} trigger={trigger} placement={placement}>
+        <div role="presentation" className={styles.panel}>
           <Calendar
             value={value}
             onChange={handleSelect}

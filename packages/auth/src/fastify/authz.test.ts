@@ -51,12 +51,17 @@ function buildTestApp(lookupMembership: VenueMembershipLookup) {
       ok: true,
     }));
 
+    // VenueIdResolver receives a bare FastifyRequest (query: unknown), so the
+    // resolvers narrow the query the way production's venueIdFromQuery does.
     fastify.get<{ Querystring: { venueId?: string } }>(
       "/venue-scoped",
       {
         preHandler: [
           requireAuth,
-          requireVenueAccess(lookupMembership, (req) => req.query.venueId ?? null),
+          requireVenueAccess(
+            lookupMembership,
+            (req) => (req.query as { venueId?: string }).venueId ?? null
+          ),
         ],
       },
       async () => ({ ok: true })
@@ -67,7 +72,12 @@ function buildTestApp(lookupMembership: VenueMembershipLookup) {
     fastify.get<{ Querystring: { venueId?: string } }>(
       "/venue-scoped-no-auth",
       {
-        preHandler: [requireVenueAccess(lookupMembership, (req) => req.query.venueId ?? null)],
+        preHandler: [
+          requireVenueAccess(
+            lookupMembership,
+            (req) => (req.query as { venueId?: string }).venueId ?? null
+          ),
+        ],
       },
       async () => ({ ok: true })
     );

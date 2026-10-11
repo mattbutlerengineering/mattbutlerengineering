@@ -57,7 +57,7 @@ describe("prList", () => {
     expect(result[0]).toMatchObject({ number: 1, additions: 10, deletions: 2 });
     // Shaped like GraphQL here too (#4706) — commitCount consumers read
     // `.length`, but anything reading a field must not get the raw REST shape.
-    expect(result[0].commits).toEqual([
+    expect(result[0]!.commits).toEqual([
       expect.objectContaining({ oid: "a", messageHeadline: "fix: a" }),
       expect.objectContaining({ oid: "b", messageHeadline: "fix: b" }),
     ]);
@@ -80,7 +80,7 @@ describe("prList", () => {
       ])
     );
     expect(result).toEqual([expect.objectContaining({ number: 4, state: "CLOSED" })]);
-    expect(http.mock.calls[0][0].url).toContain("/search/issues?q=");
+    expect(http.mock.calls[0]![0].url).toContain("/search/issues?q=");
   });
 });
 
@@ -172,7 +172,7 @@ describe("prView --json reviews", () => {
       reviews: Record<string, unknown>[];
     };
 
-    expect(http.mock.calls[1][0].url).toContain("/pulls/1/reviews");
+    expect(http.mock.calls[1]![0].url).toContain("/pulls/1/reviews");
     expect(result.reviews).toEqual([
       {
         id: "PRR_1",
@@ -215,12 +215,12 @@ describe("prCreate", () => {
     );
 
     expect(url).toBe("https://github.com/owner/repo/pull/42");
-    expect(JSON.parse(http.mock.calls[1][0].body)).toEqual({
+    expect(JSON.parse(http.mock.calls[1]![0].body)).toEqual({
       title: "t",
       body: "b",
       head: "chaos/branch",
       base: "main",
     });
-    expect(http.mock.calls[2][0].url).toContain("/issues/42/labels");
+    expect(http.mock.calls[2]![0].url).toContain("/issues/42/labels");
   });
 });

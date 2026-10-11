@@ -293,3 +293,28 @@ Two notes on the picks:
 Gallery size after batch 5: **35** templates. `DropdownMenu` (rank 5) was drafted and
 then dropped in favour of `Dialog` once this regeneration landed and ranked `Dialog`
 third — it remains uncovered and is the obvious rank-shifted candidate for batch 6.
+
+## Closed by batch 6 (#5843)
+
+Ranks 1–3 of the regenerated priority-ordering table (part 1/5, #5838) are closed by
+the three templates batch 6 adds (#5839, #5840, #5841), which land in the same pull
+request as this note. They are **not** yet reflected in the coverage table or the
+ranking above — the next regeneration is where they flip to `**Yes**`. Usage counts
+below are re-measured fresh against the current tree and match part 1/5's figures
+exactly.
+
+| Rank | Component        | Usage | Template added (`id`)   | Category          | Issue |
+| ---- | ---------------- | ----- | ----------------------- | ----------------- | ----- |
+| 1    | `DepartureBoard` | 18    | `live-departures-board` | Data display      | #5840 |
+| 2    | `DropdownMenu`   | 18    | `row-actions-menu`      | Navigation/layout | #5839 |
+| 3    | `ScrollArea`     | 12    | `activity-log-panel`    | Utility/content   | #5841 |
+
+Each prompt names its target component literally (`DropdownMenu`, `DepartureBoard`,
+and `ScrollArea` all appear verbatim in the prompt text), so none of the three needs
+the "keyword appears but the component isn't really implied" treatment that
+§ PageHeader ambiguity documents.
+
+Gallery size after batch 6: **38** templates (35 + 3, verified via
+`grep -c '    id: "' apps/gen/src/components/TemplateGallery.tsx` → 38). `Letterboard`
+(rank 4, 11 uses, Visual/decorative) is the sole component added to the catalog since
+the batch-5 pass and is the obvious rank-shifted candidate for batch 7.

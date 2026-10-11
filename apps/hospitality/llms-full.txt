@@ -1001,7 +1001,7 @@
       });
     }
     export function buildGuestRiskFixture(): GuestRiskResult {
-      return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+      return GuestRiskResultSchema.parse({ requiresDeposit: false });
     }
     export async function mockApi(page: Page): Promise<void> {
       // Signal to QueryProvider to disable react-query retries so error states
@@ -1886,7 +1886,7 @@
       );
     }
     function decodeJwtPayload(token: string): Record<string, unknown> {
-      const base64 = token.split(".")[1];
+      const base64 = token.split(".")[1]!;
       const json = Buffer.from(base64, "base64url").toString("utf-8");
       return JSON.parse(json) as Record<string, unknown>;
     }
@@ -3528,7 +3528,11 @@
       };
     
       const seatGuest = async (reservation: Reservation): Promise<Reservation> => {
-        const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
+        // The server state machine has no CONFIRMED -> CONFIRMED edge, so only PENDING needs the update.
+        const updated =
+          reservation.status === "CONFIRMED"
+            ? reservation
+            : await api.reservations.update(reservation.id, { status: "CONFIRMED" });
         await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
         invalidateAll();
         return updated;

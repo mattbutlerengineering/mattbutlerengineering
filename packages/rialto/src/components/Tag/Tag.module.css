@@ -31,7 +31,9 @@
 .error {
   background: rgb(180 60 50 / 0.08);
   border-color: rgb(180 60 50 / 0.2);
-  color: var(--rialto-error);
+  /* Pure --rialto-error on the tinted bg falls under 4.5:1 on recessed /
+     elevated surfaces; deepen toward text-primary to keep the hue and meet AA. */
+  color: color-mix(in srgb, var(--rialto-error) 80%, var(--rialto-text-primary));
 }
 
 /* ── Interactive (clickable) ─────────────────── */
@@ -51,6 +53,16 @@
 
 .interactive.accent:hover {
   background: rgb(196 146 42 / 0.15);
+}
+
+/* The global hover fill (surface-matte) drops error/success text below 4.5:1;
+   keep the variant tint so hover stays AA (success cannot get stronger). */
+.interactive.success:hover {
+  background: rgb(76 140 74 / 0.08);
+}
+
+.interactive.error:hover {
+  background: rgb(180 60 50 / 0.14);
 }
 
 /* ── Label button (interactive + dismissible chip) ── */

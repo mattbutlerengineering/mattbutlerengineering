@@ -14,7 +14,6 @@ For full automation, use the root-level skills:
 
 - `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
-- `/issue-worker` — pick up oldest `ready` issue and PR a fix
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
 - `/acmm-audit` — score repo against AI Codebase Maturity Model

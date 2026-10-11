@@ -139,7 +139,7 @@ describe("WorktreePhase", () => {
     await phase.run(makeInput({ onEvent }), deps);
 
     expect(events.length).toBeGreaterThan(0);
-    expect(events[0].type).toBe("session:start");
+    expect(events[0]!.type).toBe("session:start");
   });
 
   it("appends project context to system prompt when available", async () => {

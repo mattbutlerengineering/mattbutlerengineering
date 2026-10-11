@@ -41,6 +41,7 @@ function makeFloorPlan(overrides: Partial<FloorPlan> = {}): FloorPlan {
     name: "Main Floor",
     venueId: "venue-1",
     isActive: true,
+    layoutJson: { width: 800, height: 600 },
     tables: [],
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",

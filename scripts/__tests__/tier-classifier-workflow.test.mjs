@@ -187,6 +187,58 @@ describe("tier-classifier keyword escalation vs. the PR template", () => {
   }
 });
 
+describe("tier-classifier keyword rule vs. hyphenated identifiers and code (#5956)", () => {
+  const T3_FILES = ["package.json"];
+  const body = (prose) => `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`;
+
+  it("does not escalate on a keyword inside a hyphenated script name, #5950's real trigger", () => {
+    const { tier, reasons } = runClassifier({
+      title: "chore: add check script",
+      body: body(
+        "> > Note on the baseline: a fresh checkout **without** `pnpm install` reports `prettier`,\n> `boundaries`, and `check-deploy-secret-provisioning` as failing."
+      ),
+      files: T3_FILES,
+    });
+    expect(reasons).not.toMatch(/secrets or incident/);
+    expect(tier).toBe(3);
+  });
+
+  it("does not escalate on the same identifier outside backticks", () => {
+    const { tier, reasons } = runClassifier({
+      title: "chore: add check script",
+      body: body("Also runs check-deploy-secret-provisioning and incident-response-drill."),
+      files: T3_FILES,
+    });
+    expect(reasons).not.toMatch(/secrets or incident/);
+    expect(tier).toBe(3);
+  });
+
+  it("does not escalate on a keyword inside inline or fenced code", () => {
+    const { tier } = runClassifier({
+      title: "chore: tweak",
+      body: body("Uses `secret` as a variable.\n\n```\nconst credential = 1;\n```"),
+      files: T3_FILES,
+    });
+    expect(tier).toBe(3);
+  });
+
+  for (const prose of [
+    "rotate the leaked Stripe credential",
+    "We rotated the secrets after an incident.",
+    "This was a secret-leak, not a drill: the secret is exposed.",
+  ]) {
+    it(`still escalates to T4 with a T3 path on genuine prose: ${prose}`, () => {
+      const { tier, reasons } = runClassifier({
+        title: "fix: respond",
+        body: body(prose),
+        files: T3_FILES,
+      });
+      expect(reasons).toMatch(/sensitive path already matched/);
+      expect(tier).toBe(4);
+    });
+  }
+});
+
 describe("tier-classifier bypass rule: a request escalates, a description does not", () => {
   // docs/change-tiers.md: "PR body explicitly asks reviewers to bypass a
   // check." The pre-#4279 pattern was /bypass.*check|skip.*review/i against
@@ -256,5 +308,36 @@ describe("tier-classifier bypass rule: a request escalates, a description does n
 
     expect(reasons).not.toMatch(/bypass a check/);
     expect(tier).not.toBe(4);
+  });
+});
+
+// #5854 review: acmm-regression.yml's daily PR touches only
+// .claude/acmm/state.json and apps/marketing/public/acmm-report.json on a
+// no-op day, and those two paths matched no rule -- "unmatched paths
+// default to T2", which blocks auto-merge on every run (prior
+// automation/acmm-regression PRs #5497/#5305/#5056/#4461 all closed
+// unmerged). Both are automation-only, non-source output -- the same class
+// `metrics/**` already gets T1 for -- so they get the same classification.
+describe("tier-classifier path rules: ACMM automation output", () => {
+  it("classifies .claude/acmm/state.json alone as tier:trivial", () => {
+    const { tier, label } = runClassifier({
+      title: "chore(acmm): daily audit 2026-09-29",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json"],
+    });
+
+    expect(tier).toBe(1);
+    expect(label).toBe("tier:trivial");
+  });
+
+  it("classifies the state.json + acmm-report.json pair (a real daily-audit diff) as tier:trivial", () => {
+    const { tier, label } = runClassifier({
+      title: "chore(acmm): daily audit 2026-09-29",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json", "apps/marketing/public/acmm-report.json"],
+    });
+
+    expect(tier).toBe(1);
+    expect(label).toBe("tier:trivial");
   });
 });

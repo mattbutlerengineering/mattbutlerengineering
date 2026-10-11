@@ -81,7 +81,7 @@ describe("useCommandPalette", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
     const dashboardItem = result.current.items.find((item) => item.id === "dashboard");
-    dashboardItem?.onSelect();
+    dashboardItem?.onSelect!();
 
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
   });
@@ -90,7 +90,7 @@ describe("useCommandPalette", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
     const themeItem = result.current.items.find((item) => item.id === "action-toggle-theme");
-    themeItem?.onSelect();
+    themeItem?.onSelect!();
 
     expect(mockToggleTheme).toHaveBeenCalled();
   });
@@ -99,7 +99,7 @@ describe("useCommandPalette", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
     const signOutItem = result.current.items.find((item) => item.id === "action-sign-out");
-    signOutItem?.onSelect();
+    signOutItem?.onSelect!();
 
     expect(mockSignOut).toHaveBeenCalled();
   });
@@ -140,7 +140,7 @@ describe("useCommandPalette", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
     const walkinItem = result.current.items.find((item) => item.id === "action-walkin");
-    walkinItem?.onSelect();
+    walkinItem?.onSelect!();
 
     expect(mockNavigate).toHaveBeenCalledWith("/timeline?walkin=true");
   });
@@ -150,7 +150,7 @@ describe("useCommandPalette", () => {
 
     const item = result.current.items.find((i) => i.id === "action-new-reservation");
     expect(item?.label).toBe("New Reservation");
-    item?.onSelect();
+    item?.onSelect!();
 
     expect(mockNavigate).toHaveBeenCalledWith("/reservations?new=true");
   });

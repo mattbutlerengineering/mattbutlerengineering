@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useState } from "react";
 import { Clock } from "lucide-react";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
@@ -68,41 +68,20 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
   },
   ref
 ) {
-  // Bumping the token remounts the Popover closed — the only external way to
-  // dismiss the self-managed Popover on select/Escape.
-  const [closeToken, setCloseToken] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const didMountRef = useRef(false);
-
-  // Return focus to the trigger after a close — a mount-guarded effect, never
-  // requestAnimationFrame (which testing-library does not await).
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    inputRef.current?.focus();
-  }, [closeToken]);
+  const [open, setOpen] = useState(false);
 
   const handleSelect = useCallback(
     (next: string) => {
       onChange(next);
-      setCloseToken((token) => token + 1);
+      setOpen(false);
     },
     [onChange]
   );
-
-  const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      setCloseToken((token) => token + 1);
-    }
-  };
 
   const display = value ? formatTimeDisplay(value, locale) : "";
 
   const trigger = (
     <Input
-      ref={inputRef}
       id={id}
       label={label}
       value={display}
@@ -116,8 +95,8 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
 
   return (
     <div ref={ref} className={cn(styles.wrapper, className)}>
-      <Popover key={closeToken} trigger={trigger} placement={placement}>
-        <div role="presentation" className={styles.panel} onKeyDown={handlePanelKeyDown}>
+      <Popover open={open} onOpenChange={setOpen} trigger={trigger} placement={placement}>
+        <div role="presentation" className={styles.panel}>
           <TimeList
             value={value}
             onChange={handleSelect}

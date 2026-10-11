@@ -152,7 +152,7 @@ describe("VenueSwitcher", () => {
       render(<VenueSwitcher onNavigate={onNavigate} />);
       await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
       const options = screen.getAllByRole("option");
-      await userEvent.click(options[0]);
+      await userEvent.click(options[0]!);
       expect(screen.queryByRole("listbox")).toBeNull();
     });
 

@@ -77,7 +77,7 @@ async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
  * Decodes a JWT payload without verification (tokens come directly from Auth0).
  */
 function decodeJwtPayload(token: string): Record<string, unknown> {
-  const base64 = token.split(".")[1];
+  const base64 = token.split(".")[1]!;
   const json = Buffer.from(base64, "base64url").toString("utf-8");
   return JSON.parse(json) as Record<string, unknown>;
 }

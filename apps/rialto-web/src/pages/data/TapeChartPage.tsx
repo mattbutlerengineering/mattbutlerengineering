@@ -267,6 +267,7 @@ export function TapeChartPage() {
               viewMode="grid"
               onReservationClick={(r) => setOverlapDefaultId(r.id)}
               selectedReservationId={overlapDefaultId}
+              strings={{ regionLabel: "Reservations tape chart, default overlap rule" }}
             />
           </Card>
 
@@ -306,6 +307,7 @@ export function TapeChartPage() {
               onReservationClick={(r) => setOverlapClassifiedId(r.id)}
               selectedReservationId={overlapClassifiedId}
               classifyOverlap={overlapClassifier}
+              strings={{ regionLabel: "Reservations tape chart, classified overlap rule" }}
             />
           </Card>
 

@@ -42,8 +42,8 @@ function setupExecFileMock(
 
     callCounts[key] = (callCounts[key] ?? 0) + 1;
     const responseList = responses[key] ?? [{ stdout: "", stderr: "" }];
-    const idx = Math.min(callCounts[key] - 1, responseList.length - 1);
-    const response = responseList[idx];
+    const idx = Math.min(callCounts[key]! - 1, responseList.length - 1);
+    const response = responseList[idx]!;
 
     if (response.error) {
       const err = new Error("command failed") as Error & {

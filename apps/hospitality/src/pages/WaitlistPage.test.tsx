@@ -208,9 +208,12 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
 
 const mockVenue: VenueContextValue = {
   selectedVenueId: "venue-abc",
-  setSelectedVenueId: vi.fn(),
+  selectedVenue: null,
+  setVenueId: vi.fn(),
   venues: [],
   isLoading: false,
+  isMultiVenue: false,
+  refetchVenues: vi.fn(),
 };
 
 const makeEntry = (overrides: Partial<WaitlistEntry> = {}): WaitlistEntry => ({
@@ -267,6 +270,7 @@ const makeAlice = (overrides: Partial<Guest> = {}): Guest => ({
   lastVisit: "2026-05-10T18:00:00.000Z",
   tags: ["VIP", "regular"],
   dietaryRestrictions: ["vegetarian"],
+  communicationPreference: "both",
   staffNotes: [],
   createdAt: "2025-06-01T00:00:00.000Z",
   updatedAt: "2026-05-10T18:00:00.000Z",
@@ -280,18 +284,25 @@ function getRowCards(container: HTMLElement) {
   return Array.from(cardsList.querySelectorAll<HTMLElement>("[data-card]"));
 }
 
+/** Table fields the waitlist page never reads, at the values a freshly created table carries. */
+const TABLE_DEFAULTS = {
+  tableNumber: null,
+  minCovers: 1,
+  maxCovers: null,
+  location: null,
+  priority: 0,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+} satisfies Partial<Table>;
+
 const makeTable = (overrides: Partial<Table> = {}): Table => ({
   id: "table-1",
   name: "Table 1",
   capacity: 4,
   isActive: true,
   status: "AVAILABLE",
-  x: 0,
-  y: 0,
-  width: 100,
-  height: 100,
-  shape: "RECTANGLE",
-  rotation: 0,
+  ...TABLE_DEFAULTS,
+  shapeMetadata: { x: 0, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
   venueId: "venue-abc",
   floorPlanId: "fp-1",
   ...overrides,
@@ -714,7 +725,7 @@ describe("WaitlistPage", () => {
       await waitFor(() => {
         expect(mutateAsync).toHaveBeenCalledOnce();
       });
-      const payload = mutateAsync.mock.calls[0][0];
+      const payload = mutateAsync.mock.calls[0]![0];
       expect(payload).toStrictEqual({
         venueId: "venue-abc",
         partySize: 2,

@@ -3,7 +3,7 @@
  * return to the trigger on select and Escape.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DatePicker } from "./DatePicker";
 
@@ -49,9 +49,9 @@ describe("DatePicker", () => {
     await user.click(cell(container, "2024-06-20"));
 
     expect(onChange).toHaveBeenCalledWith("2024-06-20");
-    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
-    // The Popover remounts closed on select; focus lands on the fresh trigger.
-    expect(document.activeElement).toBe(screen.getByLabelText("Date"));
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+    // Closing is async (exit animation + rAF focus restore).
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Date")));
   });
 
   it("Escape closes the popover and returns focus to the trigger", async () => {
@@ -61,8 +61,8 @@ describe("DatePicker", () => {
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
-    expect(document.activeElement).toBe(screen.getByLabelText("Date"));
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Date")));
   });
 
   it("wires aria-expanded, aria-haspopup, and aria-controls on the trigger, toggling on open", async () => {

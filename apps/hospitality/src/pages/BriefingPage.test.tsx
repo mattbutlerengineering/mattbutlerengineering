@@ -150,9 +150,12 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 
 const mockVenue: VenueContextValue = {
   selectedVenueId: "venue-abc",
-  setSelectedVenueId: vi.fn(),
+  selectedVenue: null,
+  setVenueId: vi.fn(),
   venues: [],
   isLoading: false,
+  isMultiVenue: false,
+  refetchVenues: vi.fn(),
 };
 
 /** Service night under test: Friday 2026-09-04, clock at 20:00 local. */

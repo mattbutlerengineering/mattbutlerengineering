@@ -1,16 +1,17 @@
-import { vi } from "vitest";
+import { vi, type Mock } from "vitest";
 import type { PoolMetrics, SlowQueryStats, ServiceStatus } from "./index.js";
 
 /**
- * Minimal typed prisma stub — always includes $queryRaw for health checks
- * and $executeRaw for the ADR-026 venue-context preHandler's `set_config()`
- * call (services/reservations/src/middleware/venue-context.ts), which every
- * request now issues via the global preHandler in services/reservations'
- * app bootstrap.
+ * Minimal typed prisma stub — always includes $queryRaw for health checks,
+ * $executeRaw for `set_config()`, and $executeRawUnsafe plus a default
+ * `$transaction` so `assumeAppRole` (`SET LOCAL ROLE`) can run against the
+ * same `$queryRaw` the test stubbed.
  */
 export interface MockPrisma {
-  $queryRaw: ReturnType<typeof vi.fn>;
-  $executeRaw: ReturnType<typeof vi.fn>;
+  $queryRaw: Mock;
+  $executeRaw: Mock;
+  $executeRawUnsafe: Mock;
+  $transaction: Mock;
   [key: string]: unknown;
 }
 
@@ -21,27 +22,27 @@ export interface MockDatabaseService {
   /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
   db: {
     prisma: MockPrisma;
-    getSlowQueryStats: ReturnType<typeof vi.fn>;
-    getServiceStatus: ReturnType<typeof vi.fn>;
-    getPoolMetrics: ReturnType<typeof vi.fn>;
-    shutdown: ReturnType<typeof vi.fn>;
+    getSlowQueryStats: Mock;
+    getServiceStatus: Mock;
+    getPoolMetrics: Mock;
+    shutdown: Mock;
   };
   /** @deprecated Access via db.getSlowQueryStats instead. */
-  getSlowQueryStats: ReturnType<typeof vi.fn>;
+  getSlowQueryStats: Mock;
   /** @deprecated Access via db.getServiceStatus instead. */
-  getServiceStatus: ReturnType<typeof vi.fn>;
+  getServiceStatus: Mock;
   /** @deprecated Access via db.getPoolMetrics instead. */
-  getPoolMetrics: ReturnType<typeof vi.fn>;
+  getPoolMetrics: Mock;
 }
 
 /** Per-field overrides accepted by createMockDatabaseService. */
 export interface MockDatabaseServiceOverrides {
   /** Merged (not replaced) with the default prisma stub. */
   prisma?: Record<string, unknown>;
-  getSlowQueryStats?: ReturnType<typeof vi.fn>;
-  getServiceStatus?: ReturnType<typeof vi.fn>;
-  getPoolMetrics?: ReturnType<typeof vi.fn>;
-  shutdown?: ReturnType<typeof vi.fn>;
+  getSlowQueryStats?: Mock;
+  getServiceStatus?: Mock;
+  getPoolMetrics?: Mock;
+  shutdown?: Mock;
 }
 
 const DEFAULT_POOL_METRICS: PoolMetrics = {
@@ -87,8 +88,16 @@ export function createMockDatabaseService(
   const defaultPrisma: MockPrisma = {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn().mockResolvedValue(0),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    $transaction: vi.fn(),
   };
   const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
+  // A caller-supplied `$transaction` stays. Otherwise the callback sees this
+  // same stub, so a query moved inside the transaction still hits the
+  // overridden `$queryRaw`.
+  if (overrides?.prisma?.$transaction === undefined) {
+    mergedPrisma.$transaction = vi.fn(async (fn: (tx: MockPrisma) => unknown) => fn(mergedPrisma));
+  }
 
   const getSlowQueryStats =
     overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS);
@@ -116,10 +125,10 @@ export function createMockDatabaseService(
 export interface MockDatabaseModule {
   db: {
     prisma: MockPrisma;
-    getSlowQueryStats: ReturnType<typeof vi.fn>;
-    getServiceStatus: ReturnType<typeof vi.fn>;
-    getPoolMetrics: ReturnType<typeof vi.fn>;
-    shutdown: ReturnType<typeof vi.fn>;
+    getSlowQueryStats: Mock;
+    getServiceStatus: Mock;
+    getPoolMetrics: Mock;
+    shutdown: Mock;
   };
   prisma: MockPrisma;
 }

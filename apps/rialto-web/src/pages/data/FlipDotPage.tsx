@@ -112,11 +112,11 @@ function ConfigurableDemo() {
         <Text variant="label" color="secondary">
           Dot size: {dotSize}px
         </Text>
-        <Slider min={4} max={16} value={dotSize} onChange={setDotSize} />
+        <Slider min={4} max={16} value={dotSize} onChange={setDotSize} aria-label="Dot size" />
         <Text variant="label" color="secondary">
           Dot gap: {dotGap}px
         </Text>
-        <Slider min={1} max={8} value={dotGap} onChange={setDotGap} />
+        <Slider min={1} max={8} value={dotGap} onChange={setDotGap} aria-label="Dot gap" />
       </Stack>
     </Stack>
   );

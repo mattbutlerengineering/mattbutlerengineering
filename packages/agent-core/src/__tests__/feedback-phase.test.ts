@@ -127,7 +127,7 @@ describe("FeedbackPhase", () => {
   it("uses remaining budget (total - session cost)", async () => {
     await phase.run(makeInput(), deps);
 
-    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0]![0];
     // maxBudgetUsd = 1.0, resultMessage.costUsd = 0.25 → remaining = 0.75
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
@@ -137,7 +137,7 @@ describe("FeedbackPhase", () => {
 
     await phase.run(makeInput({ signal: controller.signal }), deps);
 
-    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0]![0];
     expect(fbCall.signal).toBe(controller.signal);
   });
 
@@ -149,6 +149,6 @@ describe("FeedbackPhase", () => {
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);
-    expect((resultEvents[0].data as { message: string }).message).toContain("Feedback loop");
+    expect((resultEvents[0]!.data as { message: string }).message).toContain("Feedback loop");
   });
 });

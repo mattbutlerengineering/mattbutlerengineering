@@ -17,8 +17,13 @@ import {
   runRoutineLivenessCheck,
   isObservationBlackout,
   fetchObservedArtifactsViaGhClient,
+  parseHeartbeatLine,
 } from "../routine-liveness.mjs";
-import { ROUTINE_MANIFEST, parseRoutineCatalog } from "../routine-manifest.mjs";
+import {
+  ROUTINE_MANIFEST,
+  parseRoutineCatalog,
+  HEARTBEAT_ISSUE_NUMBER,
+} from "../routine-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -297,47 +302,31 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
 
 // #5612: mbe-monthly-meta-audit had no declared liveness signature at all —
 // the same gap #5344/#5373 closed for mbe-weekly-improve (mbe-daily-issue,
-// #5605, graduated on 2026-09-25; see the block at the end of this file). Its
-// docs/routines/*.md prompt now specifies a distinct, greppable PR title, but
-// its manifest entry deliberately stays `unverifiable` until the live
-// RemoteTrigger prompt at claude.ai is confirmed to emit it — identical fail-closed reasoning to mbe-night/mbe-midday
-// (#5604/#5608): a signature that searches for a title nothing emits yet
-// misclassifies a live routine as `dark`, strictly worse than an honest
-// `unverifiable`.
-//
-// These assertions pin the two halves together — the title the prompt
-// documents, and the concrete searchTerm the manifest's unverifiableReason
-// promises the follow-up PR will flip to. If the two drift, that follow-up
-// searches for a title nothing emits and a healthy routine reads `dark`.
-describe("prompt-documented PR-title signatures pending live-trigger confirmation", () => {
-  const PENDING_TRIGGER_CONFIRMATION = [
-    {
-      routine: "mbe-monthly-meta-audit",
-      // It files `ready` issues too, but only "for the rest" — conditionally,
-      // and under no distinct label. The ONE PR is its unconditional artifact,
-      // so the signature keys on that.
-      promptTitleConvention: "chore(meta): monthly meta-audit <YYYY-MM-DD>",
-      plannedSearchTerm: "monthly meta-audit",
-    },
-  ];
+// #5605, graduated on 2026-09-25). Confirmed live 2026-10-01 by PR #5950,
+// titled "chore(meta): monthly meta-audit 2026-10-01 — guard unreachable mbe
+// CLI commands" (#5748) — its manifest entry now carries the real signature,
+// same graduation this file already pins for mbe-daily-issue below.
+describe("PR-title signatures confirmed against a live routine run", () => {
+  it("mbe-monthly-meta-audit matches the title its live trigger emits", () => {
+    const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-monthly-meta-audit");
+    expect(entry.unverifiable).toBeUndefined();
+    expect(entry.signature).toMatchObject({ type: "pr-title", searchTerm: "monthly meta-audit" });
+    const pattern = new RegExp(entry.signature.pattern);
+    expect(
+      pattern.test(
+        "chore(meta): monthly meta-audit 2026-10-01 — guard unreachable mbe CLI commands"
+      )
+    ).toBe(true);
+    expect(pattern.test("fix(reservations): an ordinary implement-queue PR (#5950)")).toBe(false);
+  });
 
-  it.each(PENDING_TRIGGER_CONFIRMATION)(
-    "$routine's prompt documents its own distinct PR title",
-    ({ routine, promptTitleConvention }) => {
-      const prompt = readFileSync(resolve(ROOT, "docs", "routines", `${routine}.md`), "utf-8");
-      expect(prompt).toContain(promptTitleConvention);
-    }
-  );
-
-  it.each(PENDING_TRIGGER_CONFIRMATION)(
-    "$routine stays unverifiable, naming the searchTerm a follow-up PR flips to",
-    ({ routine, plannedSearchTerm }) => {
-      const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === routine);
-      expect(entry.unverifiable).toBe(true);
-      expect(entry.signature).toBeUndefined();
-      expect(entry.unverifiableReason).toContain(`searchTerm: "${plannedSearchTerm}"`);
-    }
-  );
+  it("mbe-monthly-meta-audit's prompt still documents that title convention", () => {
+    const prompt = readFileSync(
+      resolve(ROOT, "docs", "routines", "mbe-monthly-meta-audit.md"),
+      "utf-8"
+    );
+    expect(prompt).toContain("chore(meta): monthly meta-audit <YYYY-MM-DD>");
+  });
 });
 
 // #5603: the daily checker flagged mbe-evening `dark`. Investigation found the
@@ -379,13 +368,11 @@ describe("mbe-evening liveness signature (#5603 investigation)", () => {
 // docs/process-retro.md 2026-09-20 entry's liveness table, must report
 // mbe-weekly-improve dark and every other routine with a declared signature
 // alive. Routines marked `unverifiable` in the manifest (mbe-night,
-// mbe-midday, mbe-monthly-meta-audit — each has a prompt-documented title
-// now, none confirmed live at the trigger yet; mbe-morning — its ACMM-audit
-// signature was retired in #5955 with no replacement yet, see
-// routine-manifest.mjs's unverifiableReason) are asserted separately as
-// `unverifiable`, not folded into the "every other routine" alive claim —
-// they are real, distinct findings the manifest surfaces honestly rather
-// than papering over with a fabricated signature.
+// mbe-midday — each has a prompt-documented title now, neither confirmed
+// live at the trigger yet; mbe-monthly-meta-audit graduated in #5748;
+// are asserted separately as `unverifiable`, not folded into the "every other
+// routine" alive claim — they are real, distinct findings the manifest
+// surfaces honestly rather than papering over with a fabricated signature.
 describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
   // End of day, not midnight — several routines' artifacts land well after
   // 00:00 UTC on 09-20 itself (e.g. mbe-learning-loop at 18:10 UTC), which
@@ -417,7 +404,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
       },
     ],
     "mbe-auditor": [
-      { type: "issue", labels: ["ready", "audit"], observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
+      { type: "heartbeat", state: "noop", observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
     ],
     "mbe-daily-issue": [
       {
@@ -427,11 +414,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
       },
     ],
     "mbe-morning": [
-      {
-        type: "pr",
-        title: "chore(acmm): daily audit 2026-09-20",
-        observedAt: "2026-09-20T16:03:00Z", // cron 3 16 * * *
-      },
+      { type: "heartbeat", state: "ok", observedAt: "2026-09-20T16:03:00Z" }, // cron 3 16 * * *
     ],
     "mbe-learning-loop": [
       {
@@ -471,9 +454,9 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     ],
   };
 
-  // mbe-monthly-meta-audit (and mbe-night/mbe-midday) are `unverifiable` in
-  // the manifest (see below) — runRoutineLivenessCheck files a finding for those
-  // too, so createIssue must be a working stub here, not a throw.
+  // mbe-night/mbe-midday are `unverifiable` in the manifest (see below) —
+  // runRoutineLivenessCheck files a finding for those too, so createIssue
+  // must be a working stub here, not a throw.
   let nextIssueNumber = 1000;
   const results = runRoutineLivenessCheck({
     manifest: ROUTINE_MANIFEST,
@@ -488,43 +471,30 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
-  // These three have artifacts in this fixture, dated with the distinct titles
-  // their docs/routines/*.md prompts now specify (#5604/#5608 for
-  // mbe-night/mbe-midday, #5612 for mbe-monthly-meta-audit) and are still NOT
-  // alive (mbe-daily-issue graduated on 2026-09-25, #5748): the manifest keeps them `unverifiable` on purpose
-  // until the live RemoteTrigger prompts are confirmed updated to actually emit
-  // those titles (see routine-manifest.mjs unverifiableReason) — flipping the
-  // manifest signature ahead of the live trigger would search for a title
-  // nothing emits yet and misclassify a healthy routine as `dark`, worse than
-  // `unverifiable`.
-  const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = [
-    "mbe-night",
-    "mbe-midday",
-    "mbe-monthly-meta-audit",
-  ];
-
-  // #5955: mbe-morning's `chore(acmm): daily audit` signature was retired —
-  // it's acmm-regression.yml's artifact now, not mbe-morning's — with no
-  // replacement signature declared yet. Distinct from the three above
-  // (which have a declared-but-trigger-unconfirmed signature): mbe-morning
-  // has no signature at all, so it reports `unverifiable` regardless of
-  // what the fixture observes for it.
-  const RETIRED_SIGNATURE_NO_REPLACEMENT = ["mbe-morning"];
+  // These two have artifacts in this fixture, dated with the distinct titles
+  // their docs/routines/*.md prompts now specify (#5604/#5608) and are still
+  // NOT alive (mbe-daily-issue graduated on 2026-09-25, mbe-monthly-meta-audit
+  // on 2026-10-01, both #5748): the manifest keeps them `unverifiable` on
+  // purpose until the live RemoteTrigger prompts are confirmed updated to
+  // actually emit those titles (see routine-manifest.mjs unverifiableReason)
+  // — flipping the manifest signature ahead of the live trigger would search
+  // for a title nothing emits yet and misclassify a healthy routine as
+  // `dark`, worse than `unverifiable`.
+  const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = ["mbe-night", "mbe-midday"];
 
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
       if (
         name === "mbe-weekly-improve" ||
-        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name) ||
-        RETIRED_SIGNATURE_NO_REPLACEMENT.includes(name)
+        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
       )
         continue;
       expect(byRoutine[name]).toBe("alive");
     }
   });
 
-  it("reports mbe-morning as unverifiable, not silently omitted, now that its ACMM signature is retired", () => {
-    expect(byRoutine["mbe-morning"]).toBe("unverifiable");
+  it("reports mbe-morning alive from its heartbeat (#6157)", () => {
+    expect(byRoutine["mbe-morning"]).toBe("alive");
   });
 
   it("keeps every prompt-updated routine unverifiable until its live trigger is confirmed updated", () => {
@@ -538,11 +508,11 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     }
   });
 
-  // Named separately from the loop above: these two are the routines #5605 and
-  // #5612 were filed against, and the finding must keep surfacing for them by
-  // name rather than being silently omitted from the results.
-  it("reports mbe-monthly-meta-audit as unverifiable, not silently omitted", () => {
-    expect(byRoutine["mbe-monthly-meta-audit"]).toBe("unverifiable");
+  // Named separately from the loop above: these are the routines #5605 and
+  // #5612 were filed against, and each graduation must keep surfacing by
+  // name rather than being silently folded into the generic loop above.
+  it("reports mbe-monthly-meta-audit as alive now that its live signature is confirmed (#5748)", () => {
+    expect(byRoutine["mbe-monthly-meta-audit"]).toBe("alive");
   });
 
   it("reports mbe-daily-issue as alive now that its live signature is confirmed (#5748)", () => {
@@ -1428,9 +1398,171 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     expect(logs.some((m) => m.includes("mbe-ui-quality") && m.includes("505,050"))).toBe(true);
   });
 
-  it("the mbe-ui-quality manifest entry opts in, and no other entry does", () => {
+  // #6190: mbe-ui-quality moved to a heartbeat signature, so no manifest entry
+  // opts in today; the mechanism stays for a future long-lived-PR routine.
+  it("no manifest entry opts in now that mbe-ui-quality uses a heartbeat", () => {
     const opted = ROUTINE_MANIFEST.filter((e) => e.signature?.observe !== undefined);
-    expect(opted.map((e) => e.name)).toEqual(["mbe-ui-quality"]);
-    expect(opted[0].signature.observe).toBe("latest-matching-commit");
+    expect(opted).toEqual([]);
   });
+});
+
+// #6190 / #6157: heartbeat signature. A routine that files nothing by design
+// (mbe-auditor on a clean day, mbe-morning's /ideate) posts one comment per
+// fire on the intentionally CLOSED issue #6211.
+describe("parseHeartbeatLine", () => {
+  it("parses a well-formed line, with and without a note", () => {
+    expect(parseHeartbeatLine("heartbeat: mbe-auditor 2026-10-10 noop")).toEqual({
+      routine: "mbe-auditor",
+      date: "2026-10-10",
+      state: "noop",
+      note: "",
+    });
+    expect(
+      parseHeartbeatLine("heartbeat: mbe-ui-quality 2026-10-10 throttled rate limited")
+    ).toEqual({
+      routine: "mbe-ui-quality",
+      date: "2026-10-10",
+      state: "throttled",
+      note: "rate limited",
+    });
+  });
+
+  it("ignores malformed lines", () => {
+    for (const bad of [
+      "",
+      "hello",
+      "heartbeat: mbe-auditor noop",
+      "heartbeat: mbe-auditor 2026-10-10 fine",
+      "heartbeat: mbe-auditor 10-10-2026 ok",
+      "Heartbeat: mbe-auditor 2026-10-10 ok",
+    ]) {
+      expect(parseHeartbeatLine(bad)).toBeNull();
+    }
+  });
+});
+
+describe("heartbeat classification (#6190)", () => {
+  const now = "2026-10-10T12:00:00Z";
+  const signature = { type: "heartbeat" };
+  const beat = (state, observedAt) => ({ type: "heartbeat", state, observedAt });
+  const classify = (observedArtifacts, extra = {}) =>
+    classifyRoutineLiveness({ signature, periodDays: 1, observedArtifacts, now, ...extra });
+
+  it("noop counts as alive", () => {
+    expect(classify([beat("noop", "2026-10-10T09:40:00Z")]).status).toBe("alive");
+  });
+
+  it("ok counts as alive", () => {
+    expect(classify([beat("ok", "2026-10-10T09:40:00Z")]).status).toBe("alive");
+  });
+
+  it("throttled is its own non-dark state", () => {
+    expect(classify([beat("throttled", "2026-10-10T09:40:00Z")]).status).toBe("throttled");
+  });
+
+  it("error is dark", () => {
+    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("dark");
+  });
+
+  it("the newest heartbeat wins over an older one", () => {
+    expect(
+      classify([beat("error", "2026-10-09T09:40:00Z"), beat("noop", "2026-10-10T09:40:00Z")]).status
+    ).toBe("alive");
+    expect(
+      classify([beat("ok", "2026-10-09T09:40:00Z"), beat("error", "2026-10-10T09:40:00Z")]).status
+    ).toBe("dark");
+  });
+
+  it("a stale heartbeat is dark", () => {
+    expect(classify([beat("ok", "2026-10-05T09:40:00Z")]).status).toBe("dark");
+  });
+
+  it("no heartbeat is dark", () => {
+    expect(classify([]).status).toBe("dark");
+  });
+
+  it("artifacts of other types never satisfy a heartbeat signature", () => {
+    expect(
+      classify([{ type: "issue", labels: ["audit"], observedAt: "2026-10-10T09:40:00Z" }]).status
+    ).toBe("dark");
+  });
+});
+
+describe("heartbeat manifest entries and checker (#6190, #6157)", () => {
+  const HEARTBEAT_ROUTINES = ["mbe-auditor", "mbe-morning", "mbe-ui-quality"];
+
+  it("switches mbe-auditor, mbe-morning and mbe-ui-quality to heartbeat", () => {
+    for (const name of HEARTBEAT_ROUTINES) {
+      const entry = ROUTINE_MANIFEST.find((e) => e.name === name);
+      expect(entry.signature).toEqual({ type: "heartbeat" });
+      expect(entry.unverifiable).toBeFalsy();
+    }
+  });
+
+  it("classifies mbe-auditor alive from a recent noop heartbeat with no audit artifact", () => {
+    const results = runRoutineLivenessCheck({
+      manifest: ROUTINE_MANIFEST.filter((e) => e.name === "mbe-auditor"),
+      fetchObservedArtifacts: () => [
+        { type: "heartbeat", state: "noop", observedAt: "2026-10-10T09:45:00Z" },
+      ],
+      now: "2026-10-10T12:00:00Z",
+      createIssue: () => {
+        throw new Error("must not file");
+      },
+    });
+    expect(results).toEqual([{ routine: "mbe-auditor", status: "alive" }]);
+  });
+
+  it("reports a throttled routine without filing a dark issue", () => {
+    const results = runRoutineLivenessCheck({
+      manifest: ROUTINE_MANIFEST.filter((e) => e.name === "mbe-ui-quality"),
+      fetchObservedArtifacts: () => [
+        { type: "heartbeat", state: "throttled", observedAt: "2026-10-10T09:45:00Z" },
+      ],
+      now: "2026-10-10T12:00:00Z",
+      createIssue: () => {
+        throw new Error("must not file");
+      },
+    });
+    expect(results).toEqual([{ routine: "mbe-ui-quality", status: "throttled" }]);
+  });
+});
+
+describe("fetchObservedArtifactsViaGhClient — heartbeat", () => {
+  const comments = [
+    { body: "heartbeat: mbe-auditor 2026-10-09 ok", created_at: "2026-10-09T09:40:00Z" },
+    { body: "heartbeat: mbe-auditor 2026-10-10 noop", createdAt: "2026-10-10T09:40:00Z" },
+    { body: "heartbeat: mbe-morning 2026-10-10 ok", created_at: "2026-10-10T16:00:00Z" },
+    { body: "not a heartbeat", created_at: "2026-10-10T17:00:00Z" },
+  ];
+
+  it("reads comments from the heartbeat issue and keeps only this routine's valid lines", () => {
+    const calls = [];
+    const ghClient = {
+      issue: {
+        view: (number, args) => {
+          calls.push([number, args]);
+          return { comments };
+        },
+      },
+    };
+    const entry = { name: "mbe-auditor", signature: { type: "heartbeat" } };
+    const out = fetchObservedArtifactsViaGhClient(ghClient, entry);
+    expect(calls).toEqual([[HEARTBEAT_ISSUE_NUMBER, ["--json", "comments"]]]);
+    expect(out).toEqual([
+      { type: "heartbeat", state: "ok", observedAt: "2026-10-09T09:40:00Z" },
+      { type: "heartbeat", state: "noop", observedAt: "2026-10-10T09:40:00Z" },
+    ]);
+  });
+});
+
+describe("heartbeat routines' prompts document the final-step comment (#6190, #6157)", () => {
+  for (const name of ["mbe-auditor", "mbe-morning", "mbe-ui-quality"]) {
+    it(`docs/routines/${name}.md tells the routine to post its heartbeat line on #${HEARTBEAT_ISSUE_NUMBER}`, () => {
+      const prompt = readFileSync(resolve(ROOT, "docs", "routines", `${name}.md`), "utf-8");
+      expect(prompt).toContain(`heartbeat: ${name} <YYYY-MM-DD> <ok|noop|throttled|error> [note]`);
+      expect(prompt).toContain(`#${HEARTBEAT_ISSUE_NUMBER}`);
+      expect(prompt).toContain("FINAL STEP");
+    });
+  }
 });

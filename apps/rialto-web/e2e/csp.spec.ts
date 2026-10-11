@@ -28,7 +28,7 @@ const COVERED_ROUTES = [
 function nonceFrom(policy: string | undefined): string {
   const match = /'nonce-([0-9a-f]{32})'/.exec(policy ?? "");
   if (!match) throw new Error(`no nonce in Content-Security-Policy: ${policy ?? "(absent)"}`);
-  return match[1];
+  return match[1]!;
 }
 
 for (const { name, path } of COVERED_ROUTES) {
@@ -175,15 +175,15 @@ test.describe("edge-CSP fixture contract", () => {
 
     const violations = await recorder.drain(page);
     expect(violations.length).toBeGreaterThan(0);
-    expect(Object.keys(violations[0]).sort()).toEqual([
+    expect(Object.keys(violations[0]!).sort()).toEqual([
       "blockedURI",
       "documentURI",
       "effectiveDirective",
       "sample",
     ]);
-    expect(violations[0].effectiveDirective).toBe("frame-src");
-    expect(violations[0].blockedURI).toContain("blocked.invalid");
-    expect(violations[0].documentURI).toContain("/rialto/");
+    expect(violations[0]!.effectiveDirective).toBe("frame-src");
+    expect(violations[0]!.blockedURI).toContain("blocked.invalid");
+    expect(violations[0]!.documentURI).toContain("/rialto/");
 
     // drain clears: a second read must not re-report the same violation.
     expect(await recorder.drain(page)).toEqual([]);

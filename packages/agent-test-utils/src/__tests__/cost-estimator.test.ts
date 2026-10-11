@@ -118,7 +118,7 @@ describe("createCostProfiler", () => {
     const profiler = createCostProfiler();
     profiler.record("sess-1", { inputTokens: 5000, outputTokens: 1000 }, 3000);
     expect(profiler.profiles()).toHaveLength(1);
-    expect(profiler.profiles()[0].sessionId).toBe("sess-1");
+    expect(profiler.profiles()[0]!.sessionId).toBe("sess-1");
   });
 
   it("summary returns zero values when empty", () => {
@@ -200,9 +200,9 @@ describe("MODEL_PRICING", () => {
   });
 
   it("opus is most expensive model", () => {
-    const sonnet = MODEL_PRICING["claude-sonnet-5"].inputCostPer1MTokens;
-    const opus = MODEL_PRICING["claude-opus-4-8"].inputCostPer1MTokens;
-    const haiku = MODEL_PRICING["claude-haiku-4-5"].inputCostPer1MTokens;
+    const sonnet = MODEL_PRICING["claude-sonnet-5"]!.inputCostPer1MTokens;
+    const opus = MODEL_PRICING["claude-opus-4-8"]!.inputCostPer1MTokens;
+    const haiku = MODEL_PRICING["claude-haiku-4-5"]!.inputCostPer1MTokens;
     expect(opus).toBeGreaterThan(sonnet);
     expect(sonnet).toBeGreaterThan(haiku);
   });

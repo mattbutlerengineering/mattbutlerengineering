@@ -388,3 +388,18 @@ describe("Combobox — accessibility (axe)", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+describe("Combobox — filtering performance", () => {
+  it("memoizes filtered options and skips recomputation on unrelated re-renders", () => {
+    const opts = [...options];
+    const filterSpy = vi.spyOn(opts, "filter");
+    const { rerender } = render(
+      <Combobox label="Fruit" options={opts} inputValue="ap" className="a" />
+    );
+    const callsAfterMount = filterSpy.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+    rerender(<Combobox label="Fruit" options={opts} inputValue="ap" className="b" />);
+    expect(filterSpy.mock.calls.length).toBe(callsAfterMount);
+    filterSpy.mockRestore();
+  });
+});

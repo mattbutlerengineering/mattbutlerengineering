@@ -85,7 +85,7 @@ describe("runPostCommitGateway", () => {
     vi.clearAllMocks();
 
     vi.mocked(runVerification).mockResolvedValue(makeVerificationOk());
-    vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [] });
+    vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [], durationMs: 0 });
     vi.mocked(evaluateSuccess).mockResolvedValue({
       passed: true,
       confidence: 0.9,
@@ -157,6 +157,7 @@ describe("runPostCommitGateway", () => {
           severity: "error",
         },
       ],
+      durationMs: 0,
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -208,6 +209,7 @@ describe("runPostCommitGateway", () => {
           severity: "error",
         },
       ],
+      durationMs: 0,
     });
 
     await runPostCommitGateway(VALID_INPUT);

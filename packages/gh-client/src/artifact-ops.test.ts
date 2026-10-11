@@ -24,7 +24,7 @@ describe("listRunArtifacts", () => {
       { id: 1, name: "test-results-node22", sizeInBytes: 1024, expired: false },
       { id: 2, name: "test-results-node22", sizeInBytes: 512, expired: true },
     ]);
-    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [req] = (http as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(req.url).toBe(
       "https://api.github.com/repos/owner/repo/actions/runs/999/artifacts?per_page=100"
     );
@@ -50,7 +50,7 @@ describe("downloadArtifactZip", () => {
     const result = downloadArtifactZip(123, { ...BASE_OPTS, binaryHttp });
 
     expect(result.equals(original)).toBe(true);
-    const [req] = (binaryHttp as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [req] = (binaryHttp as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(req.url).toBe("https://api.github.com/repos/owner/repo/actions/artifacts/123/zip");
     expect(req.headers.authorization).toBe("Bearer gho_test");
   });

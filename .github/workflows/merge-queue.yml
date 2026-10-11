@@ -32,6 +32,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          set -o pipefail
           gh auth status || true
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -51,15 +52,22 @@ jobs:
             # T2 and above (tier:standard/sensitive/critical) always require
             # Matt's personal approval, so they must never get auto-merge
             # enabled here regardless of the needs-review label.
-            RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS")
+            # #5983: has-pr can land before tier-classifier's tier:* label, so
+            # an earlier enable must be actively disabled once a blocking
+            # label arrives (skipping alone leaves auto-merge on).
+            AUTO_ENABLED=$(gh pr view "$pr" --json autoMergeRequest -q '.autoMergeRequest != null')
+            RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS" --auto-merge-enabled "$AUTO_ENABLED")
             echo "$RESULT"
 
-            ELIGIBLE=$(echo "$RESULT" | jq -r '.eligible')
+            ACTION=$(echo "$RESULT" | jq -r '.action')
             REASON=$(echo "$RESULT" | jq -r '.reason')
 
-            if [ "$ELIGIBLE" = "true" ]; then
+            if [ "$ACTION" = "enable" ]; then
               echo "Enabling auto-merge for PR #$pr (squash merge): $REASON"
               gh pr merge "$pr" --auto --squash || echo "Skipping #$pr: Auto-merge could not be enabled."
+            elif [ "$ACTION" = "disable" ]; then
+              echo "Disabling stale auto-merge for PR #$pr: $REASON"
+              gh pr merge "$pr" --disable-auto
             else
               echo "Skipping #$pr: $REASON"
             fi

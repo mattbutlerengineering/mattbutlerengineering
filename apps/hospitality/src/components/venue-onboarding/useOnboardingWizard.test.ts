@@ -395,6 +395,7 @@ describe("buildOnboardingPayload", () => {
       locationTime: { ianaTimezone: "America/New_York", currencyCode: "USD" },
       operatingHours: {},
       settings: { defaultReservationDuration: "", maxPartySize: "", advanceBookingDays: "" },
+      floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
     });
     expect(payload).toEqual({
       name: "My Venue",
@@ -410,6 +411,7 @@ describe("buildOnboardingPayload", () => {
       locationTime: { ianaTimezone: "Europe/London", currencyCode: "GBP" },
       operatingHours: { monday: { open: "09:00", close: "22:00" } },
       settings: { defaultReservationDuration: "60", maxPartySize: "8", advanceBookingDays: "" },
+      floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
     });
     expect(payload.operatingHours).toEqual({ monday: { open: "09:00", close: "22:00" } });
     expect(payload.settings).toEqual({ defaultReservationDuration: 60, maxPartySize: 8 });

@@ -70,7 +70,7 @@ describe("measureAppBundleSize", () => {
     const result = await measureAppBundleSize(distPath, "test-app");
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].path).toContain("main.js");
+    expect(result.files[0]!.path).toContain("main.js");
   });
 
   it("should return zero bytes for empty dist directory", async () => {
@@ -95,10 +95,10 @@ describe("measureAllBundles", () => {
     const results = await measureAllBundles(tmpDir);
 
     expect(results).toHaveLength(2);
-    expect(results[0].app).toBe("alpha");
-    expect(results[0].totalBytes).toBe(100);
-    expect(results[1].app).toBe("beta");
-    expect(results[1].totalBytes).toBe(200);
+    expect(results[0]!.app).toBe("alpha");
+    expect(results[0]!.totalBytes).toBe(100);
+    expect(results[1]!.app).toBe("beta");
+    expect(results[1]!.totalBytes).toBe(200);
   });
 
   it("should skip apps without dist directories", async () => {
@@ -109,7 +109,7 @@ describe("measureAllBundles", () => {
     const results = await measureAllBundles(tmpDir);
 
     expect(results).toHaveLength(1);
-    expect(results[0].app).toBe("has-dist");
+    expect(results[0]!.app).toBe("has-dist");
   });
 
   it("should return results sorted by app name", async () => {
@@ -143,8 +143,8 @@ describe("loadBaseline / saveBaseline", () => {
 
     expect(loaded).not.toBeNull();
     expect(loaded!.entries).toHaveLength(1);
-    expect(loaded!.entries[0].app).toBe("marketing");
-    expect(loaded!.entries[0].totalBytes).toBe(50000);
+    expect(loaded!.entries[0]!.app).toBe("marketing");
+    expect(loaded!.entries[0]!.totalBytes).toBe(50000);
     expect(loaded!.version).toBe(1);
     expect(loaded!.updatedAt).toBeTruthy();
   });
@@ -207,8 +207,8 @@ describe("compareWithBaseline", () => {
 
     expect(report.hasRegressions).toBe(false);
     expect(report.comparisons).toHaveLength(1);
-    expect(report.comparisons[0].previousBytes).toBe(0);
-    expect(report.comparisons[0].regression).toBe(false);
+    expect(report.comparisons[0]!.previousBytes).toBe(0);
+    expect(report.comparisons[0]!.regression).toBe(false);
   });
 
   it("should detect regression above threshold", () => {
@@ -218,9 +218,9 @@ describe("compareWithBaseline", () => {
     const report = compareWithBaseline(current, baseline);
 
     expect(report.hasRegressions).toBe(true);
-    expect(report.comparisons[0].regression).toBe(true);
-    expect(report.comparisons[0].deltaPercent).toBeCloseTo(15);
-    expect(report.comparisons[0].deltaBytes).toBe(15000);
+    expect(report.comparisons[0]!.regression).toBe(true);
+    expect(report.comparisons[0]!.deltaPercent).toBeCloseTo(15);
+    expect(report.comparisons[0]!.deltaBytes).toBe(15000);
   });
 
   it("should not flag regression under threshold", () => {
@@ -230,8 +230,8 @@ describe("compareWithBaseline", () => {
     const report = compareWithBaseline(current, baseline);
 
     expect(report.hasRegressions).toBe(false);
-    expect(report.comparisons[0].regression).toBe(false);
-    expect(report.comparisons[0].deltaPercent).toBeCloseTo(5);
+    expect(report.comparisons[0]!.regression).toBe(false);
+    expect(report.comparisons[0]!.deltaPercent).toBeCloseTo(5);
   });
 
   it("should not flag regression at exactly the threshold", () => {
@@ -241,8 +241,8 @@ describe("compareWithBaseline", () => {
     const report = compareWithBaseline(current, baseline);
 
     expect(report.hasRegressions).toBe(false);
-    expect(report.comparisons[0].regression).toBe(false);
-    expect(report.comparisons[0].deltaPercent).toBeCloseTo(10);
+    expect(report.comparisons[0]!.regression).toBe(false);
+    expect(report.comparisons[0]!.deltaPercent).toBeCloseTo(10);
   });
 
   it("should handle size decrease gracefully", () => {
@@ -252,8 +252,8 @@ describe("compareWithBaseline", () => {
     const report = compareWithBaseline(current, baseline);
 
     expect(report.hasRegressions).toBe(false);
-    expect(report.comparisons[0].deltaBytes).toBe(-20000);
-    expect(report.comparisons[0].deltaPercent).toBeCloseTo(-20);
+    expect(report.comparisons[0]!.deltaBytes).toBe(-20000);
+    expect(report.comparisons[0]!.deltaPercent).toBeCloseTo(-20);
   });
 
   it("should support custom threshold", () => {

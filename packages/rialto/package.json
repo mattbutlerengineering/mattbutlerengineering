@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -392,7 +392,7 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.lib.ts && pnpm exec tsx scripts/generate-all.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.showcase.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -414,28 +414,28 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@chromatic-com/storybook": "^5.3.1",
-    "@json-render/react": "^0.20.0",
+    "@chromatic-com/storybook": "^5.4.0",
+    "@json-render/react": "^0.21.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.63.0",
-    "@storybook/addon-a11y": "^10.6.0",
-    "@storybook/addon-docs": "^10.6.0",
-    "@storybook/addon-onboarding": "^10.6.0",
-    "@storybook/addon-vitest": "^10.6.0",
-    "@storybook/react": "^10.6.0",
-    "@storybook/react-vite": "^10.6.0",
+    "@storybook/addon-a11y": "^10.6.1",
+    "@storybook/addon-docs": "^10.6.1",
+    "@storybook/addon-onboarding": "^10.6.1",
+    "@storybook/addon-vitest": "^10.6.1",
+    "@storybook/react": "^10.6.1",
+    "@storybook/react-vite": "^10.6.1",
     "@storybook/test": "^8.6.15",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.7",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.4",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@vitest/browser-playwright": "^5.0.1",
+    "@vitest/browser-playwright": "^5.0.3",
     "@vitest/coverage-v8": "catalog:",
-    "axe-core": "^4.13.0",
+    "axe-core": "^4.14.0",
     "eslint-plugin-storybook": "^10.6.1",
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
@@ -443,12 +443,12 @@
     "playwright": "^1.63.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "storybook": "^10.6.0",
-    "tsx": "^4.23.13",
+    "storybook": "^10.6.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vite": "catalog:",
-    "vite-plugin-dts": "^5.1.0",
-    "vitest": "^5.0.1",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^5.0.3",
     "vitest-axe": "^0.1.0"
   },
   "size-limit": [
@@ -540,8 +540,5 @@
       "limit": "2050 B"
     }
   ],
-  "license": "MIT",
-  "acmm": {
-    "inherit": true
-  }
+  "license": "MIT"
 }

@@ -201,6 +201,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
@@ -236,6 +237,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-3" }),
@@ -306,6 +308,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -358,8 +361,17 @@ describe("floorPlanService", () => {
      */
     function mockTransaction(queryRaw: ReturnType<typeof vi.fn>): void {
       vi.mocked(prisma.$transaction).mockImplementationOnce((async (
-        fn: (tx: { $executeRaw: ReturnType<typeof vi.fn>; $queryRaw: typeof queryRaw }) => unknown
-      ) => fn({ $executeRaw: vi.fn().mockResolvedValue(0), $queryRaw: queryRaw })) as never);
+        fn: (tx: {
+          $executeRaw: ReturnType<typeof vi.fn>;
+          $executeRawUnsafe: ReturnType<typeof vi.fn>;
+          $queryRaw: typeof queryRaw;
+        }) => unknown
+      ) =>
+        fn({
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+          $queryRaw: queryRaw,
+        })) as never);
     }
 
     it("issues exactly one database call for multiple positions", async () => {

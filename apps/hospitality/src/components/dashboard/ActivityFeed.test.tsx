@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "./ActivityFeed.js";
+import type { Reservation } from "@mbe/types";
 import type { ReservationEvent } from "../../hooks/useSSESync.js";
 import React from "react";
 
@@ -20,7 +21,9 @@ function makeEvent(overrides: Partial<ReservationEvent> = {}): ReservationEvent 
     type: "reservation:created",
     venueId: "v1",
     timestamp: new Date().toISOString(),
-    data: { id: "res-1" },
+    // ActivityFeed renders only `type` and `timestamp`; it never reads the payload,
+    // so a stub reservation stands in for the full wire shape.
+    data: { id: "res-1" } as Reservation,
     ...overrides,
   };
 }

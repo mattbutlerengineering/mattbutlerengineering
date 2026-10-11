@@ -7,7 +7,7 @@ describe("StepIndicator", () => {
   it("marks the current step with aria-current and labels it with the shared step name", () => {
     render(<StepIndicator currentStep={2} totalSteps={6} highestStepReached={2} />);
 
-    const current = screen.getByLabelText(`Step 2: ${ONBOARDING_STEPS[1].label}`);
+    const current = screen.getByLabelText(`Step 2: ${ONBOARDING_STEPS[1]!.label}`);
     expect(current).toHaveAttribute("aria-current", "step");
   });
 
@@ -15,7 +15,7 @@ describe("StepIndicator", () => {
     render(<StepIndicator currentStep={3} totalSteps={6} highestStepReached={3} />);
 
     // Step 1 is completed → its dot renders a checkmark rather than the number.
-    const completed = screen.getByLabelText(new RegExp(`Step 1: ${ONBOARDING_STEPS[0].label}`));
+    const completed = screen.getByLabelText(new RegExp(`Step 1: ${ONBOARDING_STEPS[0]!.label}`));
     expect(completed).toHaveTextContent("✓");
   });
 
@@ -30,7 +30,7 @@ describe("StepIndicator", () => {
       />
     );
 
-    const reached = screen.getByLabelText(new RegExp(`Step 1: ${ONBOARDING_STEPS[0].label}`));
+    const reached = screen.getByLabelText(new RegExp(`Step 1: ${ONBOARDING_STEPS[0]!.label}`));
     fireEvent.click(reached);
     expect(onStepClick).toHaveBeenCalledWith(1);
   });
@@ -46,7 +46,7 @@ describe("StepIndicator", () => {
       />
     );
 
-    const future = screen.getByLabelText(new RegExp(`Step 5: ${ONBOARDING_STEPS[4].label}`));
+    const future = screen.getByLabelText(new RegExp(`Step 5: ${ONBOARDING_STEPS[4]!.label}`));
     fireEvent.click(future);
     expect(onStepClick).not.toHaveBeenCalled();
   });

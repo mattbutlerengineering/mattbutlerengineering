@@ -109,6 +109,9 @@ const mockJWTPayload = {
   picture: "https://example.com/pic.jpg",
 };
 
+/** Route prefix the app registers these routes under (app.ts). */
+const TABLES_URL = "/api/v1/tables";
+
 describe("Table Routes", () => {
   let app: FastifyInstance;
   let stubEvents: ReservationEventEmitter;
@@ -153,7 +156,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -252,7 +255,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: {
           "x-auth-bypass": "true",
         },
@@ -271,7 +274,7 @@ describe("Table Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         payload: {
           name: "Table 1",
           capacity: 4,
@@ -476,7 +479,7 @@ describe("Table Routes", () => {
 
   describe("auth enforcement on reads (#3103)", () => {
     it("returns 401 for anonymous GET /v1/tables", async () => {
-      const response = await app.inject({ method: "GET", url: "/api/v1/tables" });
+      const response = await app.inject({ method: "GET", url: TABLES_URL });
 
       expect(response.statusCode).toBe(401);
     });
@@ -502,7 +505,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/tables",
+        url: TABLES_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -760,5 +763,209 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
     });
 
     expect(response.statusCode).toBe(404);
+  });
+});
+
+/**
+ * Venue-authorization pins (docs/fixes/venue-scoped-routes, PR 3), written
+ * against the pre-`venueScoped` routes so the migration has to keep every
+ * status and problem `detail` byte-identical. A non-member probing a table id
+ * gets 403 whether or not the table exists (existence hidden); an admin gets
+ * the honest 404.
+ */
+describe("Table Routes — venue authorization pins (ADR-020)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator", permissions },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({
+      logger: false,
+      services: { tableService, floorPlanService },
+      venueMembershipLookup: lookup,
+    });
+    await app.ready();
+  }
+
+  const memberOf = (venue: string) =>
+    vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, venueId) => venueId === venue);
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  const BY_ID_ROUTES = [
+    { method: "GET", path: "/table-123", payload: undefined },
+    { method: "PATCH", path: "/table-123", payload: { name: "Renamed" } },
+    { method: "PATCH", path: "/table-123/status", payload: { status: "OCCUPIED" } },
+    { method: "DELETE", path: "/table-123", payload: undefined },
+  ] as const;
+
+  it.each(BY_ID_ROUTES)(
+    "$method $path: 403 for a non-member of the table's venue, service untouched",
+    async ({ method, path, payload }) => {
+      const lookup = memberOf("venue-2");
+      await buildAs(["staff"], lookup);
+
+      const response = await app.inject({
+        method,
+        url: `${TABLES_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+      expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
+      expect(resolveVenueId).toHaveBeenCalledWith("table", "table-123");
+      expect(tableService.getById).not.toHaveBeenCalled();
+      expect(tableService.update).not.toHaveBeenCalled();
+      expect(tableService.updateStatus).not.toHaveBeenCalled();
+      expect(tableService.delete).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(BY_ID_ROUTES)(
+    "$method $path: 403 (not 404) for a non-admin probing an unknown table",
+    async ({ method, path, payload }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      const lookup = memberOf("venue-1");
+      await buildAs(["staff"], lookup);
+
+      const response = await app.inject({
+        method,
+        url: `${TABLES_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+      expect(lookup).not.toHaveBeenCalled();
+    }
+  );
+
+  // An unresolvable table is answered by venueScoped itself (architecture.md
+  // failure-mode table: admin → 404 `notFound`), so status, title and detail
+  // are unchanged but the body no longer carries the error handler's
+  // `instance` member, which the pre-venueScoped thrown 404 added. Recorded in
+  // breakdown.md Notes (2026-10-10). A missing row the handler reads itself
+  // still throws, and keeps `instance` (see "returns 404 when table not found").
+  it.each(BY_ID_ROUTES)(
+    "$method $path: 404 'Table not found' for an admin addressing an unknown table",
+    async ({ method, path, payload }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      await buildAs(["admin"], memberOf("none"));
+
+      const response = await app.inject({
+        method,
+        url: `${TABLES_URL}${path}`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.body)).toEqual({
+        type: "about:blank",
+        title: "Not Found",
+        status: 404,
+        detail: "Table not found",
+      });
+    }
+  );
+
+  it("GET /:id: 200 for a member of the table's venue, read inside that venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(tableService.getById).mockResolvedValue(mockTable);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${TABLES_URL}/table-123`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data.id).toBe("table-123");
+  });
+
+  it("POST: 403 for a non-member of the body's venue, create untouched", async () => {
+    const lookup = memberOf("venue-1");
+    await buildAs(["staff"], lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "T9", capacity: 2, venueId: "venue-2" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-2");
+    expect(tableService.create).not.toHaveBeenCalled();
+  });
+
+  it("POST: 201 for a member of the body's venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(tableService.create).mockResolvedValue(mockTable);
+
+    const response = await app.inject({
+      method: "POST",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "T9", capacity: 2, venueId: "venue-1" },
+    });
+
+    expect(response.statusCode).toBe(201);
+  });
+
+  it("POST: 403 for a non-admin who names no venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "T9", capacity: 2 },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(tableService.create).not.toHaveBeenCalled();
+  });
+
+  it("GET /: 403 for a non-admin who names no venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(tableService.list).not.toHaveBeenCalled();
   });
 });

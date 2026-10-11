@@ -397,6 +397,9 @@
               .code(401)
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
+          if (authUser.emailVerified !== true) {
+            return reply.code(403).send(unverifiedEmailProblem());
+          }
     
           // Use findOrCreate (upsert) to prevent race conditions when two
           // concurrent first-login requests both try to create the same user
@@ -472,6 +475,9 @@
             return reply
               .code(401)
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          }
+          if (authUser.emailVerified !== true) {
+            return reply.code(403).send(unverifiedEmailProblem());
           }
     
           const user = await userService.updatePreferencesByEmail(authUser.email, request.body);

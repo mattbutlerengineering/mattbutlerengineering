@@ -32,7 +32,7 @@ export function PropsTable({ props, component }: PropsTableProps) {
               style={{
                 fontFamily: "var(--rialto-font-mono)",
                 fontSize: "var(--rialto-text-sm)",
-                color: "var(--rialto-accent)",
+                color: "var(--rialto-text-primary)",
                 background: "var(--rialto-accent-muted)",
                 padding: "1px 4px",
                 borderRadius: "var(--rialto-radius-sharp)",

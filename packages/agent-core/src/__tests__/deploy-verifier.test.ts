@@ -91,7 +91,7 @@ describe("verifyDeployment", () => {
     });
 
     expect(result.passed).toBe(true);
-    expect(result.checks[0].attempts).toBe(2);
+    expect(result.checks[0]!.attempts).toBe(2);
   });
 
   it("handles connection failures gracefully", async () => {
@@ -107,7 +107,7 @@ describe("verifyDeployment", () => {
     });
 
     expect(result.passed).toBe(false);
-    expect(result.checks[0].status).toBe("connection_failed");
+    expect(result.checks[0]!.status).toBe("connection_failed");
   });
 
   it("runs checks in parallel", async () => {

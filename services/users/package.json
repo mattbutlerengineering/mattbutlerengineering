@@ -25,7 +25,7 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.2.0",
-    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger": "^9.9.1",
     "@fastify/swagger-ui": "^6.1.1",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
@@ -36,10 +36,10 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@prisma/client-runtime-utils": "^7.10.0",
-    "@scalar/fastify-api-reference": "^1.69.0",
+    "@scalar/fastify-api-reference": "^1.73.0",
     "fastify": "catalog:",
     "jose": "^6.2.12",
-    "pg": "^8.23.0",
+    "pg": "^8.23.1",
     "zod": "catalog:"
   },
   "prisma": {
@@ -52,38 +52,9 @@
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.10.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "license": "MIT",
-  "acmm": {
-    "inherit": true,
-    "globalPaths": [
-      ".github/workflows/",
-      ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/pull_request_template.md",
-      ".github/ISSUE_TEMPLATE/",
-      ".github/policies/",
-      ".github/auto-qa-tuning.json",
-      ".github/risk-assessment.yml",
-      ".github/labeler.yml",
-      "CONTRIBUTING.md",
-      "SECURITY-AI.md",
-      "docs/ai-ops-runbook.md",
-      "docs/rollback-drill.md",
-      "docs/reflections/",
-      "docs/autonomous-work-log.md",
-      "scripts/acmm/",
-      "scripts/build-accm-history.mjs",
-      "scripts/orchestrate.mjs",
-      ".claude/settings.json",
-      ".claude/risk-config.json",
-      "memory/",
-      "knowledge.jsonl",
-      "CODEOWNERS",
-      ".github/CODEOWNERS",
-      "risk-config.json"
-    ]
-  }
+  "license": "MIT"
 }

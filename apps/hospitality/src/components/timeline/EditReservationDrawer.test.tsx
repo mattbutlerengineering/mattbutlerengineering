@@ -41,6 +41,8 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     guestPhone: null,
     guestId: null,
     userId: null,
+    occasion: null,
+    seatingPreference: null,
     tableId: "table-1",
     venueId: null,
     createdAt: "2026-05-14T10:00:00.000Z",
@@ -48,6 +50,17 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     ...overrides,
   };
 }
+
+/** Table fields the drawer never reads, at the values a freshly created table carries. */
+const TABLE_DEFAULTS = {
+  tableNumber: null,
+  minCovers: 1,
+  maxCovers: null,
+  location: null,
+  priority: 0,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+} satisfies Partial<Table>;
 
 function makeTables(): Table[] {
   return [
@@ -57,12 +70,8 @@ function makeTables(): Table[] {
       capacity: 4,
       isActive: true,
       status: "AVAILABLE",
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 0, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -72,12 +81,8 @@ function makeTables(): Table[] {
       capacity: 6,
       isActive: true,
       status: "AVAILABLE",
-      x: 200,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "RECTANGLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 200, y: 0, width: 100, height: 100, shape: "rectangle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -87,12 +92,8 @@ function makeTables(): Table[] {
       capacity: 2,
       isActive: false,
       status: "AVAILABLE",
-      x: 400,
-      y: 0,
-      width: 100,
-      height: 100,
-      shape: "CIRCLE",
-      rotation: 0,
+      ...TABLE_DEFAULTS,
+      shapeMetadata: { x: 400, y: 0, width: 100, height: 100, shape: "circle", rotation: 0 },
       venueId: "venue-1",
       floorPlanId: "fp-1",
     },
@@ -215,7 +216,7 @@ describe("EditReservationDrawer", () => {
       expect(defaultProps.onSave).toHaveBeenCalledOnce();
     });
 
-    const [id, data] = defaultProps.onSave.mock.calls[0];
+    const [id, data] = defaultProps.onSave.mock.calls[0]!;
     expect(id).toBe("res-1");
     expect(data.partySize).toBe(6);
     expect(data.notes).toBe("Booth preferred");
@@ -431,7 +432,7 @@ describe("EditReservationDrawer", () => {
       expect(defaultProps.onSave).toHaveBeenCalledOnce();
     });
 
-    const [, data] = defaultProps.onSave.mock.calls[0];
+    const [, data] = defaultProps.onSave.mock.calls[0]!;
     expect(data.notes).toBeUndefined();
   });
 

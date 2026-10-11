@@ -20,6 +20,7 @@ describe("shared E2E mock — GuestRiskResult contract", () => {
   it("defaults to a non-risky guest so it never accidentally forces a deposit", () => {
     const fixture = buildGuestRiskFixture();
 
-    expect(fixture).toEqual({ riskScore: "standard", requiresDeposit: false });
+    expect(fixture).toEqual({ requiresDeposit: false });
+    expect(fixture).not.toHaveProperty("riskScore");
   });
 });

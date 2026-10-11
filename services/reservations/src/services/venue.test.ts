@@ -112,21 +112,38 @@ function makeCrossVenueRow(overrides: Record<string, unknown> = {}) {
  * they are issued concurrently, so a `mockResolvedValueOnce` pair would couple
  * the test to `Promise.all`'s scheduling.
  */
+/** Role statements from each `venueService.list` transaction. */
+let roleStatements: string[] = [];
+let crossVenueQueryRaw: ReturnType<typeof vi.fn> = vi.fn();
+
 function mockCrossVenueQueries(rows: unknown[], total: number): void {
-  vi.mocked(prisma.$queryRaw).mockImplementation(((strings: TemplateStringsArray) =>
-    Promise.resolve(strings.join("").includes("count(") ? [{ total }] : rows)) as never);
+  roleStatements = [];
+  crossVenueQueryRaw = vi.fn((strings: TemplateStringsArray) =>
+    Promise.resolve(strings.join("").includes("count(") ? [{ total }] : rows)
+  );
+  vi.mocked(prisma.$queryRaw).mockImplementation(crossVenueQueryRaw as never);
+  vi.mocked(prisma.$transaction).mockImplementation((async (
+    fn: (tx: unknown) => Promise<unknown>
+  ) =>
+    fn({
+      $executeRawUnsafe: vi.fn(async (sql: string) => {
+        roleStatements.push(sql);
+        return 0;
+      }),
+      $queryRaw: crossVenueQueryRaw,
+    })) as never);
 }
 
 /** The SQL text of every `$queryRaw` call made so far, tagged template joined. */
 function crossVenueSqlCalls(): string[] {
-  return vi
-    .mocked(prisma.$queryRaw)
-    .mock.calls.map((call) => (call[0] as unknown as TemplateStringsArray).join(""));
+  return crossVenueQueryRaw.mock.calls.map((call) =>
+    (call[0] as unknown as TemplateStringsArray).join("")
+  );
 }
 
 /** The bound values of every `$queryRaw` call made so far. */
 function crossVenueValueCalls(): unknown[][] {
-  return vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call.slice(1));
+  return crossVenueQueryRaw.mock.calls.map((call) => call.slice(1));
 }
 
 /** Minimal interactive-transaction client shape used by create() seeding tests. */
@@ -134,6 +151,7 @@ interface TxLike {
   venue: { create: Mock };
   venueMembership: { create: Mock; count?: Mock };
   $executeRaw: Mock;
+  $executeRawUnsafe: Mock;
 }
 
 /** A `$executeRaw` stub satisfying `setVenueContext`'s call in every create() test below. */
@@ -304,6 +322,11 @@ describe("venueService", () => {
       }
       expect(prisma.venue.findMany).not.toHaveBeenCalled();
       expect(prisma.venue.count).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(roleStatements).toEqual([
+        'SET LOCAL ROLE "app_reservations"',
+        'SET LOCAL ROLE "app_reservations"',
+      ]);
     });
 
     it("filters by venueGroupId when provided, as a bound parameter on both queries", async () => {
@@ -728,6 +751,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
     }
@@ -764,6 +788,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: executeRaw,
         })) as never);
 
@@ -820,6 +845,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
@@ -854,6 +880,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
@@ -888,6 +915,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: membershipCreate, count: membershipCount },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
@@ -921,6 +949,7 @@ describe("venueService", () => {
             }),
             count: membershipCount,
           },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
@@ -954,6 +983,7 @@ describe("venueService", () => {
             }),
             count: vi.fn().mockResolvedValue(0),
           },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 
@@ -981,6 +1011,7 @@ describe("venueService", () => {
         fn({
           venue: { create: venueCreate },
           venueMembership: { create: vi.fn(), count: vi.fn() },
+          $executeRawUnsafe: vi.fn().mockResolvedValue(0),
           $executeRaw: makeTxExecuteRaw(),
         })) as never);
 

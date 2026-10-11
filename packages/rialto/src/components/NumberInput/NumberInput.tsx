@@ -118,6 +118,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
+        if (rest.readOnly) return;
         if (e.key === "ArrowUp") {
           e.preventDefault();
           increment();
@@ -126,7 +127,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
           decrement();
         }
       },
-      [increment, decrement]
+      [increment, decrement, rest.readOnly]
     );
 
     const atMin = min != null && value <= min;
@@ -156,7 +157,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             <button
               type="button"
               className={cn(styles.stepper, styles.decrement)}
-              disabled={disabled || atMin}
+              disabled={disabled || rest.readOnly || atMin}
               tabIndex={-1}
               aria-label="Decrease"
               onPointerDown={() => startRepeat(decrement)}
@@ -184,7 +185,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             <button
               type="button"
               className={cn(styles.stepper, styles.increment)}
-              disabled={disabled || atMax}
+              disabled={disabled || rest.readOnly || atMax}
               tabIndex={-1}
               aria-label="Increase"
               onPointerDown={() => startRepeat(increment)}

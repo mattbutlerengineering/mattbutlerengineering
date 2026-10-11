@@ -212,7 +212,32 @@ describe("useTimelineData", () => {
   });
 
   describe("mutation: seatGuest", () => {
-    it("calls reservations.update and tables.updateStatus then invalidates", async () => {
+    it("skips the status update for an already-CONFIRMED reservation (no CONFIRMED -> CONFIRMED edge server-side)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      mockReservationsUpdate.mockRejectedValue(
+        new Error("Invalid transition CONFIRMED -> CONFIRMED")
+      );
+      mockTablesUpdateStatus.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      const confirmed = makeReservation({ status: "CONFIRMED" });
+      let seated: Reservation | undefined;
+      await act(async () => {
+        seated = await result.current.seatGuest(confirmed);
+      });
+
+      expect(mockReservationsUpdate).not.toHaveBeenCalled();
+      expect(mockTablesUpdateStatus).toHaveBeenCalledWith("t1", "OCCUPIED");
+      expect(seated).toEqual(confirmed);
+    });
+
+    it("calls reservations.update and tables.updateStatus for a PENDING reservation then invalidates", async () => {
       mockReservationsList.mockResolvedValue({ data: [] });
       mockTablesList.mockResolvedValue({ data: [] });
       mockReservationsUpdate.mockResolvedValue({ id: "r1", status: "CONFIRMED" });
@@ -225,7 +250,7 @@ describe("useTimelineData", () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       await act(async () => {
-        await result.current.seatGuest(makeReservation());
+        await result.current.seatGuest(makeReservation({ status: "PENDING" }));
       });
 
       expect(mockReservationsUpdate).toHaveBeenCalledWith("r1", { status: "CONFIRMED" });
@@ -245,7 +270,7 @@ describe("useTimelineData", () => {
 
       await expect(
         act(async () => {
-          await result.current.seatGuest(makeReservation());
+          await result.current.seatGuest(makeReservation({ status: "PENDING" }));
         })
       ).rejects.toThrow("Seat failed");
     });
@@ -460,7 +485,7 @@ describe("useTimelineData", () => {
       });
 
       expect(mockReservationsWalkIn).toHaveBeenCalledOnce();
-      expect(mockReservationsWalkIn.mock.calls[0][0]).not.toHaveProperty("guestId");
+      expect(mockReservationsWalkIn.mock.calls[0]![0]).not.toHaveProperty("guestId");
     });
 
     it("resolves to the created reservation so the page can select and focus it (item 15)", async () => {

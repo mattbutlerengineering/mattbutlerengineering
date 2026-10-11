@@ -108,7 +108,10 @@ describe("classifyFreshness", () => {
 
 describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
-    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual(["review-burden"]);
+    expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
+      "queue-telemetry",
+      "review-burden",
+    ]);
   });
 
   it("names only metrics the metrics-store registry actually knows", () => {
@@ -123,6 +126,9 @@ describe("FRESHNESS_POLICY", () => {
     const byMetric = Object.fromEntries(FRESHNESS_POLICY.map((p) => [p.metric, p]));
     // scripts/acmm/review-burden-metrics.js writes `timestamp`.
     expect(byMetric["review-burden"].timestampField).toBe("timestamp");
+    // scripts/collect-queue-telemetry.mjs rows carry `claimed_at` (always set);
+    // `merged_at` is null until reconciled, so it must not be the field.
+    expect(byMetric["queue-telemetry"].timestampField).toBe("claimed_at");
   });
 
   it("sets a threshold wider than the daily collection cadence", () => {
@@ -133,10 +139,60 @@ describe("FRESHNESS_POLICY", () => {
   });
 });
 
+describe("queue-telemetry policy entry", () => {
+  const readWith = (claimedAt) => (metric) =>
+    metric === "queue-telemetry"
+      ? [{ claimed_at: claimedAt, merged_at: null }]
+      : [{ timestamp: daysAgo(0) }];
+  const queueResult = (claimedAt) =>
+    assessFreshness({ readMetric: readWith(claimedAt), now: NOW }).find(
+      (r) => r.metric === "queue-telemetry"
+    );
+
+  it("is fresh when the newest claimed_at is within the threshold", () => {
+    expect(queueResult(daysAgo(2)).state).toBe("fresh");
+  });
+
+  it("is stale once the newest claimed_at exceeds the threshold", () => {
+    expect(queueResult(daysAgo(8)).state).toBe("stale");
+  });
+});
+
+describe("queue-telemetry regression: rows stop landing silently (#5777)", () => {
+  // Every other metric fresh, so the verdict can only come from queue-telemetry.
+  const assess = (queueRows) =>
+    assessFreshness({
+      readMetric: (metric) =>
+        metric === "queue-telemetry" ? queueRows : [{ timestamp: daysAgo(0) }],
+      now: NOW,
+    });
+
+  it("fails the self-check (exit 1) when the newest row is older than the threshold", () => {
+    const results = assess([{ claimed_at: daysAgo(20), merged_at: null }]);
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(partitionFindings(results).failures.map((r) => r.metric)).toEqual(["queue-telemetry"]);
+  });
+
+  it("fails as `empty`, not a silent pass, when queue-telemetry.jsonl has no rows", () => {
+    const results = assess([]);
+    const queue = results.find((r) => r.metric === "queue-telemetry");
+    expect(queue.state).toBe("empty");
+    expect(freshnessExitCode(results)).toBe(1);
+    // A failure must never be routed into the human-blocked bucket (#5561).
+    expect(partitionFindings(results).blocked).toEqual([]);
+  });
+
+  it("passes (exit 0) once a recent row lands again", () => {
+    expect(freshnessExitCode(assess([{ claimed_at: daysAgo(1), merged_at: null }]))).toBe(0);
+  });
+});
+
 describe("assessFreshness", () => {
   it("reports one result per policy entry", () => {
     const results = assessFreshness({
-      readMetric: () => [{ timestamp: daysAgo(0), collected_at: daysAgo(0) }],
+      readMetric: () => [
+        { timestamp: daysAgo(0), collected_at: daysAgo(0), claimed_at: daysAgo(0) },
+      ],
       now: NOW,
     });
     expect(results).toHaveLength(FRESHNESS_POLICY.length);

@@ -14,9 +14,12 @@ import { MIGRATIONS_DIR, parseRlsDeclarations } from "../services/rls-force-cove
  * ordinary non-owner role and runs every assertion through it. That is what let
  * the whole seven-part series (#5248-#5255, #5492) ship, pass and close green
  * while providing zero protection: Postgres skips RLS for a table's owner unless
- * the table also carries `FORCE ROW LEVEL SECURITY`, and no migration sets it —
- * so the one role the policies were never inert for is the only role that was
- * ever tested. This suite deliberately uses no probe role at all.
+ * the table also carries `FORCE ROW LEVEL SECURITY`. The migrations now force
+ * the seven venue tables, so the live connection is isolated. The explicit
+ * off-window below turns FORCE off, asserts the owner still sees both venues,
+ * and restores `declaredForce` — that bypass must stay an assertion after the
+ * flip, not a branch the declared state can no longer reach. This suite
+ * deliberately uses no probe role at all.
  *
  * **Two guards make that unfakeable**, and both are asserted as tests rather than
  * assumed in a comment:
@@ -197,12 +200,22 @@ describe.skipIf(!DATABASE_URL)("RLS enforcement against the app's OWN owning rol
 
   it("enforces venue isolation against the owning role only when FORCE is declared", async () => {
     // Derived from the migrations rather than pinned, so this assertion is the
-    // same one before and after the flip and never blocks it. Today it measures
-    // the #5369 finding: `app.venue_id` is set to venue B and venue A's row comes
-    // back anyway, because the policies do not apply to the owner.
+    // same one before and after the flip and never blocks it. When the
+    // migrations force `venues`, venue B's context hides venue A. When they
+    // do not, the owner still sees both.
     const visible = await visibleVenueIds(venueBId);
 
     expect(visible).toEqual(declaredForce.has("venues") ? [venueBId] : [venueAId, venueBId].sort());
+  });
+
+  it("lets the owning connection see both venues only while FORCE is off", async () => {
+    await setForce(false);
+    try {
+      expect(await visibleVenueIds(venueBId)).toEqual([venueAId, venueBId].sort());
+      expect(await visibleVenueIds()).toEqual([venueAId, venueBId].sort());
+    } finally {
+      await setForce(declaredForce.has("venues"));
+    }
   });
 
   it("becomes venue-isolated for that SAME owning connection the moment FORCE is set", async () => {

@@ -408,7 +408,7 @@ describe("createDatabase", () => {
 
     const slowCalls = warnSpy.mock.calls.filter((c) => (c[0] as string).includes("slow_query"));
     expect(slowCalls).toHaveLength(1);
-    const parsed = JSON.parse(slowCalls[0][0] as string);
+    const parsed = JSON.parse(slowCalls[0]![0] as string);
     expect(parsed.model).toBe("unknown");
     expect(parsed.operation).toBe("unknown");
     warnSpy.mockRestore();

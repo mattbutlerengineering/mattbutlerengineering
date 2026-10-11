@@ -113,8 +113,8 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
 }
 
 /**
- * Default GET /public/v1/venues/:slug/guest-risk response — a non-risky
- * guest, so it never accidentally forces a deposit on a venue whose general
+ * Default GET /public/v1/venues/:slug/guest-risk response — deposit not
+ * required, so it never accidentally forces a deposit on a venue whose general
  * policy is disabled. Every confirm on a deposit-disabled-or-unconfigured
  * venue calls this whenever `guestRiskMatters()` is true (#4111) — which,
  * since VITE_STRIPE_PUBLISHABLE_KEY is now wired into the E2E jobs, is
@@ -124,7 +124,7 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
  * route with their own.
  */
 export function buildGuestRiskFixture(): GuestRiskResult {
-  return GuestRiskResultSchema.parse({ riskScore: "standard", requiresDeposit: false });
+  return GuestRiskResultSchema.parse({ requiresDeposit: false });
 }
 
 /**

@@ -50,6 +50,11 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     venueId: "venue-1",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    noShowCount: 0,
+    riskScore: "standard",
+    dietaryRestrictions: [],
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }
@@ -120,8 +125,8 @@ describe("useGuestSegments", () => {
 
   it("returns segments on success", async () => {
     const segments: GuestSegment[] = [
-      { name: "VIP", count: 5 },
-      { name: "Regular", count: 20 },
+      { name: "VIP", description: "Most frequent guests", count: 5 },
+      { name: "Regular", description: "Repeat guests", count: 20 },
     ];
     mockGetSegments.mockResolvedValue(segments);
 

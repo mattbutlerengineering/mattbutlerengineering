@@ -168,6 +168,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-activedescendant={open && focusedIndex >= 0 ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
             aria-invalid={error ? true : undefined}
+            aria-required={required || undefined}
             aria-describedby={field.controlProps["aria-describedby"]}
             data-open={open}
             onClick={disabled ? (e) => e.preventDefault() : () => toggle()}
@@ -204,7 +205,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                 id={listboxId}
                 className={styles.dropdown}
                 role="listbox"
-                aria-label={label}
+                aria-label={label ?? ariaLabel}
+                aria-labelledby={label ? undefined : ariaLabelledBy}
                 initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
                 animate={{ opacity: 1, scaleY: 1, y: 0 }}
                 exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}

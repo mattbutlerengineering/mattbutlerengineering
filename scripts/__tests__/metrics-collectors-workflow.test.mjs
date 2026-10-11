@@ -119,7 +119,13 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
 
   it("never swallows an exit code with `|| true` or continue-on-error", () => {
     expect(WORKFLOW).not.toMatch(/\|\|\s*true/);
-    expect(WORKFLOW).not.toMatch(/continue-on-error:\s*true/);
+    // The one sanctioned exception is the best-effort queue-telemetry step
+    // (#5921), isolated so its failure can't skip the review-burden PR flow.
+    const withoutTelemetryStep = WORKFLOW.replace(
+      /- name: Collect queue telemetry from merged agent PRs\n(?:(?! {6}- name:).*\n)+/,
+      ""
+    );
+    expect(withoutTelemetryStep).not.toMatch(/continue-on-error:\s*true/);
   });
 
   it("acts on a non-zero freshness verdict instead of only printing it", () => {
@@ -189,5 +195,27 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
         if (a !== b) expect(a.includes(b)).toBe(false);
       }
     }
+  });
+});
+
+describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
+  it("runs the GitHub-derived queue-telemetry collector before the PR step", () => {
+    const run = WORKFLOW.indexOf("node scripts/collect-queue-telemetry-from-github.mjs");
+    const pr = WORKFLOW.indexOf("peter-evans/create-pull-request");
+    expect(run).toBeGreaterThan(-1);
+    expect(run).toBeLessThan(pr);
+  });
+
+  it("isolates the collector step's failure so the review-burden PR flow still runs", () => {
+    const step = WORKFLOW.match(
+      /- name: Collect queue telemetry from merged agent PRs\n((?:(?! {6}- name:).*\n)+)/
+    )?.[1];
+    expect(step).toBeDefined();
+    expect(step).toMatch(/^\s+continue-on-error: true$/m);
+  });
+
+  it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {
+    const block = WORKFLOW.match(/add-paths: \|\n((?:\s+\S.*\n)+)/)?.[1] ?? "";
+    expect(block).toContain("metrics/queue-telemetry.jsonl");
   });
 });

@@ -162,7 +162,7 @@ export function LayoutSection() {
           Collapsible
         </Text>
         <div style={{ maxWidth: 400 }}>
-          <Collapsible title="Click to expand">
+          <Collapsible trigger="Click to expand">
             <Text variant="body">This content is hidden by default and revealed on click.</Text>
           </Collapsible>
         </div>
@@ -178,13 +178,13 @@ export function LayoutSection() {
           Segmented Control
         </Text>
         <SegmentedControl
-          options={[
-            { label: "Day", value: "day" },
-            { label: "Week", value: "week" },
-            { label: "Month", value: "month" },
+          segments={[
+            { id: "day", label: "Day" },
+            { id: "week", label: "Week" },
+            { id: "month", label: "Month" },
           ]}
           value="week"
-          onValueChange={() => {}}
+          onChange={() => {}}
         />
       </div>
     </div>

@@ -246,3 +246,34 @@ describe("PinInput — onComplete", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 });
+
+describe("PinInput — error and required semantics", () => {
+  it("marks every cell aria-invalid when error is true", () => {
+    render(<PinInput value="" length={4} error hint="Code expired" onChange={vi.fn()} />);
+    for (const cell of screen.getAllByLabelText(/Digit \d of 4/)) {
+      expect(cell).toHaveAttribute("aria-invalid", "true");
+    }
+  });
+
+  it("does not set aria-invalid when there is no error", () => {
+    render(<PinInput value="" length={4} onChange={vi.fn()} />);
+    for (const cell of screen.getAllByLabelText(/Digit \d of 4/)) {
+      expect(cell).not.toHaveAttribute("aria-invalid");
+    }
+  });
+
+  it("marks every cell aria-required when required", () => {
+    render(<PinInput value="" length={4} required label="Code" onChange={vi.fn()} />);
+    for (const cell of screen.getAllByLabelText(/Digit \d of 4/)) {
+      expect(cell).toHaveAttribute("aria-required", "true");
+    }
+  });
+
+  it("keeps the group's aria-describedby pointing at a rendered element in error state", () => {
+    render(<PinInput value="" length={4} error hint="Code expired" onChange={vi.fn()} />);
+    const group = screen.getByRole("group");
+    const id = group.getAttribute("aria-describedby");
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id as string)).toHaveTextContent("Code expired");
+  });
+});

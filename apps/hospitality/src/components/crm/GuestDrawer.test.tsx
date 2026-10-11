@@ -16,7 +16,6 @@ import type {
   TextAreaProps,
 } from "@mattbutlerengineering/rialto";
 import type { GuestCardProps } from "./GuestCard.js";
-import React from "react";
 
 const mockToast = vi.fn();
 
@@ -95,6 +94,10 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     updatedAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
     lifetimeSpend: null,
+    noShowCount: 0,
+    riskScore: "standard",
+    communicationPreference: "both",
+    staffNotes: [],
     ...overrides,
   };
 }

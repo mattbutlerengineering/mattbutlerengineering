@@ -134,7 +134,7 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
     // runHardenedQuery must be called once for the fix session
     expect(runHardenedQuery).toHaveBeenCalledTimes(1);
 
-    const [config] = vi.mocked(runHardenedQuery).mock.calls[0];
+    const [config] = vi.mocked(runHardenedQuery).mock.calls[0]!;
     expect(config.prompt).toBe("Fix the review issues");
     expect(config.cwd).toBe(BASE_PARAMS.repoPath);
     expect(config.model).toBe(BASE_PARAMS.model);

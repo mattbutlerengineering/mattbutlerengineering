@@ -42,8 +42,8 @@ function setupExecFileMock(
 
     callCounts[key] = (callCounts[key] ?? 0) + 1;
     const responseList = responses[key] ?? [{ stdout: "", stderr: "" }];
-    const idx = Math.min(callCounts[key] - 1, responseList.length - 1);
-    const response = responseList[idx];
+    const idx = Math.min(callCounts[key]! - 1, responseList.length - 1);
+    const response = responseList[idx]!;
 
     if (response.error) {
       const err = new Error("command failed") as Error & {
@@ -412,7 +412,7 @@ describe("OpenCodeAdapter", () => {
       await adapter.run(makeConfig({ taskDescription: longTask }));
 
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
-      const passedTask = (opencodeCall![1] as string[])[1];
+      const passedTask = (opencodeCall![1] as string[])[1]!;
       expect(passedTask.length).toBeLessThanOrEqual(8_000);
       expect(passedTask).toMatch(/\.\.\.$/);
     });

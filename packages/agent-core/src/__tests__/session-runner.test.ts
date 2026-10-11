@@ -237,7 +237,7 @@ describe("runSession", () => {
     await runSession(BASE_CONFIG, (event) => events.push(event), deps);
 
     expect(events.length).toBeGreaterThan(0);
-    expect(events[0].type).toBe("session:start");
+    expect(events[0]!.type).toBe("session:start");
   });
 
   it("cleans up worktree after successful PR creation", async () => {
@@ -310,7 +310,7 @@ describe("runSession", () => {
 
     const cleanupEvents = events.filter((e) => e.type === "session:cleanup_warning");
     expect(cleanupEvents).toHaveLength(1);
-    expect((cleanupEvents[0].data as { message: string }).message).toContain(
+    expect((cleanupEvents[0]!.data as { message: string }).message).toContain(
       "fatal: worktree is locked"
     );
 
@@ -598,7 +598,7 @@ describe("runSession", () => {
     await runSession(config, undefined, deps);
 
     expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalled();
-    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0]![0];
     // Remaining budget: 1.0 - 0.25 = 0.75 (not 0.50 from fixed ratio)
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
@@ -630,7 +630,7 @@ describe("runSession", () => {
 
     const breachEvents = events.filter((e) => e.type === "session:budget_breach");
     expect(breachEvents).toHaveLength(1);
-    const payload = JSON.parse((breachEvents[0].data as { message: string }).message);
+    const payload = JSON.parse((breachEvents[0]!.data as { message: string }).message);
     expect(payload.exceeded).toBe(true);
     expect(payload.accumulatedCostUsd).toBeCloseTo(1.5);
     expect(payload.maxBudgetUsd).toBe(1.0);
@@ -797,7 +797,7 @@ describe("runSession", () => {
 
       await runSession(config, undefined, deps, controller.signal);
 
-      const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+      const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0]![0];
       expect(fbCall.signal).toBe(controller.signal);
     });
 

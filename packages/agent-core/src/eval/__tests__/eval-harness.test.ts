@@ -23,7 +23,7 @@ function makeTask(id: string, overrides: Partial<Task> = {}): Task {
 function session(overrides: Partial<SessionResult> = {}): SessionResult {
   return {
     sessionId: "s",
-    status: "completed",
+    status: "succeeded",
     branchName: "b",
     prUrl: null,
     costUsd: 0.1,
@@ -53,7 +53,7 @@ function runnerFrom(
   map: Record<string, { checks: DeterministicChecks; session?: SessionResult }>
 ): TaskRunner {
   return async (task: Task): Promise<TaskRunResult> => {
-    const entry = map[task.id];
+    const entry = map[task.id]!;
     return { task, session: entry.session ?? session(), checks: entry.checks };
   };
 }
@@ -100,7 +100,7 @@ describe("runEvalSuite", () => {
     });
 
     expect(report.tasks).toHaveLength(1);
-    expect(report.tasks[0].taskId).toBe("b");
+    expect(report.tasks[0]!.taskId).toBe("b");
   });
 
   it("returns a zeroed aggregate for an empty suite", async () => {

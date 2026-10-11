@@ -12,8 +12,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { evaluate, verdictCounts } from "../evaluate.js";
-import { evaluateWithInheritance } from "../inheritance.js";
+import { evaluate, evaluateAll, verdictCounts } from "../evaluate.js";
 import { writeReport } from "../outputs/report.js";
 
 function fixture() {
@@ -102,9 +101,9 @@ describe("evaluate: active criterion yields unverifiable when gh unavailable", (
   });
 });
 
-// ── evaluateWithInheritance: unverifiable not added to detectedIds ────────────
+// ── evaluateAll: unverifiable not added to detectedIds ────────────
 
-describe("evaluateWithInheritance: unverifiable excluded from detectedIds", () => {
+describe("evaluateAll: unverifiable excluded from detectedIds", () => {
   test("unverifiable criteria not in detectedIds", () => {
     const fx = fixture();
     fx.dir(".github/workflows");
@@ -117,20 +116,13 @@ describe("evaluateWithInheritance: unverifiable excluded from detectedIds", () =
       },
     ];
 
-    const acmmConfig = { inherit: false, globalPaths: [], localOnly: [] };
     const opts = {
       execFileSyncFn: () => {
         throw new Error("gh: command not found");
       },
     };
 
-    const { detectedIds, criterionVerdicts } = evaluateWithInheritance(
-      criteria,
-      fx.root,
-      fx.root,
-      acmmConfig,
-      opts
-    );
+    const { detectedIds, criterionVerdicts } = evaluateAll(criteria, fx.root, opts);
 
     assert.equal(
       detectedIds.has("active-criterion"),
@@ -153,14 +145,13 @@ describe("evaluateWithInheritance: unverifiable excluded from detectedIds", () =
       },
     ];
 
-    const acmmConfig = { inherit: false, globalPaths: [], localOnly: [] };
     const opts = {
       execFileSyncFn: () => {
         throw new Error("gh: command not found");
       },
     };
 
-    const result = evaluateWithInheritance(criteria, fx.root, fx.root, acmmConfig, opts);
+    const result = evaluateAll(criteria, fx.root, opts);
 
     assert.ok("unverifiableIds" in result, "result must include unverifiableIds");
     assert.equal(

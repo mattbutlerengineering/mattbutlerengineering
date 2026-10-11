@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import React from "react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { AddTableDialog } from "./AddTableDialog.js";
 
@@ -178,7 +177,7 @@ describe("AddTableDialog", () => {
 
   it("disables inputs while submitting", async () => {
     let resolveSubmit: () => void;
-    defaultProps.onSubmit.mockReturnValue(new Promise((r) => (resolveSubmit = r)));
+    defaultProps.onSubmit.mockReturnValue(new Promise<void>((r) => (resolveSubmit = r)));
 
     render(<AddTableDialog {...defaultProps} />);
     await userEvent.type(screen.getByLabelText(/Table Name/), "Table 1");

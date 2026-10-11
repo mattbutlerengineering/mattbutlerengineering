@@ -8,11 +8,18 @@ vi.mock("./database.js", async () => {
   // `$executeRaw` mock, so existing `prisma.$executeRaw` assertions still
   // see both the set_config call and the recalc UPDATE.
   const executeRaw = vi.fn().mockResolvedValue(0);
+  const executeRawUnsafe = vi.fn().mockResolvedValue(0);
   return createMockDatabaseService({
     prisma: {
+      $executeRawUnsafe: executeRawUnsafe,
       $executeRaw: executeRaw,
-      $transaction: vi.fn((fn: (tx: { $executeRaw: typeof executeRaw }) => unknown) =>
-        fn({ $executeRaw: executeRaw })
+      $transaction: vi.fn(
+        (
+          fn: (tx: {
+            $executeRaw: typeof executeRaw;
+            $executeRawUnsafe: typeof executeRawUnsafe;
+          }) => unknown
+        ) => fn({ $executeRaw: executeRaw, $executeRawUnsafe: executeRawUnsafe })
       ),
       waitlistEntry: {
         count: vi.fn(),

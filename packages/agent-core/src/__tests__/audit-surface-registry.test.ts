@@ -46,7 +46,7 @@ describe("buildInventory", () => {
     const inv = buildInventory();
     const marketing = inv.surfaces.filter((s) => s.zone === "marketing");
     expect(marketing.length).toBeGreaterThanOrEqual(1);
-    expect(marketing[0].url).toContain("mattbutlerengineering.com");
+    expect(marketing[0]!.url).toContain("mattbutlerengineering.com");
   });
 
   it("includes hospitality surfaces with auth0", () => {

@@ -1,5 +1,47 @@
 # @mattbutlerengineering/rialto
 
+## 0.4.0
+
+### Minor Changes
+
+- [#6298](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6298) [`78a3a5a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/78a3a5abe633016405619a4d20fc1d8f36b799f9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add optional controlled `open` / `onOpenChange` props to `Popover` (uncontrolled behaviour is unchanged). `DatePicker`, `DateRangePicker` and `TimePicker` now close via controlled state instead of remounting the popover.
+
+## 0.3.4
+
+### Patch Changes
+
+- [#6262](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6262) [`bc4f92c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/bc4f92cc20e3fade846d19c1acc7d6c5837a8f9a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag `error` variant: deepen text color toward `--rialto-text-primary` so it meets WCAG AA 4.5:1 (axe color-contrast) in light and dark themes.
+
+- [#6271](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6271) [`58903c5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/58903c5e9a4f89fe5af8f63bd15f2543fa426253) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag: keep the variant tint on hover for interactive error/success tags so text stays at 4.5:1 contrast (was surface-matte, 4.2:1 in dark).
+
+## 0.3.3
+
+### Patch Changes
+
+- [#6251](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6251) [`c4b91d4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c4b91d4debcbb81bb399a9e293ca063eefd195ce) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Footer: add `linksLabel` prop (default "Footer links") so the rich variant's link-columns nav can be given a unique accessible name when several footers share a page (axe `landmark-unique`).
+
+## 0.3.2
+
+### Patch Changes
+
+- [#6237](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6237) [`8332525`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/83325253c2686eddb9cb2c98a04f2aaaac282d14) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NavigationMenu: keep the dropdown open when keyboard focus moves from the trigger into the panel (previously the trigger blur armed a close timer that nothing cancelled, stranding focus on `<body>`).
+
+- [#6197](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6197) [`0fdb5a4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0fdb5a4d35d9444cf713f98ba8fc6d1229205501) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y iteration 2 (form components): Select exposes `aria-required` and names its listbox from `aria-label`/`aria-labelledby`; NumberInput ignores arrow keys and disables its steppers when `readOnly`; PinInput cells carry `aria-invalid`/`aria-required`; Autocomplete names its listbox, clears `aria-activedescendant` when closed or empty, closes on Tab, and merges a consumer `aria-describedby` with its hint.
+
+- [#6228](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6228) [`3f7f693`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3f7f693769aaf02c26b7b967bc4d4ee418bc11ab) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Memoize Combobox filtered options so they are not recomputed on unrelated re-renders.
+
+- [#6240](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6240) [`f8836d8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f8836d8698dfe2f4bb1c096a421a643e38cad09c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Resolve Alert, Autocomplete, Banner, Combobox, Tooltip, PinInput, ImageUpload and Slider motion configs through `useMotionPreset()` (ADR-025) instead of importing `tokens/motion` directly. Autocomplete and Banner dropdown/entrance transitions now collapse to an instant transition under reduced motion.
+
+- [#6232](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6232) [`d77ae3a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d77ae3a048d062d85ee4f4c77eef06f1d61e465b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart: stabilize the `leadingHeader` element passed to `TapeChartDayHeader` so its `memo` skips re-renders on focus/selection changes.
+
+## 0.3.1
+
+### Patch Changes
+
+- [#5937](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5937) [`e510f81`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e510f81b563e2552235e566ede9f03595044f7af) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - **useFocusTrap: skip disabled elements when choosing a trap candidate** — `FOCUSABLE_SELECTOR` (shared by `Dialog`, `Drawer`, and every other overlay built on `useFocusTrap`) previously matched `button`/`input`/`select`/`textarea` elements regardless of `disabled` state. A panel whose first (or only) focus candidate was disabled silently failed to receive initial focus, since `.focus()` on a disabled element is a no-op. Disabled elements are now excluded from both initial focus and Tab-wrap; `[href]` links (which have no native `disabled` attribute) are unaffected.
+
+- [#5992](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5992) [`43fb645`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/43fb6451a35afe4104cc33cb8fb19da158a4146e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - **TextArea: set `aria-invalid` when the character counter goes over the limit** — the "over limit" state (derived from `maxLength`) previously turned the counter text red and announced once via a polite live region, but never set `aria-invalid` unless the consumer also explicitly passed `error`. A screen-reader user tabbing back to an over-limit field got no persistent invalid signal, while a sighted user saw it continuously via the red counter. `aria-invalid` is now set from `error || isOver`, matching the sighted experience.
+
 ## 0.3.0
 
 ### Minor Changes

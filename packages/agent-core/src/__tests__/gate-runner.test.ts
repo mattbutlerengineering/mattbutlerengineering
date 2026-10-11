@@ -107,8 +107,8 @@ describe("GateRunner", () => {
       const runner = new GateRunner([passingGate("alpha"), passingGate("beta")]);
       const result = await runner.run(makeContext());
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].gateName).toBe("alpha");
-      expect(result.results[1].gateName).toBe("beta");
+      expect(result.results[0]!.gateName).toBe("alpha");
+      expect(result.results[1]!.gateName).toBe("beta");
     });
 
     it("passes context to each gate", async () => {
@@ -136,7 +136,7 @@ describe("GateRunner", () => {
     it("includes details from failing gates in the result", async () => {
       const runner = new GateRunner([failingGate("broken", "specific error detail")]);
       const result = await runner.run(makeContext());
-      expect(result.results[0].details).toBe("specific error detail");
+      expect(result.results[0]!.details).toBe("specific error detail");
     });
 
     it("continues running gates after a failure", async () => {
@@ -163,8 +163,8 @@ describe("GateRunner", () => {
       const result = await runner.run(makeContext());
 
       expect(gate.evaluate).not.toHaveBeenCalled();
-      expect(result.results[0].passed).toBe(true);
-      expect(result.results[0].details).toBe("skipped");
+      expect(result.results[0]!.passed).toBe(true);
+      expect(result.results[0]!.details).toBe("skipped");
     });
 
     it("does not skip gate when shouldSkip returns false", async () => {

@@ -971,13 +971,7 @@
       function safeJsonParse(text: string): unknown { /* ... */ }
     </item>
     <item priority="high">
-      export function parseGeminiUsage(stdout: string): CliUsage { /* ... */ }
-    </item>
-    <item priority="high">
       export function parseOpenCodeUsage(stdout: string): CliUsage { /* ... */ }
-    </item>
-    <item priority="high">
-      export function extractGeminiError(stdout: string): string | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function extractOpenCodeError(stdout: string): string | undefined { /* ... */ }
@@ -987,6 +981,21 @@
     </item>
     <item priority="high">
       export function extractClaudeCliError(stdout: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseGrokUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractGrokError(stdout: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseOmpUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ompErrorFromRecord(raw: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractOmpError(stdout: string): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
@@ -1006,9 +1015,22 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
+  <file path="packages/agent-core/src/adapters/grok-adapter.ts">
     <item priority="high">
-      class GeminiCliAdapter {
+      class GrokCliAdapter {
+        name: unknown;
+        cliBinary: unknown;
+        async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapters/omp-adapter.ts">
+    <item priority="high">
+      export function ompModelToForward(model: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      class OmpCliAdapter {
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
@@ -1575,11 +1597,6 @@
     </item>
     <item priority="high">
       export const cleanupWorktreesCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/compound.ts">
-    <item priority="high">
-      export const compoundCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/generate.ts">
@@ -5210,6 +5227,7 @@
     <item priority="low">
       interface VenueContextClient {
         $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+        $executeRawUnsafe: (query: string) => Promise<number>;
       }
     </item>
     <item priority="low">
@@ -6586,6 +6604,9 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/tables.ts">
+    <item priority="medium">
+      function tableNotFound(): Error { /* ... */ }
+    </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
     </item>
@@ -6613,6 +6634,99 @@
         load: () => Promise<T>,
         fallback: T
       ): Promise<T> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      type VenueSource = "query" | "body" | "params" | {
+            readonly from: "query" | {
+            readonly entity: Entit | {
+            readonly resolve: (req;
+    </item>
+    <item priority="low">
+      type VenueAccess = "member" | "authenticated" | { readonly owner: (entity: E) ;
+    </item>
+    <item priority="low">
+      interface VenueScope {
+        venueId: string;
+        entity: E;
+        isAdmin: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface VenueScopeSpec {
+        venue: VenueSource<RG, E>;
+        access?: VenueAccess<E>;
+      }
+    </item>
+    <item priority="low">
+      type ScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export const VENUE_SCOPE: unique symbol;
+    </item>
+    <item priority="high">
+      export const venueScopeHooks: unknown;
+    </item>
+    <item priority="high">
+      export function venueScopeOf(handler: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type DirectSource = {
+        readonly from: "query" | "body" | "params";
+        readonl...;
+    </item>
+    <item priority="high">
+      type EntitySource = Extract<
+        VenueSource<RG, E>,
+        { readonly entity: Entit...;
+    </item>
+    <item priority="high">
+      type ResolveSource = Extract<
+        VenueSource<RG, E>,
+        { readonly resolve: unkn...;
+    </item>
+    <item priority="medium">
+      function directSource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): DirectSource | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isEntitySource<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>
+      ): source is EntitySource<RG, E> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describe<RG extends RouteGenericInterface, E>(
+        source: VenueSource<RG, E>,
+        access: VenueAccess<E>
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readField(request: FastifyRequest, { from, field }: DirectSource): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueScoped<
+        RG extends RouteGenericInterface = RouteGenericInterface,
+        E = undefined,
+      >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/venues.ts">
@@ -7952,6 +8066,22 @@
     </item>
     <item priority="high">
       export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/assume-app-role.ts">
+    <item priority="high">
+      export const APP_RESERVATIONS_ROLE: unknown;
+    </item>
+    <item priority="low">
+      interface AppRoleClient {
+        $executeRawUnsafe: (query: string) => Promise<number>;
+      }
+    </item>
+    <item priority="high">
+      export function appRoleSetStatement(role: string = APP_RESERVATIONS_ROLE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/availability.ts">
@@ -9696,7 +9826,7 @@
   </file>
   <file path="packages/agent-core/src/adapter-resolution.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "claude-cli" | "gemini" | "opencode";
+      type AdapterType = "auto" | "claude" | "claude-cli" | "opencode" | "grok" | "omp";
     </item>
     <item priority="high">
       export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }
@@ -12900,8 +13030,10 @@
   <file path="packages/database/src/testing.ts">
     <item priority="low">
       interface MockPrisma {
-        $queryRaw: ReturnType<typeof vi.fn>;
-        $executeRaw: ReturnType<typeof vi.fn>;
+        $queryRaw: Mock;
+        $executeRaw: Mock;
+        $executeRawUnsafe: Mock;
+        $transaction: Mock;
       }
     </item>
     <item priority="low">
@@ -12909,19 +13041,20 @@
         prisma: MockPrisma;
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
-        getSlowQueryStats: ReturnType<typeof vi.fn>;
-        getServiceStatus: ReturnType<typeof vi.fn>;
-        getPoolMetrics: ReturnType<typeof vi.fn>;
+          getSlowQueryStats: Mock;
+        ...;
+        getSlowQueryStats: Mock;
+        getServiceStatus: Mock;
+        getPoolMetrics: Mock;
       }
     </item>
     <item priority="low">
       interface MockDatabaseServiceOverrides {
         prisma?: Record<string, unknown>;
-        getSlowQueryStats?: ReturnType<typeof vi.fn>;
-        getServiceStatus?: ReturnType<typeof vi.fn>;
-        getPoolMetrics?: ReturnType<typeof vi.fn>;
-        shutdown?: ReturnType<typeof vi.fn>;
+        getSlowQueryStats?: Mock;
+        getServiceStatus?: Mock;
+        getPoolMetrics?: Mock;
+        shutdown?: Mock;
       }
     </item>
     <item priority="high">
@@ -12933,7 +13066,8 @@
       interface MockDatabaseModule {
         db: {
           prisma: MockPrisma;
-          getSlowQueryStats: ReturnTy...;
+          getSlowQueryStats: Mock;
+        ...;
         prisma: MockPrisma;
       }
     </item>
@@ -13414,6 +13548,9 @@
         exec?: (cmd: string, args: string[]) => string;
       }
     </item>
+    <item priority="medium">
+      function defaultWarn(message: string): void { /* ... */ }
+    </item>
     <item priority="high">
       export function createRestRunner(
         opts: RestRunnerOptions = {}
@@ -13489,9 +13626,21 @@
       }
     </item>
     <item priority="high">
-      export function createTransportRunner(
-        opts: TransportOptions = {}
-      ): (cmd: string, args: string[]) => string { /* ... */ }
+      type Run = (cmd: string, args: string[]) => string;
+    </item>
+    <item priority="high">
+      class GhGraphqlUnavailableError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function isGraphqlUnavailableError(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createTransportRunner(opts: TransportOptions = {}): Run { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
@@ -15123,7 +15272,6 @@
     </item>
     <item priority="low">
       interface GuestRiskResult {
-        riskScore: GuestRiskScore;
         requiresDeposit: boolean;
       }
     </item>
@@ -15584,6 +15732,9 @@
         reservationEvents?: ReservationEventEmitter;
         waitlistNotifier?: WaitlistNotifier;
       }
+    </item>
+    <item priority="medium">
+      function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> { /* ... */ }
     </item>
     <item priority="high">
       export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }

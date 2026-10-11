@@ -60,7 +60,7 @@ vi.mock("@mbe/auth/react", () => ({
 }));
 
 function latest(): FakeCall {
-  return fakeCalls[fakeCalls.length - 1];
+  return fakeCalls[fakeCalls.length - 1]!;
 }
 
 function okResponse(): Response {

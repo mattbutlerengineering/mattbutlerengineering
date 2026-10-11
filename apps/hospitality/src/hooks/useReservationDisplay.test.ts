@@ -287,7 +287,7 @@ describe("useReservationDisplay", () => {
       );
 
       expect(result.current.filteredData).toHaveLength(1);
-      expect(result.current.filteredData[0].guestName).toBe("Alice");
+      expect(result.current.filteredData[0]!.guestName).toBe("Alice");
     });
 
     it("filters to PENDING only when statusFilter is PENDING", () => {
@@ -303,7 +303,7 @@ describe("useReservationDisplay", () => {
       );
 
       expect(result.current.filteredData).toHaveLength(1);
-      expect(result.current.filteredData[0].guestName).toBe("Bob");
+      expect(result.current.filteredData[0]!.guestName).toBe("Bob");
     });
 
     it("filters to CANCELLED only when statusFilter is CANCELLED", () => {
@@ -319,7 +319,7 @@ describe("useReservationDisplay", () => {
       );
 
       expect(result.current.filteredData).toHaveLength(1);
-      expect(result.current.filteredData[0].guestName).toBe("Carol");
+      expect(result.current.filteredData[0]!.guestName).toBe("Carol");
     });
   });
 
@@ -376,7 +376,7 @@ describe("useReservationDisplay", () => {
       );
 
       expect(result.current.filteredData).toHaveLength(1);
-      expect(result.current.filteredData[0].guestName).toBe("Alice Smith");
+      expect(result.current.filteredData[0]!.guestName).toBe("Alice Smith");
     });
 
     it("filters by guest email case-insensitively", () => {
@@ -392,7 +392,7 @@ describe("useReservationDisplay", () => {
       );
 
       expect(result.current.filteredData).toHaveLength(1);
-      expect(result.current.filteredData[0].guestName).toBe("Bob Jones");
+      expect(result.current.filteredData[0]!.guestName).toBe("Bob Jones");
     });
 
     it("returns empty array when no matches", () => {

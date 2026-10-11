@@ -45,7 +45,9 @@ function findLeakingImports(filePath: string): string[] {
   const content = readFileSync(filePath, "utf8");
   const leaks: string[] = [];
   for (const match of content.matchAll(IMPORT_PATTERN)) {
-    const [, importedNames, moduleSpecifier] = match;
+    // Both groups are non-optional in IMPORT_PATTERN, so a match always fills them.
+    const importedNames = match[1]!;
+    const moduleSpecifier = match[2]!;
     if (!FEATURE_FLAGS_MODULE_PATTERN.test(moduleSpecifier)) continue;
     for (const name of FORBIDDEN_NAMES) {
       if (new RegExp(`\\b${name}\\b`).test(importedNames)) {

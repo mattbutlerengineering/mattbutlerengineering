@@ -78,13 +78,13 @@ export interface GuestSegment {
 /**
  * Response shape for `GET /public/v1/venues/:slug/guest-risk` (unauthenticated booking widget).
  *
- * Intentionally omits `noShowCount` — this endpoint is public and unauthenticated, and a raw
- * no-show count is behavioral CRM PII that must never be exposed to anonymous callers. Only the
- * derived `riskScore`/`requiresDeposit` fields the booking widget actually needs are returned.
+ * Intentionally omits `noShowCount` and the named `riskScore`. This endpoint is public and
+ * unauthenticated; a behavioral classification is CRM PII that must not be exposed to anonymous
+ * callers. The booking widget only branches on `requiresDeposit`. Staff guest reads keep
+ * `Guest.riskScore`.
  */
 export interface GuestRiskResult {
-  riskScore: GuestRiskScore;
-  /** True when the guest's risk score warrants an automatic deposit requirement. */
+  /** True only when the guest's reliability assessment is risky. */
   requiresDeposit: boolean;
 }
 

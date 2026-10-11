@@ -134,6 +134,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-deploy-secret-provisioning",
       "check-orphaned-tests",
       "check-orphaned-collectors",
+      "check-orphaned-cli-commands",
       "check-audit-persistence-caller",
       "check-story-coverage",
       "check-rialto-changeset",

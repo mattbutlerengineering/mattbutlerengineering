@@ -460,6 +460,7 @@
   <file path="src/middleware/venue-context.ts">
     export interface VenueContextClient {
       $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+      $executeRawUnsafe: (query: string) => Promise<number>;
     }
     export interface SetVenueContextOptions {
       /**
@@ -482,6 +483,7 @@
       venueId: string | null | undefined,
       options: SetVenueContextOptions = {}
     ): Promise<void> {
+      await assumeAppRole(client);
       if (!venueId) {
         if (!options.skipUnscopedQueryCheck) {
           // `model: null` — this function doesn't know which table its caller's
@@ -1054,10 +1056,7 @@
       }>(
         "/daily",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get daily booking-funnel counts",
             operationId: "getDailyBookingMetrics",
@@ -1088,27 +1087,28 @@
             },
           },
         },
-        async (request, reply) => {
-          // Venue authorization is enforced by requireVenueAccess (ADR-020). The
-          // explicit check below only guards the platform-admin path, which
-          // bypasses venue resolution entirely and would otherwise reach here
-          // with venueId undefined.
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
-          }
+        // Venue authorization (ADR-020) and RLS context (ADR-026) come from
+        // venueScoped. A platform admin who omits venueId gets this route's own
+        // 400 detail; a non-admin gets 403.
+        venueScoped(
+          {
+            venue: {
+              from: "query",
+              field: "venueId",
+              missing: "venueId query parameter is required",
+            },
+          },
+          async (request, reply, { venueId }) => {
+            const date = request.query.date ?? todayDateString();
+            const dateResult = validateDateString(date);
+            if (!dateResult.valid) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+            }
     
-          const date = request.query.date ?? todayDateString();
-          const dateResult = validateDateString(date);
-          if (!dateResult.valid) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+            const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+            return { data };
           }
-    
-          const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
-          return { data };
-        }
+        )
       );
     };
   </file>
@@ -1120,10 +1120,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -1146,27 +1143,31 @@
             },
           },
         },
-        async (request, reply) => {
-          // Venue authorization is enforced by requireVenueAccess (ADR-020): the
-          // caller must be a platform admin or a member of `venueId`, so by the
-          // time this handler runs the operator is already scoped to this venue.
-          const { date, venueId } = request.query;
+        // Venue authorization (ADR-020) and RLS context (ADR-026) come from
+        // venueScoped: by the time the handler runs the caller is a platform admin
+        // or a member of `venueId`. The schema requires both params, so the admin
+        // 400 below is reached only by an empty `venueId`.
+        venueScoped(
+          {
+            venue: {
+              from: "query",
+              field: "venueId",
+              missing: "venueId query parameter is required",
+            },
+          },
+          async (request, reply, { venueId }) => {
+            const { date } = request.query;
     
-          if (!date) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
+            if (!date) {
+              return reply
+                .code(400)
+                .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
+            }
+    
+            const data = await briefingService.getBriefing({ date, venueId });
+            return { data };
           }
-    
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
-          }
-    
-          const data = await briefingService.getBriefing({ date, venueId });
-          return { data };
-        }
+        )
       );
     };
   </file>
@@ -1797,10 +1798,7 @@
       fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/venue/:venueId/active",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromParams),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get active floor plan for venue",
             params: {
@@ -1811,24 +1809,21 @@
             },
           },
         },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
+        venueScoped({ venue: "params" }, async (_request, reply, { venueId }) => {
+          const floorPlan = await floorPlanService.getActiveByVenueId(venueId);
           if (!floorPlan) {
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
           }
           return { data: floorPlan };
-        }
+        })
       );
     
       fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get floor plan by ID",
             params: {
@@ -1839,42 +1834,31 @@
             },
           },
         },
-        async (request, reply) => {
-          const floorPlan = await loadInVenueContext(
-            "floor_plan",
-            request.params.id,
-            () => floorPlanService.getById(request.params.id),
-            null
-          );
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-          return { data: floorPlan };
-        }
+        venueScoped(
+          { venue: { ...floorPlanVenue, load: (id) => floorPlanService.getById(id) } },
+          async (_request, _reply, { entity: floorPlan }) => ({ data: floorPlan })
+        )
       );
     
       fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           schema: {
             summary: "Create floor plan",
             body: createFloorPlanBodyJsonSchema,
           },
         },
-        async (request, reply) => {
+        venueScoped({ venue: "body" }, async (request, reply) => {
           const floorPlan = await floorPlanService.create(request.body);
           return reply.code(201).send({ data: floorPlan });
-        }
+        })
       );
     
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/clone",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Clone floor plan",
             description: "Creates a copy of the floor plan and all its tables.",
@@ -1886,19 +1870,14 @@
             },
           },
         },
-        async (request, reply) => {
-          const cloned = await loadInVenueContext(
-            "floor_plan",
-            request.params.id,
-            () => floorPlanService.clone(request.params.id),
-            null
-          );
+        venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+          const cloned = await floorPlanService.clone(request.params.id);
           if (!cloned) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
           }
           fastify.reservationEvents.emitFloorPlanCreated(cloned);
           return reply.code(201).send({ data: cloned });
-        }
+        })
       );
     
       fastify.patch<{
@@ -1908,10 +1887,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Update floor plan",
             params: {
@@ -1923,27 +1899,19 @@
             body: updateFloorPlanBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const floorPlan = await loadInVenueContext(
-            "floor_plan",
-            request.params.id,
-            () => floorPlanService.update(request.params.id, request.body),
-            null
-          );
+        venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+          const floorPlan = await floorPlanService.update(request.params.id, request.body);
           if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
           }
           return { data: floorPlan };
-        }
+        })
       );
     
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/activate",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Set floor plan as active",
             description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -1955,22 +1923,16 @@
             },
           },
         },
-        async (request, reply) => {
-          const updated = await loadInVenueContext(
-            "floor_plan",
-            request.params.id,
-            async () => {
-              const floorPlan = await floorPlanService.getById(request.params.id);
-              if (!floorPlan) return null;
-              return floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
-            },
-            null
-          );
-          if (!updated) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+        venueScoped(
+          { venue: { ...floorPlanVenue, load: (id) => floorPlanService.getById(id) } },
+          async (_request, reply, { entity: floorPlan }) => {
+            const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+            if (!updated) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
+            }
+            return { data: updated };
           }
-          return { data: updated };
-        }
+        )
       );
     
       fastify.post<{
@@ -1979,70 +1941,60 @@
       }>(
         "/tables/positions",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
             body: updateTablePositionsBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const { floorPlanId, positions } = request.body;
-    
-          // Everything below — the floor plan pre-check, the cross-venue table
-          // scan, and the bulk update itself (which does its own internal
-          // unscoped floor-plan read, see floor-plan.ts's bulkUpdateTablePositions)
-          // resolves and runs inside ONE venue context (ADR-026 §3.3 item 2 /
-          // #5369 PR 5), so all three succeed under FORCE instead of repeating
-          // the unscoped-read trap. Note: once scoped, a genuinely cross-venue
-          // `positions[].tableId` becomes invisible here rather than "found,
-          // wrong venue" — the 403 below no longer fires for that case, but the
-          // attempt still fails (404 "One or more tables not found") because
-          // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
-          // `t.venue_id = …` predicate independent of RLS.
-          const result = await loadInVenueContext(
-            "floor_plan",
-            floorPlanId,
-            async () => {
-              const floorPlan = await floorPlanService.getById(floorPlanId);
-              if (!floorPlan) return { kind: "not-found" as const };
-    
-              const tables = await Promise.all(
-                positions.map((pos) => tableService.getById(pos.tableId))
-              );
-              const crossVenueTable = tables.find(
-                (table) => table !== null && table.venueId !== floorPlan.venueId
-              );
-              if (crossVenueTable) return { kind: "cross-venue" as const };
-    
-              const updatedTables = await floorPlanService.bulkUpdateTablePositions(
-                floorPlanId,
-                positions
-              );
-              return { kind: "ok" as const, updatedTables };
+        venueScoped(
+          {
+            venue: {
+              entity: "floor_plan",
+              key: (request) => request.body.floorPlanId,
+              load: (id) => floorPlanService.getById(id),
+              notFound: FLOOR_PLAN_NOT_FOUND,
             },
-            { kind: "not-found" as const }
-          );
+          },
+          async (request, reply, { entity: floorPlan }) => {
+            const { floorPlanId, positions } = request.body;
     
-          if (result.kind === "not-found") {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+            // The floor plan load above, this cross-venue table scan, and the bulk
+            // update itself (which does its own internal floor-plan read, see
+            // floor-plan.ts's bulkUpdateTablePositions) all run inside the floor
+            // plan's venue context (ADR-026 §3.3 item 2 / #5369 PR 5), so all three
+            // succeed under FORCE. Note: once scoped, a genuinely cross-venue
+            // `positions[].tableId` becomes invisible here rather than "found,
+            // wrong venue" — the 403 below no longer fires for that case, but the
+            // attempt still fails (404 "One or more tables not found") because
+            // `bulkUpdateTablePositions`'s own UPDATE carries an explicit
+            // `t.venue_id = …` predicate independent of RLS.
+            const foundTables = await tableService.listVenueIdsByIds(
+              positions.map((pos) => pos.tableId)
+            );
+            // Ids that don't resolve are absent from `foundTables`, so a
+            // missing/deleted table is never treated as cross-venue.
+            const crossVenueTable = foundTables.find((table) => table.venueId !== floorPlan.venueId);
+            if (crossVenueTable) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    titleForStatus(403),
+                    "One or more tables do not belong to the floor plan's venue"
+                  )
+                );
+            }
+    
+            const updatedTables = await floorPlanService.bulkUpdateTablePositions(
+              floorPlanId,
+              positions
+            );
+            return { data: updatedTables };
           }
-          if (result.kind === "cross-venue") {
-            return reply
-              .code(403)
-              .send(
-                createProblemDetails(
-                  403,
-                  titleForStatus(403),
-                  "One or more tables do not belong to the floor plan's venue"
-                )
-              );
-          }
-          return { data: result.updatedTables };
-        }
+        )
       );
     
       fastify.post<{
@@ -2053,15 +2005,12 @@
       }>(
         "/tables/:tableId/assign",
         {
-          preHandler: [
-            requireAuth,
-            // Pinned to the *table* being mutated (:tableId), not the floor plan
-            // named in the body — see issue #5008. The body's floorPlanId can
-            // legitimately belong to the caller's own venue while :tableId
-            // belongs to someone else's; authorizing on the body let a caller
-            // re-point another venue's table onto their own floor plan.
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
-          ],
+          // Scoped to the *table* being mutated (:tableId), not the floor plan
+          // named in the body — see issue #5008. The body's floorPlanId can
+          // legitimately belong to the caller's own venue while :tableId belongs
+          // to someone else's; authorizing on the body let a caller re-point
+          // another venue's table onto their own floor plan.
+          preHandler: requireAuth,
           schema: {
             summary: "Assign table to floor plan",
             params: {
@@ -2073,32 +2022,23 @@
             body: assignTableBodyJsonSchema,
           },
         },
-        async (request, reply) => {
-          const table = await loadInVenueContext(
-            "table",
+        venueScoped({ venue: tableParamVenue }, async (request, reply) => {
+          const table = await floorPlanService.assignTableToFloorPlan(
             request.params.tableId,
-            () =>
-              floorPlanService.assignTableToFloorPlan(
-                request.params.tableId,
-                request.body.floorPlanId,
-                request.body.shapeMetadata
-              ),
-            null
+            request.body.floorPlanId,
+            request.body.shapeMetadata
           );
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", TABLE_NOT_FOUND));
           }
           return { data: table };
-        }
+        })
       );
     
       fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
         "/tables/:tableId/remove",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Remove table from floor plan",
             params: {
@@ -2109,27 +2049,19 @@
             },
           },
         },
-        async (request, reply) => {
-          const table = await loadInVenueContext(
-            "table",
-            request.params.tableId,
-            () => floorPlanService.removeTableFromFloorPlan(request.params.tableId),
-            null
-          );
+        venueScoped({ venue: tableParamVenue }, async (request, reply) => {
+          const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", TABLE_NOT_FOUND));
           }
           return { data: table };
-        }
+        })
       );
     
       fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Delete floor plan",
             params: {
@@ -2140,18 +2072,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const success = await loadInVenueContext(
-            "floor_plan",
-            request.params.id,
-            () => floorPlanService.delete(request.params.id),
-            false
-          );
+        venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
+          const success = await floorPlanService.delete(request.params.id);
           if (!success) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
           }
           return reply.code(204).send();
-        }
+        })
       );
     };
   </file>
@@ -2167,17 +2094,11 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
           const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
-        },
+        }),
       });
     
       // Search guests
@@ -2189,21 +2110,16 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId, query, tags, hasNotVisitedInDays } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (request, _reply, { venueId }) => {
+          const { query, tags, hasNotVisitedInDays } = request.query;
           return guestService.search({
             venueId,
             query,
             tags: tags ? tags.split(",") : undefined,
             hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
           });
-        },
+        }),
       });
     
       // Get guest segments
@@ -2215,17 +2131,11 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
-        },
+        }),
       });
     
       // Get guest by ID
@@ -2237,22 +2147,18 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.getById(request.params.id),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-          }
-          return { data: guest };
-        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: {
+              entity: "guest",
+              key: (request) => request.params.id,
+              load: (id) => guestService.getById(id),
+              notFound: GUEST_NOT_FOUND,
+            },
+          },
+          async (_request, _reply, { entity }) => ({ data: entity })
+        ),
       });
     
       // Create guest
@@ -2264,8 +2170,8 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-        handler: async (request, reply) => {
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "body" }, async (request, reply) => {
           try {
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
@@ -2283,7 +2189,7 @@
             }
             throw error;
           }
-        },
+        }),
       });
     
       // Find or create guest (identity resolution)
@@ -2296,9 +2202,9 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
-        handler: async (request, reply) => {
-          const { venueId, email, phone, name, dietaryRestrictions } = request.body;
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
+          const { email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
               .code(400)
@@ -2311,7 +2217,7 @@
             dietaryRestrictions,
           });
           return { data: guest };
-        },
+        }),
       });
     
       // Update guest
@@ -2323,22 +2229,19 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.update(request.params.id, request.body),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const guest = await guestService.update(request.params.id, request.body);
+            if (!guest) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return { data: guest };
           }
-          return { data: guest };
-        },
+        ),
       });
     
       // Add staff note to guest
@@ -2351,27 +2254,24 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const { text } = request.body;
-          if (!text || text.trim().length === 0) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const { text } = request.body;
+            if (!text || text.trim().length === 0) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+            }
+            const createdBy = request.user?.id ?? "unknown";
+            const guest = await guestService.addNote(request.params.id, text, createdBy);
+            if (!guest) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return reply.code(201).send({ data: guest });
           }
-          const createdBy = request.user?.id ?? "unknown";
-          const guest = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.addNote(request.params.id, text, createdBy),
-            null
-          );
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-          }
-          return reply.code(201).send({ data: guest });
-        },
+        ),
       });
     
       // Get lapsing guests for a venue (on-demand scan)
@@ -2384,19 +2284,13 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
-        handler: async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        preHandler: requireAuth,
+        handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
           return { data: lapsing };
-        },
+        }),
       });
     
       // Send win-back message to a guest
@@ -2409,28 +2303,26 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const found = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            async () => {
-              const guest = await guestService.getById(request.params.id);
-              if (!guest) return null;
-              const venue = await venueService.getById(guest.venueId);
-              return { guest, venueName: venue?.name ?? guest.venueId };
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: {
+              entity: "guest",
+              key: (request) => request.params.id,
+              load: async (id) => {
+                const guest = await guestService.getById(id);
+                if (!guest) return null;
+                const venue = await venueService.getById(guest.venueId);
+                return { guest, venueName: venue?.name ?? guest.venueId };
+              },
+              notFound: GUEST_NOT_FOUND,
             },
-            null
-          );
-          if (!found) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          },
+          async (_request, _reply, { entity }) => {
+            const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
+            return { data: { sent } };
           }
-          const sent = await sendWinBack(found.guest, fastify.notificationPort, found.venueName);
-          return { data: { sent } };
-        },
+        ),
       });
     
       // Delete guest
@@ -2442,22 +2334,19 @@
           tags: ["Guests"],
           security: [{ bearerAuth: [] }],
         },
-        preHandler: [
-          requireAuth,
-          requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
-        ],
-        handler: async (request, reply) => {
-          const deleted = await loadInVenueContext(
-            "guest",
-            request.params.id,
-            () => guestService.delete(request.params.id),
-            false
-          );
-          if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+        preHandler: requireAuth,
+        handler: venueScoped(
+          {
+            venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+          },
+          async (request, reply) => {
+            const deleted = await guestService.delete(request.params.id);
+            if (!deleted) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", GUEST_NOT_FOUND));
+            }
+            return reply.code(204).send();
           }
-          return reply.code(204).send();
-        },
+        ),
       });
     };
   </file>
@@ -3319,9 +3208,9 @@
             rateLimit: { max: 20, timeWindow: "1 minute" },
           },
           schema: {
-            summary: "Get guest risk score (public)",
+            summary: "Get guest deposit requirement (public)",
             description:
-              "Returns guest risk score for the booking widget. Used to determine if a deposit step should be shown. Rate-limited to 20 req/min per IP.",
+              "Returns whether the booking widget should show a deposit step. Rate-limited to 20 req/min per IP.",
             tags: ["Public"],
             params: {
               type: "object",
@@ -3373,9 +3262,9 @@
                 : null;
     
             if (!guest) {
-              // New guest — always trusted
+              // Unknown guest — no deposit. The named score stays off this public body.
               return reply.send({
-                data: { riskScore: "trusted", requiresDeposit: false },
+                data: { requiresDeposit: false },
               });
             }
     
@@ -3383,7 +3272,6 @@
     
             return reply.send({
               data: {
-                riskScore,
                 requiresDeposit: riskScore === "risky",
               },
             });
@@ -5462,21 +5350,16 @@
     };
   </file>
   <file path="src/routes/tables.ts">
+    function tableNotFound(): Error {
+      const error = new Error(TABLE_NOT_FOUND) as Error & { statusCode?: number };
+      error.statusCode = 404;
+      return error;
+    }
     export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
       const { tableService, floorPlanService } = fastify.services;
-    
-      /**
-       * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
-       * to that venue. Null when the table does not exist or is unassigned (→ 403 for
-       * non-admins; platform admins bypass the check).
-       */
-      const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
-        "table",
-        (request) => (request.params as { id?: unknown }).id
-      );
     
       // List tables
       fastify.get<{
@@ -5522,10 +5405,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -5560,20 +5440,11 @@
             },
           },
         },
-        async (request) => {
-          const table = await loadInVenueContext(
-            "table",
-            request.params.id,
-            () => tableService.getById(request.params.id),
-            null
-          );
-          if (!table) {
-            const error = new Error("Table not found") as Error & { statusCode?: number };
-            error.statusCode = 404;
-            throw error;
-          }
+        venueScoped(tableVenue, async (request) => {
+          const table = await tableService.getById(request.params.id);
+          if (!table) throw tableNotFound();
           return { data: table };
-        }
+        })
       );
     
       // Create table (requires auth)
@@ -5639,10 +5510,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Update a table",
             operationId: "updateTable",
@@ -5688,74 +5556,51 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped(tableVenue, async (request, reply) => {
           const { floorPlanId } = request.body;
     
-          // ADR-026 §3.3 item 5 / #5369 PR 7 (PR 5 carry-forward): the
-          // floor-plan reassignment pre-check now runs INSIDE the table's
-          // resolved venue context, the way `floor-plans.ts`'s
-          // `/tables/positions` route does. Both reads used to run before any
-          // venue context was resolved — under FORCE they'd both return null,
-          // silently skipping this check (still refused, but as a 404 from the
-          // update's own nested `connect` instead of this 403).
-          const result = await loadInVenueContext(
-            "table",
-            request.params.id,
-            async () => {
-              if (floorPlanId) {
-                // The guard above only proves the caller belongs to the TABLE's
-                // own venue. `floorPlanId` is a client-supplied id that the
-                // update connects with no venue awareness of its own, so a
-                // member of the table's venue could otherwise re-point it onto
-                // ANOTHER venue's floor plan. Same bug class as #5008
-                // (/tables/:tableId/assign) and #5042 (/tables/positions) in
-                // floor-plans.ts. Checked here rather than in the DB layer
-                // because `Table` has no compound floorPlanId/venueId
-                // constraint, and ADR-026's RLS does not apply to the app's own
-                // role.
-                const [current, floorPlan] = await Promise.all([
-                  tableService.getById(request.params.id),
-                  floorPlanService.getById(floorPlanId),
-                ]);
-                // A missing table or floor plan is not a cross-venue
-                // reassignment — fall through so the update below surfaces the
-                // existing 404. Note (matching `floor-plans.ts`'s
-                // `/tables/positions` route): once this read runs inside the
-                // table's own resolved venue context, a GENUINELY cross-venue
-                // `floorPlanId` becomes invisible here under RLS rather than
-                // "found, wrong venue" — `floorPlan` resolves `null`, this 403
-                // never fires, and the attempt still fails, but as the 404 below
-                // (from `tableService.update`'s own nested `connect`) instead.
-                if (current && floorPlan && floorPlan.venueId !== current.venueId) {
-                  return { kind: "cross-venue" as const };
-                }
-              }
-    
-              const table = await tableService.update(request.params.id, request.body);
-              if (!table) return { kind: "not-found" as const };
-              return { kind: "ok" as const, table };
-            },
-            { kind: "not-found" as const }
-          );
-    
-          if (result.kind === "cross-venue") {
-            return reply
-              .code(403)
-              .send(
-                createProblemDetails(
-                  403,
-                  titleForStatus(403),
-                  "The requested floor plan does not belong to this table's venue"
-                )
-              );
+          // ADR-026 §3.3 item 5 / #5369 PR 7: the floor-plan reassignment
+          // pre-check runs INSIDE the table's venue context (venueScoped), the way
+          // `floor-plans.ts`'s `/tables/positions` route does, so both reads
+          // succeed under FORCE instead of silently skipping this check.
+          if (floorPlanId) {
+            // Venue scope only proves the caller belongs to the TABLE's own venue.
+            // `floorPlanId` is a client-supplied id that the update connects with
+            // no venue awareness of its own, so a member of the table's venue could
+            // otherwise re-point it onto ANOTHER venue's floor plan. Same bug class
+            // as #5008 (/tables/:tableId/assign) and #5042 (/tables/positions) in
+            // floor-plans.ts. Checked here rather than in the DB layer because
+            // `Table` has no compound floorPlanId/venueId constraint, and ADR-026's
+            // RLS does not apply to the app's own role.
+            const [current, floorPlan] = await Promise.all([
+              tableService.getById(request.params.id),
+              floorPlanService.getById(floorPlanId),
+            ]);
+            // A missing table or floor plan is not a cross-venue reassignment —
+            // fall through so the update below surfaces the existing 404. Note
+            // (matching `floor-plans.ts`'s `/tables/positions` route): inside the
+            // table's own venue context, a GENUINELY cross-venue `floorPlanId`
+            // becomes invisible here under RLS rather than "found, wrong venue" —
+            // `floorPlan` resolves `null`, this 403 never fires, and the attempt
+            // still fails, but as the 404 below (from `tableService.update`'s own
+            // nested `connect`) instead.
+            if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    titleForStatus(403),
+                    "The requested floor plan does not belong to this table's venue"
+                  )
+                );
+            }
           }
-          if (result.kind === "not-found") {
-            const error = new Error("Table not found") as Error & { statusCode?: number };
-            error.statusCode = 404;
-            throw error;
-          }
-          return { data: result.table };
-        }
+    
+          const table = await tableService.update(request.params.id, request.body);
+          if (!table) throw tableNotFound();
+          return { data: table };
+        })
       );
     
       // Update table status (requires auth)
@@ -5766,10 +5611,7 @@
       }>(
         "/:id/status",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Update table status",
             operationId: "updateTableStatus",
@@ -5815,19 +5657,10 @@
             },
           },
         },
-        async (request) => {
+        venueScoped(tableVenue, async (request) => {
           try {
-            const table = await loadInVenueContext(
-              "table",
-              request.params.id,
-              () => tableService.updateStatus(request.params.id, request.body.status),
-              null
-            );
-            if (!table) {
-              const error = new Error("Table not found") as Error & { statusCode?: number };
-              error.statusCode = 404;
-              throw error;
-            }
+            const table = await tableService.updateStatus(request.params.id, request.body.status);
+            if (!table) throw tableNotFound();
             fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
           } catch (err) {
@@ -5838,7 +5671,7 @@
             }
             throw err;
           }
-        }
+        })
       );
     
       // Delete table (requires auth)
@@ -5847,10 +5680,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Delete a table",
             operationId: "deleteTable",
@@ -5892,20 +5722,11 @@
             },
           },
         },
-        async (request, reply) => {
-          const deleted = await loadInVenueContext(
-            "table",
-            request.params.id,
-            () => tableService.delete(request.params.id),
-            false
-          );
-          if (!deleted) {
-            const error = new Error("Table not found") as Error & { statusCode?: number };
-            error.statusCode = 404;
-            throw error;
-          }
+        venueScoped(tableVenue, async (request, reply) => {
+          const deleted = await tableService.delete(request.params.id);
+          if (!deleted) throw tableNotFound();
           return reply.code(204).send();
-        }
+        })
       );
     };
   </file>
@@ -5941,6 +5762,217 @@
       const venueId = await resolveVenueId(kind, key);
       if (!venueId) return fallback;
       return runWithVenueContext(venueId, load);
+    }
+  </file>
+  <file path="src/routes/venue-scope.ts">
+    type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
+      RawServerDefault,
+      RawRequestDefaultExpression,
+      RawReplyDefaultExpression,
+      RG
+    >;
+    type RequestOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[0];
+    type ReplyOf<RG extends RouteGenericInterface> = Parameters<Handler<RG>>[1];
+    export type VenueSource<RG extends RouteGenericInterface, E> =
+      /** Reads `venueId` from the query string, body or route params. */
+      | "query"
+      | "body"
+      | "params"
+      /**
+       * The same, for a key not named `venueId` (e.g. venues' own `:id`), or with
+       * the route's own admin-400 text: `missing` replaces the default
+       * "<field> is required" detail so a migrated route keeps today's bytes.
+       */
+      | {
+          readonly from: "query" | "body" | "params";
+          readonly field: string;
+          readonly missing?: string;
+        }
+      /** The venue owning an entity, through the SECURITY DEFINER resolver. */
+      | {
+          readonly entity: EntityKind;
+          readonly key: (request: RequestOf<RG>) => unknown;
+          /**
+           * Runs INSIDE the venue context; `null` answers 404 `notFound`. Must be a
+           * read with no side effects: for owner access it runs before the
+           * ownership decision, so a non-owner reaches it.
+           */
+          readonly load?: (key: string) => Promise<E | null>;
+          /** 404 `detail`, today's exact text for that route. */
+          readonly notFound: string;
+        }
+      /** Escape hatch for tables with no RLS policy, or composite resolution. */
+      | {
+          readonly resolve: (request: RequestOf<RG>) => Promise<string | null>;
+          /** Names the source in the coverage registry's descriptor. */
+          readonly label: string;
+          readonly notFound: string;
+        };
+    export type VenueAccess<E> =
+      /** Default: ADR-020 venue membership (`requireVenueAccess`). Admins pass. */
+      | "member"
+      /** RLS context only; relies on `requireAuth` in the route's preHandler. */
+      | "authenticated"
+      /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
+      | { readonly owner: (entity: E) => string | null };
+    export interface VenueScope<E> {
+      readonly venueId: string;
+      readonly entity: E;
+      readonly isAdmin: boolean;
+    }
+    export interface VenueScopeSpec<RG extends RouteGenericInterface, E> {
+      readonly venue: VenueSource<RG, E>;
+      readonly access?: VenueAccess<E>;
+    }
+    export type ScopedHandler<RG extends RouteGenericInterface, E> = (
+      request: RequestOf<RG>,
+      reply: ReplyOf<RG>,
+      scope: VenueScope<E>
+    ) => ReturnType<Handler<RG>>;
+    export const VENUE_SCOPE: unique symbol = Symbol.for("mbe.reservations.venueScope");
+    export const venueScopeHooks = {
+      admitIdentity(
+        _user: AuthUser | undefined,
+        _venueId: string,
+        _method: string,
+        _routeKey: string
+      ): ProblemDetails | null {
+        return null;
+      },
+    };
+    export function venueScopeOf(handler: unknown): string | null {
+      if (typeof handler !== "function") return null;
+      const descriptor = (handler as { [VENUE_SCOPE]?: unknown })[VENUE_SCOPE];
+      return typeof descriptor === "string" ? descriptor : null;
+    }
+    type DirectSource = {
+      readonly from: "query" | "body" | "params";
+      readonly field: string;
+      readonly missing?: string;
+    };
+    type EntitySource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly entity: EntityKind }
+    >;
+    type ResolveSource<RG extends RouteGenericInterface, E> = Extract<
+      VenueSource<RG, E>,
+      { readonly resolve: unknown }
+    >;
+    function directSource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): DirectSource | null {
+      if (typeof source === "string") return { from: source, field: "venueId" };
+      return "from" in source ? source : null;
+    }
+    function isEntitySource<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>
+    ): source is EntitySource<RG, E> {
+      return typeof source === "object" && "entity" in source;
+    }
+    function describe<RG extends RouteGenericInterface, E>(
+      source: VenueSource<RG, E>,
+      access: VenueAccess<E>
+    ): string {
+      const direct = directSource(source);
+      const from = direct
+        ? `${direct.from}.${direct.field}`
+        : isEntitySource(source)
+          ? `entity:${source.entity}`
+          : `resolve:${(source as ResolveSource<RG, E>).label}`;
+      return `${from}/${typeof access === "object" ? "owner" : access}`;
+    }
+    function readField(request: FastifyRequest, { from, field }: DirectSource): string | null {
+      const container = request[from] as Record<string, unknown> | null | undefined;
+      const value = container?.[field];
+      // "" is no venue: treating it as one would skip the missing-key cell.
+      return typeof value === "string" && value !== "" ? value : null;
+    }
+    function sendProblem(reply: FastifyReply, status: number, detail: string): FastifyReply {
+      return reply.code(status).send(createProblemDetails(status, titleForStatus(status), detail));
+    }
+    export function venueScoped<
+      RG extends RouteGenericInterface = RouteGenericInterface,
+      E = undefined,
+    >(spec: VenueScopeSpec<RG, E>, handler: ScopedHandler<RG, E>): Handler<RG> {
+      const source = spec.venue;
+      const access: VenueAccess<E> = spec.access ?? "member";
+      const ownerAccess = typeof access === "object" ? access : null;
+      if (ownerAccess && !(isEntitySource(source) && source.load)) {
+        throw new Error("venueScoped: owner access needs an entity source with load");
+      }
+      const direct = directSource(source);
+      const notFound = direct ? null : (source as EntitySource<RG, E> | ResolveSource<RG, E>).notFound;
+    
+      /** Today's ADR-020 guards, applied to the venue already resolved here. */
+      async function decide(
+        request: FastifyRequest,
+        reply: FastifyReply,
+        venueId: string | null,
+        entity: E | null | undefined
+      ): Promise<boolean> {
+        if (ownerAccess) {
+          await requireOwnershipOrAdmin(
+            async () => (entity == null ? null : ownerAccess.owner(entity)),
+            resolveCurrentUserEmail
+          )(request, reply);
+        } else {
+          await requireVenueAccess(request.server.venueMembershipLookup, () => venueId)(request, reply);
+        }
+        return !reply.sent;
+      }
+    
+      async function scopedHandler(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
+        const isAdmin = hasPermission(request.user, "admin");
+    
+        let venueId: string | null;
+        let entityKey: string | null = null;
+        if (direct) {
+          venueId = readField(request, direct);
+        } else if (isEntitySource(source)) {
+          const key = source.key(request as RequestOf<RG>);
+          entityKey = typeof key === "string" ? key : null;
+          venueId = entityKey === null ? null : await resolveVenueId(source.entity, entityKey);
+        } else {
+          venueId = await (source as ResolveSource<RG, E>).resolve(request as RequestOf<RG>);
+        }
+    
+        if (venueId === null) {
+          // Admins and `authenticated` routes learn the honest answer; a
+          // non-admin gets the guard's own 401/403, so existence never leaks.
+          if (access === "authenticated" || isAdmin) {
+            return direct
+              ? sendProblem(reply, 400, direct.missing ?? `${direct.field} is required`)
+              : sendProblem(reply, 404, notFound!);
+          }
+          await decide(request, reply, null, null);
+          return reply;
+        }
+    
+        const problem = venueScopeHooks.admitIdentity(
+          request.user,
+          venueId,
+          request.method,
+          `${request.method} ${request.routeOptions.url}`
+        );
+        if (problem) return reply.code(problem.status).send(problem);
+    
+        if (access === "member" && !(await decide(request, reply, venueId, null))) return reply;
+    
+        const resolvedVenueId = venueId;
+        return runWithVenueContext(resolvedVenueId, async () => {
+          let entity: E | null | undefined = undefined;
+          if (isEntitySource(source) && source.load) {
+            entity = await source.load(entityKey!);
+            if (entity === null) return sendProblem(reply, 404, source.notFound);
+          }
+          if (ownerAccess && !(await decide(request, reply, resolvedVenueId, entity))) return reply;
+          const scope: VenueScope<E> = { venueId: resolvedVenueId, entity: entity as E, isAdmin };
+          return handler(request as RequestOf<RG>, reply as ReplyOf<RG>, scope);
+        });
+      }
+    
+      Object.defineProperty(scopedHandler, VENUE_SCOPE, { value: describe(source, access) });
+      return scopedHandler as unknown as Handler<RG>;
     }
   </file>
   <file path="src/routes/venues.ts">
@@ -6295,10 +6327,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get venue by ID",
             operationId: "getVenueById",
@@ -6338,26 +6367,13 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 5 / #5369 PR 7: the global venue-context preHandler
-          // (`resolveGlobalVenueId` in `../app.ts`) only reads a `venueId` KEY off
-          // the query/body/params — this route addresses the venue by its own
-          // `:id` instead, so `app.venue_id` was never set for it. Resolved here
-          // through `app_resolve_venue_id("venue", id)` (`venue_isolation`'s own
-          // policy is keyed on the row's own `id`, so this is the correct kind),
-          // and the read runs inside that context so it succeeds under
-          // `FORCE ROW LEVEL SECURITY` too, not just resolves a venue id.
-          const venue = await loadInVenueContext(
-            "venue",
-            request.params.id,
-            () => venueService.getById(request.params.id),
-            null
-          );
+        venueScoped(venueFromRouteId, async (_request, reply, { venueId }) => {
+          const venue = await venueService.getById(venueId);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
           return { data: venue };
-        }
+        })
       );
     
       // Get current derived table-status snapshot for the venue (staff-only —
@@ -6368,10 +6384,7 @@
       }>(
         "/:id/table-statuses",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get current table-status snapshot for a venue",
             operationId: "getVenueTableStatuses",
@@ -6423,17 +6436,9 @@
             },
           },
         },
-        async (request) => {
-          // ADR-026 §3.3 item 5 / #5369 PR 7 — same venue-self-addressed gap as
-          // GET /:id above: resolve and load inside the venue's own context.
-          const snapshot = await loadInVenueContext(
-            "venue",
-            request.params.id,
-            () => tableStatusService.getSnapshot(request.params.id),
-            []
-          );
-          return { data: snapshot };
-        }
+        venueScoped(venueFromRouteId, async (_request, _reply, { venueId }) => ({
+          data: await tableStatusService.getSnapshot(venueId),
+        }))
       );
     
       // Get venue by slug (unauthenticated — curated public projection, #4022).
@@ -6605,10 +6610,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Update a venue",
             operationId: "updateVenue",
@@ -6650,59 +6652,39 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped(venueFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
     
-          // ADR-026 §3.3 item 5 / #5369 PR 7: both the venueGroupId reassignment
-          // pre-check's read and the update itself run inside the venue's own
-          // resolved context now — `loadInVenueContext`'s `fallback` is a plain
-          // value evaluated by the CALLER, so the 403/404 replies are threaded out
-          // as a result and turned into the actual reply below (the same shape
-          // `deposit-transition-handler.ts` and `floor-plans.ts`'s
-          // `/tables/positions` route use).
-          const result = await loadInVenueContext(
-            "venue",
-            request.params.id,
-            async () => {
-              if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
-                // requireVenueAccess above proves MEMBERSHIP of this venue only —
-                // it never inspects a per-venue role (ADR-020). Re-parenting a
-                // venue into a different venue group is an org-hierarchy-defining
-                // mutation, the same class as venue-group CRUD and venue creation,
-                // both admin-gated in this file. Every other editable field stays
-                // open to members, so the check is scoped to an actual CHANGE of
-                // venueGroupId rather than gating the whole route.
-                const current = await venueService.getById(request.params.id);
-                // A venue that does not exist is not a reassignment — fall
-                // through so the update below surfaces the existing 404.
-                if (current && (venueGroupId ?? null) !== current.venueGroupId) {
-                  return { kind: "forbidden" as const };
-                }
-              }
-    
-              const venue = await venueService.update(request.params.id, request.body);
-              if (!venue) return { kind: "not-found" as const };
-              return { kind: "ok" as const, venue };
-            },
-            { kind: "not-found" as const }
-          );
-    
-          if (result.kind === "forbidden") {
-            return reply
-              .code(403)
-              .send(
-                createProblemDetails(
-                  403,
-                  "Forbidden",
-                  "Admin role required to change a venue's venue group"
-                )
-              );
+          if (venueGroupId !== undefined && !isAdmin) {
+            // Venue scope proves MEMBERSHIP of this venue only — it never inspects
+            // a per-venue role (ADR-020). Re-parenting a venue into a different
+            // venue group is an org-hierarchy-defining mutation, the same class as
+            // venue-group CRUD and venue creation, both admin-gated in this file.
+            // Every other editable field stays open to members, so the check is
+            // scoped to an actual CHANGE of venueGroupId rather than gating the
+            // whole route.
+            const current = await venueService.getById(venueId);
+            // A venue that does not exist is not a reassignment — fall through so
+            // the update below surfaces the existing 404.
+            if (current && (venueGroupId ?? null) !== current.venueGroupId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    "Forbidden",
+                    "Admin role required to change a venue's venue group"
+                  )
+                );
+            }
           }
-          if (result.kind === "not-found") {
+    
+          const venue = await venueService.update(venueId, request.body);
+          if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
-          return { data: result.venue };
-        }
+          return { data: venue };
+        })
       );
     
       // Delete venue (requires auth)
@@ -6749,15 +6731,10 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 5 / #5369 PR 7: same venue-self-addressed gap as
-          // GET/PATCH above — resolve and delete inside the venue's own context.
-          const outcome = await loadInVenueContext(
-            "venue",
-            request.params.id,
-            () => venueService.delete(request.params.id),
-            "not_found" as const
-          );
+        // requireAdmin above is the gate (an admin always passes membership); the
+        // scope only puts the delete inside the venue's own RLS context.
+        venueScoped(venueFromRouteId, async (_request, reply, { venueId }) => {
+          const outcome = await venueService.delete(venueId);
           if (outcome === "not_found") {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
@@ -6773,7 +6750,7 @@
               );
           }
           return reply.code(204).send();
-        }
+        })
       );
     };
   </file>
@@ -6791,7 +6768,7 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           schema: {
             summary: "Add to waitlist",
             operationId: "createWaitlistEntry",
@@ -6807,7 +6784,7 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped({ venue: "body" }, async (request, reply) => {
           const { guestPhone } = request.body;
           if (!validatePhone(guestPhone)) {
             return reply
@@ -6831,7 +6808,7 @@
             });
     
           return reply.code(201).send({ data: entry });
-        }
+        })
       );
     
       // GET / — list waiting entries for venue
@@ -6840,10 +6817,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -6860,10 +6834,10 @@
             },
           },
         },
-        async (request, reply) => {
-          const entries = await waitlistService.listWaiting(request.query.venueId);
+        venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
+          const entries = await waitlistService.listWaiting(venueId);
           return reply.send({ data: entries });
-        }
+        })
       );
     
       // GET /:id — get single entry
@@ -6872,10 +6846,7 @@
       }>(
         "/:id",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -6894,20 +6865,10 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.getById(request.params.id),
-            null
-          );
-          if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
-          }
-          return reply.send({ data: entry });
-        }
+        venueScoped(
+          { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+          async (_request, reply, { entity }) => reply.send({ data: entity })
+        )
       );
     
       // PUT /:id/notify — send "table ready" SMS and schedule 5-min claim window
@@ -6916,10 +6877,7 @@
       }>(
         "/:id/notify",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -6938,28 +6896,19 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.getById(request.params.id),
-            null
-          );
-          if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+        venueScoped(
+          { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
+          async (_request, reply, { entity: entry }) => {
+            await fastify.waitlistNotifier.notifyTableReady({
+              id: entry.id,
+              guestPhone: entry.guestPhone,
+              guestName: entry.guestName,
+              venueId: entry.venueId,
+            });
+    
+            return reply.send({ data: entry });
           }
-    
-          await fastify.waitlistNotifier.notifyTableReady({
-            id: entry.id,
-            guestPhone: entry.guestPhone,
-            guestName: entry.guestName,
-            venueId: entry.venueId,
-          });
-    
-          return reply.send({ data: entry });
-        }
+        )
       );
     
       // PUT /:id/seat — mark seated, recalculate remaining
@@ -6968,10 +6917,7 @@
       }>(
         "/:id/seat",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -6990,20 +6936,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.seat(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.seat(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     
       // PUT /:id/cancel — mark cancelled, recalculate remaining
@@ -7012,10 +6951,7 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -7034,20 +6970,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.cancel(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.cancel(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     
       // PUT /:id/expire — mark expired
@@ -7056,10 +6985,7 @@
       }>(
         "/:id/expire",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
-          ],
+          preHandler: requireAuth,
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -7078,20 +7004,13 @@
             },
           },
         },
-        async (request, reply) => {
-          const entry = await loadInVenueContext(
-            "waitlist_entry",
-            request.params.id,
-            () => waitlistService.expire(request.params.id),
-            null
-          );
+        venueScoped({ venue: entryVenue }, async (request, reply) => {
+          const entry = await waitlistService.expire(request.params.id);
           if (!entry) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", ENTRY_NOT_FOUND));
           }
           return reply.send({ data: entry });
-        }
+        })
       );
     };
   </file>
@@ -7214,6 +7133,21 @@
       }
     
       return undefined;
+    }
+  </file>
+  <file path="src/services/assume-app-role.ts">
+    export const APP_RESERVATIONS_ROLE = "app_reservations";
+    export interface AppRoleClient {
+      $executeRawUnsafe: (query: string) => Promise<number>;
+    }
+    export function appRoleSetStatement(role: string = APP_RESERVATIONS_ROLE): string {
+      if (!APP_ROLE_PATTERN.test(role)) {
+        throw new Error(`refusing SET LOCAL ROLE for ${role}`);
+      }
+      return `SET LOCAL ROLE "${role}"`;
+    }
+    export async function assumeAppRole(tx: AppRoleClient): Promise<void> {
+      await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
   <file path="src/services/availability.ts">
@@ -10828,7 +10762,10 @@
       });
     }
     export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
-      const venues = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+      const venues = await prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
+      });
       return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
@@ -11241,7 +11178,14 @@
     
       let stripeOp: DepositStripeOp;
       try {
-        if (feeResult.depositAction === "refund_full") {
+        // A 0%/null-fee late cancel still resolves to "refund_partial" from
+        // evaluateCancellationFee, with a refund equal to the whole deposit —
+        // which would needlessly capture the full deposit and refund all of it
+        // right back. Release the authorization instead (mirrors no-show, #5719).
+        const refundsWholeDeposit =
+          feeResult.depositAction === "refund_partial" &&
+          feeResult.refundAmountCents >= deposit.amountCents;
+        if (feeResult.depositAction === "refund_full" || refundsWholeDeposit) {
           await deposits.refund(deposit.id);
           stripeOp = "refund";
         } else if (feeResult.depositAction === "forfeit") {
@@ -12112,9 +12056,11 @@
         page: number,
         limit: number
       ): Promise<PaginatedResponse<Reservation>> {
-        const venueRows = await prisma.$queryRaw<
-          { app_reservation_venue_ids_for_user: string }[]
-        >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+        const venueRows = await prisma.$transaction(async (tx) => {
+          await assumeAppRole(tx);
+          return tx.$queryRaw<{ app_reservation_venue_ids_for_user: string }[]>`
+            SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+        });
     
         const perVenue = await Promise.all(
           venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>
@@ -12674,9 +12620,12 @@
       key: string,
       group?: string | null
     ): Promise<string | null> {
-      const rows = await prisma.$queryRaw<ResolvedVenueIdRow[]>`
-        SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
-      `;
+      const rows = await prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<ResolvedVenueIdRow[]>`
+          SELECT app_resolve_venue_id(${kind}, ${key}, ${group ?? null}) AS app_resolve_venue_id
+        `;
+      });
       return rows[0]?.app_resolve_venue_id ?? null;
     }
   </file>
@@ -12738,15 +12687,7 @@
   </file>
   <file path="src/services/rls-force-coverage.ts">
     export const MIGRATIONS_DIR = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
-    export const PENDING_FORCE_TABLES = [
-      "deposits",
-      "floor_plans",
-      "guests",
-      "reservations",
-      "tables",
-      "venues",
-      "waitlist_entries",
-    ] as const;
+    export const PENDING_FORCE_TABLES = [] as const;
     export interface RlsDeclarations {
       readonly enabled: ReadonlySet<string>;
       readonly forced: ReadonlySet<string>;
@@ -12788,8 +12729,9 @@
         (table) => !declarations.forced.has(table) && !acknowledged.has(table)
       );
       const stale = [...acknowledged].filter((table) => !declarations.enabled.has(table));
+      const closed = [...acknowledged].filter((table) => declarations.forced.has(table));
     
-      return [...unaccounted, ...stale].sort();
+      return [...new Set([...unaccounted, ...stale, ...closed])].sort();
     }
   </file>
   <file path="src/services/serializers.ts">
@@ -13819,6 +13761,18 @@
         return table ? mapPrismaTable(table) : null;
       },
     
+      /**
+       * Batched venue lookup for a set of table ids (one `findMany`, not N
+       * `findUnique`s). Ids that don't resolve are simply absent from the result.
+       * Runs on the ambient Prisma client, so it honors the caller's venue context.
+       */
+      async listVenueIdsByIds(ids: string[]): Promise<Array<{ id: string; venueId: string | null }>> {
+        return prisma.table.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, venueId: true },
+        });
+      },
+    
       async create(data: CreateTableRequest): Promise<Table> {
         const table = await prisma.table.create({
           data: {
@@ -13940,6 +13894,7 @@
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
       $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+      $executeRawUnsafe: (query: string) => Promise<number>;
     };
     export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
       return new Proxy(client, {
@@ -14236,19 +14191,25 @@
         const groupFilter = venueGroupId ?? null;
     
         const [rows, totals] = await Promise.all([
-          prisma.$queryRaw<CrossVenueVenueRow[]>`
-            SELECT v.*,
-                   g.id AS group_id,
-                   g.name AS group_name,
-                   g.slug AS group_slug,
-                   g.settings AS group_settings,
-                   g.created_at AS group_created_at
-            FROM app_cross_venue_venues(${groupFilter}::text) v
-            LEFT JOIN venue_groups g ON g.id = v.venue_group_id
-            ORDER BY v.name ASC
-            LIMIT ${take} OFFSET ${skip}`,
-          prisma.$queryRaw<{ total: number }[]>`
-            SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`,
+          prisma.$transaction(async (tx) => {
+            await assumeAppRole(tx);
+            return tx.$queryRaw<CrossVenueVenueRow[]>`
+              SELECT v.*,
+                     g.id AS group_id,
+                     g.name AS group_name,
+                     g.slug AS group_slug,
+                     g.settings AS group_settings,
+                     g.created_at AS group_created_at
+              FROM app_cross_venue_venues(${groupFilter}::text) v
+              LEFT JOIN venue_groups g ON g.id = v.venue_group_id
+              ORDER BY v.name ASC
+              LIMIT ${take} OFFSET ${skip}`;
+          }),
+          prisma.$transaction(async (tx) => {
+            await assumeAppRole(tx);
+            return tx.$queryRaw<{ total: number }[]>`
+              SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`;
+          }),
         ]);
     
         return {
@@ -14936,6 +14897,22 @@
        */
       services?: Partial<DomainServices>;
     }
+    function readOnlyView<K, V>(map: Map<K, V>): ReadonlyMap<K, V> {
+      const view: ReadonlyMap<K, V> = {
+        get size() {
+          return map.size;
+        },
+        get: (key) => map.get(key),
+        has: (key) => map.has(key),
+        keys: () => map.keys(),
+        values: () => map.values(),
+        entries: () => map.entries(),
+        forEach: (callback, thisArg) =>
+          map.forEach((value, key) => callback.call(thisArg, value, key, view)),
+        [Symbol.iterator]: () => map[Symbol.iterator](),
+      };
+      return view;
+    }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
       // unconfigured optional deposits feature never takes down the whole service.
@@ -14964,6 +14941,23 @@
         },
         options
       );
+    
+      // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
+      // records every route's `venueScoped` descriptor, or null, keyed
+      // "METHOD /url" (trailing slash stripped, as the RLS sweep keys routes).
+      // Installed before the first route plugin registers, so child plugins
+      // inherit the hook; routes/venue-scope-coverage.test.ts reads it with no
+      // database.
+      const venueScopes = new Map<string, string | null>();
+      fastify.addHook("onRoute", (route) => {
+        const url =
+          route.url.length > 1 && route.url.endsWith("/") ? route.url.slice(0, -1) : route.url;
+        const methods = Array.isArray(route.method) ? route.method : [route.method];
+        for (const method of methods) {
+          venueScopes.set(`${method} ${url}`, venueScopeOf(route.handler));
+        }
+      });
+      fastify.decorate("venueScopes", readOnlyView(venueScopes));
     
       // ADR-026 §3.3 / #5369 PR 1: wire the app's real logger into the
       // unscoped-RLS-query tripwire, so its default `"warn"` mode produces real

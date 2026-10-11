@@ -60,8 +60,8 @@ describe("createFeedbackPoller().poll()", () => {
 
     expect(result).not.toBeNull();
     expect(result!.context.reviewComments).toHaveLength(1);
-    expect(result!.context.reviewComments[0].threadId).toBe("thread-1");
-    expect(result!.context.reviewComments[0].body).toBe("Fix this");
+    expect(result!.context.reviewComments[0]!.threadId).toBe("thread-1");
+    expect(result!.context.reviewComments[0]!.body).toBe("Fix this");
     expect(result!.context.reviewDecision).toBe("CHANGES_REQUESTED");
     expect(result!.context.ciFailures).toHaveLength(0);
     expect(result!.fingerprint).toBe("thread-1");
@@ -80,8 +80,8 @@ describe("createFeedbackPoller().poll()", () => {
     expect(result).not.toBeNull();
     expect(result!.context.reviewComments).toHaveLength(0);
     expect(result!.context.ciFailures).toHaveLength(1);
-    expect(result!.context.ciFailures[0].checkName).toBe("test");
-    expect(result!.context.ciFailures[0].logSnippet).toContain("Expected: 200");
+    expect(result!.context.ciFailures[0]!.checkName).toBe("test");
+    expect(result!.context.ciFailures[0]!.logSnippet).toContain("Expected: 200");
   });
 
   it("returns feedback with both unresolved comments and CI failures", async () => {

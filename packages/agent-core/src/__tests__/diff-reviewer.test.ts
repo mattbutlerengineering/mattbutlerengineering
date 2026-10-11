@@ -324,7 +324,7 @@ describe("reviewDiff", () => {
 
     await reviewDiff(hugeDiff);
 
-    const calledPrompt = vi.mocked(query).mock.calls[0][0].prompt as string;
+    const calledPrompt = vi.mocked(query).mock.calls[0]![0].prompt as string;
     expect(calledPrompt).toContain("diff truncated");
   });
 

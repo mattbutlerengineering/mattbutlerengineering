@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { GhAuthError, GhRateLimitError, MissingGithubTokenError } from "@mbe/gh-client";
+import {
+  GhAuthError,
+  GhGraphqlUnavailableError,
+  GhRateLimitError,
+  MissingGithubTokenError,
+} from "@mbe/gh-client";
 import {
   collectQueueEfficiency,
   defaultReadPrs,
@@ -410,6 +415,18 @@ describe("collectQueueEfficiency — unavailability reason classification", () =
     );
     expect(result.available).toBe(false);
     expect(result.reason).toBe("credential_rejected");
+  });
+
+  it("classifies GraphQL unavailability as graphql_unavailable, never credential_rejected (#6039)", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new GhGraphqlUnavailableError(new Error("HTTP 403 (https://api.github.com/graphql)"));
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("graphql_unavailable");
   });
 
   it("classifies GhRateLimitError as rate_limited", () => {

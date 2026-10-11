@@ -20,6 +20,8 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     guestPhone: null,
     guestId: null,
     userId: null,
+    occasion: null,
+    seatingPreference: null,
     tableId: "table-1",
     venueId: null,
     createdAt: "2026-05-14T10:00:00.000Z",
@@ -242,7 +244,7 @@ describe("ReservationBlock", () => {
     it("shows visit count in details when guest.visitCount > 1", () => {
       render(
         <ReservationBlock
-          reservation={makeReservation({ guest: { visitCount: 3 } })}
+          reservation={makeReservation({ guest: { visitCount: 3, communicationPreference: null } })}
           style={defaultStyle}
         />
       );
@@ -259,7 +261,7 @@ describe("ReservationBlock", () => {
     it("does not show visit count when guest.visitCount is 1", () => {
       render(
         <ReservationBlock
-          reservation={makeReservation({ guest: { visitCount: 1 } })}
+          reservation={makeReservation({ guest: { visitCount: 1, communicationPreference: null } })}
           style={defaultStyle}
         />
       );

@@ -36,6 +36,7 @@ type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
  */
 type DynamicTransactionClient = Record<string, DynamicDelegate> & {
   $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+  $executeRawUnsafe: (query: string) => Promise<number>;
 };
 
 /**
@@ -63,7 +64,8 @@ type DynamicTransactionClient = Record<string, DynamicDelegate> & {
  * Only actually scopes anything when `getCurrentVenueId()` resolves to a
  * real id; a `null`/missing venue id (no request context, e.g. a background
  * job, or a public/unauthenticated route) still opens the same transaction
- * shape, but `setVenueContext` no-ops on it (ADR-026 §4 default-deny).
+ * shape. `setVenueContext` assumes `app_reservations` and skips `set_config`
+ * (ADR-026 §4 default-deny).
  *
  * Two `this`-binding traps to avoid when touching this trap (root cause of
  * the "Cannot read properties of undefined (reading 'getTracingHelper')"

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import pg from "pg";
 import { createDatabase } from "@mbe/database";
@@ -33,14 +34,12 @@ import { db } from "../services/database.js";
  * privileges, no BYPASSRLS, no superuser, no ownership — is the only way to
  * observe the policies actually enforcing anything.
  *
- * **This suite enables `FORCE ROW LEVEL SECURITY` on all seven ADR-026 tables
- * for its own duration** (after seeding, since owner-side seed writes are
- * themselves subject to RLS under FORCE) and disables it again in `afterAll`.
- * No migration in this repo sets FORCE — that flip is a separate, reviewed
- * change, gated on the audit in #5369. Enabling it *here* is what makes the
- * `venue_cross_venue_read` assertions below mean anything: without FORCE the
- * escape hatch reads every venue through plain owner-bypass, so a broken
- * policy would look identical to a working one.
+ * Migrations now `FORCE ROW LEVEL SECURITY` on the seven tables, so an owner
+ * seed write has to set `app.venue_id` to that row's venue (the new venue's
+ * own id for `venues`) in the same transaction. The suite still turns FORCE
+ * on before its assertions, in case a sibling left it off, and leaves it on.
+ * Without FORCE the escape hatch reads every venue through plain owner-bypass,
+ * so a broken policy would look identical to a working one.
  *
  * FORCE is per-table cluster state, shared by every connection to the target
  * database, so this suite serialises itself against the sibling real-Postgres
@@ -149,37 +148,54 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
     await ownerPrisma.$executeRawUnsafe(
       `GRANT EXECUTE ON FUNCTION app_cross_venue_venues(text) TO ${RLS_TEST_ROLE}`
     );
+    // setVenueContext's first statement is SET LOCAL ROLE app_reservations.
+    // The migrate role can do that. This probe cannot until it is a member.
+    await ownerPrisma.$executeRawUnsafe(`GRANT app_reservations TO ${RLS_TEST_ROLE}`);
 
-    // Seed cross-tenant fixtures as the owner role (bypasses RLS by design).
-    const venueA = await ownerPrisma.venue.create({
-      data: { name: "RLS Test Venue A", slug: `rls-venue-a-${Date.now()}`, ianaTimezone: "UTC" },
+    // FORCE is already on, so the owner is subject to each table's WITH CHECK.
+    // The venue id has to be known before the insert: venue_isolation checks
+    // id = app.venue_id, and the child tables check venue_id = app.venue_id.
+    const venueA = await ownerPrisma.$transaction(async (tx) => {
+      const id = randomUUID();
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${id}, true)`;
+      return tx.venue.create({
+        data: { id, name: "RLS Test Venue A", slug: `rls-venue-a-${id}`, ianaTimezone: "UTC" },
+      });
     });
-    const venueB = await ownerPrisma.venue.create({
-      data: { name: "RLS Test Venue B", slug: `rls-venue-b-${Date.now()}`, ianaTimezone: "UTC" },
+    const venueB = await ownerPrisma.$transaction(async (tx) => {
+      const id = randomUUID();
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${id}, true)`;
+      return tx.venue.create({
+        data: { id, name: "RLS Test Venue B", slug: `rls-venue-b-${id}`, ianaTimezone: "UTC" },
+      });
     });
     venueAId = venueA.id;
     venueBId = venueB.id;
 
-    const tableA = await ownerPrisma.table.create({
-      data: { name: "RLS Test Table", capacity: 4, venueId: venueAId },
-    });
-    await ownerPrisma.guest.create({
-      data: { venueId: venueAId, name: "RLS Test Guest A" },
-    });
-    const reservationA = await ownerPrisma.reservation.create({
-      data: {
-        date: new Date("2026-10-01"),
-        startTime: new Date("2026-10-01T18:00:00Z"),
-        endTime: new Date("2026-10-01T20:00:00Z"),
-        partySize: 2,
-        tableId: tableA.id,
-        venueId: venueAId,
-      },
+    const reservationA = await ownerPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueAId}, true)`;
+      const tableA = await tx.table.create({
+        data: { name: "RLS Test Table", capacity: 4, venueId: venueAId },
+      });
+      await tx.guest.create({
+        data: { venueId: venueAId, name: "RLS Test Guest A" },
+      });
+      const created = await tx.reservation.create({
+        data: {
+          date: new Date("2026-10-01"),
+          startTime: new Date("2026-10-01T18:00:00Z"),
+          endTime: new Date("2026-10-01T20:00:00Z"),
+          partySize: 2,
+          tableId: tableA.id,
+          venueId: venueAId,
+        },
+      });
+      await tx.deposit.create({
+        data: { reservationId: created.id, amountCents: 5000 },
+      });
+      return created;
     });
     reservationAId = reservationA.id;
-    await ownerPrisma.deposit.create({
-      data: { reservationId: reservationAId, amountCents: 5000 },
-    });
 
     // Seeding is done, so the owner can stop being exempt. Everything below
     // this line runs with the backstop actually engaged for every role.
@@ -189,17 +205,26 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
   });
 
   afterAll(async () => {
-    // Undo FORCE before the owner-side cleanup below: under FORCE those
-    // DELETEs are themselves policy-checked and would silently remove nothing.
-    for (const table of RLS_TABLES) {
-      await ownerPrisma.$executeRawUnsafe(`ALTER TABLE "${table}" NO FORCE ROW LEVEL SECURITY`);
+    // Deletes under FORCE only match rows visible in app.venue_id. Leaving
+    // FORCE off here would open a hole for whichever suite takes the lock next.
+    if (ownerPrisma && venueAId) {
+      await ownerPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueAId}, true)`;
+        if (reservationAId) {
+          await tx.deposit.deleteMany({ where: { reservationId: reservationAId } });
+        }
+        await tx.reservation.deleteMany({ where: { venueId: venueAId } });
+        await tx.guest.deleteMany({ where: { venueId: venueAId } });
+        await tx.table.deleteMany({ where: { venueId: venueAId } });
+        await tx.venue.deleteMany({ where: { id: venueAId } });
+      });
     }
-
-    await ownerPrisma.deposit.deleteMany({ where: { reservationId: reservationAId } });
-    await ownerPrisma.reservation.deleteMany({ where: { venueId: { in: [venueAId, venueBId] } } });
-    await ownerPrisma.guest.deleteMany({ where: { venueId: { in: [venueAId, venueBId] } } });
-    await ownerPrisma.table.deleteMany({ where: { venueId: { in: [venueAId, venueBId] } } });
-    await ownerPrisma.venue.deleteMany({ where: { id: { in: [venueAId, venueBId] } } });
+    if (ownerPrisma && venueBId) {
+      await ownerPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueBId}, true)`;
+        await tx.venue.deleteMany({ where: { id: venueBId } });
+      });
+    }
     await shutdownRestricted();
     await shutdownOwner();
     // The module singleton the `venueService` assertions go through opens its

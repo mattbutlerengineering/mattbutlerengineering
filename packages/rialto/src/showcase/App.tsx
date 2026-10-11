@@ -26,6 +26,11 @@ export const VIBES: ReadonlyArray<{ label: string; value: VibeName }> = [
   { label: "Game", value: "game" },
 ];
 
+/** SegmentedControl takes `{ id, label }` segments; the lists above keep `value`. */
+function toSegments(options: ReadonlyArray<{ label: string; value: string }>) {
+  return options.map(({ label, value }) => ({ id: value, label }));
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={css.section}>
@@ -56,13 +61,13 @@ export function App() {
           <div className={css.controls}>
             <SegmentedControl
               value={theme}
-              onValueChange={(v) => setTheme(v as ThemeMode)}
-              options={THEMES}
+              onChange={(id) => setTheme(id as ThemeMode)}
+              segments={toSegments(THEMES)}
             />
             <SegmentedControl
               value={vibe}
-              onValueChange={(v) => setVibe(v as VibeName)}
-              options={VIBES}
+              onChange={(id) => setVibe(id as VibeName)}
+              segments={toSegments(VIBES)}
             />
           </div>
         </header>

@@ -38,6 +38,8 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     guestPhone: null,
     guestId: null,
     userId: null,
+    occasion: null,
+    seatingPreference: null,
     tableId: "table-1",
     venueId: "venue-1",
     createdAt: "2026-05-20T00:00:00Z",

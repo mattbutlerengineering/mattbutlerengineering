@@ -6,12 +6,20 @@ import type { TimeSlot, ReservationHold } from "@mbe/types";
 
 const mockSlot: TimeSlot = {
   time: "2025-01-01T18:00:00.000Z",
-  tableIds: ["t1"],
+  available: true,
 };
 
 const mockHold: ReservationHold = {
   id: "hold-1",
+  venueId: "venue-1",
+  tableId: "t1",
+  date: "2025-01-01",
+  startTime: "2025-01-01T18:00:00.000Z",
+  endTime: "2025-01-01T19:30:00.000Z",
+  partySize: 2,
+  sessionId: "session-1",
   expiresAt: new Date(Date.now() + 60000).toISOString(),
+  createdAt: "2025-01-01T17:55:00.000Z",
 };
 
 const mockApi = {
@@ -90,7 +98,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     size?: string;
     disabled?: boolean;
     onClick?: () => void;
-    type?: string;
+    type?: "button" | "submit" | "reset";
   }) => (
     <button
       data-testid={variant === "ghost" ? "back-button" : "submit-button"}

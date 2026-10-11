@@ -59,7 +59,7 @@ export function HoverCardPage() {
             <Text
               style={{
                 fontSize: "var(--rialto-text-sm)",
-                color: "var(--rialto-accent)",
+                color: "var(--rialto-text-primary)",
                 cursor: "pointer",
                 borderBottom: "1px dashed var(--rialto-accent-muted)",
                 paddingBottom: 1,

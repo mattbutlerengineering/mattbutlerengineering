@@ -108,6 +108,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
             <textarea
               ref={textareaRef}
               {...field.controlProps}
+              aria-invalid={error || isOver ? true : undefined}
               className={cn(styles.textarea, autoResize && styles.autoResize)}
               rows={rows}
               value={value}

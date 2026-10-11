@@ -15,6 +15,7 @@ import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { assumeAppRole } from "./assume-app-role.js";
 import { getCurrentVenueId, runWithVenueContext } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
@@ -146,9 +147,11 @@ export const reservationService = {
     page: number,
     limit: number
   ): Promise<PaginatedResponse<Reservation>> {
-    const venueRows = await prisma.$queryRaw<
-      { app_reservation_venue_ids_for_user: string }[]
-    >`SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+    const venueRows = await prisma.$transaction(async (tx) => {
+      await assumeAppRole(tx);
+      return tx.$queryRaw<{ app_reservation_venue_ids_for_user: string }[]>`
+        SELECT * FROM app_reservation_venue_ids_for_user(${userId})`;
+    });
 
     const perVenue = await Promise.all(
       venueRows.map(({ app_reservation_venue_ids_for_user: venueId }) =>

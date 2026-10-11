@@ -57,7 +57,7 @@ describe("buildInventory", () => {
     const inv = buildInventory();
     const marketing = inv.surfaces.filter((s) => s.zone === "marketing");
     expect(marketing.length).toBeGreaterThanOrEqual(1);
-    expect(marketing[0].url).toContain("mattbutlerengineering.com");
+    expect(marketing[0]!.url).toContain("mattbutlerengineering.com");
   });
 
   it("includes hospitality surfaces with auth0", () => {
@@ -156,7 +156,7 @@ describe("loadInventory", () => {
     vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"));
     const inv = await loadInventory("/repo");
     expect(inv.surfaces.length).toBeGreaterThan(0);
-    expect(inv.surfaces[0].lastChecked).toBeNull();
+    expect(inv.surfaces[0]!.lastChecked).toBeNull();
   });
 
   it("merges with existing inventory", async () => {
@@ -386,7 +386,7 @@ describe("updateSurfaceScore", () => {
   };
 
   it("updates lastChecked, lastScore, and appends to checkHistory", () => {
-    const updated = updateSurfaceScore(buildInventory().surfaces[0], scores);
+    const updated = updateSurfaceScore(buildInventory().surfaces[0]!, scores);
     expect(updated.lastChecked).toBeTruthy();
     expect(updated.lastScore).toEqual(scores);
     expect(updated.checkHistory).toHaveLength(1);
@@ -394,7 +394,7 @@ describe("updateSurfaceScore", () => {
   });
 
   it("caps checkHistory at 10 entries", () => {
-    let s = buildInventory().surfaces[0];
+    let s = buildInventory().surfaces[0]!;
     for (let i = 0; i < 12; i++) s = updateSurfaceScore(s, scores);
     expect(s.checkHistory).toHaveLength(10);
     expect(s.checkCount).toBe(12);
@@ -406,7 +406,7 @@ describe("updateSurfaceScore", () => {
 describe("detectRegression", () => {
   it("returns null when no previous score", () => {
     expect(
-      detectRegression(buildInventory().surfaces[0], {
+      detectRegression(buildInventory().surfaces[0]!, {
         performance: 0.95,
         accessibility: 0.98,
         bestPractices: 0.92,
@@ -417,7 +417,7 @@ describe("detectRegression", () => {
 
   it("detects regression when score drops >0.05", () => {
     const s: AuditSurface = {
-      ...buildInventory().surfaces[0],
+      ...buildInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
     const reg = detectRegression(s, {
@@ -433,7 +433,7 @@ describe("detectRegression", () => {
 
   it("returns null when drop <=0.05", () => {
     const s: AuditSurface = {
-      ...buildInventory().surfaces[0],
+      ...buildInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
     expect(
@@ -448,7 +448,7 @@ describe("detectRegression", () => {
 
   it("reports worst regression across categories", () => {
     const s: AuditSurface = {
-      ...buildInventory().surfaces[0],
+      ...buildInventory().surfaces[0]!,
       lastScore: { performance: 0.95, accessibility: 0.95, bestPractices: 0.95, seo: 0.95 },
     };
     const reg = detectRegression(s, {

@@ -14,13 +14,13 @@ describe("buildMinimalSuccessFixture", () => {
   it("returns at least start and result events", () => {
     const events = buildMinimalSuccessFixture();
     expect(events.length).toBeGreaterThanOrEqual(2);
-    expect(events[0].type).toBe("session:start");
-    expect(events[events.length - 1].type).toBe("session:result");
+    expect(events[0]!.type).toBe("session:start");
+    expect(events[events.length - 1]!.type).toBe("session:result");
   });
 
   it("uses provided session options", () => {
     const events = buildMinimalSuccessFixture({ sessionId: "my-session", numTurns: 10 });
-    const result = events[events.length - 1];
+    const result = events[events.length - 1]!;
     const data = result.data as { num_turns: number; session_id: string };
     expect(data.num_turns).toBe(10);
     expect(data.session_id).toBe("my-session");
@@ -46,8 +46,8 @@ describe("buildBugFixFixture", () => {
 
   it("starts with session:start and ends with session:result", () => {
     const events = buildBugFixFixture();
-    expect(events[0].type).toBe("session:start");
-    expect(events[events.length - 1].type).toBe("session:result");
+    expect(events[0]!.type).toBe("session:start");
+    expect(events[events.length - 1]!.type).toBe("session:result");
   });
 
   it("allows customizing tool calls", () => {
@@ -68,7 +68,7 @@ describe("buildFailureFixture", () => {
 
   it("ends with a result event with is_error=true", () => {
     const events = buildFailureFixture();
-    const last = events[events.length - 1];
+    const last = events[events.length - 1]!;
     expect(last.type).toBe("session:result");
     const data = last.data as { is_error: boolean };
     expect(data.is_error).toBe(true);
@@ -140,7 +140,7 @@ describe("compareToolCalls", () => {
     ];
     const diff = compareToolCalls(expected, actual);
     expect(diff.matched).toHaveLength(1);
-    expect(diff.matched[0].toolName).toBe("Read");
+    expect(diff.matched[0]!.toolName).toBe("Read");
   });
 
   it("identifies missing calls", () => {
@@ -151,7 +151,7 @@ describe("compareToolCalls", () => {
     const actual = [{ toolName: "Read", input: {} }];
     const diff = compareToolCalls(expected, actual);
     expect(diff.missing).toHaveLength(1);
-    expect(diff.missing[0].toolName).toBe("Write");
+    expect(diff.missing[0]!.toolName).toBe("Write");
     expect(diff.passed).toBe(false);
   });
 
@@ -163,7 +163,7 @@ describe("compareToolCalls", () => {
     ];
     const diff = compareToolCalls(expected, actual);
     expect(diff.unexpected).toHaveLength(1);
-    expect(diff.unexpected[0].toolName).toBe("Bash");
+    expect(diff.unexpected[0]!.toolName).toBe("Bash");
     expect(diff.passed).toBe(false);
   });
 
@@ -187,6 +187,6 @@ describe("serializeFixture", () => {
     const events = buildMinimalSuccessFixture({ sessionId: "round-trip-test" });
     const json = serializeFixture(events);
     const parsed = JSON.parse(json) as SessionEvent[];
-    expect(parsed[0].type).toBe("session:start");
+    expect(parsed[0]!.type).toBe("session:start");
   });
 });

@@ -39,12 +39,12 @@ function frontmatterName(markdown: string): string | null {
     return null;
   }
 
-  const nameLine = block[1].split(/\r?\n/).find((line) => line.startsWith("name:"));
+  const nameLine = block[1]!.split(/\r?\n/).find((line) => line.startsWith("name:"));
   return nameLine ? nameLine.slice("name:".length).trim() : null;
 }
 
 function matchAll(source: string, pattern: RegExp): readonly string[] {
-  return [...source.matchAll(pattern)].map((match) => match[1]);
+  return [...source.matchAll(pattern)].map((match) => match[1]!);
 }
 
 /** Agent type → the declaring file, keyed by frontmatter `name:` (the registry key). */

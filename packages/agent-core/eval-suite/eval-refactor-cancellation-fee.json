@@ -1,0 +1,20 @@
+{
+  "id": "eval-refactor-cancellation-fee",
+  "category": "refactor",
+  "prompt": "In packages/cancellation-policy/src/cancellation-policy.ts, the fee-amount calculation Math.floor((depositCents * feePercent) / 100) is duplicated across four call sites: the no-show and late-cancellation branches of evaluateCancellationFee, and the late-fee and no-show-fee amounts in formatCancellationTerms. Extract this into a module-level helper function named computeFeeAmountCents(depositCents: number, feePercent: number): number, and have all four call sites delegate to it. Do not change any observable behavior — all existing tests in cancellation-policy.test.ts must continue to pass unchanged, and do not export the new helper from index.ts (it stays internal to cancellation-policy.ts).",
+  "fixtureRef": "packages/cancellation-policy",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A module-level function named computeFeeAmountCents(depositCents, feePercent) performs the Math.floor((depositCents * feePercent) / 100) calculation",
+      "All four previously-duplicated call sites in evaluateCancellationFee and formatCancellationTerms now delegate to computeFeeAmountCents",
+      "No change to exported behavior — index.ts exports and all public function signatures are unchanged"
+    ]
+  },
+  "budget": {
+    "maxTurns": 18,
+    "maxCostUsd": 0.65
+  }
+}

@@ -23,6 +23,7 @@ import { prisma } from "./database.js";
 import { runWithVenueContext } from "./venue-context-store.js";
 import { getMemberVenueIds } from "./member-venues.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { assumeAppRole } from "./assume-app-role.js";
 
 /**
  * Outcome of {@link venueService.delete} — distinguishes "gone" from "blocked
@@ -311,19 +312,25 @@ export const venueService = {
     const groupFilter = venueGroupId ?? null;
 
     const [rows, totals] = await Promise.all([
-      prisma.$queryRaw<CrossVenueVenueRow[]>`
-        SELECT v.*,
-               g.id AS group_id,
-               g.name AS group_name,
-               g.slug AS group_slug,
-               g.settings AS group_settings,
-               g.created_at AS group_created_at
-        FROM app_cross_venue_venues(${groupFilter}::text) v
-        LEFT JOIN venue_groups g ON g.id = v.venue_group_id
-        ORDER BY v.name ASC
-        LIMIT ${take} OFFSET ${skip}`,
-      prisma.$queryRaw<{ total: number }[]>`
-        SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`,
+      prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<CrossVenueVenueRow[]>`
+          SELECT v.*,
+                 g.id AS group_id,
+                 g.name AS group_name,
+                 g.slug AS group_slug,
+                 g.settings AS group_settings,
+                 g.created_at AS group_created_at
+          FROM app_cross_venue_venues(${groupFilter}::text) v
+          LEFT JOIN venue_groups g ON g.id = v.venue_group_id
+          ORDER BY v.name ASC
+          LIMIT ${take} OFFSET ${skip}`;
+      }),
+      prisma.$transaction(async (tx) => {
+        await assumeAppRole(tx);
+        return tx.$queryRaw<{ total: number }[]>`
+          SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`;
+      }),
     ]);
 
     return {

@@ -219,3 +219,20 @@ describe("NumberInput — aria-live announcements", () => {
     expect(screen.getAllByText("Too high")).toHaveLength(1);
   });
 });
+
+describe("NumberInput — readOnly keyboard and stepper semantics", () => {
+  it("does not change the value on ArrowUp/ArrowDown when readOnly", () => {
+    const onChange = vi.fn();
+    render(<NumberInput label="Quantity" value={5} onChange={onChange} readOnly />);
+    const input = screen.getByLabelText("Quantity");
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("disables the stepper buttons when readOnly", () => {
+    render(<NumberInput label="Quantity" value={5} onChange={noop} readOnly />);
+    expect(screen.getByLabelText("Decrease")).toBeDisabled();
+    expect(screen.getByLabelText("Increase")).toBeDisabled();
+  });
+});

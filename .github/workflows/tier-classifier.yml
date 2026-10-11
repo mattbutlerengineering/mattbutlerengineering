@@ -121,6 +121,7 @@ jobs:
             { tier: T1, when: (f) => /^\.changeset\//.test(f), why: 'changeset' },
             { tier: T1, when: (f) => f === '.editorconfig' || /^\.vscode\//.test(f), why: 'editor config' },
             { tier: T1, when: (f) => /^metrics\//.test(f), why: 'metrics append' },
+            { tier: T1, when: (f) => f === '.claude/acmm/state.json' || f === 'apps/marketing/public/acmm-report.json', why: 'automation-only ACMM audit output (same class as metrics/** above)' },
             { tier: T1, when: (f) => /^(llms|llms-full)\.txt$/.test(f) || /\/(llms|llms-full)\.txt$/.test(f), why: 'auto-generated llms.txt' },
             { tier: T1, when: (f) => /\.test\.[tj]sx?$/.test(f), why: 'test-only' },
           ];
@@ -194,7 +195,19 @@ jobs:
           // scripts/__tests__/tier-classifier-workflow.test.mjs for both
           // directions (#3606, #4279, #4883 are the earlier fixes to this
           // same rule's keyword matching, not its escalation strength).
-          if (/\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b/i.test(title + ' ' + bodyProse)) {
+          // #5956: `\b` does NOT mean "whole identifier" when hyphens are in
+          // play — `-` is a non-word char, so `-secret-` in the repo's own
+          // script name `check-deploy-secret-provisioning` sits between two
+          // word boundaries and matched. Three fixes in a row (#3606, #4879,
+          // #5082) missed this. Two guards: (1) mask fenced and inline
+          // code spans before scanning; (2) require the keyword not be
+          // flanked by `-` + a word char (a longer hyphenated identifier).
+          // Tradeoff: code spans are excluded by design (#5956 option 1), so
+          // a real secrets mention written inside backticks won't escalate.
+          const scanText = (title + ' ' + bodyProse)
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/`[^`\n]*`/g, ' ');
+          if (/(?<!\w-)\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b(?!-\w)/i.test(scanText)) {
             if (pathTier >= T3) {
               highest = T4;
               reasons.add('escalate to T4: title/body mentions secrets or incident (sensitive path already matched)');

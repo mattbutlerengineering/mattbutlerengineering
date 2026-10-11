@@ -1,24 +1,26 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-10-05T13:41:43.951Z",
+  "generatedAt": "2026-10-11T00:21:00.761Z",
   "level": 6,
   "levelName": "Fully Autonomous",
   "role": "Strategist",
   "summary": {
-    "detected": 97,
-    "total": 114,
-    "coverage": 0.8508771929824561
+    "detected": 78,
+    "total": 84,
+    "coverage": 0.9285714285714286
   },
   "prerequisites": {
     "met": 8,
     "total": 8
   },
   "behavioral": {
-    "ciFlakeRate": 0,
-    "agentPrAcceptanceRate": 0.9841269841269841,
-    "agentPrRevertRate": 0,
-    "evalPassRate": 0.8649,
-    "evalMedianScore": 1
+    "ciFlakeRate": 0.0027548209366391185,
+    "agentPrAcceptanceRate": 0.9934640522875817,
+    "agentPrRevertRate": 0.006578947368421052,
+    "evalPassRate": null,
+    "evalsStale": true,
+    "evalsLastRun": "2026-05-10T21:42:57.095Z",
+    "evalMedianScore": null
   },
   "history": [
     {
@@ -458,171 +460,189 @@
       "level": 6,
       "detected": 97,
       "total": 99
+    },
+    {
+      "date": "2026-10-08",
+      "level": 6,
+      "detected": 77,
+      "total": 84
+    },
+    {
+      "date": "2026-10-09",
+      "level": 6,
+      "detected": 78,
+      "total": 84
+    },
+    {
+      "date": "2026-10-10",
+      "level": 6,
+      "detected": 78,
+      "total": 84
     }
   ],
   "recentAgentChanges": [
     {
-      "number": 5679,
-      "title": "test(agent): cover verified-webhook's fail-closed branches",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5679",
-      "mergedAt": "2026-09-22T17:26:26Z"
+      "number": 5937,
+      "title": "fix(rialto): exclude disabled elements from useFocusTrap's FOCUSABLE_SELECTOR",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5937",
+      "mergedAt": "2026-10-09T02:35:45Z"
     },
     {
-      "number": 5668,
-      "title": "fix(reservations): scope reminder job-worker handlers to their venue context",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5668",
-      "mergedAt": "2026-09-22T04:39:49Z"
+      "number": 5992,
+      "title": "fix(rialto): a11y audit iteration 2 — Input, TextArea, Checkbox [2/4]",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5992",
+      "mergedAt": "2026-10-09T02:29:04Z"
     },
     {
-      "number": 5658,
-      "title": "chore(metrics): optimize-implement-queue 2026-09-22",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5658",
-      "mergedAt": "2026-09-22T01:36:43Z"
+      "number": 6137,
+      "title": "feat(gen): add Row Actions Menu template for DropdownMenu coverage (mbe-daily-issue #5839)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6137",
+      "mergedAt": "2026-10-09T02:14:09Z"
     },
     {
-      "number": 5657,
-      "title": "chore(metrics): progress-tracker 2026-09-22",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5657",
-      "mergedAt": "2026-09-22T00:49:10Z"
+      "number": 5980,
+      "title": "chore(routines): flip mbe-monthly-meta-audit's liveness signature (mbe-daily-issue #5748)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5980",
+      "mergedAt": "2026-10-09T02:08:07Z"
     },
     {
-      "number": 5654,
-      "title": "chore(metrics): queue telemetry 2026-09-21 (issue #5614)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5654",
-      "mergedAt": "2026-09-21T22:45:50Z"
+      "number": 6123,
+      "title": "fix(deps): bump ip-address/fast-uri pnpm.overrides floors past newer CVEs",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6123",
+      "mergedAt": "2026-10-09T02:06:41Z"
     },
     {
-      "number": 5643,
-      "title": "fix: repair mutation-testing infra failure (0% score)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5643",
-      "mergedAt": "2026-09-21T22:20:19Z"
+      "number": 6146,
+      "title": "test(agent-core): expand the default eval suite to 5 tasks across all 5 categories",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6146",
+      "mergedAt": "2026-10-09T01:56:29Z"
     },
     {
-      "number": 5641,
-      "title": "chore(metrics): queue telemetry 2026-09-21",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5641",
-      "mergedAt": "2026-09-21T21:22:50Z"
+      "number": 6121,
+      "title": "test(reservations): cover isTableInVenue cross-venue guard",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6121",
+      "mergedAt": "2026-10-09T01:55:20Z"
     },
     {
-      "number": 5639,
-      "title": "fix(routines): give mbe-night and mbe-midday distinct PR-title signatures",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5639",
-      "mergedAt": "2026-09-21T21:02:57Z"
+      "number": 6119,
+      "title": "fix(ci): build @mbe/cli before committing in auto-qa-tune.yml",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6119",
+      "mergedAt": "2026-10-09T01:53:08Z"
     },
     {
-      "number": 5633,
-      "title": "chore(metrics): learning-loop 2026-09-21",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5633",
-      "mergedAt": "2026-09-21T18:35:38Z"
+      "number": 6156,
+      "title": "feat(gen): add ScrollArea template to TemplateGallery (mbe-daily-issue #5841)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6156",
+      "mergedAt": "2026-10-08T14:45:15Z"
     },
     {
-      "number": 5583,
-      "title": "fix(reservations): close ADR-026's two cross-venue reads so the RLS FORCE flip becomes decidable",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5583",
-      "mergedAt": "2026-09-21T13:20:26Z"
+      "number": 6144,
+      "title": "ci-fix: retire mbe-morning's duplicate/stale ACMM-audit signature",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6144",
+      "mergedAt": "2026-10-08T00:45:48Z"
     },
     {
-      "number": 5582,
-      "title": "feat(marketing): chart ACMM level and queue-efficiency trends on the AI-health page",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5582",
-      "mergedAt": "2026-09-21T07:04:10Z"
+      "number": 6142,
+      "title": "feat(gen): add Live Departures Board template to TemplateGallery",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6142",
+      "mergedAt": "2026-10-08T00:38:40Z"
     },
     {
-      "number": 5560,
-      "title": "fix(sentry-triage): deduplicate on the Sentry issue ID, across every issue state",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5560",
-      "mergedAt": "2026-09-21T01:47:48Z"
+      "number": 6068,
+      "title": "feat(hospitality): add DepositExposureWidget to the operator home dashboard (mbe-daily-issue #5835)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6068",
+      "mergedAt": "2026-10-05T14:57:32Z"
     },
     {
-      "number": 5548,
-      "title": "feat(gen): fifth Template Gallery batch — three templates closing ranks 1-3",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5548",
-      "mergedAt": "2026-09-21T00:56:13Z"
+      "number": 6046,
+      "title": "fix(visual): regenerate rialto-web baselines after the ubuntu24 20260920.314 image bump",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6046",
+      "mergedAt": "2026-10-05T01:13:12Z"
     },
     {
-      "number": 5550,
-      "title": "fix(metrics): give the two silent collectors a home, and a self-check that can fail",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5550",
-      "mergedAt": "2026-09-21T00:22:30Z"
+      "number": 6044,
+      "title": "test(reservations/users): assert 6 rate-limited routes actually 429",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6044",
+      "mergedAt": "2026-10-05T00:56:39Z"
     },
     {
-      "number": 5549,
-      "title": "fix(hospitality-e2e): scope volatile locators, emit RFC 7807 error mocks, re-date the mock clock",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5549",
-      "mergedAt": "2026-09-21T00:21:30Z"
+      "number": 6043,
+      "title": "ci-fix: document auto-rollback.yml missed-run false positive",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6043",
+      "mergedAt": "2026-10-05T00:48:27Z"
     },
     {
-      "number": 5544,
-      "title": "docs(fixes): design note for reviving the two silent metrics collectors",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5544",
-      "mergedAt": "2026-09-20T20:55:41Z"
+      "number": 6032,
+      "title": "feat(hospitality): extend DashboardStats with deposit-at-risk and no-show exposure (mbe-daily-issue #5834)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6032",
+      "mergedAt": "2026-10-04T15:40:50Z"
     },
     {
-      "number": 5540,
-      "title": "chore(metrics): learning-loop 2026-09-20",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5540",
-      "mergedAt": "2026-09-20T19:53:55Z"
+      "number": 6009,
+      "title": "chore(sentry): bump @sentry/node and @sentry/react to v11 (mbe-daily-issue #5827)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6009",
+      "mergedAt": "2026-10-03T15:38:56Z"
     },
     {
-      "number": 5511,
-      "title": "fix(hospitality): restore focus to captured opener on WalkInDialog dismissal",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5511",
-      "mergedAt": "2026-09-20T05:35:53Z"
+      "number": 5994,
+      "title": "feat(marketing): flag low-sample-size PR categories in ai-health normalizer",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5994",
+      "mergedAt": "2026-10-03T01:52:51Z"
     },
     {
-      "number": 5510,
-      "title": "fix(rialto-web): raise vitest testTimeout to stop recurring nightly-compliance flake",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5510",
-      "mergedAt": "2026-09-20T05:27:12Z"
+      "number": 5991,
+      "title": "fix(deps): widen basic-ftp pnpm override to cover GHSA-c475-qrg2-pj4r",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5991",
+      "mergedAt": "2026-10-03T01:03:10Z"
     },
     {
-      "number": 5508,
-      "title": "chore(metrics): optimize-implement-queue 2026-09-20",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5508",
-      "mergedAt": "2026-09-20T03:23:15Z"
+      "number": 5949,
+      "title": "chore(mutation-testing): pin vitest via workspace catalog instead of a stale hardcoded version (mbe-daily-issue #5826)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5949",
+      "mergedAt": "2026-10-01T15:20:52Z"
     }
   ],
   "detectedByLevel": {
     "2": 3,
     "3": 5,
-    "4": 12,
-    "5": 15,
-    "6": 6
+    "4": 7,
+    "5": 7,
+    "6": 7
   },
   "behavioralGates": [
     {
       "level": 3,
       "name": "ci-flake-rate",
       "passed": true,
-      "value": 0,
+      "value": 0.0027548209366391185,
       "threshold": 0.2
     },
     {
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9841269841269841,
+      "value": 0.9934640522875817,
       "threshold": 0.5
     },
     {
       "level": 5,
       "name": "auto-qa-tuning-history",
       "passed": true,
-      "value": 19,
+      "value": 21,
       "threshold": 1
     },
     {
       "level": 6,
       "name": "agent-pr-revert-rate",
       "passed": true,
-      "value": 0,
+      "value": 0.006578947368421052,
       "threshold": 0.1
     },
     {
       "level": 6,
       "name": "human-touch-ratio",
       "passed": true,
-      "value": 0,
+      "value": 0.03289473684210526,
       "threshold": 0.5
     }
   ]

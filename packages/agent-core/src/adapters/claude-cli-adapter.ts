@@ -6,7 +6,7 @@
  * Distinct from `ClaudeAdapter` (`name: "claude"`), which drives the Claude
  * Agent SDK directly and requires `ANTHROPIC_API_KEY`. This adapter is
  * explicitly selectable only (`--adapter claude-cli`) — it is NOT part of
- * the `auto` failover cascade (ADR-017: claude → gemini → opencode), so
+ * the `auto` failover cascade (ADR-017: claude → opencode), so
  * enabling it never changes what `auto` resolves to in an environment that
  * already works. See adapter-resolution.ts for the cascade definition.
  */
@@ -25,8 +25,8 @@ export class ClaudeCliAdapter extends CliAdapterBase {
   /**
    * Headless invocation: `-p <task> --output-format json`, plus
    * `--permission-mode bypassPermissions` so the CLI never blocks on an
-   * interactive tool-permission prompt (mirrors Gemini's `--yolo` — the
-   * worktree is already the isolation boundary, per ADR-005). `--model`
+   * interactive tool-permission prompt (the worktree is already the
+   * isolation boundary, per ADR-005). `--model`
    * and `--max-turns` are forwarded only when the caller sets them.
    */
   protected buildArgs(config: AdapterConfig): string[] {
@@ -59,7 +59,7 @@ export class ClaudeCliAdapter extends CliAdapterBase {
    * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
    * the same JSON stdout blob, falling back to raw stderr in
    * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
-   * contract, mirrors gemini-adapter.ts / opencode-adapter.ts).
+   * contract, mirrors opencode-adapter.ts).
    */
   protected override parseErrorFromStdout(stdout: string): string | undefined {
     return extractClaudeCliError(stdout);

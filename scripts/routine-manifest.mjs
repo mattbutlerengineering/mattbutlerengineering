@@ -30,6 +30,17 @@
  *     no signature defined" rule — silently passing it is how
  *     `mbe-weekly-improve` went two retros unverified.
  *
+ * #5748's "known limitation" question — should mbe-night/mbe-midday/
+ * mbe-daily-issue also log a line on a no-op (empty-backlog) fire, the way
+ * mbe-weekly-improve step 5 does, so a healthy no-op run doesn't read as
+ * `dark` — is deliberately left unresolved here rather than decided by
+ * editing the three live RemoteTrigger prompts in this PR. That edit is a
+ * separate, riskier change (it touches production automation prompts, not
+ * this file) and isn't needed to flip the one signature #5748 could
+ * actually confirm (mbe-monthly-meta-audit, via PR #5950); mbe-night and
+ * mbe-midday stay paused and `unverifiable` regardless. Tracked as its own
+ * follow-up rather than bundled into this mechanical flip.
+ *
  * @module routine-manifest
  */
 
@@ -40,7 +51,18 @@
  * for a routine that commits to one long-lived PR on every fire.
  */
 /** @typedef {{type: "issue-label", label: string}} IssueLabelSignature */
-/** @typedef {PrTitleSignature | IssueLabelSignature} RoutineSignature */
+/**
+ * @typedef {{type: "heartbeat"}} HeartbeatSignature
+ * The routine posts `heartbeat: <name> <YYYY-MM-DD> <ok|noop|throttled|error> [note]`
+ * as a comment on the closed issue `HEARTBEAT_ISSUE_NUMBER` on every fire (#6190).
+ */
+/** @typedef {PrTitleSignature | IssueLabelSignature | HeartbeatSignature} RoutineSignature */
+
+/**
+ * The intentionally CLOSED issue every heartbeat-signature routine comments on
+ * once per fire. Configured here, in one place (Matt, 2026-10-10; #5978).
+ */
+export const HEARTBEAT_ISSUE_NUMBER = 6211;
 
 /**
  * @typedef {Object} RoutineManifestEntry
@@ -121,7 +143,12 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-auditor",
     triggerId: "trig_019cUkf16QbqTL7RrVXXqXsw",
     periodDays: 1,
-    signature: { type: "issue-label", label: "audit" },
+    // #6190: fired and succeeded daily 10-01..10-10 while this checker read it
+    // dark — on a clean day it files nothing by design (zero issues is
+    // success), so an artifact signature cannot see it. It posts a heartbeat.
+    // activatedAt: grace until the live prompt gains the heartbeat step.
+    activatedAt: "2026-10-10",
+    signature: { type: "heartbeat" },
   },
   {
     name: "mbe-daily-issue",
@@ -140,33 +167,12 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-morning",
     triggerId: "trig_01QYoHCMjUgJybAoXUvjjrWX",
     periodDays: 1,
-    // #5955: this used to declare the same `chore(acmm): daily audit <date>`
-    // pr-title signature mbe-morning's own ACMM-audit prompt step produced.
-    // #5857 ("one canonical daily audit") made `acmm-regression.yml` — a
-    // GitHub Actions workflow, independently watched by
-    // scripts/scheduled-workflow-health.mjs — the sole producer of that
-    // exact title via a long-lived reused branch/PR (`automation/
-    // acmm-regression`), whose `createdAt` freezes at first open while its
-    // title/commits keep moving forward on every later fire. Two problems,
-    // either one enough to retire the signature: (1) mbe-morning's own copy
-    // of the step ran a stale path (`scripts/acmm/audit.js`; real location
-    // is `plugins/acmm/scripts/audit.js`) and, even fixed, would collide
-    // under the identical title with acmm-regression.yml's PR — #5857's own
-    // body flagged this duplication for "whoever next edits the live
-    // routine" to resolve; (2) even papering over the staleness (e.g. via
-    // `observe: "latest-matching-commit"`) would misattribute
-    // acmm-regression.yml's liveness to mbe-morning, which is the wrong
-    // routine. docs/routines/mbe-morning.md's ACMM step is retired here as
-    // the actual fix; `/ideate` is this routine's only remaining
-    // responsibility, and its own output (ideation-batch/feature-proposal
-    // issues) is gated on batch completion — often nothing for weeks at a
-    // time — so no reliable `periodDays: 1` artifact exists for it yet. A
-    // human who wants mbe-morning tracked daily again needs to give
-    // `/ideate` (or this routine) a heartbeat artifact that fires every run,
-    // not just when there's ideation work to do — out of scope for this fix.
-    unverifiable: true,
-    unverifiableReason:
-      "mbe-morning's ACMM-audit step (and the chore(acmm): daily audit PR title it used to be detected by) was retired in #5955 — acmm-regression.yml now owns that artifact exclusively, and is tracked independently by scripts/scheduled-workflow-health.mjs. mbe-morning's remaining /ideate step produces no artifact on most runs (gated on ideation-batch completion), so no reliable periodDays: 1 signature exists for it yet.",
+    // #6157: the ACMM-audit pr-title signature was retired in #5955 (it is
+    // acmm-regression.yml's artifact), leaving only /ideate, which produces
+    // no artifact on most days. It posts a heartbeat each fire instead.
+    // activatedAt: grace until the live prompt gains the heartbeat step.
+    activatedAt: "2026-10-10",
+    signature: { type: "heartbeat" },
   },
   {
     name: "mbe-learning-loop",
@@ -220,9 +226,16 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-monthly-meta-audit",
     triggerId: "trig_01SoWm7jxBGnJHxiyTMEKX1i",
     periodDays: 31,
-    unverifiable: true,
-    unverifiableReason:
-      'docs/routines/mbe-monthly-meta-audit.md:25 now specifies a distinct `chore(meta): monthly meta-audit <YYYY-MM-DD>` PR title (#5612 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine opens its PR under no enforced convention, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. The PR is the signature target rather than the `ready` issues this routine also files: those are conditional ("for the rest") and carry no distinct label. Flip to a real signature (`searchTerm: "monthly meta-audit"`) in a follow-up PR once a PR carrying the new title is observed, proving the live trigger was updated.',
+    // Confirmed live 2026-10-01 by PR #5950, titled "chore(meta): monthly
+    // meta-audit 2026-10-01 — guard unreachable mbe CLI commands" (#5748).
+    // The PR is the signature target rather than the `ready` issues this
+    // routine also files: those are conditional ("for the rest") and carry
+    // no distinct label.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`chore\(meta\): monthly meta-audit \d{4}-\d{2}-\d{2}`,
+      searchTerm: "monthly meta-audit",
+    },
   },
   {
     name: "mbe-ui-quality",
@@ -230,20 +243,13 @@ export const ROUTINE_MANIFEST = [
     // routine-liveness.mjs's `activatedAt` grace keeps the first two days
     // `pending` instead of `dark`.
     triggerId: "trig_01DYzgRBp66dxwQ828y9x1jV",
-    activatedAt: "2026-09-30",
+    // #6190: heartbeat, not the ledger PR — a rate-limited fire (10-09, 10-10)
+    // never reaches its ledger commit, so that artifact cannot tell throttled
+    // from dark. activatedAt was 2026-09-30 (trigger creation); reset to the
+    // heartbeat switch for the same grace as the other two.
+    activatedAt: "2026-10-10",
     periodDays: 1,
-    // docs/routines/mbe-ui-quality.md step (7) commits `chore(ui-quality):
-    // ledger <date>` onto the `ui-quality/ledger` branch on every fire, no-op
-    // fires included, and opens the PR only when none is open — so the PR
-    // stays open across fires and is dated by its newest matching commit
-    // (`observe`), not its first day's createdAt. Pinned by
-    // scripts/__tests__/ui-quality-routine-prompt.test.mjs.
-    signature: {
-      type: "pr-title",
-      pattern: String.raw`chore\(ui-quality\): ledger \d{4}-\d{2}-\d{2}`,
-      searchTerm: "ui-quality",
-      observe: "latest-matching-commit",
-    },
+    signature: { type: "heartbeat" },
   },
 ];
 

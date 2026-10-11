@@ -86,6 +86,15 @@ describe("unforcedRlsTables", () => {
 
     expect(unforcedRlsTables(decl, ["tables", "long_gone"])).toEqual(["long_gone"]);
   });
+
+  it("reports a pending name the migrations already force", () => {
+    const decl = parseRlsDeclarations([
+      `ALTER TABLE "tables" ENABLE ROW LEVEL SECURITY;`,
+      `ALTER TABLE "tables" FORCE ROW LEVEL SECURITY;`,
+    ]);
+
+    expect(unforcedRlsTables(decl, ["tables"])).toEqual(["tables"]);
+  });
 });
 
 describe("committed reservations migrations (ADR-026 / #5369)", () => {
@@ -119,13 +128,137 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
     expect(unforcedRlsTables(declarations, PENDING_FORCE_TABLES)).toEqual([]);
   });
 
-  it("still has FORCE outstanding on all seven, which is #5369's open finding", () => {
-    // Deliberately asserts the CURRENT, measured state rather than the desired one —
-    // this is the executable record that the ADR-026 series (#5248-#5255, #5492) shipped
-    // and closed green while providing zero protection against the deployed role.
-    // Whoever lands the FORCE migration deletes this test and the corresponding
-    // PENDING_FORCE_TABLES entries in the same change.
-    expect([...declarations.forced]).toEqual([]);
-    expect([...PENDING_FORCE_TABLES].sort()).toEqual([...declarations.enabled].sort());
+  it("forces the seven venue tables and keeps the pending list empty", () => {
+    expect([...declarations.forced].sort()).toEqual([...declarations.enabled].sort());
+    expect([...PENDING_FORCE_TABLES]).toEqual([]);
+  });
+});
+
+const VENUE_TABLES = [
+  "venues",
+  "floor_plans",
+  "tables",
+  "guests",
+  "reservations",
+  "deposits",
+  "waitlist_entries",
+] as const;
+
+const DML_TABLES = [
+  "venue_groups",
+  "venues",
+  "floor_plans",
+  "tables",
+  "guests",
+  "reservations",
+  "deposits",
+  "waitlist_entries",
+  "reservation_holds",
+  "venue_memberships",
+] as const;
+
+/** Statements after comments are removed. A `--` comment is not a statement. */
+function sqlStatements(sql: string): string[] {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--[^\n]*/g, " ")
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+describe("app_reservations role and FORCE migrations", () => {
+  const rolePath = join(
+    MIGRATIONS_DIR,
+    "20261009000000_create_app_reservations_role",
+    "migration.sql"
+  );
+  const grantPath = join(
+    MIGRATIONS_DIR,
+    "20261009000100_grant_app_reservations_and_force_rls",
+    "migration.sql"
+  );
+  it("creates app_reservations as one statement, comment included", () => {
+    const roleSql = readFileSync(rolePath, "utf8");
+    // Prisma 7.10 split_script_into_statements keeps a leading line comment on
+    // the following statement (schema-engine postgres connector, test
+    // split_script_into_statements_with_comments). The comment is allowed.
+    expect(roleSql).toMatch(/Prisma 7\.10/);
+    // Dollar-quoted body is one statement. CREATE ROLE is cluster-global, so a
+    // shadow-database replay must swallow 42710 duplicate_object.
+    const outsideDollarQuotes = roleSql.replace(/\$\$[\s\S]*\$\$/, "");
+    expect(sqlStatements(outsideDollarQuotes)).toEqual(["DO"]);
+    expect(roleSql).toMatch(/CREATE ROLE app_reservations NOLOGIN NOINHERIT/);
+    expect(roleSql).toMatch(/duplicate_object/);
+    expect(roleSql.toLowerCase()).not.toMatch(/password|bypassrls/);
+  });
+
+  it("grants the role to the migrate user, DML on the ten tables, execute, and FORCE", () => {
+    const grantSql = readFileSync(grantPath, "utf8");
+    const normalized = grantSql.replace(/\s+/g, " ");
+
+    expect(normalized).toMatch(/GRANT app_reservations TO CURRENT_USER/i);
+    expect(normalized).not.toMatch(/grant\s+[a-z_][a-z0-9_]*\s+to\s+app_reservations/i);
+    expect(normalized).toMatch(/GRANT USAGE ON SCHEMA public TO app_reservations/i);
+    expect(normalized).not.toMatch(/ON ALL TABLES/i);
+    expect(normalized).not.toMatch(/ALTER DEFAULT PRIVILEGES/i);
+    expect(normalized).not.toMatch(/FOR ROLE/i);
+
+    const dml = normalized.match(
+      /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE (.+?) TO app_reservations/i
+    );
+    expect(dml).not.toBeNull();
+    const granted = dml?.[1]?.split(",").map((name) => name.trim().replaceAll('"', "")) ?? [];
+    expect(granted.sort()).toEqual([...DML_TABLES].sort());
+
+    expect(normalized).toMatch(
+      /GRANT EXECUTE ON FUNCTION app_cross_venue_venues\(text\) TO app_reservations/i
+    );
+    expect(normalized).toMatch(
+      /GRANT EXECUTE ON FUNCTION app_resolve_venue_id\(text, text, text\) TO app_reservations/i
+    );
+    expect(normalized).toMatch(
+      /GRANT EXECUTE ON FUNCTION app_reservation_venue_ids_for_user\(text\) TO app_reservations/i
+    );
+
+    expect(normalized).toMatch(/SET lock_timeout = '5s'/);
+    expect(normalized).toMatch(/RESET lock_timeout/);
+    const forced = normalized.toLowerCase();
+    for (const table of VENUE_TABLES) {
+      expect(forced).toContain(`alter table "${table}" force row level security`);
+    }
+
+    expect(grantSql.toLowerCase()).not.toMatch(/password|bypassrls|grant usage on sequence/);
+  });
+
+  it("does not grant BYPASSRLS from seed", () => {
+    const seed = readFileSync(join(MIGRATIONS_DIR, "..", "seed.ts"), "utf8");
+    expect(seed).not.toMatch(/BYPASSRLS/);
+  });
+});
+
+describe("stale FORCE-blocked prose", () => {
+  it("drops the claim that ADR-026 §3.3 blocks the flip", () => {
+    const source = readFileSync(new URL("./rls-force-coverage.ts", import.meta.url), "utf8");
+    expect(source).not.toMatch(/The flip is blocked/);
+    expect(source).not.toMatch(/blocks the flip/);
+  });
+
+  it("updates the reservations caveat and the funnel paragraph", () => {
+    const claude = readFileSync(new URL("../../CLAUDE.md", import.meta.url), "utf8");
+    expect(claude).not.toMatch(/do not have `FORCE ROW LEVEL SECURITY`/);
+    expect(claude).not.toMatch(/would break under it/);
+    expect(claude).toMatch(/app_reservations/);
+  });
+
+  it("amends ADR-026's closing sentence so the role and FORCE are not still open", () => {
+    const adr = readFileSync(
+      new URL("../../../../docs/adr/ADR-026-postgres-rls-venue-backstop.md", import.meta.url),
+      "utf8"
+    );
+    const tail = adr.slice(adr.lastIndexOf("Issue #5369"));
+    expect(tail).not.toMatch(/Still open under/);
+    expect(tail).toMatch(/app_reservations/);
+    expect(tail).toMatch(/FORCE ROW LEVEL SECURITY/);
   });
 });

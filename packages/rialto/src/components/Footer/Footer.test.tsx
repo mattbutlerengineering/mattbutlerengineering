@@ -35,6 +35,16 @@ describe("Footer", () => {
   });
 
   describe("rich variant", () => {
+    it("defaults the links nav label to 'Footer links'", () => {
+      render(<Footer variant="rich" columns={columns} />);
+      expect(screen.getByRole("navigation", { name: "Footer links" })).toBeInTheDocument();
+    });
+
+    it("accepts a linksLabel override so multiple footers have unique nav names", () => {
+      render(<Footer variant="rich" columns={columns} linksLabel="Acme footer links" />);
+      expect(screen.getByRole("navigation", { name: "Acme footer links" })).toBeInTheDocument();
+    });
+
     it("renders column titles", () => {
       render(<Footer variant="rich" columns={columns} />);
       expect(screen.getByText("Product")).toBeInTheDocument();

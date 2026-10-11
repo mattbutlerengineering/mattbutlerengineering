@@ -10,6 +10,7 @@ import css from "../showcase.module.css";
 const BUTTON_VARIANTS = ["primary", "secondary", "ghost"] as const;
 const BUTTON_SIZES = ["sm", "md", "lg"] as const;
 const BADGE_VARIANTS = ["neutral", "accent", "success", "warning", "error"] as const;
+const TAG_VARIANTS = ["default", "accent", "success", "error"] as const;
 
 function Typography() {
   return (
@@ -138,12 +139,12 @@ function Badges() {
           Tags
         </Text>
         <div className={css.row}>
-          {BADGE_VARIANTS.map((v) => (
+          {TAG_VARIANTS.map((v) => (
             <Tag key={v} variant={v}>
               {v}
             </Tag>
           ))}
-          <Tag variant="neutral" removable onRemove={() => {}}>
+          <Tag variant="default" dismissible onDismiss={() => {}}>
             Removable
           </Tag>
         </div>

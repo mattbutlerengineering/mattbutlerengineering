@@ -62,3 +62,20 @@ describe("TextArea — required marker + aria-live announcements", () => {
     expect(screen.getAllByText("Too long")).toHaveLength(1);
   });
 });
+
+describe("TextArea — aria-invalid when over the character limit", () => {
+  it("sets aria-invalid when the value exceeds maxLength, even without the error prop", () => {
+    render(<TextArea label="Bio" maxLength={10} value="12345678901" onChange={() => {}} />);
+    expect(screen.getByLabelText("Bio")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("does not set aria-invalid when under the character limit", () => {
+    render(<TextArea label="Bio" maxLength={10} value="hello" onChange={() => {}} />);
+    expect(screen.getByLabelText("Bio")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("stays aria-invalid when error is explicitly true and under the limit", () => {
+    render(<TextArea label="Bio" error maxLength={10} value="hello" onChange={() => {}} />);
+    expect(screen.getByLabelText("Bio")).toHaveAttribute("aria-invalid", "true");
+  });
+});

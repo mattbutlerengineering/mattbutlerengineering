@@ -47,6 +47,18 @@ const mockReservation = (overrides: Partial<Reservation> = {}): Reservation => (
   startTime: "18:00",
   partySize: 4,
   status: "CONFIRMED",
+  date: "2025-01-01",
+  endTime: "19:30",
+  notes: null,
+  cancellationReason: null,
+  cancellationNote: null,
+  guestEmail: null,
+  guestPhone: null,
+  guestId: null,
+  userId: null,
+  occasion: null,
+  seatingPreference: null,
+  tableId: "table-1",
   createdAt: "2025-01-01T00:00:00Z",
   updatedAt: "2025-01-01T00:00:00Z",
   ...overrides,
@@ -74,9 +86,9 @@ describe("ReservationList", () => {
     const items = screen.getAllByRole("listitem");
     expect(items.length).toBe(3);
     // Check first item is 5:00pm (17:00)
-    expect(items[0].textContent).toContain("5:00pm");
+    expect(items[0]!.textContent).toContain("5:00pm");
     // Check last item is 7:00pm (19:00)
-    expect(items[2].textContent).toContain("7:00pm");
+    expect(items[2]!.textContent).toContain("7:00pm");
   });
 
   it("should display guest name or 'Walk-in'", () => {
