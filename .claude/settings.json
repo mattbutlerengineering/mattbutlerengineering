@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; case \"$FILE\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) if grep -iqE 'DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM|ALTER TABLE .+ DROP' \"$FILE\" 2>/dev/null && ! grep -iqE '^-- DESTRUCTIVE:' \"$FILE\" 2>/dev/null; then echo '⚠️  Destructive migration detected without a -- DESTRUCTIVE: <reason> marker. Add the marker or redesign as a shadow-column-then-drop-later pattern before committing.' >&2; fi;; esac"
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; case \"$FILE\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) node \"$CLAUDE_PROJECT_DIR/scripts/check-destructive-migrations.js\" --file \"$FILE\";; esac"
           }
         ]
       },
