@@ -178,7 +178,7 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    ```bash
    gh pr checks <N> --watch
-   node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed", "reason": "..."}
+   node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed"|"unknown", "reason": "..."}
    ```
 
    - `state: "green"` → proceed to step 2.
@@ -195,6 +195,8 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    - `state: "gate-unattributed"` → **never enqueue, and do NOT re-dispatch.** This means `CI Gate` genuinely ran (present in the head-SHA check-runs, possibly via a prior `workflow_dispatch`) but is absent from `statusCheckRollup` — the source branch protection's merge evaluation actually reads. Confirmed live on PR #4011 (#4023): `gh pr merge --auto` was accepted with a dispatch-produced `CI Gate: success` on the head SHA, and the PR sat `mergeStateStatus=BLOCKED` for 6+ minutes without merging. **The `workflow_dispatch` escape hatch above does NOT unblock a PR by itself** — it produces a check run neither the rollup nor branch protection counts, so dispatching again on a `gate-unattributed` PR cannot help; the new run is just as invisible. This state needs a human, or the separate (not-yet-implemented) fix of `ci.yml` publishing a commit _status_ named `CI Gate` in addition to the check run.
 
      **#4028 fix:** this state used to be masked whenever the rollup had ANY other entry not yet `COMPLETED` — a genuinely in-flight check (e.g. CodeQL still running) is expected to self-heal, but a check permanently parked awaiting external approval (`WAITING` — the rollup-visible GraphQL `CheckStatusState` for #3684's `action_required` failure mode; verified `ACTION_REQUIRED` itself is a `conclusion`, only ever set alongside `status: "COMPLETED"`, so it was never the masking culprit) never resolves, and the classifier reported `pending` forever instead of escalating. `classifyCiGateStatus` now excludes only that structurally-non-progressing status from its "still running" check, so a parked unrelated check no longer hides `gate-unattributed` — a genuinely in-flight one still reports `pending` as before (pinned by a regression test using PR #4027's measured live shape: ~29 checks in flight, no `CI Gate` entry yet, must NOT read as `gate-unattributed`).
+
+   - `state: "unknown"` → **never enqueue, and do NOT re-dispatch.** `CI Gate` is absent from the rollup and the head-SHA check-runs fetch itself failed, so `gate-missing` (re-dispatch) cannot be told apart from `gate-unattributed` (abstain) — abstain. Re-poll; escalate if it persists (#6290).
 
 2. **Low-risk fast path.** `tier:*` labels do **not** gate this skill's merges — see [No tier hold](#no-tier-hold) below. Check the `needs-review` label, which still holds a PR:
 

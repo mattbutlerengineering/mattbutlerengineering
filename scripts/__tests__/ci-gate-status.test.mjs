@@ -448,4 +448,56 @@ describe("ci-gate-status", () => {
       });
     });
   });
+
+  describe("fetch-error handling (#6290)", () => {
+    const noGateRollup = [{ name: "Build", status: "COMPLETED", conclusion: "SUCCESS" }];
+
+    test("check-runs fetch failure with no CI Gate classifies unknown, never gate-missing", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+      const result = classifyCiGateStatus(noGateRollup, [], { checkRunsFetchFailed: true });
+      expect(result.state).toBe("unknown");
+    });
+
+    test("evaluatePr surfaces a null fetch as unknown", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: noGateRollup, headRefOid: "abc" }),
+        fetchCheckRuns: () => null,
+      });
+      expect(result.state).toBe("unknown");
+    });
+
+    test("evaluatePr with successful empty fetch is gate-missing", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: noGateRollup, headRefOid: "abc" }),
+        fetchCheckRuns: () => [],
+      });
+      expect(result.state).toBe("gate-missing");
+    });
+
+    test("evaluatePr passes the head SHA and detects gate-unattributed", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const seen = [];
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: noGateRollup, headRefOid: "abc" }),
+        fetchCheckRuns: (sha) => {
+          seen.push(sha);
+          return [{ name: "CI Gate", conclusion: "success", completed_at: "2026-01-01T00:00:00Z" }];
+        },
+      });
+      expect(seen).toEqual(["abc"]);
+      expect(result.state).toBe("gate-unattributed");
+    });
+
+    test("fetch failure does not mask a CI Gate present in the rollup", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+      const result = classifyCiGateStatus(
+        [{ name: "CI Gate", status: "COMPLETED", conclusion: "SUCCESS" }],
+        [],
+        { checkRunsFetchFailed: true }
+      );
+      expect(result.state).toBe("green");
+    });
+  });
 });
