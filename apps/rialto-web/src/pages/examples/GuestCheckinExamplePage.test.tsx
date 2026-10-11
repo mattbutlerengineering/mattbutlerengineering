@@ -173,6 +173,23 @@ describe("GuestCheckinExamplePage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Guest Checkin" })).toBeInTheDocument();
   });
 
+  it("keeps heading levels from skipping on every step", () => {
+    render(<GuestCheckinExamplePage />);
+    const assertNoSkips = () => {
+      const levels = screen
+        .getAllByRole("heading")
+        .map((heading) => Number(heading.tagName.slice(1)));
+      levels.forEach((level, i) => {
+        expect(level - (levels[i - 1] ?? 0)).toBeLessThanOrEqual(1);
+      });
+    };
+    assertNoSkips();
+    confirmArrival();
+    completeIdentity();
+    assignRoom();
+    assertNoSkips();
+  });
+
   it("shows a four-step progress indicator with the arrival step current", () => {
     render(<GuestCheckinExamplePage />);
     const steps = screen.getByTestId("steps");
