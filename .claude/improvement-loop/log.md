@@ -3156,6 +3156,7 @@ Issue reconciliation was still completed read-only, since the skipped plan is th
 
 **queueEfficiency:** unavailable (credential_rejected)
 **Issues filed:** 0
+
 ## 2026-10-11 (mbe-evening, progress-tracker)
 
 ### Metrics
