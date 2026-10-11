@@ -96,7 +96,7 @@ function TablePlayground() {
                 style={{
                   color: String(row.delta).startsWith("-")
                     ? "var(--rialto-success)"
-                    : "var(--rialto-text-tertiary)",
+                    : "var(--rialto-text-secondary)",
                   fontFamily: "var(--rialto-font-mono)",
                 }}
               >
@@ -152,7 +152,7 @@ export function TablePage() {
                   style={{
                     color: String(row.delta).startsWith("-")
                       ? "var(--rialto-success)"
-                      : "var(--rialto-text-tertiary)",
+                      : "var(--rialto-text-secondary)",
                   }}
                 >
                   {row.delta as string}
