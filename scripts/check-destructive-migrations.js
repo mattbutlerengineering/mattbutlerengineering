@@ -85,6 +85,20 @@ export function findDestructiveMigrationFindings(files) {
 
 const isMain = process.argv[1] && process.argv[1].endsWith("check-destructive-migrations.js");
 
+// Edit-time hook mode (#6291): `--file <path>` scans one file and only warns
+// (stderr, exit 0), so the .claude/settings.json hook shares this rule
+// instead of restating the regex.
+if (isMain && process.argv[2] === "--file") {
+  const file = process.argv[3];
+  const { findings } = file ? findDestructiveMigrationFindings([file]) : { findings: [] };
+  if (findings.length > 0) {
+    console.error(
+      "⚠️  Destructive migration detected without a -- DESTRUCTIVE: <reason> marker. Add the marker or redesign as a shadow-column-then-drop-later pattern before committing."
+    );
+  }
+  process.exit(0);
+}
+
 if (isMain) {
   const baseRef = process.argv[2] || "origin/main";
   const files = getNewMigrationFiles(baseRef);
