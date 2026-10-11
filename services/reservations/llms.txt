@@ -209,11 +209,11 @@
     </item>
   </file>
   <file path="src/routes/deposit-transition-handler.ts">
-    <item priority="high">
-      type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
-    </item>
-    <item priority="high">
-      type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
+    <item priority="low">
+      interface DepositTransitionRoute {
+        Params: { id: string };
+        Reply: { data: Deposit } | ReturnType<typeof createProblemDetails>;
+      }
     </item>
     <item priority="high">
       export function depositTransitionHandler(
@@ -227,6 +227,15 @@
       interface ApiResponse {
         data: T;
       }
+    </item>
+    <item priority="high">
+      type DepositsQuery = { reservationId?: string; venueId?: string; date?: string };
+    </item>
+    <item priority="low">
+      async function requireDepositSelector(
+        request: FastifyRequest<{ Querystring: DepositsQuery }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const depositRoutes: FastifyPluginAsync;

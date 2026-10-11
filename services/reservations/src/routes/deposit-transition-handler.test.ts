@@ -19,9 +19,27 @@ const deposits = depositService as unknown as DepositService;
 
 type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
 
+/**
+ * What the capture/refund/forfeit routes deliver to the handler: their
+ * `[requireAuth, requireAdmin]` preHandler has admitted a platform admin, so
+ * `venueScoped`'s membership step passes without a lookup.
+ */
 function makeRequest(id: string): DepositTransitionRequest {
-  return { params: { id } } as unknown as DepositTransitionRequest;
+  return {
+    params: { id },
+    method: "POST",
+    routeOptions: { url: "/api/v1/deposits/:id/capture" },
+    user: { id: "admin-1", raw: { sub: "auth0|admin", permissions: ["admin"] } },
+    server: { venueMembershipLookup: vi.fn() },
+  } as unknown as DepositTransitionRequest;
 }
+
+/** The route handler, invoked the way Fastify does (bound to the instance). */
+const handlerFor = (transition: (id: string) => Promise<never>) =>
+  depositTransitionHandler(deposits, transition).bind({} as never) as (
+    request: DepositTransitionRequest,
+    reply: FastifyReply
+  ) => Promise<unknown>;
 
 function makeReply() {
   const reply = {
@@ -48,7 +66,7 @@ describe("depositTransitionHandler", () => {
     mockResolveVenueId.mockResolvedValueOnce(null);
     const reply = makeReply();
 
-    await depositTransitionHandler(deposits, transition)(makeRequest("dep-missing"), reply);
+    await handlerFor(transition)(makeRequest("dep-missing"), reply);
 
     expect(mockResolveVenueId).toHaveBeenCalledWith("deposit", "dep-missing");
     expect(reply.code).toHaveBeenCalledWith(404);
@@ -65,7 +83,7 @@ describe("depositTransitionHandler", () => {
     const transition = vi.fn();
     const reply = makeReply();
 
-    await depositTransitionHandler(deposits, transition)(makeRequest("dep-missing"), reply);
+    await handlerFor(transition)(makeRequest("dep-missing"), reply);
 
     expect(reply.code).toHaveBeenCalledWith(404);
     expect(reply.send).toHaveBeenCalledWith(
@@ -85,7 +103,7 @@ describe("depositTransitionHandler", () => {
       return { id: "dep-1", status: "applied" } as never;
     });
 
-    await depositTransitionHandler(deposits, transition)(makeRequest("dep-1"), makeReply());
+    await handlerFor(transition)(makeRequest("dep-1"), makeReply());
 
     expect(observed).toBe("venue-1");
   });
@@ -96,7 +114,7 @@ describe("depositTransitionHandler", () => {
     const transition = vi.fn().mockRejectedValueOnce(transitionError);
     const reply = makeReply();
 
-    await depositTransitionHandler(deposits, transition)(makeRequest("dep-1"), reply);
+    await handlerFor(transition)(makeRequest("dep-1"), reply);
 
     expect(reply.code).toHaveBeenCalledWith(422);
     expect(reply.send).toHaveBeenCalledWith(
@@ -113,9 +131,7 @@ describe("depositTransitionHandler", () => {
     const transition = vi.fn().mockRejectedValueOnce(new Error("boom"));
     const reply = makeReply();
 
-    await expect(
-      depositTransitionHandler(deposits, transition)(makeRequest("dep-1"), reply)
-    ).rejects.toThrow("boom");
+    await expect(handlerFor(transition)(makeRequest("dep-1"), reply)).rejects.toThrow("boom");
   });
 
   it("returns the transitioned deposit on success", async () => {
@@ -124,10 +140,7 @@ describe("depositTransitionHandler", () => {
     const transition = vi.fn().mockResolvedValueOnce(transitioned as never);
     const reply = makeReply();
 
-    const result = await depositTransitionHandler(deposits, transition)(
-      makeRequest("dep-1"),
-      reply
-    );
+    const result = await handlerFor(transition)(makeRequest("dep-1"), reply);
 
     expect(transition).toHaveBeenCalledWith("dep-1");
     expect(result).toEqual({ data: transitioned });

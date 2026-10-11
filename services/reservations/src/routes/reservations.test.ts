@@ -123,6 +123,8 @@ import type { VenuePolicy } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { getCurrentVenueId } from "../services/venue-context-store.js";
 
 /** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
 const depositService = {
@@ -336,10 +338,10 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call + handler call
-      vi.mocked(reservationService.getById)
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+      // one read: venueScoped loads the reservation once, for the owner check and the handler
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
 
       const response = await app.inject({
         method: "GET",
@@ -360,7 +362,7 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call — no handler call since preHandler denies
+      // the owner check's read — the handler is never reached
       vi.mocked(reservationService.getById).mockResolvedValueOnce(
         createMockReservation({ guestEmail: "john@example.com" })
       );
@@ -1103,10 +1105,10 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call + handler call
-      vi.mocked(reservationService.getById)
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+      // one read: venueScoped loads the reservation once, for the owner check and the handler
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: true,
         reservation: createMockReservation({ id: "res-123", partySize: 6 }),
@@ -1132,7 +1134,7 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call — preHandler denies, handler not reached
+      // the owner check's read — the handler is never reached
       vi.mocked(reservationService.getById).mockResolvedValueOnce(
         createMockReservation({ guestEmail: "john@example.com" })
       );
@@ -1482,10 +1484,10 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call + handler call
-      vi.mocked(reservationService.getById)
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
-        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+      // one read: venueScoped loads the reservation once, for the owner check and the handler
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
       vi.mocked(reservationService.update).mockResolvedValueOnce(
         createMockReservation({ id: "res-123", status: "CANCELLED" })
@@ -1554,7 +1556,7 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      // preHandler owner-resolver call — preHandler denies, handler not reached
+      // the owner check's read — the handler is never reached
       vi.mocked(reservationService.getById).mockResolvedValueOnce(
         createMockReservation({ guestEmail: "john@example.com" })
       );
@@ -1572,8 +1574,8 @@ describe("Reservation Routes", () => {
   /**
    * End-to-end ownership enforcement — real seam, no ownership mock.
    *
-   * These tests exercise the full `requireAuth → requireReservationOwnerOrAdmin`
-   * preHandler chain without stubbing out the ownership middleware.  Only the
+   * These tests exercise the full `requireAuth` → `venueScoped` owner-access
+   * chain (`reservationOwnerScope`) without stubbing out the ownership guard.  Only the
    * DB layer (reservationService.getById) and the JWT layer (jwtVerify) are
    * mocked — everything in between runs for real.
    *
@@ -1605,10 +1607,8 @@ describe("Reservation Routes", () => {
     describe("GET /v1/reservations/:id", () => {
       it("allows owner through and returns 200", async () => {
         setupOwnerJWT();
-        // resolver call (preHandler) + handler call
-        vi.mocked(reservationService.getById)
-          .mockResolvedValueOnce(ownerReservation())
-          .mockResolvedValueOnce(ownerReservation());
+        // one read: venueScoped loads the reservation once, for the owner check and the handler
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
 
         const response = await app.inject({
           method: "GET",
@@ -1640,9 +1640,7 @@ describe("Reservation Routes", () => {
     describe("PATCH /v1/reservations/:id", () => {
       it("allows owner through and returns 200", async () => {
         setupOwnerJWT();
-        vi.mocked(reservationService.getById)
-          .mockResolvedValueOnce(ownerReservation())
-          .mockResolvedValueOnce(ownerReservation());
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
         vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
           success: true,
           reservation: createMockReservation({ partySize: 3 }),
@@ -1679,9 +1677,7 @@ describe("Reservation Routes", () => {
     describe("DELETE /v1/reservations/:id", () => {
       it("allows owner through and returns 200", async () => {
         setupOwnerJWT();
-        vi.mocked(reservationService.getById)
-          .mockResolvedValueOnce(ownerReservation())
-          .mockResolvedValueOnce(ownerReservation());
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
         vi.mocked(reservationService.update).mockResolvedValueOnce(
           createMockReservation({ status: "CANCELLED" })
@@ -1716,7 +1712,7 @@ describe("Reservation Routes", () => {
 
   /**
    * Security regression coverage for the initiator-escalation fee bypass:
-   * requireReservationOwnerOrAdmin admits the reservation OWNER, not just
+   * the `/:id` owner scope (`reservationOwnerScope`) admits the reservation OWNER, not just
    * admins, so a non-admin owner cancelling their own reservation must get
    * guest fee semantics (the venue's cancellation policy applies), never the
    * fee-waived full refund reserved for staff/admin. These tests deliberately
@@ -1754,10 +1750,10 @@ describe("Reservation Routes", () => {
     describe("PATCH /v1/reservations/:id", () => {
       it("non-admin owner: applies the guest cancellation-fee policy (forfeits, does not waive)", async () => {
         setupOwnerJWT();
-        // preHandler owner-resolver call + handler call
-        vi.mocked(reservationService.getById)
-          .mockResolvedValueOnce(reservationPastNoShowBoundary())
-          .mockResolvedValueOnce(reservationPastNoShowBoundary());
+        // one read: venueScoped loads the reservation once, for the owner check and the handler
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          reservationPastNoShowBoundary()
+        );
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
         vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(feePolicyVenue);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
@@ -1811,9 +1807,9 @@ describe("Reservation Routes", () => {
     describe("DELETE /v1/reservations/:id", () => {
       it("non-admin owner: applies the guest cancellation-fee policy (forfeits, does not waive)", async () => {
         setupOwnerJWT();
-        vi.mocked(reservationService.getById)
-          .mockResolvedValueOnce(reservationPastNoShowBoundary())
-          .mockResolvedValueOnce(reservationPastNoShowBoundary());
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          reservationPastNoShowBoundary()
+        );
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
         vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(feePolicyVenue);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
@@ -2318,5 +2314,250 @@ describe("POST /v1/reservations — member gate and guest linking (booking-guest
       title: "Forbidden",
       detail: "The requested table does not belong to this venue",
     });
+  });
+});
+
+/**
+ * Venue-authorization pins (docs/fixes/venue-scoped-routes, PR 4), written
+ * against the pre-`venueScoped` routes so the migration has to keep every
+ * status and problem body byte-identical. Owner routes: an admin addressing
+ * an unknown reservation gets the honest 404; a non-admin gets the ownership
+ * guard's 403 (existence hidden) or its 401 when the caller has no verified
+ * email. Walk-in: membership of the body's venue, and the walk-in write runs
+ * inside that venue's RLS context.
+ */
+describe("Reservation Routes — venue authorization pins (ADR-020)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+  const RESERVATIONS_URL = "/api/v1/reservations";
+  const NOT_FOUND = {
+    type: "about:blank",
+    title: "Not Found",
+    status: 404,
+    detail: "Reservation not found",
+  };
+  const RESOURCE_FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this resource",
+  };
+  const VENUE_FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+
+  async function buildAs(
+    claims: { permissions: string[]; email?: string; email_verified?: boolean },
+    lookup: VenueMembershipLookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false)
+  ) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator", ...claims }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      venueMembershipLookup: lookup,
+      jobs: {
+        schedule: vi.fn().mockResolvedValue("job"),
+        cancel: vi.fn().mockResolvedValue(false),
+      },
+    });
+    await app.ready();
+  }
+
+  const memberOf = (venue: string) =>
+    vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, venueId) => venueId === venue);
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+    vi.mocked(reservationService.getById).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    vi.mocked(reservationService.getById).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    process.env = originalEnv;
+  });
+
+  const OWNER_ROUTES = [
+    { method: "GET", payload: undefined },
+    { method: "PATCH", payload: { specialRequests: "window seat" } },
+    { method: "DELETE", payload: undefined },
+  ] as const;
+
+  it.each(OWNER_ROUTES)(
+    "$method /:id: admin addressing an unresolvable reservation → 404 'Reservation not found'",
+    async ({ method, payload }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      await buildAs({ permissions: ["admin"] });
+
+      const response = await app.inject({
+        method,
+        url: `${RESERVATIONS_URL}/res-missing`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.body)).toEqual(NOT_FOUND);
+      expect(resolveVenueId).toHaveBeenCalledWith("reservation", "res-missing");
+    }
+  );
+
+  it.each(OWNER_ROUTES)(
+    "$method /:id: admin, venue resolves but the row is gone → 404 'Reservation not found'",
+    async ({ method, payload }) => {
+      vi.mocked(reservationService.getById).mockResolvedValue(null);
+      await buildAs({ permissions: ["admin"] });
+
+      const response = await app.inject({
+        method,
+        url: `${RESERVATIONS_URL}/res-gone`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.body)).toEqual(NOT_FOUND);
+    }
+  );
+
+  it.each(OWNER_ROUTES)(
+    "$method /:id: non-admin probing an unresolvable reservation → 403 (existence hidden)",
+    async ({ method, payload }) => {
+      vi.mocked(resolveVenueId).mockResolvedValue(null);
+      await buildAs({ permissions: [], email: "owner@example.com" });
+
+      const response = await app.inject({
+        method,
+        url: `${RESERVATIONS_URL}/res-missing`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(JSON.parse(response.body)).toEqual(RESOURCE_FORBIDDEN);
+      expect(reservationService.getById).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(OWNER_ROUTES)(
+    "$method /:id: non-admin with an unverified email → 401, even as the guestEmail",
+    async ({ method, payload }) => {
+      vi.mocked(reservationService.getById).mockResolvedValue(
+        createMockReservation({ guestEmail: "owner@example.com" })
+      );
+      await buildAs({ permissions: [], email: "owner@example.com", email_verified: false });
+
+      const response = await app.inject({
+        method,
+        url: `${RESERVATIONS_URL}/res-123`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(JSON.parse(response.body)).toEqual({
+        type: "about:blank",
+        title: "Unauthorized",
+        status: 401,
+        detail: "Authentication required",
+      });
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+      expect(reservationService.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(OWNER_ROUTES)(
+    "$method /:id: the owner's reservation is read inside its venue's RLS context",
+    async ({ method, payload }) => {
+      const observed: Array<string | null> = [];
+      vi.mocked(reservationService.getById).mockImplementation(async () => {
+        observed.push(getCurrentVenueId());
+        return createMockReservation({ guestEmail: "owner@example.com" });
+      });
+      await buildAs({ permissions: [], email: "owner@example.com" });
+
+      await app.inject({
+        method,
+        url: `${RESERVATIONS_URL}/res-123`,
+        headers: { authorization: "Bearer t" },
+        ...(payload ? { payload } : {}),
+      });
+
+      expect(observed.length).toBeGreaterThan(0);
+      expect(observed.every((venueId) => venueId === "venue-1")).toBe(true);
+    }
+  );
+
+  it("POST /walk-in: 403 for a non-member of the body's venue, nothing written", async () => {
+    const lookup = memberOf("venue-elsewhere");
+    await buildAs({ permissions: ["staff"] }, lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `${RESERVATIONS_URL}/walk-in`,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "venue-123", tableId: "table-1", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(VENUE_FORBIDDEN);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-123");
+    expect(reservationService.createWalkIn).not.toHaveBeenCalled();
+  });
+
+  // Architecture failure-table cell "direct key missing, admin → 400"
+  // (breakdown.md Notes, 2026-10-11): `WalkInBodySchema` accepts `venueId: ""`.
+  // Before venueScoped an admin's "" walk-in reached createWalkIn (201); now it
+  // is a 400. Non-admins get 403 before and after.
+  it("POST /walk-in: an admin naming an empty venueId → 400 'venueId is required', nothing written", async () => {
+    await buildAs({ permissions: ["admin"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `${RESERVATIONS_URL}/walk-in`,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "", tableId: "table-1", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({
+      status: 400,
+      title: "Bad Request",
+      detail: "venueId is required",
+    });
+    expect(reservationService.createWalkIn).not.toHaveBeenCalled();
+  });
+
+  it("POST /walk-in: a member's walk-in is written inside the body venue's RLS context", async () => {
+    let observed: string | null = "unset";
+    vi.mocked(reservationService.createWalkIn).mockImplementationOnce(async () => {
+      observed = getCurrentVenueId();
+      return { success: true, reservation: createMockReservation({ venueId: "venue-123" }) };
+    });
+    await buildAs({ permissions: ["staff"] }, memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: `${RESERVATIONS_URL}/walk-in`,
+      headers: { authorization: "Bearer t" },
+      payload: { venueId: "venue-123", tableId: "table-1", partySize: 2 },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(observed).toBe("venue-123");
   });
 });

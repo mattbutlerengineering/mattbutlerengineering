@@ -1265,51 +1265,54 @@
     };
   </file>
   <file path="src/routes/deposit-transition-handler.ts">
-    type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
-    type TransitionResult =
-      { kind: "not-found" } | { kind: "invalid"; message: string } | { kind: "ok"; deposit: Deposit };
+    export interface DepositTransitionRoute {
+      Params: { id: string };
+      Reply: { data: Deposit } | ReturnType<typeof createProblemDetails>;
+    }
     export function depositTransitionHandler(
       deposits: DepositService,
       transition: (id: string) => Promise<Deposit>
     ) {
-      return async (request: DepositTransitionRequest, reply: FastifyReply) => {
-        const result = await loadInVenueContext<TransitionResult>(
-          "deposit",
-          request.params.id,
-          async () => {
-            const existing = await deposits.getById(request.params.id);
-            if (!existing) {
-              return { kind: "not-found" };
-            }
-    
-            try {
-              const deposit = await transition(request.params.id);
-              return { kind: "ok", deposit };
-            } catch (err) {
-              if (err instanceof DepositTransitionError) {
-                return { kind: "invalid", message: err.message };
-              }
-              throw err;
-            }
+      return venueScoped<DepositTransitionRoute, Deposit>(
+        {
+          venue: {
+            entity: "deposit",
+            key: (request) => request.params.id,
+            load: (id) => deposits.getById(id),
+            notFound: "Deposit not found",
           },
-          { kind: "not-found" }
-        );
-    
-        if (result.kind === "not-found") {
-          return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        },
+        async (request, reply) => {
+          try {
+            return { data: await transition(request.params.id) };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
         }
-        if (result.kind === "invalid") {
-          return reply
-            .code(422)
-            .send(createProblemDetails(422, "Unprocessable Entity", result.message));
-        }
-        return { data: result.deposit };
-      };
+      );
     }
   </file>
   <file path="src/routes/deposits.ts">
     interface ApiResponse<T> {
       data: T;
+    }
+    type DepositsQuery = { reservationId?: string; venueId?: string; date?: string };
+    async function requireDepositSelector(
+      request: FastifyRequest<{ Querystring: DepositsQuery }>,
+      reply: FastifyReply
+    ): Promise<void> {
+      const { reservationId, venueId, date } = request.query;
+      if (reservationId || (venueId && date)) return;
+      reply
+        .code(400)
+        .send(
+          createProblemDetails(400, "Bad Request", "reservationId, or venueId and date, is required")
+        );
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       const { depositService } = fastify.services;
@@ -1341,23 +1344,23 @@
             },
           },
         },
-        async (request, reply) => {
-          const venueId = await resolveReservationVenueId(request.body.reservationId);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          const deposit = await runWithVenueContext(venueId, () =>
-            depositService.create({
+        venueScoped(
+          {
+            venue: {
+              entity: "reservation",
+              key: (request: { body: { reservationId: string } }) => request.body.reservationId,
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, reply) => {
+            const deposit = await depositService.create({
               reservationId: request.body.reservationId,
               amountCents: request.body.amountCents,
               currency: request.body.currency,
-            })
-          );
-          return reply.code(201).send({ data: deposit });
-        }
+            });
+            return reply.code(201).send({ data: deposit });
+          }
+        )
       );
     
       // GET /api/v1/deposits?reservationId= — operator visibility: look up a
@@ -1368,17 +1371,15 @@
       //
       // GET /api/v1/deposits?venueId=&date= — deposit-exposure dashboard batch
       // read (#5832): every deposit for a venue's reservations on a given date.
-      // Unlike the reservationId= query above, `venueId` IS present in the
-      // querystring, so the app-wide preHandler already resolves it — the
-      // explicit `runWithVenueContext` below is kept anyway, matching every
-      // other route in this file, so the scope is never implicit.
+      // Here the venue is the query's own `venueId`. Either way the route
+      // declares its scope with `venueScoped`, so it is never implicit.
       fastify.get<{
-        Querystring: { reservationId?: string; venueId?: string; date?: string };
+        Querystring: DepositsQuery;
         Reply: ApiResponse<Deposit | Deposit[] | null> | ReturnType<typeof createProblemDetails>;
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireAdmin],
+          preHandler: [requireAuth, requireAdmin, requireDepositSelector],
           schema: {
             summary: "Get a reservation's deposit, or list a venue's deposits for a date",
             operationId: "getDeposits",
@@ -1416,40 +1417,25 @@
             },
           },
         },
-        async (request, reply) => {
-          const { reservationId, venueId, date } = request.query;
-    
-          if (reservationId) {
-            const resolvedVenueId = await resolveReservationVenueId(reservationId);
-            if (!resolvedVenueId) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+        venueScoped(
+          {
+            venue: {
+              // requireDepositSelector guarantees `venueId` when there is no
+              // `reservationId`; only an unresolvable reservation yields null.
+              resolve: async ({ query }) =>
+                query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+              label: "reservationId|venueId",
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, _reply, { venueId }) => {
+            const { reservationId, date } = request.query;
+            if (reservationId) {
+              return { data: await depositService.getByReservationId(reservationId) };
             }
-    
-            const deposit = await runWithVenueContext(resolvedVenueId, () =>
-              depositService.getByReservationId(reservationId)
-            );
-            return { data: deposit };
+            return { data: await depositService.listByVenueAndDate(venueId, new Date(date!)) };
           }
-    
-          if (venueId && date) {
-            const deposits = await runWithVenueContext(venueId, () =>
-              depositService.listByVenueAndDate(venueId, new Date(date))
-            );
-            return { data: deposits };
-          }
-    
-          return reply
-            .code(400)
-            .send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                "reservationId, or venueId and date, is required"
-              )
-            );
-        }
+        )
       );
     
       // GET /api/v1/deposits/:id — get deposit by ID
@@ -1482,24 +1468,22 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 6 / #5369 PR 7: resolves straight through the
-          // `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
-          // the deposit's own reservation done INSIDE the resolver, not via a
-          // prior unscoped `depositService.getById` — so the read below already
-          // runs inside the resolved venue context instead of repeating the
-          // "lookup can't run inside the scope it's computing" trap.
-          const deposit = await loadInVenueContext(
-            "deposit",
-            request.params.id,
-            () => depositService.getById(request.params.id),
-            null
-          );
-          if (!deposit) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-          }
-          return { data: deposit };
-        }
+        // ADR-026 §3.3 item 6 / #5369 PR 7: the venue resolves straight through
+        // the `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
+        // the deposit's own reservation done INSIDE the resolver, not via a prior
+        // unscoped `depositService.getById` — so the load already runs inside the
+        // resolved venue context.
+        venueScoped(
+          {
+            venue: {
+              entity: "deposit",
+              key: (request: { params: { id: string } }) => request.params.id,
+              load: (id: string) => depositService.getById(id),
+              notFound: "Deposit not found",
+            },
+          },
+          async (_request, _reply, { entity: deposit }) => ({ data: deposit })
+        )
       );
     
       // POST /api/v1/deposits/:id/capture — apply (capture) a held deposit
@@ -3992,11 +3976,11 @@
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
-       * routes below. Both routes are guarded by `requireReservationOwnerOrAdmin`,
-       * which admits the reservation OWNER (guest email match), not only an
+       * routes below. Both routes are scoped by `reservationOwnerScope`, which
+       * admits the reservation OWNER (guest email match), not only an
        * admin — so `isAdmin` here MUST come from the verified
-       * `request.authorization.isAdmin` flag set by that guard, never from a
-       * client-supplied value, otherwise an owner could get the fee-waived
+       * `scope.isAdmin` flag `venueScoped` derives from the JWT's permissions,
+       * never from a client-supplied value, otherwise an owner could get the fee-waived
        * staff refund on their own cancellation. Admins get staff semantics
        * (waived fee, deposit refunded in full); a non-admin owner gets guest
        * semantics (the venue's cancellation-fee policy applies) — see
@@ -4127,7 +4111,7 @@
       }>(
         "/walk-in",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           schema: {
             summary: "Create a walk-in reservation",
             operationId: "createWalkIn",
@@ -4168,7 +4152,7 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped({ venue: "body" }, async (request, reply) => {
           const userId = request.user?.id;
           // A picked guest must belong to this venue; unknown and foreign ids get
           // the same answer, before anything is written.
@@ -4199,7 +4183,7 @@
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
           return reply.code(201).send({ data: result.reservation });
-        }
+        })
       );
     
       // Get reservation by ID
@@ -4209,7 +4193,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Get reservation by ID",
             operationId: "getReservationById",
@@ -4244,21 +4228,9 @@
             },
           },
         },
-        async (request, reply) => {
-          const reservation = await loadInVenueContext(
-            "reservation",
-            request.params.id,
-            () => reservationService.getById(request.params.id),
-            null
-          );
-          if (!reservation) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return { data: reservation };
-        }
+        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+          data: reservation,
+        }))
       );
     
       // Create reservation
@@ -4387,7 +4359,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Update a reservation",
             operationId: "updateReservation",
@@ -4455,151 +4427,130 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 2 / #5369 PR 5: this handler's whole body — the
-          // initial read below plus every branch's own reservation/venue/deposit
-          // calls — runs inside the resolved venue context, so all of them
-          // succeed under FORCE instead of the unscoped-read trap `resolveVenueId`
-          // exists to close.
-          const venueId = await resolveVenueId("reservation", request.params.id);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.params.id);
-            if (!reservation) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-            }
-    
-            if (request.body.status === "CANCELLED") {
-              try {
-                const result = await cancelReservationForRequest(
-                  reservation,
-                  request.log,
-                  request.authorization?.isAdmin === true,
-                  "staff-patch",
-                  {
-                    cancellationReason: request.body.cancellationReason,
-                    cancellationNote: request.body.cancellationNote,
-                  }
-                );
-    
-                if (!result.success) {
-                  return reply
-                    .code(result.status)
-                    .send(createProblemDetails(result.status, result.title, result.detail));
-                }
-    
-                return { data: result.reservation };
-              } catch (err) {
-                if (err instanceof ReservationTransitionError) {
-                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-                }
-                throw err;
-              }
-            }
-    
-            if (request.body.status === "NO_SHOW") {
-              try {
-                const result = await fastify.transitions.noShow(reservation, request.log);
-    
-                if (!result.success) {
-                  return reply
-                    .code(result.status)
-                    .send(createProblemDetails(result.status, result.title, result.detail));
-                }
-    
-                return {
-                  data: result.reservation,
-                  ...(result.depositWarning && { warning: result.depositWarning }),
-                };
-              } catch (err) {
-                if (err instanceof ReservationTransitionError) {
-                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-                }
-                throw err;
-              }
-            }
-    
-            // #2998: staff PATCH accepts partySize but previously bypassed the
-            // per_person-deposit guard added for the public manage route in
-            // #2997/#2931 (decision: Block) — route through the same check here
-            // so a staff caller can't silently diverge a held/pending deposit
-            // either. Staff who need to override should capture/refund the
-            // deposit first, or cancel and rebook.
-            if (
-              request.body.partySize !== undefined &&
-              (await isPartySizeDepositBlocked(
-                reservation,
-                request.body.partySize,
-                fastify.services.depositService
-              ))
-            ) {
-              return reply
-                .code(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Conflict",
-                    "This venue charges a per-person deposit and a payment is already pending or " +
-                      "held for this reservation. Capture or refund the deposit before changing party " +
-                      "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
-                    "about:blank",
-                    undefined,
-                    { code: "PARTY_SIZE_DEPOSIT_HELD" }
-                  )
-                );
-            }
-    
+        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+          if (request.body.status === "CANCELLED") {
             try {
-              const result = await fastify.transitions.updateByStaff(reservation, request.body);
+              const result = await cancelReservationForRequest(
+                reservation,
+                request.log,
+                isAdmin,
+                "staff-patch",
+                {
+                  cancellationReason: request.body.cancellationReason,
+                  cancellationNote: request.body.cancellationNote,
+                }
+              );
     
               if (!result.success) {
-                if (result.error === "Reservation not found") {
-                  return reply
-                    .code(404)
-                    .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-                }
-    
-                if (result.tableNotInVenue) {
-                  return reply
-                    .code(403)
-                    .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
-                }
-    
-                if (result.conflict?.hasConflict) {
-                  return reply
-                    .code(409)
-                    .send(
-                      createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
-                    );
-                }
-    
                 return reply
-                  .code(400)
-                  .send(
-                    createProblemDetails(
-                      400,
-                      "Bad Request",
-                      result.error ?? "Failed to update reservation"
-                    )
-                  );
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
               }
     
-              return { data: result.reservation! };
+              return { data: result.reservation };
             } catch (err) {
               if (err instanceof ReservationTransitionError) {
                 return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
               }
               throw err;
             }
-          });
-        }
+          }
+    
+          if (request.body.status === "NO_SHOW") {
+            try {
+              const result = await fastify.transitions.noShow(reservation, request.log);
+    
+              if (!result.success) {
+                return reply
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
+              }
+    
+              return {
+                data: result.reservation,
+                ...(result.depositWarning && { warning: result.depositWarning }),
+              };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
+            }
+          }
+    
+          // #2998: staff PATCH accepts partySize but previously bypassed the
+          // per_person-deposit guard added for the public manage route in
+          // #2997/#2931 (decision: Block) — route through the same check here
+          // so a staff caller can't silently diverge a held/pending deposit
+          // either. Staff who need to override should capture/refund the
+          // deposit first, or cancel and rebook.
+          if (
+            request.body.partySize !== undefined &&
+            (await isPartySizeDepositBlocked(
+              reservation,
+              request.body.partySize,
+              fastify.services.depositService
+            ))
+          ) {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Conflict",
+                  "This venue charges a per-person deposit and a payment is already pending or " +
+                    "held for this reservation. Capture or refund the deposit before changing party " +
+                    "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                  "about:blank",
+                  undefined,
+                  { code: "PARTY_SIZE_DEPOSIT_HELD" }
+                )
+              );
+          }
+    
+          try {
+            const result = await fastify.transitions.updateByStaff(reservation, request.body);
+    
+            if (!result.success) {
+              if (result.error === "Reservation not found") {
+                return reply
+                  .code(404)
+                  .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              }
+    
+              if (result.tableNotInVenue) {
+                return reply
+                  .code(403)
+                  .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+              }
+    
+              if (result.conflict?.hasConflict) {
+                return reply
+                  .code(409)
+                  .send(
+                    createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+                  );
+              }
+    
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    result.error ?? "Failed to update reservation"
+                  )
+                );
+            }
+    
+            return { data: result.reservation! };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
+            throw err;
+          }
+        })
       );
     
       // Cancel reservation (DELETE)
@@ -4609,7 +4560,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Cancel a reservation",
             operationId: "cancelReservation",
@@ -4645,43 +4596,27 @@
             },
           },
         },
-        async (request, reply) => {
-          const venueId = await resolveVenueId("reservation", request.params.id);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.params.id);
-            if (!reservation) {
+        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+          try {
+            const result = await cancelReservationForRequest(
+              reservation,
+              request.log,
+              isAdmin,
+              "staff-delete"
+            );
+            if (!result.success) {
               return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+                .code(result.status)
+                .send(createProblemDetails(result.status, result.title, result.detail));
             }
-    
-            try {
-              const result = await cancelReservationForRequest(
-                reservation,
-                request.log,
-                request.authorization?.isAdmin === true,
-                "staff-delete"
-              );
-              if (!result.success) {
-                return reply
-                  .code(result.status)
-                  .send(createProblemDetails(result.status, result.title, result.detail));
-              }
-              return { data: result.reservation };
-            } catch (err) {
-              if (err instanceof ReservationTransitionError) {
-                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-              }
-              throw err;
+            return { data: result.reservation };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
             }
-          });
-        }
+            throw err;
+          }
+        })
       );
     };
   </file>
