@@ -7004,6 +7004,9 @@
     <item priority="high">
       export const modifyReservationBodyJsonSchema: unknown;
     </item>
+    <item priority="high">
+      export const cancelReservationBodyJsonSchema: unknown;
+    </item>
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     <item priority="high">
@@ -7143,6 +7146,9 @@
     </item>
     <item priority="high">
       export const ModifyReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CancelReservationBodySchema: unknown;
     </item>
     <item priority="high">
       export const PublicUnsubscribeQuerySchema: unknown;
