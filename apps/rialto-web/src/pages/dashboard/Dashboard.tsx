@@ -220,7 +220,7 @@ export function Dashboard() {
       />
 
       {/* ── Light content area ──────────────── */}
-      <main className={styles.content}>
+      <div className={styles.content}>
         {/* ── Banner ─────────────────────── */}
         {!bannerDismissed && (
           <Banner
@@ -540,7 +540,7 @@ export function Dashboard() {
         </Stack>
 
         <Divider spacing="compact" />
-      </main>
+      </div>
 
       {/* ── Footer ──────────────────────────── */}
       <footer className={styles.footer}>

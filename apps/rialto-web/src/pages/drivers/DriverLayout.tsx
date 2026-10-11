@@ -37,7 +37,7 @@ export function DriverLayout({ title, breadcrumbs, actions, children }: DriverLa
         </div>
       </header>
 
-      <main className={styles.content}>{children}</main>
+      <div className={styles.content}>{children}</div>
 
       <footer className={styles.footer}>
         <Link to="/" className={styles.footerLink}>
