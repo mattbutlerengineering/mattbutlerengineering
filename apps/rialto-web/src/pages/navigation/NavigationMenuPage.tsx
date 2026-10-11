@@ -15,6 +15,7 @@ export function NavigationMenuPage() {
       {/* ── Basic ─────────────────────────────────────────────────── */}
       <Section title="Basic">
         <NavigationMenu
+          aria-label="Basic navigation"
           items={[
             { label: "Dashboard", href: "#" },
             {
@@ -33,6 +34,7 @@ export function NavigationMenuPage() {
       {/* ── Rich Dropdowns ────────────────────────────────────────── */}
       <Section title="With Grouped Dropdowns">
         <NavigationMenu
+          aria-label="Grouped dropdown navigation"
           items={[
             { label: "Home", href: "#" },
             {
@@ -80,6 +82,7 @@ export function NavigationMenuPage() {
             Rialto
           </Text>
           <NavigationMenu
+            aria-label="Usage example navigation"
             items={[
               { label: "Overview", href: "#" },
               {
