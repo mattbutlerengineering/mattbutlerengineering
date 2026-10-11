@@ -537,7 +537,11 @@ function prHasHumanTouchedCommit(ghBin, prNumber, execFn = execFileSync) {
 
 export function measurePrOutcomes(opts = {}) {
   const prs = fetchAgentPrs(opts);
-  if (prs === null) return null;
+  // Zero PRs of ANY kind over the whole lookback window is no signal, not an
+  // n=0 measurement: a token without `pull-requests` access gets `[]` from
+  // `gh pr list --search` instead of an error, and stamping that "fresh"
+  // capped the level at L3 every night for two weeks (#6311).
+  if (prs === null || prs.length === 0) return null;
   return {
     ...computePrOutcomes(prs, { ...opts, revertDetectionAvailable: prs.revertDetectionAvailable }),
     recent_changes: selectRecentChanges(prs, opts),
