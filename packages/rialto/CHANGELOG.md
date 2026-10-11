@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.3.4
+
+### Patch Changes
+
+- [#6262](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6262) [`bc4f92c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/bc4f92cc20e3fade846d19c1acc7d6c5837a8f9a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag `error` variant: deepen text color toward `--rialto-text-primary` so it meets WCAG AA 4.5:1 (axe color-contrast) in light and dark themes.
+
+- [#6271](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6271) [`58903c5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/58903c5e9a4f89fe5af8f63bd15f2543fa426253) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tag: keep the variant tint on hover for interactive error/success tags so text stays at 4.5:1 contrast (was surface-matte, 4.2:1 in dark).
+
 ## 0.3.3
 
 ### Patch Changes
