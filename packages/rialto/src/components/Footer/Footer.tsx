@@ -40,6 +40,8 @@ export interface FooterProps extends HTMLAttributes<HTMLElement> {
   logo?: ReactNode;
   /** Multi-column link groups (rich variant). */
   columns?: FooterColumn[];
+  /** Accessible name for the link-columns nav (rich variant). Override to keep names unique when several footers share a page. */
+  linksLabel?: string;
   /** Bottom-line copyright text (rich variant). */
   copyright?: string;
   /** Arbitrary content for the minimal variant. */
@@ -49,7 +51,19 @@ export interface FooterProps extends HTMLAttributes<HTMLElement> {
 /* ── Component ───────────────────────────────── */
 
 export const Footer = forwardRef<HTMLElement, FooterProps>(
-  ({ variant = "minimal", logo, columns, copyright, children, className, ...props }, ref) => {
+  (
+    {
+      variant = "minimal",
+      logo,
+      columns,
+      linksLabel = "Footer links",
+      copyright,
+      children,
+      className,
+      ...props
+    },
+    ref
+  ) => {
     const classes = cn(styles.footer, variant === "rich" ? styles.rich : styles.minimal, className);
 
     if (variant === "rich") {
@@ -64,7 +78,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
           </div>
 
           {columns && columns.length > 0 && (
-            <nav aria-label="Footer links" className={styles.columns}>
+            <nav aria-label={linksLabel} className={styles.columns}>
               {columns.map((col) => (
                 <div key={col.title} className={styles.column}>
                   <div className={styles.columnTitle}>{col.title}</div>

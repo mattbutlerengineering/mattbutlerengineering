@@ -477,13 +477,14 @@ Page footer with two layout variants.
 
 ### Props {#footer-props}
 
-| Prop        | Type                  | Required | Default     | Description                         |
-| ----------- | --------------------- | -------- | ----------- | ----------------------------------- |
-| `variant`   | `'minimal' \| 'rich'` | No       | `'minimal'` | Layout variant                      |
-| `logo`      | `ReactNode`           | No       | "Rialto"    | Logo element (rich variant)         |
-| `columns`   | `FooterColumn[]`      | No       | -           | Multi-column link groups (rich)     |
-| `copyright` | `string`              | No       | -           | Bottom-line copyright text (rich)   |
-| `children`  | `ReactNode`           | No       | -           | Arbitrary content (minimal variant) |
+| Prop         | Type                  | Required | Default        | Description                                 |
+| ------------ | --------------------- | -------- | -------------- | ------------------------------------------- |
+| `variant`    | `'minimal' \| 'rich'` | No       | `'minimal'`    | Layout variant                              |
+| `logo`       | `ReactNode`           | No       | "Rialto"       | Logo element (rich variant)                 |
+| `columns`    | `FooterColumn[]`      | No       | -              | Multi-column link groups (rich)             |
+| `linksLabel` | `string`              | No       | "Footer links" | Accessible name of the links `<nav>` (rich) |
+| `copyright`  | `string`              | No       | -              | Bottom-line copyright text (rich)           |
+| `children`   | `ReactNode`           | No       | -              | Arbitrary content (minimal variant)         |
 
 ### Data Structures {#footer-data-structures}
 
@@ -506,7 +507,7 @@ interface FooterColumn {
 ### Accessibility {#footer-accessibility}
 
 - Footer links have `focusRing` for gold glow on focus-visible
-- Column links wrapped in `<nav aria-label="Footer links">`
+- Column links wrapped in `<nav aria-label={linksLabel}>` (default "Footer links"); give each footer a unique `linksLabel` when several render on one page
 - Semantic `<footer>` element
 
 ### WCAG Conformance {#footer-wcag-conformance}
@@ -519,11 +520,11 @@ interface FooterColumn {
 
 ### Common Mistakes {#footer-common-mistakes}
 
-| Mistake                                      | Impact                                                      | Fix                                                      |
-| -------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
-| Using `<div>` instead of `<footer>`          | Assistive technology cannot identify the footer landmark    | Component uses semantic `<footer>` automatically         |
-| Footer links without visible focus indicator | Keyboard users cannot see which link is focused             | Links compose `focusRing` for gold glow on focus-visible |
-| Missing `aria-label` on footer navigation    | Multiple `<nav>` landmarks are ambiguous for screen readers | Rich variant includes `aria-label="Footer links"` on nav |
+| Mistake                                      | Impact                                                      | Fix                                                                                                   |
+| -------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Using `<div>` instead of `<footer>`          | Assistive technology cannot identify the footer landmark    | Component uses semantic `<footer>` automatically                                                      |
+| Footer links without visible focus indicator | Keyboard users cannot see which link is focused             | Links compose `focusRing` for gold glow on focus-visible                                              |
+| Missing `aria-label` on footer navigation    | Multiple `<nav>` landmarks are ambiguous for screen readers | Rich variant labels its nav via `linksLabel` (default "Footer links"); pass a unique value per footer |
 
 ### Visual Design {#footer-visual-design}
 
