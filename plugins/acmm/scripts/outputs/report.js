@@ -18,6 +18,7 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
 import { loadReasonBreakdown } from "../human-touch-reasons.js";
 import { classifyEvalsReading } from "../evals-freshness.js";
 import { describeBehavioralAge } from "../behavioral-freshness.js";
+import { checkDetectionLabel, isCheckCriterion } from "./detection-label.js";
 
 /**
  * @param {string} cwd
@@ -29,20 +30,10 @@ import { describeBehavioralAge } from "../behavioral-freshness.js";
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
  * @param {Array<{id: string, reason: string}>} [args.unverifiableCriteria]
- * @param {Map<string, 'local' | 'inherited' | 'not-found'>} [args.origins] Sub-project origin map; omit for root audits.
  */
 export function writeReport(
   cwd,
-  {
-    state,
-    criteria,
-    sources,
-    computation,
-    diff,
-    hollowCriteria = [],
-    unverifiableCriteria = [],
-    origins,
-  }
+  { state, criteria, sources, computation, diff, hollowCriteria = [], unverifiableCriteria = [] }
 ) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
@@ -161,7 +152,9 @@ export function writeReport(
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
-      const fixHint = remediationHint(patterns);
+      const fixHint = isCheckCriterion(c)
+        ? `satisfy ${checkDetectionLabel(c)}`
+        : remediationHint(patterns);
       lines.push(`- **\`${c.id}\`** — ${c.name}`);
       lines.push(`  → ${fixHint}`);
     }
@@ -402,24 +395,12 @@ export function writeReport(
     if (levelCriteria.length === 0) continue;
     const det = levelCriteria.filter((c) => detectedSet.has(c.id)).length;
 
-    // Inheritance summary: only shown when origins map is provided (sub-project audits)
-    let inheritanceSummary = "";
-    if (origins) {
-      const localCount = levelCriteria.filter(
-        (c) => detectedSet.has(c.id) && origins.get(c.id) === "local"
-      ).length;
-      const inheritedCount = levelCriteria.filter(
-        (c) => detectedSet.has(c.id) && origins.get(c.id) === "inherited"
-      ).length;
-      inheritanceSummary = ` · ${localCount} local / ${inheritedCount} inherited`;
-    }
-
     const status =
       level === 0
-        ? `(prerequisite, ${det}/${levelCriteria.length}${inheritanceSummary})`
+        ? `(prerequisite, ${det}/${levelCriteria.length})`
         : computation.level >= level
-          ? `✓ achieved (${det}/${levelCriteria.length}${inheritanceSummary})`
-          : `✗ gaps (${det}/${levelCriteria.length}${inheritanceSummary})`;
+          ? `✓ achieved (${det}/${levelCriteria.length})`
+          : `✗ gaps (${det}/${levelCriteria.length})`;
     lines.push(`## Level ${level} ${status}`);
     lines.push("");
     for (const c of levelCriteria) {
@@ -428,20 +409,9 @@ export function writeReport(
         ? c.detection.pattern
         : [c.detection.pattern];
 
-      // Per-criterion origin marker (sub-project audits only, detected criteria only)
-      const origin = origins?.get(c.id);
-      const originTag =
-        detectedSet.has(c.id) && (origin === "local" || origin === "inherited")
-          ? ` [${origin}]`
-          : "";
-
-      lines.push(
-        `- **${mark} \`${c.id}\`**${originTag} \`${c.source}\` \`${c.category}\` — ${c.name}`
-      );
+      lines.push(`- **${mark} \`${c.id}\`** \`${c.source}\` \`${c.category}\` — ${c.name}`);
       lines.push(`  _${c.description}_`);
-      lines.push(
-        `  Detection (${c.detection.type}): ${patterns.map((p) => `\`${p}\``).join(" · ")}`
-      );
+      lines.push(`  Detection (${c.detection.type}): ${detectionText(c, patterns)}`);
     }
     lines.push("");
   }
@@ -460,7 +430,7 @@ export function writeReport(
         : [c.detection.pattern];
       lines.push(`- **\`${c.id}\`** — ${c.name}`);
       lines.push(`  ${c.description}`);
-      lines.push(`  _Detection:_ ${patterns.map((p) => `\`${p}\``).join(" · ")}`);
+      lines.push(`  _Detection:_ ${detectionText(c, patterns)}`);
     }
     lines.push("");
   }
@@ -507,6 +477,16 @@ function remediationHint(patterns) {
     .slice(1)
     .map((p) => (typeof p === "string" ? `\`${p}\`` : `\`${p.file || JSON.stringify(p)}\``))
     .join(", ")})`;
+}
+
+/**
+ * Detection text for a criterion: check() label for check-type, patterns otherwise.
+ * @param {{ detection: { type: string }, check?: Function }} c
+ * @param {Array<string | {file: string}>} patterns
+ * @returns {string}
+ */
+function detectionText(c, patterns) {
+  return isCheckCriterion(c) ? checkDetectionLabel(c) : patterns.map((p) => `\`${p}\``).join(" · ");
 }
 
 /**

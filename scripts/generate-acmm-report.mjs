@@ -37,7 +37,7 @@ export function loadRootState(rootDir) {
  * `null` + `evalsStale: true` otherwise. Reuses the shared threshold rather
  * than re-implementing it (#5855 AC 3).
  */
-function transformEvals(evalsReading, opts) {
+export function transformEvals(evalsReading, opts) {
   const { state, lastRun } = classifyEvalsReading(evalsReading, opts);
   if (state === "current") {
     return { evalPassRate: evalsReading.passRate, evalsStale: false, evalsLastRun: lastRun };
@@ -62,7 +62,8 @@ export function transformRepoState(state, opts = {}) {
     behavioral: {
       ciFlakeRate: state.behavioral?.flake?.rate_30d ?? 0,
       agentPrAcceptanceRate: state.behavioral?.agent_pr?.acceptance_rate_30d ?? 0,
-      agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? 0,
+      // null = unverifiable (#5852); never coerce to 0%
+      agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? null,
       ...transformEvals(state.behavioral?.evals, opts),
     },
     checks: Object.fromEntries(

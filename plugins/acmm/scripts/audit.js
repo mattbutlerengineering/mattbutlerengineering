@@ -17,8 +17,7 @@
  */
 
 import { ALL_CRITERIA, SOURCES } from "./sources/index.js";
-import { verdictCounts } from "./evaluate.js";
-import { evaluateWithInheritance } from "./inheritance.js";
+import { evaluateAll, verdictCounts } from "./evaluate.js";
 import { substanceCheckers } from "./substance.js";
 import { computeLevel } from "./computeLevel.js";
 import { computeDetectionDiff } from "./diff.js";
@@ -230,47 +229,8 @@ async function main() {
     }
   }
 
-  // --project <path> support
-  let projectPath = process.cwd();
-  const projectIdx = process.argv.indexOf("--project");
-  if (projectIdx >= 0 && process.argv[projectIdx + 1]) {
-    projectPath = path.resolve(process.cwd(), process.argv[projectIdx + 1]);
-  }
-  const cwd = projectPath;
-  const repoRoot = process.cwd();
-
-  // Load project acmm config if it exists
-  let acmmConfig = {
-    inherit: false,
-    globalPaths: [
-      ".github/",
-      "CONTRIBUTING.md",
-      "docs/",
-      "scripts/acmm/",
-      ".claude/settings.json",
-      "package.json",
-      "pnpm-workspace.yaml",
-      "turbo.json",
-    ],
-    // These MUST be local to be detected for a project, even if inherit is true
-    localOnly: ["CLAUDE.md", "AGENTS.md", "llms.txt", "llms-full.txt", ".cursorrules"],
-  };
-  try {
-    const pkgPath = path.join(cwd, "package.json");
-    if (fs.existsSync(pkgPath)) {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-      if (pkg.acmm) {
-        if (pkg.acmm.globalPaths) {
-          acmmConfig.globalPaths = [
-            ...new Set([...acmmConfig.globalPaths, ...pkg.acmm.globalPaths]),
-          ];
-        }
-        if (pkg.acmm.inherit !== undefined) acmmConfig.inherit = pkg.acmm.inherit;
-      }
-    }
-  } catch {
-    // Ignore
-  }
+  const cwd = process.cwd();
+  const repoRoot = cwd;
 
   /** Read .github/auto-qa-tuning.json and return the history entry count. */
   function measureAutoQaTuning(root) {
@@ -307,13 +267,8 @@ async function main() {
   // answer a different question (did THIS criterion's own gh call fail).
   const ghAvailable = checkGhAvailable();
 
-  // Evaluate all criteria through the verdict seam, with inheritance support
-  const { detectedIds, unverifiableIds, criterionVerdicts, origins } = evaluateWithInheritance(
-    ALL_CRITERIA,
-    cwd,
-    repoRoot,
-    acmmConfig
-  );
+  // Evaluate all criteria through the verdict seam
+  const { detectedIds, unverifiableIds, criterionVerdicts } = evaluateAll(ALL_CRITERIA, cwd);
 
   // Collect hollow criteria for the report section (#2022)
   const hollowCriteria = [];
@@ -512,7 +467,6 @@ async function main() {
     diff,
     hollowCriteria,
     unverifiableCriteria,
-    origins,
   });
 
   /* ── State write policy (#5852 AC9) ──────────────────────────

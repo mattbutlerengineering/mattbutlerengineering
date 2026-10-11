@@ -4,7 +4,7 @@
  * upstream frameworks (kubestellar/console, Fullsend, AEF, Claude Reflect).
  *
  * `definesLevels: false` — this source never gates the published ACMM level.
- * It exists so these ideas stay visible (headline count, `--project` reports)
+ * It exists so these ideas stay visible (headline count)
  * without letting a repo-invented, self-graded criterion move the number
  * that's supposed to measure parity against an external, cited standard.
  *

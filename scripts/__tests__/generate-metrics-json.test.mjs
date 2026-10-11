@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { checkFreshness, selectRecentAgentChanges } from "../generate-metrics-json.mjs";
+import {
+  checkFreshness,
+  selectRecentAgentChanges,
+  transformBehavioral,
+} from "../generate-metrics-json.mjs";
 
 describe("checkFreshness", () => {
   it("does not throw when lastRun is within the 14-day freshness window", () => {
@@ -138,5 +142,54 @@ describe("selectRecentAgentChanges", () => {
     ]);
 
     expect(selectRecentAgentChanges(state).map((c) => c.number)).toEqual([3]);
+  });
+});
+
+describe("transformBehavioral", () => {
+  const NOW = new Date("2026-09-28T16:07:00.000Z");
+  const base = {
+    behavioral: {
+      flake: { rate_30d: 0.02 },
+      agent_pr: { acceptance_rate_30d: 0.98, revert_rate_30d: 0 },
+      evals: {
+        n: 37,
+        passRate: 0.8649,
+        medianScore: 0.9,
+        lastRun: "2026-05-10T21:42:57.095Z",
+        windowDays: 30,
+      },
+    },
+  };
+
+  it("a stale eval reading emits null pass rate and median score, never a percentage", () => {
+    const b = transformBehavioral(base, { now: NOW });
+    expect(b.evalPassRate).toBeNull();
+    expect(b.evalMedianScore).toBeNull();
+    expect(b.evalsStale).toBe(true);
+    expect(b.evalsLastRun).toBe("2026-05-10T21:42:57.095Z");
+  });
+
+  it("a current eval reading emits the live pass rate and median score", () => {
+    const fresh = {
+      behavioral: {
+        ...base.behavioral,
+        evals: { ...base.behavioral.evals, lastRun: "2026-09-25T00:00:00.000Z" },
+      },
+    };
+    const b = transformBehavioral(fresh, { now: NOW });
+    expect(b.evalPassRate).toBe(0.8649);
+    expect(b.evalMedianScore).toBe(0.9);
+    expect(b.evalsStale).toBe(false);
+  });
+
+  it("a null revert rate stays null instead of coercing to 0", () => {
+    const nullRevert = {
+      behavioral: {
+        ...base.behavioral,
+        agent_pr: { acceptance_rate_30d: 0.9, revert_rate_30d: null },
+      },
+    };
+    expect(transformBehavioral(nullRevert, { now: NOW }).agentPrRevertRate).toBeNull();
+    expect(transformBehavioral(base, { now: NOW }).agentPrRevertRate).toBe(0);
   });
 });

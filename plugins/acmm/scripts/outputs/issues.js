@@ -11,6 +11,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { checkDetectionLabel, isCheckCriterion } from "./detection-label.js";
 import { fileIssue } from "../../../../scripts/lib/issue-filing.mjs";
 
 /**
@@ -88,8 +89,9 @@ export function buildIssueBody(c) {
     c.rationale,
     ``,
     ...(c.details ? [`**Implementation note:**`, c.details, ``] : []),
-    `**Detection:** any of:`,
-    ...patterns.map((p) => `- \`${p}\``),
+    ...(isCheckCriterion(c)
+      ? [`**Detection:** ${checkDetectionLabel(c)}`]
+      : [`**Detection:** any of:`, ...patterns.map((p) => `- \`${p}\``)]),
     ``,
     `_Filed automatically by \`/acmm-audit --apply\`. See \`.claude/acmm/report.md\` for the full scorecard._`,
     ``,

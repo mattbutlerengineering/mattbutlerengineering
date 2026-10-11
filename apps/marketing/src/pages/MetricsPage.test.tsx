@@ -420,6 +420,47 @@ describe("MetricsPage", () => {
     expect(screen.getByText(/No recent changes/i)).toBeInTheDocument();
   });
 
+  it("renders a stale eval reading as 'not measured', never a percentage (#5858)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioral: {
+          ...MOCK_METRICS.behavioral,
+          evalPassRate: null,
+          evalMedianScore: null,
+          evalsStale: true,
+          evalsLastRun: "2026-05-10T12:00:00.000Z",
+        },
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Eval Pass Rate")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Not measured since May 10, 2026/)).toBeInTheDocument();
+    expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
+  });
+
+  it("renders a null revert rate as 'Unverifiable', never 0% (#5858)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioral: { ...MOCK_METRICS.behavioral, agentPrRevertRate: null },
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("PR Revert Rate")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Unverifiable")).toBeInTheDocument();
+    expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
+  });
+
   it("renders without crashing against metrics.json lacking recentAgentChanges", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_METRICS });
     renderPage();

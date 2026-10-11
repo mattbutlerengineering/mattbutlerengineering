@@ -228,3 +228,24 @@ export function evaluate(criterion, cwd, opts = {}) {
 export function verdictCounts(verdict) {
   return verdict === "pass";
 }
+
+/**
+ * Evaluate every criterion at `cwd` and bucket the verdicts.
+ *
+ * @param {Array} allCriteria
+ * @param {string} cwd
+ * @param {Object} [opts] Passed through to evaluate() (e.g. execFileSyncFn)
+ * @returns {{ detectedIds: Set<string>, unverifiableIds: Set<string>, criterionVerdicts: Map<string, Object> }}
+ */
+export function evaluateAll(allCriteria, cwd, opts = {}) {
+  const detectedIds = new Set();
+  const unverifiableIds = new Set();
+  const criterionVerdicts = new Map();
+  for (const criterion of allCriteria) {
+    const result = evaluate(criterion, cwd, opts);
+    criterionVerdicts.set(criterion.id, result);
+    if (result.verdict === "pass") detectedIds.add(criterion.id);
+    else if (result.verdict === "unverifiable") unverifiableIds.add(criterion.id);
+  }
+  return { detectedIds, unverifiableIds, criterionVerdicts };
+}

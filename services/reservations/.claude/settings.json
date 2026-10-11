@@ -15,8 +15,7 @@
       "Bash(pnpm --dir services/reservations db:generate)",
       "Bash(pnpm --dir services/reservations db:push)",
       "Bash(pnpm --dir services/reservations db:migrate)",
-      "Bash(pnpm --dir services/reservations db:studio)",
-      "Bash(node plugins/acmm/scripts/audit.js --project services/reservations)"
+      "Bash(pnpm --dir services/reservations db:studio)"
     ],
     "deny": ["Bash(**drop**)", "Bash(**TRUNCATE**)", "Bash(**DELETE FROM**)"]
   }

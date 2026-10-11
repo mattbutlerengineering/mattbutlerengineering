@@ -43,15 +43,29 @@ interface AcmmMetrics {
   readonly behavioral: {
     readonly ciFlakeRate: number;
     readonly agentPrAcceptanceRate: number;
-    readonly agentPrRevertRate: number;
-    readonly evalPassRate: number;
-    readonly evalMedianScore: number;
+    /** null = unverifiable (#5852). */
+    readonly agentPrRevertRate: number | null;
+    /** null when the eval reading is not current (#5858). */
+    readonly evalPassRate: number | null;
+    readonly evalMedianScore: number | null;
+    /** Absent in metrics.json generated before staleness was tracked. */
+    readonly evalsStale?: boolean;
+    readonly evalsLastRun?: string | null;
   };
   readonly history: readonly HistoryEntry[];
   /** Absent in metrics.json generated before this field existed. */
   readonly recentAgentChanges?: readonly RecentAgentChange[];
   readonly detectedByLevel: Record<string, number>;
   readonly behavioralGates: readonly BehavioralGate[];
+}
+
+function formatEvalPassRate(behavioral: AcmmMetrics["behavioral"]): string {
+  if (behavioral.evalPassRate === null) {
+    return behavioral.evalsLastRun
+      ? `Not measured since ${formatDate(behavioral.evalsLastRun)}`
+      : "Not measured";
+  }
+  return formatRatio(behavioral.evalPassRate);
 }
 
 async function fetchMetrics(signal: AbortSignal): Promise<AcmmMetrics> {
@@ -180,7 +194,9 @@ export function MetricsPage() {
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PR Revert Rate</Text>
             <Text className={styles.statValue}>
-              {formatRatio(metrics.behavioral.agentPrRevertRate)}
+              {metrics.behavioral.agentPrRevertRate === null
+                ? "Unverifiable"
+                : formatRatio(metrics.behavioral.agentPrRevertRate)}
             </Text>
           </Card>
           <Card className={styles.statCard}>
@@ -189,7 +205,7 @@ export function MetricsPage() {
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Eval Pass Rate</Text>
-            <Text className={styles.statValue}>{formatRatio(metrics.behavioral.evalPassRate)}</Text>
+            <Text className={styles.statValue}>{formatEvalPassRate(metrics.behavioral)}</Text>
           </Card>
         </div>
       </section>
