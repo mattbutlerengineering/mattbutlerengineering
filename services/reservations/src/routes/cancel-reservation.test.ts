@@ -626,6 +626,91 @@ describe("DELETE /public/v1/reservations/manage", () => {
   });
 });
 
+describe("DELETE /public/v1/reservations/manage — body validation", () => {
+  // Fresh app instance so the main suite's 10-request rate limit does not bleed in.
+  let validationApp: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    validationApp = await buildApp({
+      services: { depositService: injectedDeposits },
+      logger: false,
+      jobs: createStubJobs(),
+    });
+    await validationApp.ready();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await validationApp.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  it("returns 400 (not 500) when cancellationReason is not a string", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    const response = await validationApp.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { cancellationReason: { nested: "object" } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 (not 500) when cancellationNote is not a string", async () => {
+    // AJV coerces a bare number/boolean to a string by default (Fastify's
+    // schema-compiler default), so this must use a non-coercible shape —
+    // same reasoning as the sibling cancellationReason test above.
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    const response = await validationApp.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { cancellationNote: ["not", "a", "string"] },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when cancellationNote exceeds the max length", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    const response = await validationApp.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { cancellationNote: "x".repeat(501) },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
+  it("still cancels successfully with no body at all (common case — no reason given)", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await validationApp.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+});
+
 describe("DELETE /public/v1/reservations/manage — rate limiting", () => {
   it("has rate limiting configured at 10 req/min", async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";

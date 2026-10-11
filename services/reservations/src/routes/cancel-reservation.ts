@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, cancelReservationBodyJsonSchema } from "@mbe/types";
 import { requireManageToken } from "../middleware/require-manage-token.js";
 import {
   loadReservationForManage,
@@ -17,6 +17,19 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
+      schema: {
+        body: cancelReservationBodyJsonSchema,
+      },
+      // A bare DELETE with no body at all (the common case — most guests
+      // cancel without giving a reason) leaves `request.body` as `undefined`,
+      // which the AJV "object" type check rejects before the handler ever
+      // runs. Default it to `{}` so the schema below only constrains a body
+      // that was actually sent, not the common no-body request.
+      preValidation: async (request) => {
+        if (request.body === undefined) {
+          request.body = {};
+        }
       },
       preHandler: requireManageToken,
     },
