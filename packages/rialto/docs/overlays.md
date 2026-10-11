@@ -299,12 +299,14 @@ Positioned floating content.
 
 ### Props {#popover-props}
 
-| Prop           | Type                      | Required | Default    | Description     |
-| -------------- | ------------------------- | -------- | ---------- | --------------- |
-| `open`         | `boolean`                 | Yes      | -          | Open state      |
-| `onOpenChange` | `(open: boolean) => void` | Yes      | -          | State handler   |
-| `content`      | `ReactNode`               | Yes      | -          | Popover content |
-| `placement`    | `Placement`               | No       | `'bottom'` | Position        |
+| Prop           | Type                      | Required | Default    | Description                                                      |
+| -------------- | ------------------------- | -------- | ---------- | ---------------------------------------------------------------- |
+| `trigger`      | `ReactElement`            | Yes      | -          | Element whose click toggles the popover                          |
+| `children`     | `ReactNode`               | Yes      | -          | Popover content                                                  |
+| `title`        | `string`                  | No       | -          | Header title (renders a close button)                            |
+| `placement`    | `Placement`               | No       | `'bottom'` | Position relative to the trigger                                 |
+| `open`         | `boolean`                 | No       | -          | Controlled open state; omit for uncontrolled                     |
+| `onOpenChange` | `(open: boolean) => void` | No       | -          | Called with the requested next state on every open/close attempt |
 
 ### Placement Options {#popover-placement-options}
 
@@ -353,8 +355,8 @@ Positioned floating content.
 ### Example {#popover-example}
 
 ```tsx
-<Popover open={isOpen} onOpenChange={setOpen} content={<div>Popover content</div>}>
-  <Button>Open</Button>
+<Popover open={isOpen} onOpenChange={setOpen} trigger={<Button>Open</Button>}>
+  <div>Popover content</div>
 </Popover>
 ```
 

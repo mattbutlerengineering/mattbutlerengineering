@@ -3,7 +3,7 @@
  * focus return to the trigger once a complete range is picked or on Escape.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DateRangePicker } from "./DateRangePicker";
 import type { DateRangeValue } from "../DateRange/DateRange";
@@ -76,8 +76,8 @@ describe("DateRangePicker", () => {
     await user.click(cell(container, "2024-06-20"));
 
     expect(onChange).toHaveBeenCalledWith({ start: "2024-06-10", end: "2024-06-20" });
-    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
-    expect(document.activeElement).toBe(screen.getByLabelText("Dates"));
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Dates")));
   });
 
   it("Escape closes the popover and returns focus to the trigger", async () => {
@@ -89,8 +89,8 @@ describe("DateRangePicker", () => {
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
-    expect(document.activeElement).toBe(screen.getByLabelText("Dates"));
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Dates")));
   });
 
   it("wires aria-expanded, aria-haspopup, and aria-controls on the trigger, toggling on open", async () => {

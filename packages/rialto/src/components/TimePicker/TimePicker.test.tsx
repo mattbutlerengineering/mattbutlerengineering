@@ -4,7 +4,7 @@
  * operation, and focus return to the trigger on select and Escape.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TimePicker } from "./TimePicker";
 
@@ -61,9 +61,9 @@ describe("TimePicker", () => {
     await user.click(option("10:00"));
 
     expect(onChange).toHaveBeenCalledWith("10:00");
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    // The Popover remounts closed on select; focus lands on the fresh trigger.
-    expect(document.activeElement).toBe(screen.getByLabelText("Time"));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    // Closing is async (exit animation + rAF focus restore).
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Time")));
   });
 
   it("Escape closes the popover and returns focus to the trigger", async () => {
@@ -73,8 +73,8 @@ describe("TimePicker", () => {
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    expect(document.activeElement).toBe(screen.getByLabelText("Time"));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Time")));
   });
 
   it("disables out-of-range options when min/max bounds are set", async () => {
