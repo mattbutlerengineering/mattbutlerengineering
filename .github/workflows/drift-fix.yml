@@ -69,6 +69,15 @@ jobs:
         # regen --check. Better to fail here, loudly, than to ship a red PR.
         run: pnpm regen --check
 
+      - name: Resolve artifact paths from the manifest
+        id: artifact-paths
+        run: |
+          {
+            echo "paths<<EOF_PATHS"
+            node scripts/regen-manifest.mjs --paths
+            echo "EOF_PATHS"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Open PR with regenerated artifacts
         id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -111,31 +120,9 @@ jobs:
           delete-branch: true
           # Scoped to generated artifacts only. `pnpm install` in this repo
           # triggers a prettier reflow across ~150 tracked files; committing
-          # everything would sweep that in. Root entries are listed explicitly
-          # because a bare `**/llms.txt` glob does not match the repo-root file.
-          #
-          # Keep in sync with the `outputs` in scripts/regen-manifest.mjs.
-          add-paths: |
-            llms.txt
-            llms-full.txt
-            apps/*/llms.txt
-            apps/*/llms-full.txt
-            packages/*/llms.txt
-            packages/*/llms-full.txt
-            services/*/llms.txt
-            services/*/llms-full.txt
-            tools/*/llms.txt
-            tools/*/llms-full.txt
-            infrastructure/*/llms.txt
-            infrastructure/*/llms-full.txt
-            packages/rialto/package.json
-            packages/rialto/registry.json
-            packages/rialto/figma-tokens.json
-            packages/rialto/src/tokens/colors.css
-            packages/rialto-catalog/src/generated-schemas.ts
-            infrastructure/worker/dep-graph.json
-            docs/architecture/dependency-graph.md
-            metrics/ui-quality-ledger.jsonl
+          # everything would sweep that in. The path list comes from the manifest
+          # (scripts/regen-manifest.mjs --paths) in the step above, never restated.
+          add-paths: ${{ steps.artifact-paths.outputs.paths }}
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch

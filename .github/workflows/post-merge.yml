@@ -34,32 +34,17 @@ jobs:
       - name: Build CLI
         run: pnpm build --filter @mbe/cli...
 
-      - name: Regenerate llms.txt files
-        run: |
-          for pkg in packages/* apps/* services/*; do
-            if [ -f "$pkg/llms.txt" ]; then
-              echo "Regenerating $pkg..."
-              node tools/cli/dist/index.js pack "$pkg"
-            fi
-          done
-
-      - name: Regenerate dep-graph
-        run: node scripts/generate-dep-graph.mjs
-
-      - name: Regenerate component registry
-        run: pnpm --filter @mattbutlerengineering/rialto build:registry
-
-      - name: Regenerate rialto catalog
-        run: pnpm --filter @mbe/rialto-catalog generate
-
-      - name: Regenerate architecture graph
-        run: pnpm graph
+      - name: Regenerate all committed artifacts
+        # Same entry point as CI and drift-fix: the manifest owns the family
+        # list, so this job cannot miss the root llms.txt or any new family.
+        run: pnpm regen
 
       - name: Commit and push if changed
         run: |
-          git diff --quiet && exit 0
+          mapfile -t paths < <(node scripts/regen-manifest.mjs --paths)
+          git diff --quiet -- "${paths[@]}" && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -- "${paths[@]}"
           git commit -m "chore: regenerate generated files [skip ci]"
           git push

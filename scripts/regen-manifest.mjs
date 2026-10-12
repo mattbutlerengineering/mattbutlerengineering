@@ -15,8 +15,11 @@
  *
  * Usage:
  *   node scripts/regen-manifest.mjs                       # regenerate all families
- *   node scripts/regen-manifest.mjs --check                # exit non-zero if any artifact is stale
- *   node scripts/regen-manifest.mjs --families-for <path>  # print JSON: families a single edit affects
+ *   node scripts/regen-manifest.mjs --families-for <path> [--hook-mode stage|warn]
+ *                                                          # print JSON: families a single edit affects
+ *   node scripts/regen-manifest.mjs --paths               # print every committed artifact path, one per line
+ *
+ * Staleness checking lives in regen.mjs (`pnpm regen --check`) — the one --check.
  *
  * Adding a 6th family:
  *   Append one more object to the FAMILIES array below following the same shape.
@@ -54,16 +57,6 @@ function run(cmd, { silent = false } = {}) {
   });
 }
 
-/** Returns true when all listed paths are unmodified vs. the index. */
-function isClean(paths) {
-  try {
-    run(["git", "diff", "--quiet", "--", ...paths], { silent: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Manifest — add new families here
 // ---------------------------------------------------------------------------
@@ -73,6 +66,11 @@ export const FAMILIES = [
   {
     id: "llms-txt",
     label: "llms.txt context files",
+    // PostToolUse hook ownership: "warn" families are regenerated and only
+    // reported only; stage them yourself (`pnpm regen --check` in pre-push/CI
+    // enforces it). The default "stage" families are also `git add`ed. Each
+    // hook handles one mode, so one edit never runs a family twice.
+    hookMode: "warn",
     // regen.mjs special-cases this family: it loops `mbe pack <pkg>` across
     // every known package (see regenLlms in regen.mjs). There is no single
     // CLI command that regenerates all llms.txt files, so the remediation
@@ -160,7 +158,10 @@ export const FAMILIES = [
     id: "rialto-catalog-schemas",
     label: "packages/rialto-catalog/src/generated-schemas.ts",
     command: "pnpm --filter @mbe/rialto-catalog generate",
-    outputs: ["packages/rialto-catalog/src/generated-schemas.ts"],
+    outputs: [
+      "packages/rialto-catalog/src/generated-schemas.ts",
+      "packages/rialto-catalog/src/generated-catalog.ts",
+    ],
   },
   {
     id: "rialto-color-tokens",
@@ -259,6 +260,14 @@ export const REGEN_SOURCE_EXCLUDES = [
 // llms.txt packages — derived from the manifest outputs list
 // ---------------------------------------------------------------------------
 
+/** Written by `pnpm --filter rialto exports`, a pre-regen step (not a FAMILY). */
+const EXTRA_STAGED_PATHS = ["packages/rialto/package.json"];
+
+/** Every committed generated-artifact path, deduplicated, in manifest order. */
+export function artifactPaths() {
+  return [...new Set([...FAMILIES.flatMap((f) => f.outputs), ...EXTRA_STAGED_PATHS])];
+}
+
 /** All workspace directories that carry an llms.txt (relative to root). */
 export function llmsPackages() {
   return FAMILIES.find((f) => f.id === "llms-txt")
@@ -324,10 +333,11 @@ function packageDirFor(path) {
  * @param {Array<{id: string, label: string, changedBy?: (path: string) => {command: string, outputs: string[]} | null}>} [families]
  * @returns {Array<{id: string, label: string, command: string, outputs: string[]}>}
  */
-export function familiesForChangedFile(path, families = FAMILIES) {
+export function familiesForChangedFile(path, families = FAMILIES, hookMode = null) {
   const matches = [];
   for (const family of families) {
     if (typeof family.changedBy !== "function") continue;
+    if (hookMode && (family.hookMode ?? "stage") !== hookMode) continue;
     const scoped = family.changedBy(path);
     if (scoped) {
       matches.push({
@@ -346,33 +356,31 @@ export function familiesForChangedFile(path, families = FAMILIES) {
 // ---------------------------------------------------------------------------
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const checkMode = process.argv.includes("--check");
-  const familiesForFlagIdx = process.argv.indexOf("--families-for");
+  const argv = process.argv;
+  const flagValue = (flag) => {
+    const idx = argv.indexOf(flag);
+    return idx === -1 ? undefined : argv[idx + 1];
+  };
 
-  if (familiesForFlagIdx !== -1) {
+  if (argv.includes("--paths")) {
+    console.log(artifactPaths().join("\n"));
+  } else if (argv.includes("--families-for")) {
     // Shell-consumable mode for hooks: print the JSON array of families a
     // single changed file affects, so bash never has to know a family's
     // output paths or regen command — see regen-dep-graph.sh / regen-llms.sh.
-    const changedPath = process.argv[familiesForFlagIdx + 1];
-    if (!changedPath) {
-      console.error("Usage: regen-manifest.mjs --families-for <path>");
+    const changedPath = flagValue("--families-for");
+    const hookMode = flagValue("--hook-mode") ?? null;
+    if (
+      !changedPath ||
+      changedPath.startsWith("--") ||
+      ![null, "stage", "warn"].includes(hookMode)
+    ) {
+      console.error("Usage: regen-manifest.mjs --families-for <path> [--hook-mode stage|warn]");
       process.exit(1);
     }
-    console.log(JSON.stringify(familiesForChangedFile(changedPath)));
-  } else if (checkMode) {
-    const stale = FAMILIES.filter((f) => !isClean(f.outputs));
-    if (stale.length === 0) {
-      console.log("All generated artifacts are up to date.");
-      process.exit(0);
-    }
-    console.error(`Stale artifacts detected (${stale.length}):\n`);
-    for (const f of stale) {
-      console.error(`  [${f.id}]  ${f.label}`);
-      console.error(`          fix: ${f.command}\n`);
-    }
-    process.exit(1);
+    console.log(JSON.stringify(familiesForChangedFile(changedPath, FAMILIES, hookMode)));
   } else {
-    // Delegate to regen.mjs which handles the llms.txt family individually
-    run(["node", resolve(__dirname, "regen.mjs")]);
+    // Delegate to regen.mjs, which owns regeneration and the one `--check`.
+    run(["node", resolve(__dirname, "regen.mjs"), ...argv.slice(2)]);
   }
 }
