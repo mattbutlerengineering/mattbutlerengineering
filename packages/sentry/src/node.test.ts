@@ -16,34 +16,18 @@ vi.mock("@sentry/node", () => ({
   captureMessage: mockCaptureMessage,
 }));
 
-vi.mock("@mbe/types", () => ({
-  createProblemDetails: vi.fn(
-    (status: number, title: string, message: string, type: string, instance: string) => ({
-      status,
-      title,
-      detail: message,
-      type,
-      instance,
-    })
-  ),
-}));
-
-import { initSentry } from "./node.js";
+import { captureRequestError, initSentry } from "./node.js";
 
 // Helper to build a fake Fastify instance for plugin testing
 function buildFakeFastify() {
   const hooks: Record<string, ((...args: unknown[]) => unknown)[]> = {};
-  let errorHandler: ((err: unknown, req: unknown, reply: unknown) => void) | null = null;
 
   const fastify = {
     addHook: vi.fn((hookName: string, fn: (...args: unknown[]) => unknown) => {
       hooks[hookName] = hooks[hookName] ?? [];
       hooks[hookName].push(fn);
     }),
-    setErrorHandler: vi.fn((fn: (err: unknown, req: unknown, reply: unknown) => void) => {
-      errorHandler = fn;
-    }),
-    getErrorHandler: () => errorHandler,
+    setErrorHandler: vi.fn(),
     getHook: (name: string) => hooks[name] ?? [],
   };
 
@@ -254,13 +238,12 @@ describe("sentryFastifyPlugin", () => {
 
   it("registers no hooks when DSN is not set", async () => {
     const fakeFastify = await setupPlugin(undefined);
-    expect(fakeFastify.setErrorHandler).not.toHaveBeenCalled();
     expect(fakeFastify.addHook).not.toHaveBeenCalled();
   });
 
-  it("sets an error handler when DSN is configured", async () => {
+  it("never claims the error-handler slot (errorHandlerPlugin owns it, ADR-008)", async () => {
     const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-    expect(fakeFastify.setErrorHandler).toHaveBeenCalledTimes(1);
+    expect(fakeFastify.setErrorHandler).not.toHaveBeenCalled();
   });
 
   it("registers an onResponse hook when DSN is configured", async () => {
@@ -268,164 +251,87 @@ describe("sentryFastifyPlugin", () => {
     expect(fakeFastify.addHook).toHaveBeenCalledWith("onResponse", expect.any(Function));
   });
 
-  describe("error handler", () => {
-    it("captures exception with Sentry and sends problem details response", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
+  describe("captureRequestError", () => {
+    const fakeScope = () => ({ setTag: vi.fn(), setUser: vi.fn(), setLevel: vi.fn() });
+    const withFakeScope = (scope: ReturnType<typeof fakeScope>) =>
+      mockWithScope.mockImplementation((fn: (s: typeof scope) => void) => fn(scope));
 
-      const fakeScope = {
-        setTag: vi.fn(),
-        setUser: vi.fn(),
-        setLevel: vi.fn(),
-      };
-      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
-
+    it("captures a 5xx as an exception with its stack intact", () => {
+      withFakeScope(fakeScope());
       const error = Object.assign(new Error("Something broke"), { statusCode: 500 });
-      const request = buildFakeRequest();
-      const reply = buildFakeReply(500);
 
-      errorHandler(error, request, reply);
+      captureRequestError(error, buildFakeRequest() as never, buildFakeReply(500) as never);
 
-      expect(mockWithScope).toHaveBeenCalledTimes(1);
+      expect(mockCaptureException).toHaveBeenCalledTimes(1);
       expect(mockCaptureException).toHaveBeenCalledWith(error);
     });
 
-    it("sets scope tags from request", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
+    it("treats an error with no statusCode as a 500", () => {
+      withFakeScope(fakeScope());
+      const error = new Error("Unexpected");
 
-      const fakeScope = {
-        setTag: vi.fn(),
-        setUser: vi.fn(),
-        setLevel: vi.fn(),
-      };
-      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
-
-      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
-      const request = buildFakeRequest({ method: "POST", url: "/api/v1/things", id: "rid-1" });
-      const reply = buildFakeReply(500);
-
-      errorHandler(error, request, reply);
-
-      expect(fakeScope.setTag).toHaveBeenCalledWith("method", "POST");
-      expect(fakeScope.setTag).toHaveBeenCalledWith("url", "/api/v1/things");
-      expect(fakeScope.setTag).toHaveBeenCalledWith("requestId", "rid-1");
-    });
-
-    it("sets user context when request.user has id", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
-
-      const fakeScope = {
-        setTag: vi.fn(),
-        setUser: vi.fn(),
-        setLevel: vi.fn(),
-      };
-      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
-
-      const error = Object.assign(new Error("Boom"), { statusCode: 403 });
-      const request = buildFakeRequest({ user: { id: "user-42", email: "a@b.com" } });
-      const reply = buildFakeReply(403);
-
-      errorHandler(error, request, reply);
-
-      expect(fakeScope.setUser).toHaveBeenCalledWith({ id: "user-42", email: "a@b.com" });
-    });
-
-    it("does NOT set user context when request.user is absent", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
-
-      const fakeScope = {
-        setTag: vi.fn(),
-        setUser: vi.fn(),
-        setLevel: vi.fn(),
-      };
-      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
-
-      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
-      const request = buildFakeRequest();
-      const reply = buildFakeReply(500);
-
-      errorHandler(error, request, reply);
-
-      expect(fakeScope.setUser).not.toHaveBeenCalled();
-    });
-
-    it("marks reply as __sentryErrorCaptured to prevent double capture", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
-
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
+      captureRequestError(
+        error as never,
+        buildFakeRequest() as never,
+        buildFakeReply(500) as never
       );
 
-      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
-      const request = buildFakeRequest();
-      const reply = buildFakeReply(500) as Record<string, unknown>;
-
-      errorHandler(error, request, reply);
-
-      expect(reply.__sentryErrorCaptured).toBe(true);
+      expect(mockCaptureException).toHaveBeenCalledWith(error);
     });
 
-    it("replies with 500 and obscured message for 5xx errors", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
-
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
-
-      const error = Object.assign(new Error("DB connection failed"), { statusCode: 500 });
-      const request = buildFakeRequest();
-      const reply = buildFakeReply(500);
-
-      errorHandler(error, request, reply);
-
-      expect(reply.status).toHaveBeenCalledWith(500);
-      // The actual message should be obscured for 5xx
-      const sentPayload = reply.send.mock.calls[0]?.[0];
-      expect(sentPayload.detail).toBe("Internal Server Error");
-    });
-
-    it("replies with original message for 4xx errors", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
-
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
-
-      const error = Object.assign(new Error("Resource not found"), {
-        statusCode: 404,
-        name: "NotFoundError",
-      });
-      const request = buildFakeRequest();
+    it("does not capture 4xx errors and leaves the reply unflagged", () => {
+      withFakeScope(fakeScope());
+      const error = Object.assign(new Error("nope"), { statusCode: 404 });
       const reply = buildFakeReply(404);
 
-      errorHandler(error, request, reply);
+      captureRequestError(error, buildFakeRequest() as never, reply as never);
 
-      expect(reply.status).toHaveBeenCalledWith(404);
-      const sentPayload = reply.send.mock.calls[0]?.[0];
-      expect(sentPayload.detail).toBe("Resource not found");
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(reply.__sentryErrorCaptured).toBe(false);
     });
 
-    it("defaults to 500 when error has no statusCode", async () => {
-      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
-      const errorHandler = fakeFastify.getErrorHandler()!;
+    it("sets scope tags from request", () => {
+      const scope = fakeScope();
+      withFakeScope(scope);
+      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
+      const request = buildFakeRequest({ method: "POST", url: "/api/v1/things", id: "rid-1" });
 
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
+      captureRequestError(error, request as never, buildFakeReply(500) as never);
 
-      const error = new Error("Unexpected");
-      const request = buildFakeRequest();
+      expect(scope.setTag).toHaveBeenCalledWith("method", "POST");
+      expect(scope.setTag).toHaveBeenCalledWith("url", "/api/v1/things");
+      expect(scope.setTag).toHaveBeenCalledWith("requestId", "rid-1");
+    });
+
+    it("sets user context when request.user has id", () => {
+      const scope = fakeScope();
+      withFakeScope(scope);
+      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
+      const request = buildFakeRequest({ user: { id: "user-42", email: "a@b.com" } });
+
+      captureRequestError(error, request as never, buildFakeReply(500) as never);
+
+      expect(scope.setUser).toHaveBeenCalledWith({ id: "user-42", email: "a@b.com" });
+    });
+
+    it("does NOT set user context when request.user is absent", () => {
+      const scope = fakeScope();
+      withFakeScope(scope);
+      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
+
+      captureRequestError(error, buildFakeRequest() as never, buildFakeReply(500) as never);
+
+      expect(scope.setUser).not.toHaveBeenCalled();
+    });
+
+    it("marks reply as __sentryErrorCaptured to prevent double capture", () => {
+      withFakeScope(fakeScope());
+      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
       const reply = buildFakeReply(500);
 
-      errorHandler(error, request, reply);
+      captureRequestError(error, buildFakeRequest() as never, reply as never);
 
-      expect(reply.status).toHaveBeenCalledWith(500);
+      expect(reply.__sentryErrorCaptured).toBe(true);
     });
   });
 

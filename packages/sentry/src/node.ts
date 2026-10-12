@@ -1,7 +1,6 @@
 import * as Sentry from "@sentry/node";
 import fp from "fastify-plugin";
-import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { redactSignal } from "@mbe/observability";
 import { resolveConfig } from "./config.js";
 
@@ -129,6 +128,32 @@ function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {
   }
 }
 
+/**
+ * Reports an unhandled 5xx error to Sentry as a real exception (stack + type) and
+ * flags the reply so the onResponse fallback does not capture it a second time.
+ * Called by the service's single error handler (@mbe/service-bootstrap's
+ * errorHandlerPlugin, ADR-008); this module never claims the handler slot itself.
+ * A no-op in effect when Sentry was never initialised (no SENTRY_DSN).
+ * 4xx errors are skipped: the onResponse hook owns the notable-4xx policy.
+ */
+export function captureRequestError(
+  error: unknown,
+  request: FastifyRequest,
+  reply: FastifyReply
+): void {
+  const { statusCode } = error as { statusCode?: number };
+  if ((statusCode ?? 500) < 500) return;
+
+  Sentry.withScope((scope) => {
+    setSentryContext(scope, request);
+    scope.setTag("handled", "true");
+    Sentry.captureException(error);
+  });
+
+  // Flag reply so onResponse hook doesn't double-capture this error
+  (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
+}
+
 export const sentryFastifyPlugin = fp(
   async function sentryPlugin(fastify: FastifyInstance) {
     const config = resolveConfig(process.env.SENTRY_DSN);
@@ -136,32 +161,10 @@ export const sentryFastifyPlugin = fp(
       return;
     }
 
-    // 1. Explicit Error Handler
-    fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-      Sentry.withScope((scope) => {
-        setSentryContext(scope, request);
-        scope.setTag("handled", "true");
-        Sentry.captureException(error);
-      });
-
-      // Flag reply so onResponse hook doesn't double-capture this error
-      (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
-
-      const statusCode = error.statusCode ?? 500;
-
-      // If it's a 500, we obscure the message for the client but log the real one
-      const title = error.name || "Internal Server Error";
-      const message = statusCode >= 500 ? "Internal Server Error" : error.message;
-
-      reply
-        .status(statusCode)
-        .send(createProblemDetails(statusCode, title, message, "about:blank", request.url));
-    });
-
     // 4xx statuses that indicate unexpected server-side issues worth tracking
     const NOTABLE_4XX = new Set([409, 422, 429]);
 
-    // 2. Response Hook for status-based logging (catches manual code(4xx).send())
+    // Response Hook for status-based logging (catches manual code(4xx).send())
     fastify.addHook("onResponse", async (request, reply) => {
       const status = reply.statusCode;
       const path = request.url.split("?")[0];

@@ -54285,6 +54285,23 @@
         scope.setUser({ id: user.id, email: user.email });
       }
     }
+    export function captureRequestError(
+      error: unknown,
+      request: FastifyRequest,
+      reply: FastifyReply
+    ): void {
+      const { statusCode } = error as { statusCode?: number };
+      if ((statusCode ?? 500) < 500) return;
+    
+      Sentry.withScope((scope) => {
+        setSentryContext(scope, request);
+        scope.setTag("handled", "true");
+        Sentry.captureException(error);
+      });
+    
+      // Flag reply so onResponse hook doesn't double-capture this error
+      (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
+    }
     export const sentryFastifyPlugin = fp(
       async function sentryPlugin(fastify: FastifyInstance) {
         const config = resolveConfig(process.env.SENTRY_DSN);
@@ -54292,32 +54309,10 @@
           return;
         }
     
-        // 1. Explicit Error Handler
-        fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-          Sentry.withScope((scope) => {
-            setSentryContext(scope, request);
-            scope.setTag("handled", "true");
-            Sentry.captureException(error);
-          });
-    
-          // Flag reply so onResponse hook doesn't double-capture this error
-          (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
-    
-          const statusCode = error.statusCode ?? 500;
-    
-          // If it's a 500, we obscure the message for the client but log the real one
-          const title = error.name || "Internal Server Error";
-          const message = statusCode >= 500 ? "Internal Server Error" : error.message;
-    
-          reply
-            .status(statusCode)
-            .send(createProblemDetails(statusCode, title, message, "about:blank", request.url));
-        });
-    
         // 4xx statuses that indicate unexpected server-side issues worth tracking
         const NOTABLE_4XX = new Set([409, 422, 429]);
     
-        // 2. Response Hook for status-based logging (catches manual code(4xx).send())
+        // Response Hook for status-based logging (catches manual code(4xx).send())
         fastify.addHook("onResponse", async (request, reply) => {
           const status = reply.statusCode;
           const path = request.url.split("?")[0];
@@ -54828,6 +54823,8 @@
     export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
       fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
         request.log.error(error);
+        // Single owner of the error-handler slot (ADR-008): report to Sentry here.
+        captureRequestError(error, request, reply);
     
         const { status, title, detail, extensions } = classifyError(error);
     
