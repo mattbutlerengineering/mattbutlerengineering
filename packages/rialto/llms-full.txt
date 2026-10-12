@@ -3224,6 +3224,14 @@
       }, [device.reducedMotion, vibe]);
     }
   </file>
+  <file path="src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
+    }
+  </file>
   <file path="src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;

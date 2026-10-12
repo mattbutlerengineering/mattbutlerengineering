@@ -1,60 +1,6 @@
-import { createContext, useContext, useState, useCallback } from "react";
-import type { ReactNode } from "react";
-
-const THEME_STORAGE_KEY = "mbe-theme-preference";
-
-type Theme = "light" | "dark";
-
-interface ThemeContextValue {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-function getInitialTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
-      return stored;
-    }
-  } catch {
-    // localStorage may be unavailable in some environments
-  }
-  // No explicit choice stored — mirror how marketing/rialto-web resolve
-  // rialto's "system" preference (see packages/rialto/src/hooks/useThemeState.ts).
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-  return "light";
-}
-
-interface ThemeProviderProps {
-  children: ReactNode;
-}
-
-export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next: Theme = current === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, next);
-      } catch {
-        // localStorage may be unavailable in some environments
-      }
-      return next;
-    });
-  }, []);
-
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return ctx;
-}
+/**
+ * Theme state is owned by `<RialtoProvider persistTheme>` (see main.tsx):
+ * rialto holds the storage key and follows the OS live while the stored
+ * preference is "system". Re-exported so gen components keep one import site.
+ */
+export { useTheme } from "@mattbutlerengineering/rialto";

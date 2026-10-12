@@ -1,6 +1,6 @@
 import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
@@ -319,27 +319,29 @@ const router = createBrowserRouter(
 );
 
 /**
- * Wrapper that reads the persisted theme preference (rialto owns the storage
- * key) and passes it, unresolved, to RialtoProvider — which follows the OS
- * live when the preference is "system". Wrapped in its own component so the
- * `useThemeState` hook can live inside the React tree.
+ * Feeds the theme state that `<RialtoProvider persistTheme>` owns (storage
+ * key, live OS tracking) into this app's ThemeContext. Must render inside
+ * the provider.
  */
-function Root() {
+function ThemeBridge({ children }: { children: ReactNode }) {
   const themeState = useThemeState();
+  return <ThemeContext.Provider value={themeState}>{children}</ThemeContext.Provider>;
+}
 
+function Root() {
   if (!authConfigResult.valid) {
     return (
-      <ThemeContext.Provider value={themeState}>
-        <RialtoProvider theme={themeState.theme}>
+      <RialtoProvider persistTheme>
+        <ThemeBridge>
           <AuthConfigError missing={authConfigResult.missing} />
-        </RialtoProvider>
-      </ThemeContext.Provider>
+        </ThemeBridge>
+      </RialtoProvider>
     );
   }
 
   return (
-    <ThemeContext.Provider value={themeState}>
-      <RialtoProvider theme={themeState.theme}>
+    <RialtoProvider persistTheme>
+      <ThemeBridge>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>
@@ -349,8 +351,8 @@ function Root() {
             </AuthProvider>
           </ErrorBoundary>
         </ToastProvider>
-      </RialtoProvider>
-    </ThemeContext.Provider>
+      </ThemeBridge>
+    </RialtoProvider>
   );
 }
 

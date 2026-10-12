@@ -4,6 +4,8 @@ import { deriveReducedDataOverrides } from "./reduced-data";
 import { deriveReducedMotionOverrides } from "./reduced-motion";
 import { vibes, type VibeName, type VibeOverrides } from "./vibes";
 import { UIEnvironmentContext, type UIEnvironment } from "./useUIEnvironment";
+import { ThemeStateContext } from "./useTheme";
+import { useThemeState } from "../hooks/useThemeState";
 
 /**
  * `<meta name="theme-color">` content, mirroring the `--rialto-surface`
@@ -25,6 +27,12 @@ export interface RialtoProviderProps {
   vibeOverrides?: VibeOverrides;
   /** Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`. */
   theme?: "light" | "dark" | "system";
+  /**
+   * Own theme persistence: read the stored preference (localStorage, shared
+   * across tabs, `"system"` following the OS live) instead of `theme`, and
+   * expose it to descendants through `useTheme()`. Use once at the app root.
+   */
+  persistTheme?: boolean;
   children: ReactNode;
 }
 
@@ -43,12 +51,27 @@ export interface RialtoProviderProps {
  *
  * Also provides React context with device signals, active vibe, and resolved theme.
  */
-export function RialtoProvider({
+export function RialtoProvider({ persistTheme = false, ...props }: RialtoProviderProps) {
+  return persistTheme ? <PersistedRialtoProvider {...props} /> : <BaseRialtoProvider {...props} />;
+}
+
+type BaseProps = Omit<RialtoProviderProps, "persistTheme">;
+
+function PersistedRialtoProvider(props: BaseProps) {
+  const themeState = useThemeState();
+  return (
+    <ThemeStateContext.Provider value={themeState}>
+      <BaseRialtoProvider {...props} theme={themeState.preference} />
+    </ThemeStateContext.Provider>
+  );
+}
+
+function BaseRialtoProvider({
   vibe = "default",
   vibeOverrides,
   theme = "system",
   children,
-}: RialtoProviderProps) {
+}: BaseProps) {
   const device = useDeviceContext();
 
   // Resolve theme: 'system' defers to OS preference

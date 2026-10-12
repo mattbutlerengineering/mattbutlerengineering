@@ -12628,7 +12628,7 @@
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
@@ -18100,6 +18100,14 @@
         if (device.reducedMotion) return REDUCED_PRESET;
         return vibe === "game" ? GAME_PRESET : STANDARD_PRESET;
       }, [device.reducedMotion, vibe]);
+    }
+  </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
     }
   </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
