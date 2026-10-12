@@ -1,5 +1,5 @@
 import { Outlet, Navigate } from "react-router";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, hasAuthParams } from "@mbe/auth/react";
 import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
 import { LoginLanding } from "./components/LoginLanding.js";
 import styles from "./App.module.css";
@@ -45,7 +45,10 @@ export function App() {
     );
   }
 
-  if (isCallback && !isAuthenticated) {
+  // Only an in-flight OIDC response (code/state in the URL) is a real wait.
+  // A bare /callback is where sign-out lands (post_logout_redirect_uri falls
+  // back to redirectUri), so fall through to the sign-in landing.
+  if (isCallback && !isAuthenticated && hasAuthParams(window.location)) {
     return (
       <div className={styles.loginContainer}>
         <Text variant="body" color="secondary">
