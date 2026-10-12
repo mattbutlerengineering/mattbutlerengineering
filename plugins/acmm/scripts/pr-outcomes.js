@@ -101,11 +101,15 @@ export function isBookkeepingPr(pr) {
  * Is this PR from an agent? `agent-authored` label OR a known agent branch
  * prefix, excluding bookkeeping/automation PRs even when mislabeled (#5852).
  *
+ * VENDORED COPY of the canonical rule in `scripts/lib/agent-pr.mjs` (#6380);
+ * this plugin is self-contained and cannot import from `scripts/`.
+ * `scripts/__tests__/agent-pr.test.mjs` fails if the two diverge.
+ *
  * @param {Pick<PrRecord, "headRefName" | "labels" | "author">} pr
  */
 export function isAgentPr(pr) {
   if (isBookkeepingPr(pr)) return false;
-  if (pr.labels?.includes(AGENT_LABEL)) return true;
+  if (Array.isArray(pr.labels) && pr.labels.includes(AGENT_LABEL)) return true;
   if (!pr.headRefName) return false;
   return AGENT_BRANCH_PREFIXES.some((p) => pr.headRefName.startsWith(p));
 }

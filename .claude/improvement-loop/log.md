@@ -3303,3 +3303,9 @@ None (`agent-skip` count is 0). `#5962` (secret rotation) was left `ready` rathe
 ### Skipped Issues
 
 None (`agent-skip` count is 0). `#6332` (vague "use orchestrator and documentation for skills repo", depends on an external repo not in scope) and `#5962` (secret rotation, needs live credential access) were left `ready` rather than claimed — not agent-skips in the state-machine sense, just correctly out of scope for this queue this iteration.
+
+## 2026-10-11 — canonical agent-PR predicate (#6380)
+
+The five divergent "is this an agent PR?" rules (queue-efficiency `isAiPr`, queue-telemetry `isAgentPr`, acmm `pr-outcomes` `isAgentPr`, `ai-audit.yml` inline jq, `collect-repo-stats` search query) now share one rule in `scripts/lib/agent-pr.mjs`: `agent-authored` label OR a known agent branch prefix (`worktree-agent-`, `agent-`, `fix/agent-`, `feat/agent-`), excluding bookkeeping/automation PRs (#5852); `has-pr` alone no longer counts.
+
+**Expect a one-time step in these series as the populations converge** (not a regression): `queue_efficiency` and `pr-acceptance` (drop `has-pr`-only and bookkeeping PRs), queue-telemetry rows (gain the 3 extra prefixes, lose bookkeeping), and the weekly AI audit's AI-PR count (loses bookkeeping PRs). `repo-stats` agent-merged count is unchanged (label-only search query, cannot express the other legs).

@@ -24,6 +24,7 @@ import {
   MissingGithubTokenError,
 } from "@mbe/gh-client";
 import { read } from "./metrics-store.mjs";
+import { isAgentPr } from "./lib/agent-pr.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
@@ -67,9 +68,6 @@ const READ_PRS_LOOKBACK_DAYS = 8;
 
 /** The current window the reader returns — matches collectQueueEfficiency's. */
 const READ_PRS_WINDOW_DAYS = 7;
-
-/** Worktree branch patterns used by implement-queue agents. */
-const WORKER_BRANCH_RE = /^worktree-agent-/;
 
 /**
  * Stable reason code for an `available: false` result caused by readPrs()
@@ -121,26 +119,6 @@ function explainUnavailable(reason, err) {
     `Provide a token with repo read access in GITHUB_TOKEN or GH_TOKEN for this routine; ` +
     `no code change fixes this.`
   );
-}
-
-/**
- * An AI/worker PR is identified by:
- *   - `agent-authored` label (current convention), OR
- *   - `has-pr` label (legacy coordination label), OR
- *   - a `worktree-agent-*` branch name (matches implement-queue worktree pattern).
- *
- * This is the repo's canonical three-leg AI-PR predicate — `pr-metrics.mjs`
- * imports it directly, and `.github/workflows/ai-audit.yml`'s inline jq
- * mirrors it (#5012; both used to carry independent, divergent copies).
- *
- * @param {{ headRefName?: string, labels?: Array<{ name: string }> }} pr
- * @returns {boolean}
- */
-export function isAiPr(pr) {
-  const labels = pr.labels ?? [];
-  if (labels.some((l) => l.name === "agent-authored")) return true;
-  if (labels.some((l) => l.name === "has-pr")) return true;
-  return WORKER_BRANCH_RE.test(pr.headRefName ?? "");
 }
 
 /**
@@ -396,11 +374,11 @@ export function readMergedAiPrsPaged(ghClient, now) {
     "--limit",
     "500",
     "--json",
-    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
+    "number,state,headRefName,author,createdAt,mergedAt,closedAt,labels,additions,deletions",
   ]);
   const inWindow = prs.filter((pr) => Date.parse(pr.mergedAt) >= windowStart);
   return inWindow.map((pr) => {
-    if (!isAiPr(pr)) return { ...pr, commitCount: 1 };
+    if (!isAgentPr(pr)) return { ...pr, commitCount: 1 };
     const commits = fetchPrCommits(ghClient, pr.number);
     return { ...pr, commits, commitCount: commits.length };
   });
@@ -516,7 +494,7 @@ export function collectQueueEfficiency(
 
   // Only merged AI PRs within the last 30 days form our analysis pool.
   const mergedAiPrs = prs.filter((pr) => {
-    if (!isAiPr(pr)) return false;
+    if (!isAgentPr(pr)) return false;
     if (!pr.mergedAt) return false;
     const d = new Date(pr.mergedAt);
     return !isNaN(d) && d >= thirtyDaysAgo;

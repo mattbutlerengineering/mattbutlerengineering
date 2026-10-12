@@ -36,25 +36,6 @@ function pr(overrides = {}) {
   };
 }
 
-test("isAgentPr: branch prefix matches", () => {
-  assert.equal(isAgentPr({ headRefName: "agent-fix-login", labels: [] }), true);
-  assert.equal(isAgentPr({ headRefName: "worktree-agent-abc", labels: [] }), true);
-  assert.equal(isAgentPr({ headRefName: "fix/agent-cleanup", labels: [] }), true);
-  assert.equal(isAgentPr({ headRefName: "feat/agent-search", labels: [] }), true);
-});
-
-test("isAgentPr: agent-authored label matches even without prefix", () => {
-  assert.equal(isAgentPr({ headRefName: "random-branch", labels: ["agent-authored"] }), true);
-});
-
-test("isAgentPr: has-pr label alone no longer counts (#5852 — undercounted fix/issue-* PRs)", () => {
-  assert.equal(isAgentPr({ headRefName: "fix/issue-5807-guest-cap", labels: ["has-pr"] }), false);
-});
-
-test("isAgentPr: human branch with no label is excluded", () => {
-  assert.equal(isAgentPr({ headRefName: "feat/manual-thing", labels: ["feature"] }), false);
-});
-
 // ── bookkeeping/automation exclusion (#5852 AC5) ─────────────────────────────
 
 describe("isBookkeepingPr / isAgentPr: bookkeeping exclusions", () => {

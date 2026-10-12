@@ -4,7 +4,7 @@
  * PR-acceptance metric for the ACMM L3 ("Measured / Enforced") signal.
  *
  * Pulls recent PRs via the GitHub CLI, identifies AI-generated PRs via the
- * repo's canonical `isAiPr` predicate, computes acceptance rate, and appends
+ * repo's canonical `isAgentPr` predicate, computes acceptance rate, and appends
  * one dated entry to the pr-acceptance metric.
  *
  * Usage:
@@ -21,7 +21,7 @@
 
 import { createGhClient } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
-import { isAiPr } from "./collect-queue-efficiency.mjs";
+import { isAgentPr } from "./lib/agent-pr.mjs";
 
 const METRICS_PATH = resolvePath("pr-acceptance");
 
@@ -57,12 +57,8 @@ export function filterPrsInWindow(prs, sinceMs) {
 /**
  * Build the pr-acceptance metric entry from an already-windowed set of PRs.
  *
- * AI-PR identification defers to `isAiPr`, the repo's canonical three-leg
- * predicate (agent-authored label / has-pr label / worker branch name) —
- * see `collect-queue-efficiency.mjs`. This module used to carry its own
- * four-branch-regex-plus-has-pr copy that omitted the `agent-authored` leg
- * entirely (#5012), undercounting genuinely agent-authored PRs that don't
- * match a branch regex.
+ * AI-PR identification defers to `isAgentPr`, the repo's single canonical
+ * predicate — see `scripts/lib/agent-pr.mjs` (#6380).
  *
  * @param {PR[]} windowPrs
  * @param {number} days
@@ -77,7 +73,7 @@ export function filterPrsInWindow(prs, sinceMs) {
  * }}
  */
 export function buildAcceptanceEntry(windowPrs, days, date) {
-  const aiPrs = windowPrs.filter(isAiPr);
+  const aiPrs = windowPrs.filter(isAgentPr);
   const merged = aiPrs.filter((p) => p.mergedAt !== null);
   const rejected = aiPrs.filter((p) => p.state === "CLOSED" && p.mergedAt === null);
   const totalAiPrs = merged.length + rejected.length;
@@ -118,7 +114,7 @@ export function run() {
       "--limit",
       "300",
       "--json",
-      "number,title,state,headRefName,createdAt,closedAt,mergedAt,labels",
+      "number,title,state,headRefName,author,createdAt,closedAt,mergedAt,labels",
     ]);
   } catch (err) {
     console.error(`gh pr list failed: ${err.message}`);

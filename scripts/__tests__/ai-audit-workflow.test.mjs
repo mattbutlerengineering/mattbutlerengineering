@@ -21,11 +21,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { isAiPr } from "../collect-queue-efficiency.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const WORKFLOW_PATH = join(REPO_ROOT, ".github/workflows/ai-audit.yml");
@@ -45,102 +43,21 @@ const executable = workflow
   .filter((line) => !/^\s*#/.test(line))
   .join("\n");
 
-/**
- * Pull the AI-split jq program out of the workflow so the test exercises the
- * shipped predicate rather than a copy that can drift away from it.
- *
- * @returns {string}
- */
-function extractAiPredicate() {
-  const match = workflow.match(/AI_PRS=\$\(jq '([\s\S]*?)'\s+\/tmp\/merged-prs\.json\)/);
-  if (!match) throw new Error("AI_PRS jq predicate not found in ai-audit.yml");
-  return match[1];
-}
-
-/**
- * Run the workflow's own predicate over fixture PRs.
- *
- * @param {unknown[]} prs
- * @returns {number[]} PR numbers the predicate selected
- */
-function selectAiPrs(prs) {
-  const out = execFileSync("jq", [`${extractAiPredicate()} | [.[].number]`], {
-    input: JSON.stringify(prs),
-    encoding: "utf-8",
-  });
-  return JSON.parse(out);
-}
-
-const pr = (number, { labels = [], headRefName = "some/branch" } = {}) => ({
-  number,
-  headRefName,
-  labels: labels.map((name) => ({ name })),
-  additions: 1,
-  deletions: 0,
-});
-
-describe("ai-audit.yml AI predicate", () => {
-  it("selects a PR carrying the agent-authored label", () => {
-    expect(selectAiPrs([pr(1, { labels: ["agent-authored", "tier:sensitive"] })])).toEqual([1]);
+describe("ai-audit.yml AI split", () => {
+  // The predicate cases themselves live in agent-pr.test.mjs (#6380); here we
+  // only pin that the workflow delegates to the canonical CLI.
+  it("delegates the AI split to the canonical agent-pr CLI, not an inline predicate", () => {
+    expect(executable).toContain("node scripts/agent-pr-filter.mjs /tmp/merged-prs.json");
+    expect(executable).not.toMatch(/AI_PRS=\$\(jq/);
+    expect(executable).not.toContain("worktree-agent-");
   });
 
-  it("still selects the legacy has-pr coordination label", () => {
-    expect(selectAiPrs([pr(2, { labels: ["has-pr"] })])).toEqual([2]);
+  it("the CLI the workflow calls exists", () => {
+    expect(existsSync(join(REPO_ROOT, "scripts/agent-pr-filter.mjs"))).toBe(true);
   });
 
-  it("selects worker branch names", () => {
-    const prs = [
-      pr(3, { headRefName: "worktree-agent-abc123" }),
-      pr(4, { headRefName: "agent-thing" }),
-      pr(5, { headRefName: "fix/agent-thing" }),
-      pr(6, { headRefName: "feat/agent-thing" }),
-    ];
-    expect(selectAiPrs(prs)).toEqual([3, 4, 5, 6]);
-  });
-
-  it("excludes a human PR with no AI label and no worker branch", () => {
-    expect(selectAiPrs([pr(7, { labels: ["tier:standard"], headRefName: "fix/typo" })])).toEqual(
-      []
-    );
-  });
-
-  it("does not crash on a PR with no labels and a null branch", () => {
-    expect(selectAiPrs([{ number: 8, labels: [], headRefName: null }])).toEqual([]);
-  });
-
-  it("keeps a tier:sensitive agent PR — the exact population #4295 omitted", () => {
-    const prs = [
-      pr(4267, { labels: ["agent-authored", "tier:sensitive"], headRefName: "fix/4262-email" }),
-      pr(4283, { labels: ["has-pr", "tier:trivial"], headRefName: "chore/queue-telemetry" }),
-    ];
-    expect(selectAiPrs(prs)).toEqual([4267, 4283]);
-  });
-});
-
-describe("ai-audit.yml jq predicate vs. the canonical isAiPr predicate (#5012)", () => {
-  // The jq's label legs (agent-authored, has-pr) are meant to be identical to
-  // `isAiPr` (collect-queue-efficiency.mjs) — pin them to the same answer for
-  // the same fixture input, per #5012's acceptance criteria, rather than
-  // trusting the header comment alone.
-  //
-  // The jq's branch leg intentionally does NOT get the same pin: it matches
-  // `^(worktree-agent-|agent-|fix/agent-|feat/agent-)`, inherited from the
-  // pre-#5012 `pr-metrics.mjs` branch patterns (also used by
-  // `auto-rollback.yml` and `process-a11y-results.mjs`), while `isAiPr`'s
-  // branch leg matches only `^worktree-agent-`. That breadth divergence
-  // predates #5012, is out of this fix's scope, and reconciling it is a
-  // separate, deliberate decision (which pattern is actually correct) rather
-  // than a copy-paste drift bug.
-  const labelOnlyPrs = [
-    pr(100, { labels: ["agent-authored"], headRefName: "some/human-looking-branch" }),
-    pr(101, { labels: ["has-pr"], headRefName: "some/human-looking-branch" }),
-    pr(102, { labels: ["tier:standard"], headRefName: "fix/typo" }),
-    pr(103, { labels: [], headRefName: "worktree-agent-xyz" }),
-  ];
-
-  it.each(labelOnlyPrs)("agrees with isAiPr for PR #$number", (fixture) => {
-    const selected = selectAiPrs([fixture]).length === 1;
-    expect(selected).toBe(isAiPr(fixture));
+  it("opens the run block with pipefail (its exit codes matter)", () => {
+    expect(executable).toContain("set -o pipefail");
   });
 });
 
@@ -156,12 +73,5 @@ describe("ai-audit.yml query shape", () => {
 
   it("does not narrow the merged-PR query to a single label", () => {
     expect(executable).not.toContain('--label "has-pr"');
-  });
-
-  it("the AI split covers all three legs of the repo's canonical predicate", () => {
-    const predicate = extractAiPredicate();
-    expect(predicate).toContain("agent-authored");
-    expect(predicate).toContain("has-pr");
-    expect(predicate).toContain("worktree-agent-");
   });
 });

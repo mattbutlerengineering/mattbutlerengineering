@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { buildAcceptanceEntry, filterPrsInWindow } from "../pr-metrics.mjs";
-import { isAiPr } from "../collect-queue-efficiency.mjs";
+import { isAgentPr } from "../lib/agent-pr.mjs";
 
 /**
  * Regression tests for #5012: `pr-metrics.mjs` carried its own four-branch-
  * regex-plus-has-pr copy of "is this an AI-authored PR" that omitted the
  * `agent-authored` label leg entirely — the repo's canonical predicate lives
- * in `collect-queue-efficiency.mjs`'s `isAiPr` (also mirrored, with a comment
- * pointing back here, in `.github/workflows/ai-audit.yml`'s inline jq). This
+ * in `scripts/lib/agent-pr.mjs` (#6380). This
  * file pins `pr-metrics.mjs` to that shared predicate rather than a
  * hand-maintained third copy.
  */
@@ -67,7 +66,7 @@ describe("buildAcceptanceEntry AI-PR identification", () => {
     expect(entry.merged).toBe(1);
   });
 
-  it("agrees with the canonical isAiPr predicate on the has-pr metrics-commit automation shape", () => {
+  it("excludes the has-pr metrics-commit automation shape (bookkeeping, #5852/#6380)", () => {
     const metricsPr = pr(3, {
       labels: ["has-pr"],
       headRefName: "automation/pr-acceptance-metrics",
@@ -75,13 +74,9 @@ describe("buildAcceptanceEntry AI-PR identification", () => {
       state: "MERGED",
       closedAt: "2026-06-01T00:00:00Z",
     });
-    // Assert explicitly against the canonical predicate rather than assuming
-    // an answer — whatever isAiPr says for this shape, buildAcceptanceEntry
-    // must agree.
-    expect(isAiPr(metricsPr)).toBe(true);
+    expect(isAgentPr(metricsPr)).toBe(false);
     const entry = buildAcceptanceEntry([metricsPr], 30, "2026-06-10");
-    expect(entry.total_ai_prs).toBe(1);
-    expect(entry.merged).toBe(1);
+    expect(entry.total_ai_prs).toBe(0);
   });
 
   it("excludes a human PR with no agent-authored/has-pr label and no worker branch", () => {

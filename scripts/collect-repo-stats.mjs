@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AGENT_LABEL } from "./lib/agent-pr.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -39,8 +40,12 @@ export const TOTAL_MERGED_QUERY = `repo:${REPO_SLUG} is:pr is:merged`;
  * generation of the worker. `agent-authored` is the repo's own audit-trail
  * label, applied by `.github/workflows/ai-attribution.yml` from five
  * independent signals, so it is both broader and more defensible.
+ *
+ * The label is the one leg of the canonical rule (`scripts/lib/agent-pr.mjs`,
+ * #6380) that the search API can express; its branch-prefix and bookkeeping
+ * legs cannot be, so this count is the label leg only.
  */
-export const AGENT_MERGED_QUERY = `${TOTAL_MERGED_QUERY} label:agent-authored`;
+export const AGENT_MERGED_QUERY = `${TOTAL_MERGED_QUERY} label:${AGENT_LABEL}`;
 
 /** Component folders live one level under this directory. */
 const RIALTO_COMPONENTS_DIR = "packages/rialto/src/components";

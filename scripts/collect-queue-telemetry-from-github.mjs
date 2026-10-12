@@ -27,9 +27,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendTelemetryRow } from "./collect-queue-telemetry.mjs";
 import { read } from "./metrics-store.mjs";
+import { isAgentPr } from "./lib/agent-pr.mjs";
 
-const AGENT_BRANCH_PREFIX = "worktree-agent-";
-const AGENT_LABEL = "agent-authored";
 const CLOSING_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
 
 /** @param {unknown} body @returns {number|null} */
@@ -37,14 +36,6 @@ export function extractClosedIssue(body) {
   if (typeof body !== "string") return null;
   const m = CLOSING_RE.exec(body);
   return m ? Number(m[1]) : null;
-}
-
-/** @param {{headRefName?: string, labels?: Array<{name?: string}>}} pr */
-export function isAgentPr(pr) {
-  return (
-    (typeof pr.headRefName === "string" && pr.headRefName.startsWith(AGENT_BRANCH_PREFIX)) ||
-    (pr.labels ?? []).some((l) => l?.name === AGENT_LABEL)
-  );
 }
 
 /**
@@ -121,7 +112,7 @@ function main(argv) {
       "--limit",
       String(limit),
       "--json",
-      "number,headRefName,body,labels,createdAt,mergedAt",
+      "number,headRefName,author,body,labels,createdAt,mergedAt",
     ],
     { encoding: "utf8" }
   );
