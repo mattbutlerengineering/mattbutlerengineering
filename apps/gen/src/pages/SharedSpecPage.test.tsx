@@ -122,7 +122,10 @@ const MOCK_SPEC = {
   id: "abc-123",
   userId: "user-1",
   prompt: "Build a dashboard",
-  spec: { type: "Stack", children: [] },
+  spec: {
+    root: "stack",
+    elements: { stack: { type: "Stack", props: {}, children: [] } },
+  },
   rawLines: ["{}"],
   isFavorite: false,
   createdAt: "2026-05-01T00:00:00Z",
@@ -164,6 +167,18 @@ describe("SharedSpecPage", () => {
       expect(screen.getByText("Build a dashboard")).toBeDefined();
     });
     expect(screen.getByTestId("renderer")).toBeDefined();
+  });
+
+  it("shows an invalid-format message when the stored spec is malformed", async () => {
+    mockRequest.mockResolvedValue({
+      data: { ...MOCK_SPEC, spec: { type: "Stack", children: [] } },
+    });
+    renderWithRoute("abc-123");
+    await waitFor(() => {
+      expect(screen.getByText(/can.t be displayed/)).toBeDefined();
+    });
+    expect(screen.queryByTestId("renderer")).toBeNull();
+    expect(screen.queryByText("Spec not found")).toBeNull();
   });
 
   it("shows error state when spec not found (404) via api-client", async () => {

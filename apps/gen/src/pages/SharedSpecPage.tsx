@@ -148,6 +148,8 @@ export function SharedSpecPage() {
     return "Copy Link";
   }
 
+  const decodedSpec = storedSpec ? decodeSpec(storedSpec.spec) : null;
+
   return (
     <div className={styles.page}>
       {/* ── Top bar ── */}
@@ -238,9 +240,16 @@ export function SharedSpecPage() {
             {/* ── Preview ── */}
             <main className={styles.previewWrapper}>
               <Card variant="elevated" className={styles.previewCard}>
-                <SpecProvider>
-                  <SpecRenderer spec={decodeSpec(storedSpec.spec)} />
-                </SpecProvider>
+                {decodedSpec ? (
+                  <SpecProvider>
+                    <SpecRenderer spec={decodedSpec} />
+                  </SpecProvider>
+                ) : (
+                  <Text variant="body" color="secondary" role="alert">
+                    This shared spec can&apos;t be displayed — it was saved in an older or invalid
+                    format.
+                  </Text>
+                )}
               </Card>
             </main>
 
