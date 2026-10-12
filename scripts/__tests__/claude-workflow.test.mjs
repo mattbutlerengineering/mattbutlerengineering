@@ -16,70 +16,73 @@
  * success that did nothing. An authorized, keyless mention gets one short
  * comment saying why, so the person who typed @claude is not left unanswered.
  *
- * Text-level checks on the real workflow file, matching the house style
- * (docs-audit-workflow.test.mjs, scheduled-issue-completion-workflow.test.mjs).
+ * Structure is asserted on the parsed workflow (scripts/lib/workflow.mjs,
+ * #6393); the one line-level untrusted-interpolation scan stays a raw-text
+ * check on the file.
  */
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getJob, getStep, jobRunText, loadWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/claude.yml"), "utf8");
 
-/** The body of one top-level job block, from its key to the next job key. */
-function jobBlock(name) {
-  const start = WORKFLOW.indexOf(`\n  ${name}:\n`);
-  expect(start, `claude.yml declares a \`${name}\` job`).toBeGreaterThan(-1);
-  const next = WORKFLOW.slice(start + 1).search(/\n {2}[a-z][\w-]*:\n/);
-  return next === -1 ? WORKFLOW.slice(start) : WORKFLOW.slice(start, start + 1 + next);
+const PARSED = loadWorkflow("claude.yml");
+
+function jobOf(name) {
+  const job = getJob(PARSED, name);
+  expect(job, `claude.yml declares a \`${name}\` job`).not.toBeNull();
+  return job;
 }
 
-/** The body of one step (from its `- name:` line to the next step). */
-function stepBlock(job, stepName) {
-  const start = job.indexOf(`- name: ${stepName}`);
-  expect(start, `step \`${stepName}\` exists`).toBeGreaterThan(-1);
-  const next = job.slice(start + 1).search(/\n\s+- (name|uses):/);
-  return next === -1 ? job.slice(start) : job.slice(start, start + 1 + next);
+function stepOf(job, stepName) {
+  const step = getStep(job, stepName);
+  expect(step, `step \`${stepName}\` exists`).not.toBeNull();
+  return step;
 }
 
 describe("claude.yml gates its agent run on preflight job outputs, not step guards", () => {
   it("declares a preflight job that owns the mention filter and the collaborator check", () => {
-    const preflight = jobBlock("preflight");
-    expect(preflight).toContain("contains(github.event.comment.body, '@claude')");
-    expect(preflight).toContain("contains(github.event.review.body, '@claude')");
-    expect(preflight).toMatch(/collaborators\/\$COMMENT_AUTHOR\/permission/);
-    expect(preflight).toMatch(
-      /outputs:[\s\S]*authorized:[\s\S]*has_key:|outputs:[\s\S]*has_key:[\s\S]*authorized:/
+    const preflight = jobOf("preflight");
+    expect(preflight.if).toContain("contains(github.event.comment.body, '@claude')");
+    expect(preflight.if).toContain("contains(github.event.review.body, '@claude')");
+    const script = jobRunText(preflight);
+    expect(script).toMatch(/collaborators\/\$COMMENT_AUTHOR\/permission/);
+    expect(Object.keys(preflight.outputs)).toEqual(
+      expect.arrayContaining(["authorized", "has_key"])
     );
-    expect(preflight).toContain('echo "authorized=true" >> "$GITHUB_OUTPUT"');
-    expect(preflight).toContain('echo "authorized=false" >> "$GITHUB_OUTPUT"');
-    expect(preflight).toContain("ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}");
-    expect(preflight).toContain('echo "has_key=true" >> "$GITHUB_OUTPUT"');
-    expect(preflight).toContain('echo "has_key=false" >> "$GITHUB_OUTPUT"');
-    expect(preflight).toContain("$GITHUB_STEP_SUMMARY");
+    expect(script).toContain('echo "authorized=true" >> "$GITHUB_OUTPUT"');
+    expect(script).toContain('echo "authorized=false" >> "$GITHUB_OUTPUT"');
+    expect(getStep(preflight, "Check for an agent credential").env.ANTHROPIC_API_KEY).toBe(
+      "${{ secrets.ANTHROPIC_API_KEY }}"
+    );
+    expect(script).toContain('echo "has_key=true" >> "$GITHUB_OUTPUT"');
+    expect(script).toContain('echo "has_key=false" >> "$GITHUB_OUTPUT"');
+    expect(script).toContain("$GITHUB_STEP_SUMMARY");
   });
 
   it("skips the dispatch job unless the author is authorized AND a credential exists", () => {
-    const dispatch = jobBlock("dispatch");
-    expect(dispatch).toMatch(/needs: preflight/);
-    // Pin the whole job-level line: an `||` in place of `&&` would let a
+    const dispatch = jobOf("dispatch");
+    expect(dispatch.needs).toEqual(["preflight"]);
+    // Pin the whole job-level expression: an `||` in place of `&&` would let a
     // non-collaborator reach dispatch whenever a key exists, and a looser
-    // match (any `if:` line mentioning both outputs) cannot see that.
-    expect(dispatch).toMatch(
-      /^ {4}if: needs\.preflight\.outputs\.authorized == 'true' && needs\.preflight\.outputs\.has_key == 'true'$/m
+    // match (any `if:` mentioning both outputs) cannot see that.
+    expect(dispatch.if).toBe(
+      "needs.preflight.outputs.authorized == 'true' && needs.preflight.outputs.has_key == 'true'"
     );
   });
 
   it("keeps every silent skip out of the dispatch steps — an exit 0 there reads as a pass", () => {
-    expect(jobBlock("dispatch")).not.toMatch(/exit 0/);
-    expect(jobBlock("preflight")).not.toMatch(/exit 0/);
+    expect(jobRunText(jobOf("dispatch"))).not.toMatch(/exit 0/);
+    expect(jobRunText(jobOf("preflight"))).not.toMatch(/exit 0/);
   });
 
   it("builds the CLI and invokes its entrypoint, since `pnpm exec mbe` never resolves", () => {
-    const dispatch = jobBlock("dispatch");
+    const dispatch = jobRunText(jobOf("dispatch"));
     expect(dispatch).not.toContain("pnpm exec mbe");
     const build = dispatch.indexOf("pnpm build --filter @mbe/cli...");
     const run = dispatch.indexOf("node tools/cli/dist/index.js agent run");
@@ -89,22 +92,21 @@ describe("claude.yml gates its agent run on preflight job outputs, not step guar
   });
 
   it("fails the agent step when the agent run fails, so a failure is not a green job", () => {
-    const agent = stepBlock(jobBlock("dispatch"), "Run agent");
-    expect(agent).toContain('echo "outcome=failure" >> "$GITHUB_OUTPUT"');
-    expect(agent).toMatch(/outcome=failure[^\n]*\n\s*exit 1/);
+    const agent = stepOf(jobOf("dispatch"), "Run agent");
+    expect(agent.run).toContain('echo "outcome=failure" >> "$GITHUB_OUTPUT"');
+    expect(agent.run).toMatch(/outcome=failure[^\n]*\n\s*exit 1/);
   });
 
   it("answers an authorized, keyless mention with one comment naming #3585 — and only then", () => {
-    const preflight = jobBlock("preflight");
-    const skip = stepBlock(preflight, "Explain the skip");
-    // Whole line again: with `||`, any commenter's @claude would get a bot reply.
-    expect(skip).toMatch(
-      /^\s+if: steps\.auth\.outputs\.authorized == 'true' && steps\.check\.outputs\.has_key != 'true'$/m
+    const skip = stepOf(jobOf("preflight"), "Explain the skip");
+    // Whole expression again: with `||`, any commenter's @claude would get a bot reply.
+    expect(skip.if).toBe(
+      "steps.auth.outputs.authorized == 'true' && steps.check.outputs.has_key != 'true'"
     );
-    expect(skip).toContain("gh issue comment");
-    expect(skip).toContain("no agent credential in CI");
-    expect(skip).toMatch(/#3585/);
-    expect(jobBlock("dispatch")).not.toContain("no agent credential in CI");
+    expect(skip.run).toContain("gh issue comment");
+    expect(skip.run).toContain("no agent credential in CI");
+    expect(skip.run).toMatch(/#3585/);
+    expect(jobRunText(jobOf("dispatch"))).not.toContain("no agent credential in CI");
   });
 
   it("never interpolates untrusted comment text into a shell script", () => {

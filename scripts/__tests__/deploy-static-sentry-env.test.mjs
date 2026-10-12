@@ -2,10 +2,11 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getJob, loadWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
-const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/deploy-static.yml"), "utf8");
+const WORKFLOW = loadWorkflow("deploy-static.yml");
 
 /**
  * Every static app this workflow builds and deploys.
@@ -40,54 +41,20 @@ const REQUIRED_SENTRY_ENV = [
 ];
 
 /**
- * Split the workflow into step blocks.
- *
- * Parsed textually rather than with a YAML library, matching the precedent in
- * pulumi-cli-pin.test.mjs and ci-node-matrix.test.mjs: nothing in `scripts/`
- * depends on a YAML parser. A step begins at a `- name:` / `- run:` / `- uses:`
- * list item and runs until the next one, so a step's own `env:` block travels
- * with it regardless of whether `env:` precedes or follows `run:`.
+ * Steps come from the parsed workflow (scripts/lib/workflow.mjs, #6393), so a
+ * step's own `env:` travels with it regardless of key order and comments that
+ * name the variables being asserted can never satisfy an assertion.
  */
-function stepBlocks(yaml) {
-  const lines = yaml.split("\n");
-  const starts = lines.reduce((acc, line, index) => {
-    if (/^\s*-\s+(name|run|uses):/.test(line)) acc.push(index);
-    return acc;
-  }, []);
-
-  return starts.map((start, index) => {
-    const end = index + 1 < starts.length ? starts[index + 1] : lines.length;
-    return lines.slice(start, end).join("\n");
-  });
-}
+const allSteps = () => Object.values(WORKFLOW.jobs).flatMap((job) => job.steps);
 
 /** The step that runs `pnpm build --filter=@mbe/<app>`, or null if there isn't one. */
-function buildStepFor(yaml, app) {
-  return (
-    stepBlocks(yaml).find((block) => block.includes(`pnpm build --filter=@mbe/${app}`)) ?? null
-  );
+function buildStepFor(app) {
+  return allSteps().find((step) => step.run?.includes(`pnpm build --filter=@mbe/${app}`)) ?? null;
 }
 
-/**
- * Does this step block actually *assign* `key` as an environment variable?
- *
- * Deliberately not a substring test for "KEY:". These steps carry comments
- * that name the very variables being asserted, so a substring match would let
- * a step pass on the strength of a comment mentioning the variable it is
- * missing — the guard reporting green for the one case it exists to catch.
- * Requires the key at the start of its own line (after indentation) followed
- * by a colon and a value, and skips comment lines outright.
- *
- * The key is compared by exact equality rather than interpolated into a
- * pattern — the same choice pulumi-cli-pin.test.mjs makes, and for the same
- * reason: building a regex from a variable means hand-escaping it, which
- * CodeQL flags (js/incomplete-sanitization).
- */
+/** Does this step actually *assign* `key` as a non-empty environment variable? */
 function assignsEnv(step, key) {
-  return step
-    .split("\n")
-    .filter((line) => !/^\s*#/.test(line))
-    .some((line) => /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*\S/.exec(line)?.[1] === key);
+  return String(step.env[key] ?? "") !== "";
 }
 
 describe("deploy-static.yml passes the Sentry build environment to every static app", () => {
@@ -95,12 +62,12 @@ describe("deploy-static.yml passes the Sentry build environment to every static 
     // Guards the enumeration itself: if an app is renamed or its build step is
     // restructured, this fails loudly instead of the per-app assertions below
     // quietly passing over an app they can no longer find.
-    const missing = STATIC_APPS.filter((app) => buildStepFor(WORKFLOW, app) === null);
+    const missing = STATIC_APPS.filter((app) => buildStepFor(app) === null);
     expect(missing).toEqual([]);
   });
 
   it.each(STATIC_APPS)("passes the full Sentry env to the %s build", (app) => {
-    const step = buildStepFor(WORKFLOW, app);
+    const step = buildStepFor(app);
     expect(step).not.toBeNull();
 
     const absent = REQUIRED_SENTRY_ENV.filter((key) => !assignsEnv(step, key));
@@ -115,20 +82,11 @@ describe("deploy-static.yml passes the Sentry build environment to every static 
 });
 
 /**
- * The value `step` assigns to `key`, trimmed, or null when it assigns none.
- *
- * Same parsing contract as `assignsEnv` — comment lines skipped, key compared
- * by exact equality, never interpolated into a regex (CodeQL
- * js/incomplete-sanitization) — but returns the right-hand side so a test can
- * pin *which* secret or literal an app gets, not merely that it gets one.
+ * The value `step` assigns to `key`, or null when it assigns none — so a test
+ * can pin *which* secret or literal an app gets, not merely that it gets one.
  */
 function envValue(step, key) {
-  const match = step
-    .split("\n")
-    .filter((line) => !/^\s*#/.test(line))
-    .map((line) => /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(\S.*)$/.exec(line))
-    .find((parsed) => parsed?.[1] === key);
-  return match ? match[2].trim() : null;
+  return key in step.env ? String(step.env[key]).trim() : null;
 }
 
 /**
@@ -166,7 +124,7 @@ describe("deploy-static.yml routes each static app to its own Sentry project", (
   });
 
   it.each(STATIC_APPS)("routes the %s build to its expected DSN and project", (app) => {
-    const step = buildStepFor(WORKFLOW, app);
+    const step = buildStepFor(app);
     expect(step).not.toBeNull();
 
     const wrong = Object.entries(EXPECTED_SENTRY_ROUTING[app])
@@ -179,36 +137,23 @@ describe("deploy-static.yml routes each static app to its own Sentry project", (
 });
 
 /**
- * The text of one top-level job (`  <jobId>:` under `jobs:`), or null.
- *
- * Needed so the guard assertion below is scoped per job: a guard step in the
- * marketing job does nothing for the rialto-web build, and a whole-file search
- * would pass on the strength of the wrong job's step.
+ * One deploy job's steps, scoped per job: a guard step in the marketing job does
+ * nothing for the rialto-web build, and a whole-file search would pass on the
+ * strength of the wrong job's step.
  */
-function jobBlock(yaml, jobId) {
-  const lines = yaml.split("\n");
-  const start = lines.findIndex((line) => line === `  ${jobId}:`);
-  if (start === -1) return null;
-  const rest = lines.slice(start + 1).findIndex((line) => /^ {2}[A-Za-z0-9_-]+:/.test(line));
-  const end = rest === -1 ? lines.length : start + 1 + rest;
-  return lines.slice(start, end).join("\n");
+function jobSteps(jobId) {
+  return getJob(WORKFLOW, jobId)?.steps ?? null;
 }
 
 /**
  * Does this step run `require-deploy-secrets.mjs` against `secret`, with the
  * secret actually supplied in the step's env?
- *
- * Token comparison on non-comment lines, so a comment that merely mentions the
- * guard cannot satisfy it.
  */
 function runsSecretGuard(step, secret) {
-  const invokes = step
-    .split("\n")
-    .filter((line) => !/^\s*#/.test(line))
-    .some((line) => {
-      const tokens = line.trim().split(/\s+/);
-      return tokens.includes("scripts/require-deploy-secrets.mjs") && tokens.includes(secret);
-    });
+  const invokes = (step.run ?? "").split("\n").some((line) => {
+    const tokens = line.trim().split(/\s+/);
+    return tokens.includes("scripts/require-deploy-secrets.mjs") && tokens.includes(secret);
+  });
   return invokes && envValue(step, secret) === `\${{ secrets.${secret} }}`;
 }
 
@@ -225,13 +170,12 @@ describe("deploy-static.yml fails closed when VITE_SENTRY_DSN_MBE is absent", ()
   it.each(SECRET_GUARDED_APPS)(
     "deploy-%s runs require-deploy-secrets.mjs ahead of its build",
     (app) => {
-      const job = jobBlock(WORKFLOW, `deploy-${app}`);
-      expect(job, `job deploy-${app} not found`).not.toBeNull();
+      const steps = jobSteps(`deploy-${app}`);
+      expect(steps, `job deploy-${app} not found`).not.toBeNull();
 
-      const steps = stepBlocks(job);
       const guardIndex = steps.findIndex((step) => runsSecretGuard(step, "VITE_SENTRY_DSN_MBE"));
       const buildIndex = steps.findIndex((step) =>
-        step.includes(`pnpm build --filter=@mbe/${app}`)
+        step.run?.includes(`pnpm build --filter=@mbe/${app}`)
       );
 
       expect(guardIndex, `deploy-${app} has no VITE_SENTRY_DSN_MBE guard step`).not.toBe(-1);
@@ -298,11 +242,12 @@ describe("deploy-static.yml fails closed when a Sentry upload secret is absent",
   });
 
   it.each(STATIC_APPS)("deploy-%s presence-checks its upload secrets ahead of its build", (app) => {
-    const job = jobBlock(WORKFLOW, `deploy-${app}`);
-    expect(job, `job deploy-${app} not found`).not.toBeNull();
+    const steps = jobSteps(`deploy-${app}`);
+    expect(steps, `job deploy-${app} not found`).not.toBeNull();
 
-    const steps = stepBlocks(job);
-    const buildIndex = steps.findIndex((step) => step.includes(`pnpm build --filter=@mbe/${app}`));
+    const buildIndex = steps.findIndex((step) =>
+      step.run?.includes(`pnpm build --filter=@mbe/${app}`)
+    );
     expect(buildIndex, `deploy-${app} has no build step`).not.toBe(-1);
 
     const unguarded = UPLOAD_SECRETS[app].filter((secret) => {

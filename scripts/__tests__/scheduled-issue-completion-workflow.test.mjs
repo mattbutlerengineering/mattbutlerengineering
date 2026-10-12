@@ -22,7 +22,7 @@ import { getJob, jobRunText, loadWorkflow } from "../lib/workflow.mjs";
 const WORKFLOW = loadWorkflow("scheduled-issue-completion.yml");
 
 /** One parsed job; fails the test if the workflow no longer declares it. */
-function jobBlock(name) {
+function jobOf(name) {
   const job = getJob(WORKFLOW, name);
   expect(job, `scheduled-issue-completion.yml declares a \`${name}\` job`).not.toBeNull();
   return job;
@@ -30,7 +30,7 @@ function jobBlock(name) {
 
 describe("scheduled-issue-completion gates its agent run on a job output, not a step guard", () => {
   it("declares a preflight job that publishes whether the credential exists", () => {
-    const preflight = jobBlock("preflight");
+    const preflight = jobOf("preflight");
     expect(preflight.outputs).toHaveProperty("has_key");
     const check = preflight.steps.find((step) => step.env.ANTHROPIC_API_KEY);
     expect(check.env.ANTHROPIC_API_KEY).toBe("${{ secrets.ANTHROPIC_API_KEY }}");
@@ -39,13 +39,13 @@ describe("scheduled-issue-completion gates its agent run on a job output, not a 
   });
 
   it("skips the routine job on a missing credential rather than passing it", () => {
-    const routine = jobBlock("routine");
+    const routine = jobOf("routine");
     expect(routine.needs).toEqual(["preflight"]);
     expect(routine.if).toMatch(/needs\.preflight\.outputs\.has_key == 'true'/);
   });
 
   it("keeps the old silent-skip out of the step — an exit 0 there reads as a pass", () => {
-    const routine = jobBlock("routine");
+    const routine = jobOf("routine");
     const scripts = jobRunText(routine);
     expect(scripts).not.toMatch(/ANTHROPIC_API_KEY is not configured/);
     expect(scripts).not.toMatch(/exit 0/);
@@ -53,7 +53,7 @@ describe("scheduled-issue-completion gates its agent run on a job output, not a 
   });
 
   it("says in the run summary that the routine did not run, so a skip is legible", () => {
-    const preflight = jobBlock("preflight");
+    const preflight = jobOf("preflight");
     expect(jobRunText(preflight)).toContain("$GITHUB_STEP_SUMMARY");
     expect(jobRunText(preflight)).toMatch(/#3585/);
   });
@@ -61,7 +61,7 @@ describe("scheduled-issue-completion gates its agent run on a job output, not a 
   it("still invokes the built CLI entrypoint when a credential exists", () => {
     // The @mbe/cli bin is never linked into node_modules/.bin (gotchas § Build),
     // so `pnpm exec mbe` cannot resolve — the built entrypoint is the only path.
-    const routine = jobBlock("routine");
+    const routine = jobOf("routine");
     const scripts = jobRunText(routine);
     expect(scripts).toContain("pnpm build --filter @mbe/cli...");
     expect(scripts).toContain("node tools/cli/dist/index.js agent run");
