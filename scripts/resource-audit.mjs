@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -354,23 +354,6 @@ export function decideOrphanCountRefresh({ priorTitle, currentCount }) {
   return { action: "refresh", from, to: currentCount };
 }
 
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
-}
-
 /**
  * Brings an already-open tracker up to date when the measured count moved.
  *
@@ -436,7 +419,7 @@ function createGitHubIssue(ghClient, title, body, totalOrphaned) {
       { title, body, labels: ["audit"], dedupeKey: RESOURCE_AUDIT_DEDUPE_KEY },
       ledger,
       {
-        getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+        getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
         createIssue: () =>
           parseIssueNumberFromUrl(
             ghClient.issue.create(["--title", title, "--label", "audit", "--body", body])
@@ -447,6 +430,8 @@ function createGitHubIssue(ghClient, title, body, totalOrphaned) {
 
     if (result.action === "skip") {
       refreshTrackedCount(ghClient, result.issueNumber, prior?.title, title, body, totalOrphaned);
+    } else if (result.action === "skipped-error") {
+      console.log(`Could not read state of issue #${result.issueNumber} — not filing: ${title}`);
     } else if (result.action === "reopen") {
       console.log(`Reopened issue #${result.issueNumber}: ${title}`);
     } else {

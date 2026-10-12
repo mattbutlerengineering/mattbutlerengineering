@@ -100,7 +100,7 @@ export function compare(current, baseline, opts = {}) {
 // regression issue was closed reopens it instead of filing a duplicate.
 // ---------------------------------------------------------------------------
 
-import { fileIssue } from "./issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./issue-filing.mjs";
 
 /**
  * Lazily loads @mbe/gh-client and returns a fresh client. Kept out of the
@@ -154,23 +154,6 @@ export function fetchIssuesByLabel(label, ghClient) {
   return Array.isArray(issues) ? issues : [];
 }
 
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
-}
-
 /**
  * Files a regression issue unless one is already open for `marker` (or
  * reopens it if previously closed) — the one issue-filing entry point every
@@ -201,7 +184,7 @@ export async function fileRegressionIssueIfNew({ label, marker, payload, ghClien
     { title: payload.title, body: payload.body, labels: payload.labels, dedupeKey: marker },
     ledger,
     {
-      getIssueState: (issueNumber) => getIssueStateViaGhClient(client, issueNumber),
+      getIssueState: (issueNumber) => issueState(client, issueNumber),
       createIssue: (title, body, labels) =>
         parseIssueNumberFromUrl(
           client.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])
@@ -212,6 +195,9 @@ export async function fileRegressionIssueIfNew({ label, marker, payload, ghClien
 
   if (result.action === "skip") {
     return { filed: false, reason: "duplicate" };
+  }
+  if (result.action === "skipped-error") {
+    return { filed: false, reason: "state-error" };
   }
   return { filed: true, action: result.action };
 }

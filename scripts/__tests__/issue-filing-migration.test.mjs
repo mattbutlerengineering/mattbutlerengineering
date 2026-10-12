@@ -90,7 +90,7 @@ describe("issue-filing migration (#3675): revert-watchdog.yml + revert-watchdog.
 
   it("revert-watchdog.mjs's createIssue routes through the shared fileIssue() module", () => {
     const mod = read("scripts/revert-watchdog.mjs");
-    expect(mod).toMatch(/import \{ fileIssue \} from "\.\/lib\/issue-filing\.mjs"/);
+    expect(mod).toMatch(/import \{\s*fileIssue,[^}]*\} from "\.\/lib\/issue-filing\.mjs"/);
     expect(mod).toMatch(/findPriorBrokenMainIssue/);
   });
 });
