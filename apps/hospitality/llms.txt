@@ -472,6 +472,49 @@
       ): TParams | undefined { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/floor-plan-draft-reducer.ts">
+    <item priority="low">
+      interface Position {
+        x: number;
+        y: number;
+      }
+    </item>
+    <item priority="low">
+      type PositionMap = ReadonlyMap<string, Position>;
+    </item>
+    <item priority="low">
+      interface DraftState {
+        base: readonly Table[];
+        edits: PositionMap;
+        inFlight: PositionMap | null;
+        saveFailure: { readonly error: unknown } | null;
+      }
+    </item>
+    <item priority="low">
+      type DraftAction = { readonly type: "synced"; rea | { readonly type: "moved"; read | { readonly type: "tableAdded"; | { readonly type: "tableRemoved | { readonly type: "saveStarted" | { readonly type: "saveSucceede | { readonly type: "saveFailed";;
+    </item>
+    <item priority="high">
+      export const INITIAL_DRAFT: DraftState;
+    </item>
+    <item priority="medium">
+      function withPosition(table: Table, pos: Position): Table { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyPositions(tables: readonly Table[], positions: PositionMap | null): Table[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectTables(state: DraftState): Table[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectDirty(state: DraftState): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function without(map: PositionMap, id: string): PositionMap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftReducer(state: DraftState, action: DraftAction): DraftState { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/sse-query-keys.ts">
     <item priority="high">
       export const SSE_INVALIDATION_QUERY_KEYS: unknown;
@@ -713,6 +756,26 @@
   <file path="src/hooks/useDocumentTitle.ts">
     <item priority="high">
       export function useDocumentTitle(title: string): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useFloorPlanDraft.ts">
+    <item priority="low">
+      interface PositionUpdate {
+        tableId: string;
+        shapeMetadata: NonNullable<Table["shapeMetadata"]>;
+      }
+    </item>
+    <item priority="low">
+      interface UseFloorPlanDraftOptions {
+        serverTables: readonly Table[] | undefined;
+        persist: (positions: PositionUpdate[]) => Promise<unknown>;
+      }
+    </item>
+    <item priority="medium">
+      function toUpdate(table: Table | undefined, tableId: string, x: number, y: number): PositionUpdate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFloorPlanDraft({ serverTables, persist }: UseFloorPlanDraftOptions) { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useFloorPlans.ts">

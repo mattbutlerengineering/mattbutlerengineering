@@ -832,4 +832,75 @@ describe("FloorPlanEditorPage", () => {
       expect(canvas.getAttribute("data-stale")).toBe("false");
     });
   });
+
+  describe("draft state (#6386)", () => {
+    const positionOf = (x: number, y: number) => screen.getByText(`x: ${x}, y: ${y}`);
+
+    async function selectAndMove(tableId: string) {
+      const button = await screen.findByTestId(`canvas-table-${tableId}`);
+      fireEvent.focus(button);
+      fireEvent.click(button); // mocked canvas moves the table to (200, 300)
+    }
+
+    it("a failed save rolls back to the last saved positions", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      mockBulkUpdatePositions.mockRejectedValue(new Error("Connection refused"));
+      renderPage();
+
+      await selectAndMove("table-a");
+      expect(positionOf(200, 300)).toBeDefined();
+
+      fireEvent.click(await screen.findByText("Save Changes"));
+      await screen.findByText("Connection refused");
+
+      expect(positionOf(100, 200)).toBeDefined();
+    });
+
+    it("keeps a move made while a save is in flight", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A, TABLE_B] });
+      let resolveSave: () => void = () => {};
+      mockBulkUpdatePositions.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSave = () => {
+              // Server now holds the first save's positions.
+              mockGetById.mockResolvedValue({
+                ...FLOOR_PLAN,
+                tables: [
+                  { ...TABLE_A, shapeMetadata: { ...TABLE_A.shapeMetadata!, x: 200, y: 300 } },
+                  TABLE_B,
+                ],
+              });
+              resolve();
+            };
+          })
+      );
+      renderPage();
+
+      await selectAndMove("table-a");
+      fireEvent.click(await screen.findByText("Save Changes"));
+      await screen.findByText("Saving...");
+
+      await selectAndMove("table-b"); // moved while the save is in flight
+      resolveSave();
+
+      await waitFor(() => expect(screen.queryByText("Saving...")).toBeNull());
+      expect(screen.getByText("Save Changes")).toBeDefined(); // still dirty
+      expect(positionOf(200, 300)).toBeDefined(); // table B still moved
+    });
+
+    it("a background refetch does not wipe unsaved moves", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [TABLE_A] });
+      mockSetActive.mockResolvedValue({ ...FLOOR_PLAN, isActive: true });
+      renderPage();
+
+      await selectAndMove("table-a");
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: true, tables: [TABLE_A] });
+      fireEvent.click(await screen.findByText("Set as Active")); // invalidates + refetches
+      await screen.findByText("Active");
+
+      expect(positionOf(200, 300)).toBeDefined();
+      expect(screen.getByText("Save Changes")).toBeDefined();
+    });
+  });
 });
