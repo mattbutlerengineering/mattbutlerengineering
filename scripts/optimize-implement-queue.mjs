@@ -61,6 +61,8 @@ export function buildQueueEfficiencyProcessEntry(date, sensorResult) {
       sensor: "queueEfficiency",
       available: false,
       reason: sensorResult?.reason ?? "unknown",
+      // The reason code alone left 10 days of `query_error` rows undiagnosable (#6312).
+      ...(sensorResult?.error ? { error: String(sensorResult.error).slice(0, 500) } : {}),
     };
   }
 

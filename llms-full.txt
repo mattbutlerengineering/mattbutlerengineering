@@ -51957,11 +51957,11 @@
       if (!(err instanceof Error)) return false;
       const stderr = (err as { stderr?: unknown }).stderr;
       const text = `${err.message}\n${typeof stderr === "string" ? stderr : ""}`;
-      return (
-        /HTTP 403/.test(text) &&
-        /api\.github\.com\/graphql/i.test(text) &&
-        /GraphQL is not available|use the REST API/i.test(text)
-      );
+      // gh prints this block two ways: `HTTP 403: <msg> (https://api.github.com/graphql)`
+      // and, behind the Claude Code proxy, `non-200 OK status code: 403 Forbidden body:
+      // "{...}"` with no URL at all (measured, #6312). Match on the 403 plus the
+      // block's own sentence, not on either gh formatting.
+      return /\b403\b/.test(text) && /GitHub GraphQL is not available/i.test(text);
     }
     export function createTransportRunner(opts: TransportOptions = {}): Run {
       const probe = opts.probe ?? probeGh;

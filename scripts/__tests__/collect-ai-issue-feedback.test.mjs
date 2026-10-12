@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GhAuthError } from "@mbe/gh-client";
+import { createGhClient, GhAuthError } from "@mbe/gh-client";
 import {
   classifyIssue,
   computeCategoryRates,
@@ -194,6 +194,63 @@ describe("queryClosedIssuesForFeedback", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/auth/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #6312 — REST success path, pinned end to end through the REAL gh-client REST
+// runner with an injected HTTP seam (no network, no `gh`).
+// ---------------------------------------------------------------------------
+
+describe("REST success path (#6312)", () => {
+  const restItem = (number, label, stateReason) => ({
+    number,
+    title: `issue ${number}`,
+    state: "closed",
+    state_reason: stateReason,
+    labels: [{ name: label }],
+    created_at: "2026-10-01T00:00:00Z",
+    closed_at: "2026-10-02T00:00:00Z",
+  });
+
+  function collectViaRest(items) {
+    const urls = [];
+    const http = ({ url }) => {
+      urls.push(decodeURIComponent(url));
+      return { status: 200, body: JSON.stringify({ items }) };
+    };
+    const client = createGhClient({
+      probe: () => false,
+      token: "t",
+      owner: "o",
+      repoName: "r",
+      http,
+    });
+    return { result: queryClosedIssuesForFeedback((a) => client.issue.list(a)), urls };
+  }
+
+  it("searches the categories as an OR (comma list), not an AND of label: qualifiers", () => {
+    // Measured live: eight space-separated `label:` qualifiers matched 0 issues;
+    // the comma form matched ~1.9k. The AND form made every run read as empty.
+    const { urls } = collectViaRest([]);
+    expect(urls[0]).toContain(`label:${CATEGORIES.join(",")}`);
+    expect(urls[0]).not.toMatch(/label:audit label:/);
+  });
+
+  it("turns REST search results into per-category rates", () => {
+    const { result } = collectViaRest([
+      restItem(1, "audit", "completed"),
+      restItem(2, "audit", "not_planned"),
+      restItem(3, "ci-fix", "completed"),
+    ]);
+    expect(result.ok).toBe(true);
+    const rates = computeCategoryRates(result.issues.map((i) => ({ ...i, linkedPrs: [] })));
+    expect(rates.audit).toMatchObject({ total: 2, rejected: 1, wontfix: 1 });
+    expect(rates["ci-fix"]).toMatchObject({ total: 1, wontfix: 1 });
+  });
+
+  it("classifies a lowercase REST state_reason of not_planned as rejected", () => {
+    expect(classifyIssue(makeIssue({ stateReason: "not_planned" }))).toBe("rejected");
   });
 });
 

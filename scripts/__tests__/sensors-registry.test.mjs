@@ -1323,6 +1323,14 @@ describe("metricsFreshness sensor (#5529)", () => {
   // A fresh queue-telemetry row, so tests about review-burden are not also
   // tripped by the second FRESHNESS_POLICY entry.
   const FRESH_QUEUE = `${JSON.stringify({ claimed_at: "2026-09-20T00:00:00.000Z" })}\n`;
+  // Healthy rows for the #6312 collectors, same reason.
+  const FRESH_COLLECTORS = {
+    "process-metrics.jsonl": `${JSON.stringify({ date: "2026-09-20", sensor: "queueEfficiency", available: true })}\n`,
+    "ai-issue-feedback.json": JSON.stringify({
+      collected_at: "2026-09-20T00:00:00.000Z",
+      categories: {},
+    }),
+  };
 
   function seed(files) {
     tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
@@ -1349,10 +1357,15 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(2);
+    expect(data.stale_count).toBe(4);
 
     const regressions = sensor().detectRegression(data, undefined, {});
-    expect(regressions.map((r) => r.metric).sort()).toEqual(["queue-telemetry", "review-burden"]);
+    expect(regressions.map((r) => r.metric).sort()).toEqual([
+      "ai-issue-feedback",
+      "queue-telemetry",
+      "queueEfficiency",
+      "review-burden",
+    ]);
     expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
   });
 
@@ -1360,6 +1373,7 @@ describe("metricsFreshness sensor (#5529)", () => {
     const root = seed({
       "review-burden.json": JSON.stringify([{ timestamp: "2026-06-14T04:52:03.798Z" }]),
       "queue-telemetry.jsonl": FRESH_QUEUE,
+      ...FRESH_COLLECTORS,
     });
     const data = sensor().collect({
       root,
@@ -1378,6 +1392,7 @@ describe("metricsFreshness sensor (#5529)", () => {
     const root = seed({
       "review-burden.json": JSON.stringify([{ timestamp: "2026-09-20T00:00:00.000Z" }]),
       "queue-telemetry.jsonl": FRESH_QUEUE,
+      ...FRESH_COLLECTORS,
     });
     const data = sensor().collect({
       root,

@@ -130,13 +130,18 @@ jobs:
               echo "or stale result is a defect, not a missing credential:"
               echo
               echo '```'
-              jq -r '.failures[] | "  \(.metric): \(.state); written by \(.producer)"' /tmp/freshness.json
+              jq -r '.failures[] | "  \(.label // .metric): \(.state); written by \(.producer)"' /tmp/freshness.json
               echo '```'
               echo
               echo "### Most likely causes"
               echo
               echo "1. **\`review-burden\` stale** — the collector or its \`gh pr list\` call failed."
-              echo "2. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"
+              echo "2. **\`queueEfficiency\` stale/unhealthy** — only \`available: false\` rows are landing;"
+              echo "   read the \`reason\`/\`error\` on the latest \`metrics/process-metrics.jsonl\` row."
+              echo "   \`credential_rejected\` means the session token is refused by api.github.com."
+              echo "3. **\`ai-issue-feedback\` unhealthy** — \`metrics/ai-issue-feedback.json\` holds only"
+              echo "   an \`error\` object; the collector's GitHub query is failing."
+              echo "4. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"
               echo "   moved, or the payload no longer parses."
               echo
               echo "Thresholds and states live in \`scripts/metrics-freshness.mjs\`"

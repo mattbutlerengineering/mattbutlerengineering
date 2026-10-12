@@ -417,6 +417,19 @@ describe("collectQueueEfficiency — unavailability reason classification", () =
     expect(result.reason).toBe("credential_rejected");
   });
 
+  it("makes credential_rejected actionable: names the endpoint status, the env var and the fix (#6312)", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new GhAuthError("GET", "/search/issues", 403, "Resource not accessible");
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.error).toMatch(/GITHUB_TOKEN|GH_TOKEN/);
+    expect(result.error).toMatch(/api\.github\.com/);
+    expect(result.error).toMatch(/403/);
+  });
+
   it("classifies GraphQL unavailability as graphql_unavailable, never credential_rejected (#6039)", () => {
     const result = collectQueueEfficiency(
       () => {
