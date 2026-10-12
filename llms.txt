@@ -1962,6 +1962,14 @@
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
+    <item priority="high">
+      export const CONFIRMATION_COPY: unknown;
+    </item>
+    <item priority="high">
+      export function contactLine(contact: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     <item priority="high">
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
@@ -16384,6 +16392,20 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
+    <item priority="high">
+      export const TWO_LINE_NOTE: unknown;
+    </item>
+    <item priority="high">
+      export const TWO_LINE_DISPLAYED: unknown;
+    </item>
+    <item priority="high">
+      export const UNTRUSTED_NOTE: unknown;
+    </item>
+    <item priority="high">
+      export const EMPTY_NOTES: readonly (string | null)[];
+    </item>
+  </file>
   <file path="packages/rialto/src/test/match-media.ts">
     <item priority="high">
       export const PREFERS_REDUCED_MOTION: unknown;
@@ -16562,6 +16584,20 @@
     </item>
     <item priority="high">
       export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
+    <item priority="low">
+      type ReservationSheetSize = "compact" | "default";
+    </item>
+    <item priority="high">
+      export function reservationSheetSize(
+        notes: string | null | undefined,
+        expanded: boolean
+      ): ReservationSheetSize { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>>;
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
@@ -17246,6 +17282,9 @@
     </item>
     <item priority="high">
       export function formatReservationTime(isoString: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specialRequestsText(notes: string | null | undefined): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/seated.ts">
