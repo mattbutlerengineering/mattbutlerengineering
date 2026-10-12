@@ -196,6 +196,18 @@
       readonly method?: string;
       readonly path?: string;
     }
+    export interface ReportableValidationError {
+      readonly name: "ApiValidationError";
+      readonly message: string;
+      readonly method?: string;
+      readonly path?: string;
+      readonly error: { readonly issues: readonly unknown[] };
+    }
+    function isValidationError(
+      error: ReportableApiError | ReportableValidationError
+    ): error is ReportableValidationError {
+      return "name" in error && error.name === "ApiValidationError";
+    }
     export interface InitOptions {
       readonly appName: string;
       readonly dsn: string;
@@ -231,7 +243,19 @@
         Sentry.captureException(error);
       });
     }
-    export function reportApiError(error: ReportableApiError): void {
+    export function reportApiError(error: ReportableApiError | ReportableValidationError): void {
+      if (isValidationError(error)) {
+        Sentry.withScope((scope) => {
+          scope.setContext("apiValidation", {
+            method: error.method,
+            path: error.path,
+            issues: error.error.issues,
+          });
+          Sentry.captureException(error);
+        });
+        return;
+      }
+    
       const code = error.statusCode;
     
       Sentry.addBreadcrumb({

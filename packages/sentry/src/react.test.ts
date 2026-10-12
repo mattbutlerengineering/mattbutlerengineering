@@ -344,4 +344,29 @@ describe("reportApiError", () => {
 
     expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
   });
+  describe("response-schema validation errors (no statusCode)", () => {
+    const makeValidationError = () =>
+      Object.assign(new Error("GET /venues failed validation: bad"), {
+        name: "ApiValidationError" as const,
+        method: "GET",
+        path: "/venues",
+        error: { issues: [{ path: ["id"], message: "Required", code: "invalid_type" }] },
+      });
+
+    it("captures the exception once with method, path and zod issues", () => {
+      const scope = { setContext: vi.fn(), setTag: vi.fn() };
+      mockWithScope.mockImplementation((cb: (s: typeof scope) => void) => cb(scope));
+      const error = makeValidationError();
+
+      reportApiError(error);
+
+      expect(mockCaptureException).toHaveBeenCalledTimes(1);
+      expect(mockCaptureException).toHaveBeenCalledWith(error);
+      expect(scope.setContext).toHaveBeenCalledWith("apiValidation", {
+        method: "GET",
+        path: "/venues",
+        issues: error.error.issues,
+      });
+    });
+  });
 });
