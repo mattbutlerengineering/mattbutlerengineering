@@ -4,6 +4,8 @@
  * Extracted from edge-router.js.
  */
 
+import { parseHealthSnapshot } from "./snapshot.js";
+
 /**
  * Handle GET /health/performance — 7-day latency trends per service.
  */
@@ -40,8 +42,7 @@ async function handleHealthPerformance(env) {
   // Aggregate per-service latencies
   const serviceLatencies = {};
   for (const sample of samples) {
-    const services = sample.services ?? {};
-    for (const [name, data] of Object.entries(services)) {
+    for (const [name, data] of Object.entries(parseHealthSnapshot(sample).probes)) {
       if (data.latency == null) continue;
       if (!serviceLatencies[name]) serviceLatencies[name] = [];
       serviceLatencies[name].push(data.latency);
@@ -58,7 +59,8 @@ async function handleHealthPerformance(env) {
     const p95 = sorted[p95Index] ?? sorted[sorted.length - 1];
 
     const recentCount = Math.max(1, Math.floor(sorted.length * 0.1));
-    const recentLatencies = latencies.slice(-recentCount);
+    // Samples are collected newest-first, so the newest are at the front.
+    const recentLatencies = latencies.slice(0, recentCount);
     const recentSorted = [...recentLatencies].sort((a, b) => a - b);
     const recentP95Index = Math.floor(recentSorted.length * 0.95);
     const recentP95 = recentSorted[recentP95Index] ?? recentSorted[recentSorted.length - 1];
