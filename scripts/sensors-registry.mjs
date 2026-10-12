@@ -434,7 +434,7 @@ export const SENSORS = [
         available: true,
         stale_count: freshnessFindings(results).length,
         metrics: results.map((result) => ({
-          metric: result.metric,
+          metric: result.label ?? result.metric,
           state: result.state,
           age_days: result.ageDays,
           latest: result.latest ?? null,

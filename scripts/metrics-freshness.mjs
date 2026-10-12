@@ -86,6 +86,30 @@ export const FRESHNESS_POLICY = [
     maxAgeDays: 3,
     producer: "scripts/collect-queue-telemetry-from-github.mjs",
   },
+  {
+    // A collector that runs every day but only writes `available: false` rows
+    // is dark, not alive: the row's date is always fresh. So only rows that
+    // carry data count (`isHealthy`), and the timestamp is read from those
+    // alone (#6312 — dark 2026-09-27 -> 2026-10-12 with a row every day).
+    // 5 days, not 3: the routine is not guaranteed on weekends, and the
+    // healthy history has a 4-day gap already.
+    metric: "process-metrics",
+    label: "queueEfficiency",
+    select: (row) => row?.sensor === "queueEfficiency",
+    isHealthy: (row) => row?.available === true,
+    timestampField: "date",
+    maxAgeDays: 5,
+    producer: "scripts/optimize-implement-queue.mjs (collect-queue-efficiency.mjs)",
+  },
+  {
+    // A single-object file: the collector rewrites it, and on failure writes
+    // `{ collected_at, error }` — a fresh timestamp with no data (#6312).
+    metric: "ai-issue-feedback",
+    isHealthy: (row) => !row?.error && typeof row?.categories === "object",
+    timestampField: "collected_at",
+    maxAgeDays: 5,
+    producer: "scripts/collect-ai-issue-feedback.mjs",
+  },
 ];
 
 /** The one passing state. Anything else — named or not — is a finding. */
@@ -158,8 +182,11 @@ export function classifyFreshness({
   now,
   requiresEnv,
   env = {},
+  select,
+  isHealthy,
 }) {
-  if (!Array.isArray(entries) || entries.length === 0) {
+  const selected = Array.isArray(entries) && select ? entries.filter(select) : entries;
+  if (!Array.isArray(selected) || selected.length === 0) {
     return {
       state: isPrerequisiteMissing(requiresEnv, env) ? UNCONFIGURED : "empty",
       latest: null,
@@ -167,7 +194,12 @@ export function classifyFreshness({
     };
   }
 
-  const newestMs = newestTimestampMs(entries, timestampField);
+  // Rows exist but none carries data: a collector writing only error rows.
+  // Its timestamps are fresh by construction, so they must not count (#6312).
+  const counted = isHealthy ? selected.filter(isHealthy) : selected;
+  if (counted.length === 0) return { state: "unhealthy", latest: null, ageDays: null };
+
+  const newestMs = newestTimestampMs(counted, timestampField);
   if (newestMs === null) {
     return { state: "undated", latest: null, ageDays: null };
   }
@@ -200,6 +232,10 @@ export function assessFreshness({
     let entries;
     try {
       entries = readMetric(entry.metric);
+      // json-object metrics (e.g. ai-issue-feedback) read back as one object.
+      if (entry.isHealthy && entries && typeof entries === "object" && !Array.isArray(entries)) {
+        entries = [entries];
+      }
     } catch (error) {
       return {
         ...entry,
@@ -272,7 +308,7 @@ export function freshnessExitCode(results) {
 export function freshnessRegressions(results) {
   return freshnessFindings(results).map((result) => ({
     sensor: "metricsFreshness",
-    metric: result.metric,
+    metric: result.label ?? result.metric,
     current: result.state,
     previous: result.latest ?? null,
     delta: result.ageDays,
@@ -289,7 +325,7 @@ export function freshnessRegressions(results) {
 export function formatFinding(result) {
   const age = result.ageDays === null ? "no dated entry" : `${result.ageDays}d old`;
   const detail = result.error ? ` (${result.error})` : "";
-  return `${result.metric}: ${result.state} — ${age}${detail}; written by ${result.producer ?? "unknown producer"}`;
+  return `${result.label ?? result.metric}: ${result.state} — ${age}${detail}; written by ${result.producer ?? "unknown producer"}`;
 }
 
 /* ── CLI ─────────────────────────────────────────────────── */

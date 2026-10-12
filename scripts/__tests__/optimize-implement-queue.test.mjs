@@ -127,6 +127,23 @@ describe("buildQueueEfficiencyProcessEntry", () => {
     });
   });
 
+  it("persists the (truncated) error text so a dark row says WHY, not just a code (#6312)", () => {
+    // 10 days of `query_error` rows were undiagnosable because only the code
+    // was stored; the real cause was in `error`, which was dropped here.
+    const entry = buildQueueEfficiencyProcessEntry("2026-10-12", {
+      available: false,
+      reason: "query_error",
+      error: "x".repeat(2000),
+    });
+    expect(entry.error).toHaveLength(500);
+    expect(
+      buildQueueEfficiencyProcessEntry("2026-10-12", {
+        available: false,
+        reason: "no_data_in_range",
+      })
+    ).not.toHaveProperty("error");
+  });
+
   it("falls back to reason 'unknown' when the sensor result carries no reason", () => {
     const entry = buildQueueEfficiencyProcessEntry("2026-06-27", { available: false });
     expect(entry.reason).toBe("unknown");

@@ -104,6 +104,26 @@ export function classifyUnavailableReason(err) {
 }
 
 /**
+ * Error text for an unavailable result. `credential_rejected` is the one code
+ * the repo cannot fix from code (the token in the session is the problem), so
+ * it says what was rejected and what to change instead of a bare status (#6312).
+ *
+ * @param {string} reason
+ * @param {unknown} err
+ * @returns {string}
+ */
+function explainUnavailable(reason, err) {
+  const base = describeGhError(err);
+  if (reason !== "credential_rejected") return base;
+  return (
+    `${base}. api.github.com refused the session's GITHUB_TOKEN/GH_TOKEN ` +
+    `(${err.status ?? "?"}) — it is likely scoped for git-over-HTTPS only. ` +
+    `Provide a token with repo read access in GITHUB_TOKEN or GH_TOKEN for this routine; ` +
+    `no code change fixes this.`
+  );
+}
+
+/**
  * An AI/worker PR is identified by:
  *   - `agent-authored` label (current convention), OR
  *   - `has-pr` label (legacy coordination label), OR
@@ -469,11 +489,8 @@ export function collectQueueEfficiency(
   } catch (err) {
     // Distinguishable from "no PRs" (#3937/#3946) — a thrown error (e.g. auth
     // failure) is a query failure, not an empty-but-valid result.
-    return {
-      available: false,
-      reason: classifyUnavailableReason(err),
-      error: describeGhError(err),
-    };
+    const reason = classifyUnavailableReason(err);
+    return { available: false, reason, error: explainUnavailable(reason, err) };
   }
   if (!Array.isArray(prs) || prs.length === 0) {
     return { available: false, reason: "no_data_in_range" };

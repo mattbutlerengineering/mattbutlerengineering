@@ -32,6 +32,19 @@ import { METRICS } from "../metrics-store.mjs";
 
 const NOW = new Date("2026-09-20T12:00:00.000Z");
 
+/** One row that satisfies every policy entry's timestamp field AND health predicate. */
+const FRESH_ROWS = [
+  {
+    timestamp: new Date(NOW.getTime()).toISOString(),
+    collected_at: new Date(NOW.getTime()).toISOString(),
+    claimed_at: new Date(NOW.getTime()).toISOString(),
+    date: "2026-09-20",
+    sensor: "queueEfficiency",
+    available: true,
+    categories: {},
+  },
+];
+
 /** `daysAgo(2)` -> an ISO timestamp two days before NOW. */
 function daysAgo(days) {
   return new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -109,6 +122,8 @@ describe("classifyFreshness", () => {
 describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
     expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
+      "ai-issue-feedback",
+      "process-metrics",
       "queue-telemetry",
       "review-burden",
     ]);
@@ -141,9 +156,7 @@ describe("FRESHNESS_POLICY", () => {
 
 describe("queue-telemetry policy entry", () => {
   const readWith = (claimedAt) => (metric) =>
-    metric === "queue-telemetry"
-      ? [{ claimed_at: claimedAt, merged_at: null }]
-      : [{ timestamp: daysAgo(0) }];
+    metric === "queue-telemetry" ? [{ claimed_at: claimedAt, merged_at: null }] : FRESH_ROWS;
   const queueResult = (claimedAt) =>
     assessFreshness({ readMetric: readWith(claimedAt), now: NOW }).find(
       (r) => r.metric === "queue-telemetry"
@@ -162,8 +175,7 @@ describe("queue-telemetry regression: rows stop landing silently (#5777)", () =>
   // Every other metric fresh, so the verdict can only come from queue-telemetry.
   const assess = (queueRows) =>
     assessFreshness({
-      readMetric: (metric) =>
-        metric === "queue-telemetry" ? queueRows : [{ timestamp: daysAgo(0) }],
+      readMetric: (metric) => (metric === "queue-telemetry" ? queueRows : FRESH_ROWS),
       now: NOW,
     });
 
@@ -190,9 +202,7 @@ describe("queue-telemetry regression: rows stop landing silently (#5777)", () =>
 describe("assessFreshness", () => {
   it("reports one result per policy entry", () => {
     const results = assessFreshness({
-      readMetric: () => [
-        { timestamp: daysAgo(0), collected_at: daysAgo(0), claimed_at: daysAgo(0) },
-      ],
+      readMetric: () => FRESH_ROWS,
       now: NOW,
     });
     expect(results).toHaveLength(FRESHNESS_POLICY.length);
@@ -396,5 +406,87 @@ describe("unconfigured vs. genuinely broken (#5561)", () => {
       { metric: "domain-metrics", state: "unconfigured", ageDays: null, latest: null },
     ]);
     expect(regression.severity).toBe("low");
+  });
+});
+
+/* ── #6312: collectors that "ran" but only ever wrote error rows ──────────── */
+
+describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
+  const dayStamp = (days) => daysAgo(days).slice(0, 10);
+  const queueRow = (days, fields) => ({
+    date: dayStamp(days),
+    sensor: "queueEfficiency",
+    ...fields,
+  });
+  const okQueue = (days) => queueRow(days, { available: true, composite: 0.9 });
+  const darkQueue = (days) => queueRow(days, { available: false, reason: "credential_rejected" });
+  const goodFeedback = (days) => ({ collected_at: daysAgo(days), categories: {}, budgets: {} });
+  const errorFeedback = (days) => ({ collected_at: daysAgo(days), error: "HTTP 403" });
+
+  const assess = ({ queue, feedback }) =>
+    assessFreshness({
+      readMetric: (metric) => {
+        if (metric === "process-metrics") return queue;
+        if (metric === "ai-issue-feedback") return feedback;
+        if (metric === "queue-telemetry") return [{ claimed_at: daysAgo(0) }];
+        return [{ timestamp: daysAgo(0) }];
+      },
+      now: NOW,
+    });
+  const stateOf = (results, label) => results.find((r) => (r.label ?? r.metric) === label)?.state;
+
+  it("watches both collectors, reading real timestamp fields", () => {
+    const queue = FRESHNESS_POLICY.find((p) => p.label === "queueEfficiency");
+    expect(queue).toMatchObject({ metric: "process-metrics", timestampField: "date" });
+    const feedback = FRESHNESS_POLICY.find((p) => p.metric === "ai-issue-feedback");
+    expect(feedback).toMatchObject({ timestampField: "collected_at" });
+  });
+
+  it("passes when both collectors have a recent healthy row", () => {
+    const results = assess({ queue: [okQueue(1)], feedback: goodFeedback(0) });
+    expect(freshnessExitCode(results)).toBe(0);
+  });
+
+  it("ignores other sensors' rows in the shared process-metrics file", () => {
+    const other = { date: dayStamp(0), sensor: "somethingElse", available: true };
+    const results = assess({ queue: [other], feedback: goodFeedback(0) });
+    expect(stateOf(results, "queueEfficiency")).toBe("empty");
+    expect(freshnessExitCode(results)).toBe(1);
+  });
+
+  it("FAILS when queueEfficiency only ever writes unavailable rows (fresh date, no data)", () => {
+    // The exact 2026-09-27 -> 2026-10-12 shape: a row every day, none usable.
+    const results = assess({
+      queue: [darkQueue(0), darkQueue(1), darkQueue(2)],
+      feedback: goodFeedback(0),
+    });
+    expect(stateOf(results, "queueEfficiency")).toBe("unhealthy");
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(partitionFindings(results).failures.map((r) => r.label)).toContain("queueEfficiency");
+  });
+
+  it("goes stale on the last HEALTHY row, not the newest row of any kind", () => {
+    const results = assess({ queue: [okQueue(20), darkQueue(0)], feedback: goodFeedback(0) });
+    expect(stateOf(results, "queueEfficiency")).toBe("stale");
+  });
+
+  it("FAILS when ai-issue-feedback holds only an error object", () => {
+    const results = assess({ queue: [okQueue(0)], feedback: errorFeedback(0) });
+    expect(stateOf(results, "ai-issue-feedback")).toBe("unhealthy");
+    expect(freshnessExitCode(results)).toBe(1);
+  });
+
+  it("FAILS when ai-issue-feedback is stale or missing", () => {
+    const stale = assess({ queue: [okQueue(0)], feedback: goodFeedback(30) });
+    expect(stateOf(stale, "ai-issue-feedback")).toBe("stale");
+    const missing = assess({ queue: [okQueue(0)], feedback: null });
+    expect(stateOf(missing, "ai-issue-feedback")).toBe("empty");
+  });
+
+  it("names the collector in the finding text", () => {
+    const [finding] = freshnessFindings(
+      assess({ queue: [darkQueue(0)], feedback: goodFeedback(0) })
+    );
+    expect(formatFinding(finding)).toMatch(/^queueEfficiency: unhealthy/);
   });
 });

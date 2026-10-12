@@ -67,7 +67,8 @@ export function classifyIssue(issue) {
     return "accepted";
   }
 
-  if (issue.stateReason === "NOT_PLANNED") {
+  // gh (GraphQL) says NOT_PLANNED; the REST fallback says not_planned.
+  if (String(issue.stateReason ?? "").toUpperCase() === "NOT_PLANNED") {
     return "rejected";
   }
 
@@ -145,7 +146,9 @@ export function computeIssueBudget(category, rates) {
  * @returns {{ ok: true, issues: object[] } | { ok: false, error: string }}
  */
 export function queryClosedIssuesForFeedback(listIssues) {
-  const labelQuery = CATEGORIES.map((c) => `label:${c}`).join(" ");
+  // Comma list = OR. Space-separated `label:` qualifiers AND together and match
+  // nothing (measured: 0 vs ~1.9k results, #6312).
+  const labelQuery = `label:${CATEGORIES.join(",")}`;
   try {
     const issues = listIssues([
       "--state",
