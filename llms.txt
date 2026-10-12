@@ -1581,20 +1581,6 @@
       export const checkDepsCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    <item priority="low">
-      async function getGitRoot(): Promise<string> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      async function getRemoteBranches(gitRoot: string): Promise<string[]> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const cleanupWorktreesCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/generate.ts">
     <item priority="medium">
       function writeFile(filePath: string, content: string): void { /* ... */ }
@@ -1768,31 +1754,6 @@
       export const packChangedCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/prime.ts">
-    <item priority="high">
-      export const primeCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/stats.ts">
-    <item priority="high">
-      interface AgentSessionRecord {
-        timestamp: string;
-        sessionId: string;
-        milestone?: string;
-        modelId: string;
-        researchTurns: number;
-      }
-    </item>
-    <item priority="high">
-      export const logSessionCommand: unknown;
-    </item>
-    <item priority="high">
-      export const statsCommand: unknown;
-    </item>
-    <item priority="high">
-      export const auditPerfCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     <item priority="high">
       export const syncRulesRun: unknown;
@@ -1818,25 +1779,6 @@
     </item>
     <item priority="high">
       export const usersCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/visual.ts">
-    <item priority="high">
-      export const visualCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/wave.ts">
-    <item priority="high">
-      interface WaveResult {
-        task: string;
-        branchName: string;
-        worktreePath: string;
-        success: boolean;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export const waveCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/whoami.ts">

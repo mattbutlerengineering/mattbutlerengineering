@@ -33,4 +33,4 @@ To maintain a clean and efficient development environment, all AI agents and hum
 
 ## Automated Enforcement
 
-The `mbe cleanup-worktrees` command (planned) will automatically scan `.agent-worktrees/` and the parent directory for orphaned `agent-*` folders older than 24 hours and remove them.
+`scripts/reap-worktrees.mjs` removes stale agent worktrees, refusing any with an open PR or a live owning process.
