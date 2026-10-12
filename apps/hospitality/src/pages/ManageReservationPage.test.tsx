@@ -324,6 +324,7 @@ describe("ManageReservationPage Special Requests card", () => {
   function cardCount(container: HTMLElement): number {
     const cardClass = cardOf(screen.getByRole("heading", { name: "Reservation Details" }))
       .classList[0];
+    if (!cardClass) throw new Error("Card has no class");
     return container.getElementsByClassName(cardClass).length;
   }
 

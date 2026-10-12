@@ -4,7 +4,7 @@
  * (`SpecialRequestsTicket`, the Briefing card) and the booking form's field
  * label. PRD SC4 requires each string to be defined once, so guest and host
  * read the same words. Render every value as `{value}`, never as JSX text or
- * through `dangerouslySetInnerHTML`.
+ * injected as raw HTML.
  */
 const acknowledgement = "Noted. It's on your reservation for the team.";
 

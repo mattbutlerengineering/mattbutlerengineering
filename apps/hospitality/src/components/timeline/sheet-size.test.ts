@@ -34,7 +34,7 @@ const DRAWER_CSS_PATH = resolve(
 function heightOf(css: string, selector: string): string | undefined {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const block = css.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1];
-  return block?.match(/(?:^|\s)height:\s*([^;]+);/)?.[1].trim();
+  return block?.match(/(?:^|\s)height:\s*([^;]+);/)?.[1]?.trim();
 }
 
 describe("SHEET_BLOCK_SIZE mirrors rialto's bottom Drawer", () => {

@@ -449,7 +449,7 @@ describe("ConfirmationView Special Requests card", () => {
     const rule = css.match(/\.requestsText\s*\{([^}]*)\}/)?.[1] ?? "";
     expect(rule).toMatch(/white-space:\s*pre-wrap;/);
     expect(rule).toMatch(/overflow-wrap:\s*anywhere;/);
-    const values = [...rule.matchAll(/:\s*([^;]+);/g)].map((m) => m[1].trim());
+    const values = [...rule.matchAll(/:\s*([^;]+);/g)].map((m) => (m[1] ?? "").trim());
     expect(values.every((v) => /^var\(--rialto-[a-z0-9-]+\)$/.test(v) || /^[a-z-]+$/.test(v))).toBe(
       true
     );
