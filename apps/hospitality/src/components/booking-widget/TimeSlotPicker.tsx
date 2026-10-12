@@ -1,5 +1,5 @@
 import type { TimeSlot } from "@mbe/types";
-import { toDateString } from "@mbe/types";
+import { todayInTimezone } from "./todayInTimezone.js";
 import {
   Button,
   Alert,
@@ -70,7 +70,7 @@ export function TimeSlotPicker({
   // relationship to reality. `date` is a future date (not just "not today")
   // so a stale/past `date` prop (never selectable via the real UI) keeps the
   // pre-existing behavior rather than being newly suppressed.
-  const isFutureDate = date > toDateString(new Date());
+  const isFutureDate = date > todayInTimezone(new Date(), venueTimezone);
 
   // Get hour from ISO datetime for grouping — in the venue's timezone when
   // known, otherwise the device's (#4976).

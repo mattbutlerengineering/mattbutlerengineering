@@ -9,6 +9,7 @@
  * drops anything not matching the current date, keeping the store bounded.
  */
 
+import { localDateString } from "../utils/local-clock.js";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Reservation, TableStatusDelta } from "@mbe/types";
 
@@ -73,7 +74,7 @@ function reservationsKey(venueId: string, date: string): string {
 
 /** Today's date as a `YYYY-MM-DD` key, using the current system clock. */
 function todayDateKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString(new Date());
 }
 
 export async function getCachedReservations(
