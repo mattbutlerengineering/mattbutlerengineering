@@ -12877,7 +12877,7 @@
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
     type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
-      return toDateString(new Date());
+      return localDateString(new Date());
     }
     function computeUpcoming(reservations: readonly Reservation[]): number {
       const now = new Date();
@@ -15707,7 +15707,7 @@
       return `${venueId}::${date}`;
     }
     function todayDateKey(): string {
-      return new Date().toISOString().slice(0, 10);
+      return localDateString(new Date());
     }
     export async function getCachedReservations(
       venueId: string,
