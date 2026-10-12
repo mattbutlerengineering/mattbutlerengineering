@@ -1,0 +1,10 @@
+/* The guest's words (moved from ReservationDetails.module.css with the block) */
+.notesValue {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-recessed);
+  padding: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-sharp);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

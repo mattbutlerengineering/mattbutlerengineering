@@ -6,6 +6,7 @@ import { render, screen, fireEvent, waitFor, within, act } from "@testing-librar
 import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
+import { SHEET_BLOCK_SIZE } from "../components/timeline/sheet-size.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
@@ -71,7 +72,7 @@ vi.mock("../components/timeline", () => ({
     onTableStatusChange?: (id: string, status: string) => void;
     selectedReservationId?: string | null;
     seatedIds?: ReadonlySet<string>;
-    bottomInset?: number;
+    bottomInset?: string;
     emptyNight?: {
       variant: "today" | "otherDate";
       dateLabel: string;
@@ -141,8 +142,27 @@ vi.mock("../components/timeline", () => ({
   ReservationDetails: ({ reservation }: { reservation: Reservation }) => (
     <div data-testid="reservation-details">{reservation.guestName}</div>
   ),
-  ReservationSheet: ({ reservation, open }: { reservation: Reservation; open: boolean }) =>
-    open ? <div data-testid="reservation-sheet">{reservation.guestName}</div> : null,
+  ReservationSheet: ({
+    reservation,
+    open,
+    expanded,
+    onToggleExpanded,
+    onClose,
+  }: {
+    reservation: Reservation;
+    open: boolean;
+    expanded?: boolean;
+    onToggleExpanded?: () => void;
+    onClose?: () => void;
+  }) =>
+    open ? (
+      <div data-testid="reservation-sheet" data-expanded={String(expanded)}>
+        {reservation.guestName}
+        {/* More's state lives in the page; the stub exposes it and wires the toggle. */}
+        <button onClick={onToggleExpanded}>Sheet More</button>
+        <button onClick={onClose}>Close sheet</button>
+      </div>
+    ) : null,
   TimelineSkeleton: () => <div data-testid="timeline-skeleton" />,
 }));
 
@@ -1569,7 +1589,7 @@ describe("TimelinePage", () => {
         await waitFor(() => {
           expect(screen.getByTestId("reservation-sheet")).toBeDefined();
         });
-        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("240");
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
       } finally {
         vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
           matches: false,
@@ -2244,6 +2264,110 @@ describe("TimelinePage", () => {
       });
       expect(screen.queryByTestId("reservation-sheet")).toBeNull();
       expect(screen.queryByTestId("drawer")).toBeNull();
+    });
+  });
+
+  describe("tablet sheet More state (remembered-on-arrival M4.1)", () => {
+    const tabletMatchMedia = (query: string) => ({
+      matches: query === "(max-width: 1024px)",
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+
+    beforeEach(() => {
+      vi.mocked(window.matchMedia).mockImplementation(tabletMatchMedia);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [
+            makeReservation({ id: "r1", guestName: "Alice", date: todayStr }),
+            makeReservation({ id: "r2", guestName: "Bob", date: todayStr }),
+            makeReservation({
+              id: "r3",
+              guestName: "Cara",
+              date: todayStr,
+              notes: "Birthday celebration",
+            }),
+          ],
+        })
+      );
+    });
+
+    afterEach(() => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        ...tabletMatchMedia(query),
+        matches: false,
+      }));
+    });
+
+    const sheet = () => screen.getByTestId("reservation-sheet");
+
+    async function selectReservation(id: string) {
+      fireEvent.click(await waitFor(() => screen.getByTestId(`res-${id}`)));
+      await waitFor(() => expect(sheet()).toBeDefined());
+    }
+
+    it("pressing More makes the sheet expanded", async () => {
+      renderPage();
+      await selectReservation("r1");
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(sheet()).toHaveAttribute("data-expanded", "true");
+    });
+
+    it("closing and reselecting the same reservation opens it collapsed", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close sheet" }));
+      expect(screen.queryByTestId("reservation-sheet")).toBeNull();
+      await selectReservation("r1");
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
+    });
+
+    const inset = () => screen.getByTestId("bottom-inset");
+
+    it("insets the grid by the compact sheet for a party without notes", async () => {
+      renderPage();
+      await selectReservation("r1");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
+    });
+
+    it("insets the grid by the default sheet for a party with notes", async () => {
+      renderPage();
+      await selectReservation("r3");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.default);
+    });
+
+    it("insets the grid by the default sheet once More is pressed", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.default);
+    });
+
+    it("returns to the compact inset after More, close and reselect", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close sheet" }));
+      expect(inset().textContent).toBe("");
+      await selectReservation("r1");
+      expect(inset()).toHaveTextContent(SHEET_BLOCK_SIZE.compact);
+    });
+
+    it("selecting another reservation after More opens it collapsed (keyed by id)", async () => {
+      renderPage();
+      await selectReservation("r1");
+      fireEvent.click(screen.getByRole("button", { name: "Sheet More" }));
+      expect(sheet()).toHaveAttribute("data-expanded", "true");
+      fireEvent.click(screen.getByTestId("res-r2"));
+      await waitFor(() => expect(sheet()).toHaveTextContent("Bob"));
+      expect(sheet()).toHaveAttribute("data-expanded", "false");
     });
   });
 

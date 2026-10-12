@@ -38,3 +38,15 @@ export function formatReservationTime(isoString: string): string {
     minute: "2-digit",
   });
 }
+
+/**
+ * The one presence and display rule for a reservation's Special Requests
+ * (`notes`). Returns `null` when there is nothing to echo — null, undefined,
+ * or empty after `trim()` — so every surface renders no block at all.
+ * Otherwise returns the text with its ends trimmed and its interior (spaces,
+ * line breaks) untouched. Storage is never trimmed; this is display only.
+ */
+export function specialRequestsText(notes: string | null | undefined): string | null {
+  const text = notes?.trim() ?? "";
+  return text === "" ? null : text;
+}

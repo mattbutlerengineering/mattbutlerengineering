@@ -156,6 +156,17 @@
   justify-content: space-between;
 }
 
+/* The guest's Special Requests: one text node, their line breaks kept */
+.requestsText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The contact line: an overlong email or phone must not scroll sideways */
+.contactLine {
+  overflow-wrap: anywhere;
+}
+
 /* ── Add-to-calendar action row ──────────── */
 .calendarActions {
   display: flex;

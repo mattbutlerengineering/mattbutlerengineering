@@ -12,6 +12,7 @@ import {
   useSeatGuest,
 } from "./seat-guest.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
+import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
 import styles from "./ReservationDetails.module.css";
 
 export interface ReservationDetailsProps {
@@ -164,16 +165,7 @@ export function ReservationDetails({
         )}
       </div>
 
-      {reservation.notes && (
-        <div>
-          <Text variant="label" color="secondary">
-            Notes
-          </Text>
-          <Text variant="body" as="div" className={styles.notesValue}>
-            {reservation.notes}
-          </Text>
-        </div>
-      )}
+      <SpecialRequestsTicket notes={reservation.notes} />
 
       <StaffDepositSection
         reservationId={reservation.id}

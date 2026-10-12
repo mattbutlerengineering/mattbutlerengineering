@@ -4,6 +4,7 @@ import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime, formatTimeIn } from "../../utils/format.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
+import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./GuestDetailsForm.module.css";
 
@@ -210,7 +211,7 @@ export function GuestDetailsForm({
         <Text className={styles.hint}>Please provide either email or phone for confirmation.</Text>
 
         <TextArea
-          label="Special Requests"
+          label={CONFIRMATION_COPY.specialRequestsLabel}
           value={notes}
           onChange={(e) => {
             setNotes(e.target.value);

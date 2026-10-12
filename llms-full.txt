@@ -7830,6 +7830,16 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
+    export const CONFIRMATION_COPY = Object.freeze({
+      specialRequestsLabel: "Special Requests",
+      acknowledgement,
+      hostCaption: `Guests see this with: “${acknowledgement}”`,
+    });
+    export function contactLine(contact: string): string {
+      return `No confirmation email or text is sent for this booking, so save these details. The venue has ${contact} on your reservation.`;
+    }
+  </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
     export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
       schemas: [
@@ -58707,6 +58717,14 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
+    export const TWO_LINE_NOTE =
+      "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n";
+    export const TWO_LINE_DISPLAYED =
+      "Our anniversary.\nWindow seat if you can, and she can't have tree nuts.";
+    export const UNTRUSTED_NOTE = `<script>alert(1)</script>\n<a href="https://x">x</a> &amp; "double" 'single'`;
+    export const EMPTY_NOTES: readonly (string | null)[] = [null, "", "   ", "\n\t "];
+  </file>
   <file path="packages/rialto/src/test/match-media.ts">
     export const PREFERS_REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
     type ChangeListener = () => void;
@@ -59040,6 +59058,19 @@
     
       return { seating, failure, seatRef, seat };
     }
+  </file>
+  <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
+    export type ReservationSheetSize = "compact" | "default";
+    export function reservationSheetSize(
+      notes: string | null | undefined,
+      expanded: boolean
+    ): ReservationSheetSize {
+      return expanded || specialRequestsText(notes) !== null ? "default" : "compact";
+    }
+    export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>> = Object.freeze({
+      compact: "min(40vh, 240px)",
+      default: "min(50vh, 480px)",
+    });
   </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     export interface TableStatusMenuItem {
@@ -61018,6 +61049,10 @@
         hour: "2-digit",
         minute: "2-digit",
       });
+    }
+    export function specialRequestsText(notes: string | null | undefined): string | null {
+      const text = notes?.trim() ?? "";
+      return text === "" ? null : text;
     }
   </file>
   <file path="apps/hospitality/src/utils/seated.ts">

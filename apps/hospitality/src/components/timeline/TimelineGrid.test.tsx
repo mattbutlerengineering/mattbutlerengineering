@@ -758,7 +758,7 @@ describe("TimelineGrid", () => {
 
   describe("bottom inset", () => {
     it("reserves the sheet's height as scroll padding so a scrolled-to block clears it", () => {
-      render(<TimelineGrid {...defaultProps} bottomInset={240} />);
+      render(<TimelineGrid {...defaultProps} bottomInset="240px" />);
       expect(screen.getByRole("grid").style.scrollPaddingBlockEnd).toBe("240px");
     });
 
