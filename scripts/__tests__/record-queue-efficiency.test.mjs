@@ -1,0 +1,59 @@
+import { describe, it, expect } from "vitest";
+import { upsertQueueEfficiencyRow, recordQueueEfficiency } from "../record-queue-efficiency.mjs";
+
+const row = (date, sensor, extra = {}) =>
+  JSON.stringify({ date, sensor, available: false, ...extra });
+
+describe("upsertQueueEfficiencyRow", () => {
+  it("appends a new row after existing ones", () => {
+    const out = upsertQueueEfficiencyRow(row("2026-10-11", "queueEfficiency") + "\n", {
+      date: "2026-10-12",
+      sensor: "queueEfficiency",
+      available: true,
+    });
+    const lines = out.trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[1]).date).toBe("2026-10-12");
+    expect(out.endsWith("\n")).toBe(true);
+  });
+
+  it("replaces a same-day queueEfficiency row rather than duplicating it", () => {
+    const out = upsertQueueEfficiencyRow(
+      row("2026-10-12", "queueEfficiency", { reason: "credential_rejected" }) + "\n",
+      { date: "2026-10-12", sensor: "queueEfficiency", available: true, composite: 0.7 }
+    );
+    const lines = out
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ available: true, composite: 0.7 });
+  });
+
+  it("keeps same-day rows from other sensors and tolerates an empty file", () => {
+    const out = upsertQueueEfficiencyRow(row("2026-10-12", "ciHealth") + "\n", {
+      date: "2026-10-12",
+      sensor: "queueEfficiency",
+      available: true,
+    });
+    expect(out.trim().split("\n")).toHaveLength(2);
+    expect(upsertQueueEfficiencyRow("", { date: "d", sensor: "queueEfficiency" })).toBe(
+      JSON.stringify({ date: "d", sensor: "queueEfficiency" }) + "\n"
+    );
+  });
+});
+
+describe("recordQueueEfficiency", () => {
+  it("builds the process-metrics entry from the injected collector result", () => {
+    const entry = recordQueueEfficiency({
+      now: new Date("2026-10-12T11:30:00Z"),
+      collect: () => ({ available: false, reason: "credential_rejected" }),
+    });
+    expect(entry).toMatchObject({
+      date: "2026-10-12",
+      sensor: "queueEfficiency",
+      available: false,
+      reason: "credential_rejected",
+    });
+  });
+});

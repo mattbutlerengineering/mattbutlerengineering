@@ -50,14 +50,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
+      # Workspace install + gh-client build: the queueEfficiency and
+      # ai-issue-feedback collectors below import @mbe/gh-client, whose `node`
+      # export points at ./dist (scripts/check-workflow-deps.mjs).
+      - uses: ./.github/actions/setup-workspace
 
-      # No `pnpm install`: every script invoked by this job imports only
-      # node builtins and sibling relative modules (enforced repo-wide by
-      # scripts/check-workflow-deps.mjs).
+      - name: Build gh-client
+        run: pnpm build --filter @mbe/gh-client...
 
       - name: Collect review-burden metrics
         env:
@@ -65,6 +64,24 @@ jobs:
         run: |
           set -o pipefail
           node scripts/acmm/review-burden-metrics.js --days 7 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # #6466: these two collectors used to run only inside Claude Code cloud
+      # routines, whose session token api.github.com refuses
+      # (`credential_rejected`) and which cannot use GraphQL — so their files
+      # went stale. This job has a working GITHUB_TOKEN. `continue-on-error`
+      # because a failed collector must not skip the PR flow below; the
+      # freshness self-check right after reports it as a deduped issue.
+      - name: Collect queueEfficiency sensor row
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/record-queue-efficiency.mjs
+
+      - name: Collect AI issue feedback
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/collect-ai-issue-feedback.mjs
 
       # The self-check (#5529). Runs against the working tree right after
       # collection, so its verdict describes THIS run's output rather than
@@ -280,6 +297,8 @@ jobs:
           add-paths: |
             metrics/review-burden.json
             metrics/queue-telemetry.jsonl
+            metrics/process-metrics.jsonl
+            metrics/ai-issue-feedback.json
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch
