@@ -4549,7 +4549,6 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
@@ -4700,9 +4699,6 @@
             data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
           };
     
-        case "GO_BACK_TO_GUEST_DETAILS":
-          return { ...state, step: "guest-details" };
-    
         case "EXPIRE_HOLD":
           return {
             step: "time-slot",
@@ -4767,7 +4763,6 @@
       selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
       confirmReservation: (details: GuestDetails) => Promise<void>;
       handleDepositSuccess: (paymentIntentId: string) => void;
-      goBackToGuestDetails: () => void;
       resetFlow: () => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
@@ -5053,10 +5048,6 @@
         dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
       }, []);
     
-      const goBackToGuestDetails = useCallback(() => {
-        dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-      }, []);
-    
       const resetFlow = useCallback(() => {
         dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
       }, [venueTimezone]);
@@ -5124,7 +5115,6 @@
           selectSlotAndHold,
           confirmReservation,
           handleDepositSuccess,
-          goBackToGuestDetails,
           resetFlow,
           goToWaitlistJoin,
           handleWaitlistJoined,
