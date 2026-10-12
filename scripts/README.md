@@ -40,16 +40,15 @@ Guard invariants across the monorepo. Run by CI on every PR.
 
 ## Agent / Automation
 
-| Script                  | Purpose                                                            |
-| ----------------------- | ------------------------------------------------------------------ |
-| `orchestrate.mjs`       | Multi-agent orchestration -- decompose task into parallel subtasks |
-| `orchestrate-multi.mjs` | Multi-session orchestration variant                                |
-| `auto-qa-tune.mjs`      | Auto-tune QA thresholds for the agent loop                         |
-| `chaos-agent.mjs`       | Seed detectable non-breaking bugs to test audit pipelines          |
-| `sensor-report.mjs`     | Unified sensor aggregation for the learning loop                   |
-| `verify-fixes.mjs`      | Post-fix verification for the learning loop                        |
-| `revert-rca.mjs`        | Trigger reflection on AI PR reversions                             |
-| `log-agent-cost.js`     | Log agent session cost for spend tracking                          |
+| Script                  | Purpose                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `orchestrate-multi.mjs` | Multi-session orchestration variant                       |
+| `auto-qa-tune.mjs`      | Auto-tune QA thresholds for the agent loop                |
+| `chaos-agent.mjs`       | Seed detectable non-breaking bugs to test audit pipelines |
+| `sensor-report.mjs`     | Unified sensor aggregation for the learning loop          |
+| `verify-fixes.mjs`      | Post-fix verification for the learning loop               |
+| `revert-rca.mjs`        | Trigger reflection on AI PR reversions                    |
+| `log-agent-cost.js`     | Log agent session cost for spend tracking                 |
 
 ## Metrics / Auditing
 

@@ -68,8 +68,6 @@ Before building this automation:
 
 The proof-of-concept orchestrator that once lived at `scripts/orchestrate-multi.mjs` (clone a target repo via `gh`, create a feature branch, apply changes, commit, push, open a PR) was deleted as dead code in #3044 — it had no callers in any CI workflow, `package.json` script, or hook. There is currently no scripted replacement for the cross-repo clone/branch/PR flow it performed.
 
-`scripts/orchestrate.mjs` still exists but solves a different problem: it dispatches parallel implement-queue workers against `ready` issues within this single repo (ACMM L6 single-repo composition), not cross-repo PRs.
-
 ## Current Status
 
 - **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version, following the steps above.

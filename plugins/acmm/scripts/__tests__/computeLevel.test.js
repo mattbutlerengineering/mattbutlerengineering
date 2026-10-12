@@ -20,6 +20,18 @@ test("computeLevel: any single agent-instructions file satisfies L2", () => {
   assert.equal(result.role, "Rule-writer");
 });
 
+test("computeLevel: .editorconfig alone does not make a repo Instructed (L2 requires the agent-instructions OR-group)", () => {
+  const result = computeLevel(new Set(["acmm:editor-config"]));
+  assert.equal(result.level, 1, "editor-config is not AI-specific, so it cannot reach L2");
+});
+
+test("computeLevel: higher-level hits cannot lift a repo past L1 without agent instructions", () => {
+  const ids = [...SCANNABLE_IDS_BY_LEVEL[2], ...SCANNABLE_IDS_BY_LEVEL[3]].filter(
+    (id) => id !== "acmm:agent-instructions"
+  );
+  assert.equal(computeLevel(new Set(ids)).level, 1);
+});
+
 test("computeLevel: 70% threshold gates L3+", () => {
   // L3 has 5 scannable items (post-#5851/#5853: acmm:onboarding-benchmark
   // moved to the non-gating `local:` source, shrinking L3 from 6 to 5).

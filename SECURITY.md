@@ -55,8 +55,6 @@ Please include:
 
 This repository runs AI coding agents (`mbe agent run`, claude.ai RemoteTriggers, GitHub Action workflows in `.github/workflows/{ai-fix,claude,auto-qa,nightly-compliance,ai-attribution}.yml`). The hard prohibitions those agents must obey are documented in [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md) — secrets, destructive ops, network allowlist, approval gates. If you find a way to make an agent in this repo violate one of those guardrails, please report it via the channels above; we treat agent-jailbreak findings with the same severity as a code-execution vulnerability.
 
-The machine-readable mirror of those rules lives at `.github/policies/*.yaml` and is read by reviewer agents at session start.
-
 ## Acknowledgements
 
 Reporters and credits go in [`docs/security-acknowledgements.md`](./docs/security-acknowledgements.md) (created on the first acknowledged report).
