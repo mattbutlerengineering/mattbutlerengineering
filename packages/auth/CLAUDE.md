@@ -9,7 +9,9 @@ src/
 ├── types/index.ts        # OIDCConfig, JWTPayload, AuthUser
 ├── react/
 │   ├── provider.tsx      # AuthProvider (wraps react-oidc-context)
-│   └── hooks.ts          # useAuth, useAccessToken, useRequireAuth
+│   ├── hooks.ts          # useAuth, useAccessToken, useRequireAuth
+│   ├── auth-gate.ts      # useAuthGate / resolveAuthGate — the one screen-gate order
+│   └── signin-return-to.ts # signinReturnTo — validated post-sign-in destination
 └── fastify/
     ├── plugin.ts          # authPlugin, requireAuth, optionalAuth, hasPermission
     ├── plugin.test.ts     # Test patterns with mocked jose
@@ -47,6 +49,12 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
 | `useRequireAuth()`         | Same as `useAuth()`                                                                                                                                    | Auto-redirects to login if unauthenticated                                                                                            |
 | `useSessionLifecycle()`    | `{ expired: boolean }`                                                                                                                                 | Raw token-expiry signal (used by `useAuth`)                                                                                           |
 | `hasAuthParams(location?)` | `boolean`                                                                                                                                              | react-oidc-context's own callback predicate, re-exported so an app's gate and the provider agree on whether a callback is in progress |
+
+### Auth gate
+
+`useAuthGate()` returns one `AuthGate` phase — `signing-out | loading | callback | error{error, onCallback} | signed-out{afterSignOut} | expired | ready` — from `useAuth()` facts plus `window.location`. It is the single owner of the gate ORDER (#6395: two app-local copies diverged and gen's sign-out hung on Loading); apps map phase → screen only. The order is table-tested against the pure `resolveAuthGate(facts, location)` in `auth-gate.test.ts`. A bare `/callback` (no OIDC params) is `signed-out{afterSignOut: true}` — that is where sign-out lands — never a wait.
+
+`signinReturnTo()` is where a `/callback` route should navigate once `ready`: the returnTo carried through the OIDC state (recorded by `AuthProvider`, re-validated with `isSafeReturnTo` on read), or `"/"`.
 
 The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`. `useAccessToken()` proactively schedules a silent refresh 5 minutes before the token expires and re-arms whenever `expires_at` changes; a failed refresh is surfaced via `refreshError` (typed `AccessTokenState`) so callers can prompt re-login.
 

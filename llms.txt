@@ -5772,6 +5772,29 @@
       export function isSilentAuthError(error: unknown): boolean { /* ... */ }
     </item>
   </file>
+  <file path="packages/auth/src/react/auth-gate.ts">
+    <item priority="low">
+      type AuthGate = { readonly phase: "signing-out | { readonly phase: "loading" } | { readonly phase: "callback" } | { readonly phase: "error"; rea | { readonly phase: "signed-out" | { readonly phase: "expired" } | { readonly phase: "ready" };
+    </item>
+    <item priority="low">
+      interface AuthGateFacts {
+        isLoading: boolean;
+        isAuthenticated: boolean;
+        error: Error | undefined;
+        sessionExpired: boolean;
+        activeNavigator: ActiveNavigator | undefined;
+      }
+    </item>
+    <item priority="low">
+      type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
+    </item>
+    <item priority="high">
+      export function resolveAuthGate(facts: AuthGateFacts, location: AuthGateLocation): AuthGate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useAuthGate(): AuthGate { /* ... */ }
+    </item>
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
     <item priority="low">
       type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigat...;
@@ -5828,6 +5851,14 @@
     </item>
     <item priority="high">
       export function useSessionLifecycle(): SessionLifecycleState { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/auth/src/react/signin-return-to.ts">
+    <item priority="high">
+      export function rememberSigninReturnTo(returnTo: string | undefined): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function signinReturnTo(): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -9858,14 +9889,6 @@
         readiness: VenueReadiness,
         isAdmin: boolean
       ): readonly NavSection[] { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/return-to-store.ts">
-    <item priority="high">
-      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function readReturnTo(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">

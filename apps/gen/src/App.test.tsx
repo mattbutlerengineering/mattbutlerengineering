@@ -1,13 +1,16 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router";
 import type { ElementType, ReactNode } from "react";
+import type { AuthGate } from "@mbe/auth/react";
 import { App, CallbackRedirect } from "./App.js";
 
+// Gate ORDER (which phase for which auth facts + URL) is owned and table-tested
+// by @mbe/auth's resolveAuthGate; here we only assert phase → screen.
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
-  hasAuthParams: vi.fn(),
-  AuthProvider: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  useAuthGate: vi.fn(),
+  signinReturnTo: vi.fn(),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -26,151 +29,99 @@ vi.mock("./components/LoginLanding.js", () => ({
   LoginLanding: () => <div data-testid="login-landing" />,
 }));
 
-import { useAuth, hasAuthParams } from "@mbe/auth/react";
+import { useAuth, useAuthGate, signinReturnTo } from "@mbe/auth/react";
 
 const mockUseAuth = useAuth as unknown as Mock;
-const mockHasAuthParams = hasAuthParams as unknown as Mock;
+const mockUseAuthGate = useAuthGate as unknown as Mock;
+const mockSigninReturnTo = signinReturnTo as unknown as Mock;
+const signIn = vi.fn();
+
+const renderAt = (gate: AuthGate, path = "/") => {
+  mockUseAuthGate.mockReturnValue(gate);
+  window.history.replaceState({}, "", path);
+  return render(
+    <MemoryRouter>
+      <Routes>
+        <Route element={<App />}>
+          <Route path="*" element={<div data-testid="outlet" />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  );
+};
 
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasAuthParams.mockReturnValue(false);
+    mockUseAuth.mockReturnValue({ signIn });
   });
 
-  it("shows loading state when isLoading is true", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: true,
-      isAuthenticated: false,
-      error: null,
-    });
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>
-    );
+  afterEach(() => {
+    window.history.replaceState({}, "", "/");
+  });
+
+  it.each(["loading", "callback", "signing-out"] as const)("shows Loading... for %s", (phase) => {
+    renderAt({ phase });
     expect(screen.getByText("Loading...")).toBeDefined();
+    expect(screen.queryByTestId("outlet")).toBeNull();
   });
 
-  it("shows authentication error when error is present", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      error: new Error("Auth failed"),
-    });
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>
-    );
+  it("surfaces the error message for the error phase", () => {
+    renderAt({ phase: "error", error: new Error("Auth failed"), onCallback: true });
     expect(screen.getByText("Authentication Error")).toBeDefined();
     expect(screen.getByText("Auth failed")).toBeDefined();
   });
 
-  it("renders the logged-out landing when not authenticated and not loading", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      error: null,
-    });
-    render(
-      <MemoryRouter initialEntries={["/gen"]}>
-        <App />
-      </MemoryRouter>
-    );
+  it.each([true, false])("renders the sign-in landing when signed out (afterSignOut=%s)", (a) => {
+    renderAt({ phase: "signed-out", afterSignOut: a }, "/gen/callback");
     expect(screen.getByTestId("login-landing")).toBeDefined();
-  });
-
-  it("renders Outlet when authenticated", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: true,
-      error: null,
-    });
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>
-    );
     expect(screen.queryByText("Loading...")).toBeNull();
-    expect(screen.queryByText("Authentication Error")).toBeNull();
-    expect(screen.queryByTestId("login-landing")).toBeNull();
   });
 
-  it("shows loading during callback path while an OIDC response is in flight", () => {
-    mockHasAuthParams.mockReturnValue(true);
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      error: null,
-    });
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/gen/callback" },
-      writable: true,
-    });
-    render(
-      <MemoryRouter initialEntries={["/gen/callback"]}>
-        <App />
-      </MemoryRouter>
-    );
-    expect(screen.getByText("Loading...")).toBeDefined();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/" },
-      writable: true,
-    });
+  it("renders a session-expired screen whose Sign In re-enters sign-in", () => {
+    renderAt({ phase: "expired" }, "/gen/playground");
+    expect(screen.getByText("Session expired")).toBeDefined();
+    expect(screen.queryByTestId("outlet")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+    expect(signIn).toHaveBeenCalledOnce();
   });
 
-  it("shows loading during callback path with no auth params (post-sign-out) shows the sign-in landing, not Loading", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      error: null,
-    });
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/gen/callback" },
-      writable: true,
-    });
-    render(
-      <MemoryRouter initialEntries={["/gen/callback"]}>
-        <App />
-      </MemoryRouter>
-    );
-    expect(screen.queryByText("Loading...")).toBeNull();
-    expect(screen.getByTestId("login-landing")).toBeDefined();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/" },
-      writable: true,
-    });
+  it("renders the Outlet when ready", () => {
+    renderAt({ phase: "ready" });
+    expect(screen.getByTestId("outlet")).toBeDefined();
   });
 
-  it("renders Outlet for shared spec URLs without requiring auth", () => {
-    mockUseAuth.mockReturnValue({
-      isLoading: false,
-      isAuthenticated: false,
-      error: null,
-    });
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/gen/s/abc123" },
-      writable: true,
-    });
-    render(
-      <MemoryRouter initialEntries={["/gen/s/abc123"]}>
-        <App />
-      </MemoryRouter>
-    );
-    expect(screen.queryByTestId("login-landing")).toBeNull();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/" },
-      writable: true,
-    });
+  it.each([{ phase: "signed-out", afterSignOut: false }, { phase: "expired" }] as const)(
+    "renders shared spec URLs without requiring auth ($phase)",
+    (gate) => {
+      renderAt(gate, "/gen/s/abc123");
+      expect(screen.getByTestId("outlet")).toBeDefined();
+      expect(screen.queryByTestId("login-landing")).toBeNull();
+    }
+  );
+
+  it("still surfaces an auth error on a shared spec URL", () => {
+    renderAt({ phase: "error", error: new Error("Auth failed"), onCallback: false }, "/gen/s/x");
+    expect(screen.getByText("Authentication Error")).toBeDefined();
   });
 });
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 describe("CallbackRedirect", () => {
-  it("renders without crashing inside a router", () => {
+  it("navigates to the returnTo carried through sign-in", () => {
+    mockSigninReturnTo.mockReturnValue("/playground?spec=abc");
     render(
-      <MemoryRouter>
-        <CallbackRedirect />
+      <MemoryRouter initialEntries={["/callback"]}>
+        <Routes>
+          <Route path="/callback" element={<CallbackRedirect />} />
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
       </MemoryRouter>
     );
+    expect(screen.getByTestId("location").textContent).toBe("/playground?spec=abc");
   });
 });

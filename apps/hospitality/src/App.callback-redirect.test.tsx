@@ -1,16 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router";
+import { signinReturnTo } from "@mbe/auth/react";
 import { CallbackRedirect } from "./App.js";
-import { rememberReturnTo } from "./return-to-store.js";
 import React from "react";
 import type * as AuthReact from "@mbe/auth/react";
 
-// Keep the real isSafeReturnTo (open-redirect guard) — only stub the hook the
-// App component uses, which CallbackRedirect itself does not.
+// The open-redirect guard on the stored returnTo is owned and tested by
+// @mbe/auth's signinReturnTo; here we only assert CallbackRedirect follows it.
 vi.mock("@mbe/auth/react", async (importOriginal) => ({
   ...(await importOriginal<typeof AuthReact>()),
-  useAuth: vi.fn(),
+  signinReturnTo: vi.fn(),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -27,41 +27,17 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname + location.search}</div>;
 }
 
-const renderCallback = () =>
-  render(
-    <MemoryRouter initialEntries={["/callback"]}>
-      <Routes>
-        <Route path="/callback" element={<CallbackRedirect />} />
-        <Route path="*" element={<LocationProbe />} />
-      </Routes>
-    </MemoryRouter>
-  );
-
 describe("CallbackRedirect", () => {
-  beforeEach(() => {
-    rememberReturnTo(undefined);
-  });
-
-  it("navigates to the stored returnTo, preserving the query string", () => {
-    rememberReturnTo("/reservations?date=2026-09-01");
-    renderCallback();
+  it("navigates to the returnTo carried through sign-in, preserving the query string", () => {
+    vi.mocked(signinReturnTo).mockReturnValue("/reservations?date=2026-09-01");
+    render(
+      <MemoryRouter initialEntries={["/callback"]}>
+        <Routes>
+          <Route path="/callback" element={<CallbackRedirect />} />
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
     expect(screen.getByTestId("location")).toHaveTextContent("/reservations?date=2026-09-01");
-  });
-
-  it("navigates home when no returnTo is stored", () => {
-    renderCallback();
-    expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
-  });
-
-  it("navigates home instead of an unsafe stored value (open-redirect guard)", () => {
-    rememberReturnTo("//evil.com");
-    renderCallback();
-    expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
-  });
-
-  it("navigates home instead of an absolute URL stored value", () => {
-    rememberReturnTo("https://evil.com/phish");
-    renderCallback();
-    expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
   });
 });
