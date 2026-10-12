@@ -8,7 +8,7 @@
  * sink in isolation; this test instead runs the orchestrator's real call path:
  *
  *   1. the exact `appendTelemetryRow(...)` snippet that
- *      `.claude/skills/implement-queue/SKILL.md` § "Worker telemetry capture"
+ *      `.claude/implement-queue.md` § "telemetry" (the queue profile hook)
  *      tells the orchestrator to run, executed by `node` in a temp repo root;
  *   2. the registry's `agentCost` sensor, reading that temp root.
  *
@@ -24,15 +24,15 @@ import { execFileSync } from "node:child_process";
 import { SENSORS } from "../sensors-registry.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SKILL_PATH = join(REPO_ROOT, ".claude", "skills", "implement-queue", "SKILL.md");
+const SKILL_PATH = join(REPO_ROOT, ".claude", "implement-queue.md");
 
-/** The first ```js block under the "Worker telemetry capture" heading. */
+/** The first ```js block under the profile's "telemetry" hook heading. */
 function extractTelemetrySnippet() {
   const skill = readFileSync(SKILL_PATH, "utf-8");
-  const section = skill.split("### Worker telemetry capture")[1];
-  if (!section) throw new Error("SKILL.md has no 'Worker telemetry capture' section");
+  const section = skill.split("\n## telemetry\n")[1];
+  if (!section) throw new Error("implement-queue.md has no 'telemetry' hook section");
   const match = section.match(/```js\n([\s\S]*?)```/);
-  if (!match) throw new Error("'Worker telemetry capture' has no js snippet");
+  if (!match) throw new Error("'telemetry' hook has no js snippet");
   return match[1];
 }
 

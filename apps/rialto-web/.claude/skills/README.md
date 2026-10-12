@@ -10,5 +10,5 @@ Showcase site for the Rialto design system.
 
 See root `.claude/skills/` for cross-cutting skills.
 
-- `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
+- `/idea-to-prod:implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit` — crawl live site with smoke/sweep/scout modes

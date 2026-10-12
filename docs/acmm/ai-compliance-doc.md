@@ -8,7 +8,7 @@ This section maps each active AI workflow in this repo to its compliance categor
 
 ### Continuous-Improvement Loop
 
-The loop runs autonomously via `/implement-queue` (local sprint mode) or scheduled RemoteTriggers (daily conservative mode). Each cycle follows this chain:
+The loop runs autonomously via `/idea-to-prod:implement-queue` (local sprint mode) or scheduled RemoteTriggers (daily conservative mode). Each cycle follows this chain:
 
 | Workflow             | What it does                                                                                                     | Compliance category                     |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
@@ -31,13 +31,13 @@ Each `mbe agent run` invocation creates a sandboxed worktree agent session:
 
 ### Autonomous Merges
 
-The merge train in `/implement-queue` merges agent PRs without per-PR human approval when:
+The merge train in `/idea-to-prod:implement-queue` merges agent PRs without per-PR human approval when:
 
 1. All required CI checks pass (`CI Gate` job: lint, typecheck, test, Integrity, Architecture-Audit)
 2. The PR targets `main` (enforced by branch protection — direct push to `main` is blocked)
 3. Green-main policy is satisfied (if `main` is currently broken, merge train halts)
 
-**Compliance note**: autonomous merges are gated on CI, not on human review. The control is detective (CI catches regressions) rather than preventive (human sign-off). For regulated environments requiring human approval before merge, the `--no-auto-merge` flag on `/implement-queue` disables the train and leaves PRs in `has-pr` state for manual review.
+**Compliance note**: autonomous merges are gated on CI, not on human review. The control is detective (CI catches regressions) rather than preventive (human sign-off). For regulated environments requiring human approval before merge, the `--no-auto-merge` flag on `/idea-to-prod:implement-queue` disables the train and leaves PRs in `has-pr` state for manual review.
 
 ### Review Gate (Diff-Matched)
 

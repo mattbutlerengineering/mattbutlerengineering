@@ -76,7 +76,7 @@ Criteria carry one of: `feedback-loop`, `readiness`, `autonomy`, `observability`
 ## Integration
 
 - **GitHub label:** `acmm` (color `#d4a030` — matches `--rialto-accent` gold). Created on first `--apply` via `gh label create acmm --force`.
-- **Implement-queue:** `acmm` issues carry `ready` + `audit`, so `/implement-queue`'s batch dispatcher picks them up with the same prioritization as site-audit findings.
+- **Implement-queue:** `acmm` issues carry `ready` + `audit`, so `/idea-to-prod:implement-queue`'s batch dispatcher picks them up with the same prioritization as site-audit findings.
 - **Progress-tracker:** reads `.claude/acmm/state.json` history to surface level-over-time in its daily metrics log.
 
 ## Testing

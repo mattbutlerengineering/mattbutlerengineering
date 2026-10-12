@@ -27,7 +27,7 @@ function runCli(args) {
 }
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml"), "utf8");
 const AUTO_MERGE_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/auto-merge.yml"), "utf8");
-const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
+const SKILL_MD = readFileSync(resolve(ROOT, ".claude/implement-queue.md"), "utf8");
 
 // The four opt-in automation-PR producers (#3966) — each opens a PR from an
 // automation/* branch and, since auto-merge.yml never runs on GITHUB_TOKEN/
@@ -132,7 +132,7 @@ describe("merge-queue.yml wiring", () => {
 });
 
 // ---------------------------------------------------------------------------
-// implement-queue SKILL.md wiring (#3807) — Phase 2's "Worker→train boundary"
+// implement-queue profile wiring (#3807) — the queue profile's gate hooks
 // protocol is a second, hand-followed code path with the same has-pr/
 // needs-review-only auto-merge decision merge-queue.yml had before #3796. It
 // must call the same isAutoMergeEligible() at both decision points (the
@@ -141,27 +141,28 @@ describe("merge-queue.yml wiring", () => {
 // tests above, but for this markdown source.
 // ---------------------------------------------------------------------------
 
-describe("implement-queue SKILL.md wiring (#3807, revised #3861)", () => {
-  const boundaryStart = SKILL_MD.indexOf("### Worker→train boundary");
-  const step2Start = SKILL_MD.indexOf("2. **Low-risk fast path", boundaryStart);
-  const step3Start = SKILL_MD.indexOf("3. **Reviewer sub-agent", step2Start);
-  const step5Start = SKILL_MD.indexOf("5. **On all-pass verdict", step3Start);
-  const step6Start = SKILL_MD.indexOf('6. **On `"flag"` verdict', step5Start);
-  const noTierHoldStart = SKILL_MD.indexOf("### No tier hold", step6Start);
-  const phase3Start = SKILL_MD.indexOf("## Phase 3", step6Start);
+describe("implement-queue profile wiring (#3807, revised #3861; moved to the queue profile #6332)", () => {
+  // The repo-specific gate lives in .claude/implement-queue.md as hooks the
+  // plugin skill reads by name: `fast-path` (old step 2) and `merge-command`
+  // (old step 5, which also carries the No tier hold carve-out).
+  const fastPathStart = SKILL_MD.indexOf("\n## fast-path\n");
+  const reviewersStart = SKILL_MD.indexOf("\n## reviewers\n", fastPathStart);
+  const mergeStart = SKILL_MD.indexOf("\n## merge-command\n", reviewersStart);
+  const flagStart = SKILL_MD.indexOf('**On `"flag"` verdict', mergeStart);
+  const noTierHoldStart = SKILL_MD.indexOf("### No tier hold", flagStart);
+  const nextHookStart = SKILL_MD.indexOf("\n## update-branch\n", noTierHoldStart);
 
-  const step2Section = SKILL_MD.slice(step2Start, step3Start);
-  const step5Section = SKILL_MD.slice(step5Start, step6Start);
-  const noTierHoldSection = SKILL_MD.slice(noTierHoldStart, phase3Start);
+  const step2Section = SKILL_MD.slice(fastPathStart, reviewersStart);
+  const step5Section = SKILL_MD.slice(mergeStart, flagStart);
+  const noTierHoldSection = SKILL_MD.slice(noTierHoldStart, nextHookStart);
 
-  it("finds the Worker→train boundary subsection and its numbered steps", () => {
-    expect(boundaryStart).toBeGreaterThan(-1);
-    expect(step2Start).toBeGreaterThan(boundaryStart);
-    expect(step3Start).toBeGreaterThan(step2Start);
-    expect(step5Start).toBeGreaterThan(step3Start);
-    expect(step6Start).toBeGreaterThan(step5Start);
-    expect(noTierHoldStart).toBeGreaterThan(step6Start);
-    expect(phase3Start).toBeGreaterThan(noTierHoldStart);
+  it("finds the fast-path and merge-command hooks and the No tier hold section", () => {
+    expect(fastPathStart).toBeGreaterThan(-1);
+    expect(reviewersStart).toBeGreaterThan(fastPathStart);
+    expect(mergeStart).toBeGreaterThan(reviewersStart);
+    expect(flagStart).toBeGreaterThan(mergeStart);
+    expect(noTierHoldStart).toBeGreaterThan(flagStart);
+    expect(nextHookStart).toBeGreaterThan(noTierHoldStart);
   });
 
   it("step 2 (low-risk fast path) gates on needs-review, NOT on isAutoMergeEligible", () => {
