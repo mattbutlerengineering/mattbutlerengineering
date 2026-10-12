@@ -72,6 +72,28 @@ describe("classifyRoutineLiveness", () => {
     ).toEqual({ status: "unverifiable", matched: null });
   });
 
+  it("reports paused when the manifest declares the routine intentionally paused — even with no signature or artifacts", () => {
+    const paused = { since: "2026-09-25", reason: "auto-merge raced the local merge train" };
+    expect(
+      classifyRoutineLiveness({
+        signature: undefined,
+        periodDays: 1,
+        observedArtifacts: [],
+        now,
+        paused,
+      })
+    ).toEqual({ status: "paused", matched: null, reason: paused.reason });
+    expect(
+      classifyRoutineLiveness({
+        signature: PR_TITLE_SIGNATURE,
+        periodDays: 1,
+        observedArtifacts: [],
+        now,
+        paused,
+      }).status
+    ).toBe("paused");
+  });
+
   it("reports alive when a matching artifact was observed within the period", () => {
     const observedArtifacts = [
       {
@@ -285,7 +307,7 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
 
   it("declares either a signature, outOfScope, or unverifiable marker for every manifest entry — never silently unclassified", () => {
     const uncovered = ROUTINE_MANIFEST.filter(
-      (entry) => !entry.signature && !entry.outOfScope && !entry.unverifiable
+      (entry) => !entry.signature && !entry.outOfScope && !entry.unverifiable && !entry.paused
     ).map((entry) => entry.name);
     expect(uncovered).toEqual([]);
   });
@@ -373,6 +395,42 @@ describe("mbe-evening liveness signature (#5603 investigation)", () => {
 // are asserted separately as `unverifiable`, not folded into the "every other
 // routine" alive claim — they are real, distinct findings the manifest
 // surfaces honestly rather than papering over with a fabricated signature.
+describe("paused routines (#6440, #6443)", () => {
+  const paused = { since: "2026-09-25", reason: "test pause" };
+  const entry = {
+    name: "mbe-x",
+    triggerId: "trig_x",
+    periodDays: 1,
+    unverifiable: true,
+    unverifiableReason: "r",
+    paused,
+  };
+
+  it("never observes, files, or closes anything for a paused routine", () => {
+    const calls = [];
+    const results = runRoutineLivenessCheck({
+      manifest: [entry],
+      fetchObservedArtifacts: () => calls.push("observe"),
+      now: "2026-10-12T00:00:00Z",
+      searchCiFixIssues: () => calls.push("search") && [],
+      getIssueState: () => "open",
+      createIssue: () => calls.push("create"),
+      closeIssue: () => calls.push("close"),
+    });
+    expect(results).toEqual([{ routine: "mbe-x", status: "paused" }]);
+    expect(calls).toEqual([]);
+  });
+
+  it("marks mbe-night and mbe-midday paused while keeping their signature notes", () => {
+    for (const name of ["mbe-night", "mbe-midday"]) {
+      const e = ROUTINE_MANIFEST.find((r) => r.name === name);
+      expect(e.paused.since).toBe("2026-09-25");
+      expect(e.paused.reason).toBeTruthy();
+      expect(e.unverifiableReason).toBeTruthy();
+    }
+  });
+});
+
 describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
   // End of day, not midnight — several routines' artifacts land well after
   // 00:00 UTC on 09-20 itself (e.g. mbe-learning-loop at 18:10 UTC), which
@@ -497,14 +555,14 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-morning"]).toBe("alive");
   });
 
-  it("keeps every prompt-updated routine unverifiable until its live trigger is confirmed updated", () => {
+  it("keeps every prompt-updated routine paused (not unverifiable) until its live trigger is confirmed updated", () => {
     // The fixture gives each a real, in-window PR under its NEW title —
     // proving this is not the pre-fix "no artifact" gap. They still report
     // `unverifiable`, not `alive`, because the manifest has no live evidence
     // yet that the RemoteTrigger prompt (not just docs/routines/*.md) emits
     // this title.
     for (const name of PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION) {
-      expect(byRoutine[name]).toBe("unverifiable");
+      expect(byRoutine[name]).toBe("paused");
     }
   });
 
