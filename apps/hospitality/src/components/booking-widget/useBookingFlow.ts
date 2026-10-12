@@ -253,6 +253,11 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         step: "confirmation",
         data: {
           ...state.data,
+          // The server turned the hold into this reservation, so it is consumed:
+          // clearing it keeps the expiry timer (and onHoldChange) from acting on
+          // a hold that no longer protects anything — payment and confirmation
+          // both come after creation.
+          hold: null,
           reservation: action.reservation,
           manageToken: action.manageToken,
           confirmLoading: false,
@@ -266,6 +271,11 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         step: "payment",
         data: {
           ...state.data,
+          // The server turned the hold into this reservation, so it is consumed:
+          // clearing it keeps the expiry timer (and onHoldChange) from acting on
+          // a hold that no longer protects anything — payment and confirmation
+          // both come after creation.
+          hold: null,
           reservation: action.reservation,
           manageToken: action.manageToken,
           confirmLoading: false,
@@ -351,14 +361,11 @@ export interface BookingFlowActions {
   setPartySize: (size: number) => void;
   goToTimeSlot: () => void;
   goToDateParty: () => void;
-  setSlots: (slots: TimeSlot[]) => void;
-  setSlotsError: (error: string) => void;
   selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
   confirmReservation: (details: GuestDetails) => Promise<void>;
   handleDepositSuccess: (paymentIntentId: string) => void;
   goBackToGuestDetails: () => void;
   resetFlow: () => void;
-  setDepositConfig: (config: DepositConfig | null) => void;
   goToWaitlistJoin: () => void;
   handleWaitlistJoined: (result: WaitlistResult) => void;
   setGuestDetails: (details: GuestDetails) => void;
@@ -377,7 +384,6 @@ export interface BookingFlowResult {
 export interface UseBookingFlowDeps {
   /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
   api: BookingWidgetApiClient;
-  venueId: string;
   /**
    * Slug backing every public endpoint this flow calls — venue config, guest
    * risk, and (since #4487) the whole hold lifecycle, which now goes through
@@ -549,14 +555,6 @@ export function useBookingFlow({
     dispatch({ type: "GO_TO_DATE_PARTY" });
   }, [flowState.data.hold, releaseHold]);
 
-  const setSlots = useCallback((slots: TimeSlot[]) => {
-    dispatch({ type: "SET_SLOTS", slots });
-  }, []);
-
-  const setSlotsError = useCallback((error: string) => {
-    dispatch({ type: "SET_SLOTS_ERROR", error });
-  }, []);
-
   const selectSlotAndHold = useCallback(
     async (slot: TimeSlot): Promise<void> => {
       if (!flowState.data.selectedDate) return;
@@ -663,17 +661,6 @@ export function useBookingFlow({
     dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
   }, [venueTimezone]);
 
-  const setDepositConfig = useCallback(
-    (config: DepositConfig | null) => {
-      dispatch({
-        type: "SET_DEPOSIT_CONFIG",
-        config,
-        depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
-      });
-    },
-    [venueSlug, stripePublishableKey]
-  );
-
   const goToWaitlistJoin = useCallback(() => {
     dispatch({ type: "GO_TO_WAITLIST_JOIN" });
   }, []);
@@ -707,11 +694,10 @@ export function useBookingFlow({
     return () => clearInterval(interval);
   }, [flowState.data.hold, fetchSlots]);
 
-  // Notifies onHoldChange whenever the "releasable" hold changes. Once the
-  // flow reaches "confirmation" the hold has been consumed into a real
-  // reservation — nothing left to release — even though `data.hold` itself
-  // is never cleared by the reducer.
-  const activeHoldId = flowState.step === "confirmation" ? null : (flowState.data.hold?.id ?? null);
+  // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
+  // clears `data.hold` once it becomes a reservation, so any hold left is
+  // still releasable.
+  const activeHoldId = flowState.data.hold?.id ?? null;
   useEffect(() => {
     onHoldChangeRef.current?.(
       activeHoldId ? { holdId: activeHoldId, sessionId: api.holds.getSessionId() } : null
@@ -735,14 +721,11 @@ export function useBookingFlow({
       setPartySize,
       goToTimeSlot,
       goToDateParty,
-      setSlots,
-      setSlotsError,
       selectSlotAndHold,
       confirmReservation,
       handleDepositSuccess,
       goBackToGuestDetails,
       resetFlow,
-      setDepositConfig,
       goToWaitlistJoin,
       handleWaitlistJoined,
       setGuestDetails,
