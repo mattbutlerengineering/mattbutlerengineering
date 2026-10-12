@@ -428,7 +428,7 @@ describe("FloorPlanStep", () => {
       fireEvent.mouseUp(screen.getByTestId(`table-shape-${firstTable.localId}`));
       expect(screen.getByRole("status")).toHaveTextContent("");
 
-      fireEvent.keyDown(window, { key: "ArrowRight" });
+      fireEvent.keyDown(screen.getByTestId("floor-plan-canvas-wrapper"), { key: "ArrowRight" });
       expect(onMoveTable).toHaveBeenLastCalledWith(
         firstTable.localId,
         firstTable.x + 20,
@@ -559,7 +559,7 @@ describe("FloorPlanStep", () => {
       const firstTable = draft.tables[0] as DraftTable;
       fireEvent.mouseUp(screen.getByTestId(`table-shape-${firstTable.localId}`));
       fireEvent.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
-      fireEvent.keyDown(window, { key: "ArrowRight" });
+      fireEvent.keyDown(screen.getByTestId("floor-plan-canvas-wrapper"), { key: "ArrowRight" });
 
       expect(onMoveTable).not.toHaveBeenCalled();
     });

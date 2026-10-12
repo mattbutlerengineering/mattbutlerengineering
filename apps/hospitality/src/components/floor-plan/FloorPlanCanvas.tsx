@@ -1,11 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Stage, Layer } from "react-konva";
 import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, snapToGrid } from "./floor-plan-geometry.js";
+import {
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  GRID_SIZE,
+  SHAPE_DEFAULTS,
+  snapToGrid,
+} from "./floor-plan-geometry.js";
 import type { TableDisplayStatus } from "./table-status.js";
 import styles from "./FloorPlanCanvas.module.css";
 
@@ -25,6 +32,15 @@ const GRID_PATTERN = [
   `repeating-linear-gradient(0deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
   `repeating-linear-gradient(90deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
 ].join(", ");
+
+const ARROW_DELTAS: Readonly<Record<string, readonly [number, number]>> = {
+  ArrowUp: [0, -GRID_SIZE],
+  ArrowDown: [0, GRID_SIZE],
+  ArrowLeft: [-GRID_SIZE, 0],
+  ArrowRight: [GRID_SIZE, 0],
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
@@ -48,6 +64,15 @@ export interface FloorPlanCanvasProps {
    * no-regression contract above.
    */
   isStale?: boolean;
+  /**
+   * Called when Delete/Backspace is pressed while focus is inside the
+   * canvas with a table selected. Omitted = the canvas does not handle
+   * delete. Keyboard handling is focus-scoped (not a window listener), so
+   * dialogs rendered outside the canvas never trigger it.
+   */
+  onDeleteRequest?: (tableId: string) => void;
+  /** Screen-reader message after a keyboard nudge ("Table 1 moved to 120, 100"). */
+  onAnnounce?: (message: string) => void;
 }
 
 export function FloorPlanCanvas({
@@ -59,7 +84,10 @@ export function FloorPlanCanvas({
   readOnly = false,
   tableStatuses,
   isStale = false,
+  onDeleteRequest,
+  onAnnounce,
 }: FloorPlanCanvasProps) {
+  const instructionsId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
   const [draggingTableId, setDraggingTableId] = useState<string | null>(null);
@@ -120,9 +148,59 @@ export function FloorPlanCanvas({
     [onTableSelect]
   );
 
+  const handleKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      // Cheap guards first: read-only canvases and unselected state never act,
+      // and a handler further down the tree that already consumed the key wins.
+      if (readOnly || !selectedTableId || e.defaultPrevented) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+      const table = tables.find((t) => t.id === selectedTableId);
+      if (!table) return;
+
+      if ((e.key === "Delete" || e.key === "Backspace") && onDeleteRequest) {
+        e.preventDefault();
+        onDeleteRequest(table.id);
+        return;
+      }
+
+      const delta = ARROW_DELTAS[e.key];
+      if (!delta) return;
+      e.preventDefault();
+      const shape = table.shapeMetadata?.shape ?? "rectangle";
+      const { width, height } = SHAPE_DEFAULTS[shape];
+      // x/y are the table CENTRE (TableShape offsets by half its size), so keep
+      // the centre within half a shape of each edge. Only the pressed axis moves.
+      const curX = table.shapeMetadata?.x ?? 100;
+      const curY = table.shapeMetadata?.y ?? 100;
+      const x =
+        delta[0] === 0
+          ? curX
+          : clamp(snapToGrid(curX + delta[0]), width / 2, CANVAS_WIDTH - width / 2);
+      const y =
+        delta[1] === 0
+          ? curY
+          : clamp(snapToGrid(curY + delta[1]), height / 2, CANVAS_HEIGHT - height / 2);
+      onTableMove(table.id, x, y);
+      onAnnounce?.(`${table.name} moved to ${x}, ${y}`);
+    },
+    [readOnly, selectedTableId, tables, onDeleteRequest, onTableMove, onAnnounce]
+  );
+
   return (
+    // Focus-scoped keyboard handling. tabIndex -1 lets a pointer click on the
+    // canvas move focus here (so keys work after mouse selection) without
+    // adding a tab stop; Tab still reaches the per-table overlay buttons.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={containerRef}
+      role="group"
+      aria-label="Floor plan canvas"
+      aria-describedby={instructionsId}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
       data-testid="floor-plan-canvas-wrapper"
       className={styles.canvasWrapper}
       style={{
@@ -130,6 +208,11 @@ export function FloorPlanCanvas({
         backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
       }}
     >
+      <Text id={instructionsId} className={styles.srOnly}>
+        With a table selected, use the arrow keys to move it by one grid step
+        {onDeleteRequest ? " and Delete to remove it" : ""}.
+      </Text>
+
       {/* Floor plan name overlay */}
       <div className={styles.nameOverlay}>
         {floorPlan.name}

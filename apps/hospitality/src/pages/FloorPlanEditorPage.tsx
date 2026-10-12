@@ -158,7 +158,8 @@ export function FloorPlanEditorPage() {
     return () => clearTimeout(timer);
   }, [hasChanges, pendingUpdates, handleSave, saveError]);
 
-  // Keyboard shortcuts
+  // Window-level shortcuts: save and deselect only. Table nudge/delete are owned
+  // by FloorPlanCanvas (focus-scoped), so open dialogs never trigger them.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -172,33 +173,14 @@ export function FloorPlanEditorPage() {
         return;
       }
 
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedTableId) {
-          requestDeleteTable(selectedTableId);
-        }
-        return;
-      }
-
       if (e.key === "Escape") {
         setSelectedTableId(null);
-        return;
-      }
-
-      if (selectedTableId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        e.preventDefault();
-        const selectedTable = tables.find((t) => t.id === selectedTableId);
-        if (!selectedTable) return;
-        const currentX = selectedTable.shapeMetadata?.x ?? 100;
-        const currentY = selectedTable.shapeMetadata?.y ?? 100;
-        const dx = e.key === "ArrowRight" ? 20 : e.key === "ArrowLeft" ? -20 : 0;
-        const dy = e.key === "ArrowDown" ? 20 : e.key === "ArrowUp" ? -20 : 0;
-        handleTableMove(selectedTableId, currentX + dx, currentY + dy);
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedTableId, tables, handleSave, requestDeleteTable, handleTableMove]);
+  }, [handleSave]);
 
   const handleActivate = async () => {
     if (!floorPlan) return;
@@ -304,6 +286,7 @@ export function FloorPlanEditorPage() {
             onTableMove={handleTableMove}
             onTableSelect={setSelectedTableId}
             selectedTableId={selectedTableId}
+            onDeleteRequest={requestDeleteTable}
             tableStatuses={tableStatuses}
             isStale={isStale}
           />
