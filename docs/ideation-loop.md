@@ -48,14 +48,14 @@ merging, telemetry, re-ideating — is automatic.
 
 ## Life of a batch
 
-| Day          | What happens                                                                                                                            | Your involvement                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 0            | `/ideate` files `[Ideation] Batch <date>` + 4-5 `[Proposal]` issues                                                                     | Skim titles on your phone; close any you dislike |
-| 0-3          | Veto window                                                                                                                             | Optional vetoes                                  |
-| ~3           | Un-vetoed proposals decompose (max 2/day) into `feature`+`ready` children                                                               | None                                             |
-| 3-8          | Queue drains: cloud `mbe-midday`/`mbe-evening` (≤3 issues each) + your local `/loop 30m /implement-queue` sprints when you feel like it | None (local sprints optional, just faster)       |
-| ~8           | All children closed → tracking issues close → batch closes with a scorecard comment                                                     | None                                             |
-| next morning | New batch proposed automatically                                                                                                        | Back to day 0                                    |
+| Day          | What happens                                                                                                                                         | Your involvement                                 |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 0            | `/ideate` files `[Ideation] Batch <date>` + 4-5 `[Proposal]` issues                                                                                  | Skim titles on your phone; close any you dislike |
+| 0-3          | Veto window                                                                                                                                          | Optional vetoes                                  |
+| ~3           | Un-vetoed proposals decompose (max 2/day) into `feature`+`ready` children                                                                            | None                                             |
+| 3-8          | Queue drains: cloud `mbe-midday`/`mbe-evening` (≤3 issues each) + your local `/loop 30m /idea-to-prod:implement-queue` sprints when you feel like it | None (local sprints optional, just faster)       |
+| ~8           | All children closed → tracking issues close → batch closes with a scorecard comment                                                                  | None                                             |
+| next morning | New batch proposed automatically                                                                                                                     | Back to day 0                                    |
 
 Safety valves: children stuck in `agent-failed`/`stealable`/`needs-review` for
 7 days get `deferred` (stop blocking, stay open); a batch force-completes 28
@@ -79,12 +79,12 @@ summary:
 
 1. At <https://claude.ai/code/routines>, paste the three prompt blocks from
    `scheduled-tasks.md`: the `/ideate` block into **mbe-morning**, the
-   `/implement-queue` block into **mbe-midday** _and_ **mbe-evening**, and the
+   `/idea-to-prod:implement-queue` block into **mbe-midday** _and_ **mbe-evening**, and the
    updated optimize block (Step 0 reconcile + Step 6 persist) into
    **mbe-evening**.
 2. Click **Run** on `mbe-morning` — validates `/ideate` end-to-end and files
    batch 1.
-3. Click **Run** on `mbe-midday` — validates cloud `/implement-queue`
+3. Click **Run** on `mbe-midday` — validates cloud `/idea-to-prod:implement-queue`
    (worktrees + `pnpm install` are unproven in the cloud env; the documented
    fallback is a single no-worktree worker with your local loop as the heavy
    drain). Its log also shows why daily acmm PRs stopped on 2026-07-10.

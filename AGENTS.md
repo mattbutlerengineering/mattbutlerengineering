@@ -42,7 +42,7 @@ The continuous-improvement loop (audit → fix → ship → verify) runs as **sl
 
 Quick reference:
 
-- `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
+- `/idea-to-prod:implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker

@@ -36,8 +36,8 @@
  * re-dispatch recovery is pointless — another run is just as invisible to
  * the rollup) but the PR is still not mergeable and still needs a human (or
  * `ci.yml` publishing a commit *status*, tracked separately, out of scope
- * here). See the `.claude/skills/implement-queue/SKILL.md` Phase 2
- * worker→train boundary, step 1, for how the orchestrator consumes all
+ * here). See the `ci-status` hook in `.claude/implement-queue.md` (the plugin implement-queue skill's Phase 2
+ * gate, step 1) for how the orchestrator consumes all
  * three non-green states.
  *
  * #4028: the `anyRunning` guard below (which exists so `CI Gate`'s normal

@@ -332,7 +332,7 @@ const CLI_CALL = "node scripts/worktree-base-freshness.mjs check";
 
 describe("wiring (#5296)", () => {
   const WORKER_MD = readFileSync(resolve(ROOT, ".claude/agents/implement-queue-worker.md"), "utf8");
-  const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
+  const SKILL_MD = readFileSync(resolve(ROOT, ".claude/implement-queue.md"), "utf8");
 
   it("implement-queue-worker.md calls the check before any implementation work", () => {
     const checkAt = WORKER_MD.indexOf(CLI_CALL);
@@ -347,16 +347,17 @@ describe("wiring (#5296)", () => {
     expect(WORKER_MD).toContain(REMEDIATION);
   });
 
-  it("implement-queue SKILL.md Phase 2 calls the check alongside the build-freshness check", () => {
-    const phase2At = SKILL_MD.indexOf("## Phase 2");
-    const phase3At = SKILL_MD.indexOf("## Phase 3");
+  it("the implement-queue profile's base-freshness hook calls the check", () => {
+    const hookAt = SKILL_MD.indexOf("\n## base-freshness\n");
+    const nextHookAt = SKILL_MD.indexOf("\n## ", hookAt + 1);
     const checkAt = SKILL_MD.indexOf(CLI_CALL);
 
-    expect(checkAt).toBeGreaterThan(phase2At);
-    expect(checkAt).toBeLessThan(phase3At);
+    expect(hookAt).toBeGreaterThan(-1);
+    expect(checkAt).toBeGreaterThan(hookAt);
+    expect(checkAt).toBeLessThan(nextHookAt);
   });
 
-  it("implement-queue SKILL.md states the remediation verbatim", () => {
+  it("the implement-queue profile states the remediation verbatim", () => {
     expect(SKILL_MD).toContain(REMEDIATION);
   });
 });

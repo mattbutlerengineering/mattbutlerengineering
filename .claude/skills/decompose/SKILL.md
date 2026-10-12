@@ -1,12 +1,12 @@
 ---
 name: decompose
-description: Create ready-labeled GitHub issues from a feature description so /implement-queue can drain them — analyzes the codebase and files a dependency-ordered chain of child issues plus a tracking issue. Produces GitHub issues, not a design document. Invoke with /decompose.
+description: Create ready-labeled GitHub issues from a feature description so /idea-to-prod:implement-queue can drain them — analyzes the codebase and files a dependency-ordered chain of child issues plus a tracking issue. Produces GitHub issues, not a design document. Invoke with /decompose.
 user-invocable: true
 ---
 
 # Decompose
 
-Break a feature request into a chain of ordered GitHub issues that `/implement-queue` (or the scheduled issue-worker) can implement autonomously.
+Break a feature request into a chain of ordered GitHub issues that `/idea-to-prod:implement-queue` (or the scheduled issue-worker) can implement autonomously.
 
 ## When to Use
 

@@ -228,7 +228,7 @@ Context covers `packages/agent-core`, `services/agent`, `apps/gen`, `tools/` (mb
 
 **Source:** `.claude/agents/reviewer.md` (the dispatchable agent), `packages/agent-core/src/reviewer-contract.ts:ReviewInput`, `packages/agent-core/src/reviewer-contract.ts:ReviewVerdict`
 
-**Default model:** haiku (fast + cheap; sonnet for security-sensitive changes — see `.claude/skills/implement-queue/SKILL.md` Phase 2 step 3)
+**Default model:** haiku (fast + cheap; sonnet for security-sensitive changes — see the `reviewers` hook in `.claude/implement-queue.md`)
 
 **Named diff-matched reviewers:** `migration-reviewer`, `adr-compliance-reviewer`, `dependency-update-reviewer`, `stripe-flow-reviewer`, `generated-artifact-determinism-reviewer` (source: `packages/agent-core/src/pr-risk-classifier.ts`)
 
@@ -240,7 +240,7 @@ Context covers `packages/agent-core`, `services/agent`, `apps/gen`, `tools/` (mb
 
 **Definition:** The serial sequence of steps that merges green PRs one at a time in implement-queue Phase 3: verify CI, set auto-merge, wait for GitHub to merge, then repeat for the next PR.
 
-**Source:** `.claude/skills/implement-queue/SKILL.md` — "Phase 3: Serial merge train (oldest green PR first)"; `CLAUDE.md` label table — `has-pr` state.
+**Source:** the plugin `implement-queue` skill's "Phase 3: Merge train" and the `lock`/`update-branch` hooks in `.claude/implement-queue.md`; `CLAUDE.md` label table — `has-pr` state.
 
 **Mechanism:** `gh pr merge <N> --auto --squash --delete-branch` — GitHub merges once `CI Gate` is green and branch is up to date. Not a GitHub native merge queue (personal account limitation); see `docs/.claude/rules/gotchas.md` CI section.
 
@@ -252,7 +252,7 @@ Context covers `packages/agent-core`, `services/agent`, `apps/gen`, `tools/` (mb
 
 **Definition:** GitHub issue labels that represent the lifecycle state of an issue in the implement-queue coordination protocol.
 
-**Source:** `CLAUDE.md` (GitHub Labels table), `.claude/skills/implement-queue/SKILL.md:Phase 1`
+**Source:** `CLAUDE.md` (GitHub Labels table), `.claude/implement-queue.md` (`transition` hook)
 
 | Label          | Meaning                                               |
 | -------------- | ----------------------------------------------------- |
@@ -352,7 +352,7 @@ These roles apply across all bounded contexts.
 
 **Source:** `CLAUDE.md` Scheduled / Implement Queue mode descriptions; `packages/agent-core/src/session-runner.ts:runSession`
 
-**Coordination entry:** `mbe agent run "<task>"` or dispatched by `/implement-queue` via the Agent tool with `subagent_type: "implement-queue-worker"`.
+**Coordination entry:** `mbe agent run "<task>"` or dispatched by `/idea-to-prod:implement-queue` via the Agent tool with `subagent_type: "implement-queue-worker"`.
 
 **Synonyms to avoid:** _bot_, _automation_, _script_ — use **agent** (lowercase) for the autonomous coding entity.
 

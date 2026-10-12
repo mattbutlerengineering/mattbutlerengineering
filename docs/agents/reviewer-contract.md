@@ -2,7 +2,7 @@
 
 ## Rationale
 
-Each `/implement-queue` worker runs TDD, gates, and verification inside its
+Each `/idea-to-prod:implement-queue` worker runs TDD, gates, and verification inside its
 own worktree before opening a PR. However, these guards are self-contained —
 the worker checks its own output against the same bias that produced it. A
 **Reviewer sub-agent** provides an independent second opinion, catching:
@@ -82,12 +82,12 @@ implement-queue (Phase 2: worker→train boundary, after PR-level CI green)
   │     Model tier: haiku (fast, cheap) — sonnet for security-critical changes
   │     Budget: $0.05 per review
   │
-  ├─ 4. Await verdict (≤30s timeout, fail-open on timeout → pass)
+  ├─ 4. Await verdict (≤30s timeout; timeout/error → re-dispatch once, then hold)
   │
   ├─ 5. Decision:
-  │   ├─ pass  → proceed to gh pr merge --auto
+  │   ├─ pass  → proceed to gh pr merge --auto (unless a gate-path file changed → hold for a human)
   │   ├─ flag  → apply Retry Policy (below)
-  │   └─ timeout/error → log warning, proceed (fail-open)
+  │   └─ timeout/error → record `error`, re-dispatch once, then hold for a human
 ```
 
 ### When the Reviewer runs
@@ -100,15 +100,18 @@ that CI cannot (semantic regressions, hallucinated behaviour, skipped acceptance
 criteria).
 
 Review is **skipped** for low-risk PRs (tests-only, docs, config, deps, metrics
-telemetry) as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
+telemetry) as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`. A low-risk PR that changes a gate-path file (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`) is still
+held for a human merge (ADR-0087).
 
 ### Reviewer agent constraints
 
 - **Read-only:** the Reviewer never edits files, branches, or issues.
 - **Isolation:** `isolation: "none"` — no worktree needed, it only reads text.
 - **Timeout:** 30 seconds. A slow Reviewer does not block the merge train.
-- **Fail-open:** timeout or LLM error → log warning, proceed to merge.
-  False negatives (missed issues) are better than false positives (stuck train).
+- **Errors hold, they do not pass:** timeout or LLM error → record `error`,
+  re-dispatch once, then hold the PR for a human (plugin skill rule, skills
+  ADR-0087). This repo used to fail open here; a reviewer dispatch that died on
+  host sleep let a real defect through, so a stuck PR is the cheaper failure.
 
 ## Retry policy
 
@@ -150,10 +153,11 @@ in the issue's YAML frontmatter.
 
 ## Integration points
 
-### implement-queue SKILL.md
+### implement-queue profile
 
-The relevant section is the **Worker→train boundary** subsection within **Phase 2**
-(see SKILL.md). The general-purpose Reviewer sub-agent described in this contract
+The relevant hooks are `reviewers` and `merge-command` in
+[`.claude/implement-queue.md`](../../.claude/implement-queue.md), run at the plugin
+skill's Phase 2 gate. The general-purpose Reviewer sub-agent described in this contract
 runs **before** the diff-matched specialized reviewers (`migration-reviewer`,
 `adr-compliance-reviewer`, etc.) and **before** `gh pr merge --auto`, as a
 universal gate at the worker→train boundary on PR-level CI green.

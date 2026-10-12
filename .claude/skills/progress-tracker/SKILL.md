@@ -24,7 +24,7 @@ gh issue list --label "meta-improvement" --state all --json number,title,state
 cat .claude/agent-spend/sessions.jsonl 2>/dev/null | tail -100
 ```
 
-Per-issue attribution: `.claude/agent-spend/sessions.jsonl` = `{date,timestamp,costUsd,model,adapter,status,issueNumber?,inputTokens?,outputTokens?,numTurns?}` (single spend sink owned by agent-core's recordSpend seam; NOT total Claude spend — use ccusage for ground-truth totals). It only holds `mbe agent run`/`mbe agent eval` sessions. `/implement-queue` workers never reach `recordSpend`, so their usage is `subagent_tokens`/`cost_usd` in `metrics/queue-telemetry.jsonl` (#5885). Read both with `node -e 'import("./scripts/sensors-registry.mjs").then(({SENSORS})=>{const s=SENSORS.find(x=>x.id==="agentCost");const d=s.collect({root:process.cwd(),now:new Date()});console.log(s.format(d,"agentCost"))})'`. If queue `cost_usd` is unknown, report the tokens and say the cost is unknown. Never report it as $0.
+Per-issue attribution: `.claude/agent-spend/sessions.jsonl` = `{date,timestamp,costUsd,model,adapter,status,issueNumber?,inputTokens?,outputTokens?,numTurns?}` (single spend sink owned by agent-core's recordSpend seam; NOT total Claude spend — use ccusage for ground-truth totals). It only holds `mbe agent run`/`mbe agent eval` sessions. `/idea-to-prod:implement-queue` workers never reach `recordSpend`, so their usage is `subagent_tokens`/`cost_usd` in `metrics/queue-telemetry.jsonl` (#5885). Read both with `node -e 'import("./scripts/sensors-registry.mjs").then(({SENSORS})=>{const s=SENSORS.find(x=>x.id==="agentCost");const d=s.collect({root:process.cwd(),now:new Date()});console.log(s.format(d,"agentCost"))})'`. If queue `cost_usd` is unknown, report the tokens and say the cost is unknown. Never report it as $0.
 
 ## Metrics
 
@@ -168,7 +168,7 @@ The selection rule (`selectStaleForRetry`) is a pure, unit-tested function
 
 ### Queue Adjust
 
-Queue >10 + success >70% → `/loop 15m /implement-queue`
+Queue >10 + success >70% → `/loop 15m /idea-to-prod:implement-queue`
 
 Queue 0 for 3d → reduce audit or expand
 
