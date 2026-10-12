@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import "@mattbutlerengineering/rialto/styles";
@@ -9,7 +9,7 @@ import {
   ToastProvider,
   ErrorBoundary,
   unregisterStaleServiceWorkers,
-  useThemeState,
+  useTheme,
 } from "@mattbutlerengineering/rialto";
 
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
@@ -32,18 +32,20 @@ unregisterStaleServiceWorkers();
 const router = createBrowserRouter(routeTree, { basename: "/rialto" });
 
 /* ── Root component ───────────────────────────── */
-function Root() {
-  const themeState = useThemeState();
+function ThemeBridge({ children }: { children: ReactNode }) {
+  return <ThemeContext value={useTheme()}>{children}</ThemeContext>;
+}
 
+function Root() {
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
-    <RialtoProvider theme={themeState.theme}>
+    <RialtoProvider persistTheme>
       <ErrorBoundary onError={handleErrorBoundary}>
-        <ThemeContext value={themeState}>
+        <ThemeBridge>
           <ToastProvider>
             <RouterProvider router={router} />
           </ToastProvider>
-        </ThemeContext>
+        </ThemeBridge>
       </ErrorBoundary>
     </RialtoProvider>
   );

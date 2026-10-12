@@ -8,7 +8,7 @@
  * names (#5279 item 3). Call these at use time instead.
  *
  * `en-CA` formats as `YYYY-MM-DD`, and the local day is the day the app itself filters on —
- * `src/utils/local-clock.ts` `localDateString` is the twin of `localDay()` inside the app.
+ * `src/utils/service-day.ts` `deviceDate` is the twin of `localDay()` inside the app.
  */
 
 const LOCAL_DAY_LOCALE = "en-CA"; // formats as YYYY-MM-DD

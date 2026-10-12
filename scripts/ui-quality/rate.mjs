@@ -49,7 +49,7 @@
  *          [--verdicts <file>] [--model-id <id>] [--root <dir>]
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { append, resolvePath } from "../metrics-store.mjs";
@@ -66,18 +66,17 @@ import { TASTE_REFERENCES_PER_ROUTE, TASTE_SAMPLE_ROUTES } from "./config.mjs";
 import { FOLD_VIEWPORT, outcomeOf, positionOf, sha256, sides, VERDICTS } from "./pairing.mjs";
 import { pngSizeOfFile } from "./png.mjs";
 import { categoryOf, loadRubric, tellsById } from "./rubric.mjs";
+import { CAPTURES_DIR, WORK_DIR, readManifests } from "./work-dir.mjs";
 
 export { positionOf };
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const RATINGS_METRIC = "ui-quality-ratings";
-export const WORK_DIR = ".ui-quality";
 export const RATING_PLAN_FILE = "rating-plan.json";
 export const CALIBRATION_PLAN_FILE = "calibration-plan.json";
 export const CALIBRATIONS_METRIC = "ui-quality-calibrations";
 export const ROUTINE_DOC = "docs/routines/mbe-ui-quality.md";
-const CAPTURES_DIR = "captures";
 /** A model id that is not one: never calibrated, so always `stale`. */
 export const UNKNOWN_MODEL_ID = "unknown";
 const OUTCOME_VALUE = { ours: 1, tie: 0.5, reference: 0 };
@@ -217,21 +216,6 @@ export function ratingRows(plan, byId, dropped, { ts, modelId, calibration }) {
 // I/O
 // ---------------------------------------------------------------------------
 
-function readManifests(work) {
-  const dir = join(work, CAPTURES_DIR);
-  if (!existsSync(dir)) return {};
-  const manifests = {};
-  for (const app of readdirSync(dir)) {
-    const file = join(dir, app, "manifest.jsonl");
-    if (!existsSync(file)) continue;
-    manifests[app] = readFileSync(file, "utf8")
-      .split("\n")
-      .filter((l) => l.trim() !== "")
-      .map((l) => JSON.parse(l));
-  }
-  return manifests;
-}
-
 /** `model:` from the routine doc's frontmatter, or null. */
 function routineModelId(root) {
   const file = join(root, ROUTINE_DOC);
@@ -298,7 +282,7 @@ function pairsCommand(ctx) {
   assertReferenceSizes(ctx.root, rubric);
   const work = join(ctx.root, WORK_DIR);
   if (ctx.argv.includes("--calibration")) return calibrationPlanCommand(ctx, rubric, work);
-  const pairs = buildPairs({ rubric, manifests: readManifests(work) });
+  const pairs = buildPairs({ rubric, manifests: readManifests(ctx.root) });
   mkdirSync(work, { recursive: true });
   const plan = { rubric_version: rubric.rubric_version, pairs };
   writeFileSync(join(work, RATING_PLAN_FILE), JSON.stringify(plan, null, 2) + "\n");

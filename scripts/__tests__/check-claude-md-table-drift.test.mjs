@@ -5,7 +5,7 @@ import os from "node:os";
 
 /**
  * Builds a minimal but internally-consistent fixture repo: a CLAUDE.md with
- * the three drift-checked tables, a `tools/cli/src/index.ts` + commands
+ * the three drift-checked tables, a `tools/cli/src/command-loaders.ts` + commands
  * tree matching the CLI table, `.claude/skills` and `plugins/<name>/skills`
  * directories matching the skills tables, and `.claude/agents` markdown
  * files matching the subagents table. Individual tests mutate one side
@@ -18,14 +18,12 @@ function writeCleanFixture(root) {
   fs.mkdirSync(path.join(root, ".claude", "agents"), { recursive: true });
 
   fs.writeFileSync(
-    path.join(root, "tools", "cli", "src", "index.ts"),
+    path.join(root, "tools", "cli", "src", "command-loaders.ts"),
     [
-      'import { Command } from "commander";',
-      'import { loginCommand } from "./commands/login.js";',
-      'import { agentCommand } from "./commands/agent.js";',
-      "const program = new Command();",
-      "program.addCommand(loginCommand);",
-      "program.addCommand(agentCommand);",
+      "const LOADERS = [",
+      '  ["login", async () => (await import("./commands/login.js")).loginCommand],',
+      '  ["agent", async () => (await import("./commands/agent.js")).agentCommand],',
+      "];",
     ].join("\n")
   );
 
@@ -65,7 +63,7 @@ function writeCleanFixture(root) {
     [
       "## mbe CLI Commands",
       "",
-      "All top-level commands registered in `tools/cli/src/index.ts`:",
+      "All top-level commands registered in `tools/cli/src/command-loaders.ts`:",
       "",
       "| Command | Subcommands | Purpose |",
       "| --- | --- | --- |",
@@ -148,16 +146,12 @@ describe("check-claude-md-table-drift", () => {
       'import { Command } from "commander";\nexport const logoutCommand = new Command("logout").description("Clear tokens");\n'
     );
     fs.writeFileSync(
-      path.join(tmpDir, "tools", "cli", "src", "index.ts"),
+      path.join(tmpDir, "tools", "cli", "src", "command-loaders.ts"),
       fs
-        .readFileSync(path.join(tmpDir, "tools", "cli", "src", "index.ts"), "utf-8")
+        .readFileSync(path.join(tmpDir, "tools", "cli", "src", "command-loaders.ts"), "utf-8")
         .replace(
-          'import { agentCommand } from "./commands/agent.js";',
-          'import { agentCommand } from "./commands/agent.js";\nimport { logoutCommand } from "./commands/logout.js";'
-        )
-        .replace(
-          "program.addCommand(agentCommand);",
-          "program.addCommand(agentCommand);\nprogram.addCommand(logoutCommand);"
+          "];",
+          '  ["logout", async () => (await import("./commands/logout.js")).logoutCommand],\n];'
         )
     );
 
@@ -171,7 +165,7 @@ describe("check-claude-md-table-drift", () => {
     });
   });
 
-  test("a Command declared but never registered in index.ts is not flagged (dead code, e.g. compound)", async () => {
+  test("a Command declared but never registered in command-loaders.ts is not flagged (dead code, e.g. compound)", async () => {
     fs.writeFileSync(
       path.join(tmpDir, "tools", "cli", "src", "commands", "compound.ts"),
       'import { Command } from "commander";\nexport const compoundCommand = new Command("compound").description("unreachable");\n'

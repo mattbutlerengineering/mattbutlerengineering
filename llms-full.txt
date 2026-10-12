@@ -4447,28 +4447,6 @@
       });
     }
   </file>
-  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
-    export function todayInTimezone(now: Date, timeZone?: string): string {
-      if (!timeZone) return toDateString(now);
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const year = get("year");
-        const month = get("month");
-        const day = get("day");
-        if (!year || !month || !day) return toDateString(now);
-        return `${year}-${month}-${day}`;
-      } catch {
-        return toDateString(now);
-      }
-    }
-  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -4549,7 +4527,6 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
@@ -4560,7 +4537,7 @@
     function createInitialState(venueTimezone?: string): BookingFlowState {
       return {
         step: "date-party",
-        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+        data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
     export const MISSING_VENUE_SLUG_ERROR =
@@ -4700,9 +4677,6 @@
             data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
           };
     
-        case "GO_BACK_TO_GUEST_DETAILS":
-          return { ...state, step: "guest-details" };
-    
         case "EXPIRE_HOLD":
           return {
             step: "time-slot",
@@ -4767,7 +4741,6 @@
       selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
       confirmReservation: (details: GuestDetails) => Promise<void>;
       handleDepositSuccess: (paymentIntentId: string) => void;
-      goBackToGuestDetails: () => void;
       resetFlow: () => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
@@ -4808,7 +4781,7 @@
       /**
        * IANA timezone the venue operates in — used to default `selectedDate` to
        * "today" on the venue's clock rather than a UTC midnight boundary
-       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       * (#4981). Omit only when unknown; falls back to the device clock.
        */
       venueTimezone?: string;
     }
@@ -5053,12 +5026,8 @@
         dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
       }, []);
     
-      const goBackToGuestDetails = useCallback(() => {
-        dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-      }, []);
-    
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+        dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
       }, [venueTimezone]);
     
       const goToWaitlistJoin = useCallback(() => {
@@ -5124,7 +5093,6 @@
           selectSlotAndHold,
           confirmReservation,
           handleDepositSuccess,
-          goBackToGuestDetails,
           resetFlow,
           goToWaitlistJoin,
           handleWaitlistJoined,
@@ -8809,8 +8777,8 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
-      // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/service-day.ts`
+      // `deviceDate`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
       // Pacific and emptied the grid for the whole evening service (A1 / P01).
       //
       // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
@@ -12660,7 +12628,7 @@
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
@@ -12865,7 +12833,7 @@
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
     type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
-      return localDateString(new Date());
+      return deviceDate(new Date());
     }
     function computeUpcoming(reservations: readonly Reservation[]): number {
       const now = new Date();
@@ -14419,6 +14387,19 @@
       extraContainerRefs?: RefObject<HTMLElement | null>[];
       /** Called after close/select so the consumer can return focus to its trigger. */
       onRequestTriggerFocus?: () => void;
+      /**
+       * `"button"` (default): a button-style trigger — opens with the selected item
+       * focused, Space/Enter open and commit, printable keys type-ahead.
+       * `"input"`: a text input owns typing — opens with nothing focused (ARIA APG:
+       * `aria-activedescendant` is set only once the user arrows; ArrowDown/ArrowUp
+       * on a closed list open it on the first/last enabled item), Space and
+       * printable keys are left to the input, and Enter on a focused item commits it
+       * like a click. Callers that must stay open after a commit (multi-select) handle
+       * Enter themselves before delegating the remaining keys.
+       */
+      inputMode?: "button" | "input";
+      /** Input mode: ArrowDown/ArrowUp wrap around the ends instead of clamping. */
+      wrap?: boolean;
     }
     export interface UseComboboxResult {
       readonly open: boolean;
@@ -14432,6 +14413,16 @@
       readonly setFocusedIndex: (index: number) => void;
       readonly handleKeyDown: (e: KeyboardEvent) => void;
     }
+    function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number {
+      const n = items.length;
+      for (let step = 1; step <= n; step++) {
+        const raw = from + dir * step;
+        if (!wrap && (raw < 0 || raw >= n)) break;
+        const i = ((raw % n) + n) % n;
+        if (!items[i]?.disabled) return i;
+      }
+      return from >= 0 && from < n ? from : -1;
+    }
     export function useCombobox({
       items,
       value,
@@ -14439,6 +14430,8 @@
       containerRef,
       extraContainerRefs,
       onRequestTriggerFocus,
+      inputMode = "button",
+      wrap = false,
     }: UseComboboxOptions): UseComboboxResult {
       const [open, setOpen] = useState(false);
       const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -14448,11 +14441,18 @@
     
       const close = useCallback(() => setOpen(false), []);
     
+      const isInput = inputMode === "input";
+    
       const openWithFocus = useCallback(() => {
+        if (isInput) {
+          setFocusedIndex(-1);
+          setOpen(true);
+          return;
+        }
         const idx = value ? items.findIndex((o) => o.value === value) : 0;
         setFocusedIndex(idx >= 0 ? idx : 0);
         setOpen(true);
-      }, [value, items]);
+      }, [value, items, isInput]);
     
       const toggle = useCallback(() => {
         if (open) {
@@ -14499,8 +14499,54 @@
         [open, focusedIndex, items, select]
       );
     
+      // Input mode: only Up/Down, Enter, Escape and Tab; text keys belong to the input.
+      const handleInputKey = useCallback(
+        (e: KeyboardEvent) => {
+          if (!open) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              // ARIA APG: Down opens on the first enabled item, Up on the last.
+              e.preventDefault();
+              setOpen(true);
+              setFocusedIndex(
+                e.key === "ArrowDown"
+                  ? nextEnabledIndex(items, -1, 1, false)
+                  : nextEnabledIndex(items, items.length, -1, false)
+              );
+            }
+            return;
+          }
+          switch (e.key) {
+            case "ArrowDown":
+            case "ArrowUp": {
+              e.preventDefault();
+              const dir = e.key === "ArrowDown" ? 1 : -1;
+              setFocusedIndex(nextEnabledIndex(items, focusedIndex, dir, wrap));
+              break;
+            }
+            case "Enter": {
+              e.preventDefault();
+              const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
+              if (focused && !focused.disabled) select(focused.value);
+              break;
+            }
+            case "Escape":
+              e.preventDefault();
+              setOpen(false);
+              break;
+            case "Tab":
+              setOpen(false);
+              break;
+          }
+        },
+        [open, items, focusedIndex, wrap, select]
+      );
+    
       const handleKeyDown = useCallback(
         (e: KeyboardEvent) => {
+          if (isInput) {
+            handleInputKey(e);
+            return;
+          }
           // Type-ahead for printable single characters.
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
@@ -14571,7 +14617,17 @@
               break;
           }
         },
-        [open, focusedIndex, items, handleTypeahead, openWithFocus, select, onRequestTriggerFocus]
+        [
+          isInput,
+          handleInputKey,
+          open,
+          focusedIndex,
+          items,
+          handleTypeahead,
+          openWithFocus,
+          select,
+          onRequestTriggerFocus,
+        ]
       );
     
       // Close on outside mousedown. Effect only (de)registers the listener — the
@@ -15721,7 +15777,7 @@
       return `${venueId}::${date}`;
     }
     function todayDateKey(): string {
-      return localDateString(new Date());
+      return deviceDate(new Date());
     }
     export async function getCachedReservations(
       venueId: string,
@@ -18046,6 +18102,14 @@
       }, [device.reducedMotion, vibe]);
     }
   </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
+    }
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;
@@ -19384,18 +19448,6 @@
           return reply.send(stream);
         }
       );
-    };
-  </file>
-  <file path="services/agent/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getAgentHealth" },
-          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
-        ],
-      });
     };
   </file>
   <file path="services/agent/src/routes/orchestrate.ts">
@@ -21936,19 +21988,6 @@
             return reply.code(204).send();
           }
         ),
-      });
-    };
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/health", operationId: "getHealthApi" },
-          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
-        ],
       });
     };
   </file>
@@ -26592,18 +26631,6 @@
         await handler(event);
       }
     }
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
-        ],
-      });
-    };
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -49993,6 +50020,7 @@
       getSlowQueryStats: () => SlowQueryStats;
       getPoolMetrics: () => PoolMetrics;
       getServiceStatus: () => ServiceStatus;
+      /** Idempotent. Callers own the lifecycle: createServiceApp wires it to fastify onClose. */
       shutdown: () => Promise<void>;
     }
     export interface PrismaLike {
@@ -50142,8 +50170,6 @@
         await basePrisma.$disconnect();
         await pool.end();
       }
-    
-      process.on("beforeExit", shutdown);
     
       return {
         prisma,
@@ -54373,6 +54399,14 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
+    export interface ServiceDatabaseConfig {
+      /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+      readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+      /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+      readonly healthRoutes: readonly HealthRouteConfig[];
+      /** Overrides the shared Auth0 JWKS check — for tests without network. */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
     export interface ServiceAppConfig {
       /** Swagger/OpenAPI metadata — differs per service */
       readonly swagger: SwaggerConfig;
@@ -54380,6 +54414,8 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+      /** Owns the service's database: health, /ready, and pool shutdown on close. */
+      readonly database?: ServiceDatabaseConfig;
     }
     export interface AppOptions {
       logger?: boolean | object;
@@ -54410,6 +54446,20 @@
         log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
         return fallbackUrl;
       }
+    }
+    async function registerDatabase(
+      fastify: FastifyInstance,
+      database: ServiceDatabaseConfig
+    ): Promise<void> {
+      const { db, healthRoutes, checkAuth0 } = database;
+      // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+      fastify.addHook("onClose", async () => db.shutdown());
+      await fastify.register(registerHealthRoutes, {
+        db,
+        routes: healthRoutes,
+        ...(checkAuth0 && { checkAuth0 }),
+      });
+      await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
     }
     export async function createServiceApp(
       config: ServiceAppConfig,
@@ -54583,6 +54633,11 @@
       // Policy (successor computation, sunset headers, deprecation decorators) is
       // governed by ADR-002 and lives in apply-versioning.ts.
       applyVersioning(fastify, config.apiVersioning);
+    
+      // --- Database lifecycle ---
+      if (config.database) {
+        await registerDatabase(fastify, config.database);
+      }
     
       return fastify;
     }
@@ -56546,13 +56601,18 @@
             serverUrl: "http://localhost:3003",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getAgentHealth" },
+              { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+            ],
+          },
         },
         options
       );
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
       await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
@@ -56632,6 +56692,14 @@
             serverUrl: "http://localhost:3004",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/health", operationId: "getHealthApi" },
+              { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+            ],
+          },
         },
         options
       );
@@ -56748,19 +56816,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-      // (#5469). `@mbe/database`'s createDatabase() registers its own
-      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-      // SIGINT handler always ends with an explicit `process.exit(0)` — which
-      // never fires `beforeExit` — so the pool was previously torn down by abrupt
-      // process termination on every deploy instead of a graceful disconnect.
-      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-      // jobWorker below) runs deterministically after requests drain, so wire
-      // db.shutdown() here instead. Registered unconditionally (not gated on
-      // NODE_ENV !== "test" like the background jobs below) since it has no
-      // observable side effect beyond closing a connection that tests mock out.
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is
       // resolvable from its own query/body/params, so the RLS policies already
@@ -56780,8 +56835,6 @@
       fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
@@ -56921,13 +56974,18 @@
             serverUrl: "http://localhost:3001",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+            ],
+          },
         },
         options
       );
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     
@@ -56947,6 +57005,19 @@
         baseUrl: AGENT_API_URL,
         maxRetries: 0,
       });
+    }
+  </file>
+  <file path="tools/cli/src/command-loaders.ts">
+    type CommandLoader = () => Promise<Command>;
+    export const COMMAND_NAMES: readonly string[] = LOADERS.map(([name]) => name);
+    export async function registerCommands(program: Command, argv: readonly string[]): Promise<void> {
+      const requested = argv.find((arg) => !arg.startsWith("-"));
+      const selected = LOADERS.filter(([name]) => name === requested);
+      const toLoad = selected.length > 0 ? selected : LOADERS;
+      // Sequential load keeps registration order (and any load error) deterministic.
+      for (const [, load] of toLoad) {
+        program.addCommand(await load());
+      }
     }
   </file>
   <file path="tools/cli/src/command-seam.ts">
@@ -57065,6 +57136,12 @@
     }
     export function isAuthenticated(): boolean {
       return !!getAccessToken();
+    }
+  </file>
+  <file path="tools/cli/src/index.ts">
+    async function main(): Promise<void> {
+      await registerCommands(program, process.argv.slice(2));
+      await program.parseAsync();
     }
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
@@ -57574,7 +57651,6 @@
       "/health/system",
       "/health/uptime",
       "/health/performance",
-      "/health/lighthouse",
       "/health/deps",
     ] as const;
     class PassThroughHTMLRewriter {
@@ -57596,17 +57672,15 @@
         let originFetchCalls = 0;
         let staticBindingCalls = 0;
     
-        // The three KV operations the Worker reaches on these paths: `get` (CSP
-        // policy, circuit-breaker state, CI/deploy/migrate records), `put`
-        // (rate-limit counters, circuit-breaker state) and `list`
-        // (`health/lighthouse.js:11`). Empty answers throughout — every reader
+        // The KV operations the Worker reaches on these paths: `get` (CSP
+        // policy, circuit-breaker state, CI/deploy/migrate records) and `put`
+        // (rate-limit counters, circuit-breaker state). Empty answers throughout — every reader
         // already handles a miss, and with `get` always null the rate limiter's
         // count is always 0, so repeated probes of `/health/system` (10 req/60 s,
         // `rate-limiter.js:16`) can never shed.
         const kv = {
           get: async () => null,
           put: async () => undefined,
-          list: async () => ({ keys: [], list_complete: true }),
         };
     
         const env: Record<string, unknown> = {
@@ -60729,21 +60803,6 @@
       URL.revokeObjectURL(url);
     }
   </file>
-  <file path="apps/hospitality/src/utils/local-clock.ts">
-    function isValidDate(now: Date): boolean {
-      return !Number.isNaN(now.getTime());
-    }
-    export function localDateString(now: Date): string {
-      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
-    }
-    export function localHour(now: Date): number {
-      return now.getHours();
-    }
-    export function isLocalToday(date: string, now: Date): boolean {
-      const today = localDateString(now);
-      return today !== "" && date === today;
-    }
-  </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -60828,6 +60887,58 @@
       return tables
         .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
         .sort((a, b) => a.capacity - b.capacity);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/service-day.ts">
+    export function deviceDate(now: Date): string {
+      return Number.isNaN(now.getTime()) ? "" : now.toLocaleDateString(DAY_LOCALE);
+    }
+    export function deviceHour(now: Date): number {
+      return now.getHours();
+    }
+    export function isDeviceToday(date: string, now: Date): boolean {
+      const today = deviceDate(now);
+      return today !== "" && date === today;
+    }
+    export function venueDate(now: Date, timeZone?: string): string {
+      if (!timeZone) return deviceDate(now);
+      try {
+        return now.toLocaleDateString(DAY_LOCALE, { timeZone });
+      } catch {
+        return deviceDate(now);
+      }
+    }
+    export function addDays(date: string, days: number): string {
+      const shifted = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(shifted.getTime())) return "";
+      shifted.setUTCDate(shifted.getUTCDate() + days);
+      return shifted.toISOString().slice(0, 10);
+    }
+    export interface VenueWallClock {
+      /** Lower-case English weekday name, e.g. `"monday"`. */
+      readonly weekday: string;
+      /** Minutes since venue-local midnight. */
+      readonly nowMin: number;
+    }
+    export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const weekday = get("weekday")?.toLowerCase();
+        const hour = Number(get("hour"));
+        const minute = Number(get("minute"));
+        if (!weekday || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return { weekday, nowMin: hour * 60 + minute };
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
@@ -60929,24 +61040,10 @@
       readonly nowMin: number;
     }
     function readVenueClock(timeZone: string, now: Date): VenueClock | null {
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          weekday: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
-        const hour = Number(get("hour"));
-        const minute = Number(get("minute"));
-        if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-        return { day, nowMin: hour * 60 + minute };
-      } catch {
-        return null;
-      }
+      const clock = venueWallClock(timeZone, now);
+      if (!clock) return null;
+      const day = WEEKDAYS.indexOf(clock.weekday as Weekday);
+      return day < 0 ? null : { day, nowMin: clock.nowMin };
     }
     function toMinutes(hhmm: string): number | null {
       if (!LOCAL_TIME_PATTERN.test(hhmm)) return null;

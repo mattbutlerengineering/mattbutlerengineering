@@ -6,7 +6,8 @@ Monorepo CLI for development, agent orchestration, and infrastructure management
 
 ```
 src/
-├── index.ts           # Commander program setup, command registration
+├── index.ts           # Commander program setup
+├── command-loaders.ts # Lazy per-command module loaders
 ├── config.ts          # CLI configuration (auth tokens, API URLs)
 ├── commands/
 │   ├── agent.ts       # agent run/start/list/status/logs/cancel/delete/orchestrate/cost
@@ -103,7 +104,7 @@ The `pack` command generates `llms.txt` skeletons using ts-morph AST analysis. T
 ## Adding a New Command
 
 1. Create `src/commands/<name>.ts` — export a `Command` instance
-2. Import and register in `src/index.ts` via `program.addCommand()`
+2. Add a lazy loader entry in `src/command-loaders.ts` (modules are imported only when their command runs)
 3. Add tests in `src/__tests__/`
 
 ## Commands

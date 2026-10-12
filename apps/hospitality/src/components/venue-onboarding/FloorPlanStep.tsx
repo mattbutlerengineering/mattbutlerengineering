@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent 
 import { Text, Button, ConfirmDialog } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest } from "@mbe/types";
 import { FloorPlanCanvas, AddTableDialog } from "../floor-plan/index.js";
-import { GRID_SIZE, snapToGrid } from "../floor-plan/floor-plan-geometry.js";
 import {
   DRAFT_ID,
   DUPLICATE_TABLE_NAME_MESSAGE,
@@ -146,46 +145,12 @@ export function FloorPlanStep({
   const handleCanvasTableMove = useCallback(
     (tableId: string, x: number, y: number) => {
       // Pointer drag — snapped by FloorPlanCanvas itself. No announcement:
-      // a drag is its own feedback (see the keyboard-nudge effect below).
+      // a drag is its own feedback. Keyboard nudges also arrive here but
+      // are announced by FloorPlanCanvas via onAnnounce.
       onMoveTable(tableId, x, y);
     },
     [onMoveTable]
   );
-
-  // Keyboard-only table move. FloorPlanCanvas has no keyboard move of its
-  // own (TableSelectionOverlay only makes selection keyboard-reachable —
-  // see its docstring), so this mirrors FloorPlanEditorPage's arrow-key
-  // handler and is the one path that fires the "moved to" announcement.
-  useEffect(() => {
-    if (readOnly || !isWideViewport || !selectedTableId || addDialogOpen) return;
-
-    const handler = (e: globalThis.KeyboardEvent) => {
-      // The template picker's own onKeyDown (handlePickerKeyDown) already
-      // calls preventDefault() when it consumes an arrow key to move
-      // radiogroup focus — bail here so this window-level listener never
-      // ALSO nudges the selected canvas table for the same keypress.
-      if (e.defaultPrevented) return;
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-        return;
-      }
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
-
-      const table = draft.tables.find((t) => t.localId === selectedTableId);
-      if (!table) return;
-
-      e.preventDefault();
-      const dx = e.key === "ArrowRight" ? GRID_SIZE : e.key === "ArrowLeft" ? -GRID_SIZE : 0;
-      const dy = e.key === "ArrowDown" ? GRID_SIZE : e.key === "ArrowUp" ? -GRID_SIZE : 0;
-      const x = snapToGrid(table.x + dx);
-      const y = snapToGrid(table.y + dy);
-      onMoveTable(selectedTableId, x, y);
-      setAnnouncement(`${table.name} moved to ${x}, ${y}`);
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [readOnly, isWideViewport, selectedTableId, addDialogOpen, draft.tables, onMoveTable]);
 
   const handleAddTableSubmit = useCallback(
     async (request: CreateTableRequest) => {
@@ -302,6 +267,7 @@ export function FloorPlanStep({
               onTableSelect={setSelectedTableId}
               selectedTableId={selectedTableId}
               readOnly={readOnly}
+              onAnnounce={setAnnouncement}
             />
           )}
 

@@ -1343,11 +1343,6 @@
       export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean { /* ... */ }
     </item>
   </file>
-  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
-    <item priority="high">
-      export function todayInTimezone(now: Date, timeZone?: string): string { /* ... */ }
-    </item>
-  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
@@ -1374,7 +1369,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "GO_BACK_TO_GUEST_DETA | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -4585,6 +4580,9 @@
         toggle: () => void;
       }
     </item>
+    <item priority="medium">
+      function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number { /* ... */ }
+    </item>
     <item priority="high">
       export function useCombobox({
         items,
@@ -4593,6 +4591,8 @@
         containerRef,
         extraContainerRefs,
         onRequestTriggerFocus,
+        inputMode = "button",
+        wrap = false,
       }: UseComboboxOptions): UseComboboxResult { /* ... */ }
     </item>
   </file>
@@ -5636,6 +5636,14 @@
       export function useMotionPreset(): MotionPreset { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    <item priority="high">
+      export const ThemeStateContext: unknown;
+    </item>
+    <item priority="high">
+      export function useTheme(): ThemeState { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
@@ -5970,11 +5978,6 @@
       export const genUiRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="services/agent/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="services/agent/src/routes/orchestrate.ts">
     <item priority="high">
       interface OrchestrateBody {
@@ -6227,11 +6230,6 @@
   <file path="services/reservations/src/routes/guests.ts">
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/holds.ts">
@@ -6800,11 +6798,6 @@
         async register(): Promise<unknown>;
         async dispatch(): Promise<unknown>;
       }
-    </item>
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
@@ -14642,10 +14635,18 @@
       }
     </item>
     <item priority="low">
+      interface ServiceDatabaseConfig {
+        db: HealthDb & { readonly shutdown: () => Promise<void> };
+        healthRoutes: readonly HealthRouteConfig[];
+        checkAuth0?: () => Promise<Auth0CheckResult>;
+      }
+    </item>
+    <item priority="low">
       interface ServiceAppConfig {
         swagger: SwaggerConfig;
         apiVersioning?: ApiVersioningConfig;
         registerSchemas?: (fastify: FastifyInstance) => void;
+        database?: ServiceDatabaseConfig;
       }
     </item>
     <item priority="low">
@@ -14658,6 +14659,12 @@
     </item>
     <item priority="medium">
       function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function registerDatabase(
+        fastify: FastifyInstance,
+        database: ServiceDatabaseConfig
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function createServiceApp(
@@ -15924,6 +15931,17 @@
       export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
+  <file path="tools/cli/src/command-loaders.ts">
+    <item priority="high">
+      type CommandLoader = () => Promise<Command>;
+    </item>
+    <item priority="high">
+      export const COMMAND_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export async function registerCommands(program: Command, argv: readonly string[]): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="tools/cli/src/command-seam.ts">
     <item priority="low">
       type Row = Record<string, unknown>;
@@ -15986,6 +16004,11 @@
     </item>
     <item priority="high">
       export function isAuthenticated(): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/index.ts">
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
@@ -17368,20 +17391,6 @@
       export function downloadIcsFile(icsContent: string, filename: string): void { /* ... */ }
     </item>
   </file>
-  <file path="apps/hospitality/src/utils/local-clock.ts">
-    <item priority="medium">
-      function isValidDate(now: Date): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localDateString(now: Date): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localHour(now: Date): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isLocalToday(date: string, now: Date): boolean { /* ... */ }
-    </item>
-  </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
@@ -17443,6 +17452,32 @@
         tables: readonly T[],
         partySize: number
       ): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/service-day.ts">
+    <item priority="high">
+      export function deviceDate(now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deviceHour(now: Date): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isDeviceToday(date: string, now: Date): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueDate(now: Date, timeZone?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface VenueWallClock {
+        weekday: string;
+        nowMin: number;
+      }
+    </item>
+    <item priority="high">
+      export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">

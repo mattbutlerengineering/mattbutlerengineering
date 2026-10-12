@@ -153,11 +153,6 @@
       export const genUiRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/orchestrate.ts">
     <item priority="high">
       interface OrchestrateBody {

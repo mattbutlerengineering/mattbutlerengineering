@@ -51,8 +51,8 @@ import {
   reconcileLabelled,
   unmigratedKeys,
 } from "./findings-plan.mjs";
-import { WORK_DIR } from "./ledger.mjs";
 import { loadRubric } from "./rubric.mjs";
+import { WORK_DIR } from "./work-dir.mjs";
 
 export { findingKey, parseKey } from "./findings-plan.mjs";
 

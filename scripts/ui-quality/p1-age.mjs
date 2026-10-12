@@ -26,7 +26,7 @@ import { read as readMetric } from "../metrics-store.mjs";
 import { P1_SLA_DAYS } from "./config.mjs";
 import { FINDINGS_METRIC } from "./findings.mjs";
 import { LABEL } from "./labels.mjs";
-import { WORK_DIR } from "./ledger.mjs";
+import { WORK_DIR } from "./work-dir.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DAY_MS = 24 * 60 * 60 * 1000;

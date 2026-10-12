@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createServiceApp } from "@mbe/service-bootstrap";
 import { buildApp } from "../app.js";
+import { db } from "../services/database.js";
 import {
   FIXTURES as STAFF_FIXTURES,
   INFRA_ROUTES,
@@ -51,7 +52,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "DELETE /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "GET /api/v1/venues/by-slug/:slug": "public slug",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
-  "GET /api/v1/reservations/health": "infra (no venue data)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
   // all-venue stream (#4016), which venueScoped cannot express. The route keeps
@@ -83,7 +83,7 @@ describe("venue-scope coverage (no database)", () => {
   let printed: string[];
   /**
    * Routes `createServiceApp` registers itself (docs, API reference, CORS
-   * preflight) before `buildApp` can install its `onRoute` hook. None is an
+   * preflight, health, /ready) before `buildApp` can install its `onRoute` hook. None is an
    * `/api/v1` route; they are measured from a bare bootstrap app rather than
    * listed, so a new bootstrap route cannot hide a missing registry entry.
    */
@@ -102,7 +102,20 @@ describe("venue-scope coverage (no database)", () => {
       AUTH_BYPASS_IN_TESTS: "true",
     };
     const bootstrap = await createServiceApp(
-      { swagger: { title: "bootstrap", description: "bootstrap", serverUrl: "http://localhost" } },
+      {
+        swagger: { title: "bootstrap", description: "bootstrap", serverUrl: "http://localhost" },
+        // Health and /ready are registered by createServiceApp itself once it
+        // owns the database (#6373), before buildApp's onRoute hook exists, so
+        // they are bootstrap routes - never entries in the venue-scope registry.
+        database: {
+          db,
+          healthRoutes: [
+            { path: "/health", operationId: "getHealth" },
+            { path: "/api/health", operationId: "getHealthApi" },
+            { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+          ],
+        },
+      },
       { logger: false }
     );
     await bootstrap.ready();

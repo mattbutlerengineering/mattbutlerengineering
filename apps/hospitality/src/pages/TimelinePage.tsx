@@ -32,7 +32,7 @@ import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError, type ApiErrorDescription } from "../lib/describe-api-error.js";
 import { formatServiceDate } from "../utils/format.js";
-import { localDateString } from "../utils/local-clock.js";
+import { deviceDate } from "../utils/service-day.js";
 import { seatedReservationIds } from "../utils/seated.js";
 import { parseTimelineIntent, stripTimelineIntent } from "../utils/timeline-intent.js";
 import styles from "./TimelinePage.module.css";
@@ -43,7 +43,7 @@ const timelineFilterSchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .default(localDateString(new Date())),
+    .default(deviceDate(new Date())),
 });
 
 const TIMELINE_DEFAULTS = timelineFilterSchema.parse({});
@@ -135,7 +135,7 @@ export function TimelinePage() {
   // `?walkin=true` / `?selected=<id>`: derived on render, stripped on every close or success.
   const [searchParams, setSearchParams] = useSearchParams();
   const intent = parseTimelineIntent(searchParams);
-  const todayStr = localDateString(now);
+  const todayStr = deviceDate(now);
   const selectedDate = params.date;
 
   const [selectedIdState, setSelectedIdState] = useState<string | null>(null);
@@ -246,7 +246,7 @@ export function TimelinePage() {
   const shiftDay = (days: number) => {
     const shifted = new Date(`${selectedDate}T00:00:00`);
     shifted.setDate(shifted.getDate() + days);
-    setParam("date", localDateString(shifted));
+    setParam("date", deviceDate(shifted));
   };
 
   const handlePreviousDay = () => shiftDay(-1);

@@ -66,7 +66,9 @@ vi.mock("../components/floor-plan/index.js", () => ({
     readOnly: _ro,
     tableStatuses,
     isStale,
+    onDeleteRequest,
   }: {
+    onDeleteRequest?: (id: string) => void;
     tables: Table[];
     onTableMove: (id: string, x: number, y: number) => void;
     onTableSelect: (id: string | null) => void;
@@ -77,6 +79,11 @@ vi.mock("../components/floor-plan/index.js", () => ({
     isStale?: boolean;
   }) => (
     <div data-testid="floor-plan-canvas" data-selected={selectedTableId} data-stale={isStale}>
+      {/* Stands in for the real canvas's focus-scoped Delete/Backspace handling. */}
+      <button
+        data-testid="canvas-delete-key"
+        onClick={() => selectedTableId && onDeleteRequest?.(selectedTableId)}
+      />
       {tables.map((t) => (
         <button
           key={t.id}
@@ -552,10 +559,28 @@ describe("FloorPlanEditorPage", () => {
       const tableButton = await screen.findByTestId("canvas-table-table-a");
       fireEvent.focus(tableButton); // selects the table via the mocked canvas
 
-      fireEvent.keyDown(window, { key: "Delete" });
+      fireEvent.click(screen.getByTestId("canvas-delete-key")); // canvas reports Delete pressed
 
       expect(await screen.findByRole("dialog", { name: "Delete this table?" })).toBeDefined();
       expect(confirmSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not open the delete confirm or nudge when Backspace/Arrow fire with AddTableDialog open (#6387)", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      fireEvent.focus(tableButton); // selects the table
+      fireEvent.click(screen.getByText("+ Add Table"));
+      const dialog = await screen.findByTestId("add-table-dialog");
+
+      fireEvent.keyDown(dialog, { key: "Backspace" });
+      fireEvent.keyDown(dialog, { key: "Delete" });
+      fireEvent.keyDown(dialog, { key: "ArrowRight" });
+
+      expect(screen.queryByRole("dialog", { name: "Delete this table?" })).toBeNull();
+      expect(mockFloorPlanCanvasOnTableMove).not.toHaveBeenCalled();
     });
 
     it("activates floor plan when Set as Active is clicked", async () => {

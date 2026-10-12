@@ -2,7 +2,7 @@
  * Unit tests for the Autocomplete component.
  */
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Autocomplete } from "./Autocomplete";
 
@@ -294,5 +294,17 @@ describe("Autocomplete — ARIA semantics audit", () => {
     expect(document.getElementById(ids.find((i) => i !== "extra") as string)).toHaveTextContent(
       "Pick one"
     );
+  });
+});
+
+describe("Autocomplete — caret keys", () => {
+  it("leaves Home/End to the input while the list is open", async () => {
+    render(<Autocomplete label="Fruit" options={options} />);
+    const input = screen.getByLabelText("Fruit");
+    await user.type(input, "ap");
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument());
+    expect(fireEvent.keyDown(input, { key: "Home" })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: "End" })).toBe(true);
+    expect(input).not.toHaveAttribute("aria-activedescendant");
   });
 });

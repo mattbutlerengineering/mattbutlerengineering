@@ -940,6 +940,9 @@
         toggle: () => void;
       }
     </item>
+    <item priority="medium">
+      function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number { /* ... */ }
+    </item>
     <item priority="high">
       export function useCombobox({
         items,
@@ -948,6 +951,8 @@
         containerRef,
         extraContainerRefs,
         onRequestTriggerFocus,
+        inputMode = "button",
+        wrap = false,
       }: UseComboboxOptions): UseComboboxResult { /* ... */ }
     </item>
   </file>
@@ -1303,6 +1308,14 @@
     </item>
     <item priority="high">
       export function useMotionPreset(): MotionPreset { /* ... */ }
+    </item>
+  </file>
+  <file path="src/providers/useTheme.ts">
+    <item priority="high">
+      export const ThemeStateContext: unknown;
+    </item>
+    <item priority="high">
+      export function useTheme(): ThemeState { /* ... */ }
     </item>
   </file>
   <file path="src/providers/useUIEnvironment.ts">

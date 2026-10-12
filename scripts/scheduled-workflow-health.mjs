@@ -36,6 +36,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
+import { parseWorkflow } from "./lib/workflow.mjs";
 import { fileIssueBySearch, ghIssueDeps } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -124,25 +125,15 @@ export function classifyScheduledWorkflowHealth({
 
 /**
  * Pure: true when `source` (a workflow YAML file's raw text) declares a
- * `schedule:` trigger nested directly under a bare `on:` key. Scoped to the
- * `on:` block only — stops at the first line back at column 0, so an
- * unrelated `schedule:`-named key elsewhere in the file (job step, etc.)
- * never matches.
+ * `schedule:` trigger under its `on:` mapping (any YAML form). Reads the
+ * parsed triggers, so an unrelated `schedule:`-named key elsewhere in the
+ * file (job step, etc.) never matches.
  *
  * @param {string} source
  * @returns {boolean}
  */
 export function hasScheduleTrigger(source) {
-  const lines = source.split("\n");
-  const onIndex = lines.findIndex((line) => /^on:\s*$/.test(line));
-  if (onIndex === -1) return false;
-
-  for (let i = onIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^\S/.test(line)) break; // back at column 0 — the on: block ended
-    if (/^\s+schedule:\s*$/.test(line)) return true;
-  }
-  return false;
+  return "schedule" in parseWorkflow(source).on;
 }
 
 const WORKFLOW_NAME_PATTERN = /^name:\s*(.+)\s*$/m;
@@ -279,26 +270,17 @@ export function classifyRunRecency({
 
 /**
  * Pure: extracts every `cron:` expression from a workflow file's `schedule:`
- * trigger, scoped to the `on:` block only — mirrors `hasScheduleTrigger`'s
- * column-0 boundary so a `cron:`-named key elsewhere in the file can never
- * leak in.
+ * trigger, read from the parsed `on:` mapping so a `cron:`-named key
+ * elsewhere in the file can never leak in.
  *
  * @param {string} source
  * @returns {string[]}
  */
 export function extractScheduleCrons(source) {
-  const lines = source.split("\n");
-  const onIndex = lines.findIndex((line) => /^on:\s*$/.test(line));
-  if (onIndex === -1) return [];
-
-  const crons = [];
-  for (let i = onIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^\S/.test(line)) break; // back at column 0 — the on: block ended
-    const match = /cron:\s*["']([^"']+)["']/.exec(line);
-    if (match) crons.push(match[1].trim());
-  }
-  return crons;
+  const schedule = parseWorkflow(source).on.schedule;
+  return Array.isArray(schedule)
+    ? schedule.map((entry) => String(entry?.cron ?? "").trim()).filter(Boolean)
+    : [];
 }
 
 /**

@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TimelineGrid } from "./TimelineGrid.js";
-import { localDateString } from "../../utils/local-clock.js";
+import { deviceDate } from "../../utils/service-day.js";
 import type { Table, Reservation, TableStatus } from "@mbe/types";
 
 // Mock CSS modules
@@ -575,7 +575,7 @@ describe("TimelineGrid", () => {
     function atLocal(hour: number, minute = 0) {
       const now = new Date(2026, 4, 14, hour, minute, 0, 0);
       vi.setSystemTime(now);
-      return { now, today: localDateString(now) };
+      return { now, today: deviceDate(now) };
     }
 
     beforeEach(() => {

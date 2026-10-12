@@ -26,10 +26,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
-vi.mock("@mbe/types", () => ({
-  toDateString: (d: Date) => d.toISOString().split("T")[0],
-}));
-
 describe("DatePartySelector", () => {
   const defaultProps = {
     selectedDate: null as string | null,

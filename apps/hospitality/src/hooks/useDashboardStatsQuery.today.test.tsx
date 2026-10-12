@@ -32,6 +32,7 @@ describe("useDashboardStatsQuery today", () => {
     listByVenueAndDate.mockResolvedValue([]);
   });
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -48,5 +49,16 @@ describe("useDashboardStatsQuery today", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("requests the device-local date at 01:00Z (still the previous evening in Los Angeles)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-04T01:00:00Z"));
+
+    const { result } = renderHook(() => useDashboardStatsQuery(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ date: "2026-09-03" }));
+    expect(listByVenueAndDate).toHaveBeenCalledWith("venue-1", "2026-09-03");
   });
 });

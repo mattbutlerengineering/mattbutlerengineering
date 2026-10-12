@@ -14,7 +14,7 @@ import {
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { todayInTimezone } from "./todayInTimezone.js";
+import { venueDate } from "../../utils/service-day.js";
 
 export type BookingStep =
   | "date-party"
@@ -99,7 +99,6 @@ type BookingFlowAction =
   | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
   | { type: "CONFIRM_ERROR"; error: string }
   | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-  | { type: "GO_BACK_TO_GUEST_DETAILS" }
   | { type: "EXPIRE_HOLD" }
   | { type: "RESET"; selectedDate: string }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
@@ -135,13 +134,13 @@ const INITIAL_DATA: BookingFlowData = {
  * Builds the initial (or reset) flow state with `selectedDate` defaulted to
  * "today" in the venue's timezone (#4981) — the guest's first screen used to
  * show an empty date input and a disabled CTA with no explanation. Falls
- * back to `toDateString` (UTC-based) when `venueTimezone` isn't known yet;
- * see `todayInTimezone`.
+ * back to the device clock when `venueTimezone` isn't known yet;
+ * see `venueDate`.
  */
 function createInitialState(venueTimezone?: string): BookingFlowState {
   return {
     step: "date-party",
-    data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+    data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
   };
 }
 
@@ -296,9 +295,6 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
       };
 
-    case "GO_BACK_TO_GUEST_DETAILS":
-      return { ...state, step: "guest-details" };
-
     case "EXPIRE_HOLD":
       return {
         step: "time-slot",
@@ -364,7 +360,6 @@ export interface BookingFlowActions {
   selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
   confirmReservation: (details: GuestDetails) => Promise<void>;
   handleDepositSuccess: (paymentIntentId: string) => void;
-  goBackToGuestDetails: () => void;
   resetFlow: () => void;
   goToWaitlistJoin: () => void;
   handleWaitlistJoined: (result: WaitlistResult) => void;
@@ -407,7 +402,7 @@ export interface UseBookingFlowDeps {
   /**
    * IANA timezone the venue operates in — used to default `selectedDate` to
    * "today" on the venue's clock rather than a UTC midnight boundary
-   * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+   * (#4981). Omit only when unknown; falls back to the device clock.
    */
   venueTimezone?: string;
 }
@@ -653,12 +648,8 @@ export function useBookingFlow({
     dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
   }, []);
 
-  const goBackToGuestDetails = useCallback(() => {
-    dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-  }, []);
-
   const resetFlow = useCallback(() => {
-    dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+    dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
   }, [venueTimezone]);
 
   const goToWaitlistJoin = useCallback(() => {
@@ -724,7 +715,6 @@ export function useBookingFlow({
       selectSlotAndHold,
       confirmReservation,
       handleDepositSuccess,
-      goBackToGuestDetails,
       resetFlow,
       goToWaitlistJoin,
       handleWaitlistJoined,

@@ -1,5 +1,4 @@
 import type { TimeSlot } from "@mbe/types";
-import { todayInTimezone } from "./todayInTimezone.js";
 import {
   Button,
   Alert,
@@ -10,6 +9,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime, formatTimeIn, getHourIn } from "../../utils/format.js";
+import { venueDate } from "../../utils/service-day.js";
 import { TimeSlotListbox } from "./TimeSlotListbox.js";
 import styles from "./TimeSlotPicker.module.css";
 
@@ -70,7 +70,7 @@ export function TimeSlotPicker({
   // relationship to reality. `date` is a future date (not just "not today")
   // so a stale/past `date` prop (never selectable via the real UI) keeps the
   // pre-existing behavior rather than being newly suppressed.
-  const isFutureDate = date > todayInTimezone(new Date(), venueTimezone);
+  const isFutureDate = date > venueDate(new Date(), venueTimezone);
 
   // Get hour from ISO datetime for grouping — in the venue's timezone when
   // known, otherwise the device's (#4976).

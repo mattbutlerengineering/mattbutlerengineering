@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
 import type * as ObservabilityModule from "@mbe/observability";
 import {
   createServiceApp,
@@ -54,9 +55,13 @@ vi.mock("@mbe/observability", async (importOriginal) => {
   return {
     ...actual,
     createRequestIdMiddleware: vi.fn().mockReturnValue(vi.fn().mockImplementation(async () => {})),
-    errorRatePlugin_: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
-      fastify.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
-    }),
+    // fp() so the decorator is visible to sibling plugins (registerHealthRoutes
+    // requires fastify.getErrorRates), as with the real errorRatePlugin_.
+    errorRatePlugin_: fp(
+      vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+        fastify.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
+      })
+    ),
     createRateLimitMonitor: vi.fn().mockReturnValue({
       recordHit: vi.fn(),
       getSnapshot: vi.fn().mockReturnValue({
@@ -446,6 +451,95 @@ describe("createServiceApp", () => {
     const monitor = vi.mocked(obs.createRateLimitMonitor).mock.results[0]?.value;
     expect(monitor.recordHit).toHaveBeenCalledWith("127.0.0.1", "/test");
     expect(mockReq.log.warn).toHaveBeenCalled();
+  });
+});
+
+describe("createServiceApp database lifecycle", () => {
+  let app: FastifyInstance | undefined;
+
+  function createMockDb(queryRaw: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue([])) {
+    return {
+      prisma: { $queryRaw: queryRaw },
+      getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+      getServiceStatus: vi.fn().mockReturnValue("ok"),
+      getPoolMetrics: vi.fn().mockReturnValue({
+        total: 5,
+        busy: 1,
+        idle: 4,
+        waiting: 0,
+        utilization: 0.2,
+        isDegraded: false,
+      }),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+    };
+  }
+
+  function databaseConfig(db: ReturnType<typeof createMockDb>): ServiceAppConfig {
+    return createTestConfig({
+      database: {
+        db: db as never,
+        checkAuth0: async () => ({ status: "ok", latency: 1 }),
+        healthRoutes: [
+          { path: "/health", operationId: "getTestHealth" },
+          { path: "/api/v1/test/health", operationId: "getTestHealthApi" },
+        ],
+      },
+    });
+  }
+
+  afterEach(async () => {
+    if (app) await app.close();
+    app = undefined;
+    vi.clearAllMocks();
+  });
+
+  it("close() ends the pg pool", async () => {
+    const db = createMockDb();
+    app = await createServiceApp(databaseConfig(db));
+    await app.ready();
+    expect(db.shutdown).not.toHaveBeenCalled();
+
+    await app.close();
+    app = undefined;
+
+    expect(db.shutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers every configured health path plus /ready", async () => {
+    app = await createServiceApp(databaseConfig(createMockDb()));
+    await app.ready();
+
+    for (const url of ["/health", "/api/v1/test/health"]) {
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).status).toBe("ok");
+    }
+    const ready = await app.inject({ method: "GET", url: "/ready" });
+    expect([200, 503]).toContain(ready.statusCode);
+    expect(JSON.parse(ready.body)).toHaveProperty("ready");
+  });
+
+  it("reports degraded with the database error when the DB ping fails", async () => {
+    const db = createMockDb(vi.fn().mockRejectedValue(new Error("Connection refused")));
+    app = await createServiceApp(databaseConfig(db));
+    await app.ready();
+
+    const res = await app.inject({ method: "GET", url: "/api/v1/test/health" });
+    const body = JSON.parse(res.body);
+    expect(res.statusCode).toBe(200);
+    expect(body.status).toBe("degraded");
+    expect(body.checks.database).toMatchObject({
+      status: "error",
+      message: "Connection refused",
+    });
+  });
+
+  it("registers no health or ready routes when no database is configured", async () => {
+    app = await createServiceApp(createTestConfig());
+    await app.ready();
+
+    const res = await app.inject({ method: "GET", url: "/ready" });
+    expect(res.statusCode).toBe(404);
   });
 });
 

@@ -20,7 +20,7 @@ import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { formatServiceDate, formatTime } from "../utils/format.js";
-import { localDateString, localHour } from "../utils/local-clock.js";
+import { deviceDate, deviceHour } from "../utils/service-day.js";
 import { specialRequestsText } from "../utils/reservation-display.js";
 import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
 import {
@@ -75,7 +75,7 @@ export type BriefingSegment = "early" | "dinner" | "late";
 /**
  * Bucket a local hour of day (0–23) into the door's vocabulary: Early before 18:00,
  * Dinner 18:00–20:59, Late from 21:00 (ux.md Screen 1). Pure; the caller supplies
- * `localHour(startTime)` so segment and printed time read the same clock (audit A2).
+ * `deviceHour(startTime)` so segment and printed time read the same clock (audit A2).
  */
 export function segmentForHour(hour: number): BriefingSegment {
   if (hour < EARLY_END_HOUR) return "early";
@@ -84,7 +84,7 @@ export function segmentForHour(hour: number): BriefingSegment {
 }
 
 function segmentForEntry(entry: BriefingEntry): BriefingSegment {
-  return segmentForHour(localHour(new Date(entry.startTime)));
+  return segmentForHour(deviceHour(new Date(entry.startTime)));
 }
 
 /* ── Loading skeleton ────────────────────────────── */
@@ -202,7 +202,7 @@ export function BriefingPage() {
   const { selectedVenueId } = useVenue();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? localDateString(new Date());
+  const selectedDate = searchParams.get("date") ?? deviceDate(new Date());
   const [timeSlot, setTimeSlot] = useState<TimeSegmentId>("all");
   const { status, announce } = useStatusMessage();
 

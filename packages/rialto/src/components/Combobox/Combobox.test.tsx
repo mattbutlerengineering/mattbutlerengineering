@@ -179,6 +179,33 @@ describe("Combobox — single select", () => {
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
   });
 
+  it("keyboard: Tab closes the listbox and moves focus on", async () => {
+    render(
+      <>
+        <Combobox label="Fruit" options={options} />
+        <button type="button">Next</button>
+      </>
+    );
+    const input = screen.getByRole("combobox");
+    input.focus();
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument());
+    await user.keyboard("{Tab}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Next" })).toHaveFocus();
+  });
+
+  it("keyboard: Home/End jump to the first/last option", async () => {
+    render(<Combobox label="Fruit" options={options} />);
+    const input = screen.getByRole("combobox");
+    input.focus();
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument());
+    await user.keyboard("{End}");
+    expect(input).toHaveAttribute("aria-activedescendant", expect.stringContaining("option-3"));
+    await user.keyboard("{Home}");
+    expect(input).toHaveAttribute("aria-activedescendant", expect.stringContaining("option-0"));
+  });
+
   it("skips disabled options during keyboard navigation", async () => {
     render(<Combobox label="Fruit" options={withDisabled} />);
     const input = screen.getByRole("combobox");
