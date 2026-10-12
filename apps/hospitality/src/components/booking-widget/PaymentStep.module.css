@@ -4,11 +4,6 @@
   gap: var(--rialto-space-md);
 }
 
-.topBar {
-  display: flex;
-  align-items: center;
-}
-
 .depositSummary {
   background: var(--rialto-surface-elevated);
   border-radius: var(--rialto-radius-soft);

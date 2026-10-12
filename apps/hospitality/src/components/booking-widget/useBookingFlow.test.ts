@@ -564,7 +564,7 @@ describe("useBookingFlow", () => {
       expect(result.current.state).toBe("confirmation");
     });
 
-    it("goBackToGuestDetails from payment goes to guest-details", async () => {
+    it("exposes no way back to guest-details once the reservation exists", async () => {
       const fakeApi = makeFakeApi();
       fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, {
@@ -580,9 +580,10 @@ describe("useBookingFlow", () => {
       await act(async () => {
         await result.current.actions.confirmReservation(guestDetails);
       });
-      act(() => result.current.actions.goBackToGuestDetails());
 
-      expect(result.current.state).toBe("guest-details");
+      expect(result.current.state).toBe("payment");
+      expect(result.current.data.hold).toBeNull();
+      expect(result.current.actions).not.toHaveProperty("goBackToGuestDetails");
     });
   });
 

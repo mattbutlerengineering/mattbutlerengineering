@@ -215,7 +215,6 @@ export function BookingWidget({
           venueSlug={venueSlug}
           stripePublishableKey={stripePublishableKey}
           onSuccess={actions.handleDepositSuccess}
-          onBack={actions.goBackToGuestDetails}
         />
       )}
 

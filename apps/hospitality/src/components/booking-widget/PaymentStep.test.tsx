@@ -81,7 +81,6 @@ describe("PaymentStep", () => {
     partySize: 2,
     reservationId: "res-123",
     onSuccess: vi.fn(),
-    onBack: vi.fn(),
     venueSlug: "test-venue",
     stripePublishableKey: "pk_test_key",
   };
@@ -145,10 +144,10 @@ describe("PaymentStep", () => {
     expect(labelledContainer?.getAttribute("aria-labelledby")).toBe(label.id);
   });
 
-  it("calls onBack when back button clicked", () => {
+  it("offers no Back button: the reservation already exists, so guest details cannot be re-entered", () => {
     render(<PaymentStep {...defaultProps} />);
-    fireEvent.click(screen.getByTestId("back-button"));
-    expect(defaultProps.onBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("back-button")).toBeNull();
+    expect(screen.queryByText(/back/i)).toBeNull();
   });
 
   it("shows loading state while processing", async () => {
