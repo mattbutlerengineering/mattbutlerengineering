@@ -160,7 +160,7 @@ function findInlineCommandChildren(content, ownerIdent) {
 
 /**
  * Build the set of command/subcommand names actually reachable from `mbe`,
- * starting at `program.addCommand(...)` in index.ts and following each
+ * starting at the LOADERS entries in command-loaders.ts and following each
  * command's own subcommand wiring. A `new Command(...)` that's declared but
  * never registered anywhere in this chain (dead code, e.g. `compound`) is
  * correctly excluded.

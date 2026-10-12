@@ -55,9 +55,15 @@ describe("parseAttachedSymbols", () => {
     expect(parseAttachedSymbols(source)).toEqual(["aCommand", "runCommand"]);
   });
 
-  it("counts a lazy loader entry as an attachment", () => {
+  it("counts a lazy loader entry as an attachment in the loader table", () => {
     const source = '["pack", async () => (await import("./commands/pack.js")).packCommand],';
-    expect(parseAttachedSymbols(source)).toEqual(["packCommand"]);
+    expect(parseAttachedSymbols(source, { lazyLoaders: true })).toEqual(["packCommand"]);
+  });
+
+  it("does not count a lazy import outside the loader table as an attachment", () => {
+    const source =
+      'export const x = async () => (await import("./commands/ghost.js")).ghostCommand;';
+    expect(parseAttachedSymbols(source)).toEqual([]);
   });
 
   it("returns nothing when there are no attachments", () => {
