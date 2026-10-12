@@ -7,7 +7,7 @@ const issue = (title, extra = {}) => ({ title, labels: [], body: "", ...extra })
 describe("issue-zone", () => {
   describe("issueZone — conventional-commit scope → merge-train zone", () => {
     // One assertion per workspace root, using the exact `<root>/<name>`
-    // vocabulary produced by merge-train-lock's zoneForPath.
+    // vocabulary produced by zone-vocabulary's zoneForPath.
     test.each([
       ["refactor(rialto): tidy tokens", "packages/rialto"],
       ["refactor(rialto-web): fix route", "apps/rialto-web"],

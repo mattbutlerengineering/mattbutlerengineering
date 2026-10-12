@@ -30,7 +30,7 @@
  *   }
  */
 
-import { isFrontendPath } from "./merge-train-lock.mjs";
+import { isFrontendPath } from "./zone-vocabulary.mjs";
 
 /**
  * Returns true when any changed path touches the frontend layer.
