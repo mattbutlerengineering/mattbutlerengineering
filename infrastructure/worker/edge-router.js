@@ -12,13 +12,7 @@
  * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
  * which bypass the CDN entirely — eliminating stale HTML after deploys.
  */
-import {
-  getCircuitState,
-  saveCircuitState,
-  shouldAllowRequest,
-  recordSuccess,
-  recordFailure,
-} from "./circuit-breaker.js";
+import { proxyToOrigin } from "./origin-proxy.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 import { AUTH0_ORIGIN } from "./csp.js";
 import topologyConfig from "./routes-config.json";
@@ -197,65 +191,12 @@ export default {
     // originRoutes is not bounded by being proxied. /public/ has its own entry
     // there, and rate-limiter.test.js asserts every originRoutes prefix does.
     if (isOriginRoute(url.pathname)) {
-      // Circuit breaker: check if API proxy is healthy
-      const circuitState = await getCircuitState(env.HEALTH_STATE);
-      const nowMs = Date.now();
-      const { allowed, updatedState } = shouldAllowRequest(circuitState, nowMs);
-
-      if (updatedState) {
-        await saveCircuitState(env.HEALTH_STATE, updatedState);
-      }
-
-      if (!allowed) {
-        return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce, kvPolicy);
-      }
-
-      const target = new URL(url.pathname + url.search, env.API_ORIGIN);
-      const headers = new Headers(request.headers);
-      headers.set("Host", target.host);
-      headers.set("X-Forwarded-Host", url.host);
-      headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
-      headers.set("X-Request-ID", requestId);
-      // The edge no longer injects feature flags (pipeline deleted, #3349). Strip
-      // any inbound X-Feature-Flags so a client can never supply a header the
-      // service-side flag plugin would trust — the edge is the only sanctioned
-      // source, and it now emits none. (Headers API is case-insensitive.)
-      headers.delete("X-Feature-Flags");
-
-      let apiResponse;
-      try {
-        apiResponse = await fetch(
-          new Request(target, {
-            method: request.method,
-            headers,
-            body: request.body,
-            redirect: "manual",
-          })
-        );
-      } catch (error) {
-        console.error("API proxy error:", error.message);
-        const newState = recordFailure(updatedState ?? circuitState, Date.now());
-        await saveCircuitState(env.HEALTH_STATE, newState);
-        return brandedErrorPage(503, "Service unreachable", requestId, nonce, kvPolicy);
-      }
-
-      // If API returns 5xx, record failure for circuit breaker
-      if (apiResponse.status >= 500) {
-        const newState = recordFailure(updatedState ?? circuitState, Date.now());
-        await saveCircuitState(env.HEALTH_STATE, newState);
-        return brandedErrorPage(apiResponse.status, "Service error", requestId, nonce, kvPolicy);
-      }
-
-      // Success — record for circuit breaker recovery
-      const currentState = updatedState ?? circuitState;
-      if (currentState.state !== "closed" || currentState.failures > 0) {
-        const newState = recordSuccess(currentState);
-        await saveCircuitState(env.HEALTH_STATE, newState);
-      }
-
-      // Pass through the response (including 4xx which should show app error pages)
-      writeAnalytics(env, request, "api", apiResponse.status, startTime);
-      return addHeaders(apiResponse, url.pathname, nonce, kvPolicy);
+      return proxyToOrigin(request, url, env, {
+        requestId,
+        nonce,
+        kvPolicy,
+        onResponse: (status) => writeAnalytics(env, request, "api", status, startTime),
+      });
     }
 
     // ── Block source maps (defense-in-depth) ─────────────────────────
