@@ -357,8 +357,8 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
   // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-  // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
-  // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+  // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/service-day.ts`
+  // `deviceDate`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
   // Pacific and emptied the grid for the whole evening service (A1 / P01).
   //
   // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the

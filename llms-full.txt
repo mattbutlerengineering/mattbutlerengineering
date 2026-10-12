@@ -4447,28 +4447,6 @@
       });
     }
   </file>
-  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
-    export function todayInTimezone(now: Date, timeZone?: string): string {
-      if (!timeZone) return toDateString(now);
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const year = get("year");
-        const month = get("month");
-        const day = get("day");
-        if (!year || !month || !day) return toDateString(now);
-        return `${year}-${month}-${day}`;
-      } catch {
-        return toDateString(now);
-      }
-    }
-  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -4559,7 +4537,7 @@
     function createInitialState(venueTimezone?: string): BookingFlowState {
       return {
         step: "date-party",
-        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+        data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
     export const MISSING_VENUE_SLUG_ERROR =
@@ -4803,7 +4781,7 @@
       /**
        * IANA timezone the venue operates in — used to default `selectedDate` to
        * "today" on the venue's clock rather than a UTC midnight boundary
-       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       * (#4981). Omit only when unknown; falls back to the device clock.
        */
       venueTimezone?: string;
     }
@@ -5049,7 +5027,7 @@
       }, []);
     
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+        dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
       }, [venueTimezone]);
     
       const goToWaitlistJoin = useCallback(() => {
@@ -8799,8 +8777,8 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
-      // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/service-day.ts`
+      // `deviceDate`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
       // Pacific and emptied the grid for the whole evening service (A1 / P01).
       //
       // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
@@ -12855,7 +12833,7 @@
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
     type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
-      return localDateString(new Date());
+      return deviceDate(new Date());
     }
     function computeUpcoming(reservations: readonly Reservation[]): number {
       const now = new Date();
@@ -15711,7 +15689,7 @@
       return `${venueId}::${date}`;
     }
     function todayDateKey(): string {
-      return localDateString(new Date());
+      return deviceDate(new Date());
     }
     export async function getCachedReservations(
       venueId: string,
@@ -60719,21 +60697,6 @@
       URL.revokeObjectURL(url);
     }
   </file>
-  <file path="apps/hospitality/src/utils/local-clock.ts">
-    function isValidDate(now: Date): boolean {
-      return !Number.isNaN(now.getTime());
-    }
-    export function localDateString(now: Date): string {
-      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
-    }
-    export function localHour(now: Date): number {
-      return now.getHours();
-    }
-    export function isLocalToday(date: string, now: Date): boolean {
-      const today = localDateString(now);
-      return today !== "" && date === today;
-    }
-  </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -60818,6 +60781,58 @@
       return tables
         .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
         .sort((a, b) => a.capacity - b.capacity);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/service-day.ts">
+    export function deviceDate(now: Date): string {
+      return Number.isNaN(now.getTime()) ? "" : now.toLocaleDateString(DAY_LOCALE);
+    }
+    export function deviceHour(now: Date): number {
+      return now.getHours();
+    }
+    export function isDeviceToday(date: string, now: Date): boolean {
+      const today = deviceDate(now);
+      return today !== "" && date === today;
+    }
+    export function venueDate(now: Date, timeZone?: string): string {
+      if (!timeZone) return deviceDate(now);
+      try {
+        return now.toLocaleDateString(DAY_LOCALE, { timeZone });
+      } catch {
+        return deviceDate(now);
+      }
+    }
+    export function addDays(date: string, days: number): string {
+      const shifted = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(shifted.getTime())) return "";
+      shifted.setUTCDate(shifted.getUTCDate() + days);
+      return shifted.toISOString().slice(0, 10);
+    }
+    export interface VenueWallClock {
+      /** Lower-case English weekday name, e.g. `"monday"`. */
+      readonly weekday: string;
+      /** Minutes since venue-local midnight. */
+      readonly nowMin: number;
+    }
+    export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const weekday = get("weekday")?.toLowerCase();
+        const hour = Number(get("hour"));
+        const minute = Number(get("minute"));
+        if (!weekday || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return { weekday, nowMin: hour * 60 + minute };
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
@@ -60919,24 +60934,10 @@
       readonly nowMin: number;
     }
     function readVenueClock(timeZone: string, now: Date): VenueClock | null {
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          weekday: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
-        const hour = Number(get("hour"));
-        const minute = Number(get("minute"));
-        if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-        return { day, nowMin: hour * 60 + minute };
-      } catch {
-        return null;
-      }
+      const clock = venueWallClock(timeZone, now);
+      if (!clock) return null;
+      const day = WEEKDAYS.indexOf(clock.weekday as Weekday);
+      return day < 0 ? null : { day, nowMin: clock.nowMin };
     }
     function toMinutes(hhmm: string): number | null {
       if (!LOCAL_TIME_PATTERN.test(hhmm)) return null;

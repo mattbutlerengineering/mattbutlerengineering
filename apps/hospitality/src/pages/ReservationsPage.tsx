@@ -37,6 +37,7 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
 import { LiveStatus } from "../components/LiveStatus.js";
 import { PageHeader } from "../components/PageHeader";
+import { deviceDate } from "../utils/service-day.js";
 import styles from "./ReservationsPage.module.css";
 
 /* ── URL filter schema ──────────────────────── */
@@ -45,7 +46,7 @@ const reservationsFilterSchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .default(new Date().toLocaleDateString("en-CA")),
+    .default(deviceDate(new Date())),
   status: z.enum(["all", "CONFIRMED", "PENDING", "CANCELLED"]).default("all"),
 });
 

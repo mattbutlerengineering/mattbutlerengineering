@@ -45,11 +45,6 @@
       export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean { /* ... */ }
     </item>
   </file>
-  <file path="src/components/booking-widget/todayInTimezone.ts">
-    <item priority="high">
-      export function todayInTimezone(now: Date, timeZone?: string): string { /* ... */ }
-    </item>
-  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
@@ -1951,20 +1946,6 @@
       export function downloadIcsFile(icsContent: string, filename: string): void { /* ... */ }
     </item>
   </file>
-  <file path="src/utils/local-clock.ts">
-    <item priority="medium">
-      function isValidDate(now: Date): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localDateString(now: Date): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localHour(now: Date): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isLocalToday(date: string, now: Date): boolean { /* ... */ }
-    </item>
-  </file>
   <file path="src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
@@ -2026,6 +2007,32 @@
         tables: readonly T[],
         partySize: number
       ): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/service-day.ts">
+    <item priority="high">
+      export function deviceDate(now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deviceHour(now: Date): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isDeviceToday(date: string, now: Date): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueDate(now: Date, timeZone?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface VenueWallClock {
+        weekday: string;
+        nowMin: number;
+      }
+    </item>
+    <item priority="high">
+      export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
     </item>
   </file>
   <file path="src/utils/timeline-intent.ts">
