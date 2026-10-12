@@ -419,6 +419,8 @@
     export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
       fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
         request.log.error(error);
+        // Single owner of the error-handler slot (ADR-008): report to Sentry here.
+        captureRequestError(error, request, reply);
     
         const { status, title, detail, extensions } = classifyError(error);
     

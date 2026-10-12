@@ -43,6 +43,13 @@
       function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* ... */ }
     </item>
     <item priority="high">
+      export function captureRequestError(
+        error: unknown,
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
       export const sentryFastifyPlugin: unknown;
     </item>
   </file>
