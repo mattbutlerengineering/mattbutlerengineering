@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type Reservation, type WaitlistEntry, type Deposit } from "@mbe/types";
+import type { Reservation, WaitlistEntry, Deposit } from "@mbe/types";
 import { deviceDate } from "../utils/service-day.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";

@@ -14,23 +14,12 @@ vi.mock("../commands/pack.js", () => ({
   packCommand: { _name: "pack" },
   packChangedCommand: { _name: "pack-changed" },
 }));
-vi.mock("../commands/stats.js", () => ({
-  statsCommand: { _name: "stats" },
-  logSessionCommand: { _name: "log-session" },
-  auditPerfCommand: { _name: "audit-perf" },
-}));
 vi.mock("../commands/sync-rules.js", () => ({ syncRulesCommand: { _name: "sync-rules" } }));
 vi.mock("../commands/loop.js", () => ({ loopCommand: { _name: "loop" } }));
 vi.mock("../commands/adr.js", () => ({ checkAdrCommand: { _name: "check-adr" } }));
 vi.mock("../commands/up.js", () => ({ upCommand: { _name: "up" } }));
-vi.mock("../commands/wave.js", () => ({ waveCommand: { _name: "wave" } }));
 vi.mock("../commands/generate.js", () => ({ generateCommand: { _name: "generate" } }));
-vi.mock("../commands/visual.js", () => ({ visualCommand: { _name: "visual" } }));
-vi.mock("../commands/prime.js", () => ({ primeCommand: { _name: "prime" } }));
 vi.mock("../commands/check-deps.js", () => ({ checkDepsCommand: { _name: "check-deps" } }));
-vi.mock("../commands/cleanup-worktrees.js", () => ({
-  cleanupWorktreesCommand: { _name: "cleanup-worktrees" },
-}));
 vi.mock("../commands/health.js", () => ({ healthCommand: { _name: "health" } }));
 vi.mock("../commands/mcp.js", () => ({ mcpCommand: { _name: "mcp" } }));
 vi.mock("../commands/issue.js", () => ({ issueCommand: { _name: "issue" } }));
@@ -76,6 +65,16 @@ vi.mock("commander", () => {
   };
 });
 
+const RETIRED_COMMANDS = [
+  "wave",
+  "prime",
+  "stats",
+  "log-session",
+  "audit-perf",
+  "cleanup-worktrees",
+  "visual",
+];
+
 describe("CLI entry point", () => {
   beforeEach(() => {
     addedCommands.length = 0;
@@ -93,23 +92,16 @@ describe("CLI entry point", () => {
       "agent",
       "check-model",
       "loop",
-      "wave",
       "new",
       "up",
       "generate",
       "pack",
       "pack-changed",
       "sync-rules",
-      "prime",
-      "stats",
-      "log-session",
-      "audit-perf",
       "check-adr",
       "check-deps",
-      "cleanup-worktrees",
       "health",
       "mcp",
-      "visual",
       "issue",
     ];
 
@@ -118,8 +110,16 @@ describe("CLI entry point", () => {
     }
   });
 
+  it("does not register the retired commands", async () => {
+    await import("../index.js");
+
+    for (const cmd of RETIRED_COMMANDS) {
+      expect(addedCommands).not.toContain(cmd);
+    }
+  });
+
   it("registers the correct number of commands", async () => {
     await import("../index.js");
-    expect(addedCommands.length).toBe(25);
+    expect(addedCommands.length).toBe(18);
   });
 });

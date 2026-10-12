@@ -243,6 +243,7 @@ describe("SettingsPage", () => {
 
     vi.mocked(useTheme).mockReturnValue({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: vi.fn(),
     });
 
@@ -348,6 +349,7 @@ describe("SettingsPage", () => {
     it("shows the local theme, not the server preference, when they differ (#4985)", async () => {
       vi.mocked(useTheme).mockReturnValue({
         theme: "dark",
+        resolvedTheme: "dark",
         setTheme: vi.fn(),
       });
       mockApiClient.users.me.mockResolvedValue({
@@ -367,6 +369,7 @@ describe("SettingsPage", () => {
       const mockSetTheme = vi.fn();
       vi.mocked(useTheme).mockReturnValue({
         theme: "system",
+        resolvedTheme: "light",
         setTheme: mockSetTheme,
       });
 

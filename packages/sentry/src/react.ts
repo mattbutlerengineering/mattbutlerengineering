@@ -13,6 +13,25 @@ export interface ReportableApiError {
   readonly path?: string;
 }
 
+/**
+ * Structural shape of `@mbe/api-client`'s ApiValidationError (a response failed
+ * its zod schema). It has no statusCode, so it is discriminated by `name`.
+ * Structural because @mbe/sentry does not depend on @mbe/api-client.
+ */
+export interface ReportableValidationError {
+  readonly name: "ApiValidationError";
+  readonly message: string;
+  readonly method?: string;
+  readonly path?: string;
+  readonly error: { readonly issues: readonly unknown[] };
+}
+
+function isValidationError(
+  error: ReportableApiError | ReportableValidationError
+): error is ReportableValidationError {
+  return "name" in error && error.name === "ApiValidationError";
+}
+
 export interface InitOptions {
   readonly appName: string;
   readonly dsn: string;
@@ -57,8 +76,22 @@ export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void {
  * - 5xx → captureException (error-level breadcrumb)
  * - 401/403 → captureMessage with "warning" severity
  * - Other 4xx → breadcrumb only
+ * - Response-schema validation failure (server/client contract drift) →
+ *   captureException with method, path and zod issues
  */
-export function reportApiError(error: ReportableApiError): void {
+export function reportApiError(error: ReportableApiError | ReportableValidationError): void {
+  if (isValidationError(error)) {
+    Sentry.withScope((scope) => {
+      scope.setContext("apiValidation", {
+        method: error.method,
+        path: error.path,
+        issues: error.error.issues,
+      });
+      Sentry.captureException(error);
+    });
+    return;
+  }
+
   const code = error.statusCode;
 
   Sentry.addBreadcrumb({

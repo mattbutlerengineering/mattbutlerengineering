@@ -23,7 +23,7 @@ import {
   GhRateLimitError,
   MissingGithubTokenError,
 } from "@mbe/gh-client";
-import { read } from "./metrics-store.mjs";
+import { readTelemetryRows } from "./queue-telemetry-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
@@ -449,7 +449,7 @@ function defaultReadCcusage() {
  */
 function defaultReadTelemetry() {
   try {
-    return read("queue-telemetry");
+    return readTelemetryRows();
   } catch {
     return null;
   }

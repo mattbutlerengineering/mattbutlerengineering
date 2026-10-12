@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import { JSONUIProvider, Renderer } from "@json-render/react";
-import type { Spec } from "@json-render/react";
-import { registry } from "@mbe/rialto-catalog";
 import {
   Text,
   Button,
@@ -18,18 +15,10 @@ import { ApiClientError } from "@mbe/api-client";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { useApi } from "../hooks/useApi.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
+import type { StoredSpec } from "../types.js";
+import { decodeSpec } from "../lib/spec.js";
+import { SpecProvider, SpecRenderer } from "../components/SpecRenderer.js";
 import styles from "./SharedSpecPage.module.css";
-
-interface StoredSpec {
-  id: string;
-  userId: string;
-  prompt: string;
-  spec: unknown;
-  rawLines: string[];
-  isFavorite: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 type LoadState = "loading" | "error" | "success";
 
@@ -159,6 +148,8 @@ export function SharedSpecPage() {
     return "Copy Link";
   }
 
+  const decodedSpec = storedSpec ? decodeSpec(storedSpec.spec) : null;
+
   return (
     <div className={styles.page}>
       {/* ── Top bar ── */}
@@ -249,9 +240,16 @@ export function SharedSpecPage() {
             {/* ── Preview ── */}
             <main className={styles.previewWrapper}>
               <Card variant="elevated" className={styles.previewCard}>
-                <JSONUIProvider registry={registry}>
-                  <Renderer spec={storedSpec.spec as Spec} registry={registry} loading={false} />
-                </JSONUIProvider>
+                {decodedSpec ? (
+                  <SpecProvider>
+                    <SpecRenderer spec={decodedSpec} />
+                  </SpecProvider>
+                ) : (
+                  <Text variant="body" color="secondary" role="alert">
+                    This shared spec can&apos;t be displayed — it was saved in an older or invalid
+                    format.
+                  </Text>
+                )}
               </Card>
             </main>
 

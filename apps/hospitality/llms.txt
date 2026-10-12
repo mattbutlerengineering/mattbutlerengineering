@@ -112,10 +112,10 @@
     <item priority="low">
       interface UseBookingFlowDeps {
         api: BookingWidgetApiClient;
-        venueId: string;
         venueSlug?: string;
         stripePublishableKey?: string;
         onHoldChange?: (info: { holdId: string; sessionId: string | null } | nul...;
+        venueTimezone?: string;
       }
     </item>
     <item priority="high">
@@ -481,9 +481,8 @@
     <item priority="high">
       interface UseCommandPaletteOptions {
         sections: readonly NavSection[];
-        navigate: (path: string) => void;
+        runAction: (action: NavAction) => void;
         toggleTheme: () => void;
-        signOut: () => void;
       }
     </item>
     <item priority="high">
@@ -500,14 +499,13 @@
     <item priority="medium">
       function buildNavItems(
         sections: readonly NavSection[],
-        navigate: (path: string) => void
+        runAction: (action: NavAction) => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
       function buildActionItems(
-        navigate: (path: string) => void,
-        toggleTheme: () => void,
-        signOut: () => void
+        runAction: (action: NavAction) => void,
+        toggleTheme: () => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -516,9 +514,8 @@
     <item priority="high">
       export function useCommandPalette({
         sections,
-        navigate,
+        runAction,
         toggleTheme,
-        signOut,
       }: UseCommandPaletteOptions): UseCommandPaletteResult { /* ... */ }
     </item>
   </file>
@@ -547,6 +544,7 @@
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
+        resolvedTheme: "light" | "dark";
         setTheme: (theme: ThemePreference) => void;
       }
     </item>
@@ -1628,12 +1626,27 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/nav-actions.ts">
+    <item priority="low">
+      type NavAction = { readonly type: "route"; read | { readonly type: "chat" } | { readonly type: "signout" };
+    </item>
+    <item priority="low">
+      interface NavActionHandlers {
+        navigate: (path: string) => void;
+        toggleChat: () => void;
+        signOut: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function runNavAction(action: NavAction, handlers: NavActionHandlers): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/nav-sections.ts">
     <item priority="low">
       interface NavItem {
         id: string;
         label: string;
-        path: string;
+        action: NavAction;
         stepStatus?: "completed" | "current" | "locked";
         disabled?: boolean;
       }
@@ -1729,12 +1742,6 @@
     </item>
     <item priority="high">
       export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isSeatableStatus(reservation: Reservation): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
@@ -1980,6 +1987,26 @@
         tables: readonly Pick<Table, "id" | "status">[],
         now: Date
       ): ReadonlySet<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/seating.ts">
+    <item priority="medium">
+      function tableAcceptsParty(table: Pick<Table, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSeat(
+        reservation: Pick<Reservation, "status">,
+        table: Pick<Table, "status"> | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+        tables: readonly T[],
+        partySize: number
+      ): T[] { /* ... */ }
     </item>
   </file>
   <file path="src/utils/service-day.ts">

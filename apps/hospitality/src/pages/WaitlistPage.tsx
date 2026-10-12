@@ -37,6 +37,7 @@ import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { deviceDate } from "../utils/service-day.js";
+import { tablesThatFit } from "../utils/seating.js";
 import styles from "./WaitlistPage.module.css";
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -262,13 +263,6 @@ function AddToWaitlistForm({
 
 /* ── Table selection for seating ─────────────────────── */
 
-/** Available tables large enough for the party, smallest-fit first. */
-function eligibleTables(tables: Table[], partySize: number): Table[] {
-  return tables
-    .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
-    .sort((a, b) => a.capacity - b.capacity);
-}
-
 /* ── Waitlist row ─────────────────────────────────── */
 
 function WaitlistRow({
@@ -293,7 +287,7 @@ function WaitlistRow({
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   const [isSeating, setIsSeating] = useState(false);
 
-  const availableTables = eligibleTables(tables, entry.partySize);
+  const availableTables = tablesThatFit(tables, entry.partySize);
   const availableTableIds = availableTables.map((t) => t.id).join(",");
   const [tableId, setTableId] = useState(() => availableTables[0]?.id ?? "");
 

@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback } from "react";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { NavSection } from "../nav-sections.js";
+import type { NavAction } from "../nav-actions.js";
 
 /* ── Types ──────────────────────────────────────── */
 
 interface UseCommandPaletteOptions {
   sections: readonly NavSection[];
-  navigate: (path: string) => void;
+  runAction: (action: NavAction) => void;
   toggleTheme: () => void;
-  signOut: () => void;
 }
 
 interface UseCommandPaletteResult {
@@ -26,7 +26,7 @@ function sectionGroupName(section: NavSection): string {
 
 function buildNavItems(
   sections: readonly NavSection[],
-  navigate: (path: string) => void
+  runAction: (action: NavAction) => void
 ): CommandItem[] {
   return sections.flatMap((section) => {
     const group = sectionGroupName(section);
@@ -34,15 +34,14 @@ function buildNavItems(
       id: item.id,
       label: item.label,
       group,
-      onSelect: () => navigate(item.path),
+      onSelect: () => runAction(item.action),
     }));
   });
 }
 
 function buildActionItems(
-  navigate: (path: string) => void,
-  toggleTheme: () => void,
-  signOut: () => void
+  runAction: (action: NavAction) => void,
+  toggleTheme: () => void
 ): CommandItem[] {
   return [
     {
@@ -51,31 +50,25 @@ function buildActionItems(
       group: "Actions",
       // Carries the intent the Reservations page reads on arrival (architecture § Amendment
       // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
-      onSelect: () => navigate("/reservations?new=true"),
+      onSelect: () => runAction({ type: "route", path: "/reservations?new=true" }),
     },
     {
       id: "action-walkin",
       label: "Walk-in guest",
       group: "Actions",
-      onSelect: () => navigate("/timeline?walkin=true"),
+      onSelect: () => runAction({ type: "route", path: "/timeline?walkin=true" }),
     },
     {
       id: "action-new-floor-plan",
       label: "New Floor Plan",
       group: "Actions",
-      onSelect: () => navigate("/floor-plans"),
+      onSelect: () => runAction({ type: "route", path: "/floor-plans" }),
     },
     {
       id: "action-toggle-theme",
       label: "Toggle Theme",
       group: "Actions",
       onSelect: toggleTheme,
-    },
-    {
-      id: "action-sign-out",
-      label: "Sign Out",
-      group: "Actions",
-      onSelect: signOut,
     },
   ];
 }
@@ -99,18 +92,14 @@ function buildGroups(sections: readonly NavSection[]): string[] {
  */
 export function useCommandPalette({
   sections,
-  navigate,
+  runAction,
   toggleTheme,
-  signOut,
 }: UseCommandPaletteOptions): UseCommandPaletteResult {
   const [open, setOpen] = useState(false);
 
   const items = useMemo(
-    () => [
-      ...buildNavItems(sections, navigate),
-      ...buildActionItems(navigate, toggleTheme, signOut),
-    ],
-    [sections, navigate, toggleTheme, signOut]
+    () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
+    [sections, runAction, toggleTheme]
   );
 
   const groups = useMemo(() => buildGroups(sections), [sections]);

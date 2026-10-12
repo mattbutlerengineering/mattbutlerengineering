@@ -36,7 +36,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -485,11 +485,13 @@ export function runScheduledWorkflowRecencyCheck({
     });
 
     log(
-      result.action === "skip"
-        ? `Issue #${result.issueNumber} already tracks ${workflow.name}'s missed run — skipping.`
-        : result.action === "reopen"
-          ? `Reopened issue #${result.issueNumber} for ${workflow.name}'s missed run.`
-          : `Created issue #${result.issueNumber} for ${workflow.name}'s missed run.`
+      result.action === "skipped-error"
+        ? `Could not read state of issue #${result.issueNumber} for ${workflow.name}'s missed run — not filing.`
+        : result.action === "skip"
+          ? `Issue #${result.issueNumber} already tracks ${workflow.name}'s missed run — skipping.`
+          : result.action === "reopen"
+            ? `Reopened issue #${result.issueNumber} for ${workflow.name}'s missed run.`
+            : `Created issue #${result.issueNumber} for ${workflow.name}'s missed run.`
     );
 
     return {
@@ -680,11 +682,13 @@ export function runScheduledWorkflowHealthCheck({
     });
 
     log(
-      result.action === "skip"
-        ? `Issue #${result.issueNumber} already tracks ${workflow.name}'s failing streak — skipping.`
-        : result.action === "reopen"
-          ? `Reopened issue #${result.issueNumber} for ${workflow.name}'s failing streak.`
-          : `Created issue #${result.issueNumber} for ${workflow.name}'s failing streak.`
+      result.action === "skipped-error"
+        ? `Could not read state of issue #${result.issueNumber} for ${workflow.name}'s failing streak — not filing.`
+        : result.action === "skip"
+          ? `Issue #${result.issueNumber} already tracks ${workflow.name}'s failing streak — skipping.`
+          : result.action === "reopen"
+            ? `Reopened issue #${result.issueNumber} for ${workflow.name}'s failing streak.`
+            : `Created issue #${result.issueNumber} for ${workflow.name}'s failing streak.`
     );
 
     return {
@@ -694,23 +698,6 @@ export function runScheduledWorkflowHealthCheck({
       issueNumber: result.issueNumber,
     };
   });
-}
-
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
 }
 
 function readFlag(args, name) {
@@ -778,7 +765,7 @@ function main() {
     threshold,
     searchCiFixIssues: () =>
       ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
     createIssue: (title, body) =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildScheduledFailureCreateArgs(title, body))),
     reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),

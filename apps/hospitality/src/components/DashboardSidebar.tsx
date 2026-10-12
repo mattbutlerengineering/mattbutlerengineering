@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { NavSection, NavItem } from "../nav-sections.js";
+import type { NavAction } from "../nav-actions.js";
 import styles from "./DashboardSidebar.module.css";
 
 /* ── Step status icons ───────────────────────── */
@@ -116,9 +117,7 @@ function saveCollapsed(collapsed: Set<string>): void {
 export interface DashboardSidebarProps {
   sections: readonly NavSection[];
   activePath: string;
-  onNavigate: (path: string) => void;
-  /** Extra items appended to a named section (e.g. Sign Out in Account) */
-  extraItems?: ReadonlyMap<string, readonly NavItem[]>;
+  onAction: (action: NavAction) => void;
   /** Whether the mobile drawer is open (only affects screens < 768px) */
   isMobileOpen?: boolean;
   /** Called when the mobile drawer should close */
@@ -132,8 +131,7 @@ export interface DashboardSidebarProps {
 export function DashboardSidebar({
   sections,
   activePath,
-  onNavigate,
-  extraItems,
+  onAction,
   isMobileOpen = false,
   onMobileClose,
   headerSlot,
@@ -183,15 +181,17 @@ export function DashboardSidebar({
   }, []);
 
   const handleItemClick = useCallback(
-    (path: string) => {
-      onNavigate(path);
+    (action: NavAction) => {
+      onAction(action);
       onMobileClose?.();
     },
-    [onNavigate, onMobileClose]
+    [onAction, onMobileClose]
   );
 
   const isItemActive = useCallback(
-    (item: NavItem): boolean => activePath === item.path || activePath.startsWith(item.path + "/"),
+    (item: NavItem): boolean =>
+      item.action.type === "route" &&
+      (activePath === item.action.path || activePath.startsWith(item.action.path + "/")),
     [activePath]
   );
 
@@ -210,25 +210,19 @@ export function DashboardSidebar({
           {sections.map((section, sectionIndex) => {
             const sectionKey = section.label ?? `section-${String(sectionIndex)}`;
 
-            // Merge extra items for named sections
-            const sectionItems =
-              section.label && extraItems?.has(section.label)
-                ? [...section.items, ...extraItems.get(section.label)!]
-                : section.items;
-
             // Unlabelled sections render flat (no collapsible header)
             if (!section.label) {
               return (
                 <div key={sectionKey} className={styles.section}>
                   <ul className={styles.sectionItemsFlat}>
-                    {sectionItems.map((item) => {
+                    {section.items.map((item) => {
                       const active = isItemActive(item);
                       const isDisabled = item.disabled === true;
                       return (
                         <li key={item.id} className={styles.navItem}>
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${isDisabled ? styles.navLinkDisabled : ""}`}
-                            onClick={isDisabled ? undefined : () => handleItemClick(item.path)}
+                            onClick={isDisabled ? undefined : () => handleItemClick(item.action)}
                             aria-current={active ? "page" : undefined}
                             aria-disabled={isDisabled ? "true" : undefined}
                             type="button"
@@ -266,14 +260,14 @@ export function DashboardSidebar({
 
                 {isExpanded && (
                   <ul className={styles.sectionItems}>
-                    {sectionItems.map((item) => {
+                    {section.items.map((item) => {
                       const active = isItemActive(item);
                       const isDisabled = item.disabled === true;
                       return (
                         <li key={item.id} className={styles.navItem}>
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${isDisabled ? styles.navLinkDisabled : ""}`}
-                            onClick={isDisabled ? undefined : () => handleItemClick(item.path)}
+                            onClick={isDisabled ? undefined : () => handleItemClick(item.action)}
                             aria-current={active ? "page" : undefined}
                             aria-disabled={isDisabled ? "true" : undefined}
                             type="button"

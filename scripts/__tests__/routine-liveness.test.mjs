@@ -580,6 +580,24 @@ describe("runRoutineLivenessCheck — issue filing (dedup)", () => {
     });
   });
 
+  it("files nothing when the prior issue's state lookup errors (#6374)", () => {
+    const priorTitle = buildRoutineFindingTitle("mbe-weekly-improve", "dark");
+    const created = [];
+    const results = runRoutineLivenessCheck({
+      manifest: darkManifest,
+      fetchObservedArtifacts: () => [],
+      now,
+      searchCiFixIssues: () => [{ number: 42, title: priorTitle }],
+      getIssueState: () => "error",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 999;
+      },
+    });
+    expect(created).toHaveLength(0);
+    expect(results[0]).toMatchObject({ action: "state-error" });
+  });
+
   it("creates a fresh issue rather than reopening a closed prior finding (#5817 — each incident gets its own record)", () => {
     const priorTitle = buildRoutineFindingTitle("mbe-weekly-improve", "dark");
     const created = [];

@@ -18,6 +18,13 @@
  * immediately followed by an exact copy of itself. The append-path guard
  * cannot see that; nothing read the file afterwards and noticed.
  *
+ * Since #6381 every writer goes through `queue-telemetry-store.mjs`, whose
+ * test proves no writer path can produce a duplicate -- but this gate STAYS:
+ * `.gitattributes` marks `metrics/*.jsonl` `merge=union`, so two branches that
+ * each append the same row merge into two lines with no writer involved. That
+ * is a git-level path the store cannot see. The gate now takes its key and path
+ * from the store rather than restating them.
+ *
  * This is the same shape as the `ciHealth` sensor entries in
  * `.claude/rules/gotchas.md` § CI: a rate whose denominator is not what it
  * claims to be. There the denominator folded in `skipped` runs; here it counts
@@ -27,9 +34,9 @@
 import { readFileSync } from "node:fs";
 
 import { runCheck } from "./lib/fitness-check.mjs";
-import { telemetryRowKey } from "./collect-queue-telemetry.mjs";
+import { telemetryRowKey, telemetryPath } from "./queue-telemetry-store.mjs";
 
-const TELEMETRY_PATH = "metrics/queue-telemetry.jsonl";
+const TELEMETRY_PATH = telemetryPath();
 
 /**
  * The gate, as a pure decision.

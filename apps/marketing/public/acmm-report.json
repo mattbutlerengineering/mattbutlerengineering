@@ -1,20 +1,20 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-10-11T10:41:17.549Z",
+  "generatedAt": "2026-10-12T11:44:58.905Z",
   "repo": {
-    "currentLevel": 6,
-    "levelName": "Fully Autonomous",
-    "role": "Strategist",
-    "lastRun": "2026-10-11T10:41:15.645Z",
+    "currentLevel": 5,
+    "levelName": "Semi-Automated",
+    "role": "Operator",
+    "lastRun": "2026-10-12T11:44:49.160Z",
     "summary": {
-      "detected": 78,
+      "detected": 73,
       "total": 84,
-      "coverage": 0.9285714285714286
+      "coverage": 0.8690476190476191
     },
     "behavioral": {
-      "ciFlakeRate": 0.004705882352941176,
-      "agentPrAcceptanceRate": 0.9851485148514851,
-      "agentPrRevertRate": 0.005025125628140704,
+      "ciFlakeRate": 0.004347826086956522,
+      "agentPrAcceptanceRate": 0.9863636363636363,
+      "agentPrRevertRate": 0.004608294930875576,
       "evalPassRate": null,
       "evalsStale": true,
       "evalsLastRun": "2026-05-10T21:42:57.095Z"
@@ -57,7 +57,7 @@
         "passed": true
       },
       "acmm:prompts-catalog": {
-        "passed": true
+        "passed": false
       },
       "acmm:editor-config": {
         "passed": true
@@ -153,7 +153,7 @@
         "passed": true
       },
       "acmm:policy-as-code": {
-        "passed": true
+        "passed": false
       },
       "acmm:reflection-log": {
         "passed": true
@@ -168,16 +168,16 @@
         "passed": true
       },
       "acmm:multi-agent-orchestration": {
-        "passed": true
+        "passed": false
       },
       "acmm:merge-queue": {
         "passed": true
       },
       "acmm:strategic-dashboard": {
-        "passed": true
+        "passed": false
       },
       "acmm:risk-assessment-config": {
-        "passed": true
+        "passed": false
       },
       "acmm:production-feedback": {
         "passed": true
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.004705882352941176,
+        "value": 0.004347826086956522,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9851485148514851,
+        "value": 0.9863636363636363,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -294,7 +294,7 @@
         "level": 5,
         "name": "auto-qa-tuning-history",
         "passed": true,
-        "value": 22,
+        "value": 23,
         "threshold": 1,
         "unverifiable": false
       },
@@ -302,7 +302,7 @@
         "level": 6,
         "name": "agent-pr-revert-rate",
         "passed": true,
-        "value": 0.005025125628140704,
+        "value": 0.004608294930875576,
         "threshold": 0.1,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.02512562814070352,
+        "value": 0.02304147465437788,
         "threshold": 0.5,
         "unverifiable": false
       }

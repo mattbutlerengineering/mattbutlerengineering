@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fileIssue } from "../lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "../lib/issue-filing.mjs";
 
 /** Minimal request shared across tests — only dedupeKey varies where needed. */
 function request(overrides = {}) {
@@ -77,5 +77,78 @@ describe("fileIssue: skip/create/reopen decision", () => {
     fileIssue(request(), original, deps);
 
     expect(original).toEqual(originalCopy);
+  });
+});
+
+describe("fileIssue: state lookup error (#6374)", () => {
+  it("never creates or reopens when the state lookup errors", () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = fakeDeps({ getIssueState: vi.fn(() => "error") });
+    const result = fileIssue(request(), { "example-key": 55 }, deps);
+
+    expect(result).toEqual({
+      action: "skipped-error",
+      issueNumber: 55,
+      ledger: { "example-key": 55 },
+    });
+    expect(deps.createIssue).not.toHaveBeenCalled();
+    expect(deps.reopenIssue).not.toHaveBeenCalled();
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+});
+
+describe("issueState", () => {
+  const clientReturning = (impl) => ({ issue: { view: vi.fn(impl) } });
+  const throwing = (message) =>
+    clientReturning(() => {
+      throw new Error(message);
+    });
+
+  it("returns error, not missing, when gh throws a transient error", () => {
+    expect(issueState(throwing("connection reset by peer"), 7)).toBe("error");
+  });
+
+  it("returns missing only when gh says the issue does not exist", () => {
+    expect(
+      issueState(
+        throwing("GraphQL: Could not resolve to an issue or pull request with the number of 7"),
+        7
+      )
+    ).toBe("missing");
+  });
+
+  it("maps open and closed states", () => {
+    expect(
+      issueState(
+        clientReturning(() => ({ state: "OPEN" })),
+        1
+      )
+    ).toBe("open");
+    expect(
+      issueState(
+        clientReturning(() => ({ state: "CLOSED" })),
+        1
+      )
+    ).toBe("closed");
+  });
+
+  it("returns error for an unrecognised state payload", () => {
+    expect(
+      issueState(
+        clientReturning(() => ({ state: undefined })),
+        1
+      )
+    ).toBe("error");
+  });
+});
+
+describe("parseIssueNumberFromUrl", () => {
+  it("parses the trailing issue number", () => {
+    expect(parseIssueNumberFromUrl("https://github.com/o/r/issues/42\n")).toBe(42);
+  });
+
+  it("throws on unexpected output", () => {
+    expect(() => parseIssueNumberFromUrl("nope")).toThrow(/unexpected output/);
   });
 });

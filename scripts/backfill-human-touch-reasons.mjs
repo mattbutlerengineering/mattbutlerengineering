@@ -76,7 +76,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
-import { read, write, resolvePath } from "./metrics-store.mjs";
+import { readTelemetryRows, updateTelemetry, telemetryPath } from "./queue-telemetry-store.mjs";
 import { classifyHumanTouch } from "./classify-human-touch.mjs";
 import { isAgentPr } from "../plugins/acmm/scripts/pr-outcomes.js";
 
@@ -363,22 +363,22 @@ export function backfillHumanTouchReasons(
  * @returns {{ classified: number, skipped: number, calls: number, written: boolean }}
  */
 export function runBackfill({ root, fetchPrDetails, maxCalls, dryRun = false } = {}) {
-  const inputRows = read("queue-telemetry", { root });
-  if (!inputRows || inputRows.length === 0) {
+  const opts = root === undefined ? {} : { root };
+  const inputRows = readTelemetryRows(opts);
+  if (inputRows.length === 0) {
     return { classified: 0, skipped: 0, calls: 0, written: false };
   }
 
-  const { rows, classified, skipped, calls } = backfillHumanTouchReasons(inputRows, {
-    fetchPrDetails,
-    maxCalls,
-  });
-
-  const written = !dryRun && classified > 0;
-  if (written) {
-    write("queue-telemetry", rows, { root });
+  const run = (current) => backfillHumanTouchReasons(current, { fetchPrDetails, maxCalls });
+  if (dryRun) {
+    const { classified, skipped, calls } = run(inputRows);
+    return { classified, skipped, calls, written: false };
   }
 
-  return { classified, skipped, calls, written };
+  // The store collapses the rewrite on the row key, so it cannot add duplicates.
+  const { written, result } = updateTelemetry((current) => run(current), opts);
+  const { classified, skipped, calls } = result;
+  return { classified, skipped, calls, written: written && classified > 0 };
 }
 
 /**
@@ -407,6 +407,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   process.stdout.write(
     `[backfill-human-touch-reasons] ${classified} classified, ${skipped} skipped ` +
       `(${calls} GitHub lookups)${dryRun ? " [dry-run, not written]" : written ? " → written" : " (nothing to write)"} ` +
-      `→ ${resolvePath("queue-telemetry")}\n`
+      `→ ${telemetryPath()}\n`
   );
 }

@@ -8,7 +8,7 @@
  * never mutating existing ones.
  */
 
-const CIRCUIT_BREAKER_KEY = "circuit-breaker:api";
+const CIRCUIT_BREAKER_KEY_PREFIX = "circuit-breaker:";
 const FAILURE_THRESHOLD = 3;
 const OPEN_DURATION_SECONDS = 30;
 
@@ -29,9 +29,9 @@ function defaultState() {
  * Read circuit breaker state from KV.
  * Returns default closed state if nothing stored.
  */
-async function getCircuitState(kv) {
+async function getCircuitState(kv, key) {
   try {
-    const stored = await kv.get(CIRCUIT_BREAKER_KEY, "json");
+    const stored = await kv.get(key, "json");
     return stored ? Object.freeze(stored) : defaultState();
   } catch {
     return defaultState();
@@ -43,9 +43,9 @@ async function getCircuitState(kv) {
  * Open circuits expire after OPEN_DURATION_SECONDS so they auto-close
  * even if no half-open probe runs.
  */
-async function saveCircuitState(kv, circuitState) {
+async function saveCircuitState(kv, key, circuitState) {
   const ttl = circuitState.state === "open" ? OPEN_DURATION_SECONDS + 10 : 120;
-  await kv.put(CIRCUIT_BREAKER_KEY, JSON.stringify(circuitState), {
+  await kv.put(key, JSON.stringify(circuitState), {
     expirationTtl: ttl,
   });
 }
@@ -122,7 +122,7 @@ function recordFailure(circuitState, nowMs) {
 }
 
 export {
-  CIRCUIT_BREAKER_KEY,
+  CIRCUIT_BREAKER_KEY_PREFIX,
   FAILURE_THRESHOLD,
   OPEN_DURATION_SECONDS,
   defaultState,

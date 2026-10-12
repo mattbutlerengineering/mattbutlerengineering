@@ -77,7 +77,7 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 - **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
 
 `mbe` CLI subcommands (real binary):
-`agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+`agent`, `up`, `pack`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `health`, `loop`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 
@@ -195,7 +195,6 @@ The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
 To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
 
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
-    - **JIT Priming:** At the start of this phase, run `mbe prime "<directive>"` to ensure all relevant directories have fresh `llms.txt` context skeletons.
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
     ...
 3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.

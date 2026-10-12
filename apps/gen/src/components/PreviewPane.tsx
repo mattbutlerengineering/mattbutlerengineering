@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
-import { registry } from "@mbe/rialto-catalog";
 import {
   Alert,
   Button,
@@ -12,6 +10,8 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
+import { specStats as computeSpecStats } from "../lib/spec.js";
+import { SpecProvider, SpecRenderer } from "./SpecRenderer.js";
 import styles from "./PreviewPane.module.css";
 
 const VIEWPORT_SEGMENTS = [
@@ -25,35 +25,6 @@ const VIEWPORT_WIDTHS = {
   tablet: "768px",
   mobile: "375px",
 } as const;
-
-interface SpecStats {
-  elementCount: number;
-  componentTypes: string[];
-}
-
-function computeSpecStats(spec: Spec | null): SpecStats | null {
-  if (!spec) return null;
-
-  const types = new Set<string>();
-  let count = 0;
-
-  function walk(node: unknown) {
-    if (!node || typeof node !== "object") return;
-    const obj = node as Record<string, unknown>;
-    if (typeof obj.type === "string") {
-      count++;
-      types.add(obj.type);
-    }
-    if (Array.isArray(obj.children)) {
-      for (const child of obj.children) {
-        walk(child);
-      }
-    }
-  }
-
-  walk(spec);
-  return { elementCount: count, componentTypes: Array.from(types).sort() };
-}
 
 const PROMPT_SUGGESTIONS = [
   {
@@ -241,7 +212,7 @@ export function PreviewPane({
           />
         </div>
       )}
-      <JSONUIProvider registry={registry}>
+      <SpecProvider>
         {error ? (
           <div className={styles.errorState}>
             <Alert variant="error">
@@ -291,11 +262,11 @@ export function PreviewPane({
               className={styles.viewportFrame}
               style={{ maxInlineSize: VIEWPORT_WIDTHS[viewport] }}
             >
-              <Renderer spec={spec} registry={registry} loading={isStreaming} />
+              <SpecRenderer spec={spec} loading={isStreaming} />
             </div>
           </div>
         )}
-      </JSONUIProvider>
+      </SpecProvider>
     </section>
   );
 }

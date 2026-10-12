@@ -134,7 +134,9 @@
   font-family: var(--rialto-font-mono);
   font-size: 0.6rem;
   font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-secondary);
+  /* text-secondary fails WCAG AA against this badge's matte background
+     (3.85:1, needs 4.5:1) — text-primary clears it comfortably. */
+  color: var(--rialto-text-primary);
 }
 
 /* ── Split-flap image swap ───────────────────── */

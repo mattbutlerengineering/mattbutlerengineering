@@ -1410,10 +1410,10 @@
     <item priority="low">
       interface UseBookingFlowDeps {
         api: BookingWidgetApiClient;
-        venueId: string;
         venueSlug?: string;
         stripePublishableKey?: string;
         onHoldChange?: (info: { holdId: string; sessionId: string | null } | nul...;
+        venueTimezone?: string;
       }
     </item>
     <item priority="high">
@@ -1574,20 +1574,6 @@
   <file path="tools/cli/src/commands/check-deps.ts">
     <item priority="high">
       export const checkDepsCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    <item priority="low">
-      async function getGitRoot(): Promise<string> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      async function getRemoteBranches(gitRoot: string): Promise<string[]> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const cleanupWorktreesCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/generate.ts">
@@ -1763,31 +1749,6 @@
       export const packChangedCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/prime.ts">
-    <item priority="high">
-      export const primeCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/stats.ts">
-    <item priority="high">
-      interface AgentSessionRecord {
-        timestamp: string;
-        sessionId: string;
-        milestone?: string;
-        modelId: string;
-        researchTurns: number;
-      }
-    </item>
-    <item priority="high">
-      export const logSessionCommand: unknown;
-    </item>
-    <item priority="high">
-      export const statsCommand: unknown;
-    </item>
-    <item priority="high">
-      export const auditPerfCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     <item priority="high">
       export const syncRulesRun: unknown;
@@ -1813,25 +1774,6 @@
     </item>
     <item priority="high">
       export const usersCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/visual.ts">
-    <item priority="high">
-      export const visualCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/wave.ts">
-    <item priority="high">
-      interface WaveResult {
-        task: string;
-        branchName: string;
-        worktreePath: string;
-        success: boolean;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export const waveCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
@@ -3731,9 +3673,8 @@
     <item priority="high">
       interface UseCommandPaletteOptions {
         sections: readonly NavSection[];
-        navigate: (path: string) => void;
+        runAction: (action: NavAction) => void;
         toggleTheme: () => void;
-        signOut: () => void;
       }
     </item>
     <item priority="high">
@@ -3750,14 +3691,13 @@
     <item priority="medium">
       function buildNavItems(
         sections: readonly NavSection[],
-        navigate: (path: string) => void
+        runAction: (action: NavAction) => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
       function buildActionItems(
-        navigate: (path: string) => void,
-        toggleTheme: () => void,
-        signOut: () => void
+        runAction: (action: NavAction) => void,
+        toggleTheme: () => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -3766,9 +3706,8 @@
     <item priority="high">
       export function useCommandPalette({
         sections,
-        navigate,
+        runAction,
         toggleTheme,
-        signOut,
       }: UseCommandPaletteOptions): UseCommandPaletteResult { /* ... */ }
     </item>
   </file>
@@ -3797,6 +3736,7 @@
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
+        resolvedTheme: "light" | "dark";
         setTheme: (theme: ThemePreference) => void;
       }
     </item>
@@ -4806,11 +4746,32 @@
     <item priority="low">
       type ThemePreference = "light" | "dark" | "system";
     </item>
+    <item priority="high">
+      export const THEME_STORAGE_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function isPreference(value: unknown): value is ThemePreference { /* ... */ }
+    </item>
     <item priority="medium">
       function getStoredTheme(): ThemePreference { /* ... */ }
     </item>
     <item priority="medium">
+      function getServerPreference(): ThemePreference { /* ... */ }
+    </item>
+    <item priority="medium">
       function storeTheme(theme: ThemePreference): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribePreference(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasMatchMedia(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getOsDark(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribeOsDark(onChange: () => void): () => void { /* ... */ }
     </item>
     <item priority="high">
       export function resolveTheme(pref: ThemePreference): "light" | "dark" { /* ... */ }
@@ -4958,6 +4919,23 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/spec.ts">
+    <item priority="low">
+      interface SpecStats {
+        elementCount: number;
+        componentTypes: string[];
+      }
+    </item>
+    <item priority="medium">
+      function isRecord(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeSpec(value: unknown): Spec | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
     <item priority="low">
       type ApiErrorCategory = ErrorCategory | "network" | "timeout";
@@ -9840,12 +9818,27 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/nav-actions.ts">
+    <item priority="low">
+      type NavAction = { readonly type: "route"; read | { readonly type: "chat" } | { readonly type: "signout" };
+    </item>
+    <item priority="low">
+      interface NavActionHandlers {
+        navigate: (path: string) => void;
+        toggleChat: () => void;
+        signOut: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function runNavAction(action: NavAction, handlers: NavActionHandlers): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/nav-sections.ts">
     <item priority="low">
       interface NavItem {
         id: string;
         label: string;
-        path: string;
+        action: NavAction;
         stepStatus?: "completed" | "current" | "locked";
         disabled?: boolean;
       }
@@ -14473,6 +14466,20 @@
       }
     </item>
     <item priority="low">
+      interface ReportableValidationError {
+        name: "ApiValidationError";
+        message: string;
+        method?: string;
+        path?: string;
+        error: { readonly issues: readonly unknown[] };
+      }
+    </item>
+    <item priority="medium">
+      function isValidationError(
+        error: ReportableApiError | ReportableValidationError
+      ): error is ReportableValidationError { /* ... */ }
+    </item>
+    <item priority="low">
       interface InitOptions {
         appName: string;
         dsn: string;
@@ -14486,7 +14493,7 @@
       export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* ... */ }
     </item>
     <item priority="high">
-      export function reportApiError(error: ReportableApiError): void { /* ... */ }
+      export function reportApiError(error: ReportableApiError | ReportableValidationError): void { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">
@@ -16593,12 +16600,6 @@
       export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
-      function isSeatableStatus(reservation: Reservation): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -17327,6 +17328,26 @@
         tables: readonly Pick<Table, "id" | "status">[],
         now: Date
       ): ReadonlySet<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/seating.ts">
+    <item priority="medium">
+      function tableAcceptsParty(table: Pick<Table, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSeat(
+        reservation: Pick<Reservation, "status">,
+        table: Pick<Table, "status"> | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+        tables: readonly T[],
+        partySize: number
+      ): T[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/service-day.ts">

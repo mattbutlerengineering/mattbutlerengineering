@@ -4635,6 +4635,11 @@
             step: "confirmation",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -4648,6 +4653,11 @@
             step: "payment",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -4732,14 +4742,11 @@
       setPartySize: (size: number) => void;
       goToTimeSlot: () => void;
       goToDateParty: () => void;
-      setSlots: (slots: TimeSlot[]) => void;
-      setSlotsError: (error: string) => void;
       selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
       confirmReservation: (details: GuestDetails) => Promise<void>;
       handleDepositSuccess: (paymentIntentId: string) => void;
       goBackToGuestDetails: () => void;
       resetFlow: () => void;
-      setDepositConfig: (config: DepositConfig | null) => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
       setGuestDetails: (details: GuestDetails) => void;
@@ -4756,7 +4763,6 @@
     export interface UseBookingFlowDeps {
       /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
       api: BookingWidgetApiClient;
-      venueId: string;
       /**
        * Slug backing every public endpoint this flow calls — venue config, guest
        * risk, and (since #4487) the whole hold lifecycle, which now goes through
@@ -4927,14 +4933,6 @@
         dispatch({ type: "GO_TO_DATE_PARTY" });
       }, [flowState.data.hold, releaseHold]);
     
-      const setSlots = useCallback((slots: TimeSlot[]) => {
-        dispatch({ type: "SET_SLOTS", slots });
-      }, []);
-    
-      const setSlotsError = useCallback((error: string) => {
-        dispatch({ type: "SET_SLOTS_ERROR", error });
-      }, []);
-    
       const selectSlotAndHold = useCallback(
         async (slot: TimeSlot): Promise<void> => {
           if (!flowState.data.selectedDate) return;
@@ -5041,17 +5039,6 @@
         dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
       }, [venueTimezone]);
     
-      const setDepositConfig = useCallback(
-        (config: DepositConfig | null) => {
-          dispatch({
-            type: "SET_DEPOSIT_CONFIG",
-            config,
-            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
-          });
-        },
-        [venueSlug, stripePublishableKey]
-      );
-    
       const goToWaitlistJoin = useCallback(() => {
         dispatch({ type: "GO_TO_WAITLIST_JOIN" });
       }, []);
@@ -5085,11 +5072,10 @@
         return () => clearInterval(interval);
       }, [flowState.data.hold, fetchSlots]);
     
-      // Notifies onHoldChange whenever the "releasable" hold changes. Once the
-      // flow reaches "confirmation" the hold has been consumed into a real
-      // reservation — nothing left to release — even though `data.hold` itself
-      // is never cleared by the reducer.
-      const activeHoldId = flowState.step === "confirmation" ? null : (flowState.data.hold?.id ?? null);
+      // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
+      // clears `data.hold` once it becomes a reservation, so any hold left is
+      // still releasable.
+      const activeHoldId = flowState.data.hold?.id ?? null;
       useEffect(() => {
         onHoldChangeRef.current?.(
           activeHoldId ? { holdId: activeHoldId, sessionId: api.holds.getSessionId() } : null
@@ -5113,14 +5099,11 @@
           setPartySize,
           goToTimeSlot,
           goToDateParty,
-          setSlots,
-          setSlotsError,
           selectSlotAndHold,
           confirmReservation,
           handleDepositSuccess,
           goBackToGuestDetails,
           resetFlow,
-          setDepositConfig,
           goToWaitlistJoin,
           handleWaitlistJoined,
           setGuestDetails,
@@ -5945,118 +5928,6 @@
         } else {
           throw new Error(`Found ${inconsistencies} dependencies with version mismatches.`);
         }
-      });
-  </file>
-  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    async function getGitRoot(): Promise<string> {
-      try {
-        return await runGit(["rev-parse", "--show-toplevel"]);
-      } catch {
-        return process.cwd();
-      }
-    }
-    function getWorktreeDirs(gitRoot: string): string[] {
-      const worktreesDir = join(gitRoot, ".claude/worktrees");
-      try {
-        return readdirSync(worktreesDir);
-      } catch {
-        return [];
-      }
-    }
-    async function getRemoteBranches(gitRoot: string): Promise<string[]> {
-      try {
-        const output = await runGit(["branch", "-r"], { cwd: gitRoot });
-        return output
-          .split("\n")
-          .map((b) => b.replace(/^[* ] /, "").trim())
-          .filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
-    export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
-      .description("Clean up orphaned git worktrees from .claude/worktrees/")
-      .option("-d, --days <days>", "Remove worktrees older than N days", "1")
-      .option("-n, --dry-run", "Show what would be removed without removing", false)
-      .option("--force", "Force removal without confirmation", false)
-      .action(async (options) => {
-        const gitRoot = await getGitRoot();
-        const worktreesDir = join(gitRoot, ".claude/worktrees");
-        const daysOld = parseInt(options.days, 10);
-        const now = Date.now();
-        const cutoffMs = daysOld * 24 * 60 * 60 * 1000;
-    
-        const worktrees = getWorktreeDirs(gitRoot);
-        const remoteBranches = await getRemoteBranches(gitRoot);
-    
-        const toRemove: string[] = [];
-    
-        for (const wt of worktrees) {
-          const wtPath = join(worktreesDir, wt);
-          const branchName = `worktree-${wt}`;
-    
-          try {
-            const stats = statSync(wtPath);
-            const ageMs = now - stats.mtimeMs;
-    
-            if (ageMs > cutoffMs) {
-              const hasRemote = remoteBranches.some(
-                (rb) => rb === `origin/${branchName}` || rb.endsWith(`/${branchName}`)
-              );
-    
-              if (!hasRemote) {
-                toRemove.push(wt);
-              }
-            }
-          } catch {
-            toRemove.push(wt);
-          }
-        }
-    
-        if (toRemove.length === 0) {
-          console.log("No orphaned worktrees to clean up.");
-          return;
-        }
-    
-        console.log(`Found ${toRemove.length} orphaned worktrees to remove:`);
-        toRemove.forEach((wt) => console.log(`  - ${wt}`));
-    
-        if (options.dryRun) {
-          console.log("\nDry run - nothing removed.");
-          return;
-        }
-    
-        if (!options.force) {
-          console.log("\nUse --force to remove these worktrees.");
-          return;
-        }
-    
-        for (const wt of toRemove) {
-          const wtPath = join(worktreesDir, wt);
-          const branchName = `worktree-${wt}`;
-    
-          try {
-            await runGit(["worktree", "remove", "--force", "--", wtPath], { cwd: gitRoot });
-            console.log(`Removed worktree: ${wt}`);
-          } catch (err) {
-            console.warn(`git worktree remove failed for ${wt}: ${(err as Error).message}`);
-            try {
-              rmSync(wtPath, { recursive: true, force: true });
-              console.log(`Removed directory: ${wt}`);
-            } catch (e) {
-              console.error(`Failed to remove ${wt}:`, e);
-            }
-          }
-    
-          try {
-            await runGit(["branch", "-D", "--", branchName], { cwd: gitRoot });
-            console.log(`Deleted branch: ${branchName}`);
-          } catch (err) {
-            console.warn(`Could not delete branch ${branchName}: ${(err as Error).message}`);
-          }
-        }
-    
-        console.log(`\nCleaned up ${toRemove.length} worktrees.`);
       });
   </file>
   <file path="tools/cli/src/commands/generate.ts">
@@ -7030,224 +6901,6 @@
         }
       });
   </file>
-  <file path="tools/cli/src/commands/prime.ts">
-    export const primeCommand = new Command("prime")
-      .description("Just-In-Time context priming: Pack relevant directories for a task")
-      .argument("<directive>", "The task description to identify relevant context")
-      .action(async (directive: string) => {
-        const root = findMonorepoRoot(process.cwd());
-        console.log(`🎯 Priming context for: "${directive}"`);
-    
-        const packages = new Set<string>();
-    
-        // Simple keyword-based detection for now
-        // Future: Use LLM or dependency graph
-        const lower = directive.toLowerCase();
-    
-        if (lower.includes("user")) packages.add("services/users");
-        if (lower.includes("reservation") || lower.includes("table") || lower.includes("venue"))
-          packages.add("services/reservations");
-        if (lower.includes("agent") || lower.includes("session")) packages.add("services/agent");
-        if (lower.includes("rialto") || lower.includes("ui") || lower.includes("component"))
-          packages.add("packages/rialto");
-        if (lower.includes("auth")) packages.add("packages/auth");
-        if (lower.includes("api") || lower.includes("client")) packages.add("packages/api-client");
-    
-        // If no specific package found, pack everything in services/ (conservative default)
-        if (packages.size === 0) {
-          console.log("No specific packages identified. Priming all core services...");
-          packages.add("services/users");
-          packages.add("services/agent");
-          packages.add("services/reservations");
-        }
-    
-        console.log(`Refreshing context for ${packages.size} packages...`);
-    
-        for (const pkg of packages) {
-          try {
-            console.log(`   Packing ${pkg}...`);
-            execSync(`pnpm --filter @mbe/cli start pack ${pkg}`, { cwd: root, stdio: "inherit" });
-          } catch {
-            console.error(`❌ Failed to pack ${pkg}`);
-          }
-        }
-    
-        console.log("\n✅ Context primed. You are ready to work with fresh semantic skeletons.");
-      });
-  </file>
-  <file path="tools/cli/src/commands/stats.ts">
-    interface AgentSessionRecord {
-      timestamp: string;
-      sessionId: string;
-      milestone?: string;
-      modelId: string;
-      researchTurns: number;
-      executionTurns: number;
-      totalTurns: number;
-      firstPassSuccess: boolean;
-      humanInterventions: number;
-      costUsd: number;
-    }
-    export const logSessionCommand = new Command("log-session")
-      .description("Log agent session performance metrics")
-      .requiredOption("--id <string>", "Unique session/task ID")
-      .option("--milestone <string>", "Current milestone (e.g. v1.3)")
-      .option("--model <string>", "Model ID used", "unknown")
-      .requiredOption("--research <number>", "Number of research turns", parseInt)
-      .requiredOption("--execution <number>", "Number of execution turns", parseInt)
-      .option("--success", "Whether it passed on first attempt", false)
-      .option("--interventions <number>", "Number of human interventions", parseInt, 0)
-      .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
-      .action(async (options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const logDir = join(root, "metrics");
-        const logFile = join(logDir, "agent-perf.jsonl");
-    
-        if (!existsSync(logDir)) {
-          mkdirSync(logDir, { recursive: true });
-        }
-    
-        const record: AgentSessionRecord = {
-          timestamp: new Date().toISOString(),
-          sessionId: options.id,
-          milestone: options.milestone,
-          modelId: options.model,
-          researchTurns: options.research,
-          executionTurns: options.execution,
-          totalTurns: options.research + options.execution,
-          firstPassSuccess: !!options.success,
-          humanInterventions: options.interventions,
-          costUsd: options.cost,
-        };
-    
-        appendFileSync(logFile, JSON.stringify(record) + "\n");
-        console.log(`✅ Session ${options.id} logged to ${logFile}`);
-      });
-    export const statsCommand = new Command("stats")
-      .description("Show agent performance statistics")
-      .action(async () => {
-        const root = findMonorepoRoot(process.cwd());
-        const logFile = join(root, "metrics/agent-perf.jsonl");
-    
-        if (!existsSync(logFile)) {
-          console.log("No performance data found. Run some tasks first!");
-          return;
-        }
-    
-        const lines = readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
-        const records: AgentSessionRecord[] = lines.map((l) => JSON.parse(l));
-    
-        const total = records.length;
-        const avgResearch = records.reduce((sum, r) => sum + r.researchTurns, 0) / total;
-        const avgExecution = records.reduce((sum, r) => sum + r.executionTurns, 0) / total;
-        const successRate = (records.filter((r) => r.firstPassSuccess).length / total) * 100;
-        const totalCost = records.reduce((sum, r) => sum + r.costUsd, 0);
-        const totalInterventions = records.reduce((sum, r) => sum + r.humanInterventions, 0);
-    
-        console.log("\n📊 Agent Performance Scoreboard");
-        console.log("===============================");
-        console.log(`Total Sessions:         ${total}`);
-        console.log(`Avg Research Turns:     ${avgResearch.toFixed(2)}`);
-        console.log(`Avg Execution Turns:    ${avgExecution.toFixed(2)}`);
-        console.log(`First-Pass Success:     ${successRate.toFixed(1)}%`);
-        console.log(
-          `Human Interventions:    ${totalInterventions} (${(totalInterventions / total).toFixed(2)} per session)`
-        );
-        console.log(`Total Cost (Est):       $${totalCost.toFixed(2)}`);
-        console.log("");
-      });
-    export const auditPerfCommand = new Command("audit-perf")
-      .description("Analyze agent performance logs and suggest optimizations")
-      .option("--auto-plan", "Automatically generate a GSD plan for the top improvement", false)
-      .action(async (options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const logFile = join(root, "metrics/agent-perf.jsonl");
-        const lastAuditFile = join(root, "metrics/last-audit.json");
-    
-        if (!existsSync(logFile)) {
-          console.log("No performance data found. Run some tasks first!");
-          return;
-        }
-    
-        const lines = readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
-        const records: AgentSessionRecord[] = lines.map((l) => JSON.parse(l));
-    
-        console.log("\n🕵️  Agent Performance Audit");
-        console.log("===========================");
-    
-        const improvements: { id: string; msg: string; action: string; priority: number }[] = [];
-    
-        // 1. Check for high research turns (Discovery issues)
-        const highResearch = records.filter((r) => r.researchTurns > 5);
-        if (highResearch.length > 0) {
-          const avg = highResearch.reduce((sum, r) => sum + r.researchTurns, 0) / highResearch.length;
-          improvements.push({
-            id: "discovery",
-            msg: `High Research Turns detected (Avg: ${avg.toFixed(1)})`,
-            action: "Run 'mbe pack <directory>' on frequently touched directories to compress context.",
-            priority: avg > 8 ? 1 : 2,
-          });
-        }
-    
-        // 2. Check for low first-pass success (Guardrail issues)
-        const failures = records.filter((r) => !r.firstPassSuccess);
-        if (failures.length > 0) {
-          const rate = (failures.length / records.length) * 100;
-          improvements.push({
-            id: "guardrails",
-            msg: `${rate.toFixed(1)}% of tasks failed on first pass`,
-            action: "Identify the failure pattern and implement a new Custom ESLint Rule (Phase 27).",
-            priority: rate > 20 ? 1 : 2,
-          });
-        }
-    
-        // 3. Check for human interventions (Guideline issues)
-        const interventions = records.filter((r) => r.humanInterventions > 0);
-        if (interventions.length > 0) {
-          improvements.push({
-            id: "guidelines",
-            msg: `Human interventions detected in ${interventions.length} sessions`,
-            action:
-              "Update AGENTS.md with specific naming or architectural guidelines to eliminate ambiguity.",
-            priority: 1,
-          });
-        }
-    
-        if (improvements.length === 0) {
-          console.log("✅ No significant process bottlenecks detected! Your AI velocity is optimized.");
-          return;
-        }
-    
-        // Sort by priority
-        improvements.sort((a, b) => a.priority - b.priority);
-    
-        console.log("Identified Optimization Opportunities:");
-        improvements.forEach((imp, i) => console.log(`${i + 1}. ${imp.msg}. ACTION: ${imp.action}`));
-    
-        // Save findings for recursion detection
-        writeFileSync(
-          lastAuditFile,
-          JSON.stringify({ timestamp: new Date().toISOString(), improvements }, null, 2)
-        );
-    
-        // Auto-plan generation
-        if (options.autoPlan && improvements.length > 0) {
-          const top = improvements[0];
-          if (!top) return;
-          const quickDir = join(root, ".planning/quick");
-          const planPath = join(quickDir, "AUTO-PERF-OPTIMIZATION.md");
-    
-          if (!existsSync(quickDir)) mkdirSync(quickDir, { recursive: true });
-    
-          const planContent = `# Auto-Generated Performance Optimization: ${top.id}\n\n**Source**: mbe audit-perf\n**Detected Issue**: ${top.msg}\n\n## Objective\n${top.action}\n\n## Implementation Steps\n1. Analyze the last 5 sessions in \`metrics/agent-perf.jsonl\` to find specific files.\n2. Apply the recommended optimization.\n3. Verify improvement by running \`mbe stats\`.\n`;
-    
-          writeFileSync(planPath, planContent);
-          console.log(`\n🚀 Created autonomous optimization plan at: ${planPath}`);
-        }
-    
-        console.log("");
-      });
-  </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     export const syncRulesRun = defineCommand({
       requiresAuth: false,
@@ -7400,175 +7053,6 @@
       },
     });
     export const usersCommand = new Command("users").description("User management commands");
-  </file>
-  <file path="tools/cli/src/commands/visual.ts">
-    export const visualCommand = new Command("visual")
-      .description("Run visual regression tests via Playwright")
-      .argument("[filter]", "Filter tests by component ID (e.g., button)")
-      .option("-u, --update", "Update visual baselines", false)
-      .action(async (filter: string | undefined, options) => {
-        const root = findMonorepoRoot(process.cwd());
-        console.log(`🚀 Running visual regression tests${filter ? ` for: "${filter}"` : ""}...`);
-    
-        const args = ["playwright", "test", "e2e/visual.spec.ts"];
-        if (filter) {
-          args.push("-g", filter);
-        }
-        if (options.update) {
-          args.push("--update-snapshots");
-        }
-    
-        const testProcess = spawn("pnpm", ["--filter", "@mbe/rialto-web", "exec", ...args], {
-          cwd: root,
-          stdio: "inherit",
-        });
-    
-        testProcess.on("close", (code) => {
-          if (code === 0) {
-            console.log("\n✅ Visual tests passed.");
-          } else {
-            console.error(`\n❌ Visual tests failed with code ${code}.`);
-          }
-          process.exit(code || 0);
-        });
-      });
-  </file>
-  <file path="tools/cli/src/commands/wave.ts">
-    interface WaveResult {
-      task: string;
-      branchName: string;
-      worktreePath: string;
-      success: boolean;
-      error?: string;
-    }
-    export const waveCommand = new Command("wave")
-      .description("Execute multiple tasks in parallel using git worktrees")
-      .argument("<tasks...>", "List of tasks to execute")
-      .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
-      .option("--base-branch <branch>", "Base branch to branch from", "main")
-      .option(
-        "--adapter <type>",
-        "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
-        "claude"
-      )
-      .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
-      .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
-      .option("--max-turns <n>", "Maximum turns per agent", "100")
-      .action(async (tasks: string[], options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const maxParallel = parseInt(options.maxParallel, 10) || 3;
-        const maxBudget = parseFloat(options.maxBudget) || 2;
-        const maxTurns = parseInt(options.maxTurns, 10) || 100;
-        console.log(`🚀 Starting Wave with ${tasks.length} tasks (max parallel: ${maxParallel})...`);
-    
-        const results: WaveResult[] = [];
-        const queue = [...tasks];
-        const active = new Set<Promise<void>>();
-    
-        const runTask = async (task: string) => {
-          let worktree;
-          try {
-            console.log(`\n🌊 Spawning worktree for task: "${task}"`);
-            worktree = await createWorktree(root, options.baseBranch, task);
-    
-            console.log(`   Branch: ${worktree.branchName}`);
-            console.log(`   Path:   ${worktree.path}`);
-    
-            // Run agent in the worktree
-            const agentArgs = [
-              "agent",
-              "run",
-              task,
-              "--no-pr",
-              "--adapter",
-              options.adapter,
-              "--model",
-              options.model,
-              "--max-budget",
-              String(maxBudget),
-              "--max-turns",
-              String(maxTurns),
-            ];
-            const agentProcess = spawn("mbe", agentArgs, {
-              cwd: worktree.path,
-              stdio: "inherit",
-            });
-    
-            const success = await new Promise<boolean>((resolve) => {
-              agentProcess.on("close", (code) => resolve(code === 0));
-            });
-    
-            results.push({
-              task,
-              branchName: worktree.branchName,
-              worktreePath: worktree.path,
-              success,
-            });
-    
-            if (success) {
-              console.log(`✅ Task succeeded: "${task}"`);
-            } else {
-              console.log(`❌ Task failed:    "${task}"`);
-            }
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error(`💥 Error running task "${task}":`, msg);
-            results.push({
-              task,
-              branchName: worktree?.branchName || "unknown",
-              worktreePath: worktree?.path || "unknown",
-              success: false,
-              error: msg,
-            });
-          }
-        };
-    
-        while (queue.length > 0 || active.size > 0) {
-          while (queue.length > 0 && active.size < maxParallel) {
-            const task = queue.shift()!;
-            const promise = runTask(task).then(() => {
-              active.delete(promise);
-            });
-            active.add(promise);
-          }
-          if (active.size > 0) {
-            await Promise.race(active);
-          }
-        }
-    
-        console.log("\n🏁 Wave execution complete. Processing results...");
-    
-        // Final sequential merge
-        const successful = results.filter((r) => r.success);
-        if (successful.length > 0) {
-          console.log(`\nMerging ${successful.length} successful branches into current branch...`);
-          for (const res of successful) {
-            try {
-              console.log(`   Merging ${res.branchName}...`);
-              execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
-            } catch {
-              console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
-            }
-          }
-        }
-    
-        // Cleanup worktrees
-        console.log("\n🧹 Cleaning up worktrees...");
-        for (const res of results) {
-          if (res.worktreePath !== "unknown") {
-            await removeWorktree(root, res.worktreePath).catch(() => {});
-          }
-        }
-    
-        console.log("\n✨ Done.");
-    
-        const failed = results.filter((r) => !r.success);
-        if (failed.length > 0) {
-          console.log(`\n⚠️  ${failed.length} tasks failed:`);
-          failed.forEach((f) => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
-          process.exit(1);
-        }
-      });
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
     export const whoamiRun = defineCommand({
@@ -12986,9 +12470,8 @@
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
-      navigate: (path: string) => void;
+      runAction: (action: NavAction) => void;
       toggleTheme: () => void;
-      signOut: () => void;
     }
     interface UseCommandPaletteResult {
       readonly open: boolean;
@@ -13001,7 +12484,7 @@
     }
     function buildNavItems(
       sections: readonly NavSection[],
-      navigate: (path: string) => void
+      runAction: (action: NavAction) => void
     ): CommandItem[] {
       return sections.flatMap((section) => {
         const group = sectionGroupName(section);
@@ -13009,14 +12492,13 @@
           id: item.id,
           label: item.label,
           group,
-          onSelect: () => navigate(item.path),
+          onSelect: () => runAction(item.action),
         }));
       });
     }
     function buildActionItems(
-      navigate: (path: string) => void,
-      toggleTheme: () => void,
-      signOut: () => void
+      runAction: (action: NavAction) => void,
+      toggleTheme: () => void
     ): CommandItem[] {
       return [
         {
@@ -13025,31 +12507,25 @@
           group: "Actions",
           // Carries the intent the Reservations page reads on arrival (architecture § Amendment
           // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
-          onSelect: () => navigate("/reservations?new=true"),
+          onSelect: () => runAction({ type: "route", path: "/reservations?new=true" }),
         },
         {
           id: "action-walkin",
           label: "Walk-in guest",
           group: "Actions",
-          onSelect: () => navigate("/timeline?walkin=true"),
+          onSelect: () => runAction({ type: "route", path: "/timeline?walkin=true" }),
         },
         {
           id: "action-new-floor-plan",
           label: "New Floor Plan",
           group: "Actions",
-          onSelect: () => navigate("/floor-plans"),
+          onSelect: () => runAction({ type: "route", path: "/floor-plans" }),
         },
         {
           id: "action-toggle-theme",
           label: "Toggle Theme",
           group: "Actions",
           onSelect: toggleTheme,
-        },
-        {
-          id: "action-sign-out",
-          label: "Sign Out",
-          group: "Actions",
-          onSelect: signOut,
         },
       ];
     }
@@ -13062,18 +12538,14 @@
     }
     export function useCommandPalette({
       sections,
-      navigate,
+      runAction,
       toggleTheme,
-      signOut,
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
       const items = useMemo(
-        () => [
-          ...buildNavItems(sections, navigate),
-          ...buildActionItems(navigate, toggleTheme, signOut),
-        ],
-        [sections, navigate, toggleTheme, signOut]
+        () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
+        [sections, runAction, toggleTheme]
       );
     
       const groups = useMemo(() => buildGroups(sections), [sections]);
@@ -13151,25 +12623,30 @@
       }
     }
     export interface ThemeContextValue {
+      /** The stored preference (`"system"` included). */
       readonly theme: ThemePreference;
+      /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+      readonly resolvedTheme: "light" | "dark";
       readonly setTheme: (theme: ThemePreference) => void;
     }
     export const ThemeContext = createContext<ThemeContextValue>({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: () => {},
     });
     export function useTheme(): ThemeContextValue {
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
     
       return useMemo(
         () => ({
           theme: preference,
+          resolvedTheme,
           setTheme,
         }),
-        [preference, setTheme]
+        [preference, resolvedTheme, setTheme]
       );
     }
     export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
@@ -15164,19 +14641,35 @@
   </file>
   <file path="packages/rialto/src/hooks/useEscapeKey.ts">
     export function useEscapeKey(onClose: () => void, enabled: boolean): void {
+      // Latest callback lives in a ref so an inline `onClose` (new identity every render) never
+      // re-registers the layer — re-registering would move it to the top of the stack.
+      const onCloseRef = useRef(onClose);
+      useLayoutEffect(() => {
+        onCloseRef.current = onClose;
+      });
+    
       useEffect(() => {
         if (!enabled) return;
+    
+        const token = Symbol("overlay");
+        overlayStack.push(token);
     
         const handler = (e: KeyboardEvent) => {
           // An Escape a nested widget already consumed (a combobox closing its listbox calls
           // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
           if (e.defaultPrevented) return;
-          if (e.key === "Escape") onClose();
+          if (e.key !== "Escape") return;
+          if (overlayStack[overlayStack.length - 1] !== token) return;
+          onCloseRef.current();
         };
     
         document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-      }, [enabled, onClose]);
+        return () => {
+          document.removeEventListener("keydown", handler);
+          const index = overlayStack.indexOf(token);
+          if (index !== -1) overlayStack.splice(index, 1);
+        };
+      }, [enabled]);
     }
   </file>
   <file path="packages/rialto/src/hooks/useField.ts">
@@ -15478,31 +14971,57 @@
   </file>
   <file path="packages/rialto/src/hooks/useThemeState.ts">
     export type ThemePreference = "light" | "dark" | "system";
+    export const THEME_STORAGE_KEY = "mbe-theme-preference";
+    function isPreference(value: unknown): value is ThemePreference {
+      return value === "light" || value === "dark" || value === "system";
+    }
     function getStoredTheme(): ThemePreference {
       if (typeof window === "undefined") return "system";
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        return isPreference(stored) ? stored : "system";
       } catch {
-        // localStorage unavailable
+        // localStorage unavailable — the in-memory choice is the only record
+        return memoryPreference ?? "system";
       }
+    }
+    function getServerPreference(): ThemePreference {
       return "system";
     }
     function storeTheme(theme: ThemePreference): void {
       if (typeof window === "undefined") return;
       try {
-        localStorage.setItem(STORAGE_KEY, theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         // Theme still works in memory
+        memoryPreference = theme;
       }
     }
+    function subscribePreference(onChange: () => void): () => void {
+      preferenceListeners.add(onChange);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === null || event.key === THEME_STORAGE_KEY) onChange();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        preferenceListeners.delete(onChange);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function hasMatchMedia(): boolean {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function";
+    }
+    function getOsDark(): boolean {
+      return hasMatchMedia() && window.matchMedia(DARK_QUERY).matches;
+    }
+    function subscribeOsDark(onChange: () => void): () => void {
+      if (!hasMatchMedia()) return () => {};
+      const mql = window.matchMedia(DARK_QUERY);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    }
     export function resolveTheme(pref: ThemePreference): "light" | "dark" {
-      if (pref === "system") {
-        if (typeof window === "undefined") return "light";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
+      if (pref === "system") return getOsDark() ? "dark" : "light";
       return pref;
     }
     export interface ThemeState {
@@ -15512,18 +15031,18 @@
       readonly toggleTheme: () => void;
     }
     export function useThemeState(): ThemeState {
-      const [preference, setPreferenceState] = useState<ThemePreference>(getStoredTheme);
+      const preference = useSyncExternalStore(subscribePreference, getStoredTheme, getServerPreference);
+      const osDark = useSyncExternalStore(subscribeOsDark, getOsDark, () => false);
+    
+      const theme = preference === "system" ? (osDark ? "dark" : "light") : preference;
     
       const setTheme = useCallback((next: ThemePreference) => {
         storeTheme(next);
-        setPreferenceState(next);
+        preferenceListeners.forEach((listener) => listener());
       }, []);
     
-      const theme = useMemo(() => resolveTheme(preference), [preference]);
-    
       const toggleTheme = useCallback(() => {
-        const next: ThemePreference = theme === "dark" ? "light" : "dark";
-        setTheme(next);
+        setTheme(theme === "dark" ? "light" : "dark");
       }, [theme, setTheme]);
     
       return { preference, theme, setTheme, toggleTheme };
@@ -15960,6 +15479,29 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/spec.ts">
+    export interface SpecStats {
+      elementCount: number;
+      componentTypes: string[];
+    }
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    export function decodeSpec(value: unknown): Spec | null {
+      if (!isRecord(value)) return null;
+      if (typeof value.root !== "string" || !isRecord(value.elements)) return null;
+      for (const element of Object.values(value.elements)) {
+        if (!isRecord(element) || typeof element.type !== "string") return null;
+      }
+      return value as unknown as Spec;
+    }
+    export function specStats(spec: Spec | null): SpecStats | null {
+      if (!spec) return null;
+      const elements = Object.values(spec.elements);
+      const types = new Set(elements.map((element) => element.type));
+      return { elementCount: elements.length, componentTypes: Array.from(types).sort() };
+    }
+  </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
     export type ApiErrorCategory = ErrorCategory | "network" | "timeout";
     export type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
@@ -16846,8 +16388,7 @@
       });
     
       const activeEntry = activeId ? specs.find((s) => s.id === activeId) : undefined;
-      // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
-      const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+      const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
       const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
@@ -39653,11 +39194,35 @@
       readonly env: ImportMetaEnv;
     }
   </file>
+  <file path="apps/hospitality/src/nav-actions.ts">
+    export type NavAction =
+      | { readonly type: "route"; readonly path: string }
+      | { readonly type: "chat" }
+      | { readonly type: "signout" };
+    export interface NavActionHandlers {
+      navigate: (path: string) => void;
+      toggleChat: () => void;
+      signOut: () => void;
+    }
+    export function runNavAction(action: NavAction, handlers: NavActionHandlers): void {
+      switch (action.type) {
+        case "route":
+          handlers.navigate(action.path);
+          return;
+        case "chat":
+          handlers.toggleChat();
+          return;
+        case "signout":
+          handlers.signOut();
+          return;
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/nav-sections.ts">
     export interface NavItem {
       id: string;
       label: string;
-      path: string;
+      action: NavAction;
       /** Setup step status — drives icon before the label */
       stepStatus?: "completed" | "current" | "locked";
       /** Prevents click and applies muted style */
@@ -39690,7 +39255,7 @@
         return {
           id: `setup-${step}`,
           label: STEP_LABELS[step],
-          path: STEP_PATHS[step],
+          action: { type: "route", path: STEP_PATHS[step] },
           stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
           disabled: isLocked,
         };
@@ -39706,20 +39271,28 @@
     function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
       const PRIMARY: NavSection = {
         items: [
-          { id: "briefing", label: "Tonight's Service", path: "/briefing" },
-          { id: "timeline", label: "Timeline", path: "/timeline" },
-          { id: "reservations", label: "Reservations", path: "/reservations" },
-          { id: "waitlist", label: "Waitlist", path: "/waitlist" },
-          { id: "guests", label: "Guests", path: "/guests" },
-          { id: "home", label: "Dashboard", path: "/dashboard" },
+          { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
+          { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
+          {
+            id: "reservations",
+            label: "Reservations",
+            action: { type: "route", path: "/reservations" },
+          },
+          { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
+          { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
+          { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
         ],
       };
     
       const MANAGE: NavSection = {
         label: "Manage",
         items: [
-          { id: "floor-plans", label: "Floor Plans", path: "/floor-plans" },
-          { id: "booking-widget", label: "Booking Widget", path: "/booking-widget" },
+          { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
+          {
+            id: "booking-widget",
+            label: "Booking Widget",
+            action: { type: "route", path: "/booking-widget" },
+          },
         ],
       };
     
@@ -50446,8 +50019,9 @@
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const p = pool as any;
         const total = p.totalCount ?? 0;
-        const active = p.activeCount ?? 0;
         const idle = p.idleCount ?? 0;
+        // pg-pool has no activeCount getter; checked-out connections = total - idle.
+        const active = Math.max(total - idle, 0);
         const waiting = p.waitingCount ?? 0;
         return {
           total,
@@ -54330,6 +53904,18 @@
       readonly method?: string;
       readonly path?: string;
     }
+    export interface ReportableValidationError {
+      readonly name: "ApiValidationError";
+      readonly message: string;
+      readonly method?: string;
+      readonly path?: string;
+      readonly error: { readonly issues: readonly unknown[] };
+    }
+    function isValidationError(
+      error: ReportableApiError | ReportableValidationError
+    ): error is ReportableValidationError {
+      return "name" in error && error.name === "ApiValidationError";
+    }
     export interface InitOptions {
       readonly appName: string;
       readonly dsn: string;
@@ -54365,7 +53951,19 @@
         Sentry.captureException(error);
       });
     }
-    export function reportApiError(error: ReportableApiError): void {
+    export function reportApiError(error: ReportableApiError | ReportableValidationError): void {
+      if (isValidationError(error)) {
+        Sentry.withScope((scope) => {
+          scope.setContext("apiValidation", {
+            method: error.method,
+            path: error.path,
+            issues: error.error.issues,
+          });
+          Sentry.captureException(error);
+        });
+        return;
+      }
+    
       const code = error.statusCode;
     
       Sentry.addBreadcrumb({
@@ -58946,12 +58544,6 @@
     export function statusWord(reservation: Reservation, seated: boolean): string {
       return seated ? "Seated" : STATUS_LABEL[reservation.status];
     }
-    function isSeatableStatus(reservation: Reservation): boolean {
-      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
-    }
-    export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
-      return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
-    }
     function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
       if (reservation.status !== "CONFIRMED") return false;
       const start = new Date(reservation.startTime).getTime();
@@ -61007,6 +60599,28 @@
           .filter((reservation) => isSeated(reservation, statusByTableId.get(reservation.tableId), now))
           .map((reservation) => reservation.id)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/seating.ts">
+    function tableAcceptsParty(table: Pick<Table, "status">): boolean {
+      return TABLE_VALID_TRANSITIONS[table.status].includes("OCCUPIED");
+    }
+    export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean {
+      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
+    }
+    export function canSeat(
+      reservation: Pick<Reservation, "status">,
+      table: Pick<Table, "status"> | undefined
+    ): boolean {
+      return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
+    }
+    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+      tables: readonly T[],
+      partySize: number
+    ): T[] {
+      return tables
+        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .sort((a, b) => a.capacity - b.capacity);
     }
   </file>
   <file path="apps/hospitality/src/utils/service-day.ts">

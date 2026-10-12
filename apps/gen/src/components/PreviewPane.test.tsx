@@ -78,6 +78,15 @@ const defaultProps = {
   isRefinementMode: false,
 };
 
+const FLAT_SPEC: Spec = {
+  root: "box",
+  elements: {
+    box: { type: "Box", props: {}, children: ["text", "button"] },
+    text: { type: "Text", props: {}, children: [] },
+    button: { type: "Button", props: {}, children: [] },
+  },
+};
+
 describe("PreviewPane", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,7 +96,7 @@ describe("PreviewPane", () => {
   });
 
   it("renders viewport controls when spec is provided", () => {
-    const spec = { type: "Box", children: [] } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} />);
     expect(screen.getByTestId("segmented-control")).toBeDefined();
     expect(screen.getByText("Desktop")).toBeDefined();
@@ -140,23 +149,20 @@ describe("PreviewPane", () => {
   });
 
   it("renders spec stats when spec is provided and activeSpecId is set", () => {
-    const spec = {
-      type: "Box",
-      children: [{ type: "Text" }, { type: "Button" }],
-    } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" />);
     expect(screen.getByText(/3 elements/)).toBeDefined();
   });
 
   it("shows Share and Refine buttons when activeSpecId is set and not streaming", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" />);
     expect(screen.getByText("Share")).toBeDefined();
     expect(screen.getByText("Refine")).toBeDefined();
   });
 
   it("shows Refining text when isRefinementMode is true", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(
       <PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" isRefinementMode={true} />
     );
@@ -165,7 +171,7 @@ describe("PreviewPane", () => {
 
   it("calls onRefine when Refine button is clicked", () => {
     const onRefine = vi.fn();
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" onRefine={onRefine} />);
     fireEvent.click(screen.getByText("Refine"));
     expect(onRefine).toHaveBeenCalledTimes(1);
@@ -174,7 +180,7 @@ describe("PreviewPane", () => {
   it("calls clipboard API when Copy JSON button is clicked", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" />);
     fireEvent.click(screen.getByText("Copy JSON"));
     expect(writeText).toHaveBeenCalledWith(JSON.stringify(spec, null, 2));
@@ -186,14 +192,14 @@ describe("PreviewPane", () => {
   });
 
   it("does not show action bar when activeSpecId is null", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} activeSpecId={null} />);
     expect(screen.queryByText("Share")).toBeNull();
     expect(screen.queryByText("Refine")).toBeNull();
   });
 
   it("shows Expand button when onToggleFullscreen is provided and spec is present", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     const onToggleFullscreen = vi.fn();
     render(
       <PreviewPane
@@ -207,7 +213,7 @@ describe("PreviewPane", () => {
   });
 
   it("calls onToggleFullscreen when Expand button is clicked", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     const onToggleFullscreen = vi.fn();
     render(
       <PreviewPane
@@ -222,7 +228,7 @@ describe("PreviewPane", () => {
   });
 
   it("renders Renderer when spec is provided", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} />);
     expect(screen.getByTestId("renderer")).toBeDefined();
   });
@@ -233,7 +239,7 @@ describe("PreviewPane", () => {
   });
 
   it("shows Collapse button text when isFullscreen is true", () => {
-    const spec = { type: "Box" } as unknown as Spec;
+    const spec = FLAT_SPEC;
     const onToggleFullscreen = vi.fn();
     render(
       <PreviewPane

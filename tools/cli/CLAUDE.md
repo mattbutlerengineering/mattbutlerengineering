@@ -14,7 +14,6 @@ src/
 │   ├── agent-frontmatter.ts  # agent frontmatter — parse yaml agent block from issue body
 │   ├── adr.ts         # check-adr — validate Architecture Decision Records
 │   ├── check-deps.ts  # check-deps — dependency version enforcement
-│   ├── cleanup-worktrees.ts  # cleanup-worktrees — remove stale git worktrees
 │   ├── generate.ts    # generate — scaffold code from templates
 │   ├── health.ts      # health — check service/infra health endpoints
 │   ├── issue.ts       # issue transition — apply label-machine state transitions
@@ -24,13 +23,9 @@ src/
 │   ├── mcp.ts         # mcp — MCP server management
 │   ├── new.ts         # new — scaffold new packages/services
 │   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
-│   ├── prime.ts       # prime — prepare repo context for AI agents
-│   ├── stats.ts       # stats/log-session/audit-perf — agent performance metrics
 │   ├── sync-rules.ts  # sync-rules — sync Claude rules across packages
 │   ├── up.ts          # up — start dev servers
 │   ├── users.ts       # users — API user management
-│   ├── visual.ts      # visual — UI development tools
-│   ├── wave.ts        # wave — parallel agent execution
 │   └── whoami.ts      # whoami — show current user
 └── __tests__/         # Test files
 ```
@@ -75,7 +70,6 @@ gh issue view <n> --json body -q .body | mbe agent frontmatter
 ```bash
 mbe pack <package>         # Generate llms.txt for a package
 mbe pack-changed           # Regenerate llms.txt for changed packages (git hook)
-mbe prime                  # Prepare full repo context for agents
 mbe sync-rules             # Sync Claude rules across packages
 ```
 
@@ -87,17 +81,8 @@ mbe new <type> <name>      # Scaffold new package/service
 mbe generate <template>    # Generate code from templates
 mbe check-adr --staged     # Validate staged changes against ADRs
 mbe check-deps             # Enforce dependency version constraints
-mbe cleanup-worktrees      # Remove stale agent worktrees
 mbe issue transition <n>   # Apply a label-machine state transition to a GitHub issue
   --to <state>              # ready|in-progress|has-pr|agent-failed|agent-skip
-```
-
-### Observability
-
-```bash
-mbe stats                  # Agent performance metrics
-mbe log-session            # Log a session for tracking
-mbe audit-perf             # Audit agent performance trends
 ```
 
 ### Model Governance

@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
-import { useThemeState as useSharedThemeState } from "@mattbutlerengineering/rialto";
+import {
+  useThemeState as useSharedThemeState,
+  THEME_STORAGE_KEY,
+} from "@mattbutlerengineering/rialto";
 
 export { resolveTheme } from "@mattbutlerengineering/rialto";
 export type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
 import type { ThemePreference } from "@mattbutlerengineering/rialto";
-
-/** Must match rialto's `useThemeState` storage key (packages/rialto/src/hooks/useThemeState.ts). */
-const THEME_STORAGE_KEY = "mbe-theme-preference";
 
 function hasStoredThemePreference(): boolean {
   try {
@@ -20,12 +20,16 @@ function hasStoredThemePreference(): boolean {
 /* ── Context ────────────────────────────────────── */
 
 export interface ThemeContextValue {
+  /** The stored preference (`"system"` included). */
   readonly theme: ThemePreference;
+  /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+  readonly resolvedTheme: "light" | "dark";
   readonly setTheme: (theme: ThemePreference) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue>({
   theme: "system",
+  resolvedTheme: "light",
   setTheme: () => {},
 });
 
@@ -41,14 +45,15 @@ export function useTheme(): ThemeContextValue {
  * Reads the initial value from localStorage and persists changes back.
  */
 export function useThemeState(): ThemeContextValue {
-  const { preference, setTheme } = useSharedThemeState();
+  const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
 
   return useMemo(
     () => ({
       theme: preference,
+      resolvedTheme,
       setTheme,
     }),
-    [preference, setTheme]
+    [preference, resolvedTheme, setTheme]
   );
 }
 

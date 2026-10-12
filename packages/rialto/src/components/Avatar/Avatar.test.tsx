@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { Avatar } from "./Avatar";
+import { axe } from "vitest-axe";
+import { Avatar, AvatarGroup } from "./Avatar";
 import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
 
 // Full motion by default so the splitflap effect is not short-circuited; the
@@ -60,5 +61,18 @@ describe("Avatar", () => {
       rerender(<Avatar src="/a.jpg" name="A" transition="splitflap" />);
       expect(screen.queryByTestId("avatar-flap-stage")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("AvatarGroup", () => {
+  it("gives the overflow badge an accessible name and no axe violations", async () => {
+    const { container } = render(
+      <AvatarGroup avatars={[{ name: "Alice" }, { name: "Bob" }, { name: "Cara" }]} max={2} />
+    );
+
+    expect(screen.getByRole("img", { name: "1 more" })).toBeInTheDocument();
+    expect(
+      await axe(container, { rules: { "color-contrast": { enabled: false } } })
+    ).toHaveNoViolations();
   });
 });

@@ -7,6 +7,7 @@ import { createErrorRecoveryPrompt } from "./createErrorRecoveryPrompt.js";
 import { isTransportError } from "./classifyGenerationError.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
+import { decodeSpec } from "../lib/spec.js";
 import type { StoredSpec } from "../types.js";
 
 // A real, safely-renderable "empty" Spec — exactly what @json-render/react's
@@ -134,8 +135,7 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   });
 
   const activeEntry = activeId ? specs.find((s) => s.id === activeId) : undefined;
-  // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
-  const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+  const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
   const activeEntryRawLines = activeEntry?.rawLines ?? [];
 
   const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
