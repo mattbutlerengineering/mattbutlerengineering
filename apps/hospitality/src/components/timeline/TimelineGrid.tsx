@@ -8,7 +8,7 @@ import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
 import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
 import { formatTime } from "../../utils/format.js";
-import { localDateString } from "../../utils/local-clock.js";
+import { deviceDate } from "../../utils/service-day.js";
 import styles from "./TimelineGrid.module.css";
 
 const HOUR_WIDTH = 120;
@@ -183,7 +183,7 @@ export function TimelineGrid({
   }, []);
 
   // Browser-local day (ux.md decision (a)): the UTC-keyed toDateString emptied the grid at 17:00 Pacific.
-  const isToday = date === localDateString(currentTime);
+  const isToday = date === deviceDate(currentTime);
   const currentTimeOffset = useMemo(() => {
     if (!isToday) return null;
     const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();

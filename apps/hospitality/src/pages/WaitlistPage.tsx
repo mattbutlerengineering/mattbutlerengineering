@@ -36,7 +36,7 @@ import { applyClear, applyPick, type PrefillSnapshot } from "../components/crm/g
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { localDateString } from "../utils/local-clock.js";
+import { deviceDate } from "../utils/service-day.js";
 import styles from "./WaitlistPage.module.css";
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -518,7 +518,7 @@ export function WaitlistPage() {
       action: {
         label: "View on Timeline",
         onClick: () =>
-          navigate(`/timeline?date=${localDateString(new Date())}&selected=${reservation.id}`),
+          navigate(`/timeline?date=${deviceDate(new Date())}&selected=${reservation.id}`),
       },
     });
     focusAfterRemoval(entry);

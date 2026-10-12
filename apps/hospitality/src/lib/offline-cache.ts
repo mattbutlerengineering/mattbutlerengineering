@@ -11,6 +11,7 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Reservation, TableStatusDelta } from "@mbe/types";
+import { deviceDate } from "../utils/service-day.js";
 
 /** Per-table status snapshot, as fetched by `api.tables.getStatuses` and
  * cached for offline fallback rendering by `FloorPlanCanvas` — see
@@ -73,7 +74,7 @@ function reservationsKey(venueId: string, date: string): string {
 
 /** Today's date as a `YYYY-MM-DD` key, using the current system clock. */
 function todayDateKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return deviceDate(new Date());
 }
 
 export async function getCachedReservations(

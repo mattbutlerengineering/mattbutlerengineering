@@ -7,7 +7,7 @@ import type {
   DepositConfig,
   PublicVenueConfig,
 } from "@mbe/types";
-import { toDateString } from "@mbe/types";
+import { venueDate } from "../../utils/service-day.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import { useBookingFlow, deriveStepKeys, MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ApiClientError } from "@mbe/api-client";
@@ -170,7 +170,7 @@ describe("useBookingFlow", () => {
 
     it("defaults selectedDate to today (#4981)", () => {
       const { result } = renderBookingFlow(makeFakeApi());
-      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
+      expect(result.current.data.selectedDate).toBe(venueDate(new Date()));
     });
 
     it("defaults selectedDate to today in the venue's timezone, not the device clock (#4981)", () => {
@@ -918,7 +918,7 @@ describe("useBookingFlow", () => {
       });
       act(() => result.current.actions.resetFlow());
       expect(result.current.state).toBe("date-party");
-      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
+      expect(result.current.data.selectedDate).toBe(venueDate(new Date()));
       expect(result.current.data.selectedEndDate).toBeNull();
       expect(result.current.data.partySize).toBe(2);
       expect(result.current.data.slots).toEqual([]);

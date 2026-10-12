@@ -4,7 +4,7 @@ import { MemoryRouter, useNavigate } from "react-router";
 import { WaitlistPage } from "./WaitlistPage.js";
 import { ApiClientError } from "@mbe/api-client";
 import { ERROR_COPY } from "../lib/describe-api-error.js";
-import { localDateString } from "../utils/local-clock.js";
+import { deviceDate } from "../utils/service-day.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import {
@@ -1088,7 +1088,7 @@ describe("WaitlistPage", () => {
       expect(toastInput.action.label).toBe("View on Timeline");
       toastInput.action.onClick();
       expect(mockNavigate).toHaveBeenCalledWith(
-        `/timeline?date=${localDateString(new Date())}&selected=res-77`
+        `/timeline?date=${deviceDate(new Date())}&selected=res-77`
       );
     });
 

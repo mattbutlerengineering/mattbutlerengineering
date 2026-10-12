@@ -1,6 +1,5 @@
 import { Input, Button } from "@mattbutlerengineering/rialto";
-import { toDateString } from "@mbe/types";
-import { todayInTimezone } from "./todayInTimezone.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import styles from "./DatePartySelector.module.css";
 
 export interface DatePartySelectorProps {
@@ -20,7 +19,7 @@ export interface DatePartySelectorProps {
   /**
    * IANA timezone the venue operates in — used to compute "today" on the
    * venue's clock rather than a UTC midnight boundary (#4981). Omit only
-   * when unknown; falls back to UTC-based `toDateString`.
+   * when unknown; falls back to the device clock.
    */
   venueTimezone?: string;
 }
@@ -45,12 +44,10 @@ export function DatePartySelector({
   phone,
   venueTimezone,
 }: DatePartySelectorProps) {
-  const today = todayInTimezone(new Date(), venueTimezone);
+  const today = venueDate(new Date(), venueTimezone);
   const effectiveMinDate = minDate ?? today;
 
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-  const effectiveMaxDate = maxDate ?? toDateString(thirtyDaysFromNow);
+  const effectiveMaxDate = maxDate ?? addDays(today, 30);
 
   const renderedMaxPartySize = Math.min(maxPartySize, MAX_RENDERED_PARTY_SIZE_BUTTONS);
   const partySizes = Array.from({ length: renderedMaxPartySize }, (_, i) => i + 1);

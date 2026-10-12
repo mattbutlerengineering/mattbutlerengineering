@@ -14,7 +14,7 @@ import {
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { todayInTimezone } from "./todayInTimezone.js";
+import { venueDate } from "../../utils/service-day.js";
 
 export type BookingStep =
   | "date-party"
@@ -135,13 +135,13 @@ const INITIAL_DATA: BookingFlowData = {
  * Builds the initial (or reset) flow state with `selectedDate` defaulted to
  * "today" in the venue's timezone (#4981) — the guest's first screen used to
  * show an empty date input and a disabled CTA with no explanation. Falls
- * back to `toDateString` (UTC-based) when `venueTimezone` isn't known yet;
- * see `todayInTimezone`.
+ * back to the device clock when `venueTimezone` isn't known yet;
+ * see `venueDate`.
  */
 function createInitialState(venueTimezone?: string): BookingFlowState {
   return {
     step: "date-party",
-    data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+    data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
   };
 }
 
@@ -401,7 +401,7 @@ export interface UseBookingFlowDeps {
   /**
    * IANA timezone the venue operates in — used to default `selectedDate` to
    * "today" on the venue's clock rather than a UTC midnight boundary
-   * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+   * (#4981). Omit only when unknown; falls back to the device clock.
    */
   venueTimezone?: string;
 }
@@ -660,7 +660,7 @@ export function useBookingFlow({
   }, []);
 
   const resetFlow = useCallback(() => {
-    dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+    dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
   }, [venueTimezone]);
 
   const setDepositConfig = useCallback(
