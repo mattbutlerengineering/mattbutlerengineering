@@ -49,3 +49,4 @@
 {"date":"2026-10-07","sensor":"queueEfficiency","available":false,"reason":"query_error"}
 {"date":"2026-10-08","sensor":"queueEfficiency","available":false,"reason":"query_error"}
 {"date":"2026-10-11","sensor":"queueEfficiency","available":false,"reason":"credential_rejected"}
+{"date":"2026-10-12","sensor":"queueEfficiency","available":false,"reason":"credential_rejected"}

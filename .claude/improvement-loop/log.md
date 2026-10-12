@@ -3252,3 +3252,8 @@ None (`agent-skip` count is 0). `#5962` (secret rotation) was left `ready` rathe
 **Threshold notes:** False-positive rate not computable this run — requires querying closed-issue `stateReason` via `gh issue list`, blocked by the same GraphQL constraint. Fix-effectiveness signal from `metrics/verifications.jsonl`'s 30-day window: 98 recorded verification attempts, 87 skipped (no verifier/no CI/no Lighthouse data available), 11 verified true, 0 failed — i.e. 100% effectiveness (11/11) among the subset actually checked, well above the 50% concern threshold. No threshold loosening indicated.
 
 **Blockers:** `scripts/sensor-report.mjs` initially failed with `ERR_MODULE_NOT_FOUND: @mbe/gh-client` — the fresh cloud checkout had no `node_modules` and `packages/gh-client` had no built `dist/`. Ran `pnpm install --frozen-lockfile` then `pnpm --dir packages/gh-client build` before the sensor report would run; no code change needed, just the standard worktree/fresh-checkout setup this repo's gotchas already document for `node_modules`-dependent scripts.
+
+## 2026-10-12
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0

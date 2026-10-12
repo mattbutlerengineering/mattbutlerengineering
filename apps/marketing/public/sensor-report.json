@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-11T18:04:26.254Z",
+  "generated_at": "2026-10-12T00:43:35.046Z",
   "period": {
-    "start": "2026-10-04",
-    "end": "2026-10-11"
+    "start": "2026-10-05",
+    "end": "2026-10-12"
   },
   "sensors": {
     "acmm": {
@@ -42,15 +42,15 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.06,
+          "age_days": 0.33,
           "latest": "2026-10-11T16:41:22.285Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.14,
-          "latest": "2026-10-11T14:36:30.000Z",
+          "age_days": 0.27,
+          "latest": "2026-10-11T18:18:27.000Z",
           "max_age_days": 3
         }
       ]
@@ -71,36 +71,36 @@
     "prCategoryMetrics": {
       "available": true,
       "total_prs": 98,
-      "total_merged": 93,
-      "total_closed_without_merge": 5,
+      "total_merged": 94,
+      "total_closed_without_merge": 4,
       "by_category": {
+        "tier:trivial": {
+          "merged": 35,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:standard": {
-          "merged": 31,
+          "merged": 28,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
           "merged": 20,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.87
-        },
-        "tier:trivial": {
-          "merged": 32,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+          "closed_without_merge": 2,
+          "acceptance_rate": 0.91
         },
         "unlabeled": {
-          "merged": 4,
+          "merged": 7,
           "closed_without_merge": 1,
-          "acceptance_rate": 0.8
+          "acceptance_rate": 0.88
+        },
+        "tier:critical": {
+          "merged": 3,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         },
         "meta-improvement": {
           "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:critical": {
-          "merged": 4,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -108,11 +108,6 @@
           "merged": 0,
           "closed_without_merge": 1,
           "acceptance_rate": 0
-        },
-        "agent-authored": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
         }
       }
     },
@@ -125,42 +120,56 @@
       "avg_cost_per_session": 0.79,
       "total_input_tokens_7d": 1120,
       "total_output_tokens_7d": 218008,
-      "avg_turns_per_session": 17.454545454545453
+      "avg_turns_per_session": 17.454545454545453,
+      "queue": {
+        "sessions_7d": 32,
+        "sessions_without_usage_7d": 40,
+        "tokens_7d": 4007000,
+        "cost_7d_usd": null,
+        "cost_known_sessions_7d": 0
+      }
     },
     "ccusageCost": {
       "available": true,
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1101699,
-      "output_tokens": 1313,
-      "cache_creation_tokens": 86983,
-      "cache_hit_rate": 0.9268,
+      "cache_read_tokens": 28280792,
+      "output_tokens": 64434,
+      "cache_creation_tokens": 512152,
+      "cache_hit_rate": 0.9822,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 18,
-          "output_tokens": 1313,
-          "cache_read_tokens": 1101699,
-          "cache_creation_tokens": 86983
+          "input_tokens": 311,
+          "output_tokens": 63891,
+          "cache_read_tokens": 27864675,
+          "cache_creation_tokens": 437990
+        },
+        "claude-haiku-5-5": {
+          "cost": 0,
+          "input_tokens": 14,
+          "output_tokens": 543,
+          "cache_read_tokens": 416117,
+          "cache_creation_tokens": 74162
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 18,
-      "passed": 11,
+      "completed": 30,
+      "passed": 24,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 38162268646,
-        "status": "queued",
-        "conclusion": null,
-        "createdAt": "2026-10-11T18:04:22Z",
-        "name": "Drift Fix",
+        "databaseId": 38189042496,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-10-12T00:42:29Z",
+        "name": "Auto-Merge Policy",
         "headBranch": "main",
-        "headSha": "73dc06091d92293c2ff9ce6d75b95f1e18f91b15"
+        "headSha": "7957a93d284952763e0d928d3ac1159ca2d1bef2"
       }
     },
     "lighthouse": {
@@ -173,22 +182,22 @@
     "issueFeedback": {
       "available": false,
       "error": "Command failed: gh issue list --state closed --limit 200 --json number,state,labels,createdAt,closedAt,stateReason --search label:audit label:ci-fix label:agent-failed label:meta-improvement label:sentry label:acmm label:feature label:dependencies\nnon-200 OK status code: 403 Forbidden body: \"{\\\"message\\\":\\\"GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...). For review threads, auto-merge, and draft/ready-for-review use the CCR routes on api.github.com: GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads, POST /repos/{owner}/{repo}/pulls/{n}/ccr/comments/{comment_id}/resolve (or /unresolve), PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge, POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review, POST /repos/{owner}/{repo}/pulls/{n}/ccr/convert_to_draft.\\\",\\\"documentation_url\\\":\\\"https://docs.anthropic.com/en/docs/claude-code/github-actions\\\"}\"\n",
-      "collected_at": "2026-10-10T18:08:57.642Z",
+      "collected_at": "2026-10-11T18:05:08.045Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 11,
+      "logs_7d": 11,
+      "total_commits_7d": 220,
+      "unique_branches_7d": 1,
+      "branches_7d": ["main"]
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.002,
-      "total_lines_added_7d": 712581,
-      "lines_churned_7d": 1440,
+      "churn_rate": 0.003,
+      "total_lines_added_7d": 714500,
+      "lines_churned_7d": 1960,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -200,8 +209,8 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 6977,
-      "window_shas": 1
+      "total_runs": 22516,
+      "window_shas": 4
     },
     "e2eStability": {
       "available": false
