@@ -7,7 +7,7 @@ import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerenginee
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
-import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
+import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { rememberReturnTo } from "./return-to-store";
 import { AuthConfigError } from "./components/AuthConfigError";
@@ -319,8 +319,9 @@ const router = createBrowserRouter(
 );
 
 /**
- * Wrapper that reads the persisted theme preference from localStorage
- * and passes it to RialtoProvider. Wrapped in its own component so the
+ * Wrapper that reads the persisted theme preference (rialto owns the storage
+ * key) and passes it, unresolved, to RialtoProvider — which follows the OS
+ * live when the preference is "system". Wrapped in its own component so the
  * `useThemeState` hook can live inside the React tree.
  */
 function Root() {
@@ -329,7 +330,7 @@ function Root() {
   if (!authConfigResult.valid) {
     return (
       <ThemeContext.Provider value={themeState}>
-        <RialtoProvider theme={resolveTheme(themeState.theme)}>
+        <RialtoProvider theme={themeState.theme}>
           <AuthConfigError missing={authConfigResult.missing} />
         </RialtoProvider>
       </ThemeContext.Provider>
@@ -338,7 +339,7 @@ function Root() {
 
   return (
     <ThemeContext.Provider value={themeState}>
-      <RialtoProvider theme={resolveTheme(themeState.theme)}>
+      <RialtoProvider theme={themeState.theme}>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>

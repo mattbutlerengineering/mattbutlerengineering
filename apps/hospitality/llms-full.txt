@@ -2328,25 +2328,30 @@
       }
     }
     export interface ThemeContextValue {
+      /** The stored preference (`"system"` included). */
       readonly theme: ThemePreference;
+      /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+      readonly resolvedTheme: "light" | "dark";
       readonly setTheme: (theme: ThemePreference) => void;
     }
     export const ThemeContext = createContext<ThemeContextValue>({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: () => {},
     });
     export function useTheme(): ThemeContextValue {
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
     
       return useMemo(
         () => ({
           theme: preference,
+          resolvedTheme,
           setTheme,
         }),
-        [preference, setTheme]
+        [preference, resolvedTheme, setTheme]
       );
     }
     export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {

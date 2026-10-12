@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router";
-import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
+import {
+  GlobalNav,
+  RialtoProvider,
+  useThemeState,
+  type VibeName,
+} from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
@@ -131,8 +136,6 @@ export function FloatingControls({
   );
 }
 
-const THEME_KEY = "mbe-theme-preference";
-
 export function DemoLayout() {
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -145,16 +148,10 @@ export function DemoLayout() {
   useScrollToTop();
 
   const [activeVibe, setActiveVibe] = useState<VibeName>("default");
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === "dark" || saved === "light") return saved === "dark";
-    } catch {
-      // localStorage unavailable
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  // Theme comes from the same shared store as the app root's RialtoProvider,
+  // so the demo and the root provider can never disagree about <html data-theme>.
+  const { theme: demoTheme, setTheme } = useThemeState();
+  const darkMode = demoTheme === "dark";
   const [rtl, setRtl] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("rialto-dir") === "rtl";
@@ -169,19 +166,12 @@ export function DemoLayout() {
   };
 
   const handleDarkModeChange = (value: boolean) => {
-    setDarkMode(value);
-    try {
-      localStorage.setItem(THEME_KEY, value ? "dark" : "light");
-    } catch {
-      // Theme still works in memory
-    }
+    setTheme(value ? "dark" : "light");
   };
 
   useEffect(() => {
     localStorage.setItem("rialto-dir", rtl ? "rtl" : "ltr");
   }, [rtl]);
-
-  const demoTheme: "light" | "dark" = darkMode ? "dark" : "light";
 
   return (
     <RialtoProvider vibe={activeVibe} theme={demoTheme}>

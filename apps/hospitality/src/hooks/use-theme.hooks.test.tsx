@@ -4,9 +4,8 @@ import { useTheme, ThemeContext, useThemeState, useThemeServerHydration } from "
 import { useThemeState as useSharedThemeState } from "@mattbutlerengineering/rialto";
 import React from "react";
 
-const THEME_STORAGE_KEY = "mbe-theme-preference";
-
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  THEME_STORAGE_KEY: "mbe-theme-preference",
   useThemeState: vi.fn(),
   resolveTheme: vi.fn((t) => t),
 }));
@@ -14,7 +13,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 describe("useTheme", () => {
   it("returns theme from context", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <ThemeContext.Provider value={{ theme: "dark", setTheme: vi.fn() }}>
+      <ThemeContext.Provider value={{ theme: "dark", resolvedTheme: "dark", setTheme: vi.fn() }}>
         {children}
       </ThemeContext.Provider>
     );
@@ -48,7 +47,7 @@ describe("useThemeServerHydration", () => {
   function renderWithTheme(serverTheme: "light" | "dark" | "system" | undefined) {
     const setTheme = vi.fn();
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <ThemeContext.Provider value={{ theme: "system", setTheme }}>
+      <ThemeContext.Provider value={{ theme: "system", resolvedTheme: "light", setTheme }}>
         {children}
       </ThemeContext.Provider>
     );
@@ -63,7 +62,7 @@ describe("useThemeServerHydration", () => {
   });
 
   it("never overwrites an explicit local choice", () => {
-    localStorage.setItem(THEME_STORAGE_KEY, "light");
+    localStorage.setItem("mbe-theme-preference", "light");
     const { setTheme } = renderWithTheme("dark");
     expect(setTheme).not.toHaveBeenCalled();
   });

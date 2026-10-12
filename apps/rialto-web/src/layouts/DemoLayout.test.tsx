@@ -4,7 +4,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useNavigate } from "react-router";
 import { DemoLayout, FloatingControls } from "./DemoLayout.js";
 
-vi.mock("@mattbutlerengineering/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
+  // Real theme store: DemoLayout shares it with the app root.
+  useThemeState: (await importOriginal<Record<string, unknown>>()).useThemeState,
   GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
     <nav data-testid="global-nav">
       <button onClick={onThemeToggle} data-testid="theme-toggle">

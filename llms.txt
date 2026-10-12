@@ -3741,6 +3741,7 @@
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
+        resolvedTheme: "light" | "dark";
         setTheme: (theme: ThemePreference) => void;
       }
     </item>
@@ -4750,11 +4751,32 @@
     <item priority="low">
       type ThemePreference = "light" | "dark" | "system";
     </item>
+    <item priority="high">
+      export const THEME_STORAGE_KEY: unknown;
+    </item>
+    <item priority="medium">
+      function isPreference(value: unknown): value is ThemePreference { /* ... */ }
+    </item>
     <item priority="medium">
       function getStoredTheme(): ThemePreference { /* ... */ }
     </item>
     <item priority="medium">
+      function getServerPreference(): ThemePreference { /* ... */ }
+    </item>
+    <item priority="medium">
       function storeTheme(theme: ThemePreference): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribePreference(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasMatchMedia(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getOsDark(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribeOsDark(onChange: () => void): () => void { /* ... */ }
     </item>
     <item priority="high">
       export function resolveTheme(pref: ThemePreference): "light" | "dark" { /* ... */ }
