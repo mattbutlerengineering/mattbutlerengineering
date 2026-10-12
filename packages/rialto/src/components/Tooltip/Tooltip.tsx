@@ -7,6 +7,7 @@ import {
   useId,
   cloneElement,
   isValidElement,
+  Fragment,
   type ReactNode,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,6 +36,11 @@ export interface TooltipProps {
   /** The element that triggers the tooltip on hover/focus */
   children: ReactNode;
   className?: string;
+}
+
+function mergeIds(...ids: unknown[]): string | undefined {
+  const merged = ids.filter((id): id is string => typeof id === "string" && id !== "").join(" ");
+  return merged || undefined;
 }
 
 export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
@@ -92,11 +98,17 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     // DropdownMenu's cloneElement pattern) — screen readers only announce
     // aria-describedby for the element that currently has DOM focus, and
     // the wrapper div below never receives focus.
-    const trigger = isValidElement(children)
-      ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-          "aria-describedby": open ? tooltipId : undefined,
-        })
-      : children;
+    // Merge with — never replace — a consumer-supplied aria-describedby, and
+    // skip Fragments: they have no DOM node to receive the attribute.
+    const trigger =
+      isValidElement(children) && children.type !== Fragment
+        ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            "aria-describedby": mergeIds(
+              (children.props as Record<string, unknown>)["aria-describedby"],
+              open ? tooltipId : undefined
+            ),
+          })
+        : children;
 
     return (
       <div

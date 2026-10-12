@@ -111,8 +111,13 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
+            // preventDefault suppresses the native click (no double toggle). For a
+            // native <button> re-dispatch it once so the consumer's onClick fires
+            // on keyboard activation; it bubbles to the toggle above.
             e.preventDefault();
-            setOpen(!open);
+            const button = (e.target as Element).closest("button");
+            if (button) button.click();
+            else setOpen(!open);
           }
         }}
       >
