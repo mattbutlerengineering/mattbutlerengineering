@@ -190,7 +190,9 @@ export function useCombobox({
         case "ArrowUp": {
           e.preventDefault();
           const dir = e.key === "ArrowDown" ? 1 : -1;
-          setFocusedIndex(nextEnabledIndex(items, focusedIndex, dir, wrap));
+          // Nothing focused yet: start off the matching end, as the closed branch does.
+          const from = focusedIndex >= 0 ? focusedIndex : dir === 1 ? -1 : items.length;
+          setFocusedIndex(nextEnabledIndex(items, from, dir, wrap));
           break;
         }
         case "Enter": {

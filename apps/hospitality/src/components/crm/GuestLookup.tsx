@@ -171,13 +171,12 @@ export function GuestLookup({
   };
 
   // The hook owns the key table; this gate keeps it off while no answer is showing (the debounce
-  // pause or a failed lookup), and leaves Enter to the form unless a row is highlighted.
+  // pause or a failed lookup).
   const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!hasContent) {
       if (open && (event.key === "Escape" || event.key === "Tab")) close();
       return;
     }
-    if (event.key === "Enter" && !activeOptionId) return;
     handleKeyDown(event);
   };
 
