@@ -5,12 +5,13 @@
  * are top-level navigation (no collapsible header).
  */
 
+import type { NavAction } from "./nav-actions.js";
 import type { VenueReadiness, SetupStep } from "./hooks/useVenueReadiness.js";
 
 export interface NavItem {
   id: string;
   label: string;
-  path: string;
+  action: NavAction;
   /** Setup step status — drives icon before the label */
   stepStatus?: "completed" | "current" | "locked";
   /** Prevents click and applies muted style */
@@ -27,8 +28,8 @@ export interface NavSection {
 const ACCOUNT: NavSection = {
   label: "Account",
   items: [
-    { id: "profile", label: "Profile", path: "/profile" },
-    { id: "settings", label: "Settings", path: "/settings" },
+    { id: "profile", label: "Profile", action: { type: "route", path: "/profile" } },
+    { id: "settings", label: "Settings", action: { type: "route", path: "/settings" } },
   ],
 };
 
@@ -36,7 +37,7 @@ const ACCOUNT: NavSection = {
 
 const ADMIN: NavSection = {
   label: "Admin",
-  items: [{ id: "admin", label: "Users", path: "/admin" }],
+  items: [{ id: "admin", label: "Users", action: { type: "route", path: "/admin" } }],
 };
 
 /* ── Setup nav sections ─────────────────────── */
@@ -64,7 +65,7 @@ function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readon
     return {
       id: `setup-${step}`,
       label: STEP_LABELS[step],
-      path: STEP_PATHS[step],
+      action: { type: "route", path: STEP_PATHS[step] },
       stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
       disabled: isLocked,
     };
@@ -83,20 +84,28 @@ function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readon
 function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
   const PRIMARY: NavSection = {
     items: [
-      { id: "briefing", label: "Tonight's Service", path: "/briefing" },
-      { id: "timeline", label: "Timeline", path: "/timeline" },
-      { id: "reservations", label: "Reservations", path: "/reservations" },
-      { id: "waitlist", label: "Waitlist", path: "/waitlist" },
-      { id: "guests", label: "Guests", path: "/guests" },
-      { id: "home", label: "Dashboard", path: "/dashboard" },
+      { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
+      { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
+      {
+        id: "reservations",
+        label: "Reservations",
+        action: { type: "route", path: "/reservations" },
+      },
+      { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
+      { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
+      { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
     ],
   };
 
   const MANAGE: NavSection = {
     label: "Manage",
     items: [
-      { id: "floor-plans", label: "Floor Plans", path: "/floor-plans" },
-      { id: "booking-widget", label: "Booking Widget", path: "/booking-widget" },
+      { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
+      {
+        id: "booking-widget",
+        label: "Booking Widget",
+        action: { type: "route", path: "/booking-widget" },
+      },
     ],
   };
 

@@ -22,7 +22,8 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
-import type { NavItem } from "../nav-sections.js";
+import { runNavAction } from "../nav-actions.js";
+import type { NavAction } from "../nav-actions.js";
 import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
@@ -170,35 +171,37 @@ function DashboardLayoutInner() {
     signIn({ returnTo: (path || "/") + location.search + location.hash });
   }, [signIn, path, location.search, location.hash]);
 
-  // Build extra items to inject into named sections (immutable map)
-  const extraItems = useMemo(() => {
-    const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
-    return map;
+  const toggleChat = useCallback(() => {
+    setChatMounted(true);
+    setChatOpen((prev) => !prev);
   }, []);
 
-  // Handle navigation — intercept special paths
-  const handleNavigate = useCallback(
-    (path: string) => {
-      if (path === "/__signout__") {
-        signOut();
-        return;
-      }
-      navigate(path);
-    },
-    [navigate, signOut]
+  // One resolver for every surface (sidebar, command palette) — no sentinel paths to intercept.
+  const runAction = useCallback(
+    (action: NavAction) => runNavAction(action, { navigate, toggleChat, signOut }),
+    [navigate, toggleChat, signOut]
   );
 
   const sections = useMemo(
     () => [
-      ...buildNavSections(readiness, isAdmin),
+      ...buildNavSections(readiness, isAdmin).map((section) =>
+        section.label === "Account"
+          ? {
+              ...section,
+              items: [
+                ...section.items,
+                { id: "signout", label: "Sign Out", action: { type: "signout" } as const },
+              ],
+            }
+          : section
+      ),
       {
         label: "Tools" as const,
         items: [
           {
             id: "chat",
             label: "Chat",
-            path: "/__chat__",
+            action: { type: "chat" } as const,
           },
         ],
       },
@@ -212,19 +215,7 @@ function DashboardLayoutInner() {
     setOpen: setPaletteOpen,
     items: paletteItems,
     groups: paletteGroups,
-  } = useCommandPalette({ sections, navigate, toggleTheme, signOut });
-
-  const handleNavigateWithChat = useCallback(
-    (path: string) => {
-      if (path === "/__chat__") {
-        setChatMounted(true);
-        setChatOpen((prev) => !prev);
-        return;
-      }
-      handleNavigate(path);
-    },
-    [handleNavigate]
-  );
+  } = useCommandPalette({ sections, runAction, toggleTheme });
 
   const activePath = location.pathname;
 
@@ -331,11 +322,10 @@ function DashboardLayoutInner() {
           <DashboardSidebar
             sections={sections}
             activePath={activePath}
-            onNavigate={handleNavigateWithChat}
-            extraItems={extraItems}
+            onAction={runAction}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
-            headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
+            headerSlot={<VenueSwitcher onNavigate={navigate} />}
           />
           <Button
             type="button"
