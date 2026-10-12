@@ -243,3 +243,13 @@ describe("repo-audit wiring", () => {
     );
   });
 });
+
+describe("flow-style needs (#6393)", () => {
+  it("reads a single-line flow list and a scalar needs", () => {
+    const yml = makeCiYml(
+      "  a:\n    runs-on: x\n  b:\n    needs: a\n  ci-gate:\n    needs: [a, b]\n"
+    );
+    expect(extractJobNeeds(yml, "ci-gate")).toEqual(["a", "b"]);
+    expect(extractJobNeeds(yml, "b")).toEqual(["a"]);
+  });
+});
