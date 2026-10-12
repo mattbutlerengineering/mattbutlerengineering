@@ -76,7 +76,6 @@ Generic lifecycle skills (idea, prd, architect, implement, review, ship, automat
 | `/claude-automation-recommender` | Audit `.claude/hooks`, `.claude/agents`, `.claude/skills`, `.github/workflows` for guards that never fire, fire wrongly, or are missing; runs monthly                                                                                                               |
 | `/decompose`                     | Break a feature into ordered, agent-sized GitHub issues implement-queue can work through sequentially                                                                                                                                                               |
 | `/dep-bump`                      | Batch-apply pnpm.overrides for CVE fixes across multiple Dependabot alerts in a single PR                                                                                                                                                                           |
-| `/gotcha-harvest`                | Mine a session (or `--days N` history) for CI-failed-then-fixed arcs and recurring tool errors, propose entries for `.claude/rules/gotchas.md` or memory                                                                                                            |
 | `/local-ci-precheck`             | Run lint + typecheck + architecture-audit + drift checks locally and in parallel before opening or pushing a PR                                                                                                                                                     |
 | `/md-audit`                      | Weekly semantic pass over human-facing markdown (README, CONTRIBUTING, docs/\*\*) — finds prose claims the repo no longer satisfies; the mechanical half is `pnpm check:markdown` (`scripts/audit-markdown.mjs`), both driven by `.github/workflows/docs-audit.yml` |
 | `/optimize-implement-queue`      | Daily loop: measure implement-queue efficiency via the queueEfficiency sensor, log trend, file de-duplicated issues on regression                                                                                                                                   |
@@ -85,6 +84,8 @@ Generic lifecycle skills (idea, prd, architect, implement, review, ship, automat
 | `/revert-rca-loop`               | Detect AI-authored PR reverts, match to the original PR, trigger a Reflection session for root-cause analysis; runs hourly                                                                                                                                          |
 
 **User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and now live only as user-level installs (`~/.claude/skills/`) — don't expect them to resolve in-repo.
+
+**Plugin-provided replacements** (`idea-to-prod@skills`, enabled in `.claude/settings.json`; local sessions only — cloud routines and GitHub Actions do not load the plugin, #6332): `/gotcha-harvest` was retired in favour of `/idea-to-prod:knowledge-base`'s transcript harvest (`kb.py harvest <repo root> --days N`, proposes bullets for `.claude/rules/gotchas.md`). Pass the **main checkout's** root path, not a worktree's — from a worktree path the transcript lookup finds nothing (measured).
 
 ### Subagents
 
@@ -196,11 +197,11 @@ Use `/local-ci-precheck` before opening or pushing to a PR — it runs the same 
 
 The `idea-to-prod` plugin's stage skills are generic and live in the plugin cache (overwritten on update), so repo-specific steps are attached here. Every stage — including autorun's per-stage subagents — must run the hook for its stage and record the outcome in that stage's artifact.
 
-| Stage                                       | Hook                                                                                                                                                                                                                                                                                 | Record in                                       |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `implement` (before the first push of a PR) | Run the checks in [`.claude/skills/local-ci-precheck/SKILL.md`](./.claude/skills/local-ci-precheck/SKILL.md) — read the file and execute its steps directly (the skill is `disable-model-invocation`, so the `Skill` tool cannot call it). Fix every failure before pushing.         | PR body / `breakdown.md` note                   |
-| `ship` (pre-flight)                         | Same `local-ci-precheck` steps against the final branch head. A red check is a failed pre-flight, not a warning.                                                                                                                                                                     | `release.md` pre-flight list                    |
-| `operate` (retro)                           | Run [`/gotcha-harvest`](./.claude/skills/gotcha-harvest/SKILL.md) over the run's sessions (`--days N` covering idea→ship). Proposed `gotchas.md` entries go in the retro's follow-ups for human review — never written silently. Zero findings is a valid result; say so explicitly. | `retro.md` (a "Gotcha harvest" line or section) |
+| Stage                                       | Hook                                                                                                                                                                                                                                                                                               | Record in                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `implement` (before the first push of a PR) | Run the checks in [`.claude/skills/local-ci-precheck/SKILL.md`](./.claude/skills/local-ci-precheck/SKILL.md) — read the file and execute its steps directly (the skill is `disable-model-invocation`, so the `Skill` tool cannot call it). Fix every failure before pushing.                       | PR body / `breakdown.md` note                   |
+| `ship` (pre-flight)                         | Same `local-ci-precheck` steps against the final branch head. A red check is a failed pre-flight, not a warning.                                                                                                                                                                                   | `release.md` pre-flight list                    |
+| `operate` (retro)                           | Run `/idea-to-prod:knowledge-base`'s harvest over the run's sessions (`kb.py harvest <main checkout root> --days N` covering idea→ship). Proposed `gotchas.md` entries go in the retro's follow-ups for human review — never written silently. Zero findings is a valid result; say so explicitly. | `retro.md` (a "Gotcha harvest" line or section) |
 
 A hook that did not run must be stated as skipped, with the reason, in the stage artifact — never omitted.
 
@@ -248,13 +249,11 @@ Four `.claude/` directories work together to capture agent learning across sessi
 **What writes to it:**
 
 - A human (or an agent at the human's request) writing the capture file directly — see [Capturing a correction by hand](#capturing-a-correction-by-hand) below. **There is no `/reflect` skill**: these docs named one for months and it has never existed in this repo's history or in `~/.claude/skills/` (measured, https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5586)
-- `/gotcha-harvest` skill (also human-initiated, after autonomous loops) mines loop failures for **loop-discovered** gotchas and proposes them to `corrections/`
 - Manual session notes captured by the user
 
 **What reads it:**
 
 - Claude Code loads recent corrections at session start to bias against recurring mistakes
-- `/gotcha-harvest` scans it to avoid duplicate gotcha proposals
 
 **Structure:**
 Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
@@ -303,7 +302,6 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 
 **What reads it:**
 
-- `/gotcha-harvest` mines `log.md` for "CI failed → fix applied → re-checked and passed" arcs and proposes them to `.claude/memory/corrections/`
 - `/claude-md-improver` scans `log.md` for recurring gotcha-discovery patterns (e.g. the ten separate entries on "missing `gh` in cloud sessions" before it earned a gotchas bullet)
 
 **Purpose:** Append-only record of autonomous-loop health and sensor trends. Used to detect regressions, discover repeat problems, and bootstrap new gotchas. The log does **not** contain detailed reasoning (that goes to reflections); it's a summary of facts and thresholds.
@@ -324,14 +322,14 @@ Full mechanics, including a guard bug that silently disabled the archive hook fo
 
 The `.claude/rules/gotchas.md` file is the canonical source for project-specific traps. Entries come from two sources:
 
-| Source                                      | How it lands in gotchas                                                                               | Approval gate                                            | Example                                                                       |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **Human error** (hand-written correction)   | Manual PR to CLAUDE.md after user says "this should be documented"                                    | User review during PR                                    | Rialto setState-in-useEffect ban                                              |
-| **Loop discovery** (from `/gotcha-harvest`) | `/gotcha-harvest` mines session logs for failed-then-fixed arcs, proposes entries, user reviews in PR | `/gotcha-harvest` proposes (human approves in PR review) | Missing `gh` CLI in cloud sessions (discovered 10 times in logs before entry) |
+| Source                                                           | How it lands in gotchas                                                                                | Approval gate                                      | Example                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Human error** (hand-written correction)                        | Manual PR to CLAUDE.md after user says "this should be documented"                                     | User review during PR                              | Rialto setState-in-useEffect ban                                              |
+| **Loop discovery** (from `/idea-to-prod:knowledge-base` harvest) | The harvest mines session transcripts for failed-then-fixed arcs, proposes entries, user reviews in PR | The harvest proposes (human approves in PR review) | Missing `gh` CLI in cloud sessions (discovered 10 times in logs before entry) |
 
 `gotchas.md` restates this in its own header — read it there rather than from a copy here. This paragraph used to quote that header verbatim and drifted from it twice (it still named `/ship-loop`, removed in #5592, and `/reflect`, which never existed), so the quote is deliberately gone: a duplicated sentence that must be kept in sync is a drift generator, not documentation.
 
-**Why the distinction?** Hand-written corrections are interactive — the human has the transcript and is capturing intentional feedback. `/gotcha-harvest` is autonomous (runs after a session ends) and discovers patterns the human never said out loud. Both feed into corrections; only gotchas-via-gotcha-harvest entries become project traps.
+**Why the distinction?** Hand-written corrections are interactive — the human has the transcript and is capturing intentional feedback. The knowledge-base harvest (`/idea-to-prod:knowledge-base`) runs after a session ends and discovers patterns the human never said out loud. Hand-written corrections land in `corrections/`; harvested lessons land in `gotchas.md` as project traps.
 
 ### Capturing a correction by hand
 
