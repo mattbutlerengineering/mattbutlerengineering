@@ -4,6 +4,7 @@ import type { RestContext } from "./rest-http.js";
 import { apiRequest } from "./rest-http.js";
 import { fetchAllPages } from "./rest-paginate.js";
 import { buildSearchQuery } from "./rest-search.js";
+import { listPrsByFilters, parseSearchFilters } from "./rest-search-filters.js";
 import { currentBranch } from "./git-branch.js";
 import type { RawPr, RawPrFile, RawPrCommit, RawPrReview } from "./rest-mappers.js";
 import { mapPr, mapPrFile, mapPrCommit, mapPrReview } from "./rest-mappers.js";
@@ -55,7 +56,11 @@ export function prList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
     wantsCommits || wantsJsonField(parsed, "additions") || wantsJsonField(parsed, "deletions");
 
   let items: unknown[];
-  if (search !== undefined) {
+  const filters = search === undefined ? null : parseSearchFilters(search, parsed);
+  if (search !== undefined && filters) {
+    // Prefer repo-scoped endpoints: CCR sessions block the Search API (#6445).
+    items = listPrsByFilters(ctx, parsed, filters, limit);
+  } else if (search !== undefined) {
     const query = buildSearchQuery(ctx, "pr", parsed, search);
     items = fetchAllPages(ctx, `/search/issues?q=${encodeURIComponent(query)}`, limit, "items");
   } else {

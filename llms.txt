@@ -13374,6 +13374,14 @@
       }
     </item>
     <item priority="high">
+      class GhApiPathBlockedError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function isPathBlockedBody(body: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       class GhRateLimitError {
         status: number;
       }
@@ -13621,6 +13629,74 @@
       export function createRestRunner(
         opts: RestRunnerOptions = {}
       ): (cmd: string, args: string[]) => string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-search-filters.ts">
+    <item priority="low">
+      interface SearchFilters {
+        labelGroups: string[][];
+        createdSince?: string;
+        closedSince?: string;
+        mergedSince?: string;
+      }
+    </item>
+    <item priority="high">
+      export function parseSearchFilters(search: string, parsed: ParsedArgs): SearchFilters | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type Listable = (RawIssue | RawPr) & { updated_at?: string; merged_at?: s...;
+    </item>
+    <item priority="medium">
+      function labelNames(item: Listable): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function atOrAfter(value: string | null | undefined, since: string | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function matches(item: Listable, filters: SearchFilters): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function updatedCutoff(filters: SearchFilters): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function paginate(
+        ctx: RestContext,
+        path: string,
+        params: URLSearchParams,
+        filters: SearchFilters,
+        limit: number,
+        skip: (item: Listable) => boolean
+      ): Listable[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function labelParamSets(filters: SearchFilters): (string | undefined)[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listFiltered(
+        ctx: RestContext,
+        path: string,
+        state: string,
+        filters: SearchFilters,
+        limit: number,
+        skip: (item: Listable) => boolean,
+        serverSideLabels = true
+      ): Listable[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function listIssuesByFilters(
+        ctx: RestContext,
+        parsed: ParsedArgs,
+        filters: SearchFilters,
+        limit: number
+      ): RawIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function listPrsByFilters(
+        ctx: RestContext,
+        parsed: ParsedArgs,
+        filters: SearchFilters,
+        limit: number
+      ): RawPr[] { /* ... */ }
     </item>
   </file>
   <file path="packages/gh-client/src/rest-search.ts">

@@ -19,6 +19,7 @@ src/
 ├── rest-http.ts                  # apiRequest — auth headers + error envelope over sync-http
 ├── rest-paginate.ts               # fetchAllPages — pages past GitHub's 100-per-page cap
 ├── rest-search.ts                  # buildSearchQuery — gh's --search flag via the Search API
+├── rest-search-filters.ts                  # parseSearchFilters + repo-scoped list (Search API is blocked in CCR, #6445)
 ├── rest-mappers.ts                  # REST payload → gh-CLI camelCase field-name mapping
 ├── rest-issue-ops.ts                 # issue list/view/create/comment/reopen/close/edit
 ├── rest-pr-ops.ts                     # pr list/view/create

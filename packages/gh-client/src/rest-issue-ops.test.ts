@@ -57,17 +57,123 @@ describe("issueList", () => {
     expect(http).toHaveBeenCalledTimes(2);
   });
 
-  it("uses the Search API when --search is given", () => {
+  it("uses the Search API for free-text --search terms", () => {
     const http = vi.fn().mockReturnValue({
       status: 200,
       body: JSON.stringify({ items: [{ number: 3, title: "found", state: "closed" }] }),
     });
     const result = issueList(
       makeCtx(http),
-      parseArgs(["--state", "closed", "--limit", "5", "--search", "label:sentry"])
+      parseArgs(["--state", "closed", "--limit", "5", "--search", "sentry in:title"])
     );
     expect(result).toEqual([expect.objectContaining({ number: 3, state: "CLOSED" })]);
     expect(http.mock.calls[0]![0].url).toContain("/search/issues?q=");
+  });
+});
+
+describe("issueList --search without the Search API (#6445)", () => {
+  const body = (items: unknown[]) => ({ status: 200, body: JSON.stringify(items) });
+
+  it("answers label OR + created qualifiers from repo-scoped /issues, never /search", () => {
+    const http = vi.fn((req: { url: string }) => {
+      if (req.url.includes("labels=audit")) {
+        return body([
+          {
+            number: 1,
+            title: "a",
+            state: "closed",
+            labels: [{ name: "audit" }],
+            created_at: "2026-10-05T00:00:00Z",
+            updated_at: "2026-10-06T00:00:00Z",
+          },
+          {
+            number: 2,
+            title: "old",
+            state: "closed",
+            labels: [{ name: "audit" }],
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-10-06T00:00:00Z",
+          },
+          {
+            number: 3,
+            title: "pr",
+            state: "closed",
+            labels: [{ name: "audit" }],
+            pull_request: {},
+            created_at: "2026-10-05T00:00:00Z",
+            updated_at: "2026-10-06T00:00:00Z",
+          },
+        ]);
+      }
+      return body([
+        {
+          number: 4,
+          title: "b",
+          state: "closed",
+          labels: [{ name: "sentry" }],
+          created_at: "2026-10-07T00:00:00Z",
+          updated_at: "2026-10-07T00:00:00Z",
+        },
+      ]);
+    });
+    const result = issueList(
+      makeCtx(http as unknown as SyncHttp),
+      parseArgs([
+        "--state",
+        "all",
+        "--search",
+        "label:audit,sentry created:>=2026-10-01",
+        "--limit",
+        "50",
+      ])
+    );
+    expect(result.map((r) => (r as { number: number }).number).sort()).toEqual([1, 4]);
+    for (const call of http.mock.calls) expect(call[0].url).not.toContain("/search/");
+  });
+
+  it("keeps later OR-members when the first member alone exceeds --limit", () => {
+    const mk = (n: number, label: string, updated: string) => ({
+      number: n,
+      title: "t",
+      state: "closed",
+      labels: [{ name: label }],
+      updated_at: updated,
+    });
+    const http = vi.fn((req: { url: string }) =>
+      req.url.includes("labels=audit")
+        ? body([
+            mk(1, "audit", "2026-10-01T00:00:00Z"),
+            mk(2, "audit", "2026-10-01T00:00:00Z"),
+            mk(3, "audit", "2026-10-01T00:00:00Z"),
+          ])
+        : body([mk(4, "sentry", "2026-10-09T00:00:00Z")])
+    );
+    const result = issueList(
+      makeCtx(http as unknown as SyncHttp),
+      parseArgs(["--state", "closed", "--search", "label:audit,sentry", "--limit", "3"])
+    );
+    const numbers = result.map((r) => (r as { number: number }).number);
+    expect(numbers).toContain(4);
+    expect(numbers).toHaveLength(3);
+  });
+
+  it("stops paging once items are older than the date cutoff", () => {
+    const page = Array.from({ length: 100 }, (_, i) => ({
+      number: i + 1,
+      title: "t",
+      state: "closed",
+      labels: [],
+      created_at: "2026-10-05T00:00:00Z",
+      closed_at: "2026-10-05T00:00:00Z",
+      updated_at: i < 50 ? "2026-10-05T00:00:00Z" : "2026-09-01T00:00:00Z",
+    }));
+    const http = vi.fn().mockReturnValue(body(page));
+    const result = issueList(
+      makeCtx(http),
+      parseArgs(["--state", "closed", "--search", "closed:>=2026-10-01", "--limit", "200"])
+    );
+    expect(result).toHaveLength(50);
+    expect(http).toHaveBeenCalledTimes(1);
   });
 });
 
