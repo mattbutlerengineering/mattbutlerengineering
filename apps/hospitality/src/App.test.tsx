@@ -4,7 +4,8 @@ import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, useAuthGate } from "@mbe/auth/react";
+import type { AuthGate } from "@mbe/auth/react";
 import { describeAuthError } from "./lib/describe-auth-error.js";
 import { App } from "./App.js";
 import React from "react";
@@ -12,8 +13,8 @@ import type * as AuthReact from "@mbe/auth/react";
 
 type AuthState = ReturnType<typeof useAuth>;
 
-/** A signed-out, settled auth state; each test overrides only what it is about. */
-function authState(overrides: Partial<AuthState> = {}): AuthState {
+/** A signed-out, settled auth state — LoginGate reads signIn from it. */
+function authState(): AuthState {
   return {
     isLoading: false,
     activeNavigator: undefined,
@@ -27,13 +28,15 @@ function authState(overrides: Partial<AuthState> = {}): AuthState {
     signInSilent: vi.fn<AuthState["signInSilent"]>(),
     error: undefined,
     refreshError: null,
-    ...overrides,
   };
 }
 
+// Gate ORDER (which phase for which lifecycle facts + URL) is owned and
+// table-tested by @mbe/auth's resolveAuthGate; here we only assert phase → screen.
 vi.mock("@mbe/auth/react", async (importOriginal) => ({
   ...(await importOriginal<typeof AuthReact>()),
   useAuth: vi.fn(),
+  useAuthGate: vi.fn(),
 }));
 
 vi.mock("./hooks/use-theme.js", () => ({
@@ -105,31 +108,63 @@ vi.mock("./pages/SignOutPage", () => ({
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    window.history.replaceState({}, "", "/");
+    vi.mocked(useAuth).mockReturnValue(authState());
   });
 
-  const renderApp = (initialPath = "/") => {
+  const renderAt = (gate: AuthGate) => {
+    vi.mocked(useAuthGate).mockReturnValue(gate);
     return render(
-      <MemoryRouter initialEntries={[initialPath]}>
+      <MemoryRouter>
         <App />
       </MemoryRouter>
     );
   };
 
-  it("renders loading page when auth is loading", () => {
-    vi.mocked(useAuth).mockReturnValue({ isLoading: true } as ReturnType<typeof useAuth>);
-    renderApp();
+  it("renders the loading page for the loading phase", () => {
+    renderAt({ phase: "loading" });
     expect(screen.getByTestId("loading-page")).toBeDefined();
   });
 
-  it("renders login gate when not authenticated", () => {
-    vi.mocked(useAuth).mockReturnValue(
-      authState({ isLoading: false, isAuthenticated: false, signIn: vi.fn<AuthState["signIn"]>() })
-    );
-    renderApp();
+  it("renders the callback handshake for the callback phase", () => {
+    renderAt({ phase: "callback" });
+    expect(screen.getByTestId("callback-page")).toBeDefined();
+    expect(screen.queryByTestId("loading-page")).toBeNull();
+    expect(screen.queryByTestId("login-prompt")).toBeNull();
+  });
+
+  it("renders the sign-out handshake for the signing-out phase", () => {
+    renderAt({ phase: "signing-out" });
+    expect(screen.getByTestId("sign-out-page")).toBeDefined();
+    expect(screen.queryByTestId("loading-page")).toBeNull();
+  });
+
+  it("renders the cold login gate when signed out", () => {
+    renderAt({ phase: "signed-out", afterSignOut: false });
     expect(screen.getByTestId("login-prompt")).toBeDefined();
     expect(screen.getByText("Sign In")).toBeDefined();
     expect(screen.getByText("Hospitality")).toBeDefined();
+  });
+
+  it("renders the signed-out login gate after a sign-out round-trip", () => {
+    renderAt({ phase: "signed-out", afterSignOut: true });
+    expect(screen.getByTestId("login-prompt")).toBeDefined();
+    expect(
+      screen.getByText("You're signed out. Sign in again whenever you're ready.")
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeDefined();
+  });
+
+  it("renders the session-expired gate for the expired phase", () => {
+    renderAt({ phase: "expired" });
+    expect(screen.getByTestId("session-expired")).toBeDefined();
+    expect(screen.queryByTestId("auth-layout")).toBeNull();
+  });
+
+  it("renders Outlet in a flex column layout when ready", () => {
+    const { container } = renderAt({ phase: "ready" });
+    const wrapper = screen.getByTestId("auth-layout");
+    expect(wrapper.className).toContain("authLayout");
+    expect(container.querySelector("footer")).toBeNull();
   });
 
   describe("document title", () => {
@@ -139,56 +174,21 @@ describe("App", () => {
     });
 
     it("titles the unauthenticated landing 'Hospitality', not 'Dashboard'", () => {
-      vi.mocked(useAuth).mockReturnValue(
-        authState({
-          isLoading: false,
-          isAuthenticated: false,
-          signIn: vi.fn<AuthState["signIn"]>(),
-        })
-      );
-      renderApp();
+      renderAt({ phase: "signed-out", afterSignOut: false });
       expect(document.title).toBe("Hospitality - Matt Butler Engineering");
     });
 
     it("keeps the authenticated dashboard's 'Dashboard' title", () => {
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: true,
-      } as ReturnType<typeof useAuth>);
-      renderApp();
+      renderAt({ phase: "ready" });
       expect(document.title).toBe("Dashboard - Matt Butler Engineering");
     });
   });
 
-  it("renders Outlet when authenticated", () => {
-    vi.mocked(useAuth).mockReturnValue({
-      isLoading: false,
-      isAuthenticated: true,
-    } as ReturnType<typeof useAuth>);
-    // Outlet is harder to test directly here, but we can verify UnauthenticatedShell is NOT rendered
-    const { container } = renderApp();
-    expect(container.querySelector("footer")).toBeNull();
-  });
-
-  it("wraps authenticated view in a flex column layout for scroll containment", () => {
-    vi.mocked(useAuth).mockReturnValue({
-      isLoading: false,
-      isAuthenticated: true,
-    } as ReturnType<typeof useAuth>);
-    renderApp();
-    const wrapper = screen.getByTestId("auth-layout");
-    expect(wrapper).toBeDefined();
-    expect(wrapper.className).toContain("authLayout");
-  });
-
   describe("failed exchange", () => {
     it("renders the failure page in place on a failed callback exchange (lane 1)", () => {
-      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
       const err = Object.assign(new Error("Auth Failed"), { source: "signinCallback" as const });
-      vi.mocked(useAuth).mockReturnValue(authState({ isLoading: false, error: err }));
-      renderApp("/callback");
+      renderAt({ phase: "error", error: err, onCallback: true });
       const failure = screen.getByTestId("auth-failure");
-      expect(failure).toBeDefined();
       expect(failure.getAttribute("data-lane")).toBe("1");
       expect(screen.getByText(describeAuthError(err).body)).toBeDefined();
       expect(screen.queryByTestId("callback-page")).toBeNull();
@@ -196,16 +196,12 @@ describe("App", () => {
     });
 
     it("renders the failure page in place on a failed interactive sign-in (lane 0)", () => {
-      window.history.replaceState({}, "", "/hospitality/reservations");
       const err = Object.assign(new Error("not permitted"), {
         error: "access_denied",
         source: "signinCallback" as const,
       });
-      vi.mocked(useAuth).mockReturnValue(authState({ isLoading: false, error: err }));
-      renderApp("/reservations");
-      const failure = screen.getByTestId("auth-failure");
-      expect(failure).toBeDefined();
-      expect(failure.getAttribute("data-lane")).toBe("0");
+      renderAt({ phase: "error", error: err, onCallback: false });
+      expect(screen.getByTestId("auth-failure").getAttribute("data-lane")).toBe("0");
       expect(screen.getByText(describeAuthError(err).body)).toBeDefined();
     });
   });
@@ -219,85 +215,6 @@ describe("App", () => {
       const focusRule = css.match(/\.loginContainer:focus-visible\s*\{([^}]*)\}/)?.[1] ?? "";
       expect(focusRule).toMatch(/outline:\s*none/);
       expect(focusRule).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
-    });
-  });
-
-  describe("session lifecycle", () => {
-    it("renders the callback handshake instead of the generic loader while OIDC finishes on /callback", () => {
-      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: true,
-        isAuthenticated: false,
-      } as ReturnType<typeof useAuth>);
-      renderApp("/callback");
-      expect(screen.getByTestId("callback-page")).toBeDefined();
-      expect(screen.queryByTestId("loading-page")).toBeNull();
-    });
-
-    it("keeps the callback handshake up after loading settles but before the user lands", () => {
-      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: false,
-      } as ReturnType<typeof useAuth>);
-      renderApp("/callback");
-      expect(screen.getByTestId("callback-page")).toBeDefined();
-      expect(screen.queryByTestId("login-prompt")).toBeNull();
-    });
-
-    it("renders the signed-out login gate when a sign-out round-trip lands on /callback with no OIDC params", () => {
-      window.history.replaceState({}, "", "/hospitality/callback");
-      vi.mocked(useAuth).mockReturnValue(
-        authState({
-          isLoading: false,
-          isAuthenticated: false,
-          signIn: vi.fn<AuthState["signIn"]>(),
-        })
-      );
-      renderApp("/callback");
-      expect(screen.getByTestId("login-prompt")).toBeDefined();
-      expect(
-        screen.getByText("You're signed out. Sign in again whenever you're ready.")
-      ).toBeDefined();
-      expect(screen.queryByTestId("callback-page")).toBeNull();
-      expect(screen.getByRole("button", { name: "Sign In" })).toBeDefined();
-    });
-
-    it("renders the sign-out handshake while a sign-out redirect is in flight", () => {
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: true,
-        isAuthenticated: false,
-        activeNavigator: "signoutRedirect",
-      } as ReturnType<typeof useAuth>);
-      renderApp();
-      expect(screen.getByTestId("sign-out-page")).toBeDefined();
-      expect(screen.queryByTestId("loading-page")).toBeNull();
-      expect(screen.queryByTestId("callback-page")).toBeNull();
-    });
-
-    it("renders the session-expired gate ahead of the dashboard once the token lapses", () => {
-      window.history.replaceState({}, "", "/hospitality/reservations");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: true,
-        sessionExpired: true,
-      } as ReturnType<typeof useAuth>);
-      renderApp("/reservations");
-      expect(screen.getByTestId("session-expired")).toBeDefined();
-      expect(screen.queryByTestId("auth-layout")).toBeNull();
-    });
-
-    it("keeps the dashboard mounted through a silent refresh (isLoading stays false)", () => {
-      window.history.replaceState({}, "", "/hospitality/reservations");
-      vi.mocked(useAuth).mockReturnValue({
-        isLoading: false,
-        isAuthenticated: true,
-        isRefreshing: true,
-        activeNavigator: "signinSilent",
-      } as ReturnType<typeof useAuth>);
-      renderApp("/reservations");
-      expect(screen.getByTestId("auth-layout")).toBeDefined();
-      expect(screen.queryByTestId("loading-page")).toBeNull();
     });
   });
 });

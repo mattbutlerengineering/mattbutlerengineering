@@ -63,6 +63,23 @@ Two shapes were weighed:
   `apps/gen` `useAuth` mock to grow, adds a route and a second Auth0 allow-list
   entry, and still needs the `App.tsx` change. One adapter is hypothetical.
 
+> **Amendment (2026-10-12, #6395):** the "keep `@mbe/auth` thin" half of Shape 1
+> is reversed for the gate ORDER — Matt's decision. The second adapter stopped
+> being hypothetical: `apps/gen` re-derived the gate from raw `useAuth()` facts,
+> dropped the no-params callback branch, and sign-out hung on "Loading..."
+> forever (`post_logout_redirect_uri` falls back to `/gen/callback`; narrow fix
+> #6457). Two divergent gates produced a production hang, so the order now has
+> one owner: `useAuthGate()` in `@mbe/auth/react` (pure `resolveAuthGate`,
+> table-tested in `packages/auth/src/react/auth-gate.test.ts`) returns one phase
+> — `signing-out | loading | callback | error | signed-out | expired | ready` —
+> and each app's `App.tsx` only maps phase → screen. The post-sign-in
+> destination moved with it: `AuthProvider` records the validated returnTo and
+> `signinReturnTo()` re-validates it on read, so gen gained hospitality's
+> `returnTo` and `sessionExpired` handling by construction. Still app-local:
+> every screen, and app-specific bypasses (gen's shared-spec permalinks). Not
+> adopted from Shape 2: no `/signed-out` route, no new env var or Auth0
+> allow-list entry.
+
 The depth of Shape 1 is in two seams: `deriveReturnTo` (one owner for "where do
 we go after sign-in", now also "never back to the callback"), and the `App.tsx`
 gate order (one owner for "which screen for which lifecycle state"). Every new

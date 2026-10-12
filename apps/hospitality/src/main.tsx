@@ -9,7 +9,6 @@ import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
-import { rememberReturnTo } from "./return-to-store";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -342,7 +341,7 @@ function Root() {
       <RialtoProvider theme={themeState.theme}>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
-            <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>
+            <AuthProvider config={authConfigResult.config}>
               <QueryProvider>
                 <RouterProvider router={router} />
               </QueryProvider>
