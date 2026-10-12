@@ -195,6 +195,17 @@ describe("Combobox — single select", () => {
     expect(screen.getByRole("button", { name: "Next" })).toHaveFocus();
   });
 
+  it("keyboard: Home/End jump to the first/last option", async () => {
+    render(<Combobox label="Fruit" options={options} />);
+    const input = screen.getByRole("combobox");
+    input.focus();
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument());
+    await user.keyboard("{End}");
+    expect(input).toHaveAttribute("aria-activedescendant", expect.stringContaining("option-3"));
+    await user.keyboard("{Home}");
+    expect(input).toHaveAttribute("aria-activedescendant", expect.stringContaining("option-0"));
+  });
+
   it("skips disabled options during keyboard navigation", async () => {
     render(<Combobox label="Fruit" options={withDisabled} />);
     const input = screen.getByRole("combobox");

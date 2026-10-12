@@ -169,7 +169,7 @@ export function useCombobox({
     [open, focusedIndex, items, select]
   );
 
-  // Input mode: only navigation, Enter, Escape and Tab; text keys belong to the input.
+  // Input mode: only Up/Down, Enter, Escape and Tab; text keys belong to the input.
   const handleInputKey = useCallback(
     (e: KeyboardEvent) => {
       if (!open) {
@@ -193,14 +193,6 @@ export function useCombobox({
           setFocusedIndex(nextEnabledIndex(items, focusedIndex, dir, wrap));
           break;
         }
-        case "Home":
-          e.preventDefault();
-          setFocusedIndex(nextEnabledIndex(items, -1, 1, false));
-          break;
-        case "End":
-          e.preventDefault();
-          setFocusedIndex(nextEnabledIndex(items, items.length, -1, false));
-          break;
         case "Enter": {
           e.preventDefault();
           const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;

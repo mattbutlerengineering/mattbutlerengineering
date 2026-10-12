@@ -292,7 +292,14 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           if (opt) handleSelect(opt);
           return;
         }
-        // Navigation, Escape and Tab (close) are the hook's input-mode contract.
+        if (open && (e.key === "Home" || e.key === "End")) {
+          e.preventDefault();
+          const enabled = visible.flatMap((o, i) => (o.disabled ? [] : [i]));
+          const target = e.key === "Home" ? enabled[0] : enabled[enabled.length - 1];
+          if (target !== undefined) setFocusedIndex(target);
+          return;
+        }
+        // Up/Down, Escape and Tab (close) are the hook's input-mode contract.
         onListKeyDown(e);
       },
       [
@@ -302,6 +309,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
         removeValue,
         open,
         onListKeyDown,
+        setFocusedIndex,
         visible,
         focusedIndex,
         handleSelect,
