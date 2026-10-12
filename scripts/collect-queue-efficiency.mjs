@@ -69,8 +69,6 @@ const READ_PRS_LOOKBACK_DAYS = 8;
 /** The current window the reader returns — matches collectQueueEfficiency's. */
 const READ_PRS_WINDOW_DAYS = 7;
 
-/** Worktree branch patterns used by implement-queue agents. */
-
 /**
  * Stable reason code for an `available: false` result caused by readPrs()
  * throwing — replaces the historic catch-all (#4044) so downstream consumers
