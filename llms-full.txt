@@ -57404,7 +57404,6 @@
       "/health/system",
       "/health/uptime",
       "/health/performance",
-      "/health/lighthouse",
       "/health/deps",
     ] as const;
     class PassThroughHTMLRewriter {
@@ -57426,17 +57425,15 @@
         let originFetchCalls = 0;
         let staticBindingCalls = 0;
     
-        // The three KV operations the Worker reaches on these paths: `get` (CSP
-        // policy, circuit-breaker state, CI/deploy/migrate records), `put`
-        // (rate-limit counters, circuit-breaker state) and `list`
-        // (`health/lighthouse.js:11`). Empty answers throughout — every reader
+        // The KV operations the Worker reaches on these paths: `get` (CSP
+        // policy, circuit-breaker state, CI/deploy/migrate records) and `put`
+        // (rate-limit counters, circuit-breaker state). Empty answers throughout — every reader
         // already handles a miss, and with `get` always null the rate limiter's
         // count is always 0, so repeated probes of `/health/system` (10 req/60 s,
         // `rate-limiter.js:16`) can never shed.
         const kv = {
           get: async () => null,
           put: async () => undefined,
-          list: async () => ({ keys: [], list_complete: true }),
         };
     
         const env: Record<string, unknown> = {

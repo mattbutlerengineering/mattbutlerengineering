@@ -25,7 +25,6 @@ import {
 import { handleHealthSystem } from "./health/system.js";
 import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
-import { handleHealthLighthouse } from "./health/lighthouse.js";
 import { handleHealthDeps } from "./health/deps.js";
 import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
@@ -148,10 +147,6 @@ export default {
 
     if (url.pathname === "/health/performance") {
       return handleHealthPerformance(env);
-    }
-
-    if (url.pathname === "/health/lighthouse") {
-      return handleHealthLighthouse(env);
     }
 
     if (url.pathname === "/health/deps") {
