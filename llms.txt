@@ -1415,10 +1415,10 @@
     <item priority="low">
       interface UseBookingFlowDeps {
         api: BookingWidgetApiClient;
-        venueId: string;
         venueSlug?: string;
         stripePublishableKey?: string;
         onHoldChange?: (info: { holdId: string; sessionId: string | null } | nul...;
+        venueTimezone?: string;
       }
     </item>
     <item priority="high">
