@@ -410,4 +410,112 @@ describe("FloorPlanCanvas", () => {
       expect(screen.getByText("50%")).toBeDefined();
     });
   });
+  describe("keyboard manipulation (focus-scoped)", () => {
+    const getWrapper = () => screen.getByTestId("floor-plan-canvas-wrapper");
+
+    it("nudges the selected table by one grid step, snapped", () => {
+      const onTableMove = vi.fn();
+      render(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" onTableMove={onTableMove} />);
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      expect(onTableMove).toHaveBeenCalledWith("t1", 120, 100);
+      fireEvent.keyDown(getWrapper(), { key: "ArrowUp" });
+      expect(onTableMove).toHaveBeenCalledWith("t1", 100, 80);
+    });
+
+    it("clamps the nudge inside the canvas", () => {
+      const onTableMove = vi.fn();
+      const edge = makeTable("t3", "Edge", {
+        shapeMetadata: { x: 0, y: 0, width: 80, height: 60, shape: "rectangle" },
+      });
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          tables={[edge]}
+          selectedTableId="t3"
+          onTableMove={onTableMove}
+        />
+      );
+      fireEvent.keyDown(getWrapper(), { key: "ArrowLeft" });
+      expect(onTableMove).toHaveBeenCalledWith("t3", 0, 0);
+    });
+
+    it("announces the move", () => {
+      const onAnnounce = vi.fn();
+      render(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" onAnnounce={onAnnounce} />);
+      fireEvent.keyDown(getWrapper(), { key: "ArrowDown" });
+      expect(onAnnounce).toHaveBeenCalledWith("Table 1 moved to 100, 120");
+    });
+
+    it("requests deletion on Delete/Backspace when onDeleteRequest is provided", () => {
+      const onDeleteRequest = vi.fn();
+      render(
+        <FloorPlanCanvas {...defaultProps} selectedTableId="t1" onDeleteRequest={onDeleteRequest} />
+      );
+      fireEvent.keyDown(getWrapper(), { key: "Delete" });
+      fireEvent.keyDown(getWrapper(), { key: "Backspace" });
+      expect(onDeleteRequest).toHaveBeenCalledTimes(2);
+      expect(onDeleteRequest).toHaveBeenCalledWith("t1");
+    });
+
+    it("ignores keys when read-only or nothing is selected", () => {
+      const onTableMove = vi.fn();
+      const onDeleteRequest = vi.fn();
+      const { rerender } = render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          readOnly
+          selectedTableId="t1"
+          onTableMove={onTableMove}
+          onDeleteRequest={onDeleteRequest}
+        />
+      );
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      fireEvent.keyDown(getWrapper(), { key: "Delete" });
+      rerender(
+        <FloorPlanCanvas
+          {...defaultProps}
+          selectedTableId={null}
+          onTableMove={onTableMove}
+          onDeleteRequest={onDeleteRequest}
+        />
+      );
+      fireEvent.keyDown(getWrapper(), { key: "ArrowRight" });
+      expect(onTableMove).not.toHaveBeenCalled();
+      expect(onDeleteRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not react to keys pressed outside the canvas (e.g. an open dialog)", () => {
+      const onTableMove = vi.fn();
+      const onDeleteRequest = vi.fn();
+      render(
+        <>
+          <FloorPlanCanvas
+            {...defaultProps}
+            selectedTableId="t1"
+            onTableMove={onTableMove}
+            onDeleteRequest={onDeleteRequest}
+          />
+          <div role="dialog" aria-label="Add table">
+            <button type="button">Shape</button>
+          </div>
+        </>
+      );
+      const dialogButton = screen.getByText("Shape");
+      fireEvent.keyDown(dialogButton, { key: "ArrowRight" });
+      fireEvent.keyDown(dialogButton, { key: "Backspace" });
+      fireEvent.keyDown(window, { key: "Delete" });
+      expect(onTableMove).not.toHaveBeenCalled();
+      expect(onDeleteRequest).not.toHaveBeenCalled();
+    });
+
+    it("keeps the canvas focusable and described for assistive tech", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      const wrapper = getWrapper();
+      expect(wrapper.getAttribute("tabindex")).toBe("-1");
+      expect(wrapper.getAttribute("role")).toBe("group");
+      const describedBy = wrapper.getAttribute("aria-describedby");
+      expect(describedBy).toBeTruthy();
+      expect(document.getElementById(describedBy as string)?.textContent).toMatch(/arrow keys/i);
+    });
+  });
 });
