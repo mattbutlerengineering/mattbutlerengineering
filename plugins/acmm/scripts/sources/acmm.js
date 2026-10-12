@@ -145,7 +145,7 @@ export function checkAutoIssueGen(cwd, opts = {}) {
           "--state",
           "all",
           "--json",
-          "number,createdAt",
+          "number,createdAt,labels",
           "--limit",
           "100",
         ],
@@ -153,7 +153,10 @@ export function checkAutoIssueGen(cwd, opts = {}) {
       );
       const items = JSON.parse(raw);
       for (const item of items) {
-        if (item.createdAt && new Date(item.createdAt).getTime() >= cutoff) {
+        // #6485: the scanner's own gap issues carry `acmm` (+ `audit`); counting
+        // them would let the scanner satisfy its own criterion.
+        const isScannerOwn = (item.labels ?? []).some((l) => l.name === "acmm");
+        if (!isScannerOwn && item.createdAt && new Date(item.createdAt).getTime() >= cutoff) {
           recentNumbers.add(item.number);
         }
       }
