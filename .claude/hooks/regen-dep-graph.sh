@@ -25,7 +25,7 @@ cd "$root" || exit 0
 # Manifest paths/families are repo-root-relative.
 rel_path="${file_path#"$root"/}"
 
-families_json=$(node scripts/regen-manifest.mjs --families-for "$rel_path" 2>/dev/null)
+families_json=$(node scripts/regen-manifest.mjs --families-for "$rel_path" --hook-mode stage 2>/dev/null)
 [[ -z "$families_json" || "$families_json" == "[]" ]] && exit 0
 
 echo "$families_json" | jq -c '.[]' | while IFS= read -r family; do
