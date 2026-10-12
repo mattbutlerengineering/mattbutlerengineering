@@ -147,7 +147,7 @@ export function fileIssueBySearch(request, { search, match, onSearchError }, dep
  * The three `fileIssue` side effects backed by a gh-client: state read,
  * create (returns the new number), reopen.
  *
- * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {{issue: {list: Function, view: Function, create: Function, reopen: Function}}} ghClient
  * @returns {IssueFilingDeps}
  */
 export function ghIssueDeps(ghClient) {
@@ -172,7 +172,7 @@ export function ghIssueDeps(ghClient) {
  * args (search term / label / state / `--json` fields), passed through
  * unchanged so gh-client's REST fallback sees exactly what it did before.
  *
- * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {{issue: {list: Function, view: Function, create: Function, reopen: Function}}} ghClient
  * @param {IssueFilingRequest} request
  * @param {{listArgs: string[], match: (candidate: object) => boolean, onSearchError?: (err: Error) => void}} spec
  */
