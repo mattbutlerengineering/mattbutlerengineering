@@ -17,6 +17,8 @@ interface VenueContextValue {
   selectedVenue: Venue | null;
   setVenueId: (id: string) => void;
   isLoading: boolean;
+  /** Set when the venues fetch failed — distinct from an operator who genuinely has no venues. */
+  venuesError: Error | null;
   isMultiVenue: boolean;
   refetchVenues: () => Promise<void>;
 }
@@ -55,7 +57,7 @@ export function VenueProvider({ children }: VenueProviderProps) {
   // invalidates VENUES_QUERY_KEY, so this list stays fresh without any
   // imperative refetch plumbing here. (No SSE event refreshes venues — the
   // catalog in @mbe/types has no venue event.)
-  const { data: fetchedVenues, isLoading } = useVenues({ limit: 100 });
+  const { data: fetchedVenues, isLoading, error: venuesError } = useVenues({ limit: 100 });
   const venues = useMemo<readonly Venue[]>(() => fetchedVenues ?? [], [fetchedVenues]);
 
   // The explicitly-chosen venue id: seeded from storage and updated by
@@ -111,10 +113,20 @@ export function VenueProvider({ children }: VenueProviderProps) {
       selectedVenue,
       setVenueId,
       isLoading,
+      venuesError,
       isMultiVenue,
       refetchVenues,
     }),
-    [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue, refetchVenues]
+    [
+      venues,
+      selectedVenueId,
+      selectedVenue,
+      setVenueId,
+      isLoading,
+      venuesError,
+      isMultiVenue,
+      refetchVenues,
+    ]
   );
 
   return <VenueContext.Provider value={value}>{children}</VenueContext.Provider>;
