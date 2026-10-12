@@ -3257,6 +3257,7 @@ None (`agent-skip` count is 0). `#5962` (secret rotation) was left `ready` rathe
 
 **queueEfficiency:** unavailable (credential_rejected)
 **Issues filed:** 0
+
 ## 2026-10-12 (mbe-evening, progress-tracker)
 
 ### Metrics
