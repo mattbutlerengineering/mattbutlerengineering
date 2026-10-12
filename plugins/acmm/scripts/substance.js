@@ -1,6 +1,8 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { callerChecker } from "./substance-callers.js";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * DAY_MS;
 
@@ -254,7 +256,7 @@ function checkSkill(filePaths, _cwd) {
  * from "newest entry is N days old" (the loop ran and then stopped, on a knowable date); a dead
  * loop and an absent one are different problems and must not read identically.
  */
-function checkFeedbackLoop(filePaths, _cwd) {
+function newestPastContentDate(filePaths) {
   const now = Date.now();
   let newest = null;
   for (const fp of filePaths) {
@@ -268,8 +270,29 @@ function checkFeedbackLoop(filePaths, _cwd) {
       if (!newest || ts > newest.ts) newest = { date: d, ts };
     }
   }
+  return newest;
+}
 
-  return recencyVerdict(newest, THIRTY_DAYS_MS, "no dated entries in the loop log");
+function checkFeedbackLoop(filePaths, _cwd) {
+  return recencyVerdict(
+    newestPastContentDate(filePaths),
+    THIRTY_DAYS_MS,
+    "no dated entries in the loop log"
+  );
+}
+
+/**
+ * Substance for acmm:strategic-dashboard (#5880) — the dashboard must have been refreshed lately.
+ * `docs/autonomous-work-log.md` satisfied detection for months while "refreshed manually" and
+ * untouched since May; a human-facing view of autonomous activity nobody updates is stale by
+ * definition. 30 days, like the loop log it is supposed to summarise.
+ */
+function checkDashboardFreshness(filePaths, _cwd) {
+  return recencyVerdict(
+    newestPastContentDate(filePaths),
+    THIRTY_DAYS_MS,
+    "no dated refresh found in the dashboard"
+  );
 }
 
 function checkTestCoverage(filePaths, _cwd) {
@@ -335,6 +358,16 @@ export const substanceCheckers = {
   "acmm:session-continuity": checkSessionContinuity,
   "acmm:simple-skills": checkSkill,
   "acmm:feedback-loops": checkFeedbackLoop,
+  // #5880: upstream existence checks that dead artifacts satisfied. Each now needs a caller
+  // (something that runs or loads it) or recency.
+  "acmm:policy-as-code": callerChecker([".github/policies"]),
+  "acmm:risk-assessment-config": callerChecker(["risk-config.json", ".github/risk-assessment.yml"]),
+  "acmm:multi-agent-orchestration": callerChecker([
+    "scripts/orchestrate.mjs",
+    "workflows/orchestrate.yml",
+  ]),
+  "acmm:prompts-catalog": callerChecker([".github/prompts", ".github/agents"]),
+  "acmm:strategic-dashboard": checkDashboardFreshness,
   // Moved from fullsend:test-coverage / fullsend:observability-runbook
   // (#5851/#5853 AC6: those ids were deleted — "Twins" merged into their
   // acmm: counterparts, substance moved with them).

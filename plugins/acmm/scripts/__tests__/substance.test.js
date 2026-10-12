@@ -796,6 +796,98 @@ describe("session + reinforcement integration — real repo files", () => {
     assert.doesNotMatch(result.evidence, /\d{4}-\d{2}-\d{2}/, result.evidence);
   });
 });
+describe("caller / recency substance checkers for formerly dead-artifact criteria", () => {
+  function repoWith(files) {
+    const dir = makeTmpDir();
+    for (const [rel, content] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, rel)), { recursive: true });
+      writeFileSync(join(dir, rel), content);
+    }
+    return dir;
+  }
+  const run = (id, dir, rels) =>
+    substanceCheckers[id](
+      rels.map((r) => join(dir, r)),
+      dir
+    );
+
+  const CALLER_CASES = [
+    {
+      id: "acmm:policy-as-code",
+      artifact: ".github/policies/secrets.yaml",
+      caller: ["scripts/load-policies.mjs", 'readdirSync(".github/policies")'],
+    },
+    {
+      id: "acmm:risk-assessment-config",
+      artifact: ".claude/risk-config.json",
+      caller: ["scripts/risk.mjs", 'readFileSync(".claude/risk-config.json")'],
+    },
+    {
+      id: "acmm:multi-agent-orchestration",
+      artifact: "scripts/orchestrate.mjs",
+      caller: [".github/workflows/queue.yml", "run: node scripts/orchestrate.mjs"],
+    },
+    {
+      id: "acmm:prompts-catalog",
+      artifact: ".github/prompts/review.md",
+      caller: [".claude/skills/review/SKILL.md", "Load .github/prompts/review.md first"],
+    },
+  ];
+
+  for (const { id, artifact, caller } of CALLER_CASES) {
+    test(`${id}: fails when nothing but docs prose and its own test references the artifact`, () => {
+      const dir = repoWith({
+        [artifact]: "x: 1\n",
+        "docs/notes.md": `see ${artifact}`,
+        "scripts/__tests__/thing.test.mjs": `// ${artifact}`,
+      });
+      assert.equal(run(id, dir, [artifact]).passed, false);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    test(`${id}: passes when a workflow, script or skill actually references the artifact`, () => {
+      const dir = repoWith({ [artifact]: "x: 1\n", [caller[0]]: caller[1] });
+      assert.equal(run(id, dir, [artifact]).passed, true);
+      rmSync(dir, { recursive: true, force: true });
+    });
+  }
+
+  for (const prose of [
+    ".claude/rules/x.md",
+    ".claude/sessions/x.md",
+    ".claude/session-summary.md",
+    ".claude/rules/x.json",
+  ]) {
+    test(`policy-as-code: a mention in ${prose} (prose/history) does not count as a caller`, () => {
+      const dir = repoWith({
+        ".github/policies/a.yaml": "x: 1\n",
+        [prose]: "we keep .github/policies/ around",
+      });
+      assert.equal(run("acmm:policy-as-code", dir, [".github/policies/a.yaml"]).passed, false);
+      rmSync(dir, { recursive: true, force: true });
+    });
+  }
+
+  test("an artifact whose own content contains the needle is not its own caller", () => {
+    const dir = repoWith({
+      ".github/policies/a.yaml": "# lives in .github/policies\n",
+      ".github/policies/b.yaml": "# see .github/policies\n",
+    });
+    const files = [".github/policies/a.yaml", ".github/policies/b.yaml"];
+    assert.equal(run("acmm:policy-as-code", dir, files).passed, false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("acmm:strategic-dashboard: fails on a stale dashboard, passes on a recently refreshed one", () => {
+    const stale = repoWith({ "docs/d.md": `Last updated ${isoDaysAgo(120)}` });
+    assert.equal(run("acmm:strategic-dashboard", stale, ["docs/d.md"]).passed, false);
+    const fresh = repoWith({ "docs/d.md": `Last updated ${isoDaysAgo(2)}` });
+    assert.equal(run("acmm:strategic-dashboard", fresh, ["docs/d.md"]).passed, true);
+    rmSync(stale, { recursive: true, force: true });
+    rmSync(fresh, { recursive: true, force: true });
+  });
+});
+
 describe("runSubstanceChecks", () => {
   test("returns substantive=true for criteria with passing checker", () => {
     const dir = makeTmpDir();
