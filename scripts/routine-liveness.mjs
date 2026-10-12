@@ -694,9 +694,7 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
           "--state",
           "all",
           "--json",
-          latestCommit
-            ? "title,createdAt,mergedAt,number,state,headRefName"
-            : "title,createdAt,mergedAt",
+          latestCommit ? "title,createdAt,mergedAt,number,state,headRefName" : "title,createdAt",
           "--limit",
           "50",
         ])
@@ -705,7 +703,7 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
       type: "pr",
       title: pr.title,
       observedAt: !latestCommit
-        ? (pr.mergedAt ?? pr.createdAt)
+        ? pr.createdAt
         : pattern.test(pr.title ?? "")
           ? latestMatchingCommitAt(
               { ...pr, commits: fetchPrCommits(apiGet, pr, pattern) },
