@@ -89,6 +89,20 @@ describe("origin proxy circuit breaker", () => {
     expect((await response.json()).title).toBe("Boom");
   });
 
+  it("synthesizes problem+json when an /api origin 5xx is not problem+json", async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response("<html>bad gateway</html>", {
+          status: 502,
+          headers: { "Content-Type": "text/html" },
+        })
+    );
+    const response = await get(RESERVATIONS_PATH);
+    expect(response.status).toBe(502);
+    expect(response.headers.get("Content-Type")).toContain(PROBLEM_JSON);
+    expect((await response.json()).title).toBeTruthy();
+  });
+
   it("returns problem+json 503 for /public when the origin is unreachable", async () => {
     globalThis.fetch = vi.fn(async () => {
       throw new Error("connect refused");
