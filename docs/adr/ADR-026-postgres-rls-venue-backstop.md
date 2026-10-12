@@ -948,11 +948,11 @@ context. `rls-force-coverage.ts` guards the `FORCE` set in the ordinary
 
 ## Amendment 2026-10-12: the part-6 global hook is retired; context comes from `venueScoped`
 
-Part 6 of this ADR (§4, "How it's set") describes a global Fastify
+The rollout's "part 6/7" hook (§3.2 addendum and §3.3 items 4–5) was a global Fastify
 `preHandler` that resolved a `venueId` from the query, body or params and
 entered it into the request's `AsyncLocalStorage` store with `enterWith`
 (`venueContextPreHandler` and `resolveGlobalVenueId` in `app.ts`). That hook
-is **deleted** (venue-scoped-routes run, PR 6), along with `enterVenueContext`,
+is **deleted** (venue-scoped-routes run PR 6), along with `enterVenueContext`,
 `routes/venue-access.ts` (`venueIdFromQuery/Body/Params/Entity`,
 `loadInVenueContext`) and the shallow tests that pinned them.
 
@@ -967,6 +967,10 @@ What replaces it, with no change to the policies, the `app.venue_id` variable,
   authorization, which the old hook could not guarantee because Fastify runs a
   shared `preHandler` hook before a route's own guards. A request that is
   denied never entered a context at all.
+  **Exception:** UNSCOPED routes do not get this guarantee. In particular
+  `GET /api/v1/floor-plans` is guard-less and enters the caller-named
+  `?venueId=` context before any authorization, so only `listForMember`'s
+  membership filter protects it (unchanged from the old hook).
 - **Unscoped routes** are listed with a reason in
   `routes/venue-scope-coverage.test.ts`, and the `pending-migration` reason is
   now forbidden by that test. Public, token, webhook, cron and job paths keep

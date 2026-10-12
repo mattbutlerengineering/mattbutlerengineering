@@ -21,6 +21,11 @@ describe("queryVenueId / bodyVenueId", () => {
     expect(bodyVenueId(request({ body: container }))).toBeNull();
   });
 
+  it("return an empty-string venueId as-is (a string, so a context is entered)", () => {
+    expect(queryVenueId(request({ query: { venueId: "" } }))).toBe("");
+    expect(bodyVenueId(request({ body: { venueId: "" } }))).toBe("");
+  });
+
   it("do not read each other's container", () => {
     expect(queryVenueId(request({ body: { venueId: "v" } }))).toBeNull();
     expect(bodyVenueId(request({ query: { venueId: "v" } }))).toBeNull();
@@ -43,6 +48,10 @@ describe("inNamedVenueContext", () => {
     // No venue named: the work neither enters nor clears a context.
     expect(seen).toBe("outer");
     expect(await inNamedVenueContext(id, async () => getCurrentVenueId())).toBeNull();
+  });
+
+  it("enters a context for an empty-string venueId, as the old hook did", async () => {
+    expect(await inNamedVenueContext("", async () => getCurrentVenueId())).toBe("");
   });
 
   it("does not leak the context past the work", async () => {
