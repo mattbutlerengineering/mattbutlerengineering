@@ -97,16 +97,18 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
   `ALTER USER ... PASSWORD`) first: every service would fail to connect until a deploy landed. Use a
   second login role instead.
 
-**Caveat to resolve before step 5.** `index.ts` sets
-`ignoreChanges: ["spec.features", "spec.jobs", "spec.services"]` on the DO App, and its own comment says
-env vars "remain exactly as unmanaged as they were". As written, a changed `databaseUrl` may produce
-**no diff** on the live services or migrate jobs, so `pulumi-up` could report success while the app keeps
-the old URL. Run `pulumi preview --diff --stack prod` after step 4 and look for a `DATABASE_URL` env
-change. If there is none, the new URL must reach the DO app spec by another route (tracked by #3277);
-do not drop the old role until step 6 proves the new one is in use.
+**`pulumi-up` will NOT update the live `DATABASE_URL`.** `infrastructure/pulumi/index.ts:299` sets
+`ignoreChanges: ["spec.features", "spec.jobs", "spec.services"]` on the DO App, and its own comment says env
+vars "remain exactly as unmanaged as they were" (full reconciliation is #3277). A changed `databaseUrl`
+produces no diff on the three services or the three `db-migrate-*` jobs, so `pulumi-up` can report success
+while the app keeps the old URL. The working update path is the DO app spec, the same pattern
+`.github/workflows/deploy-services.yml:246-289` uses for `SENTRY_DSN`: `doctl apps spec get` -> edit the
+value with `yq` -> `doctl apps update --spec` -> `doctl apps create-deployment`. `pulumi config set` is kept
+only to keep config in sync (and for when #3277 lands). Do not retire the old role until step 6 proves the
+new one is in use.
 
 1. **Identify the current login role and database.** From a trusted workstation (never CI logs), run
-   `pulumi config get databaseUrl --secret --stack prod` with `PULUMI_CONFIG_PASSPHRASE` set, and note the
+   `pulumi config get databaseUrl --stack prod` with `PULUMI_CONFIG_PASSPHRASE` set, and note the
    user, host, port and database name (do not paste the URL anywhere). Connect with `psql` and run:
    ```sql
    SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;
@@ -122,6 +124,9 @@ do not drop the old role until step 6 proves the new one is in use.
    GRANT "<owner>" TO "mbe-svc-YYYYMM";
    GRANT app_reservations TO "mbe-svc-YYYYMM";
    ```
+   On PG15+ the first `GRANT`, run as non-superuser `doadmin`, may fail with `42501` (no implicit ADMIN
+   OPTION). If it does, the second-role path is blocked: **STOP and do nothing further** (drop the unused
+   new user in the DO console) and escalate.
    Prefer `ALTER ROLE "mbe-svc-YYYYMM" IN DATABASE "<db>" SET role = '<owner>';` so objects created by
    migrations stay owned by the original owner. Verify as the new role, without touching production data:
    ```sql
@@ -134,31 +139,43 @@ do not drop the old role until step 6 proves the new one is in use.
 3. **Build the URL** for the new role: `postgresql://mbe-svc-YYYYMM:<password>@<host>:<port>/<db>?sslmode=require`
    (host, port and database from step 1; the DO console shows the pooled and direct hosts, and migrations
    need the same kind of host as the current URL).
-4. **Set the Pulumi secret.** Pipe the value on stdin; never put it on the command line or in shell history:
+4. **Update the live app spec (this is what changes runtime).** Needs `DO_APP_ID` and doctl auth:
+   ```bash
+   doctl apps spec get "$DO_APP_ID" > spec.yaml   # holds secret values: never commit it
+   ```
+   Confirm `DATABASE_URL` is held as a `SECRET` env on `users-api`, `reservations-api`, `agent-api` and on
+   the three `db-migrate-*` jobs. Save a copy of the old spec for rollback. Replace the value on all six
+   entries with `yq` (feed the URL from an env var read from stdin, not the command line), then
+   `doctl apps update "$DO_APP_ID" --spec spec.yaml` and `doctl apps create-deployment "$DO_APP_ID" --wait`.
+   Delete the spec files afterwards.
+5. **Keep Pulumi config in sync.** Pipe the value on stdin; never put it on the command line:
    ```bash
    cd infrastructure/pulumi
    pbpaste | pulumi config set --secret databaseUrl --stack prod   # reads the value from stdin
    ```
    This rewrites the encrypted `mbe-infrastructure:databaseUrl` entry in `Pulumi.prod.yaml`. Commit that
-   diff and open a PR. The `.claude` PreToolUse hook blocks agent edits to `Pulumi.prod.yaml` on purpose,
-   so this is a human step. Pulumi state lives in R2 and needs `PULUMI_CONFIG_PASSPHRASE` plus the R2
-   credentials.
-5. **Deploy.** Merging to `main` runs `pulumi-up.yml`; the services then need a new deployment
-   (`deploy-services`) to restart with the new environment, and the PRE_DEPLOY `db-migrate-*` jobs run
-   with it. Check `pulumi preview --diff` first (see the caveat above).
+   diff and open a PR; it lands via `pulumi-up` but does not change the running services (see above). The
+   `.claude` PreToolUse hook blocks agent edits to `Pulumi.prod.yaml` on purpose, so this is a human step.
+   Pulumi state lives in R2 and needs `PULUMI_CONFIG_PASSPHRASE` plus the R2 credentials.
 6. **Verify the new role is in use.** Health endpoints that run a real query (not `/health`, which is
    liveness-only; see gotchas, "Prisma + DO migrate"):
-   - `/api/v1/users/health` (users-api, runs `$queryRaw`; `degraded` means the DB is unreachable)
+   - `/api/v1/users/health` (users-api, runs `$queryRaw`; read `checks.database.status`, `ok` or `error`. Top-level `degraded` can come from any failed check such as auth0, pool or slow_queries)
    - `/api/v1/reservations/health` (reservations-api)
    - `/api/gen/health` (agent-api)
 
    Then confirm the live sessions: `SELECT usename, count(*) FROM pg_stat_activity GROUP BY 1;` shows
-   connections for `mbe-svc-YYYYMM` and none for the old user. A reservation read for a real venue must
+   connections for `mbe-svc-YYYYMM` and none from the services for the old user. Your own `psql` session
+   will always appear under the old user if you connected with it, so exclude `pid = pg_backend_pid()` and
+   filter by `application_name`/`client_addr`. A reservation read for a real venue must
    return rows: a broken RLS grant answers 404/empty, not 5xx (see `services/reservations/CLAUDE.md`).
 
 7. **Retire the old role** only after step 6 shows zero connections from it, ideally a day later:
-   remove its password or delete the user in the DO console. Rollback before this point is
-   `pulumi config set` back to the old URL and redeploy.
+   remove its password or delete the user in the DO console.
+
+**Rollback (before step 7):** a Pulumi config revert alone is a no-op under `ignoreChanges`. Restore the
+OLD `DATABASE_URL` in the live spec by the same route (`doctl apps spec get` -> `yq` -> `doctl apps update
+--spec`, or use the saved old spec), then `doctl apps create-deployment "$DO_APP_ID" --wait`.
+Revert the Pulumi config PR afterwards to keep config in sync.
 
 ### R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
 
