@@ -852,6 +852,32 @@ describe("caller / recency substance checkers for formerly dead-artifact criteri
     });
   }
 
+  for (const prose of [
+    ".claude/rules/x.md",
+    ".claude/sessions/x.md",
+    ".claude/session-summary.md",
+    ".claude/rules/x.json",
+  ]) {
+    test(`policy-as-code: a mention in ${prose} (prose/history) does not count as a caller`, () => {
+      const dir = repoWith({
+        ".github/policies/a.yaml": "x: 1\n",
+        [prose]: "we keep .github/policies/ around",
+      });
+      assert.equal(run("acmm:policy-as-code", dir, [".github/policies/a.yaml"]).passed, false);
+      rmSync(dir, { recursive: true, force: true });
+    });
+  }
+
+  test("an artifact whose own content contains the needle is not its own caller", () => {
+    const dir = repoWith({
+      ".github/policies/a.yaml": "# lives in .github/policies\n",
+      ".github/policies/b.yaml": "# see .github/policies\n",
+    });
+    const files = [".github/policies/a.yaml", ".github/policies/b.yaml"];
+    assert.equal(run("acmm:policy-as-code", dir, files).passed, false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("acmm:strategic-dashboard: fails on a stale dashboard, passes on a recently refreshed one", () => {
     const stale = repoWith({ "docs/d.md": `Last updated ${isoDaysAgo(120)}` });
     assert.equal(run("acmm:strategic-dashboard", stale, ["docs/d.md"]).passed, false);

@@ -9,8 +9,9 @@ import { join, relative, sep } from "node:path";
  * upstream criterion for months with no reader. The artifact only counts when something that
  * actually runs or loads it (a workflow, script, hook, skill or agent) references its path.
  *
- * Deliberately not callers: markdown outside `.claude/` (prose that describes the artifact is the
- * exact false signal this replaces), tests (a test of the artifact is not a use of it), the
+ * Deliberately not callers: markdown outside `.claude/{skills,agents,commands}` and anything in
+ * `.claude/{rules,sessions,...}` (prose that describes the artifact is the exact false signal this
+ * replaces), tests (a test of the artifact is not a use of it), the
  * artifact's own files, and `plugins/acmm` (the scorer names every path it looks for).
  */
 
@@ -41,6 +42,19 @@ function toRel(cwd, full) {
   return relative(cwd, full).split(sep).join("/");
 }
 
+/**
+ * Under `.claude/` only the surfaces the harness loads or executes count: hooks, skills, agents,
+ * commands, and the top-level settings files. Everything else there (rules, sessions,
+ * session-summary*.md, ...) is guidance prose or history, which describes artifacts without
+ * running them.
+ */
+function isCaller(rel, name) {
+  if (!rel.startsWith(".claude/")) return CODE_EXT.test(name);
+  const loaded = /^\.claude\/(?:hooks|skills|agents|commands)\//.test(rel);
+  const settings = /^\.claude\/settings[^/]*\.json$/.test(rel);
+  return (loaded && CLAUDE_EXT.test(name)) || settings;
+}
+
 function* walk(dir, cwd, excluded) {
   let entries;
   try {
@@ -58,8 +72,7 @@ function* walk(dir, cwd, excluded) {
       if (excluded.has(full) || TEST_FILE.test(entry.name) || entry.name === "pnpm-lock.yaml") {
         continue;
       }
-      const ext = rel.startsWith(".claude/") ? CLAUDE_EXT : CODE_EXT;
-      if (ext.test(entry.name)) yield full;
+      if (isCaller(rel, entry.name)) yield full;
     }
   }
 }
