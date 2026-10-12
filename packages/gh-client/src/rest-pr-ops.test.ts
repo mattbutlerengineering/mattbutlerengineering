@@ -134,6 +134,27 @@ describe("prList --search merged:>= without the Search API (#6445)", () => {
   });
 });
 
+describe("prList --search label qualifier (#6445)", () => {
+  it("sends no labels= param to /pulls and filters labels client-side", () => {
+    const http = vi.fn().mockReturnValue({
+      status: 200,
+      body: JSON.stringify([
+        {
+          number: 1,
+          title: "a",
+          state: "open",
+          labels: [{ name: "ready" }],
+          updated_at: "2026-10-10T00:00:00Z",
+        },
+        { number: 2, title: "b", state: "open", labels: [], updated_at: "2026-10-10T00:00:00Z" },
+      ]),
+    });
+    const result = prList(makeCtx(http), parseArgs(["--search", "label:ready,other"]));
+    expect(result).toEqual([expect.objectContaining({ number: 1 })]);
+    expect(http.mock.calls[0]![0].url).not.toContain("labels=");
+  });
+});
+
 describe("prView", () => {
   it("maps a plain PR view", () => {
     const http = vi.fn().mockReturnValue({

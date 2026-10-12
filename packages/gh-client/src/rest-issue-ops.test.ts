@@ -131,6 +131,32 @@ describe("issueList --search without the Search API (#6445)", () => {
     for (const call of http.mock.calls) expect(call[0].url).not.toContain("/search/");
   });
 
+  it("keeps later OR-members when the first member alone exceeds --limit", () => {
+    const mk = (n: number, label: string, updated: string) => ({
+      number: n,
+      title: "t",
+      state: "closed",
+      labels: [{ name: label }],
+      updated_at: updated,
+    });
+    const http = vi.fn((req: { url: string }) =>
+      req.url.includes("labels=audit")
+        ? body([
+            mk(1, "audit", "2026-10-01T00:00:00Z"),
+            mk(2, "audit", "2026-10-01T00:00:00Z"),
+            mk(3, "audit", "2026-10-01T00:00:00Z"),
+          ])
+        : body([mk(4, "sentry", "2026-10-09T00:00:00Z")])
+    );
+    const result = issueList(
+      makeCtx(http as unknown as SyncHttp),
+      parseArgs(["--state", "closed", "--search", "label:audit,sentry", "--limit", "3"])
+    );
+    const numbers = result.map((r) => (r as { number: number }).number);
+    expect(numbers).toContain(4);
+    expect(numbers).toHaveLength(3);
+  });
+
   it("stops paging once items are older than the date cutoff", () => {
     const page = Array.from({ length: 100 }, (_, i) => ({
       number: i + 1,

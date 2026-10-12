@@ -132,11 +132,12 @@ function listFiltered(
   state: string,
   filters: SearchFilters,
   limit: number,
-  skip: (item: Listable) => boolean
+  skip: (item: Listable) => boolean,
+  serverSideLabels = true
 ): Listable[] {
   const seen = new Set<number>();
   const merged: Listable[] = [];
-  for (const labels of labelParamSets(filters)) {
+  for (const labels of serverSideLabels ? labelParamSets(filters) : [undefined]) {
     const params = new URLSearchParams({ state, sort: "updated", direction: "desc" });
     if (labels) params.set("labels", labels);
     for (const item of paginate(ctx, path, params, filters, limit, skip)) {
@@ -146,7 +147,11 @@ function listFiltered(
       }
     }
   }
-  return merged.slice(0, limit);
+  // Newest first across members, so one large member cannot crowd out the rest.
+  const byUpdatedDesc = [...merged].sort((a, b) =>
+    (b.updated_at ?? "").localeCompare(a.updated_at ?? "")
+  );
+  return byUpdatedDesc.slice(0, limit);
 }
 
 export function listIssuesByFilters(
@@ -170,5 +175,6 @@ export function listPrsByFilters(
   // `merged:` implies closed, and the pulls endpoint has no "merged" state.
   const state = filters.mergedSince !== undefined || requested === "merged" ? "closed" : requested;
   const path = `/repos/${ctx.owner}/${ctx.repo}/pulls`;
-  return listFiltered(ctx, path, state, filters, limit, () => false) as RawPr[];
+  // /pulls has no `labels` param: one unlabelled request set, labels filtered client-side.
+  return listFiltered(ctx, path, state, filters, limit, () => false, false) as RawPr[];
 }

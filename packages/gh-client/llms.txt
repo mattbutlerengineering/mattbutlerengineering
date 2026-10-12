@@ -497,7 +497,8 @@
         state: string,
         filters: SearchFilters,
         limit: number,
-        skip: (item: Listable) => boolean
+        skip: (item: Listable) => boolean,
+        serverSideLabels = true
       ): Listable[] { /* ... */ }
     </item>
     <item priority="high">
