@@ -301,5 +301,19 @@ describe("DropdownMenu", () => {
       await user.keyboard("{Enter}");
       await waitFor(() => expect(btn).toHaveFocus());
     });
+
+    it("Enter keydown on a native-button trigger opens the menu once and selects nothing", () => {
+      const onClick = vi.fn();
+      render(
+        <DropdownMenu trigger={<Button onClick={onClick}>Actions</Button>} items={basicItems} />
+      );
+      const btn = screen.getByRole("button", { name: /actions/i });
+      act(() => btn.focus());
+      fireEvent.keyDown(btn, { key: "Enter" });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(btn).toHaveAttribute("aria-expanded", "true");
+      expect(onClick).toHaveBeenCalledTimes(1);
+      basicItems.forEach((item) => expect(item.onSelect).not.toHaveBeenCalled());
+    });
   });
 });

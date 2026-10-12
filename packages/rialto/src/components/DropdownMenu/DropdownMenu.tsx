@@ -201,16 +201,14 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         role="presentation"
         onClick={handleTriggerClick}
         onKeyDown={(e) => {
-          // A native <button> trigger activates itself (firing the consumer's
-          // onClick, which bubbles to the handler above); only handle the key
-          // here for non-button triggers.
-          if (
-            !open &&
-            (e.key === "Enter" || e.key === " ") &&
-            !(e.target as Element).closest("button")
-          ) {
+          if (!open && (e.key === "Enter" || e.key === " ")) {
+            // preventDefault suppresses the native click (no double toggle). For a
+            // native <button> re-dispatch it once so the consumer's onClick fires
+            // on keyboard activation; it bubbles to handleTriggerClick above.
             e.preventDefault();
-            handleTriggerClick();
+            const button = (e.target as Element).closest("button");
+            if (button) button.click();
+            else handleTriggerClick();
           } else if (open) {
             handleKeyDown(e);
           }
