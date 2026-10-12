@@ -19,7 +19,7 @@
  * from no live root) — plus the Playwright specs no workflow invoked (#3955).
  * The CLI-command surface was the one left uncovered, and it was uncovered
  * *knowingly*: `check-claude-md-table-drift.mjs` carries an explicit test
- * ("a Command declared but never registered in index.ts is not flagged")
+ * ("a Command declared but never registered in command-loaders.ts is not flagged")
  * because the CLAUDE.md table documents only *registered* commands, so an
  * unattached one is correctly invisible to it. That blind spot is deliberate
  * there and closed here.
@@ -62,6 +62,12 @@ const DECLARATION_RE = /export\s+const\s+(\w+)\s*=\s*new\s+Command\(\s*"([^"]+)"
 /** Matches `.addCommand(fooCommand)` on any receiver (`program`, a parent command). */
 const ATTACHMENT_RE = /\.addCommand\(\s*(\w+)\s*\)/g;
 
+/** Matches a lazy loader entry, `(await import("./commands/x.js")).fooCommand` (command-loaders.ts). */
+const LAZY_ATTACHMENT_RE = /\(await import\("[^"]+"\)\)\.(\w+)/g;
+
+/** The one file whose lazy loader entries register top-level commands. */
+const COMMAND_LOADERS_FILE = "tools/cli/src/command-loaders.ts";
+
 /**
  * Extract every named command declaration from one module's source.
  *
@@ -76,11 +82,16 @@ export function parseCommandDeclarations(source, file) {
 /**
  * Extract every symbol that something attaches as a subcommand.
  *
+ * Lazy loader entries count only in the loader table (`lazyLoaders`): a lazy
+ * import anywhere else registers nothing with commander.
+ *
  * @param {string} source
+ * @param {{ lazyLoaders?: boolean }} [options]
  * @returns {string[]}
  */
-export function parseAttachedSymbols(source) {
-  return [...source.matchAll(ATTACHMENT_RE)].map(([, symbol]) => symbol);
+export function parseAttachedSymbols(source, { lazyLoaders = false } = {}) {
+  const lazy = lazyLoaders ? [...source.matchAll(LAZY_ATTACHMENT_RE)] : [];
+  return [...source.matchAll(ATTACHMENT_RE), ...lazy].map(([, symbol]) => symbol);
 }
 
 /**
@@ -138,7 +149,8 @@ export const FAIL_MESSAGE =
   "`commander` only exposes a command something calls `.addCommand()` on, so an\n" +
   "unattached `new Command(...)` export is unreachable — `mbe <name>` exits\n" +
   '"unknown command" — while its unit tests keep passing against the exported\n' +
-  "object. Either attach it (in tools/cli/src/index.ts for a top-level command,\n" +
+  "object. Either attach it (a LOADERS entry in tools/cli/src/command-loaders.ts\n" +
+  "for a top-level command,\n" +
   "or to its parent command) and add it to the CLAUDE.md CLI table, or delete it.\n" +
   "If it must stay unattached, add it to ALLOWLIST in\n" +
   "scripts/check-orphaned-cli-commands.mjs with a reason.\n" +
@@ -171,7 +183,11 @@ export function scanRepo(repoRoot) {
 
   const attachedSymbols = walkFiles(path.join(repoRoot, CLI_SRC_DIR), { match: isSource })
     .filter(notATest)
-    .flatMap((file) => parseAttachedSymbols(readFileSync(file, "utf-8")));
+    .flatMap((file) =>
+      parseAttachedSymbols(readFileSync(file, "utf-8"), {
+        lazyLoaders: relative(file) === COMMAND_LOADERS_FILE,
+      })
+    );
 
   return { declarations, attachedSymbols };
 }

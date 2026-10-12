@@ -1,61 +1,17 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { loginCommand } from "./commands/login.js";
-import { logoutCommand } from "./commands/logout.js";
-import { whoamiCommand } from "./commands/whoami.js";
-import { usersCommand } from "./commands/users.js";
-import { agentCommand, checkModelCommand } from "./commands/agent.js";
-import { newCommand } from "./commands/new.js";
-import { packCommand, packChangedCommand } from "./commands/pack.js";
-import { syncRulesCommand } from "./commands/sync-rules.js";
-import { loopCommand } from "./commands/loop.js";
-import { checkAdrCommand } from "./commands/adr.js";
-import { upCommand } from "./commands/up.js";
-import { generateCommand } from "./commands/generate.js";
-import { checkDepsCommand } from "./commands/check-deps.js";
-import { healthCommand } from "./commands/health.js";
-import { mcpCommand } from "./commands/mcp.js";
-import { issueCommand } from "./commands/issue.js";
+import { registerCommands } from "./command-loaders.js";
 
 const program = new Command();
 
 program.name("mbe").description("Matt Butler Engineering CLI").version("0.0.0");
 
-// Auth commands
-program.addCommand(loginCommand);
-program.addCommand(logoutCommand);
-program.addCommand(whoamiCommand);
+async function main(): Promise<void> {
+  await registerCommands(program, process.argv.slice(2));
+  await program.parseAsync();
+}
 
-// API commands
-program.addCommand(usersCommand);
-
-// Agent commands
-program.addCommand(agentCommand);
-program.addCommand(checkModelCommand);
-program.addCommand(loopCommand);
-
-// Scaffold commands
-program.addCommand(newCommand);
-program.addCommand(upCommand);
-program.addCommand(generateCommand);
-
-// Context commands
-program.addCommand(packCommand);
-program.addCommand(packChangedCommand);
-program.addCommand(syncRulesCommand);
-
-// Architecture commands
-program.addCommand(checkAdrCommand);
-program.addCommand(checkDepsCommand);
-
-// Issue coordination commands
-program.addCommand(issueCommand);
-
-// Infrastructure commands
-program.addCommand(healthCommand);
-program.addCommand(mcpCommand);
-
-program.parseAsync().catch((err) => {
+main().catch((err) => {
   if (err instanceof Error) {
     console.error(`\x1b[31mError:\x1b[0m ${err.message}`);
   } else {

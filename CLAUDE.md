@@ -114,7 +114,7 @@ Generic lifecycle skills (idea, prd, architect, implement, review, ship, automat
 
 ## mbe CLI Commands
 
-All top-level commands registered in `tools/cli/src/index.ts`:
+All top-level commands registered in `tools/cli/src/command-loaders.ts`:
 
 | Command        | Subcommands                                                                                                | Purpose                                                                                                                                                                                                                            |
 | -------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
