@@ -205,17 +205,20 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       [filter, query, options]
     );
 
-    const { open, focusedIndex, openWithFocus, close, setFocusedIndex } = useCombobox({
+    // Input mode opens with nothing pre-highlighted (ARIA APG combobox pattern):
+    // aria-activedescendant is only set once the user navigates with the arrows.
+    const {
+      open,
+      focusedIndex,
+      openWithFocus: openList,
+      close,
+      setFocusedIndex,
+      handleKeyDown: onListKeyDown,
+    } = useCombobox({
       items: visible,
       containerRef: wrapperRef,
+      inputMode: "input",
     });
-
-    // Open the listbox with nothing pre-highlighted (ARIA APG combobox pattern):
-    // aria-activedescendant is only set once the user navigates with the arrows.
-    const openList = useCallback(() => {
-      openWithFocus();
-      setFocusedIndex(-1);
-    }, [openWithFocus, setFocusedIndex]);
 
     const setQuery = useCallback(
       (next: string) => {
@@ -283,41 +286,14 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           removeValue(selectedValues[selectedValues.length - 1] as string);
           return;
         }
-        if (!open) {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            e.preventDefault();
-            openList();
-          }
+        if (open && e.key === "Enter") {
+          e.preventDefault();
+          const opt = focusedIndex >= 0 ? visible[focusedIndex] : undefined;
+          if (opt) handleSelect(opt);
           return;
         }
-        switch (e.key) {
-          case "ArrowDown":
-            e.preventDefault();
-            setFocusedIndex(nextEnabled(visible, focusedIndex, 1));
-            break;
-          case "ArrowUp":
-            e.preventDefault();
-            setFocusedIndex(nextEnabled(visible, focusedIndex, -1));
-            break;
-          case "Home":
-            e.preventDefault();
-            setFocusedIndex(nextEnabled(visible, -1, 1));
-            break;
-          case "End":
-            e.preventDefault();
-            setFocusedIndex(nextEnabled(visible, visible.length, -1));
-            break;
-          case "Enter": {
-            e.preventDefault();
-            const opt = focusedIndex >= 0 ? visible[focusedIndex] : undefined;
-            if (opt) handleSelect(opt);
-            break;
-          }
-          case "Escape":
-            e.preventDefault();
-            close();
-            break;
-        }
+        // Navigation, Escape and Tab (close) are the hook's input-mode contract.
+        onListKeyDown(e);
       },
       [
         multiple,
@@ -325,12 +301,10 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
         selectedValues,
         removeValue,
         open,
-        openList,
-        setFocusedIndex,
+        onListKeyDown,
         visible,
         focusedIndex,
         handleSelect,
-        close,
       ]
     );
 
@@ -477,19 +451,3 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
 );
 
 Combobox.displayName = "Combobox";
-
-/* ── Navigation helper ───────────────────────── */
-
-/**
- * Returns the next non-disabled index moving in `dir` from `from`. Returns
- * `from` (clamped) when no enabled option exists in that direction.
- */
-function nextEnabled(options: ComboboxOption[], from: number, dir: 1 | -1): number {
-  let i = from + dir;
-  while (i >= 0 && i < options.length) {
-    if (!options[i]?.disabled) return i;
-    i += dir;
-  }
-  // No enabled option ahead: keep the current focus if it is valid.
-  return from >= 0 && from < options.length ? from : -1;
-}
