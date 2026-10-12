@@ -13,7 +13,6 @@ const QUERY_WINDOW_ADVANCE_MS = 120;
 
 const mockPoolInstance = {
   totalCount: 5,
-  activeCount: 2,
   idleCount: 3,
   waitingCount: 0,
   on: vi.fn(),
@@ -23,7 +22,6 @@ const mockPoolInstance = {
 vi.mock("pg", () => {
   class MockPool {
     totalCount = mockPoolInstance.totalCount;
-    activeCount = mockPoolInstance.activeCount;
     idleCount = mockPoolInstance.idleCount;
     waitingCount = mockPoolInstance.waitingCount;
     on = mockPoolInstance.on;
@@ -54,8 +52,8 @@ describe("createDatabase", () => {
     vi.resetModules();
     vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/test");
     capturedExtension = null;
-    mockPoolInstance.activeCount = 2;
     mockPoolInstance.totalCount = 5;
+    mockPoolInstance.idleCount = 3;
   });
 
   it("returns all expected interface members", async () => {
@@ -134,8 +132,8 @@ describe("createDatabase", () => {
 
   it("$allOperations logs slow queries and pool alerts", async () => {
     const { createDatabase } = await import("./index.js");
-    mockPoolInstance.activeCount = 5;
     mockPoolInstance.totalCount = 5;
+    mockPoolInstance.idleCount = 0;
     createDatabase(createMockPrismaClient() as never);
 
     expect(capturedExtension).not.toBeNull();
@@ -234,8 +232,8 @@ describe("createDatabase", () => {
 
   it("getServiceStatus returns degraded when pool utilization is high", async () => {
     const { createDatabase } = await import("./index.js");
-    mockPoolInstance.activeCount = 5;
     mockPoolInstance.totalCount = 5;
+    mockPoolInstance.idleCount = 0;
     const db = createDatabase(createMockPrismaClient() as never);
 
     expect(db.getServiceStatus()).toBe("degraded");
@@ -317,18 +315,18 @@ describe("createDatabase", () => {
     vi.restoreAllMocks();
   });
 
-  it("getPoolMetrics().total equals pool.totalCount and .busy equals pool.activeCount — no active field", async () => {
+  it("getPoolMetrics().total equals pool.totalCount and .busy equals totalCount - idleCount — no active field", async () => {
     const { createDatabase } = await import("./index.js");
     const db = createDatabase(createMockPrismaClient() as never);
     const metrics = db.getPoolMetrics();
 
-    // totalCount is 5, activeCount is 2 per mockPoolInstance defaults
+    // totalCount is 5, idleCount is 3 (busy = 5 - 3) per mockPoolInstance defaults
     expect(metrics.total).toBe(5);
     expect(metrics.busy).toBe(2);
     expect((metrics as unknown as Record<string, unknown>).active).toBeUndefined();
   });
 
-  it("getPoolMetrics.utilization is computed as activeCount / connectionLimit — consistent across calls", async () => {
+  it("getPoolMetrics.utilization is computed as (totalCount - idleCount) / connectionLimit — consistent across calls", async () => {
     const { createDatabase } = await import("./index.js");
     const db = createDatabase(createMockPrismaClient() as never);
 
@@ -340,10 +338,9 @@ describe("createDatabase", () => {
     expect(first.utilization).toBeCloseTo(0.4); // 2 active / 5 limit
   });
 
-  it("getPoolMetrics reports 0 utilization for a cold pool (activeCount=0)", async () => {
+  it("getPoolMetrics reports 0 utilization for a cold pool (totalCount=0)", async () => {
     const { createDatabase } = await import("./index.js");
     mockPoolInstance.totalCount = 0;
-    mockPoolInstance.activeCount = 0;
     mockPoolInstance.idleCount = 0;
     const db = createDatabase(createMockPrismaClient() as never);
 
@@ -356,7 +353,6 @@ describe("createDatabase", () => {
   it("getPoolMetrics handles missing pool internals with ?? 0 fallbacks", async () => {
     const { createDatabase } = await import("./index.js");
     mockPoolInstance.totalCount = undefined as unknown as number;
-    mockPoolInstance.activeCount = undefined as unknown as number;
     mockPoolInstance.idleCount = undefined as unknown as number;
     mockPoolInstance.waitingCount = undefined as unknown as number;
     const db = createDatabase(createMockPrismaClient() as never);

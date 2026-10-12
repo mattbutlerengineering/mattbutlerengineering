@@ -7,14 +7,11 @@ const { mockPoolProps, capturedHandlers, mockPrismaInstance, mockPoolInstance } 
     allOps?: (ctx: any) => Promise<any>;
   } = {};
 
-  const mockPoolProps = { totalCount: 3, activeCount: 1, idleCount: 2, waitingCount: 0 };
+  const mockPoolProps = { totalCount: 3, idleCount: 2, waitingCount: 0 };
 
   const mockPoolInstance = {
     get totalCount() {
       return mockPoolProps.totalCount;
-    },
-    get activeCount() {
-      return mockPoolProps.activeCount;
     },
     get idleCount() {
       return mockPoolProps.idleCount;
@@ -52,9 +49,6 @@ vi.mock("pg", () => ({
       get totalCount() {
         return mockPoolProps.totalCount;
       }
-      get activeCount() {
-        return mockPoolProps.activeCount;
-      }
       get idleCount() {
         return mockPoolProps.idleCount;
       }
@@ -86,7 +80,6 @@ describe("database module", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPoolProps.totalCount = 3;
-    mockPoolProps.activeCount = 1;
     mockPoolProps.idleCount = 2;
     mockPoolProps.waitingCount = 0;
   });
@@ -147,12 +140,12 @@ describe("database module", () => {
       expect(metrics.total).toBe(3); // mockPoolProps.totalCount
     });
 
-    it("busy equals pool.activeCount", () => {
+    it("busy equals totalCount - idleCount", () => {
       const metrics = getPoolMetrics();
-      expect(metrics.busy).toBe(1); // mockPoolProps.activeCount
+      expect(metrics.busy).toBe(1); // totalCount(3) - idleCount(2)
     });
 
-    it("calculates utilization as activeCount / CONNECTION_LIMIT", () => {
+    it("calculates utilization as (totalCount - idleCount) / CONNECTION_LIMIT", () => {
       const metrics = getPoolMetrics();
       // CONNECTION_LIMIT defaults to 5 (env var unset)
       expect(metrics.utilization).toBeCloseTo(1 / 5, 5);
@@ -160,7 +153,6 @@ describe("database module", () => {
 
     it("returns utilization 0 when pool has no active connections", () => {
       mockPoolProps.totalCount = 0;
-      mockPoolProps.activeCount = 0;
       mockPoolProps.idleCount = 0;
       const metrics = getPoolMetrics();
       expect(metrics.utilization).toBe(0);
@@ -174,7 +166,6 @@ describe("database module", () => {
 
     it("isDegraded is true when busy/CONNECTION_LIMIT exceeds 0.8", () => {
       mockPoolProps.totalCount = 5;
-      mockPoolProps.activeCount = 5;
       mockPoolProps.idleCount = 0;
       const metrics = getPoolMetrics();
       expect(metrics.isDegraded).toBe(true);
@@ -183,7 +174,6 @@ describe("database module", () => {
 
     it("isDegraded is true at exactly 0.81 utilization", () => {
       mockPoolProps.totalCount = 5;
-      mockPoolProps.activeCount = 5;
       mockPoolProps.idleCount = 0;
       const metrics = getPoolMetrics();
       expect(metrics.isDegraded).toBe(true);
@@ -199,7 +189,6 @@ describe("database module", () => {
 
     it("returns 'degraded' when pool utilization >= 0.8", () => {
       mockPoolProps.totalCount = 5;
-      mockPoolProps.activeCount = 5;
       mockPoolProps.idleCount = 0;
       expect(getServiceStatus()).toBe("degraded");
     });
@@ -323,7 +312,6 @@ describe("database module", () => {
       const handler = capturedHandlers.allOps!;
       // Push utilization to 1.0 (5 active / 5 limit)
       mockPoolProps.totalCount = 5;
-      mockPoolProps.activeCount = 5;
       mockPoolProps.idleCount = 0;
 
       const mockQuery = vi.fn().mockResolvedValue({});

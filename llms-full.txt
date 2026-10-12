@@ -49989,8 +49989,9 @@
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const p = pool as any;
         const total = p.totalCount ?? 0;
-        const active = p.activeCount ?? 0;
         const idle = p.idleCount ?? 0;
+        // pg-pool has no activeCount getter; checked-out connections = total - idle.
+        const active = Math.max(total - idle, 0);
         const waiting = p.waitingCount ?? 0;
         return {
           total,
