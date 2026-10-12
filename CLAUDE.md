@@ -42,12 +42,22 @@ These guidelines are adapted from [Karpathy's CLAUDE.md](https://github.com/mult
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
 
-### Two Modes
+### Three Modes
 
-| Mode                             | How                                  | Pushes to             | Best for                   |
-| -------------------------------- | ------------------------------------ | --------------------- | -------------------------- |
-| **Scheduled** (conservative)     | RemoteTriggers on claude.ai          | PRs for review        | Background maintenance     |
-| **Implement Queue** (aggressive) | `/loop 30m /implement-queue` locally | Auto-merges green PRs | Active development sprints |
+| Mode                             | How                                   | Pushes to                         | Best for                                 |
+| -------------------------------- | ------------------------------------- | --------------------------------- | ---------------------------------------- |
+| **Scheduled** (conservative)     | RemoteTriggers on claude.ai           | PRs for review                    | Background maintenance                   |
+| **Implement Queue** (aggressive) | `/loop 30m /implement-queue` locally  | Auto-merges green PRs             | Active development sprints               |
+| **Conductor** (Owner-attended)   | `/idea-to-prod:conduct #N...` locally | Merges only on the Owner's answer | A named batch of issues, priced up front |
+
+### Conductor (skills-repo orchestrator)
+
+The skills repo's orchestrator, `/idea-to-prod:conduct`, is stamped here as **tools only** (#6364): `tools/factory/conductor.py` + `.github/factory.json`, no factory workflows or Makefile. Run it as `python3 tools/factory/conductor.py <plan|open|next|answer|run|merge|close>`; the skill holds the protocol, the tool holds every rule.
+
+- **Config** (`.github/factory.json` → `conductor`): gate is `scripts/conductor-gate.sh` (one command, no shell operators — it is also the headless Worker's only Bash permission); `type_labels` maps `feature`→feature and `ci-fix`/`bug`→fix; `size_labels` maps `size:*`→S/M/L, `default_size` M; `wip_cap` 3, `monthly_cap_usd` 300. **`standing_consent` is off** — every merge needs the Owner's in-session answer.
+- **State** lives in the batch ledger `docs/factory/batches/<batch>/ledger.jsonl` on branch `conductor/<batch>`. Resuming a batch is `next` again.
+- **Local only.** Cloud routines don't load the plugin (#6332), and a session with no Owner answers no asks, so `/implement-queue` stays the unattended path. First real batch: mattbutlerengineering/skills#688.
+- **Upgrading:** when the plugin version moves, refresh `tools/factory/` with `/idea-to-prod:factory-init`'s `update`, keeping the tools-only scope.
 
 ### Skill Directory
 
