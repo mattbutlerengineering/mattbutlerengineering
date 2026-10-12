@@ -119,8 +119,8 @@ describe("readDistFiles", () => {
   });
 });
 
-/** Non-comment lines of a step's script (the parser already dropped comments). */
-const codeLines = (step) => (step.run ?? "").split("\n");
+/** Non-comment lines of a step script (bash `#` comments survive YAML parsing, so filter them). */
+const codeLines = (step) => (step.run ?? "").split("\n").filter((l) => !/^\s*#/.test(l));
 
 describe("deploy-static.yml runs the guard between each build and its deploy", () => {
   it.each(["marketing", "hospitality", "rialto-web"])("deploy-%s", (app) => {

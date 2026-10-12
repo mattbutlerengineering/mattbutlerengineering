@@ -150,10 +150,13 @@ function jobSteps(jobId) {
  * secret actually supplied in the step's env?
  */
 function runsSecretGuard(step, secret) {
-  const invokes = (step.run ?? "").split("\n").some((line) => {
-    const tokens = line.trim().split(/\s+/);
-    return tokens.includes("scripts/require-deploy-secrets.mjs") && tokens.includes(secret);
-  });
+  const invokes = (step.run ?? "")
+    .split("\n")
+    .filter((l) => !/^\s*#/.test(l))
+    .some((line) => {
+      const tokens = line.trim().split(/\s+/);
+      return tokens.includes("scripts/require-deploy-secrets.mjs") && tokens.includes(secret);
+    });
   return invokes && envValue(step, secret) === `\${{ secrets.${secret} }}`;
 }
 
