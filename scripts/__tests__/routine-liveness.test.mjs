@@ -1252,7 +1252,7 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
       "--state",
       "all",
       "--json",
-      "title,createdAt,mergedAt",
+      "title,createdAt",
       "--limit",
       "50",
     ]);
@@ -1266,14 +1266,31 @@ describe('observe: "latest-matching-commit" (ui-quality-loop re-entry 5)', () =>
     expect(observed[0]).toEqual({ type: "pr", title: other.title, observedAt: ago(3) });
   });
 
-  it("non-opted entries keep mergedAt ?? createdAt byte-identically", () => {
+  // #6342: a merge is someone else's act, not a fire — the non-opted-in
+  // branch must date a PR by its own createdAt, never mergedAt, exactly like
+  // the opted-in branch already does.
+  it("non-opted entries date by createdAt and never read mergedAt", () => {
     const merged = { ...LEDGER_PR, mergedAt: ago(0.2) };
     expect(observe([merged], entryOf(BASE)).observed).toEqual([
-      { type: "pr", title: merged.title, observedAt: ago(0.2) },
+      { type: "pr", title: merged.title, observedAt: ago(3) },
     ]);
     expect(observe([LEDGER_PR], entryOf(BASE)).observed).toEqual([
       { type: "pr", title: LEDGER_PR.title, observedAt: ago(3) },
     ]);
+  });
+
+  // #6342: the generalised repro. A weekly (`periodDays: 7`) `pr-title`
+  // routine's only matching PR was created 9 days ago and merged by a human
+  // 2 days ago — `mergedAt` reads as recent, but the routine itself hasn't
+  // fired since it opened the PR, so this must classify `late`, not `alive`.
+  it("a periodDays: 7 pr-title routine whose matching PR merged 2 days after a 9-day-old createdAt classifies late, not alive", () => {
+    const staleCreated = { ...LEDGER_PR, createdAt: ago(9), mergedAt: ago(2) };
+    const { observed } = observe([staleCreated], entryOf(BASE));
+    expect(observed).toEqual([{ type: "pr", title: staleCreated.title, observedAt: ago(9) }]);
+    expect(
+      classifyRoutineLiveness({ signature: BASE, periodDays: 7, observedArtifacts: observed, now })
+        .status
+    ).toBe("late");
   });
 
   it("opted in, a merged PR is dated by its own commits (branch may be deleted), never mergedAt", () => {
