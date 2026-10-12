@@ -1,3 +1,4 @@
+import { GhAuthError } from "@mbe/gh-client";
 import { describe, it, expect } from "vitest";
 import { upsertQueueEfficiencyRow, recordQueueEfficiency } from "../record-queue-efficiency.mjs";
 
@@ -55,5 +56,16 @@ describe("recordQueueEfficiency", () => {
       available: false,
       reason: "credential_rejected",
     });
+  });
+
+  it("classifies a throwing PR reader instead of reporting no_data_in_range", () => {
+    const entry = recordQueueEfficiency({
+      now: new Date("2026-10-12T11:30:00Z"),
+      readPrs: () => {
+        throw new GhAuthError("GET", "/repos/o/r/pulls", 401, "Bad credentials");
+      },
+    });
+    expect(entry.available).toBe(false);
+    expect(entry.reason).toBe("credential_rejected");
   });
 });

@@ -15,7 +15,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { collectQueueEfficiency } from "./collect-queue-efficiency.mjs";
+import { createGhClient } from "@mbe/gh-client";
+import { collectQueueEfficiency, readMergedAiPrsPaged } from "./collect-queue-efficiency.mjs";
 import { buildQueueEfficiencyProcessEntry } from "./optimize-implement-queue.mjs";
 import { resolvePath } from "./metrics-store.mjs";
 
@@ -39,10 +40,16 @@ export function upsertQueueEfficiencyRow(jsonlText, entry) {
   return [...kept, JSON.stringify(entry)].join("\n") + "\n";
 }
 
-/** Runs the collector and builds today's row. `collect` is injectable for tests. */
+/**
+ * Runs the collector and builds today's row. `readPrs` is injectable for tests.
+ * The default reader deliberately lets errors THROW (unlike `defaultReadPrs`,
+ * which swallows them to null) so collectQueueEfficiency can classify a
+ * 401/rate-limit as credential_rejected/rate_limited, not no_data_in_range.
+ */
 export function recordQueueEfficiency({
   now = new Date(),
-  collect = () => collectQueueEfficiency(undefined, undefined, now),
+  readPrs = () => readMergedAiPrsPaged(createGhClient(), now),
+  collect = () => collectQueueEfficiency(readPrs, undefined, now),
 } = {}) {
   return buildQueueEfficiencyProcessEntry(now.toISOString().slice(0, 10), collect());
 }
