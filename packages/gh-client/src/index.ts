@@ -11,7 +11,12 @@ export {
   markReady,
 } from "./label-machine.js";
 export type { LabelTransition, CoordinationLabel } from "./label-machine.js";
-export { GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
+export {
+  GhApiPathBlockedError,
+  GhAuthError,
+  GhRateLimitError,
+  describeGhError,
+} from "./rest-http.js";
 export { MissingGithubTokenError } from "./rest-args.js";
 export { GhGraphqlUnavailableError, isGraphqlUnavailableError } from "./transport.js";
 export { listRunArtifacts, downloadArtifactZip } from "./artifact-ops.js";

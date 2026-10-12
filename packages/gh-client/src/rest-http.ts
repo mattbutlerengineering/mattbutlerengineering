@@ -26,6 +26,25 @@ export class GhAuthError extends Error {
 }
 
 /**
+ * Thrown on a 403 whose body says the API *path* is off-limits for this
+ * session ("sessions are bound to their configured repositories", returned by
+ * Claude Code Remote for e.g. `/search/issues`) — the credential itself is
+ * fine and works on repo-scoped endpoints (#6445). Subclasses
+ * {@link GhAuthError} so existing `instanceof GhAuthError` consumers keep
+ * working, but {@link describeGhError} reports it distinctly.
+ */
+export class GhApiPathBlockedError extends GhAuthError {
+  constructor(method: string, path: string, status: number, body: string) {
+    super(method, path, status, body);
+    this.name = "GhApiPathBlockedError";
+  }
+}
+
+function isPathBlockedBody(body: string): boolean {
+  return /not available.*bound to their configured repositories/i.test(body);
+}
+
+/**
  * Thrown when GitHub REST returns 403 specifically because the caller is
  * being throttled — primary rate limit, secondary rate limit, or abuse
  * detection — detected by sniffing `res.body` for GitHub's wording for each
@@ -63,6 +82,9 @@ function isThrottledBody(body: string): boolean {
 export function describeGhError(err: unknown): string {
   if (err instanceof GhRateLimitError) {
     return `GitHub API rate limit exceeded (${err.status}) — REST fallback credential is valid but throttled, retry later`;
+  }
+  if (err instanceof GhApiPathBlockedError) {
+    return `GitHub API path blocked for this session (${err.status}) — credential is valid but only repository-scoped endpoints (repos/{owner}/{repo}/...) are allowed, not e.g. the Search API`;
   }
   if (err instanceof GhAuthError) {
     return `GitHub auth failed (${err.status}) — REST fallback credential is not valid for direct API calls`;
@@ -116,6 +138,9 @@ export function apiRequest(
   if (res.status >= 400 && !(opts.ignoreStatuses ?? []).includes(res.status)) {
     if (res.status === 403 && isThrottledBody(res.body)) {
       throw new GhRateLimitError(method, path, res.status, res.body);
+    }
+    if (res.status === 403 && isPathBlockedBody(res.body)) {
+      throw new GhApiPathBlockedError(method, path, res.status, res.body);
     }
     if (res.status === 401 || res.status === 403) {
       throw new GhAuthError(method, path, res.status, res.body);
