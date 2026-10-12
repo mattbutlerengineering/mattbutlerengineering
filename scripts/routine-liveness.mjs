@@ -112,6 +112,7 @@ function noArtifactResult({ nowMs, periodMs, period, activatedAt }) {
  * Pure, network-free decision: classifies a routine's liveness from its
  * declared signature, expected period, and observed artifacts.
  *
+ * - `paused` declared → `paused`: never observed, filed, or auto-closed.
  * - No `signature` declared → `unverifiable`. Fails closed rather than
  *   silently passing — this is exactly the state `mbe-weekly-improve` sat in
  *   for two consecutive retros before it had a detectable signature.
@@ -132,8 +133,9 @@ function noArtifactResult({ nowMs, periodMs, period, activatedAt }) {
  *   observedArtifacts?: Array<{type?: string, title?: string, labels?: string[], observedAt?: string}>,
  *   now: string|number|Date,
  *   activatedAt?: string,
+ *   paused?: {since: string, reason: string},
  * }} args
- * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending"|"throttled", matched: object|null, reason?: string}}
+ * @returns {{status: "alive"|"late"|"dark"|"unverifiable"|"pending"|"throttled"|"paused", matched: object|null, reason?: string}}
  */
 export function classifyRoutineLiveness({
   signature,
@@ -141,7 +143,13 @@ export function classifyRoutineLiveness({
   observedArtifacts = [],
   now,
   activatedAt,
+  paused,
 }) {
+  // Intentionally paused (manifest `paused`): neither dark nor unverifiable,
+  // checked before the signature so a paused routine never files a finding.
+  if (paused) {
+    return { status: "paused", matched: null, reason: paused.reason };
+  }
   if (!signature) {
     return { status: "unverifiable", matched: null };
   }
@@ -404,7 +412,7 @@ export function runRoutineLivenessCheck({
   const observations = inScope.map((entry) => {
     let observedArtifacts = [];
     let observeError = null;
-    if (entry.signature) {
+    if (entry.signature && !entry.paused) {
       try {
         observedArtifacts = fetchObservedArtifacts(entry);
         log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
@@ -417,7 +425,7 @@ export function runRoutineLivenessCheck({
       entry,
       observedArtifacts,
       observeError,
-      hasSignature: Boolean(entry.signature),
+      hasSignature: Boolean(entry.signature) && !entry.paused,
       observedCount: observedArtifacts.length,
     };
   });
@@ -466,6 +474,7 @@ export function runRoutineLivenessCheck({
       observedArtifacts,
       now,
       activatedAt: entry.activatedAt,
+      paused: entry.paused,
     });
 
     if (result.status === "pending") {
@@ -473,7 +482,13 @@ export function runRoutineLivenessCheck({
     }
     // late and pending never file or close anything: late is below the issue
     // threshold, and pending (#activatedAt grace) has no artifact yet.
-    if (result.status === "late" || result.status === "pending" || result.status === "throttled") {
+    // paused: existing findings are left alone (a human closes them).
+    if (
+      result.status === "late" ||
+      result.status === "pending" ||
+      result.status === "throttled" ||
+      result.status === "paused"
+    ) {
       return { routine: entry.name, status: result.status };
     }
 
