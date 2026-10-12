@@ -42,6 +42,7 @@ describe("useThemeState live tracking", () => {
 
   it("picks up a preference written by another tab", () => {
     const { result } = renderHook(() => useThemeState());
+    expect(result.current.preference).toBe("system");
 
     act(() => {
       localStorage.setItem(THEME_STORAGE_KEY, "dark");
@@ -49,5 +50,18 @@ describe("useThemeState live tracking", () => {
     });
 
     expect(result.current.preference).toBe("dark");
+  });
+
+  it("falls back to 'system' when another tab removes the stored preference", () => {
+    const { result } = renderHook(() => useThemeState());
+    act(() => result.current.setTheme("dark"));
+    expect(result.current.preference).toBe("dark");
+
+    act(() => {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+      window.dispatchEvent(new StorageEvent("storage", { key: THEME_STORAGE_KEY }));
+    });
+
+    expect(result.current.preference).toBe("system");
   });
 });

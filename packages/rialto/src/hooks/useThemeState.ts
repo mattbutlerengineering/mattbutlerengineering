@@ -21,11 +21,11 @@ function getStoredTheme(): ThemePreference {
   if (typeof window === "undefined") return "system";
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (isPreference(stored)) return stored;
+    return isPreference(stored) ? stored : "system";
   } catch {
-    // localStorage unavailable
+    // localStorage unavailable — the in-memory choice is the only record
+    return memoryPreference ?? "system";
   }
-  return memoryPreference ?? "system";
 }
 
 function getServerPreference(): ThemePreference {
@@ -33,12 +33,12 @@ function getServerPreference(): ThemePreference {
 }
 
 function storeTheme(theme: ThemePreference): void {
-  memoryPreference = theme;
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
     // Theme still works in memory
+    memoryPreference = theme;
   }
 }
 
