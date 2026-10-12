@@ -1374,6 +1374,9 @@ importers:
       '@mbe/gh-client':
         specifier: workspace:*
         version: link:../packages/gh-client
+      js-yaml:
+        specifier: ^5.4.3
+        version: 5.4.3
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'

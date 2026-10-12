@@ -38,6 +38,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCheck } from "./lib/fitness-check.mjs";
+import { getJob, parseWorkflow } from "./lib/workflow.mjs";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CI_WORKFLOW_PATH = join(DEFAULT_ROOT, ".github", "workflows", "ci.yml");
@@ -55,97 +56,64 @@ export const ADVISORY_JOBS = {
     "(if: always()) regardless of upstream results — it has nothing to gate.",
 };
 
-/** Returns the `jobs:` block's raw text (everything after the top-level `jobs:` key). */
-function jobsBlock(content) {
-  const match = content.match(/^jobs:\n([\s\S]*)$/m);
-  return match ? match[1] : "";
-}
-
-/** Top-level (2-space-indented) job header matches within a `jobs:` block. */
-function jobHeaders(block) {
-  return [...block.matchAll(/^ {2}([\w-]+):\s*$/gm)];
-}
-
 /** Every job name defined in ci.yml, in file order. */
 export function extractJobNames(content) {
-  return jobHeaders(jobsBlock(content)).map((m) => m[1]);
+  return Object.keys(parseWorkflow(content).jobs);
 }
 
-/** The raw body text (everything between one job header and the next) for `jobName`. */
-function extractJobBody(content, jobName) {
-  const block = jobsBlock(content);
-  const headers = jobHeaders(block);
-  const index = headers.findIndex((m) => m[1] === jobName);
-  if (index === -1) return "";
-
-  const start = headers[index].index + headers[index][0].length;
-  const end = index + 1 < headers.length ? headers[index + 1].index : block.length;
-  return block.slice(start, end);
-}
-
-/** The `needs:` list of `jobName` — supports bracketed, block-list, and inline-scalar forms. */
+/** The `needs:` list of `jobName` — scalar, flow, and block forms all resolve to an array. */
 export function extractJobNeeds(content, jobName) {
-  const jobBody = extractJobBody(content, jobName);
-
-  const bracketMatch = jobBody.match(/^\s*needs:\s*\n?\s*\[([\s\S]*?)\]/m);
-  if (bracketMatch) {
-    return bracketMatch[1]
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-
-  const blockMatch = jobBody.match(/^\s*needs:\s*\n((?:\s*-\s*[\w-]+\n?)+)/m);
-  if (blockMatch) {
-    return [...blockMatch[1].matchAll(/-\s*([\w-]+)/g)].map((m) => m[1]);
-  }
-
-  const inlineMatch = jobBody.match(/^\s*needs:\s*([\w-]+)\s*$/m);
-  return inlineMatch ? [inlineMatch[1]] : [];
+  return getJob(parseWorkflow(content), jobName)?.needs ?? [];
 }
 
-/** Maps shell env-var names to job names via `VAR: ${{ needs.<job>.result }}` lines. */
-function extractEnvVarJobMap(jobBody) {
+const NEEDS_RESULT_REF = /^\$\{\{\s*needs\.([\w-]+)\.result\s*\}\}$/;
+const TO_JSON_NEEDS_REF = /^\$\{\{\s*toJSON\(needs\)\s*\}\}$/;
+
+/** Maps shell env-var names to job names via `VAR: ${{ needs.<job>.result }}` entries. */
+function extractEnvVarJobMap(step) {
   const map = new Map();
-  const pattern = /^\s*([A-Z_][A-Z0-9_]*):\s*\$\{\{\s*needs\.([\w-]+)\.result\s*\}\}\s*$/gm;
-  for (const m of jobBody.matchAll(pattern)) {
-    map.set(m[1], m[2]);
+  for (const [name, value] of Object.entries(step.env)) {
+    const m = String(value).trim().match(NEEDS_RESULT_REF);
+    if (m) map.set(name, m[1]);
   }
   return map;
 }
 
 /** Shell env-var names referenced inside a `for job_result in "$A" "$B" ...; do` loop. */
-function extractForLoopVarNames(jobBody) {
-  const match = jobBody.match(/for\s+\w+\s+in\s+((?:"\$[A-Z_][A-Z0-9_]*"\s*)+);\s*do/);
+function extractForLoopVarNames(run) {
+  const match = run.match(/for\s+\w+\s+in\s+((?:"\$[A-Z_][A-Z0-9_]*"\s*)+);\s*do/);
   if (!match) return [];
   return [...match[1].matchAll(/\$([A-Z_][A-Z0-9_]*)/g)].map((m) => m[1]);
 }
 
-/** True when the gate step passes `toJSON(needs)` to ci-gate-required-results.mjs. */
-function passesNeedsToModule(gateBody) {
+/** True when the step passes `toJSON(needs)` to ci-gate-required-results.mjs. */
+function passesNeedsToModule(step) {
   return (
-    /^\s*NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}\s*$/m.test(gateBody) &&
-    /node scripts\/ci-gate-required-results\.mjs/.test(gateBody)
+    TO_JSON_NEEDS_REF.test(String(step.env.NEEDS_JSON ?? "").trim()) &&
+    /node scripts\/ci-gate-required-results\.mjs/.test(step.run ?? "")
   );
 }
 
 /**
  * Job names in `ci-gate`'s `needs:` whose `.result` is both exposed via an
- * env var on the "Check required job results" step AND read inside that
- * step's `for job_result in ...` loop — i.e. actually capable of failing
- * the gate, not merely listed in `needs:` (#5050).
+ * env var on a gate step AND read inside that step's `for job_result in ...`
+ * loop — i.e. actually capable of failing the gate, not merely listed in
+ * `needs:` (#5050).
  */
 export function extractEvaluatedJobs(content) {
-  const gateBody = extractJobBody(content, GATE_JOB_NAME);
+  const gate = getJob(parseWorkflow(content), GATE_JOB_NAME);
+  if (!gate) return [];
   // Fail-closed form (PR #6077 incident, 2026-10-05): the step hands the
   // whole `needs` context to scripts/ci-gate-required-results.mjs, which
   // evaluates every job in it — so every job in `needs:` is evaluated.
-  if (passesNeedsToModule(gateBody)) return extractJobNeeds(content, GATE_JOB_NAME);
+  if (gate.steps.some(passesNeedsToModule)) return gate.needs;
 
-  const envVarToJob = extractEnvVarJobMap(gateBody);
-  const loopVarNames = extractForLoopVarNames(gateBody);
-
-  return loopVarNames.map((varName) => envVarToJob.get(varName)).filter(Boolean);
+  return gate.steps.flatMap((step) => {
+    const envVarToJob = extractEnvVarJobMap(step);
+    return extractForLoopVarNames(step.run ?? "")
+      .map((varName) => envVarToJob.get(varName))
+      .filter(Boolean);
+  });
 }
 
 /**
