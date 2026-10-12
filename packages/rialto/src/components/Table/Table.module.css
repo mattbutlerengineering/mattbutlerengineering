@@ -132,3 +132,17 @@
   color: var(--rialto-text-tertiary);
   font-size: var(--rialto-text-sm);
 }
+
+/* ── Screen-reader-only text (empty-header columns) ── */
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
