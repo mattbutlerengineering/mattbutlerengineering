@@ -15924,6 +15924,17 @@
       export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
+  <file path="tools/cli/src/command-loaders.ts">
+    <item priority="high">
+      type CommandLoader = () => Promise<Command>;
+    </item>
+    <item priority="high">
+      export const COMMAND_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export async function registerCommands(program: Command, argv: readonly string[]): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="tools/cli/src/command-seam.ts">
     <item priority="low">
       type Row = Record<string, unknown>;
@@ -15986,6 +15997,11 @@
     </item>
     <item priority="high">
       export function isAuthenticated(): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/index.ts">
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">

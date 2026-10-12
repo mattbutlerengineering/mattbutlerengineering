@@ -56949,6 +56949,19 @@
       });
     }
   </file>
+  <file path="tools/cli/src/command-loaders.ts">
+    type CommandLoader = () => Promise<Command>;
+    export const COMMAND_NAMES: readonly string[] = LOADERS.map(([name]) => name);
+    export async function registerCommands(program: Command, argv: readonly string[]): Promise<void> {
+      const requested = argv.find((arg) => !arg.startsWith("-"));
+      const selected = LOADERS.filter(([name]) => name === requested);
+      const toLoad = selected.length > 0 ? selected : LOADERS;
+      // Sequential load keeps registration order (and any load error) deterministic.
+      for (const [, load] of toLoad) {
+        program.addCommand(await load());
+      }
+    }
+  </file>
   <file path="tools/cli/src/command-seam.ts">
     export type Row = Record<string, unknown>;
     export type CommandResult =
@@ -57065,6 +57078,12 @@
     }
     export function isAuthenticated(): boolean {
       return !!getAccessToken();
+    }
+  </file>
+  <file path="tools/cli/src/index.ts">
+    async function main(): Promise<void> {
+      await registerCommands(program, process.argv.slice(2));
+      await program.parseAsync();
     }
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
