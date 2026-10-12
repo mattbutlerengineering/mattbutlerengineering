@@ -23,10 +23,11 @@
  */
 
 import { tellsById } from "./rubric.mjs";
+import { JUDGE_STATUS_FILE } from "./work-dir.mjs";
 
 export const JUDGED_DIR = "judged";
 export const JUDGED_FINDINGS_FILE = "findings.judged.json";
-export const JUDGE_STATUS_FILE = "judge-status.json";
+export { JUDGE_STATUS_FILE };
 const UNJUDGED_REASONS = ["tool-error", "malformed", "missing"];
 
 const isString = (v) => typeof v === "string" && v !== "";

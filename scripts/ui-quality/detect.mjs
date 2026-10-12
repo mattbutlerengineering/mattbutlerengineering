@@ -49,11 +49,11 @@ import {
   readEdgeTopology,
   stripMount,
 } from "./edge-topology.mjs";
-import { LEDGER_METRIC, WORK_DIR, parseLedger } from "./ledger.mjs";
+import { LEDGER_METRIC, parseLedger } from "./ledger.mjs";
+import { WORK_DIR, readManifests as readCaptureManifests, workPath } from "./work-dir.mjs";
 import { loadRubric, tellsById } from "./rubric.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const CAPTURES_DIR = "captures";
 export const MECHANICAL_FILE = "findings.mechanical.json";
 
 // ---------------------------------------------------------------------------
@@ -228,23 +228,7 @@ export function mechanicalFindings({
 
 /** app → manifest rows. Throws (→ exit 2) when there is no manifest at all or a line is unreadable. */
 export function readManifests(root) {
-  const dir = join(root, WORK_DIR, CAPTURES_DIR);
-  const apps = existsSync(dir)
-    ? readdirSync(dir)
-        .filter((app) => existsSync(join(dir, app, "manifest.jsonl")))
-        .sort()
-    : [];
-  if (apps.length === 0) throw new Error(`no capture manifest under ${WORK_DIR}/${CAPTURES_DIR}/`);
-  return Object.fromEntries(
-    apps.map((app) => {
-      const file = join(dir, app, "manifest.jsonl");
-      try {
-        return [app, parseLedger(readFileSync(file, "utf8"))];
-      } catch (err) {
-        throw new Error(`${file} is unreadable: ${err.message}`, { cause: err });
-      }
-    })
-  );
+  return readCaptureManifests(root, { required: true });
 }
 
 /** Every file under `dir`, as `/`-rooted paths relative to it. */
@@ -270,7 +254,7 @@ export function readStaticAssets(root, topology) {
 }
 
 export function writeWorkJson(root, file, value) {
-  const path = join(root, WORK_DIR, file);
+  const path = workPath(root, file);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
 }
@@ -303,7 +287,7 @@ function mechanical(ctx) {
 
 /** app → the model's raw Judge file text, for every app that has one. */
 function readJudged(root, apps) {
-  const dir = join(root, WORK_DIR, JUDGED_DIR);
+  const dir = workPath(root, JUDGED_DIR);
   return Object.fromEntries(
     apps
       .filter((app) => existsSync(join(dir, `${app}.json`)))
