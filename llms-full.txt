@@ -13075,6 +13075,13 @@
       error: Error | null;
       refetch: () => void;
     
+      // Pagination (list mode only — search returns one capped page)
+      /** The API's total for the current list or search, not the number of visible rows. */
+      totalCount: number;
+      page: number;
+      totalPages: number;
+      setPage: (page: number) => void;
+    
       // Search
       searchQuery: string;
       setSearchQuery: (query: string) => void;
@@ -13097,7 +13104,13 @@
       const queryClient = useQueryClient();
     
       // Search state
-      const [searchQuery, setSearchQuery] = useState("");
+      const [searchQuery, setSearchQueryState] = useState("");
+      const [page, setPage] = useState(1);
+    
+      const setSearchQuery = (query: string) => {
+        setSearchQueryState(query);
+        setPage(1);
+      };
       const [debouncedQuery, setDebouncedQuery] = useState("");
     
       useEffect(() => {
@@ -13112,6 +13125,7 @@
       // Queries — only one active at a time
       const listResult = useGuests({
         venueId,
+        page,
         enabled: !isSearchActive,
       });
     
@@ -13123,20 +13137,17 @@
     
       const { data: segments } = useGuestSegments(venueId);
     
-      const {
-        data: guests = [],
-        isLoading,
-        error,
-        refetch,
-      } = isSearchActive ? searchResult : listResult;
+      const { data: guestPage, isLoading, error, refetch } = isSearchActive ? searchResult : listResult;
+      const guests = useMemo(() => guestPage?.data ?? [], [guestPage]);
+      const totalCount = guestPage?.pagination.total ?? guests.length;
+      const totalPages = guestPage?.pagination.totalPages ?? 1;
     
-      // Selection
+      // Selection is independent of the visible rows: a guest that a search or page
+      // change drops from view is fetched by id instead of leaving the drawer empty.
       const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
-    
-      const selectedGuest = useMemo(
-        () => guests.find((g) => g.id === selectedGuestId) ?? null,
-        [guests, selectedGuestId]
-      );
+      const visibleGuest = guests.find((g) => g.id === selectedGuestId) ?? null;
+      const { data: fetchedGuest } = useGuest(visibleGuest ? null : selectedGuestId);
+      const selectedGuest = visibleGuest ?? (selectedGuestId ? (fetchedGuest ?? null) : null);
     
       // Mutations
       const addGuestMutation = useMutation({
@@ -13152,6 +13163,7 @@
           api.guests.update(guestId, data),
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+          queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(venueId) });
         },
       });
     
@@ -13169,6 +13181,10 @@
         isLoading,
         error,
         refetch,
+        totalCount,
+        page,
+        totalPages,
+        setPage,
         searchQuery,
         setSearchQuery,
         isSearchActive,
@@ -13218,7 +13234,7 @@
     
       const query = eligible && settled === trimmed ? trimmed : "";
       const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
-      const matches = query !== "" ? (data ?? []) : [];
+      const matches = query !== "" ? (data?.data ?? []) : [];
     
       return {
         rows: matches.slice(0, MAX_ROWS),
@@ -13301,21 +13317,26 @@
     export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
     export interface UseGuestsParams {
       venueId?: string | null;
+      page?: number;
       limit?: number;
       enabled?: boolean;
     }
     export interface UseGuestsResult {
-      data: Guest[] | undefined;
+      /** A page of guests plus the API's pagination meta (total, page count). */
+      data: PaginatedResponse<Guest> | undefined;
       isLoading: boolean;
       error: Error | null;
       refetch: () => void;
     }
-    export const useGuests = createQueryHook<Guest[], UseGuestsParams>({
+    export const useGuests = createQueryHook<PaginatedResponse<Guest>, UseGuestsParams>({
       key: GUESTS_QUERY_KEY,
       fetcher: async (params, api) => {
-        if (!params?.venueId) return [];
-        const response = await api.guests.list({ venueId: params.venueId, limit: params.limit ?? 50 });
-        return response.data;
+        if (!params?.venueId) return EMPTY_PAGE;
+        return api.guests.list({
+          venueId: params.venueId,
+          page: params.page ?? 1,
+          limit: params.limit ?? 50,
+        });
       },
       getEnabled: (params) => !!params?.venueId,
     });
@@ -21902,16 +21923,17 @@
         },
         preHandler: requireAuth,
         handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
-          const { email, phone, name, dietaryRestrictions } = request.body;
-          if (!email && !phone) {
+          const { email, phone, name, notes, dietaryRestrictions } = request.body;
+          if (!hasGuestContact({ email, phone })) {
             return reply
               .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+              .send(createProblemDetails(400, "Bad Request", GUEST_CONTACT_REQUIRED_MESSAGE));
           }
           const guest = await guestService.findOrCreate(venueId, {
             email,
             phone,
             name,
+            notes,
             dietaryRestrictions,
           });
           return { data: guest };
@@ -27238,6 +27260,27 @@
       updatedAt: z.string(),
     });
   </file>
+  <file path="packages/types/src/schemas/guest-form.ts">
+    export const GUEST_CONTACT_REQUIRED_MESSAGE = "Either email or phone is required";
+    export function hasGuestContact(contact: {
+      email?: string | null | undefined;
+      phone?: string | null | undefined;
+    }): boolean {
+      return Boolean(contact.email?.trim() || contact.phone?.trim());
+    }
+    export const AddGuestFormSchema = z
+      .object({
+        name: z.string().trim().min(1, "Name is required"),
+        email: z.string().email("Please enter a valid email address").or(z.literal("")),
+        phone: z
+          .string()
+          .regex(/^[+\d\s\-().]{7,}$/, "Please enter a valid phone number")
+          .or(z.literal("")),
+        notes: z.string(),
+      })
+      .refine(hasGuestContact, { message: GUEST_CONTACT_REQUIRED_MESSAGE, path: ["email"] });
+    export type AddGuestFormValues = z.infer<typeof AddGuestFormSchema>;
+  </file>
   <file path="packages/types/src/schemas/guest.ts">
     export const StaffNoteSchema = z.object({
       text: z.string(),
@@ -27693,6 +27736,12 @@
       email: z.email().describe("Guest email (used for matching)").optional(),
       phone: z.string().describe("Guest phone (used for matching if email not found)").optional(),
       name: z.string().describe("Guest name"),
+      notes: z
+        .string()
+        .describe(
+          "Internal notes, stored when the guest is created (never overwrites an existing guest)"
+        )
+        .optional(),
       dietaryRestrictions: z
         .array(z.string())
         .describe("Dietary restrictions to merge with existing guest profile")
@@ -33877,7 +33926,13 @@
        */
       async findOrCreate(
         venueId: string,
-        data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
+        data: {
+          email?: string;
+          phone?: string;
+          name: string;
+          notes?: string;
+          dietaryRestrictions?: string[];
+        }
       ): Promise<Guest> {
         // Resolve identity: email takes precedence over phone
         const existing =
@@ -33915,6 +33970,7 @@
             email: data.email,
             phone: data.phone,
             name: data.name,
+            ...(data.notes ? { notes: data.notes } : {}),
             ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
               ? { dietaryRestrictions: data.dietaryRestrictions }
               : {}),

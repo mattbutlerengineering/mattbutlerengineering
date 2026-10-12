@@ -120,7 +120,13 @@ export const guestService = {
    */
   async findOrCreate(
     venueId: string,
-    data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
+    data: {
+      email?: string;
+      phone?: string;
+      name: string;
+      notes?: string;
+      dietaryRestrictions?: string[];
+    }
   ): Promise<Guest> {
     // Resolve identity: email takes precedence over phone
     const existing =
@@ -158,6 +164,7 @@ export const guestService = {
         email: data.email,
         phone: data.phone,
         name: data.name,
+        ...(data.notes ? { notes: data.notes } : {}),
         ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
           ? { dietaryRestrictions: data.dietaryRestrictions }
           : {}),

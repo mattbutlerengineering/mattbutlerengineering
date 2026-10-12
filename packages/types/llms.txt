@@ -172,6 +172,23 @@
       export const FloorPlanSchema: unknown;
     </item>
   </file>
+  <file path="src/schemas/guest-form.ts">
+    <item priority="high">
+      export const GUEST_CONTACT_REQUIRED_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export function hasGuestContact(contact: {
+        email?: string | null | undefined;
+        phone?: string | null | undefined;
+      }): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const AddGuestFormSchema: unknown;
+    </item>
+    <item priority="low">
+      type AddGuestFormValues = z.infer<typeof AddGuestFormSchema>;
+    </item>
+  </file>
   <file path="src/schemas/guest.ts">
     <item priority="high">
       export const StaffNoteSchema: unknown;

@@ -12,6 +12,7 @@ const mockSearch = vi.fn();
 const mockGetSegments = vi.fn();
 const mockFindOrCreate = vi.fn();
 const mockUpdate = vi.fn();
+const mockGet = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -21,6 +22,7 @@ vi.mock("./useApiClient.js", () => ({
       getSegments: mockGetSegments,
       findOrCreate: mockFindOrCreate,
       update: mockUpdate,
+      get: mockGet,
     },
   }),
 }));
@@ -398,5 +400,103 @@ describe("useGuestDirectory — addGuest refreshes segments", () => {
     });
 
     await waitFor(() => expect(mockGetSegments).toHaveBeenCalledTimes(2));
+  });
+});
+
+function pagination(overrides: Record<string, unknown> = {}) {
+  return {
+    page: 1,
+    limit: 50,
+    total: 120,
+    totalPages: 3,
+    hasNext: true,
+    hasPrev: false,
+    ...overrides,
+  };
+}
+
+describe("useGuestDirectory — pagination", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockList.mockResolvedValue({ data: [makeGuest()], pagination: pagination() });
+    mockSearch.mockResolvedValue({ data: [], pagination: pagination({ total: 0, totalPages: 0 }) });
+    mockGetSegments.mockResolvedValue([]);
+  });
+
+  it("surfaces the API's pagination.total, not the visible row count", async () => {
+    const { result } = renderHook(() => useGuestDirectory({ venueId: "venue-1" }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.totalCount).toBe(120);
+    expect(result.current.totalPages).toBe(3);
+    expect(result.current.page).toBe(1);
+  });
+
+  it("requests the next page when setPage is called", async () => {
+    const { result } = renderHook(() => useGuestDirectory({ venueId: "venue-1" }), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.setPage(2);
+    });
+
+    await waitFor(() =>
+      expect(mockList).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-1", page: 2 })
+      )
+    );
+    expect(result.current.page).toBe(2);
+  });
+
+  it("returns to page 1 when the search text changes", async () => {
+    const { result } = renderHook(() => useGuestDirectory({ venueId: "venue-1" }), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.setPage(3);
+    });
+    act(() => {
+      result.current.setSearchQuery("Ana");
+    });
+
+    expect(result.current.page).toBe(1);
+  });
+});
+
+describe("useGuestDirectory — selection survives the visible rows changing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockList.mockResolvedValue({ data: [makeGuest({ id: "g1" })], pagination: pagination() });
+    mockSearch.mockResolvedValue({
+      data: [makeGuest({ id: "g9", name: "Other" })],
+      pagination: pagination({ total: 1, totalPages: 1 }),
+    });
+    mockGetSegments.mockResolvedValue([]);
+    mockGet.mockResolvedValue(makeGuest({ id: "g1", name: "Selected Guest" }));
+  });
+
+  it("fetches the selected guest by id once a search drops it from the rows", async () => {
+    const { result } = renderHook(() => useGuestDirectory({ venueId: "venue-1" }), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.selectGuest("g1");
+    });
+    act(() => {
+      result.current.setSearchQuery("Other");
+    });
+
+    await waitFor(() => expect(result.current.guests[0]?.id).toBe("g9"), { timeout: 1500 });
+    await waitFor(() => expect(result.current.selectedGuest?.name).toBe("Selected Guest"));
+    expect(mockGet).toHaveBeenCalledWith("g1");
   });
 });

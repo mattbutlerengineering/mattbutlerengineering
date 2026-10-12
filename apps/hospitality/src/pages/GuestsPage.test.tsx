@@ -90,13 +90,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick,
     disabled,
     type,
+    "aria-label": ariaLabel,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     disabled?: boolean;
     type?: "button" | "submit" | "reset";
+    "aria-label"?: string;
   }) => (
-    <button type={type} onClick={onClick} disabled={disabled}>
+    <button type={type} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
       {children}
     </button>
   ),
@@ -288,6 +290,10 @@ function makeDirectoryResult(
     isLoading: false,
     error: null,
     refetch: vi.fn(),
+    totalCount: 0,
+    page: 1,
+    totalPages: 1,
+    setPage: vi.fn(),
     searchQuery: "",
     setSearchQuery: vi.fn(),
     isSearchActive: false,
@@ -435,16 +441,34 @@ describe("GuestsPage - segment stats", () => {
     expect(stats.length).toBe(3);
   });
 
-  it("shows result count text with total from segments", () => {
+  it("shows the API total, not the sum of overlapping segment counts", () => {
+    // Real segments overlap: "All Guests" already is the total, VIP/Recent/New are subsets.
     renderPage({
       guests: [makeGuest()],
+      totalCount: 100,
       segments: [
-        makeSegment({ name: "VIP", count: 5 }),
-        makeSegment({ name: "Regular", count: 10 }),
-        makeSegment({ name: "New", count: 3 }),
+        makeSegment({ name: "All Guests", count: 100 }),
+        makeSegment({ name: "VIP", count: 20 }),
+        makeSegment({ name: "Recent", count: 30 }),
       ],
     });
-    expect(screen.getByText("Showing 1 of 18 guests")).toBeDefined();
+    expect(screen.getByText("Showing 1 of 100 guests")).toBeDefined();
+  });
+
+  it("pages through the directory with Previous/Next", () => {
+    const setPage = vi.fn();
+    renderPage({ guests: [makeGuest()], totalCount: 120, page: 1, totalPages: 3, setPage });
+    expect(screen.getByText("Page 1 of 3")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(setPage).toHaveBeenCalledWith(2);
+    expect(
+      screen.getByRole("button", { name: "Previous page" }).getAttribute("disabled")
+    ).not.toBeNull();
+  });
+
+  it("hides page controls when everything fits on one page", () => {
+    renderPage({ guests: [makeGuest()], totalCount: 1, totalPages: 1 });
+    expect(screen.queryByText(/Page 1 of/)).toBeNull();
   });
 });
 
@@ -481,6 +505,12 @@ describe("GuestsPage - guest detail drawer", () => {
       selectedGuest: guest,
     });
     expect(screen.getByTestId("drawer")).toBeDefined();
+  });
+
+  it("never opens an empty drawer when the selected guest is not loaded", () => {
+    // A search dropped g9 from the visible rows and its by-id fetch has not landed.
+    renderPage({ guests: [makeGuest()], selectedGuestId: "g9", selectedGuest: null });
+    expect(screen.queryByTestId("drawer")).toBeNull();
   });
 
   it("displays guest notes in the table row", () => {
@@ -580,6 +610,7 @@ describe("GuestsPage - add guest dialog", () => {
 
     const nameInput = screen.getByLabelText("Name");
     await user.type(nameInput, "New Guest");
+    await user.type(screen.getByLabelText("Email"), "guest@example.com");
 
     const buttons = screen.getAllByText("Add Guest");
     fireEvent.click(buttons[buttons.length - 1]!);
@@ -589,6 +620,41 @@ describe("GuestsPage - add guest dialog", () => {
         expect.objectContaining({ name: "New Guest", venueId: "venue-1" })
       );
     });
+  });
+
+  it("rejects a name-only guest client-side — the API requires email or phone", async () => {
+    const addGuest = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage({ guests: [], addGuest });
+
+    fireEvent.click(screen.getByText("Add Guest"));
+    await waitFor(() => expect(screen.getByTestId("dialog")).toBeDefined());
+    await user.type(screen.getByLabelText("Name"), "Ana");
+    const buttons = screen.getAllByText("Add Guest");
+    fireEvent.click(buttons[buttons.length - 1]!);
+
+    await waitFor(() => expect(screen.getByText(/email or phone is required/i)).toBeDefined());
+    expect(addGuest).not.toHaveBeenCalled();
+  });
+
+  it("sends the Notes field to the API", async () => {
+    const addGuest = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage({ guests: [], addGuest });
+
+    fireEvent.click(screen.getByText("Add Guest"));
+    await waitFor(() => expect(screen.getByTestId("dialog")).toBeDefined());
+    await user.type(screen.getByLabelText("Name"), "Ana");
+    await user.type(screen.getByLabelText("Email"), "ana@example.com");
+    await user.type(screen.getByLabelText("Notes"), "nut allergy");
+    const buttons = screen.getAllByText("Add Guest");
+    fireEvent.click(buttons[buttons.length - 1]!);
+
+    await waitFor(() =>
+      expect(addGuest).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Ana", email: "ana@example.com", notes: "nut allergy" })
+      )
+    );
   });
 
   it("disables submit button when name is empty", async () => {
@@ -616,6 +682,7 @@ describe("GuestsPage - add guest dialog", () => {
 
     const nameInput = screen.getByLabelText("Name");
     await user.type(nameInput, "New Guest");
+    await user.type(screen.getByLabelText("Email"), "guest@example.com");
 
     const buttons = screen.getAllByText("Add Guest");
     fireEvent.click(buttons[buttons.length - 1]!);
@@ -651,6 +718,7 @@ describe("GuestsPage - add guest dialog", () => {
 
     const nameInput = screen.getByLabelText("Name");
     await user.type(nameInput, "Dupe Guest");
+    await user.type(screen.getByLabelText("Email"), "guest@example.com");
 
     const buttons = screen.getAllByText("Add Guest");
     fireEvent.click(buttons[buttons.length - 1]!);

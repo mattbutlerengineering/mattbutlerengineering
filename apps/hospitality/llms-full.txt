@@ -2758,6 +2758,13 @@
       error: Error | null;
       refetch: () => void;
     
+      // Pagination (list mode only — search returns one capped page)
+      /** The API's total for the current list or search, not the number of visible rows. */
+      totalCount: number;
+      page: number;
+      totalPages: number;
+      setPage: (page: number) => void;
+    
       // Search
       searchQuery: string;
       setSearchQuery: (query: string) => void;
@@ -2780,7 +2787,13 @@
       const queryClient = useQueryClient();
     
       // Search state
-      const [searchQuery, setSearchQuery] = useState("");
+      const [searchQuery, setSearchQueryState] = useState("");
+      const [page, setPage] = useState(1);
+    
+      const setSearchQuery = (query: string) => {
+        setSearchQueryState(query);
+        setPage(1);
+      };
       const [debouncedQuery, setDebouncedQuery] = useState("");
     
       useEffect(() => {
@@ -2795,6 +2808,7 @@
       // Queries — only one active at a time
       const listResult = useGuests({
         venueId,
+        page,
         enabled: !isSearchActive,
       });
     
@@ -2806,20 +2820,17 @@
     
       const { data: segments } = useGuestSegments(venueId);
     
-      const {
-        data: guests = [],
-        isLoading,
-        error,
-        refetch,
-      } = isSearchActive ? searchResult : listResult;
+      const { data: guestPage, isLoading, error, refetch } = isSearchActive ? searchResult : listResult;
+      const guests = useMemo(() => guestPage?.data ?? [], [guestPage]);
+      const totalCount = guestPage?.pagination.total ?? guests.length;
+      const totalPages = guestPage?.pagination.totalPages ?? 1;
     
-      // Selection
+      // Selection is independent of the visible rows: a guest that a search or page
+      // change drops from view is fetched by id instead of leaving the drawer empty.
       const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
-    
-      const selectedGuest = useMemo(
-        () => guests.find((g) => g.id === selectedGuestId) ?? null,
-        [guests, selectedGuestId]
-      );
+      const visibleGuest = guests.find((g) => g.id === selectedGuestId) ?? null;
+      const { data: fetchedGuest } = useGuest(visibleGuest ? null : selectedGuestId);
+      const selectedGuest = visibleGuest ?? (selectedGuestId ? (fetchedGuest ?? null) : null);
     
       // Mutations
       const addGuestMutation = useMutation({
@@ -2835,6 +2846,7 @@
           api.guests.update(guestId, data),
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+          queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(venueId) });
         },
       });
     
@@ -2852,6 +2864,10 @@
         isLoading,
         error,
         refetch,
+        totalCount,
+        page,
+        totalPages,
+        setPage,
         searchQuery,
         setSearchQuery,
         isSearchActive,
@@ -2901,7 +2917,7 @@
     
       const query = eligible && settled === trimmed ? trimmed : "";
       const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
-      const matches = query !== "" ? (data ?? []) : [];
+      const matches = query !== "" ? (data?.data ?? []) : [];
     
       return {
         rows: matches.slice(0, MAX_ROWS),
@@ -2984,21 +3000,26 @@
     export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
     export interface UseGuestsParams {
       venueId?: string | null;
+      page?: number;
       limit?: number;
       enabled?: boolean;
     }
     export interface UseGuestsResult {
-      data: Guest[] | undefined;
+      /** A page of guests plus the API's pagination meta (total, page count). */
+      data: PaginatedResponse<Guest> | undefined;
       isLoading: boolean;
       error: Error | null;
       refetch: () => void;
     }
-    export const useGuests = createQueryHook<Guest[], UseGuestsParams>({
+    export const useGuests = createQueryHook<PaginatedResponse<Guest>, UseGuestsParams>({
       key: GUESTS_QUERY_KEY,
       fetcher: async (params, api) => {
-        if (!params?.venueId) return [];
-        const response = await api.guests.list({ venueId: params.venueId, limit: params.limit ?? 50 });
-        return response.data;
+        if (!params?.venueId) return EMPTY_PAGE;
+        return api.guests.list({
+          venueId: params.venueId,
+          page: params.page ?? 1,
+          limit: params.limit ?? 50,
+        });
       },
       getEnabled: (params) => !!params?.venueId,
     });

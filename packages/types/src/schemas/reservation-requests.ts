@@ -208,6 +208,12 @@ export const FindOrCreateGuestBodySchema = z.object({
   email: z.email().describe("Guest email (used for matching)").optional(),
   phone: z.string().describe("Guest phone (used for matching if email not found)").optional(),
   name: z.string().describe("Guest name"),
+  notes: z
+    .string()
+    .describe(
+      "Internal notes, stored when the guest is created (never overwrites an existing guest)"
+    )
+    .optional(),
   dietaryRestrictions: z
     .array(z.string())
     .describe("Dietary restrictions to merge with existing guest profile")

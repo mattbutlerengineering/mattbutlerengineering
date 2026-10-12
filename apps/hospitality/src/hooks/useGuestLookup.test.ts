@@ -32,6 +32,15 @@ function makeGuest(i: number): Guest {
   };
 }
 
+const SEVEN_PAGINATION = {
+  page: 1,
+  limit: 50,
+  total: 7,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const idle: UseGuestsResult = { data: undefined, isLoading: false, error: null, refetch: vi.fn() };
 
 /** The params of every `useGuestSearch` call made with `enabled: true`. */
@@ -124,7 +133,7 @@ describe("useGuestLookup", () => {
   it("caps rows at six and reports hasMore for a seventh match", () => {
     const seven = Array.from({ length: 7 }, (_, i) => makeGuest(i + 1));
     mockUseGuestSearch.mockImplementation((params) =>
-      params.enabled ? { ...idle, data: seven } : idle
+      params.enabled ? { ...idle, data: { data: seven, pagination: SEVEN_PAGINATION } } : idle
     );
     const { result } = renderHook(() => useGuestLookup({ venueId: "venue-1", text: "al" }));
     act(() => {

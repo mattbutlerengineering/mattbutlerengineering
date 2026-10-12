@@ -873,13 +873,14 @@
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
+        page?: number;
         limit?: number;
         enabled?: boolean;
       }
     </item>
     <item priority="low">
       interface UseGuestsResult {
-        data: Guest[] | undefined;
+        data: PaginatedResponse<Guest> | undefined;
         isLoading: boolean;
         error: Error | null;
         refetch: () => void;
