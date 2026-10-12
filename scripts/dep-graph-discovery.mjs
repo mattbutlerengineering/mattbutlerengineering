@@ -20,12 +20,12 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WORKSPACE_ROOTS } from "./merge-train-lock.mjs";
+import { WORKSPACE_ROOTS } from "./zone-vocabulary.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const root = join(__dirname, "..");
 
-// Node "type" per workspace root, keyed by the same vocabulary merge-train-lock
+// Node "type" per workspace root, keyed by the same vocabulary zone-vocabulary
 // owns (WORKSPACE_ROOTS). "tools" and "infrastructure" aren't workspace-root
 // zones in that vocabulary, so they stay as local checks below.
 const TYPE_BY_WORKSPACE_ROOT = { apps: "app", services: "service", packages: "package" };

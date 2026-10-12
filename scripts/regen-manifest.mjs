@@ -32,7 +32,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WORKSPACE_ROOTS } from "./merge-train-lock.mjs";
+import { WORKSPACE_ROOTS } from "./zone-vocabulary.mjs";
 import { ROUTER_FILES } from "./ui-quality/routes.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -227,7 +227,7 @@ export const FAMILIES = [
  * Mirrors the workspace directories read by `mbe pack` (llms-txt) and the
  * package.json paths read by the dep-graph generators.
  *
- * The apps/packages/services trio comes from merge-train-lock's
+ * The apps/packages/services trio comes from zone-vocabulary's
  * WORKSPACE_ROOTS (the tree-vocabulary this list mirrors); tools/,
  * infrastructure/, and pnpm-workspace.yaml are regen-specific extras that
  * aren't part of that shared vocabulary.

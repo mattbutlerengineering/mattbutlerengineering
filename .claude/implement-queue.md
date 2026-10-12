@@ -50,7 +50,7 @@ const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3 });
 // → ≤3 issues in distinct zones, priority order preserved.
 ```
 
-Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the merge-train-lock zone vocabulary (`scripts/merge-train-lock.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
+Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
 
 ## base-freshness
 
@@ -84,15 +84,7 @@ Dispatch one subagent per issue — **all in a single message** — using the Ag
 Dispatch with `subagent_type: "implement-queue-worker"` (`.claude/agents/implement-queue-worker.md`),
 `isolation: "worktree"`, and `model:` set to the tier from the `model` hook.
 
-**Dispatch is decoupled from the merge train.** Spawning workers must NEVER wait on the merge-train lock — a long merge train for one zone should not stall picking up fresh `ready` issues. The single source of truth for "may I dispatch more workers right now?" is `canDispatchWorkers()` in `scripts/worker-dispatch.mjs`, which is gated **only** by worker capacity (`MAX_CONCURRENT_WORKERS`, default 3) and never imports or consults the merge-train lock:
-
-```js
-import { canDispatchWorkers } from "./scripts/worker-dispatch.mjs";
-
-if (canDispatchWorkers({ activeWorkers }).allowed) {
-  // dispatch the next worker — independent of any in-flight merge train
-}
-```
+**Dispatch is decoupled from the merge train.** Spawning workers must NEVER wait on the merge-train lock — a long merge train for one zone should not stall picking up fresh `ready` issues. Dispatch is gated **only** by worker capacity: dispatch another worker while fewer than 3 are active (the same "claim up to 3" batch size), independent of any in-flight merge train.
 
 Each agent prompt MUST include:
 
@@ -279,55 +271,33 @@ PRs are pre-enqueued (with `--auto`) in Phase 2 after the review gate passes. Ph
 
 ### Acquire the merge-train lock (before updating branches)
 
-The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), per-zone, and fully tested.
+The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is `scripts/merge-train-lock.mjs`, a CLI keyed by a **durable owner token** (the session id) — not a PID. Every call is a short-lived `node` process, so a PID would be dead before the next session looked; the owner is whatever string you pass as `--owner`. Staleness is mtime-only (45-min window, kept alive by `heartbeat`). `release` and `heartbeat` only act for the owner that holds the lock.
 
-**Pick the zone from the PR's changed files** with `zoneForPaths()`. A PR confined to one workspace area (`apps/<x>`, `packages/<x>`, `services/<x>`, or `root` for top-level/config/docs/scripts) locks only that zone; a cross-cutting PR (`zoneForPaths` returns `null`) takes the **global** lock (no `zone`), serializing against everything — the safe, conservative default. Passing no `zone` is 100% backward compatible with the historical single global lock.
+**Session id (owner token).** Use the Claude Code session id, `$CLAUDE_CODE_SESSION_ID`. If it is unset, generate one id ONCE at the start of the session (`SESSION_ID=$(uuidgen)`) and reuse that same value for every `acquire`/`heartbeat`/`release` — a fresh id per call defeats the lock.
 
-```js
-import {
-  acquireMergeTrainLock,
-  releaseMergeTrainLock,
-  heartbeatMergeTrainLock,
-  zoneForPaths,
-} from "./scripts/merge-train-lock.mjs";
-
-// changedFiles from `gh pr diff <N> --name-only`
-const zone = zoneForPaths(changedFiles); // string (per-zone) or null (global)
-const result = acquireMergeTrainLock({ zone }); // { acquired: true } or { acquired: false, owner: <pid> }
-if (!result.acquired) {
-  console.log(
-    `merge-train lock for zone ${zone ?? "<global>"} held by PID ${
-      result.owner
-    } — SKIP this PR's zone this iteration.`
-  );
-  // Do NOT update-branch a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
-}
-```
-
-Heartbeat and release with the **same `zone`** you acquired: `heartbeatMergeTrainLock({ zone })` / `releaseMergeTrainLock({ zone })`.
-
-Or as a one-liner from the shell (e.g. in a bash orchestration wrapper):
+**Pick the zone from the PR's changed files** with `zoneForPaths()` (`scripts/zone-vocabulary.mjs`). A PR confined to one workspace area (`apps/<x>`, `packages/<x>`, `services/<x>`, or `root` for top-level/config/docs/scripts) locks only that zone; a cross-cutting PR (`zoneForPaths` returns `null`) takes the **global** lock (omit `--zone`), serializing against everything — the safe, conservative default.
 
 ```bash
-node -e "
-  import('./scripts/merge-train-lock.mjs').then(({ acquireMergeTrainLock }) => {
-    const r = acquireMergeTrainLock();
-    process.stdout.write(JSON.stringify(r) + '\n');
-  });
-"
+OWNER="${CLAUDE_CODE_SESSION_ID:-$SESSION_ID}"   # one id per session, never per call
+
+# ZONE from: zoneForPaths(<gh pr diff <N> --name-only>)  (omit --zone when null)
+node scripts/merge-train-lock.mjs acquire --zone "$ZONE" --owner "$OWNER"
+# exit 0 → {"acquired":true,"owner":"…"}   exit 1 → {"acquired":false,"owner":"<holder>"}
 ```
 
-If `acquired` is `false`, **skip updating branches in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode.
+Exit codes (all three subcommands): `0` success, `1` refused (held by another owner / you are not the owner), `2` usage error. Output is one JSON object.
 
-If `acquired` is `true`: call `heartbeatMergeTrainLock({ zone })` at the **start of each PR iteration** for that zone (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
+If `acquire` exits `1`, **skip updating branches in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode. Do NOT `update-branch` a PR whose zone lock is held by another owner. Re-acquiring a lock you already own is idempotent.
 
-```js
-releaseMergeTrainLock({ zone });
+If `acquire` exits `0`: run `node scripts/merge-train-lock.mjs heartbeat --zone "$ZONE" --owner "$OWNER"` at the **start of each PR iteration** for that zone (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
+
+```bash
+node scripts/merge-train-lock.mjs release --zone "$ZONE" --owner "$OWNER"
 ```
 
 ## reap
 
-- **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
+- **Release every merge-train lock you acquired** (`node scripts/merge-train-lock.mjs release --zone "$ZONE" --owner "$OWNER"`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - **Reap merged workers' worktrees.** A successful worker's worktree is never auto-removed (Claude Code's `isolation: "worktree"` only reclaims an _unchanged_ worktree, and every successful worker commits) — #3950. After Phase 3 merges, run the reaper to reclaim any now-eligible `.claude/worktrees/*` worktree — both `agent-*` and hand-created:
 
   ```bash
