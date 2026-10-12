@@ -16583,12 +16583,6 @@
       export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
-      function isSeatableStatus(reservation: Reservation): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -17331,6 +17325,26 @@
         tables: readonly Pick<Table, "id" | "status">[],
         now: Date
       ): ReadonlySet<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/seating.ts">
+    <item priority="medium">
+      function tableAcceptsParty(table: Pick<Table, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSeat(
+        reservation: Pick<Reservation, "status">,
+        table: Pick<Table, "status"> | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+        tables: readonly T[],
+        partySize: number
+      ): T[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
