@@ -12662,25 +12662,30 @@
       }
     }
     export interface ThemeContextValue {
+      /** The stored preference (`"system"` included). */
       readonly theme: ThemePreference;
+      /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+      readonly resolvedTheme: "light" | "dark";
       readonly setTheme: (theme: ThemePreference) => void;
     }
     export const ThemeContext = createContext<ThemeContextValue>({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: () => {},
     });
     export function useTheme(): ThemeContextValue {
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
     
       return useMemo(
         () => ({
           theme: preference,
+          resolvedTheme,
           setTheme,
         }),
-        [preference, setTheme]
+        [preference, resolvedTheme, setTheme]
       );
     }
     export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
@@ -15005,31 +15010,57 @@
   </file>
   <file path="packages/rialto/src/hooks/useThemeState.ts">
     export type ThemePreference = "light" | "dark" | "system";
+    export const THEME_STORAGE_KEY = "mbe-theme-preference";
+    function isPreference(value: unknown): value is ThemePreference {
+      return value === "light" || value === "dark" || value === "system";
+    }
     function getStoredTheme(): ThemePreference {
       if (typeof window === "undefined") return "system";
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (isPreference(stored)) return stored;
       } catch {
         // localStorage unavailable
       }
+      return memoryPreference ?? "system";
+    }
+    function getServerPreference(): ThemePreference {
       return "system";
     }
     function storeTheme(theme: ThemePreference): void {
+      memoryPreference = theme;
       if (typeof window === "undefined") return;
       try {
-        localStorage.setItem(STORAGE_KEY, theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         // Theme still works in memory
       }
     }
+    function subscribePreference(onChange: () => void): () => void {
+      preferenceListeners.add(onChange);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === null || event.key === THEME_STORAGE_KEY) onChange();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        preferenceListeners.delete(onChange);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function hasMatchMedia(): boolean {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function";
+    }
+    function getOsDark(): boolean {
+      return hasMatchMedia() && window.matchMedia(DARK_QUERY).matches;
+    }
+    function subscribeOsDark(onChange: () => void): () => void {
+      if (!hasMatchMedia()) return () => {};
+      const mql = window.matchMedia(DARK_QUERY);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    }
     export function resolveTheme(pref: ThemePreference): "light" | "dark" {
-      if (pref === "system") {
-        if (typeof window === "undefined") return "light";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
+      if (pref === "system") return getOsDark() ? "dark" : "light";
       return pref;
     }
     export interface ThemeState {
@@ -15039,18 +15070,18 @@
       readonly toggleTheme: () => void;
     }
     export function useThemeState(): ThemeState {
-      const [preference, setPreferenceState] = useState<ThemePreference>(getStoredTheme);
+      const preference = useSyncExternalStore(subscribePreference, getStoredTheme, getServerPreference);
+      const osDark = useSyncExternalStore(subscribeOsDark, getOsDark, () => false);
+    
+      const theme = preference === "system" ? (osDark ? "dark" : "light") : preference;
     
       const setTheme = useCallback((next: ThemePreference) => {
         storeTheme(next);
-        setPreferenceState(next);
+        preferenceListeners.forEach((listener) => listener());
       }, []);
     
-      const theme = useMemo(() => resolveTheme(preference), [preference]);
-    
       const toggleTheme = useCallback(() => {
-        const next: ThemePreference = theme === "dark" ? "light" : "dark";
-        setTheme(next);
+        setTheme(theme === "dark" ? "light" : "dark");
       }, [theme, setTheme]);
     
       return { preference, theme, setTheme, toggleTheme };

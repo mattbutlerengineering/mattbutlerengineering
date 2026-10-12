@@ -19,7 +19,7 @@ import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
-import { useTheme, resolveTheme } from "../hooks/use-theme.js";
+import { useTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
 import { runNavAction } from "../nav-actions.js";
@@ -65,7 +65,7 @@ function DashboardLayoutInner() {
   const location = useLocation();
   const { signIn, signOut, accessToken } = useAuth();
   const { refreshError } = useAccessToken();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
   const { selectedVenue, venuesError, refetchVenues } = useVenue();
@@ -149,9 +149,8 @@ function DashboardLayoutInner() {
 
   // Toggle theme between light and dark
   const toggleTheme = useCallback(() => {
-    const resolved = resolveTheme(theme);
-    setTheme(resolved === "light" ? "dark" : "light");
-  }, [theme, setTheme]);
+    setTheme(resolvedTheme === "light" ? "dark" : "light");
+  }, [resolvedTheme, setTheme]);
 
   // Stable token getter — passes latest token without recreating on every render
   const getAccessToken = useCallback(() => accessToken, [accessToken]);

@@ -4,7 +4,7 @@ import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
 import { useAuth, isSafeReturnTo, hasAuthParams } from "@mbe/auth/react";
 import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
-import { useTheme, useThemeServerHydration, resolveTheme } from "./hooks/use-theme";
+import { useTheme, useThemeServerHydration } from "./hooks/use-theme";
 import { useCurrentUser } from "./hooks/useUsers.js";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
@@ -68,8 +68,7 @@ export function App() {
       main.focus({ preventScroll: true });
     }
   }, []);
-  const { theme: preference, setTheme } = useTheme();
-  const resolved = resolveTheme(preference);
+  const { resolvedTheme: resolved, setTheme } = useTheme();
 
   const handleThemeToggle = () => {
     setTheme(resolved === "dark" ? "light" : "dark");

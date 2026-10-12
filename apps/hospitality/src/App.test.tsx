@@ -37,7 +37,7 @@ vi.mock("@mbe/auth/react", async (importOriginal) => ({
 }));
 
 vi.mock("./hooks/use-theme.js", () => ({
-  useTheme: vi.fn(() => ({ theme: "system", setTheme: vi.fn() })),
+  useTheme: vi.fn(() => ({ theme: "system", resolvedTheme: "light", setTheme: vi.fn() })),
   useThemeServerHydration: vi.fn(),
   resolveTheme: vi.fn((t) => (t === "system" ? "light" : t)),
 }));

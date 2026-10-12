@@ -9,7 +9,7 @@ export { useDirection } from "./useDirection";
 export { useFocusTrap, FOCUSABLE_SELECTOR } from "./useFocusTrap";
 export { useScrollReveal } from "./useScrollReveal";
 export { useTilt } from "./useTilt";
-export { useThemeState, resolveTheme } from "./useThemeState";
+export { useThemeState, resolveTheme, THEME_STORAGE_KEY } from "./useThemeState";
 export type { ThemePreference, ThemeState } from "./useThemeState";
 export { useCombobox } from "./useCombobox";
 export type { ComboboxItem, UseComboboxOptions, UseComboboxResult } from "./useCombobox";

@@ -549,6 +549,7 @@
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
+        resolvedTheme: "light" | "dark";
         setTheme: (theme: ThemePreference) => void;
       }
     </item>
