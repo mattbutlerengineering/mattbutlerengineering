@@ -10,7 +10,8 @@
  * Every verb returns exactly the result type its domain write returns today,
  * so each route's HTTP mapping is unchanged. A domain `{ success: false }`
  * runs no effects; a `ReservationTransitionError` propagates unchanged. Verbs
- * run inside the caller's venue context (ADR-026 `runWithVenueContext`).
+ * run inside the caller's venue context: `venueScoped` (ADR-026 `runWithVenueContext`)
+ * enters it, after authorization, for every route that reaches a verb.
  */
 import type {
   CreateReservationRequest,

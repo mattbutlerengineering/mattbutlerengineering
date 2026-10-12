@@ -28,8 +28,8 @@ import { resolveCurrentUserEmail } from "./reservation-owner.js";
  * `runWithVenueContext` (ADR-026 §4) — so every query, transition and
  * fire-and-forget effect the handler starts sees the venue it was authorized
  * for. Before this module those were two halves each route paired by hand
- * (`requireVenueAccess(..., resolver)` in the preHandler, `loadInVenueContext`
- * again in the handler), and nothing checked that they agreed.
+ * (`requireVenueAccess(..., resolver)` in the preHandler, a second resolve and
+ * `runWithVenueContext` again in the handler), and nothing checked that they agreed.
  *
  * Order (test-pinned in venue-scope.test.ts): admin check → resolve → null
  * handling → `admitIdentity` → access decision → `runWithVenueContext(load →

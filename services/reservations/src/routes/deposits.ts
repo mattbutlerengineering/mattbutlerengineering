@@ -85,7 +85,7 @@ const depositProperties = {
  * scope used to be an unscoped read of the addressed deposit (or the
  * reservation `resolveReservationVenueId` loaded), which is itself one of the
  * seven RLS-scoped tables — the same "lookup can't run inside the scope it's
- * computing" shape as `venueIdFromEntity` (`./venue-access.ts`), and measured
+ * computing" shape as the old `venueIdFromEntity` resolver (deleted), and measured
  * broken under FORCE (ADR-026 §3.2's blockquote). Every route now resolves
  * through the `SECURITY DEFINER` `app_resolve_venue_id` function instead
  * (`resolveVenueId`, `../services/resolve-venue.ts`, called by `venueScoped`

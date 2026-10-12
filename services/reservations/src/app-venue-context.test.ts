@@ -1,34 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.js";
-import type { DomainServices } from "./services/domain-services.js";
 import { getCurrentVenueId } from "./services/venue-context-store.js";
 
 /**
- * ADR-026 part 6/7: the venue-context preHandler (built in #5252) is wired
- * into the app bootstrap so the resolved venue id reaches the request's
- * actual queries.
- *
- * This test deliberately does NOT assert on `$executeRaw` being called
- * directly by the preHandler — that was the bug: `set_config(...)` against
- * the un-transacted `prisma` singleton evaporates before the route
- * handler's own query runs (see `middleware/venue-context.ts` and
- * `services/venue-scoped-prisma.ts`'s doc comments). Instead it proves the
- * thing that actually matters — that the resolved venue id survives from
- * the preHandler into the point where the route handler calls a domain
- * service — by reading the real (unmocked) `venue-context-store` from
- * inside a fake domain-service call. The transaction-boundary proof (that
- * `setVenueContext` and the query run on the identical `tx`) lives in
- * `services/venue-scoped-prisma.test.ts`, which is the layer that owns it.
- *
- * Both requests below are exercised in the SAME test file/app instance
- * deliberately: an earlier version of `resolveGlobalVenueId` (app.ts) used
- * `await` before calling `enterVenueContext`, which passed a single-request
- * version of this test but reproducibly showed the wrong (previous
- * request's) venue id starting on a SECOND request against the same app —
- * see `venueContextPreHandler`'s doc comment for the measured root cause.
- * Two sequential requests with different venue ids is what actually catches
- * that class of regression; a single-request test would not.
+ * ADR-026: the app has no global venue-context hook. Context comes from
+ * `venueScoped` (after authorization) or an explicit `runWithVenueContext`.
+ * This file proves a caller-supplied `venueId` is never in context before the
+ * membership decision; per-route context (including sequential-request
+ * isolation) is covered in `routes/venue-scope.test.ts` and, against a real
+ * database, `routes/rls-route-sweep.integration.test.ts`.
  */
 
 vi.mock("./services/database.js", async () => {
@@ -36,32 +17,31 @@ vi.mock("./services/database.js", async () => {
   return createMockDatabaseService();
 });
 
-describe("venue-context middleware wiring", () => {
-  let app: FastifyInstance;
-  let capturedVenueId: string | null | undefined;
-  const originalEnv = process.env;
+/**
+ * No global hook may pre-authorize: a route that declares its scope
+ * through `venueScoped` resolves, authorizes, and only then enters the venue's
+ * context. A caller-supplied `venueId` therefore must not be in context when
+ * the membership lookup runs (venue-scoped-routes PR 6, item 1).
+ */
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
+  jwtVerify: vi.fn(async () => ({
+    payload: {
+      sub: "auth0|non-admin",
+      iss: "https://test.auth0.com/",
+      aud: "https://api.example.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iat: Math.floor(Date.now() / 1000),
+      permissions: [] as string[],
+    },
+    protectedHeader: { alg: "RS256" },
+  })),
+}));
 
-  const tableService = {
-    list: vi.fn(async () => {
-      capturedVenueId = getCurrentVenueId();
-      return {
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
-    }),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-  } as unknown as DomainServices["tableService"];
+describe("scoped routes: no venue context before authorization", () => {
+  const originalEnv = process.env;
+  let app: FastifyInstance;
+  let contextSeenByLookup: string | null | undefined;
 
   beforeEach(async () => {
     process.env = {
@@ -70,8 +50,14 @@ describe("venue-context middleware wiring", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    capturedVenueId = undefined;
-    app = await buildApp({ logger: false, services: { tableService } });
+    contextSeenByLookup = undefined;
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: async () => {
+        contextSeenByLookup = getCurrentVenueId();
+        return false;
+      },
+    });
     await app.ready();
   });
 
@@ -80,35 +66,14 @@ describe("venue-context middleware wiring", () => {
     process.env = originalEnv;
   });
 
-  it("propagates each request's own resolved venue id through to its route handler's domain-service call, across sequential requests", async () => {
-    const response1 = await app.inject({
-      method: "GET",
-      url: "/api/v1/tables?venueId=venue-42",
-      headers: { "x-auth-bypass": "true" },
-    });
-    expect(response1.statusCode).toBe(200);
-    expect(capturedVenueId).toBe("venue-42");
-
-    // A second, different request on the SAME app instance — this is what
-    // actually catches the one-request-late propagation bug documented on
-    // venueContextPreHandler; asserting only the first request would not.
-    const response2 = await app.inject({
-      method: "GET",
-      url: "/api/v1/tables?venueId=venue-99",
-      headers: { "x-auth-bypass": "true" },
-    });
-    expect(response2.statusCode).toBe(200);
-    expect(capturedVenueId).toBe("venue-99");
-  });
-
-  it("propagates null when no venue id is resolvable (default-deny, ADR-026 §4)", async () => {
+  it("does not enter a caller-supplied query venueId before the membership decision", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/tables",
-      headers: { "x-auth-bypass": "true" },
+      url: "/api/v1/waitlist?venueId=someone-elses-venue",
+      headers: { authorization: "Bearer non-admin" },
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(capturedVenueId).toBeNull();
+    expect(response.statusCode).toBe(403);
+    expect(contextSeenByLookup).toBeNull();
   });
 });

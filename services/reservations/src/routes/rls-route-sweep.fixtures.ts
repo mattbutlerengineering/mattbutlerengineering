@@ -327,7 +327,7 @@ function notRls(run: RouteFixture["run"]): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `?venueId=`-filtered list route
- * (`venueIdFromQuery`, ADR-026 §4's global preHandler picks the same key up):
+ * (the route names its venue in the query and enters that venue's context itself):
  * both venues answer for admin, venue A answers for the member, venue B is
  * denied for the member.
  */
@@ -355,7 +355,7 @@ function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `body.venueId`-scoped create route
- * (`venueIdFromBody`): each call gets a fresh body (via `bodyFor`, so
+ * (the venue is named in the body): each call gets a fresh body (via `bodyFor`, so
  * unique-constrained fields like a table/guest name never collide) — both
  * venues succeed for admin, venue A succeeds for the member, venue B is
  * denied for the member (before any row is even attempted).
@@ -975,7 +975,7 @@ const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle"
 
 /**
  * Floor plans. `GET /` is the sweep's SECOND mixed case: with `?venueId=`
- * the global preHandler resolves context and both `list`/`listForMember`
+ * the route enters that venue's context and both `list`/`listForMember`
  * run scoped (ok); without it, `listForMember` (and, for an admin, `list`
  * itself) is an unscoped `floorPlan.findMany` — item 1's third bullet.
  * Every other route here was item 2 (`venueIdFromEntity` on the floor
