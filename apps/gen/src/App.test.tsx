@@ -6,6 +6,7 @@ import { App, CallbackRedirect } from "./App.js";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
+  hasAuthParams: vi.fn(),
   AuthProvider: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
@@ -25,13 +26,15 @@ vi.mock("./components/LoginLanding.js", () => ({
   LoginLanding: () => <div data-testid="login-landing" />,
 }));
 
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, hasAuthParams } from "@mbe/auth/react";
 
 const mockUseAuth = useAuth as unknown as Mock;
+const mockHasAuthParams = hasAuthParams as unknown as Mock;
 
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasAuthParams.mockReturnValue(false);
   });
 
   it("shows loading state when isLoading is true", () => {
@@ -93,7 +96,8 @@ describe("App", () => {
     expect(screen.queryByTestId("login-landing")).toBeNull();
   });
 
-  it("shows loading during callback path when not authenticated", () => {
+  it("shows loading during callback path while an OIDC response is in flight", () => {
+    mockHasAuthParams.mockReturnValue(true);
     mockUseAuth.mockReturnValue({
       isLoading: false,
       isAuthenticated: false,
@@ -109,6 +113,29 @@ describe("App", () => {
       </MemoryRouter>
     );
     expect(screen.getByText("Loading...")).toBeDefined();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/" },
+      writable: true,
+    });
+  });
+
+  it("shows loading during callback path with no auth params (post-sign-out) shows the sign-in landing, not Loading", () => {
+    mockUseAuth.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: false,
+      error: null,
+    });
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/gen/callback" },
+      writable: true,
+    });
+    render(
+      <MemoryRouter initialEntries={["/gen/callback"]}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText("Loading...")).toBeNull();
+    expect(screen.getByTestId("login-landing")).toBeDefined();
     Object.defineProperty(window, "location", {
       value: { ...window.location, pathname: "/" },
       writable: true,
