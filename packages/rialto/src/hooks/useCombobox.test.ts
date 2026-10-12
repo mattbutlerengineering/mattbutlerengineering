@@ -339,4 +339,20 @@ describe("useCombobox — inputMode", () => {
     expect(result.current.open).toBe(false);
     expect(e.preventDefault).not.toHaveBeenCalled();
   });
+
+  it("Enter with nothing focused leaves the event alone and keeps the list open", () => {
+    const { result } = renderHook(() => useCombobox({ items, inputMode: "input" }));
+    act(() => result.current.openWithFocus());
+    const e = press(result, "Enter");
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.open).toBe(true);
+  });
+
+  it("Enter on a focused option prevents default", () => {
+    const { result } = renderHook(() => useCombobox({ items, inputMode: "input" }));
+    act(() => result.current.openWithFocus());
+    press(result, "ArrowDown");
+    const e = press(result, "Enter");
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
 });

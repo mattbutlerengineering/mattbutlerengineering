@@ -307,4 +307,18 @@ describe("Autocomplete — caret keys", () => {
     expect(fireEvent.keyDown(input, { key: "End" })).toBe(true);
     expect(input).not.toHaveAttribute("aria-activedescendant");
   });
+
+  it("lets Enter submit the surrounding form when the list is open with nothing highlighted", async () => {
+    const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Autocomplete label="Fruit" options={options} />
+      </form>
+    );
+    const input = screen.getByLabelText("Fruit");
+    await user.type(input, "a");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
 });
