@@ -27,7 +27,10 @@ describe("assumeAppRole", () => {
       new URL("../../../../infrastructure/pulumi/index.ts", import.meta.url),
       "utf8"
     );
-    const health = readFileSync(new URL("../routes/health.ts", import.meta.url), "utf8");
+    const health = readFileSync(
+      new URL("../../../../packages/service-bootstrap/src/health-routes.ts", import.meta.url),
+      "utf8"
+    );
     const app = readFileSync(new URL("../app.ts", import.meta.url), "utf8");
     const floorPlan = readFileSync(new URL("./floor-plan.ts", import.meta.url), "utf8");
 

@@ -19,6 +19,10 @@ import { errorHandlerPlugin } from "./error-handler.js";
 import { validateStartupConfig } from "./validate-startup-config.js";
 import { applyVersioning } from "./apply-versioning.js";
 import type { ApiVersioningConfig } from "./apply-versioning.js";
+import { registerHealthRoutes } from "./health-routes.js";
+import type { HealthDb, HealthRouteConfig } from "./health-routes.js";
+import { registerReadinessRoutes } from "./readiness-routes.js";
+import type { Auth0CheckResult } from "./health.js";
 export type { ApiVersioningConfig } from "./apply-versioning.js";
 
 /**
@@ -44,6 +48,21 @@ export interface SwaggerConfig {
 }
 
 /**
+ * Database a service owns. createServiceApp wires the whole Postgres lifecycle
+ * from this one value: health routes, the DB-aware /ready probe, and
+ * `onClose` -> `db.shutdown()` so the pg pool is released on every SIGTERM
+ * (startServiceServer ends with process.exit, so no `beforeExit` hook fires).
+ */
+export interface ServiceDatabaseConfig {
+  /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+  readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+  /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+  readonly healthRoutes: readonly HealthRouteConfig[];
+  /** Overrides the shared Auth0 JWKS check — for tests without network. */
+  readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+}
+
+/**
  * Configuration for createServiceApp.
  * Services provide only the values that differ; shared bootstrap is handled internally.
  */
@@ -54,6 +73,8 @@ export interface ServiceAppConfig {
   readonly apiVersioning?: ApiVersioningConfig;
   /** Optional hook to register service-specific JSON schemas before plugins */
   readonly registerSchemas?: (fastify: FastifyInstance) => void;
+  /** Owns the service's database: health, /ready, and pool shutdown on close. */
+  readonly database?: ServiceDatabaseConfig;
 }
 
 export interface AppOptions {
@@ -101,6 +122,21 @@ function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"
     log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
     return fallbackUrl;
   }
+}
+
+async function registerDatabase(
+  fastify: FastifyInstance,
+  database: ServiceDatabaseConfig
+): Promise<void> {
+  const { db, healthRoutes, checkAuth0 } = database;
+  // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+  fastify.addHook("onClose", async () => db.shutdown());
+  await fastify.register(registerHealthRoutes, {
+    db,
+    routes: healthRoutes,
+    ...(checkAuth0 && { checkAuth0 }),
+  });
+  await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
 }
 
 /**
@@ -283,6 +319,11 @@ export async function createServiceApp(
   // Policy (successor computation, sunset headers, deprecation decorators) is
   // governed by ADR-002 and lives in apply-versioning.ts.
   applyVersioning(fastify, config.apiVersioning);
+
+  // --- Database lifecycle ---
+  if (config.database) {
+    await registerDatabase(fastify, config.database);
+  }
 
   return fastify;
 }
