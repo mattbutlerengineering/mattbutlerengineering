@@ -3253,6 +3253,11 @@ None (`agent-skip` count is 0). `#5962` (secret rotation) was left `ready` rathe
 
 **Blockers:** `scripts/sensor-report.mjs` initially failed with `ERR_MODULE_NOT_FOUND: @mbe/gh-client` — the fresh cloud checkout had no `node_modules` and `packages/gh-client` had no built `dist/`. Ran `pnpm install --frozen-lockfile` then `pnpm --dir packages/gh-client build` before the sensor report would run; no code change needed, just the standard worktree/fresh-checkout setup this repo's gotchas already document for `node_modules`-dependent scripts.
 
+## 2026-10-12
+
+**queueEfficiency:** unavailable (credential_rejected)
+**Issues filed:** 0
+
 ## 2026-10-12 (mbe-evening, progress-tracker)
 
 ### Metrics
