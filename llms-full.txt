@@ -13008,9 +13008,8 @@
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
-      navigate: (path: string) => void;
+      runAction: (action: NavAction) => void;
       toggleTheme: () => void;
-      signOut: () => void;
     }
     interface UseCommandPaletteResult {
       readonly open: boolean;
@@ -13023,7 +13022,7 @@
     }
     function buildNavItems(
       sections: readonly NavSection[],
-      navigate: (path: string) => void
+      runAction: (action: NavAction) => void
     ): CommandItem[] {
       return sections.flatMap((section) => {
         const group = sectionGroupName(section);
@@ -13031,14 +13030,13 @@
           id: item.id,
           label: item.label,
           group,
-          onSelect: () => navigate(item.path),
+          onSelect: () => runAction(item.action),
         }));
       });
     }
     function buildActionItems(
-      navigate: (path: string) => void,
-      toggleTheme: () => void,
-      signOut: () => void
+      runAction: (action: NavAction) => void,
+      toggleTheme: () => void
     ): CommandItem[] {
       return [
         {
@@ -13047,31 +13045,25 @@
           group: "Actions",
           // Carries the intent the Reservations page reads on arrival (architecture § Amendment
           // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
-          onSelect: () => navigate("/reservations?new=true"),
+          onSelect: () => runAction({ type: "route", path: "/reservations?new=true" }),
         },
         {
           id: "action-walkin",
           label: "Walk-in guest",
           group: "Actions",
-          onSelect: () => navigate("/timeline?walkin=true"),
+          onSelect: () => runAction({ type: "route", path: "/timeline?walkin=true" }),
         },
         {
           id: "action-new-floor-plan",
           label: "New Floor Plan",
           group: "Actions",
-          onSelect: () => navigate("/floor-plans"),
+          onSelect: () => runAction({ type: "route", path: "/floor-plans" }),
         },
         {
           id: "action-toggle-theme",
           label: "Toggle Theme",
           group: "Actions",
           onSelect: toggleTheme,
-        },
-        {
-          id: "action-sign-out",
-          label: "Sign Out",
-          group: "Actions",
-          onSelect: signOut,
         },
       ];
     }
@@ -13084,18 +13076,14 @@
     }
     export function useCommandPalette({
       sections,
-      navigate,
+      runAction,
       toggleTheme,
-      signOut,
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
       const items = useMemo(
-        () => [
-          ...buildNavItems(sections, navigate),
-          ...buildActionItems(navigate, toggleTheme, signOut),
-        ],
-        [sections, navigate, toggleTheme, signOut]
+        () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
+        [sections, runAction, toggleTheme]
       );
     
       const groups = useMemo(() => buildGroups(sections), [sections]);
@@ -39675,11 +39663,35 @@
       readonly env: ImportMetaEnv;
     }
   </file>
+  <file path="apps/hospitality/src/nav-actions.ts">
+    export type NavAction =
+      | { readonly type: "route"; readonly path: string }
+      | { readonly type: "chat" }
+      | { readonly type: "signout" };
+    export interface NavActionHandlers {
+      navigate: (path: string) => void;
+      toggleChat: () => void;
+      signOut: () => void;
+    }
+    export function runNavAction(action: NavAction, handlers: NavActionHandlers): void {
+      switch (action.type) {
+        case "route":
+          handlers.navigate(action.path);
+          return;
+        case "chat":
+          handlers.toggleChat();
+          return;
+        case "signout":
+          handlers.signOut();
+          return;
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/nav-sections.ts">
     export interface NavItem {
       id: string;
       label: string;
-      path: string;
+      action: NavAction;
       /** Setup step status — drives icon before the label */
       stepStatus?: "completed" | "current" | "locked";
       /** Prevents click and applies muted style */
@@ -39712,7 +39724,7 @@
         return {
           id: `setup-${step}`,
           label: STEP_LABELS[step],
-          path: STEP_PATHS[step],
+          action: { type: "route", path: STEP_PATHS[step] },
           stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
           disabled: isLocked,
         };
@@ -39728,20 +39740,28 @@
     function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
       const PRIMARY: NavSection = {
         items: [
-          { id: "briefing", label: "Tonight's Service", path: "/briefing" },
-          { id: "timeline", label: "Timeline", path: "/timeline" },
-          { id: "reservations", label: "Reservations", path: "/reservations" },
-          { id: "waitlist", label: "Waitlist", path: "/waitlist" },
-          { id: "guests", label: "Guests", path: "/guests" },
-          { id: "home", label: "Dashboard", path: "/dashboard" },
+          { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
+          { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
+          {
+            id: "reservations",
+            label: "Reservations",
+            action: { type: "route", path: "/reservations" },
+          },
+          { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
+          { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
+          { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
         ],
       };
     
       const MANAGE: NavSection = {
         label: "Manage",
         items: [
-          { id: "floor-plans", label: "Floor Plans", path: "/floor-plans" },
-          { id: "booking-widget", label: "Booking Widget", path: "/booking-widget" },
+          { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
+          {
+            id: "booking-widget",
+            label: "Booking Widget",
+            action: { type: "route", path: "/booking-widget" },
+          },
         ],
       };
     
