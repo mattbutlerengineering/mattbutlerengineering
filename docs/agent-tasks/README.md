@@ -96,9 +96,6 @@ gh issue list --label feature --state all
 ### Performance Metrics
 
 ```bash
-# Agent performance summary
-mbe stats
-
 # Detailed metrics in JSONL logs
 ls metrics/*.jsonl
 ```

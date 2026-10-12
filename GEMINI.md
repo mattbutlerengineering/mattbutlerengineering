@@ -32,11 +32,7 @@ A task is not complete until it satisfies the original requirements and passes a
 - **Verifications:** Run `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
 - **Update Generated Files:** Run `pnpm build && mbe pack` and `pnpm generate:dep-graph` if needed.
 
-### 6. Performance Logging
-
-Always run `mbe log-session` before finalizing a directive to quantify process improvements. Track research turns (discovery) vs. execution turns (coding/testing).
-
-### 7. Model Verification
+### 6. Model Verification
 
 For high-complexity tasks (milestones, architectural refactors), run `mbe check-model` to verify you are using the correct tier (Sonnet/Opus). Report your current model version if asked.
 

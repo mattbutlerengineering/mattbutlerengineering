@@ -78,9 +78,8 @@ Guard invariants across the monorepo. Run by CI on every PR.
 | --------------------------- | -------------------------------------------------------------- |
 | `cleanup-chaos-branches.sh` | Delete stale `chaos/synthetic-bug-*` branches (local + remote) |
 
-Stale agent-worktree removal (`.claude/worktrees/`) lives on the `mbe cleanup-worktrees` CLI
-command (`tools/cli/src/commands/cleanup-worktrees.ts`), not a `scripts/` shell script — see
-[`tools/cli/CLAUDE.md`](../tools/cli/CLAUDE.md).
+Stale agent-worktree removal (`.claude/worktrees/`) lives in `scripts/reap-worktrees.mjs`
+(`decideWorktreeReap` refuses worktrees with an open PR or a live process).
 
 ## Testing
 
