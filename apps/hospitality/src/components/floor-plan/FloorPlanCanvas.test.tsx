@@ -422,21 +422,53 @@ describe("FloorPlanCanvas", () => {
       expect(onTableMove).toHaveBeenCalledWith("t1", 100, 80);
     });
 
-    it("clamps the nudge inside the canvas", () => {
-      const onTableMove = vi.fn();
-      const edge = makeTable("t3", "Edge", {
-        shapeMetadata: { x: 0, y: 0, width: 80, height: 60, shape: "rectangle" },
+    describe("clamping (x/y are the table centre)", () => {
+      const nudge = (
+        x: number,
+        y: number,
+        key: string,
+        shape: "rectangle" | "square" | "circle" = "rectangle"
+      ) => {
+        const onTableMove = vi.fn();
+        const size = {
+          rectangle: { w: 80, h: 60 },
+          square: { w: 60, h: 60 },
+          circle: { w: 70, h: 70 },
+        }[shape];
+        const table = makeTable("t3", "Edge", {
+          shapeMetadata: { x, y, width: size.w, height: size.h, shape },
+        });
+        const { unmount } = render(
+          <FloorPlanCanvas
+            {...defaultProps}
+            tables={[table]}
+            selectedTableId="t3"
+            onTableMove={onTableMove}
+          />
+        );
+        fireEvent.keyDown(getWrapper(), { key });
+        unmount();
+        return onTableMove;
+      };
+
+      it("a vertical nudge at the right edge does not move x", () => {
+        expect(nudge(740, 300, "ArrowUp")).toHaveBeenCalledWith("t3", 740, 280);
       });
-      render(
-        <FloorPlanCanvas
-          {...defaultProps}
-          tables={[edge]}
-          selectedTableId="t3"
-          onTableMove={onTableMove}
-        />
-      );
-      fireEvent.keyDown(getWrapper(), { key: "ArrowLeft" });
-      expect(onTableMove).toHaveBeenCalledWith("t3", 0, 0);
+
+      it("a horizontal nudge at the bottom edge does not move y", () => {
+        expect(nudge(400, 560, "ArrowLeft")).toHaveBeenCalledWith("t3", 380, 560);
+      });
+
+      it("keeps the whole shape on the canvas (centre >= half size)", () => {
+        expect(nudge(40, 300, "ArrowLeft")).toHaveBeenCalledWith("t3", 40, 300);
+        expect(nudge(760, 300, "ArrowRight")).toHaveBeenCalledWith("t3", 760, 300);
+        expect(nudge(400, 30, "ArrowUp")).toHaveBeenCalledWith("t3", 400, 30);
+        expect(nudge(400, 570, "ArrowDown")).toHaveBeenCalledWith("t3", 400, 570);
+      });
+
+      it("uses the round table's diameter", () => {
+        expect(nudge(400, 40, "ArrowUp", "circle")).toHaveBeenCalledWith("t3", 400, 35);
+      });
     });
 
     it("announces the move", () => {

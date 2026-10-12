@@ -40,7 +40,7 @@ const ARROW_DELTAS: Readonly<Record<string, readonly [number, number]>> = {
   ArrowRight: [GRID_SIZE, 0],
 };
 
-const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(max, 0));
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
@@ -171,11 +171,18 @@ export function FloorPlanCanvas({
       e.preventDefault();
       const shape = table.shapeMetadata?.shape ?? "rectangle";
       const { width, height } = SHAPE_DEFAULTS[shape];
-      const x = clamp(snapToGrid((table.shapeMetadata?.x ?? 100) + delta[0]), CANVAS_WIDTH - width);
-      const y = clamp(
-        snapToGrid((table.shapeMetadata?.y ?? 100) + delta[1]),
-        CANVAS_HEIGHT - height
-      );
+      // x/y are the table CENTRE (TableShape offsets by half its size), so keep
+      // the centre within half a shape of each edge. Only the pressed axis moves.
+      const curX = table.shapeMetadata?.x ?? 100;
+      const curY = table.shapeMetadata?.y ?? 100;
+      const x =
+        delta[0] === 0
+          ? curX
+          : clamp(snapToGrid(curX + delta[0]), width / 2, CANVAS_WIDTH - width / 2);
+      const y =
+        delta[1] === 0
+          ? curY
+          : clamp(snapToGrid(curY + delta[1]), height / 2, CANVAS_HEIGHT - height / 2);
       onTableMove(table.id, x, y);
       onAnnounce?.(`${table.name} moved to ${x}, ${y}`);
     },
