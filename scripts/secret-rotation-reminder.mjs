@@ -18,7 +18,7 @@
  */
 
 import { createGhClient } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 /** Secrets tracked for rotation, with their cadence in months (anchored to January). */
 export const ROTATION_SCHEDULE = [
@@ -178,29 +178,17 @@ export async function runSecretRotationReminder({
     return { created: false, skipped: true, dueSecrets };
   }
 
+  if (result.action === "skipped-error") {
+    log(`could not read state of reminder #${result.issueNumber} — not filing "${title}" this run`);
+    return { created: false, skipped: true, dueSecrets };
+  }
+
   log(
     result.action === "reopen"
       ? `reopened reminder "${title}" for ${dueSecrets.length} secret(s)`
       : `created reminder "${title}" for ${dueSecrets.length} secret(s)`
   );
   return { created: true, skipped: false, dueSecrets, title };
-}
-
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(gh, issueNumber) {
-  try {
-    const state = String(gh.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
 }
 
 /** CLI entry: wires the real gh client to {@link runSecretRotationReminder}. */
@@ -211,7 +199,7 @@ async function run() {
     listLabels: async () => gh.label.list(["--json", "name", "--limit", "200"]).map((l) => l.name),
     listIssuesByLabel: async () =>
       gh.issue.list(["--state", "all", "--label", "security", "--json", "number,title"]),
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(gh, issueNumber),
+    getIssueState: (issueNumber) => issueState(gh, issueNumber),
     createIssue: (title, body, labels) =>
       parseIssueNumberFromUrl(
         gh.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])

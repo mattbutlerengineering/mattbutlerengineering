@@ -16,7 +16,7 @@
 
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const ghClient = createGhClient();
 
@@ -289,6 +289,13 @@ export function runRevertRca({
     return { action: "skipped", state: revertState.state, issueNumber: result.issueNumber };
   }
 
+  if (result.action === "skipped-error") {
+    log(
+      `Could not read state of RCA issue #${result.issueNumber} — not filing for PR #${prNumber}.`
+    );
+    return { action: "skipped-error", state: revertState.state, issueNumber: result.issueNumber };
+  }
+
   log(
     result.action === "reopen"
       ? `Reopened RCA issue #${result.issueNumber} for reverted PR #${prNumber}.`
@@ -300,23 +307,6 @@ export function runRevertRca({
     state: revertState.state,
     issueNumber: result.issueNumber,
   };
-}
-
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(client, issueNumber) {
-  try {
-    const state = String(client.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
 }
 
 function main() {
@@ -366,7 +356,7 @@ function main() {
         "--json",
         "number,title",
       ]),
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
     createIssue: (title, body) =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildRcaCreateArgs(title, body))),
     reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
