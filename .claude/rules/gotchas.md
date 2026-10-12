@@ -2,7 +2,7 @@
 
 Project-specific traps that have bitten me before. Read these before diving into pre-commit, release, or deploy work.
 
-> **Adding entries:** after an autonomous loop (`/implement-queue`), run `/gotcha-harvest` to mine the session for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here (and cross-repo facts to memory) with human review. A hand-written `.claude/memory/corrections/` entry only captures _human corrections_, so loop-discovered gotchas land here via `/gotcha-harvest`, not via that path.
+> **Adding entries:** after an autonomous loop (`/implement-queue`), run `/idea-to-prod:knowledge-base`'s harvest (`kb.py harvest <main checkout root> --days N` — a worktree path finds no transcripts) to mine the sessions for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here with human review. A hand-written `.claude/memory/corrections/` entry only captures _human corrections_, so loop-discovered gotchas land here via the harvest, not via that path. (The repo-local `/gotcha-harvest` was retired for the plugin in #6332.)
 
 ## Pre-commit / lint
 

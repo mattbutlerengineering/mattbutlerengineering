@@ -92,6 +92,8 @@ export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
     "does not exist and never has (#5586); referenced only in prose saying so — human corrections are written to .claude/memory/corrections/ by hand",
   "ship-loop":
     "removed in #5592, replaced by /implement-queue; referenced only in prose recording that removal",
+  "gotcha-harvest":
+    "retired in #6332 for /idea-to-prod:knowledge-base's transcript harvest; referenced only in prose recording that retirement",
 
   // --- HTTP routes and placeholders written in the same `/name` shape.
   health: "HTTP liveness route, not a slash command",
@@ -105,7 +107,8 @@ export const DECLARED_NON_REPO_REFERENCES = Object.freeze({
  * data — no network. Must be kept in step with the plugin by hand.
  *
  * idea-to-prod@skills: read from github.com/mattbutlerengineering/skills at
- * commit 003ff3a86ea57afa70adbb9cd0c5a1e118101072 (`skills/*` directories).
+ * commit 90126239059c50a0d4f44fa6634f3d6c3f6ee1d0, plugin 0.9.2 (`skills/*`
+ * directories).
  * Enabled for project sessions in .claude/settings.json (#6332).
  *
  * @type {Readonly<Record<string, readonly string[]>>}
@@ -137,6 +140,7 @@ export const PLUGIN_PROVIDED_SKILLS = Object.freeze({
     "pipeline-board",
     "polish",
     "prd",
+    "prisma-migrations",
     "review",
     "ship",
     "ux-design",
