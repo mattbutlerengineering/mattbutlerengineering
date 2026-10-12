@@ -85,7 +85,7 @@ implement-queue (Phase 2: worker→train boundary, after PR-level CI green)
   ├─ 4. Await verdict (≤30s timeout; timeout/error → re-dispatch once, then hold)
   │
   ├─ 5. Decision:
-  │   ├─ pass  → proceed to gh pr merge --auto
+  │   ├─ pass  → proceed to gh pr merge --auto (unless a gate-path file changed → hold for a human)
   │   ├─ flag  → apply Retry Policy (below)
   │   └─ timeout/error → record `error`, re-dispatch once, then hold for a human
 ```
@@ -100,7 +100,8 @@ that CI cannot (semantic regressions, hallucinated behaviour, skipped acceptance
 criteria).
 
 Review is **skipped** for low-risk PRs (tests-only, docs, config, deps, metrics
-telemetry) as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
+telemetry) as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`. A low-risk PR that changes a gate-path file (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`) is still
+held for a human merge (ADR-0087).
 
 ### Reviewer agent constraints
 

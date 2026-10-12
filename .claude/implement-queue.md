@@ -161,7 +161,7 @@ node scripts/agent-core-build-freshness.mjs check
 
 `exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to the `reviewers` hook) and treat its specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
 
-Only when `needs-review` is absent, the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+Only when `needs-review` is absent, no changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md` — those always hold for a human merge, ADR-0087), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
@@ -233,7 +233,7 @@ it had already altered.
 
 ## merge-command
 
-**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar:
+**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`docs/adr/**`, `docs/design/**`, `**/prd.md`, `**/architecture.md`), which holds the PR for a human merge:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
@@ -263,7 +263,7 @@ The distinction that matters is **reviewed vs. unreviewed**, not tier:
 
 `docs/change-tiers.md`'s "T2+ requires Matt's personal approval" is **advisory for agent sessions that run the review gate**, and binding for the unreviewed workflow paths. `isAutoMergeEligible` still exists and is still correct — it just isn't this skill's gate. Do not reintroduce a tier check into Phase 2; it deadlocked the queue on 2026-08-06 (three review-gate-passed PRs parked, nothing merged).
 
-What still holds a PR: a `flag` verdict (Reviewer), a `block` verdict (specialized reviewer), a `needs-review` label, or red CI Gate.
+What still holds a PR: a `flag` verdict (Reviewer), a `block` verdict (specialized reviewer), a reviewer that errored again after one re-dispatch, a changed gate-path file, a `needs-review` label, or red CI Gate.
 
 ## update-branch
 
@@ -341,7 +341,7 @@ releaseMergeTrainLock({ zone });
 - **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr`. A PR that touches only `metrics/**` satisfies `isLowRiskPR` (see Phase 2 step 2) and auto-merges via the low-risk fast path — but only if every changed file is metrics-only; a mixed diff (e.g. also touching a non-allowlisted file) falls through to the reviewer gate like any other PR. Ephemeral cloud checkouts lose uncommitted rows forever. This step is now best-effort, not the only path: `.github/workflows/metrics-collectors.yml` runs `scripts/collect-queue-telemetry-from-github.mjs` daily on a runner and PRs in a pending row for every merged agent PR the file lacks (#5921). Those rows carry null tokens/tool_uses/duration_ms/model_tier/reviewer_verdict (unrecoverable from GitHub), so persisting the in-session row is still worth doing for full fidelity — the in-session row wins because dedupe is by `pr_number`.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
-Recurring use: `/loop 30m /implement-queue`.
+Recurring use: `/loop 30m /idea-to-prod:implement-queue`.
 
 ## telemetry
 
