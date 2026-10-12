@@ -195,6 +195,7 @@ const venueContextValue = (selectedVenue: Venue | null): VenueContextValue => ({
   selectedVenue,
   setVenueId: vi.fn(),
   isLoading: false,
+  venuesError: null,
   isMultiVenue: false,
   refetchVenues: vi.fn(async () => {}),
 });

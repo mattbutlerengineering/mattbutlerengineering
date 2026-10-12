@@ -115,7 +115,7 @@ describe("VenueContext", () => {
     expect(result.current.selectedVenue?.name).toBe("Uptown Grill");
   });
 
-  it("handles fetch error by clearing venues", async () => {
+  it("exposes the fetch error so a failed fetch is distinguishable from no venues", async () => {
     mockList.mockRejectedValueOnce(new Error("Network error"));
 
     const { result } = renderHook(() => useVenue(), { wrapper });
@@ -124,9 +124,20 @@ describe("VenueContext", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
+    expect(result.current.venuesError).toEqual(new Error("Network error"));
     expect(result.current.venues).toHaveLength(0);
     expect(result.current.selectedVenueId).toBeNull();
     expect(result.current.selectedVenue).toBeNull();
+  });
+
+  it("reports no venuesError when the fetch succeeds", async () => {
+    const { result } = renderHook(() => useVenue(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.venuesError).toBeNull();
   });
 
   it("throws when useVenue is called outside VenueProvider", () => {

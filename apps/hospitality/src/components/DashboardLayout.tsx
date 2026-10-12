@@ -27,6 +27,8 @@ import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { LoadingPage } from "../pages/LoadingPage.js";
+import { describeApiError } from "../lib/describe-api-error.js";
+import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -65,7 +67,7 @@ function DashboardLayoutInner() {
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
-  const { selectedVenue } = useVenue();
+  const { selectedVenue, venuesError, refetchVenues } = useVenue();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -262,6 +264,20 @@ function DashboardLayoutInner() {
   // Render-time gate: decide before painting any dashboard chrome, instead of
   // in a post-commit effect (#3889). All hooks above must still run
   // unconditionally on every render for the Rules of Hooks.
+  // A failed venues fetch also reads as "no-venue" downstream; show a retry
+  // state rather than sending an existing operator into onboarding.
+  if (venuesError && !selectedVenue) {
+    const { detail, raw } = describeApiError(venuesError);
+    return (
+      <ErrorRetryBanner
+        title="Venues not loaded."
+        error={detail}
+        details={raw}
+        onRetry={() => void refetchVenues()}
+      />
+    );
+  }
+
   if (isLoadingGate) {
     return <LoadingPage />;
   }
