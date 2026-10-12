@@ -265,3 +265,78 @@ describe("useCombobox", () => {
     });
   });
 });
+
+describe("useCombobox — inputMode", () => {
+  const press = (result: { current: ReturnType<typeof useCombobox> }, key: string) => {
+    const e = keyEvent(key);
+    act(() => result.current.handleKeyDown(e));
+    return e;
+  };
+
+  it("opens with nothing focused, even when a value is selected", () => {
+    const { result } = renderHook(() => useCombobox({ items, value: "ca", inputMode: "input" }));
+    act(() => result.current.openWithFocus());
+    expect(result.current.open).toBe(true);
+    expect(result.current.focusedIndex).toBe(-1);
+  });
+
+  it("leaves printable keys and Space to the input", () => {
+    const { result } = renderHook(() => useCombobox({ items, inputMode: "input" }));
+    for (const key of ["m", " "]) {
+      const e = press(result, key);
+      expect(e.preventDefault).not.toHaveBeenCalled();
+    }
+    expect(result.current.open).toBe(false);
+  });
+
+  it("ArrowDown/ArrowUp on a closed list open on the first/last enabled item", () => {
+    const { result } = renderHook(() => useCombobox({ items: withDisabled, inputMode: "input" }));
+    press(result, "ArrowDown");
+    expect(result.current.open).toBe(true);
+    expect(result.current.focusedIndex).toBe(0);
+    press(result, "Escape");
+    press(result, "ArrowUp");
+    expect(result.current.focusedIndex).toBe(2);
+  });
+
+  it("clamps at the ends by default and skips disabled items", () => {
+    const { result } = renderHook(() => useCombobox({ items: withDisabled, inputMode: "input" }));
+    press(result, "ArrowDown");
+    press(result, "ArrowDown");
+    expect(result.current.focusedIndex).toBe(2);
+    press(result, "ArrowDown");
+    expect(result.current.focusedIndex).toBe(2);
+  });
+
+  it("wraps when wrap is set", () => {
+    const { result } = renderHook(() =>
+      useCombobox({ items: withDisabled, inputMode: "input", wrap: true })
+    );
+    press(result, "ArrowDown");
+    press(result, "ArrowDown");
+    press(result, "ArrowDown");
+    expect(result.current.focusedIndex).toBe(0);
+    press(result, "ArrowUp");
+    expect(result.current.focusedIndex).toBe(2);
+  });
+
+  it("Enter commits only a focused item", () => {
+    const onSelect = vi.fn();
+    const { result } = renderHook(() => useCombobox({ items, inputMode: "input", onSelect }));
+    act(() => result.current.openWithFocus());
+    press(result, "Enter");
+    expect(onSelect).not.toHaveBeenCalled();
+    press(result, "ArrowDown");
+    press(result, "Enter");
+    expect(onSelect).toHaveBeenCalledWith("us");
+    expect(result.current.open).toBe(false);
+  });
+
+  it("Tab closes without preventing default", () => {
+    const { result } = renderHook(() => useCombobox({ items, inputMode: "input" }));
+    act(() => result.current.openWithFocus());
+    const e = press(result, "Tab");
+    expect(result.current.open).toBe(false);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+});
