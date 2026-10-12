@@ -201,6 +201,14 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
+    export interface ServiceDatabaseConfig {
+      /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+      readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+      /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+      readonly healthRoutes: readonly HealthRouteConfig[];
+      /** Overrides the shared Auth0 JWKS check — for tests without network. */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
     export interface ServiceAppConfig {
       /** Swagger/OpenAPI metadata — differs per service */
       readonly swagger: SwaggerConfig;
@@ -208,6 +216,8 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+      /** Owns the service's database: health, /ready, and pool shutdown on close. */
+      readonly database?: ServiceDatabaseConfig;
     }
     export interface AppOptions {
       logger?: boolean | object;
@@ -238,6 +248,20 @@
         log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
         return fallbackUrl;
       }
+    }
+    async function registerDatabase(
+      fastify: FastifyInstance,
+      database: ServiceDatabaseConfig
+    ): Promise<void> {
+      const { db, healthRoutes, checkAuth0 } = database;
+      // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+      fastify.addHook("onClose", async () => db.shutdown());
+      await fastify.register(registerHealthRoutes, {
+        db,
+        routes: healthRoutes,
+        ...(checkAuth0 && { checkAuth0 }),
+      });
+      await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
     }
     export async function createServiceApp(
       config: ServiceAppConfig,
@@ -411,6 +435,11 @@
       // Policy (successor computation, sunset headers, deprecation decorators) is
       // governed by ADR-002 and lives in apply-versioning.ts.
       applyVersioning(fastify, config.apiVersioning);
+    
+      // --- Database lifecycle ---
+      if (config.database) {
+        await registerDatabase(fastify, config.database);
+      }
     
       return fastify;
     }

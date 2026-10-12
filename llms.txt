@@ -5978,11 +5978,6 @@
       export const genUiRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="services/agent/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="services/agent/src/routes/orchestrate.ts">
     <item priority="high">
       interface OrchestrateBody {
@@ -6235,11 +6230,6 @@
   <file path="services/reservations/src/routes/guests.ts">
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/holds.ts">
@@ -6808,11 +6798,6 @@
         async register(): Promise<unknown>;
         async dispatch(): Promise<unknown>;
       }
-    </item>
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
@@ -14650,10 +14635,18 @@
       }
     </item>
     <item priority="low">
+      interface ServiceDatabaseConfig {
+        db: HealthDb & { readonly shutdown: () => Promise<void> };
+        healthRoutes: readonly HealthRouteConfig[];
+        checkAuth0?: () => Promise<Auth0CheckResult>;
+      }
+    </item>
+    <item priority="low">
       interface ServiceAppConfig {
         swagger: SwaggerConfig;
         apiVersioning?: ApiVersioningConfig;
         registerSchemas?: (fastify: FastifyInstance) => void;
+        database?: ServiceDatabaseConfig;
       }
     </item>
     <item priority="low">
@@ -14666,6 +14659,12 @@
     </item>
     <item priority="medium">
       function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function registerDatabase(
+        fastify: FastifyInstance,
+        database: ServiceDatabaseConfig
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function createServiceApp(

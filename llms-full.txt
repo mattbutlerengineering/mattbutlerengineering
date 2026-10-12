@@ -19450,18 +19450,6 @@
       );
     };
   </file>
-  <file path="services/agent/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getAgentHealth" },
-          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
-        ],
-      });
-    };
-  </file>
   <file path="services/agent/src/routes/orchestrate.ts">
     interface OrchestrateBody {
       taskDescription: string;
@@ -22000,19 +21988,6 @@
             return reply.code(204).send();
           }
         ),
-      });
-    };
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/health", operationId: "getHealthApi" },
-          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
-        ],
       });
     };
   </file>
@@ -26656,18 +26631,6 @@
         await handler(event);
       }
     }
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
-        ],
-      });
-    };
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -50057,6 +50020,7 @@
       getSlowQueryStats: () => SlowQueryStats;
       getPoolMetrics: () => PoolMetrics;
       getServiceStatus: () => ServiceStatus;
+      /** Idempotent. Callers own the lifecycle: createServiceApp wires it to fastify onClose. */
       shutdown: () => Promise<void>;
     }
     export interface PrismaLike {
@@ -50206,8 +50170,6 @@
         await basePrisma.$disconnect();
         await pool.end();
       }
-    
-      process.on("beforeExit", shutdown);
     
       return {
         prisma,
@@ -54437,6 +54399,14 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
+    export interface ServiceDatabaseConfig {
+      /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+      readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+      /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+      readonly healthRoutes: readonly HealthRouteConfig[];
+      /** Overrides the shared Auth0 JWKS check — for tests without network. */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
     export interface ServiceAppConfig {
       /** Swagger/OpenAPI metadata — differs per service */
       readonly swagger: SwaggerConfig;
@@ -54444,6 +54414,8 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+      /** Owns the service's database: health, /ready, and pool shutdown on close. */
+      readonly database?: ServiceDatabaseConfig;
     }
     export interface AppOptions {
       logger?: boolean | object;
@@ -54474,6 +54446,20 @@
         log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
         return fallbackUrl;
       }
+    }
+    async function registerDatabase(
+      fastify: FastifyInstance,
+      database: ServiceDatabaseConfig
+    ): Promise<void> {
+      const { db, healthRoutes, checkAuth0 } = database;
+      // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+      fastify.addHook("onClose", async () => db.shutdown());
+      await fastify.register(registerHealthRoutes, {
+        db,
+        routes: healthRoutes,
+        ...(checkAuth0 && { checkAuth0 }),
+      });
+      await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
     }
     export async function createServiceApp(
       config: ServiceAppConfig,
@@ -54647,6 +54633,11 @@
       // Policy (successor computation, sunset headers, deprecation decorators) is
       // governed by ADR-002 and lives in apply-versioning.ts.
       applyVersioning(fastify, config.apiVersioning);
+    
+      // --- Database lifecycle ---
+      if (config.database) {
+        await registerDatabase(fastify, config.database);
+      }
     
       return fastify;
     }
@@ -56610,18 +56601,18 @@
             serverUrl: "http://localhost:3003",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getAgentHealth" },
+              { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+            ],
+          },
         },
         options
       );
     
-      // Release the pg pool once fastify has drained requests. startServiceServer
-      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-      // fires (#6373).
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
       await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
@@ -56701,6 +56692,14 @@
             serverUrl: "http://localhost:3004",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/health", operationId: "getHealthApi" },
+              { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+            ],
+          },
         },
         options
       );
@@ -56817,19 +56816,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-      // (#5469). `@mbe/database`'s createDatabase() registers its own
-      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-      // SIGINT handler always ends with an explicit `process.exit(0)` — which
-      // never fires `beforeExit` — so the pool was previously torn down by abrupt
-      // process termination on every deploy instead of a graceful disconnect.
-      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-      // jobWorker below) runs deterministically after requests drain, so wire
-      // db.shutdown() here instead. Registered unconditionally (not gated on
-      // NODE_ENV !== "test" like the background jobs below) since it has no
-      // observable side effect beyond closing a connection that tests mock out.
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is
       // resolvable from its own query/body/params, so the RLS policies already
@@ -56849,8 +56835,6 @@
       fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
@@ -56990,18 +56974,18 @@
             serverUrl: "http://localhost:3001",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+            ],
+          },
         },
         options
       );
     
-      // Release the pg pool once fastify has drained requests. startServiceServer
-      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-      // fires (#6373).
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     

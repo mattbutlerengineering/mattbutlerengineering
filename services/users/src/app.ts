@@ -1,9 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe/service-bootstrap";
+import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
 import { registerSchemas } from "./schemas/index.js";
-import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
-import { db, prisma } from "./services/database.js";
+import { db } from "./services/database.js";
 
 /**
  * Creates the Fastify application instance.
@@ -17,18 +16,18 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         serverUrl: "http://localhost:3001",
       },
       registerSchemas,
+      database: {
+        db,
+        healthRoutes: [
+          { path: "/health", operationId: "getHealth" },
+          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+        ],
+      },
     },
     options
   );
 
-  // Release the pg pool once fastify has drained requests. startServiceServer
-  // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-  // fires (#6373).
-  fastify.addHook("onClose", async () => db.shutdown());
-
   // Register routes
-  await fastify.register(healthRoutes);
-  await fastify.register(registerReadinessRoutes, { prisma });
   // Full path prefix — ingress forwards with preservePathPrefix: true
   await fastify.register(userRoutes, { prefix: "/api/v1/users" });
 

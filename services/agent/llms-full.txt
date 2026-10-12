@@ -1091,18 +1091,6 @@
       );
     };
   </file>
-  <file path="src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getAgentHealth" },
-          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
-        ],
-      });
-    };
-  </file>
   <file path="src/routes/orchestrate.ts">
     interface OrchestrateBody {
       taskDescription: string;
@@ -3116,18 +3104,18 @@
             serverUrl: "http://localhost:3003",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getAgentHealth" },
+              { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+            ],
+          },
         },
         options
       );
     
-      // Release the pg pool once fastify has drained requests. startServiceServer
-      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-      // fires (#6373).
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
       await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
