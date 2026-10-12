@@ -3,7 +3,7 @@ import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
-import { prisma } from "./services/database.js";
+import { db, prisma } from "./services/database.js";
 
 /**
  * Creates the Fastify application instance.
@@ -20,6 +20,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
     options
   );
+
+  // Release the pg pool once fastify has drained requests. startServiceServer
+  // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
+  // fires (#6373).
+  fastify.addHook("onClose", async () => db.shutdown());
 
   // Register routes
   await fastify.register(healthRoutes);

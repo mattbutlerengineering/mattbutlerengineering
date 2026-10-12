@@ -11,7 +11,7 @@ import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
 import { genAgentRoutes } from "./routes/gen-agent.js";
-import { prisma } from "./services/database.js";
+import { db, prisma } from "./services/database.js";
 
 /**
  * Creates the Fastify application instance.
@@ -28,6 +28,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
     options
   );
+
+  // Release the pg pool once fastify has drained requests. startServiceServer
+  // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
+  // fires (#6373).
+  fastify.addHook("onClose", async () => db.shutdown());
 
   // Register routes
   await fastify.register(healthRoutes);

@@ -3120,6 +3120,11 @@
         options
       );
     
+      // Release the pg pool once fastify has drained requests. startServiceServer
+      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
+      // fires (#6373).
+      fastify.addHook("onClose", async () => db.shutdown());
+    
       // Register routes
       await fastify.register(healthRoutes);
       await fastify.register(registerReadinessRoutes, { prisma });
