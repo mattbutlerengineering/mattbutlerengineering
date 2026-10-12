@@ -29,41 +29,11 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { isAgentPr, isBookkeepingPr } from "./agent-pr.js";
 
-const AGENT_BRANCH_PREFIXES = ["worktree-agent-", "agent-", "fix/agent-", "feat/agent-"];
-const AGENT_LABEL = "agent-authored";
-/**
- * Branch prefixes that are the scorer/telemetry machinery auditing itself,
- * not agent feature/fix work — measured live (2026-09-28) via
- * `gh pr list --state merged --label agent-authored --limit 100 --json
- * headRefName,author`: `chore/acmm-daily-audit-*` / `chore/acmm-audit-*`
- * carry the `agent-authored` label despite being the daily audit committing
- * its own state, so the label alone over-counts (#5852 audit finding 6).
- */
-const BOOKKEEPING_BRANCH_PREFIXES = [
-  "metrics/",
-  "chore/acmm-",
-  "chore/queue-telemetry-",
-  "automation/",
-  "dependabot/",
-];
-/**
- * Known automation-bot PR-author logins, in both formats observed live:
- * `gh pr list --json author` returns Bot/App actors as `app/<slug>` on this
- * repo (e.g. `app/dependabot`, `app/github-actions`), not the `<slug>[bot]`
- * suffix form the GitHub REST API and `gh pr view --json commits` use. Both
- * are listed explicitly rather than matched by a `[bot]`/`app/` heuristic,
- * because `app/claude` is the coding agent itself and must NOT be excluded
- * here — heuristic prefix matching would catch it too.
- */
-const BOOKKEEPING_AUTHOR_LOGINS = new Set([
-  "github-actions",
-  "github-actions[bot]",
-  "app/github-actions",
-  "dependabot",
-  "dependabot[bot]",
-  "app/dependabot",
-]);
+// Canonical rule lives in ./agent-pr.js (#6380); re-exported for existing importers.
+export { isAgentPr, isBookkeepingPr };
+
 const WINDOW_DAYS = 30;
 const REVERT_WINDOW_DAYS = 7;
 const MIN_SAMPLE = 5;
@@ -83,32 +53,6 @@ const FETCH_LIMIT = 1000;
  * @property {boolean} reverted_within_7d  enriched by IO layer
  * @property {boolean} human_touched    enriched by IO layer (a human-authored, non-merge commit)
  */
-
-/**
- * Is this PR bookkeeping/automation machinery rather than agent work —
- * a daily-audit commit, a metrics snapshot, or a dependency bump?
- *
- * @param {Pick<PrRecord, "headRefName" | "author">} pr
- */
-export function isBookkeepingPr(pr) {
-  const branch = pr.headRefName ?? "";
-  if (BOOKKEEPING_BRANCH_PREFIXES.some((p) => branch.startsWith(p))) return true;
-  const author = (pr.author ?? "").toLowerCase();
-  return BOOKKEEPING_AUTHOR_LOGINS.has(author);
-}
-
-/**
- * Is this PR from an agent? `agent-authored` label OR a known agent branch
- * prefix, excluding bookkeeping/automation PRs even when mislabeled (#5852).
- *
- * @param {Pick<PrRecord, "headRefName" | "labels" | "author">} pr
- */
-export function isAgentPr(pr) {
-  if (isBookkeepingPr(pr)) return false;
-  if (pr.labels?.includes(AGENT_LABEL)) return true;
-  if (!pr.headRefName) return false;
-  return AGENT_BRANCH_PREFIXES.some((p) => pr.headRefName.startsWith(p));
-}
 
 /**
  * Pure compute over a normalized PR list.

@@ -657,7 +657,7 @@ describe("sensors-registry", () => {
         "--limit",
         "500",
         "--json",
-        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
+        "number,state,headRefName,author,createdAt,mergedAt,closedAt,labels,additions,deletions",
       ]);
       expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
       expect(result).toEqual([{ ...prs[0], commits: [{}, {}], commitCount: 2 }]);
