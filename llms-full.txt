@@ -55111,6 +55111,19 @@
       const dot = name.lastIndexOf(".");
       return dot === -1 ? "" : name.slice(dot).toLowerCase();
     }
+    function hasShebang(path: string): boolean {
+      const fd = openSync(path, "r");
+      try {
+        const buf = Buffer.alloc(2);
+        return readSync(fd, buf, 0, 2, 0) === 2 && buf.toString("latin1") === "#!";
+      } finally {
+        closeSync(fd);
+      }
+    }
+    function isScannable(name: string, full: string): boolean {
+      const ext = extensionOf(name);
+      return ext === "" ? hasShebang(full) : TEXT_EXTENSIONS.has(ext);
+    }
     export function collectFiles(rootDir: string): SourceFile[] {
       const out: SourceFile[] = [];
     
@@ -55123,7 +55136,7 @@
             continue;
           }
           if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
-          if (!TEXT_EXTENSIONS.has(extensionOf(entry.name))) continue;
+          if (!isScannable(entry.name, full)) continue;
           if (statSync(full).size > MAX_FILE_BYTES) continue;
           const relPath = relative(rootDir, full).split(sep).join("/");
           out.push({ relPath, content: readFileSync(full, "utf8") });
@@ -55136,22 +55149,40 @@
   </file>
   <file path="packages/supply-chain-scanner/src/rule-engine.ts">
     export interface Rule {
-      /** Non-global regex tested per line. (Global regexes carry lastIndex state — banned.) */
+      /** Non-global regex tested per logical line. (Global regexes carry lastIndex state — banned.) */
       readonly pattern: RegExp;
       readonly category: Category;
       readonly severity: Severity;
     }
+    interface LogicalLine {
+      readonly line: number;
+      readonly text: string;
+    }
+    function toLogicalLines(content: string): LogicalLine[] {
+      const lines = content.split(/\r?\n/);
+      const out: LogicalLine[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        let text = lines[i]!;
+        let taken = 1;
+        while (CONTINUES.test(text) && taken < MAX_JOINED_LINES && i + taken < lines.length) {
+          text = `${text.replace(/\\\s*$/, "")} ${lines[i + taken]!.trim()}`;
+          taken++;
+        }
+        out.push({ line: i + 1, text });
+        i += taken - 1;
+      }
+      return out;
+    }
     export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
       const findings: Finding[] = [];
-      const lines = content.split(/\r?\n/);
-      for (const [i, line] of lines.entries()) {
+      for (const { line: lineNo, text: line } of toLogicalLines(content)) {
         for (const rule of rules) {
           if (rule.pattern.test(line)) {
             findings.push({
               category: rule.category,
               severity: rule.severity,
               file,
-              line: i + 1,
+              line: lineNo,
               evidence: line.trim().slice(0, MAX_EVIDENCE),
             });
           }

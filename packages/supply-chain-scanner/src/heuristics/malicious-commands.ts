@@ -43,6 +43,12 @@ const RULES: readonly Rule[] = [
     category: "malicious-command",
     severity: "med",
   },
+  // Python shell-out (MCP servers are often Python) — medium, same as node exec.
+  {
+    pattern: /\b(os\.(system|popen)|subprocess\.(run|call|Popen|check_call|check_output))\s*\(/,
+    category: "malicious-command",
+    severity: "med",
+  },
   {
     pattern: /\b(execSync|exec|spawnSync|spawn|execFile|execFileSync)\s*\(/,
     category: "malicious-command",

@@ -25,9 +25,9 @@ const RULES: readonly Rule[] = [
     category: "prompt-injection",
     severity: "med",
   },
-  // Hidden / zero-width characters used to smuggle instructions past human review.
+  // Hidden / zero-width, bidi-override (Trojan Source) and Unicode tag characters used to smuggle instructions past human review.
   {
-    pattern: /[\u200B-\u200D\u2060\uFEFF]/,
+    pattern: /[\u200B-\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069\u{E0000}-\u{E007F}]/u,
     category: "prompt-injection",
     severity: "med",
   },
