@@ -55,6 +55,11 @@ describe("parseAttachedSymbols", () => {
     expect(parseAttachedSymbols(source)).toEqual(["aCommand", "runCommand"]);
   });
 
+  it("counts a lazy loader entry as an attachment", () => {
+    const source = '["pack", async () => (await import("./commands/pack.js")).packCommand],';
+    expect(parseAttachedSymbols(source)).toEqual(["packCommand"]);
+  });
+
   it("returns nothing when there are no attachments", () => {
     expect(parseAttachedSymbols("const x = 1;")).toEqual([]);
   });

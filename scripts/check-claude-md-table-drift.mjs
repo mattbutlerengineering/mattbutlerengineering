@@ -26,7 +26,7 @@ import { walkFiles } from "./lib/repo-scan.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
 
 const CLI_COMMANDS_DIR = "tools/cli/src/commands";
-const CLI_INDEX_FILE = "tools/cli/src/index.ts";
+const CLI_INDEX_FILE = "tools/cli/src/command-loaders.ts";
 const CLI_HEADING = "## mbe CLI Commands";
 const SKILLS_HEADINGS = ["### Skills", "### Scaffolding Skills"];
 const SUBAGENTS_HEADING = "### Subagents";
@@ -130,9 +130,15 @@ export function buildCommandIdentMap(files) {
   return map;
 }
 
-/** Identifiers registered as top-level commands via `program.addCommand(x)`. */
+/**
+ * Identifiers registered as top-level commands: the lazy loader table's
+ * `(await import("./commands/x.js")).xCommand` entries (command-loaders.ts),
+ * or a literal `program.addCommand(x)`.
+ */
 export function findProgramTopLevelIdents(indexContent) {
-  return [...indexContent.matchAll(/program\.addCommand\(\s*(\w+)\s*\)/g)].map((m) => m[1]);
+  const lazy = /\(await import\("[^"]+"\)\)\.(\w+)/g;
+  const eager = /program\.addCommand\(\s*(\w+)\s*\)/g;
+  return [...indexContent.matchAll(lazy), ...indexContent.matchAll(eager)].map((m) => m[1]);
 }
 
 /** Child command identifiers wired via `<ownerIdent>.addCommand(<childIdent>)`. */

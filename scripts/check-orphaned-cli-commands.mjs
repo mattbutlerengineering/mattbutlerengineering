@@ -62,6 +62,9 @@ const DECLARATION_RE = /export\s+const\s+(\w+)\s*=\s*new\s+Command\(\s*"([^"]+)"
 /** Matches `.addCommand(fooCommand)` on any receiver (`program`, a parent command). */
 const ATTACHMENT_RE = /\.addCommand\(\s*(\w+)\s*\)/g;
 
+/** Matches a lazy loader entry, `(await import("./commands/x.js")).fooCommand` (command-loaders.ts). */
+const LAZY_ATTACHMENT_RE = /\(await import\("[^"]+"\)\)\.(\w+)/g;
+
 /**
  * Extract every named command declaration from one module's source.
  *
@@ -80,7 +83,9 @@ export function parseCommandDeclarations(source, file) {
  * @returns {string[]}
  */
 export function parseAttachedSymbols(source) {
-  return [...source.matchAll(ATTACHMENT_RE)].map(([, symbol]) => symbol);
+  return [...source.matchAll(ATTACHMENT_RE), ...source.matchAll(LAZY_ATTACHMENT_RE)].map(
+    ([, symbol]) => symbol
+  );
 }
 
 /**
