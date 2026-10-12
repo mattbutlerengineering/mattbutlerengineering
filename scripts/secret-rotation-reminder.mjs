@@ -24,7 +24,13 @@ import { fileIssue } from "./lib/issue-filing.mjs";
 export const ROTATION_SCHEDULE = [
   { name: "DIGITALOCEAN_TOKEN", description: "DigitalOcean API token", intervalMonths: 3 },
   { name: "MBE_CLOUDFLARE_API_TOKEN", description: "Cloudflare API token", intervalMonths: 3 },
-  { name: "DATABASE_URL", description: "PostgreSQL connection string", intervalMonths: 3 },
+  {
+    name: "DATABASE_URL",
+    // Not a GitHub Actions secret: it lives in encrypted Pulumi config (see docs/SECRETS.md).
+    label: "`DATABASE_URL` (Pulumi config `mbe-infrastructure:databaseUrl`)",
+    description: "PostgreSQL connection string",
+    intervalMonths: 3,
+  },
   { name: "R2_ACCESS_KEY_ID", description: "Cloudflare R2 access key", intervalMonths: 3 },
   { name: "R2_SECRET_ACCESS_KEY", description: "Cloudflare R2 secret key", intervalMonths: 3 },
   {
@@ -79,7 +85,8 @@ export function formatIssueBody(dueSecrets, month, year) {
     "See [docs/SECRETS.md](../blob/main/docs/SECRETS.md) for rotation runbooks.",
     "",
     ...dueSecrets.map(
-      (s) => `- [ ] \`${s.name}\` — ${s.description} (rotates every ${s.intervalMonths} months)`
+      (s) =>
+        `- [ ] ${s.label ?? `\`${s.name}\``} — ${s.description} (rotates every ${s.intervalMonths} months)`
     ),
   ].join("\n");
 }

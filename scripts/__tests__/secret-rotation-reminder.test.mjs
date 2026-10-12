@@ -71,6 +71,12 @@ describe("formatIssueBody", () => {
     expect(body).toContain("AUTH0_CLIENT_SECRET");
     expect(body).toContain("rotates every 6 months");
   });
+
+  it("names DATABASE_URL as Pulumi config, not a GitHub secret", () => {
+    const body = formatIssueBody(getDueSecrets(1), 1, 2026);
+    expect(body).toContain("`DATABASE_URL` (Pulumi config `mbe-infrastructure:databaseUrl`)");
+    expect(body).not.toContain("- [ ] `DATABASE_URL` —");
+  });
 });
 
 // ---------------------------------------------------------------------------
