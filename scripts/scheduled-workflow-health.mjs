@@ -37,7 +37,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { parseWorkflow } from "./lib/workflow.mjs";
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
+import { fileIssueBySearch, ghIssueDeps } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -361,21 +361,6 @@ export function extractWorkflowNameFromMissedRunTitle(issue) {
   return match ? match[1] : null;
 }
 
-/**
- * Pure: finds a prior missed-run issue for `workflowName` among candidate
- * issues (any state).
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @param {string} workflowName
- * @returns {number | null}
- */
-export function findPriorMissedRunIssue(candidates, workflowName) {
-  const match = (candidates ?? []).find(
-    (issue) => extractWorkflowNameFromMissedRunTitle(issue) === workflowName
-  );
-  return match ? match.number : null;
-}
-
 /** Pure: builds the issue body for a missed-run (overdue) finding. */
 export function buildMissedRunBody({ workflowPath, lastRunAt, ageHours, periodDays }) {
   const lastRunLine = lastRunAt
@@ -449,22 +434,17 @@ export function runScheduledWorkflowRecencyCheck({
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
-    // A failed search must not swallow a genuine overdue finding — fail open
-    // (treat as "no prior found", file the issue) rather than closed.
-    let candidates = [];
-    try {
-      candidates = searchCiFixIssues();
-    } catch (err) {
-      log(`search for a prior missed-run issue failed, proceeding as no-match: ${err.message}`);
-    }
-    const priorNumber = findPriorMissedRunIssue(candidates, workflow.name);
-    const ledger = priorNumber !== null ? { [workflow.name]: priorNumber } : {};
-
-    const result = fileIssue({ title, body, labels, dedupeKey: workflow.name }, ledger, {
-      getIssueState,
-      createIssue,
-      reopenIssue,
-    });
+    // A failed search fails open: it must not swallow a genuine overdue finding.
+    const result = fileIssueBySearch(
+      { title, body, labels, dedupeKey: workflow.name },
+      {
+        search: searchCiFixIssues,
+        match: (issue) => extractWorkflowNameFromMissedRunTitle(issue) === workflow.name,
+        onSearchError: (err) =>
+          log(`search for a prior missed-run issue failed, proceeding as no-match: ${err.message}`),
+      },
+      { getIssueState, createIssue, reopenIssue }
+    );
 
     log(
       result.action === "skipped-error"
@@ -512,21 +492,6 @@ export function extractWorkflowNameFromIssueTitle(issue) {
 }
 
 /**
- * Pure: finds a prior scheduled-failure issue for `workflowName` among
- * candidate issues (any state).
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @param {string} workflowName
- * @returns {number | null}
- */
-export function findPriorScheduledFailureIssue(candidates, workflowName) {
-  const match = (candidates ?? []).find(
-    (issue) => extractWorkflowNameFromIssueTitle(issue) === workflowName
-  );
-  return match ? match.number : null;
-}
-
-/**
  * Pure: builds the issue body naming the workflow path, streak length, and
  * failing run URLs. `kind` (default `"scheduled"`) picks the wording so a
  * deploy-workflow finding never claims "scheduled runs" for a streak that
@@ -563,20 +528,6 @@ ${runLines}
 /** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
 export function buildDeployFailureBody(args) {
   return buildScheduledFailureBody({ ...args, kind: "deploy" });
-}
-
-/** Pure: builds the `gh issue create` args for a scheduled-failure issue. */
-export function buildScheduledFailureCreateArgs(title, body) {
-  return [
-    "--title",
-    title,
-    "--body",
-    body,
-    "--label",
-    "ci-fix",
-    "--label",
-    COORDINATION_LABELS.READY,
-  ];
 }
 
 /**
@@ -644,24 +595,19 @@ export function runScheduledWorkflowHealthCheck({
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
-    // A failed search must not swallow a genuine failing streak — fail open
-    // (treat as "no prior found", file the issue) rather than closed.
-    let candidates = [];
-    try {
-      candidates = searchCiFixIssues();
-    } catch (err) {
-      log(
-        `search for a prior scheduled-failure issue failed, proceeding as no-match: ${err.message}`
-      );
-    }
-    const priorNumber = findPriorScheduledFailureIssue(candidates, workflow.name);
-    const ledger = priorNumber !== null ? { [workflow.name]: priorNumber } : {};
-
-    const result = fileIssue({ title, body, labels, dedupeKey: workflow.name }, ledger, {
-      getIssueState,
-      createIssue,
-      reopenIssue,
-    });
+    // A failed search fails open: it must not swallow a genuine failing streak.
+    const result = fileIssueBySearch(
+      { title, body, labels, dedupeKey: workflow.name },
+      {
+        search: searchCiFixIssues,
+        match: (issue) => extractWorkflowNameFromIssueTitle(issue) === workflow.name,
+        onSearchError: (err) =>
+          log(
+            `search for a prior scheduled-failure issue failed, proceeding as no-match: ${err.message}`
+          ),
+      },
+      { getIssueState, createIssue, reopenIssue }
+    );
 
     log(
       result.action === "skipped-error"
@@ -747,10 +693,7 @@ function main() {
     threshold,
     searchCiFixIssues: () =>
       ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
-    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
-    createIssue: (title, body) =>
-      parseIssueNumberFromUrl(ghClient.issue.create(buildScheduledFailureCreateArgs(title, body))),
-    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    ...ghIssueDeps(ghClient),
     log: (msg) => console.error(msg),
     getWorkflowModifiedAt: (workflowPath) => resolveWorkflowModifiedAt(workflowPath),
   };

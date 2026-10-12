@@ -39,7 +39,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { fileIssue, isIssueNotFoundError } from "./issue-filing.mjs";
+import { fileIssueBySearch, isIssueNotFoundError } from "./issue-filing.mjs";
 
 const FLAGS_WITH_VALUE = new Set([
   "--title",
@@ -108,23 +108,6 @@ export function parseArgs(argv) {
 }
 
 /**
- * Pure: picks the "prior" issue for dedup purposes out of a set of candidate
- * issues already fetched by `deps.searchIssues`. When `contains` is given,
- * only candidates whose title includes that substring qualify (mirrors the
- * client-side `jq 'select(.title | contains(...))'` filters producers used
- * to hand-roll); otherwise the first candidate wins (mirrors the
- * `--jq '.[0].number'` / count-based checks).
- *
- * @param {Array<{number: number, title: string}>} issues
- * @param {{ contains?: string|null }} opts
- * @returns {number | null}
- */
-export function findPriorIssueNumber(issues, { contains } = {}) {
-  const candidates = contains ? issues.filter((issue) => issue.title.includes(contains)) : issues;
-  return candidates.length > 0 ? candidates[0].number : null;
-}
-
-/**
  * @typedef {Object} FileIssueCliDeps
  * @property {(path: string) => string} readFile
  * @property {(opts: { labels: string[], state: string, searchText: string|null }) => Array<{number: number, title: string}>} searchIssues
@@ -143,33 +126,32 @@ export function runFileIssueCli(argv, deps) {
   const opts = parseArgs(argv);
   const body = opts.body ?? deps.readFile(opts.bodyFile);
 
-  let priorNumber = null;
-  if (opts.searchLabels.length > 0) {
-    // A failed search is treated as "no prior found" (create fresh) rather
-    // than aborting — every inline dedup implementation this CLI replaces
-    // failed open the same way, via bash's default non-strict handling of a
-    // failed `gh issue list` (empty/unset variable, `if [ -n ... ]` false,
-    // falls through to create) or an explicit `2>/dev/null || echo`.
-    let issues = [];
-    try {
-      issues = deps.searchIssues({
-        labels: opts.searchLabels,
-        state: opts.searchState,
-        searchText: opts.searchText,
-      });
-    } catch (err) {
-      process.stderr.write(
-        `[file-issue-cli] search failed, proceeding as no-match: ${err.message}\n`
-      );
-    }
-    priorNumber = findPriorIssueNumber(issues, { contains: opts.contains });
-  }
-
-  const ledger = priorNumber !== null ? { [opts.dedupeKey]: priorNumber } : {};
-
-  const result = fileIssue(
+  // `--contains` keeps only candidates whose title includes that substring
+  // (mirrors the client-side `jq 'select(.title | contains(...))'` filters
+  // producers used to hand-roll); otherwise the first candidate wins.
+  //
+  // A failed search is treated as "no prior found" (create fresh) rather
+  // than aborting: every inline dedup implementation this CLI replaces
+  // failed open the same way, via bash's default non-strict handling of a
+  // failed list call (empty/unset variable, `if [ -n ... ]` false,
+  // falls through to create) or an explicit `2>/dev/null || echo`.
+  const result = fileIssueBySearch(
     { title: opts.title, body, labels: opts.labels, dedupeKey: opts.dedupeKey },
-    ledger,
+    {
+      search: () =>
+        opts.searchLabels.length > 0
+          ? deps.searchIssues({
+              labels: opts.searchLabels,
+              state: opts.searchState,
+              searchText: opts.searchText,
+            })
+          : [],
+      match: (issue) => !opts.contains || issue.title.includes(opts.contains),
+      onSearchError: (err) =>
+        process.stderr.write(
+          `[file-issue-cli] search failed, proceeding as no-match: ${err.message}\n`
+        ),
+    },
     {
       getIssueState: deps.getIssueState,
       createIssue: deps.createIssue,
