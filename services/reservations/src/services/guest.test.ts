@@ -284,6 +284,17 @@ describe("guestService", () => {
       expect(result!.notes).toBe("Updated notes");
     });
 
+    it("writes null through to clear email, phone and notes", async () => {
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(makePrismaGuest() as never);
+
+      await guestService.update("guest-1", { email: null, phone: null, notes: null });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: { email: null, phone: null, notes: null },
+      });
+    });
+
     it("returns null for P2025", async () => {
       vi.mocked(prisma.guest.update).mockRejectedValueOnce({ code: "P2025" } as never);
 

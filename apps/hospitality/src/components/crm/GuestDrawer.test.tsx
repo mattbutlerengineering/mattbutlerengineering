@@ -202,6 +202,50 @@ describe("GuestDrawer", () => {
     });
   });
 
+  it("sends null for email and phone the user emptied, and omits untouched fields", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <GuestDrawer
+        guest={makeGuest({ notes: "VIP" })}
+        open={true}
+        onClose={vi.fn()}
+        onSave={onSave}
+        guestReservations={[]}
+        isLoadingHistory={false}
+      />
+    );
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "" } });
+    fireEvent.click(screen.getByText("Save"));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const body = onSave.mock.calls[0]![1];
+    expect(body.email).toBeNull();
+    expect(body.phone).toBeNull();
+    expect(body.notes).toBeUndefined();
+  });
+
+  it("sends null for notes the user emptied", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <GuestDrawer
+        guest={makeGuest({ notes: "VIP" })}
+        open={true}
+        onClose={vi.fn()}
+        onSave={onSave}
+        guestReservations={[]}
+        isLoadingHistory={false}
+      />
+    );
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+    fireEvent.change(screen.getByTestId("textarea"), { target: { value: "" } });
+    fireEvent.click(screen.getByText("Save"));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0]![1].notes).toBeNull();
+  });
+
   it("shows success toast after save", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
