@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-12T00:43:35.046Z",
+  "generated_at": "2026-10-12T18:04:05.894Z",
   "window_days": 60,
   "acmmLevel": {
     "label": "ACMM maturity level",
@@ -244,6 +244,11 @@
         "date": "2026-10-11",
         "value": 6,
         "note": null
+      },
+      {
+        "date": "2026-10-12",
+        "value": 5,
+        "note": null
       }
     ]
   },
@@ -438,6 +443,11 @@
       },
       {
         "date": "2026-10-11",
+        "value": null,
+        "note": "credential_rejected"
+      },
+      {
+        "date": "2026-10-12",
         "value": null,
         "note": "credential_rejected"
       }
