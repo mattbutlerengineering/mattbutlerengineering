@@ -81,6 +81,17 @@ describe("app.ts — health and API routes registration", () => {
     await app.close();
   });
 
+  it("shuts the database down when the app closes (#6373)", async () => {
+    const { db } = await import("./services/database.js");
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    expect(db.shutdown).not.toHaveBeenCalled();
+
+    await app.close();
+
+    expect(db.shutdown).toHaveBeenCalledTimes(1);
+  });
+
   it("decorates rate limit onExceeded handler", async () => {
     const app: FastifyInstance = await buildApp({ logger: false });
     await app.ready();
