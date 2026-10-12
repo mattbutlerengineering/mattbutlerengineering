@@ -58,7 +58,7 @@ componentDidCatch(error, info) {
 reportApiError(apiError);
 ```
 
-`reportApiError` classifies by status code: 5xx `captureException`, 401/403 `captureMessage` (warning), other 4xx breadcrumb only.
+`reportApiError` classifies by status code: 5xx `captureException`, 401/403 `captureMessage` (warning), other 4xx breadcrumb only. Response-schema validation failures (`ApiValidationError`, no `statusCode`) `captureException` with method, path and zod issues.
 
 ## Config Resolution
 

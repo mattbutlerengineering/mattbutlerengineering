@@ -14478,6 +14478,20 @@
       }
     </item>
     <item priority="low">
+      interface ReportableValidationError {
+        name: "ApiValidationError";
+        message: string;
+        method?: string;
+        path?: string;
+        error: { readonly issues: readonly unknown[] };
+      }
+    </item>
+    <item priority="medium">
+      function isValidationError(
+        error: ReportableApiError | ReportableValidationError
+      ): error is ReportableValidationError { /* ... */ }
+    </item>
+    <item priority="low">
       interface InitOptions {
         appName: string;
         dsn: string;
@@ -14491,7 +14505,7 @@
       export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* ... */ }
     </item>
     <item priority="high">
-      export function reportApiError(error: ReportableApiError): void { /* ... */ }
+      export function reportApiError(error: ReportableApiError | ReportableValidationError): void { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">
