@@ -181,6 +181,25 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="src/lib/spec.ts">
+    <item priority="low">
+      interface SpecStats {
+        elementCount: number;
+        componentTypes: string[];
+      }
+    </item>
+    <item priority="medium">
+      function isRecord(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeSpec(value: unknown): Spec | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="pages">
   <file path="src/pages/classifyGenerationError.ts">
     <item priority="high">

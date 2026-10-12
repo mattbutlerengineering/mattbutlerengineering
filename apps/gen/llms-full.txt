@@ -738,6 +738,31 @@
     }
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="src/lib/spec.ts">
+    export interface SpecStats {
+      elementCount: number;
+      componentTypes: string[];
+    }
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    export function decodeSpec(value: unknown): Spec | null {
+      if (!isRecord(value)) return null;
+      if (typeof value.root !== "string" || !isRecord(value.elements)) return null;
+      for (const element of Object.values(value.elements)) {
+        if (!isRecord(element) || typeof element.type !== "string") return null;
+      }
+      return value as unknown as Spec;
+    }
+    export function specStats(spec: Spec | null): SpecStats | null {
+      if (!spec) return null;
+      const elements = Object.values(spec.elements);
+      const types = new Set(elements.map((element) => element.type));
+      return { elementCount: elements.length, componentTypes: Array.from(types).sort() };
+    }
+  </file>
+  </section>
   <section priority="medium" role="pages">
   <file path="src/pages/classifyGenerationError.ts">
     export function isTransportError(error: Error): boolean {
@@ -877,8 +902,7 @@
       });
     
       const activeEntry = activeId ? specs.find((s) => s.id === activeId) : undefined;
-      // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
-      const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+      const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
       const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
