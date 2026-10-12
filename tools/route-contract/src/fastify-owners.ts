@@ -105,10 +105,10 @@ export interface EnvConditionalRoute {
  * and it fires whether or not any client pair targets the new route.
  */
 export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[] = [
-  // `services/reservations/src/routes/events.ts:181` — a manual
-  // event-emitting endpoint registered only when `NODE_ENV !== "production"`,
-  // under the unconditional `/api/v1/events` prefix (`app.ts:231`).
-  { owner: "reservations", entry: "POST /api/v1/events/test", registeredUnder: "test" },
+  // Empty since `POST /api/v1/events/test` (reservations, `NODE_ENV !==
+  // "production"` only) was deleted by docs/fixes/venue-scoped-routes PR 5.
+  // The measurement stays: a new env-gated route fails the test below until it
+  // is listed here with a reason.
 ];
 
 /** `<indent><branch><fragment>` — one node of a `printRoutes()` tree. */

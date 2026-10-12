@@ -300,9 +300,12 @@ type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled
 
 ### Availability
 
-| Method | Path                   | Description              |
-| ------ | ---------------------- | ------------------------ |
-| GET    | `/api/v1/availability` | Get available time slots |
+Authenticated (staff): requires a JWT and membership of the `:venueId` venue (ADR-020, `venueScoped`). The anonymous booking widget uses `/public/v1/venues/:slug/availability` instead.
+
+| Method | Path                                  | Description                     |
+| ------ | ------------------------------------- | ------------------------------- |
+| GET    | `/api/v1/availability/:venueId`       | Get available time slots        |
+| GET    | `/api/v1/availability/:venueId/dates` | Get dates with any availability |
 
 ### Holds (authenticated — staff)
 
@@ -518,9 +521,9 @@ Booking Widget ──> GET /public/v1/venues/:slug/availability ──> Time slo
 
 ### Auth Flow
 
-Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/availability`.
+Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/stripe/webhook` (including `/api/v1/availability/*`, which also requires venue membership).
 
-Unauthenticated routes: `/health`, `/ready`, `/api/v1/availability`, `/api/v1/stripe/webhook`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
+Unauthenticated routes: `/health`, `/ready`, `/api/v1/stripe/webhook`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
 
 ```typescript
 // Routes use @mbe/auth plugin
