@@ -2,6 +2,8 @@ export interface SmsNotificationInput {
   reservationId: string;
   date: string;
   startTime: string;
+  /** IANA timezone used to render `startTime` as venue-local time. */
+  venueTimezone: string;
   partySize: number;
   guestName: string | null;
   guestPhone: string;

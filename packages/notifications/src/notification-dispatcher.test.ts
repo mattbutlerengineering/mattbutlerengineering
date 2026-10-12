@@ -137,6 +137,7 @@ describe("NotificationDispatcher", () => {
       reservationId: "res_abc123",
       date: "2026-06-15",
       startTime: "19:00",
+      venueTimezone: "America/Los_Angeles",
       partySize: 4,
       guestName: "Jane Doe",
       guestPhone: "+15551234567",

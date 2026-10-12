@@ -168,7 +168,10 @@ function planForFact(fact: TransitionFact, now: Date): PlannedEffect[] {
         awaited(
           message({
             kind: "booking-cancelled",
-            reservation: fact.reservation,
+            // What the guest is told is the pre-cancel booking, but the calendar
+            // SEQUENCE derives from updatedAt, so the cancel must carry the
+            // committed row's — else it ties the last modify and is ignored.
+            reservation: { ...fact.reservation, updatedAt: fact.updated.updatedAt },
             manageToken: fact.manageToken,
             initiator: fact.initiator,
           }),

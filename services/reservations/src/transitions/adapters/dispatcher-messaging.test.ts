@@ -1,3 +1,4 @@
+import { buildBookingEmailContent } from "@mbe/notifications";
 import { describe, it, expect, vi } from "vitest";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { Reservation, Venue } from "@mbe/types";
@@ -23,6 +24,7 @@ function res(overrides: Partial<Reservation> = {}): Reservation {
     guestPhone: null,
     guestId: "guest-1",
     notes: "window seat",
+    updatedAt: "2030-06-01T10:00:00.000Z",
     guest: { communicationPreference: "email_only", unsubscribed: false },
     ...overrides,
   } as unknown as Reservation;
@@ -43,6 +45,7 @@ const bookingPayload = {
   venueTimezone: "America/Los_Angeles",
   venueAddress: null,
   manageToken: "tok",
+  updatedAt: "2030-06-01T10:00:00.000Z",
 };
 
 function setup(getVenue = vi.fn().mockResolvedValue(venue)) {
@@ -149,13 +152,10 @@ describe("dispatcher messaging adapter (send halves moved verbatim)", () => {
     expect(dispatcher.sendBookingCancelled).not.toHaveBeenCalled();
   });
 
-  it("booking-modified: the booking payload with sequence 2 and the channel preference", async () => {
+  it("booking-modified: the booking payload (SEQUENCE derives from updatedAt) and the channel preference", async () => {
     const { messaging, dispatcher } = setup();
     await messaging.send({ kind: "booking-modified", reservation: res(), manageToken: "tok" });
-    expect(dispatcher.sendBookingModified).toHaveBeenCalledWith(
-      { ...bookingPayload, sequence: 2 },
-      "email_only"
-    );
+    expect(dispatcher.sendBookingModified).toHaveBeenCalledWith(bookingPayload, "email_only");
   });
 
   it("booking-modified: a send failure is logged, not rethrown", async () => {
@@ -191,5 +191,24 @@ describe("dispatcher messaging adapter (send halves moved verbatim)", () => {
         feedbackUrl: null,
       })
     );
+  });
+});
+
+describe("dispatcher-messaging -> rendered output seam", () => {
+  it("a venue in New York sees 7:00 PM and a valid .ics for a 23:00Z booking", async () => {
+    const getVenue = vi.fn().mockResolvedValue({ ...venue, ianaTimezone: "America/New_York" });
+    const { messaging, dispatcher } = setup(getVenue);
+    await messaging.send({
+      kind: "booking-confirmation",
+      reservation: res({
+        startTime: "2030-06-04T23:00:00.000Z",
+        endTime: "2030-06-05T01:00:00.000Z",
+      }),
+      manageToken: "tok",
+    });
+    const payload = dispatcher.sendBookingConfirmation.mock.calls[0]![0];
+    const content = buildBookingEmailContent(payload, "confirmation", "https://m.example/manage");
+    expect(content.html).toContain("2030-06-04 at 7:00 PM");
+    expect(content.ical).toMatch(/^DTSTART:20300604T230000Z$/m);
   });
 });
