@@ -52,7 +52,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/venues/by-slug/:slug": "public slug",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
   "GET /api/v1/reservations/health": "infra (no venue data)",
-  "POST /api/v1/events/test": "infra (no venue data)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
   // all-venue stream (#4016), which venueScoped cannot express. The route keeps
@@ -76,14 +75,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // PR 3: tables, floor plans, venues.
 
   // PR 4: reservations and deposits.
-
-  // PR 5: Matt's security rulings (availability → member, holds re-expressed).
-  "GET /api/v1/availability/:venueId": "pending-migration",
-  "GET /api/v1/availability/:venueId/dates": "pending-migration",
-  "POST /api/v1/holds": "pending-migration",
-  "GET /api/v1/holds/:id": "pending-migration",
-  "DELETE /api/v1/holds/:id": "pending-migration",
-  "POST /api/v1/holds/:id/confirm": "pending-migration",
 };
 
 describe("venue-scope coverage (no database)", () => {
@@ -220,6 +211,12 @@ describe("venue-scope coverage (no database)", () => {
       "POST /api/v1/deposits/:id/capture": "entity:deposit/member",
       "POST /api/v1/deposits/:id/refund": "entity:deposit/member",
       "POST /api/v1/deposits/:id/forfeit": "entity:deposit/member",
+      "GET /api/v1/availability/:venueId": "params.venueId/member",
+      "GET /api/v1/availability/:venueId/dates": "params.venueId/member",
+      "POST /api/v1/holds": "body.venueId/member",
+      "GET /api/v1/holds/:id": "resolve:hold.venueId/member",
+      "DELETE /api/v1/holds/:id": "resolve:hold.venueId/member",
+      "POST /api/v1/holds/:id/confirm": "resolve:hold.venueId/member",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])

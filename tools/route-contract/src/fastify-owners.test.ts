@@ -182,7 +182,10 @@ describe("bootFastifyOwners", () => {
   // `/api/v1/events` prefix (`app.ts:231`). A client pair aimed at an env-gated
   // route would have found an owner here and a 404 in production: the
   // 2026-08-30 defect class, reproduced through the guard built to end it.
-  it("reports no owner for a route only a non-production boot registers", () => {
+  it("reports no owner for the deleted non-production-only events/test route", () => {
+    // The route that motivated R1 was deleted (venue-scoped-routes PR 5); no
+    // boot registers it now, so neither the production table nor the test one
+    // may answer for it.
     expect(owners.ownersOf("POST", "/api/v1/events/test")).toEqual([]);
   });
 
@@ -208,13 +211,15 @@ describe("bootFastifyOwners", () => {
   });
 
   it("counts the effective table — what both boots register — not the test boot's", () => {
-    // reservations registers exactly one more entry under `test` than under
-    // `production`; the anti-vacuity signal has to describe the table
-    // `answers()` actually consults, or it is measuring a different thing than
-    // the guard is asserting on.
-    expect(owners.routeCount("reservations")).toBe(owners.testBootRouteCount("reservations") - 1);
-    for (const owner of ["users", "agent"] as const) {
-      expect(owners.routeCount(owner)).toBe(owners.testBootRouteCount(owner));
+    // With no env-conditional route recorded, the two boots register the same
+    // table; the anti-vacuity signal has to describe the table `answers()`
+    // actually consults, or it is measuring a different thing than the guard
+    // is asserting on.
+    for (const owner of ["reservations", "users", "agent"] as const) {
+      const testOnly = ENV_CONDITIONAL_ROUTES.filter(
+        (route) => route.owner === owner && route.registeredUnder === "test"
+      ).length;
+      expect(owners.routeCount(owner)).toBe(owners.testBootRouteCount(owner) - testOnly);
     }
   });
 });

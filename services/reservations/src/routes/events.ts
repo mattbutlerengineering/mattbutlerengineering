@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   createProblemDetails,
   eventsStreamQueryJsonSchema,
-  testEventBodyJsonSchema,
   deriveTableDisplayStatus,
   type Reservation,
   type TableStatusDelta,
@@ -176,33 +175,4 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
   );
-
-  // GET /events/test - Test endpoint to trigger an event (development only)
-  if (process.env.NODE_ENV !== "production") {
-    fastify.post<{
-      Body: { type: string; venueId: string; data: unknown };
-    }>(
-      "/test",
-      {
-        schema: {
-          summary: "Trigger a test event (development only)",
-          operationId: "testEvent",
-          tags: ["Events"],
-          body: testEventBodyJsonSchema,
-        },
-      },
-      async (request, reply) => {
-        const { type, venueId, data } = request.body;
-
-        fastify.reservationEvents.emitChange({
-          type: type as ReservationEvent["type"],
-          venueId,
-          timestamp: new Date().toISOString(),
-          data: data as ReservationEvent["data"],
-        });
-
-        return reply.send({ success: true, message: "Event emitted" });
-      }
-    );
-  }
 }

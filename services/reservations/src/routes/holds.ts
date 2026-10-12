@@ -14,11 +14,10 @@ import {
   confirmHoldBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import { requireAuth } from "@mbe/auth/fastify";
 import { TABLE_NOT_IN_VENUE_DETAIL } from "../services/table-venue.js";
 import { holdService } from "../services/hold.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { venueScoped, type VenueSource } from "./venue-scope.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
 
@@ -80,23 +79,39 @@ function getSessionId(request: FastifyRequest): string {
   return randomUUID();
 }
 
-/**
- * Resolves the venue owning the hold addressed by `:id`, so `requireVenueAccess`
- * scopes every `/:id` route to members of the hold's own venue. `null` (no
- * such hold) becomes a 403 for non-admins, so hold existence never leaks;
- * platform admins skip the resolver and still get the handler's 404.
- */
-const holdVenueIdFromParams: VenueIdResolver = (request) => {
-  const params = request.params as { id?: unknown } | null | undefined;
-  return typeof params?.id === "string" ? holdService.getVenueId(params.id) : null;
+type HoldIdRoute = { Params: { id: string } };
+type CreateRoute = {
+  Body: CreateHoldRequest;
+  Reply: ApiResponse<ReservationHold> | ProblemDetails;
 };
+type GetRoute = HoldIdRoute & { Reply: ApiResponse<ReservationHold> | ProblemDetails };
+type ReleaseRoute = HoldIdRoute & { Reply: { success: boolean } | ProblemDetails };
+type ConfirmRoute = HoldIdRoute & {
+  Body: ConfirmHoldRequest;
+  Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
+};
+
+/**
+ * The venue owning the hold addressed by `:id`. `reservation_hold` has no RLS
+ * policy, so `holdService.getVenueId` is a plain read (architecture.md: the
+ * `resolve` escape hatch). An unknown hold resolves to `null`, which
+ * `venueScoped` turns into a 403 for non-admins (so hold existence never
+ * leaks) and a 404 `notFound` for platform admins.
+ */
+const holdVenue = <RG extends HoldIdRoute>(notFound: string): VenueSource<RG, undefined> => ({
+  // RG is only known to carry `Params: { id }`; the cast restates that for the compiler.
+  resolve: async (request) => holdService.getVenueId((request.params as HoldIdRoute["Params"]).id),
+  label: "hold.venueId",
+  notFound,
+});
 
 /**
  * Authenticated (staff) hold routes, mounted under the api/v1 holds prefix.
  *
  * Every route here requires a JWT (#4487) AND membership of the hold's venue
- * (ADR-020): the create route checks the body's `venueId`, the `/:id` routes
- * the hold's own `venueId`. This service's contract is that all
+ * (ADR-020), declared through `venueScoped`: the create route reads the body's
+ * `venueId`, the `/:id` routes resolve the hold's own `venueId`, and each
+ * handler runs inside that venue's context (ADR-026). This service's contract is that all
  * api/v1 routes require auth except availability, but these four were exempt in
  * practice because the anonymous public booking widget called them. The widget
  * now uses the hardened public sibling (`public-holds.ts`,
@@ -120,13 +135,10 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST / - Create a hold
-  fastify.post<{
-    Body: CreateHoldRequest;
-    Reply: ApiResponse<ReservationHold> | ProblemDetails;
-  }>(
+  fastify.post<CreateRoute>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+      preHandler: requireAuth,
       config: {
         rateLimit: {
           max: 20,
@@ -163,7 +175,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    venueScoped<CreateRoute>({ venue: "body" }, async (request, reply) => {
       const sessionId = getSessionId(request);
       const result = await holdService.create(request.body, sessionId);
 
@@ -184,14 +196,11 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       // Set the session ID header in response
       reply.header(SESSION_ID_HEADER, sessionId);
       return reply.code(201).send({ data: result.hold! });
-    }
+    })
   );
 
   // GET /:id - Get hold status
-  fastify.get<{
-    Params: { id: string };
-    Reply: ApiResponse<ReservationHold> | ProblemDetails;
-  }>(
+  fastify.get<GetRoute>(
     "/:id",
     {
       // Issue #4487: the per-IP cap runs BEFORE requireAuth so anonymous
@@ -199,11 +208,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       // 100/min onRequest limiter. Deliberately NOT a route-level
       // config.rateLimit — that would replace the global limiter and (#4492)
       // leave stages before the preHandler with no bound at all.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Get hold status",
         operationId: "getHold",
@@ -227,32 +232,28 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const hold = await holdService.getById(request.params.id);
+    venueScoped<GetRoute>(
+      { venue: holdVenue("Hold not found or expired") },
+      async (request, reply) => {
+        const hold = await holdService.getById(request.params.id);
 
-      if (!hold) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+        if (!hold) {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+        }
+
+        return { data: hold };
       }
-
-      return { data: hold };
-    }
+    )
   );
 
   // DELETE /:id - Release a hold
-  fastify.delete<{
-    Params: { id: string };
-    Reply: { success: boolean } | ProblemDetails;
-  }>(
+  fastify.delete<ReleaseRoute>(
     "/:id",
     {
       // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Release a hold",
         operationId: "releaseHold",
@@ -288,43 +289,38 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const sessionId = request.headers[SESSION_ID_HEADER];
+    venueScoped<ReleaseRoute>(
+      { venue: holdVenue("Hold not found or not owned by this session") },
+      async (request, reply) => {
+        const sessionId = request.headers[SESSION_ID_HEADER];
 
-      if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply
-          .code(401)
-          .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        if (typeof sessionId !== "string" || sessionId.length === 0) {
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        }
+
+        const released = await holdService.release(request.params.id, sessionId);
+
+        if (!released) {
+          return reply
+            .code(404)
+            .send(
+              createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
+            );
+        }
+
+        return { success: true };
       }
-
-      const released = await holdService.release(request.params.id, sessionId);
-
-      if (!released) {
-        return reply
-          .code(404)
-          .send(
-            createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
-          );
-      }
-
-      return { success: true };
-    }
+    )
   );
 
   // POST /:id/confirm - Convert hold to reservation
-  fastify.post<{
-    Params: { id: string };
-    Body: ConfirmHoldRequest;
-    Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
-  }>(
+  fastify.post<ConfirmRoute>(
     "/:id/confirm",
     {
       // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-      preHandler: [
-        publicRateLimitHook,
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-      ],
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Confirm a hold and create reservation",
         operationId: "confirmHold",
@@ -368,25 +364,20 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const sessionId = request.headers[SESSION_ID_HEADER];
+    venueScoped<ConfirmRoute>(
+      { venue: holdVenue("Hold not found") },
+      async (request, reply, { venueId }) => {
+        const sessionId = request.headers[SESSION_ID_HEADER];
 
-      if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply
-          .code(401)
-          .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
-      }
+        if (typeof sessionId !== "string" || sessionId.length === 0) {
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        }
 
-      // Re-resolved here (requireVenueAccess skips the resolver for admins) so
-      // the confirm runs inside the hold's own venue context, as sibling
-      // entity-addressed routes do, and is pinned to that venue.
-      const venueId = await holdService.getVenueId(request.params.id);
-      if (!venueId) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found"));
-      }
-
-      const result = await runWithVenueContext(venueId, () =>
-        fastify.transitions.confirmHold(
+        // `venueScoped` resolved the hold's venue and entered its context, so the
+        // confirm runs inside it and is pinned to that venue.
+        const result = await fastify.transitions.confirmHold(
           {
             holdId: request.params.id,
             sessionId,
@@ -394,44 +385,44 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
             venueId,
           },
           { door: "staff-hold" }
-        )
-      );
+        );
 
-      if (!result.success) {
-        const statusMap: Record<string, number> = {
-          NOT_FOUND: 404,
-          EXPIRED: 410,
-          SESSION_MISMATCH: 403,
-          CONFLICT: 409,
-          PACING_EXCEEDED: 422,
-        };
-        const titleMap: Record<string, string> = {
-          NOT_FOUND: "Not Found",
-          EXPIRED: "Hold Expired",
-          SESSION_MISMATCH: "Forbidden",
-          CONFLICT: "Conflict",
-          PACING_EXCEEDED: "Pacing Limit Reached",
-        };
-        const statusCode = statusMap[result.errorCode] ?? 409;
-        const title = titleMap[result.errorCode] ?? "Conflict";
+        if (!result.success) {
+          const statusMap: Record<string, number> = {
+            NOT_FOUND: 404,
+            EXPIRED: 410,
+            SESSION_MISMATCH: 403,
+            CONFLICT: 409,
+            PACING_EXCEEDED: 422,
+          };
+          const titleMap: Record<string, string> = {
+            NOT_FOUND: "Not Found",
+            EXPIRED: "Hold Expired",
+            SESSION_MISMATCH: "Forbidden",
+            CONFLICT: "Conflict",
+            PACING_EXCEEDED: "Pacing Limit Reached",
+          };
+          const statusCode = statusMap[result.errorCode] ?? 409;
+          const title = titleMap[result.errorCode] ?? "Conflict";
 
-        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
+          return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
+        }
+
+        // Self-service manage/cancel token, threaded through so the guest-facing
+        // confirmation screen can link straight to the manage page (#4978) —
+        // reuses the same signing logic as the authenticated-email path in
+        // public-reservations.ts rather than duplicating it. Only mint one when
+        // guestEmail was actually provided: confirm-hold.ts stores a missing
+        // email as `null`, and requireManageToken checks the token's signed
+        // email against that stored value with strict equality — signing with
+        // "" instead of omitting the token would produce a manage link that
+        // can never validate for a phone-only booking.
+        const manageToken = request.body.guestEmail
+          ? generateManageToken(result.reservation.id, request.body.guestEmail)
+          : undefined;
+
+        return reply.code(201).send({ data: result.reservation, manageToken });
       }
-
-      // Self-service manage/cancel token, threaded through so the guest-facing
-      // confirmation screen can link straight to the manage page (#4978) —
-      // reuses the same signing logic as the authenticated-email path in
-      // public-reservations.ts rather than duplicating it. Only mint one when
-      // guestEmail was actually provided: confirm-hold.ts stores a missing
-      // email as `null`, and requireManageToken checks the token's signed
-      // email against that stored value with strict equality — signing with
-      // "" instead of omitting the token would produce a manage link that
-      // can never validate for a phone-only booking.
-      const manageToken = request.body.guestEmail
-        ? generateManageToken(result.reservation.id, request.body.guestEmail)
-        : undefined;
-
-      return reply.code(201).send({ data: result.reservation, manageToken });
-    }
+    )
   );
 };
