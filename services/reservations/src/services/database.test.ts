@@ -9,7 +9,6 @@ const { mockPoolOn, mockPoolEnd, mockPoolState } = vi.hoisted(() => {
   const mockPoolEnd = vi.fn().mockResolvedValue(undefined);
   const mockPoolState = {
     totalCount: 2,
-    activeCount: 1,
     idleCount: 1,
     waitingCount: 0,
   };
@@ -26,9 +25,6 @@ vi.mock("pg", () => {
     end = mockPoolEnd;
     get totalCount() {
       return mockPoolState.totalCount;
-    }
-    get activeCount() {
-      return mockPoolState.activeCount;
     }
     get idleCount() {
       return mockPoolState.idleCount;
@@ -59,7 +55,6 @@ const { getSlowQueryStats, getPoolMetrics, getServiceStatus } = db;
 describe("database.ts", () => {
   beforeEach(() => {
     mockPoolState.totalCount = 2;
-    mockPoolState.activeCount = 1;
     mockPoolState.idleCount = 1;
     mockPoolState.waitingCount = 0;
   });
@@ -94,15 +89,14 @@ describe("database.ts", () => {
       expect(metrics).toHaveProperty("isDegraded");
     });
 
-    it("total equals pool.totalCount and busy equals pool.activeCount", () => {
+    it("total equals pool.totalCount and busy equals totalCount - idleCount", () => {
       const metrics = getPoolMetrics();
       expect(metrics.total).toBe(2); // mockPoolState.totalCount
-      expect(metrics.busy).toBe(1); // mockPoolState.activeCount
+      expect(metrics.busy).toBe(1); // totalCount(2) - idleCount(1)
     });
 
     it("reflects updated pool state", () => {
       mockPoolState.totalCount = 4;
-      mockPoolState.activeCount = 3;
       mockPoolState.idleCount = 1;
 
       const metrics = getPoolMetrics();
@@ -111,44 +105,44 @@ describe("database.ts", () => {
       expect(metrics.idle).toBe(1);
     });
 
-    it("utilization is 0 when activeCount is 0", () => {
+    it("utilization is 0 when no connections are checked out", () => {
       mockPoolState.totalCount = 0;
-      mockPoolState.activeCount = 0;
+      mockPoolState.idleCount = 0;
 
       const metrics = getPoolMetrics();
       expect(metrics.utilization).toBe(0);
     });
 
-    it("calculates utilization as activeCount / CONNECTION_LIMIT (default 5)", () => {
+    it("calculates utilization as (totalCount - idleCount) / CONNECTION_LIMIT (default 5)", () => {
       mockPoolState.totalCount = 5;
-      mockPoolState.activeCount = 5;
+      mockPoolState.idleCount = 0;
 
       const metrics = getPoolMetrics();
-      // activeCount(5) / CONNECTION_LIMIT(5) = 1.0
+      // busy(5) / CONNECTION_LIMIT(5) = 1.0
       expect(metrics.utilization).toBe(1);
     });
 
     it("isDegraded is false when utilization is below 0.8", () => {
-      // activeCount=1, CONNECTION_LIMIT=5 → utilization=0.2
-      mockPoolState.activeCount = 1;
+      // busy=1, CONNECTION_LIMIT=5 → utilization=0.2
       mockPoolState.totalCount = 2;
+      mockPoolState.idleCount = 1;
 
       const metrics = getPoolMetrics();
       expect(metrics.isDegraded).toBe(false);
     });
 
     it("isDegraded is true when utilization equals or exceeds 0.8", () => {
-      // activeCount=5, CONNECTION_LIMIT=5 → utilization=1.0 → degraded
-      mockPoolState.activeCount = 5;
+      // busy=5, CONNECTION_LIMIT=5 → utilization=1.0 → degraded
       mockPoolState.totalCount = 5;
+      mockPoolState.idleCount = 0;
 
       const metrics = getPoolMetrics();
       expect(metrics.isDegraded).toBe(true);
     });
 
-    it("busy equals activeCount", () => {
-      mockPoolState.activeCount = 3;
+    it("busy equals totalCount - idleCount", () => {
       mockPoolState.totalCount = 5;
+      mockPoolState.idleCount = 2;
 
       const metrics = getPoolMetrics();
       expect(metrics.busy).toBe(3);
@@ -165,16 +159,16 @@ describe("database.ts", () => {
   // -------------------------------------------------------------------------
   describe("getServiceStatus", () => {
     it("returns 'ok' when pool utilization is low and no slow-query spike", () => {
-      mockPoolState.activeCount = 1;
       mockPoolState.totalCount = 2;
+      mockPoolState.idleCount = 1;
 
       expect(getServiceStatus()).toBe("ok");
     });
 
     it("returns 'degraded' when pool utilization >= 0.8", () => {
-      // activeCount=5, CONNECTION_LIMIT=5 → utilization=1.0
-      mockPoolState.activeCount = 5;
+      // busy=5, CONNECTION_LIMIT=5 → utilization=1.0
       mockPoolState.totalCount = 5;
+      mockPoolState.idleCount = 0;
 
       expect(getServiceStatus()).toBe("degraded");
     });
