@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useTheme, ThemeContext, useThemeState, useThemeServerHydration } from "./use-theme.js";
-import { useThemeState as useSharedThemeState } from "@mattbutlerengineering/rialto";
+import { useTheme as useRialtoTheme } from "@mattbutlerengineering/rialto";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   THEME_STORAGE_KEY: "mbe-theme-preference",
-  useThemeState: vi.fn(),
+  useTheme: vi.fn(),
   resolveTheme: vi.fn((t) => t),
 }));
 
@@ -24,13 +24,13 @@ describe("useTheme", () => {
 });
 
 describe("useThemeState", () => {
-  it("wraps shared theme state", () => {
+  it("adapts the provider-owned theme state", () => {
     const mockSetTheme = vi.fn();
-    vi.mocked(useSharedThemeState).mockReturnValue({
+    vi.mocked(useRialtoTheme).mockReturnValue({
       preference: "system",
       setTheme: mockSetTheme,
       resolved: "light",
-    } as unknown as ReturnType<typeof useSharedThemeState>);
+    } as unknown as ReturnType<typeof useRialtoTheme>);
 
     const { result } = renderHook(() => useThemeState());
     expect(result.current.theme).toBe("system");

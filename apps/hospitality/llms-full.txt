@@ -2311,7 +2311,7 @@
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({

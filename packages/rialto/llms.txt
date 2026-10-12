@@ -1305,6 +1305,14 @@
       export function useMotionPreset(): MotionPreset { /* ... */ }
     </item>
   </file>
+  <file path="src/providers/useTheme.ts">
+    <item priority="high">
+      export const ThemeStateContext: unknown;
+    </item>
+    <item priority="high">
+      export function useTheme(): ThemeState { /* ... */ }
+    </item>
+  </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {

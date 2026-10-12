@@ -1,8 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
-import {
-  useThemeState as useSharedThemeState,
-  THEME_STORAGE_KEY,
-} from "@mattbutlerengineering/rialto";
+import { useTheme as useRialtoTheme, THEME_STORAGE_KEY } from "@mattbutlerengineering/rialto";
 
 export { resolveTheme } from "@mattbutlerengineering/rialto";
 export type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
@@ -41,11 +38,11 @@ export function useTheme(): ThemeContextValue {
 }
 
 /**
- * State hook for the provider in main.tsx.
- * Reads the initial value from localStorage and persists changes back.
+ * Adapts the theme state owned by `<RialtoProvider persistTheme>` to this
+ * app's context shape. Call it from inside the provider (see main.tsx).
  */
 export function useThemeState(): ThemeContextValue {
-  const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+  const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
 
   return useMemo(
     () => ({

@@ -3366,6 +3366,12 @@
           "type": "\"light\" | \"dark\" | \"system\" | undefined",
           "required": false,
           "description": "Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`."
+        },
+        {
+          "name": "persistTheme",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Own theme persistence: read the stored preference (localStorage, shared\nacross tabs, `\"system\"` following the OS live) instead of `theme`, and\nexpose it to descendants through `useTheme()`. Use once at the app root."
         }
       ],
       "slots": [
