@@ -392,7 +392,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-11",
-    "last_seen": "2026-10-11",
+    "last_seen": "2026-10-12",
     "escalated_at": null
   },
   "rialto-web|demos/drivers|r1|accessibility/axe-moderate": {
@@ -402,6 +402,24 @@
     "severity": "P2",
     "first_seen": "2026-10-11",
     "last_seen": "2026-10-11",
+    "escalated_at": null
+  },
+  "rialto-web|dashboard|r1|accessibility/axe-serious": {
+    "issue": 6421,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-12",
+    "last_seen": "2026-10-12",
+    "escalated_at": null
+  },
+  "rialto-web|demos/dashboard|r1|accessibility/axe-serious": {
+    "issue": 6422,
+    "carrier": "issue",
+    "state": "open",
+    "severity": "P2",
+    "first_seen": "2026-10-12",
+    "last_seen": "2026-10-12",
     "escalated_at": null
   }
 }
