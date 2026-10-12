@@ -340,4 +340,46 @@ describe("tier-classifier path rules: ACMM automation output", () => {
     expect(tier).toBe(1);
     expect(label).toBe("tier:trivial");
   });
+
+  it("classifies apps/marketing/public/acmm-report.json alone as tier:trivial", () => {
+    const { tier } = runClassifier({
+      title: "chore(acmm): daily audit",
+      body: PR_TEMPLATE,
+      files: ["apps/marketing/public/acmm-report.json"],
+    });
+    expect(tier).toBe(1);
+  });
+
+  it.each([
+    "apps/hospitality/.claude/acmm/state.json",
+    "x/.claude/acmm/state.json",
+    "apps/marketing/public/acmm-report.json.bak",
+  ])("keeps near-miss path %s at tier:standard (exact match, not glob)", (file) => {
+    const { tier, label } = runClassifier({
+      title: "chore: touch file",
+      body: PR_TEMPLATE,
+      files: [file],
+    });
+    expect(tier).toBe(2);
+    expect(label).toBe("tier:standard");
+  });
+
+  it("does not let a trivial ACMM path launder a non-trivial file in the same PR", () => {
+    const { tier } = runClassifier({
+      title: "chore(acmm): daily audit",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json", "services/users/src/routes/me.ts"],
+    });
+    expect(tier).toBeGreaterThan(1);
+  });
+
+  it("still escalates a trivial ACMM diff over 1000 added lines to tier:standard", () => {
+    const { tier } = runClassifier({
+      title: "chore(acmm): daily audit",
+      body: PR_TEMPLATE,
+      files: [".claude/acmm/state.json"],
+      added: 1001,
+    });
+    expect(tier).toBe(2);
+  });
 });
