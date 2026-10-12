@@ -3,7 +3,6 @@ import { execFileSync } from "node:child_process";
 import { markReady } from "@mbe/gh-client";
 import {
   parseArgs,
-  findPriorIssueNumber,
   runFileIssueCli,
   buildReopenLabelArgs,
   createRealDeps,
@@ -138,33 +137,6 @@ describe("parseArgs", () => {
   });
 });
 
-describe("findPriorIssueNumber", () => {
-  it("returns null when there are no candidate issues", () => {
-    expect(findPriorIssueNumber([], {})).toBeNull();
-  });
-
-  it("returns the first candidate's number when no contains filter is given", () => {
-    const issues = [
-      { number: 5, title: "foo" },
-      { number: 9, title: "bar" },
-    ];
-    expect(findPriorIssueNumber(issues, {})).toBe(5);
-  });
-
-  it("filters by title substring when contains is given", () => {
-    const issues = [
-      { number: 5, title: "AI audit trail: 2026-W20" },
-      { number: 9, title: "AI audit trail: 2026-W31" },
-    ];
-    expect(findPriorIssueNumber(issues, { contains: "2026-W31" })).toBe(9);
-  });
-
-  it("returns null when contains matches nothing", () => {
-    const issues = [{ number: 5, title: "AI audit trail: 2026-W20" }];
-    expect(findPriorIssueNumber(issues, { contains: "2026-W31" })).toBeNull();
-  });
-});
-
 /** Fake deps for runFileIssueCli — no real gh/fs calls. */
 function fakeDeps(overrides = {}) {
   return {
@@ -177,6 +149,55 @@ function fakeDeps(overrides = {}) {
     ...overrides,
   };
 }
+
+describe("runFileIssueCli --contains (title substring filter on search results)", () => {
+  const argv = (...extra) => [
+    "--title",
+    "T",
+    "--body",
+    "b",
+    "--dedupe-key",
+    "k",
+    "--search-label",
+    "audit",
+    ...extra,
+  ];
+
+  it("picks the first candidate when no --contains is given", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [
+        { number: 5, title: "foo" },
+        { number: 9, title: "bar" },
+      ]),
+      getIssueState: vi.fn(() => "open"),
+    });
+    expect(runFileIssueCli(argv(), deps)).toEqual({ action: "skip", issueNumber: 5 });
+  });
+
+  it("filters by title substring when --contains is given", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [
+        { number: 5, title: "AI audit trail: 2026-W20" },
+        { number: 9, title: "AI audit trail: 2026-W31" },
+      ]),
+      getIssueState: vi.fn(() => "open"),
+    });
+    expect(runFileIssueCli(argv("--contains", "2026-W31"), deps)).toEqual({
+      action: "skip",
+      issueNumber: 9,
+    });
+  });
+
+  it("creates fresh when --contains matches nothing", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [{ number: 5, title: "AI audit trail: 2026-W20" }]),
+    });
+    expect(runFileIssueCli(argv("--contains", "2026-W31"), deps)).toEqual({
+      action: "create",
+      issueNumber: 101,
+    });
+  });
+});
 
 describe("runFileIssueCli", () => {
   it("creates a fresh issue when no --search-label is given (no dedup)", () => {

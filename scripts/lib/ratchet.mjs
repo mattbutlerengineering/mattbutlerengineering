@@ -100,7 +100,7 @@ export function compare(current, baseline, opts = {}) {
 // regression issue was closed reopens it instead of filing a duplicate.
 // ---------------------------------------------------------------------------
 
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./issue-filing.mjs";
+import { fileIssueBySearch, ghIssueDeps } from "./issue-filing.mjs";
 
 /**
  * Lazily loads @mbe/gh-client and returns a fresh client. Kept out of the
@@ -113,23 +113,6 @@ import { fileIssue, issueState, parseIssueNumberFromUrl } from "./issue-filing.m
 async function defaultGhClient() {
   const { createGhClient } = await import("@mbe/gh-client");
   return createGhClient();
-}
-
-/**
- * Pure: finds a prior regression issue (any state) among candidates whose
- * body carries `marker`. Feeds `fileIssue()`'s dedupe-by-ledger decision: a
- * match lets a rerun skip (still open) or reopen (previously closed)
- * instead of filing a duplicate.
- *
- * @param {Array<{ number: number, body?: string }>} candidates
- * @param {string} marker
- * @returns {number | null}
- */
-export function findPriorRegressionIssue(candidates, marker) {
-  const match = (candidates ?? []).find(
-    (issue) => typeof issue?.body === "string" && issue.body.includes(marker)
-  );
-  return match ? match.number : null;
 }
 
 /**
@@ -169,28 +152,16 @@ export function fetchIssuesByLabel(label, ghClient) {
 export async function fileRegressionIssueIfNew({ label, marker, payload, ghClient }) {
   const client = ghClient ?? (await defaultGhClient());
 
-  // A failed search must not swallow a genuine regression — fail open (treat
-  // as "no prior found", file the issue) rather than closed.
-  let candidates = [];
-  try {
-    candidates = fetchIssuesByLabel(label, client);
-  } catch (err) {
-    console.error(`[ratchet] search failed, proceeding as no-match: ${err.message}`);
-  }
-  const priorNumber = findPriorRegressionIssue(candidates, marker);
-  const ledger = priorNumber !== null ? { [marker]: priorNumber } : {};
-
-  const result = fileIssue(
+  // A failed search fails open: it must not swallow a genuine regression.
+  const result = fileIssueBySearch(
     { title: payload.title, body: payload.body, labels: payload.labels, dedupeKey: marker },
-    ledger,
     {
-      getIssueState: (issueNumber) => issueState(client, issueNumber),
-      createIssue: (title, body, labels) =>
-        parseIssueNumberFromUrl(
-          client.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])
-        ),
-      reopenIssue: (issueNumber) => client.issue.reopen(issueNumber),
-    }
+      search: () => fetchIssuesByLabel(label, client),
+      match: (issue) => typeof issue?.body === "string" && issue.body.includes(marker),
+      onSearchError: (err) =>
+        console.error(`[ratchet] search failed, proceeding as no-match: ${err.message}`),
+    },
+    ghIssueDeps(client)
   );
 
   if (result.action === "skip") {

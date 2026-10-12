@@ -4,44 +4,15 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi } from "vitest";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
-  buildRcaCreateArgs,
   buildRevertPrListArgs,
   findRevertPr,
   classifyRevertState,
   buildRcaBody,
   extractRcaPrNumber,
-  findPriorRcaIssue,
   runRevertRca,
 } from "../revert-rca.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-
-describe("buildRcaCreateArgs", () => {
-  it("uses the shared ready label constant instead of a re-typed literal (#2933)", () => {
-    const argsArr = buildRcaCreateArgs("title", "body");
-
-    const readyIdx = argsArr.indexOf(COORDINATION_LABELS.READY);
-    expect(readyIdx).toBeGreaterThan(-1);
-    expect(argsArr[readyIdx - 1]).toBe("--label");
-  });
-
-  it("includes title and body verbatim alongside the non-state labels", () => {
-    const argsArr = buildRcaCreateArgs("My RCA Title", "My RCA Body");
-
-    expect(argsArr).toEqual([
-      "--title",
-      "My RCA Title",
-      "--body",
-      "My RCA Body",
-      "--label",
-      "meta-improvement",
-      "--label",
-      "ready",
-      "--label",
-      "critical",
-    ]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // findRevertPr / classifyRevertState — the real fix for #3583. A revert PR is
@@ -246,7 +217,7 @@ describe("buildRcaBody", () => {
 });
 
 // ---------------------------------------------------------------------------
-// extractRcaPrNumber / findPriorRcaIssue — the #3775 dedup ledger lookup.
+// extractRcaPrNumber — the #3775 dedupe match handed to fileIssueBySearch.
 // ---------------------------------------------------------------------------
 
 describe("extractRcaPrNumber", () => {
@@ -262,26 +233,6 @@ describe("extractRcaPrNumber", () => {
   it("returns null for missing/nullish input", () => {
     expect(extractRcaPrNumber(null)).toBeNull();
     expect(extractRcaPrNumber({})).toBeNull();
-  });
-});
-
-describe("findPriorRcaIssue", () => {
-  it("finds a prior RCA issue (any state) for the given PR number", () => {
-    const candidates = [
-      { number: 10, title: "[RCA] Reflection: Reverted PR #3545 — feat: something" },
-      { number: 11, title: "[RCA] Reflection: Reverted PR #9999 — other" },
-    ];
-    expect(findPriorRcaIssue(candidates, 3545)).toBe(10);
-  });
-
-  it("returns null when no candidate matches", () => {
-    const candidates = [{ number: 11, title: "[RCA] Reflection: Reverted PR #9999 — other" }];
-    expect(findPriorRcaIssue(candidates, 3545)).toBeNull();
-  });
-
-  it("returns null for empty or nullish input", () => {
-    expect(findPriorRcaIssue([], 3545)).toBeNull();
-    expect(findPriorRcaIssue(null, 3545)).toBeNull();
   });
 });
 
@@ -348,6 +299,12 @@ describe("runRevertRca", () => {
       createIssue,
     });
 
+    // Labels reach createIssue from the request: shared READY constant (#2933), not a literal.
+    expect(createIssue).toHaveBeenCalledWith(expect.any(String), expect.any(String), [
+      "meta-improvement",
+      COORDINATION_LABELS.READY,
+      "critical",
+    ]);
     expect(result.action).toBe("created");
     expect(result.issueNumber).toBe(1);
     expect(createIssue).toHaveBeenCalledTimes(1);

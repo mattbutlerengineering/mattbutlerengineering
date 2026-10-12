@@ -88,10 +88,10 @@ describe("issue-filing migration (#3675): revert-watchdog.yml + revert-watchdog.
     expect(primaryStep).not.toMatch(/grep -oE/);
   });
 
-  it("revert-watchdog.mjs's createIssue routes through the shared fileIssue() module", () => {
+  it("revert-watchdog.mjs's createIssue routes through the shared issue-filing module", () => {
     const mod = read("scripts/revert-watchdog.mjs");
-    expect(mod).toMatch(/import \{\s*fileIssue,[^}]*\} from "\.\/lib\/issue-filing\.mjs"/);
-    expect(mod).toMatch(/findPriorBrokenMainIssue/);
+    expect(mod).toMatch(/import \{\s*fileIssueViaGhClient\s*\} from "\.\/lib\/issue-filing\.mjs"/);
+    expect(mod).toMatch(/extractCulpritSha\(issue\) === sha/);
   });
 });
 

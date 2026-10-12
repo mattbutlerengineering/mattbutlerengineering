@@ -5,7 +5,7 @@ import {
   classifyEdgeRouterContent,
   findSecurityHeaderSource,
   buildReport,
-  findPriorCorsAuditIssue,
+  CORS_AUDIT_TITLE_PATTERN,
   describeFilingResult,
 } from "../cors-audit.mjs";
 
@@ -256,25 +256,16 @@ describe("buildReport", () => {
 });
 
 // ---------------------------------------------------------------------------
-// findPriorCorsAuditIssue — dedupe lookup feeding fileIssue()
+// CORS_AUDIT_TITLE_PATTERN — the dedupe match handed to fileIssueViaGhClient
 // ---------------------------------------------------------------------------
 
-describe("findPriorCorsAuditIssue", () => {
-  it("returns null when there are no candidates", () => {
-    expect(findPriorCorsAuditIssue([])).toBeNull();
+describe("CORS_AUDIT_TITLE_PATTERN", () => {
+  it("matches a prior CORS audit issue by title prefix", () => {
+    expect(CORS_AUDIT_TITLE_PATTERN.test("CORS audit: 1 critical, 0 high, 2 other")).toBe(true);
   });
 
-  it("returns the number of a prior CORS audit issue by title prefix", () => {
-    const candidates = [
-      { number: 5, title: "some unrelated issue" },
-      { number: 9, title: "CORS audit: 1 critical, 0 high, 2 other" },
-    ];
-    expect(findPriorCorsAuditIssue(candidates)).toBe(9);
-  });
-
-  it("returns null when no candidate title matches the CORS audit prefix", () => {
-    const candidates = [{ number: 5, title: "some unrelated issue" }];
-    expect(findPriorCorsAuditIssue(candidates)).toBeNull();
+  it("does not match an unrelated title", () => {
+    expect(CORS_AUDIT_TITLE_PATTERN.test("some unrelated issue")).toBe(false);
   });
 });
 
