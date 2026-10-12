@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { cancelReservationBodyJsonSchema, createProblemDetails } from "@mbe/types";
 import { requireManageToken } from "../middleware/require-manage-token.js";
 import {
   loadReservationForManage,
@@ -15,8 +15,18 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/public/v1/reservations/manage",
     {
+      schema: {
+        body: cancelReservationBodyJsonSchema,
+      },
       config: {
         rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
+      // The body is optional: Ajv rejects an undefined body against an object
+      // schema, so default an omitted one to {} before validation runs.
+      preValidation: async (request) => {
+        if (request.body === undefined) {
+          request.body = {};
+        }
       },
       preHandler: requireManageToken,
     },

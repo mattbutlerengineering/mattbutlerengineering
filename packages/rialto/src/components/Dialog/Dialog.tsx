@@ -1,6 +1,6 @@
 import { forwardRef, useId, useRef, type ReactNode } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle, precision } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -29,7 +29,8 @@ export interface DialogProps {
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const panelRef = useRef<HTMLDivElement>(null);
     const titleId = useId();
     const descriptionId = useId();
@@ -54,7 +55,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={precision}
+            transition={motionPreset.precision}
             onClick={(e) => {
               if (e.target === e.currentTarget) onClose();
             }}
@@ -71,7 +72,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               aria-labelledby={title ? titleId : undefined}
               aria-label={title ? undefined : "Dialog"}
               aria-describedby={description ? descriptionId : undefined}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              transition={motionPreset.springGentle}
               {...motionProps}
             >
               <div className={styles.header}>

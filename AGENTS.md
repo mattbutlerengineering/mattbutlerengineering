@@ -42,7 +42,7 @@ The continuous-improvement loop (audit → fix → ship → verify) runs as **sl
 
 Quick reference:
 
-- `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
+- `/idea-to-prod:implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
@@ -71,7 +71,7 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 - **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
 
 `mbe` CLI subcommands (real binary):
-`agent`, `stats`, `up`, `pack`, `pack-changed`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `issue`, `loop`, `mcp`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+`agent`, `up`, `pack`, `pack-changed`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `health`, `issue`, `loop`, `mcp`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 
@@ -204,7 +204,6 @@ The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
 To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
 
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
-    - **JIT Priming:** At the start of this phase, run `mbe prime "<directive>"` to ensure all relevant directories have fresh `llms.txt` context skeletons.
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
     - **Approach Score:** For each of 2–3 candidate solutions, score on correctness, code complexity, blast radius, and reversibility. Document trade-offs.
     - **Decision Log:** Record the chosen approach and rationale for rejected alternatives (in comments, commit message, or `.planning/quick/` doc if complex).

@@ -56,7 +56,7 @@ For PRs merged in the last 7 days, measure where time actually went: open-to-mer
 
 Pull failed CI runs from the last 7 days on both `main` and PR branches. Group them BY CAUSE, not by count. Separate genuine flake (timeout, runner death, transient network, live-advisory-DB churn) from real defects.
 
-Then cross-check every recurring cause against `.claude/rules/gotchas.md`. A failure that has now bitten twice or more and is NOT documented there is itself a finding — the fix is a gotchas entry, and that is exactly what `/gotcha-harvest` exists to produce.
+Then cross-check every recurring cause against `.claude/rules/gotchas.md`. A failure that has now bitten twice or more and is NOT documented there is itself a finding — the fix is a gotchas entry; propose its wording in the retro (the transcript harvest that mines these, `/idea-to-prod:knowledge-base`, is local-only and does not load in this cloud session).
 
 ## Pass 5 — throughput direction
 

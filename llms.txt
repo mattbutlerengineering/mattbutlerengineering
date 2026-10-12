@@ -920,14 +920,10 @@
   </section>
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
-    <item priority="medium">
-      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
-    </item>
     <item priority="high">
       class ClaudeAdapter {
         name: unknown;
         async isAvailable(): Promise<unknown>;
-        async run(): Promise<unknown>;
         async runSession(): Promise<unknown>;
       }
     </item>
@@ -1585,20 +1581,6 @@
       export const checkDepsCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    <item priority="low">
-      async function getGitRoot(): Promise<string> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      async function getRemoteBranches(gitRoot: string): Promise<string[]> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const cleanupWorktreesCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/generate.ts">
     <item priority="medium">
       function writeFile(filePath: string, content: string): void { /* ... */ }
@@ -1772,31 +1754,6 @@
       export const packChangedCommand: unknown;
     </item>
   </file>
-  <file path="tools/cli/src/commands/prime.ts">
-    <item priority="high">
-      export const primeCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/stats.ts">
-    <item priority="high">
-      interface AgentSessionRecord {
-        timestamp: string;
-        sessionId: string;
-        milestone?: string;
-        modelId: string;
-        researchTurns: number;
-      }
-    </item>
-    <item priority="high">
-      export const logSessionCommand: unknown;
-    </item>
-    <item priority="high">
-      export const statsCommand: unknown;
-    </item>
-    <item priority="high">
-      export const auditPerfCommand: unknown;
-    </item>
-  </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     <item priority="high">
       export const syncRulesRun: unknown;
@@ -1822,25 +1779,6 @@
     </item>
     <item priority="high">
       export const usersCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/visual.ts">
-    <item priority="high">
-      export const visualCommand: unknown;
-    </item>
-  </file>
-  <file path="tools/cli/src/commands/wave.ts">
-    <item priority="high">
-      interface WaveResult {
-        task: string;
-        branchName: string;
-        worktreePath: string;
-        success: boolean;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export const waveCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
@@ -1964,6 +1902,14 @@
     </item>
     <item priority="high">
       export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
+    <item priority="high">
+      export const CONFIRMATION_COPY: unknown;
+    </item>
+    <item priority="high">
+      export function contactLine(contact: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
@@ -3732,9 +3678,8 @@
     <item priority="high">
       interface UseCommandPaletteOptions {
         sections: readonly NavSection[];
-        navigate: (path: string) => void;
+        runAction: (action: NavAction) => void;
         toggleTheme: () => void;
-        signOut: () => void;
       }
     </item>
     <item priority="high">
@@ -3751,14 +3696,13 @@
     <item priority="medium">
       function buildNavItems(
         sections: readonly NavSection[],
-        navigate: (path: string) => void
+        runAction: (action: NavAction) => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
       function buildActionItems(
-        navigate: (path: string) => void,
-        toggleTheme: () => void,
-        signOut: () => void
+        runAction: (action: NavAction) => void,
+        toggleTheme: () => void
       ): CommandItem[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -3767,9 +3711,8 @@
     <item priority="high">
       export function useCommandPalette({
         sections,
-        navigate,
+        runAction,
         toggleTheme,
-        signOut,
       }: UseCommandPaletteOptions): UseCommandPaletteResult { /* ... */ }
     </item>
   </file>
@@ -3868,12 +3811,16 @@
     <item priority="medium">
       function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
     </item>
+    <item priority="low">
+      type CancellationInitiator = "staff" | "guest";
+    </item>
     <item priority="high">
       export function evaluateCancellationQuote(
         policy: CancellationPolicy | null,
         reservationTime: Date,
         currency = "usd",
-        now: Date = new Date()
+        now: Date = new Date(),
+        initiator: CancellationInitiator = "guest"
       ): CancellationQuote | null { /* ... */ }
     </item>
     <item priority="high">
@@ -4196,6 +4143,12 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useIsAdmin.ts">
+    <item priority="medium">
+      function accessTokenPermissions(accessToken: string | null): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function includesAdmin(permissions: unknown): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
@@ -4949,6 +4902,23 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/spec.ts">
+    <item priority="low">
+      interface SpecStats {
+        elementCount: number;
+        componentTypes: string[];
+      }
+    </item>
+    <item priority="medium">
+      function isRecord(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeSpec(value: unknown): Spec | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specStats(spec: Spec | null): SpecStats | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
     <item priority="low">
       type ApiErrorCategory = ErrorCategory | "network" | "timeout";
@@ -5627,11 +5597,17 @@
       }
     </item>
     <item priority="low">
+      type BoopHover = {
+        scale: number;
+        transition: SpringTransition | Insta...;
+    </item>
+    <item priority="low">
       interface MotionPreset {
+        reduced: boolean;
         precision: EasedTransition | InstantTransition;
         spring: SpringTransition | InstantTransition;
         springGentle: SpringTransition | InstantTransition;
-        tilt: SpringOptions;
+        boop: BoopHover;
       }
     </item>
     <item priority="high">
@@ -6136,6 +6112,16 @@
   </file>
   <file path="services/reservations/src/routes/availability.ts">
     <item priority="high">
+      type SlotsRoute = {
+        Params: { venueId: string };
+        Querystring: { date: s...;
+    </item>
+    <item priority="high">
+      type DatesRoute = {
+        Params: { venueId: string };
+        Querystring: { startDa...;
+    </item>
+    <item priority="high">
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
@@ -6163,11 +6149,11 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/deposit-transition-handler.ts">
-    <item priority="high">
-      type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
-    </item>
-    <item priority="high">
-      type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
+    <item priority="low">
+      interface DepositTransitionRoute {
+        Params: { id: string };
+        Reply: { data: Deposit } | ReturnType<typeof createProblemDetails>;
+      }
     </item>
     <item priority="high">
       export function depositTransitionHandler(
@@ -6181,6 +6167,15 @@
       interface ApiResponse {
         data: T;
       }
+    </item>
+    <item priority="high">
+      type DepositsQuery = { reservationId?: string; venueId?: string; date?: string };
+    </item>
+    <item priority="low">
+      async function requireDepositSelector(
+        request: FastifyRequest<{ Querystring: DepositsQuery }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const depositRoutes: FastifyPluginAsync;
@@ -6220,6 +6215,25 @@
   <file path="services/reservations/src/routes/holds.ts">
     <item priority="medium">
       function getSessionId(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type HoldIdRoute = { Params: { id: string } };
+    </item>
+    <item priority="high">
+      type CreateRoute = {
+        Body: CreateHoldRequest;
+        Reply: ApiResponse<Reserva...;
+    </item>
+    <item priority="high">
+      type GetRoute = HoldIdRoute & { Reply: ApiResponse<ReservationHold> | Pro...;
+    </item>
+    <item priority="high">
+      type ReleaseRoute = HoldIdRoute & { Reply: { success: boolean } | ProblemDeta...;
+    </item>
+    <item priority="high">
+      type ConfirmRoute = HoldIdRoute & {
+        Body: ConfirmHoldRequest;
+        Reply: (Api...;
     </item>
     <item priority="high">
       export const holdRoutes: FastifyPluginAsync;
@@ -6294,6 +6308,12 @@
         amountCents: number;
         currency: string;
       }
+    </item>
+    <item priority="medium">
+      function sessionIdsMatch(presented: string, stored: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export const publicDepositRoutes: FastifyPluginAsync;
@@ -6544,6 +6564,9 @@
     </item>
     <item priority="low">
       async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
       export const FIXTURES: Record<string, RouteFixture>;
@@ -7124,6 +7147,9 @@
     <item priority="high">
       export const modifyReservationBodyJsonSchema: unknown;
     </item>
+    <item priority="high">
+      export const cancelReservationBodyJsonSchema: unknown;
+    </item>
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     <item priority="high">
@@ -7263,6 +7289,9 @@
     </item>
     <item priority="high">
       export const ModifyReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CancelReservationBodySchema: unknown;
     </item>
     <item priority="high">
       export const PublicUnsubscribeQuerySchema: unknown;
@@ -9772,12 +9801,27 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/nav-actions.ts">
+    <item priority="low">
+      type NavAction = { readonly type: "route"; read | { readonly type: "chat" } | { readonly type: "signout" };
+    </item>
+    <item priority="low">
+      interface NavActionHandlers {
+        navigate: (path: string) => void;
+        toggleChat: () => void;
+        signOut: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function runNavAction(action: NavAction, handlers: NavActionHandlers): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/nav-sections.ts">
     <item priority="low">
       interface NavItem {
         id: string;
         label: string;
-        path: string;
+        action: NavAction;
         stepStatus?: "completed" | "current" | "locked";
         disabled?: boolean;
       }
@@ -14385,6 +14429,13 @@
       function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* ... */ }
     </item>
     <item priority="high">
+      export function captureRequestError(
+        error: unknown,
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
       export const sentryFastifyPlugin: unknown;
     </item>
   </file>
@@ -14396,6 +14447,20 @@
         method?: string;
         path?: string;
       }
+    </item>
+    <item priority="low">
+      interface ReportableValidationError {
+        name: "ApiValidationError";
+        message: string;
+        method?: string;
+        path?: string;
+        error: { readonly issues: readonly unknown[] };
+      }
+    </item>
+    <item priority="medium">
+      function isValidationError(
+        error: ReportableApiError | ReportableValidationError
+      ): error is ReportableValidationError { /* ... */ }
     </item>
     <item priority="low">
       interface InitOptions {
@@ -14411,7 +14476,7 @@
       export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* ... */ }
     </item>
     <item priority="high">
-      export function reportApiError(error: ReportableApiError): void { /* ... */ }
+      export function reportApiError(error: ReportableApiError | ReportableValidationError): void { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">
@@ -16351,6 +16416,42 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
+    <item priority="high">
+      export const TWO_LINE_NOTE: unknown;
+    </item>
+    <item priority="high">
+      export const TWO_LINE_DISPLAYED: unknown;
+    </item>
+    <item priority="high">
+      export const UNTRUSTED_NOTE: unknown;
+    </item>
+    <item priority="high">
+      export const EMPTY_NOTES: readonly (string | null)[];
+    </item>
+  </file>
+  <file path="packages/rialto/src/test/match-media.ts">
+    <item priority="high">
+      export const PREFERS_REDUCED_MOTION: unknown;
+    </item>
+    <item priority="high">
+      type ChangeListener = () => void;
+    </item>
+    <item priority="high">
+      export function stubMatchMedia(matching: readonly string[]): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setMatchingMedia(matching: readonly string[]): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/test/record-motion.ts">
+    <item priority="high">
+      export async function recordingFramerMotion(): Promise<typeof FramerMotion> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recordedTransitions(root: ParentNode = document): unknown[] { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/test/effects-harness.ts">
     <item priority="low">
       interface RecordedEvent {
@@ -16482,12 +16583,6 @@
       export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
     </item>
     <item priority="medium">
-      function isSeatableStatus(reservation: Reservation): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -16507,6 +16602,20 @@
     </item>
     <item priority="high">
       export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
+    <item priority="low">
+      type ReservationSheetSize = "compact" | "default";
+    </item>
+    <item priority="high">
+      export function reservationSheetSize(
+        notes: string | null | undefined,
+        expanded: boolean
+      ): ReservationSheetSize { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>>;
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
@@ -17192,6 +17301,9 @@
     <item priority="high">
       export function formatReservationTime(isoString: string): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function specialRequestsText(notes: string | null | undefined): string | null { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/src/utils/seated.ts">
     <item priority="high">
@@ -17213,6 +17325,26 @@
         tables: readonly Pick<Table, "id" | "status">[],
         now: Date
       ): ReadonlySet<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/seating.ts">
+    <item priority="medium">
+      function tableAcceptsParty(table: Pick<Table, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSeat(
+        reservation: Pick<Reservation, "status">,
+        table: Pick<Table, "status"> | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+        tables: readonly T[],
+        partySize: number
+      ): T[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">

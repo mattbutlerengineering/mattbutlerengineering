@@ -7,6 +7,19 @@ import {
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
+import { venueScoped } from "./venue-scope.js";
+
+type SlotsRoute = {
+  Params: { venueId: string };
+  Querystring: { date: string; partySize: string; duration?: string };
+  Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
+};
+
+type DatesRoute = {
+  Params: { venueId: string };
+  Querystring: { startDate: string; endDate: string; partySize: string };
+  Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
+};
 
 // Schema for TimeSlot
 const TimeSlotSchema = {
@@ -75,11 +88,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(DateAvailabilitySchema);
 
   // GET /:venueId - Get available time slots for a date
-  fastify.get<{
-    Params: { venueId: string };
-    Querystring: { date: string; partySize: string; duration?: string };
-    Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
-  }>(
+  fastify.get<SlotsRoute>(
     "/:venueId",
     {
       preHandler: requireAuth,
@@ -114,8 +123,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { venueId } = request.params;
+    venueScoped<SlotsRoute>({ venue: "params" }, async (request, reply, { venueId }) => {
       const { date, partySize, duration } = request.query;
 
       // Validate venue exists
@@ -157,15 +165,11 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       return { data: slots };
-    }
+    })
   );
 
   // GET /:venueId/dates - Get dates with availability in a range
-  fastify.get<{
-    Params: { venueId: string };
-    Querystring: { startDate: string; endDate: string; partySize: string };
-    Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
-  }>(
+  fastify.get<DatesRoute>(
     "/:venueId/dates",
     {
       preHandler: requireAuth,
@@ -200,8 +204,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { venueId } = request.params;
+    venueScoped<DatesRoute>({ venue: "params" }, async (request, reply, { venueId }) => {
       const { startDate, endDate, partySize } = request.query;
 
       // Validate venue exists
@@ -230,6 +233,6 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       return { data: dates };
-    }
+    })
   );
 };

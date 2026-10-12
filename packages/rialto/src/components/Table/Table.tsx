@@ -30,6 +30,8 @@ interface Column<T> {
   render?: (row: T) => ReactNode;
   /** Width hint (CSS value) */
   width?: string;
+  /** Accessible name for the header cell when `header` is visually empty (e.g. an actions column) */
+  ariaLabel?: string;
 }
 
 /**
@@ -177,6 +179,7 @@ function TableInner<T extends Record<string, unknown>>(
                   alignClass(col.align)
                 )}
                 style={col.width ? { width: col.width } : undefined}
+                aria-label={col.ariaLabel}
                 aria-sort={
                   sortKey === col.key
                     ? sortDir === "asc"

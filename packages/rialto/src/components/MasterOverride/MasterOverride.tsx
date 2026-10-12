@@ -8,14 +8,8 @@ import {
   type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import {
-  motion,
-  useReducedMotion,
-  useMotionValue,
-  useMotionValueEvent,
-  animate,
-} from "framer-motion";
-import { spring, springGentle, reduced } from "../../tokens/motion";
+import { motion, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./MasterOverride.module.css";
 import { SplitFlap } from "../SplitFlap";
@@ -110,7 +104,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const [armed, setArmed] = useState(false);
     const switchRef = useRef<HTMLButtonElement>(null);
     const coverRef = useRef<HTMLButtonElement>(null);
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const triggerFeedback = useCallback(() => {
       if (feedback === "none") return;
@@ -312,7 +307,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             animate={{
               rotateX: armed ? -125 : 0,
             }}
-            transition={shouldReduceMotion ? reduced : springGentle}
+            transition={motionPreset.springGentle}
             style={{
               transformOrigin: "top center",
               transformStyle: "preserve-3d",
@@ -356,7 +351,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
                   <motion.span
                     className={styles.switchLever}
                     animate={{ y: on ? "-75%" : "75%" }}
-                    transition={shouldReduceMotion ? reduced : spring}
+                    transition={motionPreset.spring}
                   />
                 </span>
               </>
@@ -370,7 +365,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
                   <motion.span
                     className={styles.switchLever}
                     animate={{ y: on ? "-75%" : "75%" }}
-                    transition={shouldReduceMotion ? reduced : spring}
+                    transition={motionPreset.spring}
                   />
                 </span>
                 <span className={styles.labelOff} data-active={!on} aria-hidden="true">

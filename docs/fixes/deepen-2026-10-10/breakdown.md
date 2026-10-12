@@ -87,7 +87,7 @@ These are deletions, so no interface design is needed. One PR per item.
 - [ ] **gh-client picks its transport by capability** (card 10): REST by default, or fall back on a GraphQL 403. Probing for binary presence is no longer what decides. (tracker: #6039)
   - Accept: a transport test for "gh present, GraphQL returns 403 → REST" fails today and passes after. `mbe issue transition` works in a cloud (CCR) session, shown by one real transition logged there.
   - Blocked by: —
-- [ ] **Narrow `AgentAdapter` to `{name, isAvailable}`**: delete `run()` from the interface and from each adapter, plus `ClaudeAdapter.run`/`deriveHasChanges` and `CliAdapterBase.run`, along with the tests that exercise only `run()`.
+- [x] **Narrow `AgentAdapter` to `{name, isAvailable}`**: delete `run()` from the interface and from each adapter, plus `ClaudeAdapter.run`/`deriveHasChanges` and `CliAdapterBase.run`, along with the tests that exercise only `run()`.
   - Accept: `pnpm --dir packages/agent-core typecheck` and `test` pass, and `mbe agent run --adapter <each>` still dispatches through `runSession`. The PR lists which test files were deleted and why no production path lost coverage.
   - Blocked by: —
 - [ ] **Eval judge: wire it or delete it**: either `RunEvalSuiteOptions` accepts a judge and `agent-eval.ts` constructs one, or `judgeCriteria` and the judge parameter are removed from the schema and all 10 suites.

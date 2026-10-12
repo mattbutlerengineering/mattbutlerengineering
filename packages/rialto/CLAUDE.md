@@ -98,6 +98,12 @@ This component library embodies a design language of material honesty, precision
 - Elements that should feel organic and physical
 - Resolve it: `const motionPreset = useMotionPreset()` → `motionPreset.spring` / `motionPreset.springGentle`
 
+### Reduced motion and boop
+
+- `useMotionPreset()` already returns instant transitions under `prefers-reduced-motion` — pass `motionPreset.spring` etc. straight to `transition`; never hand-build a `shouldReduceMotion ? { duration: 0 } : …` fallback
+- Need the preference itself (to drop a slide offset from `initial`)? Read `motionPreset.reduced` — the same signal. Do not call framer's `useReducedMotion()`
+- Hover boop: `whileHover={disabled ? undefined : motionPreset.boop}` — it is already at-rest scale under reduced motion
+
 ### General motion rules
 
 - **Resolve motion configs through `useMotionPreset()`, don't import them.** A
@@ -207,7 +213,7 @@ The `exports` field in `package.json` is auto-generated. `pnpm build` runs `vite
 
 - Semantic headings: use `<Heading level={1-6} size={1-6}>` — `level` drives the `h{level}` tag, `size` is the visual override. Sizes 1–4 use display font; 5–6 use sans (UI-chrome titles). Don't hand-roll `<h1>..<h6>` — Dialog, Drawer, PageHeader, ErrorBoundary all consume Heading. `Text variant="display"` is for non-semantic hero text, not headings
 - `Text` variants: `"body" | "caption" | "detail" | "label" | "display"` — no heading variants; use the `Heading` primitive
-- `src/test/setup.ts` mocks `framer-motion.useReducedMotion: () => true` globally — motion-gated branches are invisible in tests by default. To test the animated path, add a file-level `vi.mock("framer-motion", async () => ({ ...await vi.importActual("framer-motion"), useReducedMotion: () => false }))`
+- `src/test/setup.ts` runs every test reduced by default — its `matchMedia` stub matches `prefers-reduced-motion: reduce` (what `useMotionPreset()` reads) and it mocks `framer-motion.useReducedMotion` to throw — a tripwire, since no rialto source may call it (guarded by `src/test/motion/no-framer-reduced-motion.test.tsx`). Motion-gated branches are invisible in tests by default. To test the animated path, call `stubMatchMedia([])` from `src/test/match-media.ts` at file top level (and `setMatchingMedia([...])` to switch device per test); to assert the transition a component actually renders, mock framer-motion with `recordingFramerMotion()` from `src/test/record-motion.ts`
 - `Stack` `wrap` prop is `boolean`, not a string
 - Showcase scaffolding: `<ComponentPageLayout name=... />` (not `title`), `<PropsTable props={[...PropDef]} />` (not `rows`)
 - axe tests in jsdom must disable `color-contrast`: `axe(c, { rules: { "color-contrast": { enabled: false } } })` — `token-contrast.test.ts` covers token contrast separately

@@ -12,11 +12,11 @@
 
 import { execFileSync } from "node:child_process";
 import { checkDetectionLabel, isCheckCriterion } from "./detection-label.js";
-import { fileIssue } from "../../../../scripts/lib/issue-filing.mjs";
+import { fileIssue, isIssueNotFoundError } from "../../../../scripts/lib/issue-filing.mjs";
 
 /**
  * @param {number} issueNumber
- * @returns {"open" | "closed" | "missing"}
+ * @returns {"open" | "closed" | "missing" | "error"}
  */
 function getIssueState(issueNumber) {
   try {
@@ -28,9 +28,9 @@ function getIssueState(issueNumber) {
     const s = out.trim().toLowerCase();
     if (s === "open") return "open";
     if (s === "closed") return "closed";
-    return "missing";
-  } catch {
-    return "missing";
+    return "error";
+  } catch (err) {
+    return isIssueNotFoundError(err) ? "missing" : "error";
   }
 }
 

@@ -1,39 +1,46 @@
 /**
  * Reduced-motion tests for Drawer.
  *
- * The global test setup mocks useReducedMotion → true (reduced motion active).
  * These tests confirm:
- *   1. useReducedMotion is called (the component respects the hook)
+ *   1. the device reduced-motion signal is read (through useMotionPreset)
  *   2. The component renders correctly in both reduced and full-motion modes
  */
-import type * as FramerMotion from "framer-motion";
+import type { DeviceContext } from "../../providers/useDeviceContext";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-const { useReducedMotionSpy } = vi.hoisted(() => ({
-  useReducedMotionSpy: vi.fn(() => true),
+const { useDeviceContextSpy } = vi.hoisted(() => ({
+  useDeviceContextSpy: vi.fn<() => DeviceContext>(),
 }));
 
-vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
-  return { ...actual, useReducedMotion: useReducedMotionSpy };
-});
+// The one reduced-motion signal: useMotionPreset() reads it from the device.
+vi.mock("../../providers/useDeviceContext", () => ({ useDeviceContext: useDeviceContextSpy }));
+
+function prefersReducedMotion(reducedMotion: boolean): void {
+  useDeviceContextSpy.mockReturnValue({
+    pointer: "fine",
+    viewport: "desktop",
+    reducedMotion,
+    colorScheme: "light",
+    saveData: false,
+  });
+}
 
 import { Drawer } from "./Drawer";
 
 describe("Drawer — reduced motion", () => {
-  it("calls useReducedMotion", () => {
-    useReducedMotionSpy.mockReturnValue(true);
+  it("reads the device reduced-motion signal", () => {
+    prefersReducedMotion(true);
     render(
       <Drawer open title="Settings" onClose={vi.fn()}>
         <p>Body</p>
       </Drawer>
     );
-    expect(useReducedMotionSpy).toHaveBeenCalled();
+    expect(useDeviceContextSpy).toHaveBeenCalled();
   });
 
   it("renders panel correctly when reduced motion is active", () => {
-    useReducedMotionSpy.mockReturnValue(true);
+    prefersReducedMotion(true);
     render(
       <Drawer open title="Settings" onClose={vi.fn()}>
         <p>Body content</p>
@@ -44,7 +51,7 @@ describe("Drawer — reduced motion", () => {
   });
 
   it("renders panel correctly when full motion is active", () => {
-    useReducedMotionSpy.mockReturnValue(false);
+    prefersReducedMotion(false);
     render(
       <Drawer open title="Settings" onClose={vi.fn()}>
         <p>Body content</p>

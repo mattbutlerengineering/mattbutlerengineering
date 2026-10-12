@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { DomainServices } from "../services/domain-services.js";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import { createMockJWTPayload } from "../test/mocks.js";
+import { jwtVerify } from "jose";
+
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
+  jwtVerify: vi.fn(),
+}));
 
 // Domain services are injected via buildApp({ services }) (issue #3357), so the
 // availability route no longer needs a vi.mock ring of sibling service modules to
@@ -307,5 +315,113 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(200);
     });
+  });
+});
+
+/**
+ * Venue-authorization rulings (docs/fixes/venue-scoped-routes, PR 5): both
+ * availability routes require membership of the `:venueId` venue (ADR-020).
+ * Before this ruling any signed-in user could read any venue's slots.
+ */
+describe("availability — venue authorization (ADR-020)", () => {
+  const originalEnv = process.env;
+  const AVAILABILITY_URL = "/api/v1/availability";
+  const SLOTS_URL = `${AVAILABILITY_URL}/venue-123?date=2024-02-15&partySize=4`;
+  const DATES_URL = `${AVAILABILITY_URL}/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4`;
+  const FORBIDDEN = {
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    detail: "You do not have access to this venue",
+  };
+  let app: FastifyInstance;
+
+  async function buildAs(permissions: string[], lookup: VenueMembershipLookup) {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator", permissions }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: lookup,
+      services: { availabilityService, venueService },
+    });
+    await app.ready();
+  }
+
+  const get = (url: string) =>
+    app.inject({ method: "GET", url, headers: { authorization: "Bearer t" } });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  it.each([
+    ["slots", SLOTS_URL],
+    ["dates", DATES_URL],
+  ])("returns 403 on %s for a signed-in non-member", async (_name, url) => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["staff"], lookup);
+
+    const response = await get(url);
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-123");
+    expect(availabilityService.generateTimeSlots).not.toHaveBeenCalled();
+    expect(availabilityService.getAvailableDates).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 on slots and dates for a member of the venue", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    await buildAs(["staff"], lookup);
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+    vi.mocked(availabilityService.generateTimeSlots).mockResolvedValue(mockTimeSlots);
+    vi.mocked(availabilityService.getAvailableDates).mockResolvedValue(mockDateAvailability);
+
+    const slots = await get(SLOTS_URL);
+    const dates = await get(DATES_URL);
+
+    expect(slots.statusCode).toBe(200);
+    expect(JSON.parse(slots.body).data).toEqual(mockTimeSlots);
+    expect(dates.statusCode).toBe(200);
+    expect(JSON.parse(dates.body).data).toEqual(mockDateAvailability);
+  });
+
+  it("still lets a platform admin through without a membership lookup", async () => {
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    await buildAs(["admin"], lookup);
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+    vi.mocked(availabilityService.generateTimeSlots).mockResolvedValue(mockTimeSlots);
+
+    const response = await get(SLOTS_URL);
+
+    expect(response.statusCode).toBe(200);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("keeps an admin's 404 for an unknown venue", async () => {
+    await buildAs(["admin"], vi.fn<VenueMembershipLookup>().mockResolvedValue(false));
+    vi.mocked(venueService.getById).mockResolvedValue(null);
+
+    const response = await get(SLOTS_URL);
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body).detail).toBe("Venue not found");
+  });
+
+  it("still answers 401 to an anonymous caller", async () => {
+    await buildAs(["staff"], vi.fn<VenueMembershipLookup>().mockResolvedValue(true));
+
+    const response = await app.inject({ method: "GET", url: SLOTS_URL });
+
+    expect(response.statusCode).toBe(401);
   });
 });

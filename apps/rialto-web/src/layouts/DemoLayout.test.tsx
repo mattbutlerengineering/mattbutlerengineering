@@ -96,6 +96,13 @@ describe("DemoLayout", () => {
     expect(screen.getByTestId("global-nav")).toBeInTheDocument();
   });
 
+  it("exposes the floating controls as a named landmark so they sit inside a region", () => {
+    renderDemoLayout();
+    expect(screen.getByRole("region", { name: "Demo display controls" })).toContainElement(
+      screen.getByTestId("demo-floating-controls")
+    );
+  });
+
   it("renders the rialto provider", () => {
     renderDemoLayout();
     expect(screen.getByTestId("rialto-provider")).toBeInTheDocument();

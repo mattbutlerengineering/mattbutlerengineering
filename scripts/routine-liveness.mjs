@@ -31,6 +31,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { ROUTINE_MANIFEST, HEARTBEAT_ISSUE_NUMBER } from "./routine-manifest.mjs";
+import { issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -497,6 +498,13 @@ export function runRoutineLivenessCheck({
         }
       : null;
 
+    if (existingIssue?.state === "error") {
+      log(
+        `could not read state of #${existingIssue.number} for ${entry.name} — leaving it alone this run (#6374)`
+      );
+      return { routine: entry.name, status: result.status, action: "state-error" };
+    }
+
     const decision = decideIssueTransition({ status: result.status, existingIssue });
 
     if (decision.action === "no-op") {
@@ -694,9 +702,7 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
           "--state",
           "all",
           "--json",
-          latestCommit
-            ? "title,createdAt,mergedAt,number,state,headRefName"
-            : "title,createdAt,mergedAt",
+          latestCommit ? "title,createdAt,mergedAt,number,state,headRefName" : "title,createdAt",
           "--limit",
           "50",
         ])
@@ -705,7 +711,7 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
       type: "pr",
       title: pr.title,
       observedAt: !latestCommit
-        ? (pr.mergedAt ?? pr.createdAt)
+        ? pr.createdAt
         : pattern.test(pr.title ?? "")
           ? latestMatchingCommitAt(
               { ...pr, commits: fetchPrCommits(apiGet, pr, pattern) },
@@ -739,23 +745,6 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
   return [];
 }
 
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
-}
-
-/** Real `getIssueState` dep for `decideIssueTransition()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
 function main() {
   const ghClient = createGhClient();
 
@@ -784,7 +773,7 @@ function main() {
         "--json",
         "number,title",
       ]),
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
     createIssue: (title, body) =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildRoutineFindingCreateArgs(title, body))),
     closeIssue: (issueNumber, comment) =>

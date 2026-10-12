@@ -99,4 +99,43 @@ describe("check-destructive-migrations", () => {
       expect(result.status).toBe(0);
     });
   });
+  // #6291: the .claude/settings.json edit-time hook calls this mode instead of
+  // restating the regex, so edit-time and CI share one rule.
+  describe("--file (edit-time hook mode)", () => {
+    let dir;
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "destructive-file-"));
+    });
+    afterEach(() => {
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    function runFile(sql) {
+      const file = path.join(dir, "migration.sql");
+      fs.writeFileSync(file, sql);
+      return spawnSync(process.execPath, [SCRIPT_PATH, "--file", file], { encoding: "utf-8" });
+    }
+
+    test("warns on stderr but exits 0 for an unapproved destructive migration", () => {
+      const result = runFile("DROP TABLE users;");
+      expect(result.status).toBe(0);
+      expect(result.stderr).toContain("DESTRUCTIVE");
+    });
+
+    test.each([
+      ["canonical marker", "-- DESTRUCTIVE: cleanup\nDROP TABLE users;"],
+      ["no space after dashes", "--DESTRUCTIVE: cleanup\nDROP TABLE users;"],
+      ["leading whitespace", "   -- DESTRUCTIVE: cleanup\nDROP TABLE users;"],
+    ])("is silent when approved (%s), matching the CI rule", (_label, sql) => {
+      const result = runFile(sql);
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+    });
+
+    test("is silent for a benign migration", () => {
+      const result = runFile("CREATE TABLE users (id TEXT PRIMARY KEY);");
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+    });
+  });
 });

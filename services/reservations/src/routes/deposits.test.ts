@@ -982,4 +982,84 @@ describe("Deposit API routes", () => {
       }
     );
   });
+
+  /**
+   * Refusal pins (docs/fixes/venue-scoped-routes, PR 4), written against the
+   * pre-`venueScoped` routes so the migration keeps every refusal
+   * byte-identical, not only its status. The wire body is `{}`: each route's
+   * 400/404 response schema is a bare `{ type: "object" }`, so
+   * fast-json-stringify drops every problem-details field (pre-existing, noted
+   * in breakdown.md, not changed here). The routes still choose the detail
+   * text; only the status and that empty body reach the caller.
+   */
+  describe("refusal bodies (venue-scoped-routes pins)", () => {
+    async function send(method: "GET" | "POST", url: string, payload?: object) {
+      const app = await buildApp({ logger: false, payments });
+      await app.ready();
+      const response = await app.inject({
+        method,
+        url,
+        headers: { authorization: ADMIN_TOKEN },
+        ...(payload ? { payload } : {}),
+      });
+      await app.close();
+      return { statusCode: response.statusCode, body: response.body };
+    }
+
+    const BY_ID = [
+      ["GET", depositUrl("dep-123")],
+      ["POST", depositUrl("dep-123", "capture")],
+      ["POST", depositUrl("dep-123", "refund")],
+      ["POST", depositUrl("dep-123", "forfeit")],
+    ] as const;
+
+    it.each(BY_ID)("%s %s: unresolvable venue → 404, nothing read", async (method, url) => {
+      mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
+      expect(await send(method, url)).toEqual({ statusCode: 404, body: "{}" });
+      expect(mockDepositDb.findUnique).not.toHaveBeenCalled();
+    });
+
+    it.each(BY_ID)("%s %s: venue resolves, deposit gone → 404", async (method, url) => {
+      mockDepositDb.findUnique.mockResolvedValue(null);
+      expect(await send(method, url)).toEqual({ statusCode: 404, body: "{}" });
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("POST /: unresolvable reservation → 404, nothing created", async () => {
+      mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
+      expect(
+        await send("POST", DEPOSITS_URL, { reservationId: "res-x", amountCents: 5000 })
+      ).toEqual({ statusCode: 404, body: "{}" });
+      expect(mockDepositDb.create).not.toHaveBeenCalled();
+    });
+
+    it("GET ?reservationId=: unresolvable reservation → 404", async () => {
+      mockQueryRaw.mockResolvedValue([{ app_resolve_venue_id: null }]);
+      expect(await send("GET", `${DEPOSITS_URL}?reservationId=res-x`)).toEqual({
+        statusCode: 404,
+        body: "{}",
+      });
+    });
+
+    it.each(["", "?venueId=venue-1", "?date=2026-02-15", "?venueId=&date=2026-02-15"])(
+      "GET %s: no usable selector → 400, nothing resolved or read",
+      async (query) => {
+        expect(await send("GET", `${DEPOSITS_URL}${query}`)).toEqual({
+          statusCode: 400,
+          body: "{}",
+        });
+        expect(mockQueryRaw).not.toHaveBeenCalled();
+        expect(mockDepositDb.findMany).not.toHaveBeenCalled();
+      }
+    );
+
+    it("GET ?venueId=&date=: the venue is taken from the query, never resolved", async () => {
+      mockDepositDb.findMany.mockResolvedValue([]);
+      expect(await send("GET", `${DEPOSITS_URL}?venueId=venue-9&date=2026-02-15`)).toEqual({
+        statusCode: 200,
+        body: JSON.stringify({ data: [] }),
+      });
+      expect(mockQueryRaw).not.toHaveBeenCalled();
+    });
+  });
 });

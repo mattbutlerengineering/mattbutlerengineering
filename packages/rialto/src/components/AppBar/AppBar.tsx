@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { springGentle, reduced } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./AppBar.module.css";
 
@@ -31,7 +31,8 @@ export interface AppBarProps extends Pick<
 
 export const AppBar = forwardRef<HTMLElement, AppBarProps>(
   ({ logo, actions, glass = true, height = "56px", className, style, ...props }, ref) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const classes = cn(styles.appBar, glass && styles.glass, className);
 
@@ -42,7 +43,7 @@ export const AppBar = forwardRef<HTMLElement, AppBarProps>(
         style={{ height, ...style }}
         initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={shouldReduceMotion ? reduced : springGentle}
+        transition={motionPreset.springGentle}
         {...props}
       >
         {logo && <div className={styles.logo}>{logo}</div>}

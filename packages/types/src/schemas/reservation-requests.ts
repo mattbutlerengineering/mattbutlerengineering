@@ -433,6 +433,13 @@ export const ModifyReservationBodySchema = z
   })
   .describe("Fields to modify via guest self-service");
 
+export const CancelReservationBodySchema = z
+  .object({
+    cancellationReason: z.string().max(500).describe("Why the guest is cancelling").optional(),
+    cancellationNote: z.string().max(500).describe("Free-text cancellation note").optional(),
+  })
+  .describe("Optional cancellation details supplied via guest self-service");
+
 export const PublicUnsubscribeQuerySchema = z.object({
   token: z.string().optional(),
 });

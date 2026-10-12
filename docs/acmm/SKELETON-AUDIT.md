@@ -22,20 +22,17 @@ Audit of 105 detected criteria to distinguish "Skeletons" (docs-only) from "Func
 | Review burden tracking           | `acmm:review-burden`          | 💀 Skeleton   | Doc exists but tracking scripts/dashboard integration not found.             |
 | AI compliance documentation      | `acmm:ai-compliance-doc`      | ✅ Functional | Comprehensive mapping exists; functional as documentation.                   |
 | GitHub Actions AI integration    | `acmm:github-actions-ai`      | ✅ Functional | `claude.yml` workflow exists and is active.                                  |
-| Policy as code                   | `acmm:policy-as-code`         | ✅ Functional | `.github/policies/` exists with machine-enforceable rules.                   |
 | Reflection log                   | `acmm:reflection-log`         | ✅ Functional | `.claude/reflections/` exists and contains session logs.                     |
 | Self-correction tracking         | `acmm:self-correction-metric` | ✅ Functional | `plugins/acmm/scripts/pr-outcomes.js` calculates these metrics.              |
 
 ### Level 6
 
-| Criterion                  | ID                               | Status        | Evidence                                                                             |
-| -------------------------- | -------------------------------- | ------------- | ------------------------------------------------------------------------------------ |
-| Multi-repo orchestration   | `acmm:multi-repo-orchestration`  | 💀 Skeleton   | Doc exists but notes it as a "Future Automation".                                    |
-| Automated rollback         | `acmm:auto-rollback`             | ✅ Functional | `.github/workflows/auto-rollback.yml` is implemented with complex logic.             |
-| Rollback drill             | `acmm:rollback-drill`            | ✅ Functional | `plugins/acmm/scripts/rollback.js` and `.github/workflows/rollback-drill.yml` exist. |
-| Automated issue generation | `acmm:auto-issue-gen`            | ✅ Functional | `.github/workflows/auto-generate-issues.yml` exists and runs.                        |
-| Multi-agent orchestration  | `acmm:multi-agent-orchestration` | ✅ Functional | `scripts/orchestrate.mjs` exists.                                                    |
-| Strategic dashboard        | `acmm:strategic-dashboard`       | ✅ Functional | `docs/autonomous-work-log.md` and `web/src/components/acmm/` exist.                  |
+| Criterion                  | ID                              | Status        | Evidence                                                                             |
+| -------------------------- | ------------------------------- | ------------- | ------------------------------------------------------------------------------------ |
+| Multi-repo orchestration   | `acmm:multi-repo-orchestration` | 💀 Skeleton   | Doc exists but notes it as a "Future Automation".                                    |
+| Automated rollback         | `acmm:auto-rollback`            | ✅ Functional | `.github/workflows/auto-rollback.yml` is implemented with complex logic.             |
+| Rollback drill             | `acmm:rollback-drill`           | ✅ Functional | `plugins/acmm/scripts/rollback.js` and `.github/workflows/rollback-drill.yml` exist. |
+| Automated issue generation | `acmm:auto-issue-gen`           | ✅ Functional | `.github/workflows/auto-generate-issues.yml` exists and runs.                        |
 
 ## Proposed Detection Improvements
 

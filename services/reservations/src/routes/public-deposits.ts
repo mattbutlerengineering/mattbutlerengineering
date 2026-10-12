@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync } from "fastify";
+import { createHash, timingSafeEqual } from "crypto";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { createProblemDetails, publicDepositBodyJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { calculateDepositAmount } from "../services/deposit.js";
@@ -20,12 +21,39 @@ interface PublicPaymentIntentResponse {
   currency: string;
 }
 
+const SESSION_ID_HEADER = "x-session-id";
+
+/**
+ * Constant-time equality for opaque session ids. Hashing both sides first
+ * gives `timingSafeEqual` equal-length inputs, so neither the content nor the
+ * length of the stored id leaks through response timing.
+ */
+function sessionIdsMatch(presented: string, stored: string): boolean {
+  const sha256 = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(sha256(presented), sha256(stored));
+}
+
+/**
+ * Proof of ownership (#6304): the caller must present the booking-widget
+ * session (`x-session-id`, minted at hold creation) that confirmed this
+ * reservation. A bare reservationId is a guessable cuid and proves nothing.
+ * A reservation with no originating session (created outside the widget)
+ * can never be proven, so it is always rejected here.
+ */
+function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean {
+  const presented = request.headers[SESSION_ID_HEADER];
+  if (typeof presented !== "string" || presented.length === 0) return false;
+  if (originSessionId === null) return false;
+  return sessionIdsMatch(presented, originSessionId);
+}
+
 /**
  * Public (unauthenticated) endpoint for creating a Stripe PaymentIntent + Deposit
  * during the booking widget flow.
  *
  * The booking widget is public — guests are not authenticated. This endpoint:
- * 1. Verifies the reservation belongs to the given venue slug.
+ * 1. Verifies the reservation belongs to the given venue slug, and that the
+ *    caller's `x-session-id` is the session that confirmed it (403 otherwise).
  * 2. Calculates the deposit amount from venue config.
  * 3. Creates a Stripe PaymentIntent (manual capture).
  * 4. Creates a Deposit record in `pending` state.
@@ -103,6 +131,21 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           return reply
             .status(404)
             .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
+        }
+
+        // Ownership proof, checked before any Stripe call (#6304). 403, not
+        // 404: the 404 above is the enumeration path, this is the auth path.
+        const originSessionId = await reservationService.getOriginSessionId(reservationId);
+        if (!ownsReservation(request, originSessionId)) {
+          return reply
+            .status(403)
+            .send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                `Pass the booking session ID via the ${SESSION_ID_HEADER} header to pay a deposit for this reservation.`
+              )
+            );
         }
 
         // Check no deposit already exists for this reservation

@@ -39,7 +39,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { fileIssue } from "./issue-filing.mjs";
+import { fileIssue, isIssueNotFoundError } from "./issue-filing.mjs";
 
 const FLAGS_WITH_VALUE = new Set([
   "--title",
@@ -128,7 +128,7 @@ export function findPriorIssueNumber(issues, { contains } = {}) {
  * @typedef {Object} FileIssueCliDeps
  * @property {(path: string) => string} readFile
  * @property {(opts: { labels: string[], state: string, searchText: string|null }) => Array<{number: number, title: string}>} searchIssues
- * @property {(issueNumber: number) => "open"|"closed"|"missing"} getIssueState
+ * @property {(issueNumber: number) => "open"|"closed"|"missing"|"error"} getIssueState
  * @property {(title: string, body: string, labels: string[]) => number} createIssue
  * @property {(issueNumber: number) => void} reopenIssue
  * @property {(issueNumber: number, body: string) => void} [commentOnIssue]
@@ -236,9 +236,9 @@ export function createRealDeps() {
       try {
         const raw = run(["issue", "view", String(issueNumber), "--json", "state"]);
         const state = String(JSON.parse(raw).state).toLowerCase();
-        return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-      } catch {
-        return "missing";
+        return state === "open" ? "open" : state === "closed" ? "closed" : "error";
+      } catch (err) {
+        return isIssueNotFoundError(err) ? "missing" : "error";
       }
     },
 

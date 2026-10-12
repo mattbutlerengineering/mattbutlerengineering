@@ -212,6 +212,7 @@ const mockVenue: VenueContextValue = {
   setVenueId: vi.fn(),
   venues: [],
   isLoading: false,
+  venuesError: null,
   isMultiVenue: false,
   refetchVenues: vi.fn(),
 };

@@ -4,6 +4,8 @@
  * Extracted from edge-router.js.
  */
 
+import { parseHealthSnapshot, isUpStatus } from "./snapshot.js";
+
 /**
  * Handle GET /health/uptime — compute uptime percentages from daily snapshots.
  */
@@ -41,12 +43,11 @@ async function handleHealthUptime(env) {
     const snap = entry.snapshot ?? entry;
     if (snap.status === "healthy") overallHealthy++;
 
-    if (snap.services) {
-      for (const [name, svc] of Object.entries(snap.services)) {
-        if (!subsystemCounts[name]) subsystemCounts[name] = { healthy: 0, total: 0 };
-        subsystemCounts[name].total++;
-        if (svc.status === "healthy" || svc.status === "ok") subsystemCounts[name].healthy++;
-      }
+    const { subsystems: rollups, probes } = parseHealthSnapshot(snap);
+    for (const [name, item] of Object.entries({ ...rollups, ...probes })) {
+      if (!subsystemCounts[name]) subsystemCounts[name] = { healthy: 0, total: 0 };
+      subsystemCounts[name].total++;
+      if (isUpStatus(item.status)) subsystemCounts[name].healthy++;
     }
   }
 

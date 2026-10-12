@@ -52,7 +52,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/venues/by-slug/:slug": "public slug",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
   "GET /api/v1/reservations/health": "infra (no venue data)",
-  "POST /api/v1/events/test": "infra (no venue data)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
   // all-venue stream (#4016), which venueScoped cannot express. The route keeps
@@ -64,32 +63,18 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   // requireVenueAccess guard.
   "GET /api/v1/tables": "cross-venue fan-out (admin)",
   "POST /api/v1/tables": "cross-venue fan-out (admin)",
+  // Matt ruling 2026-10-11 (same as the stream and tables): venueId is
+  // optional on both, and an admin who names no venue gets an unfiltered
+  // all-venue list / creates a venue-less reservation, which venueScoped cannot
+  // express. Both keep their own requireVenueAccess guard.
+  "GET /api/v1/reservations": "cross-venue fan-out (admin)",
+  "POST /api/v1/reservations": "cross-venue fan-out (admin)",
 
   // PR 2: guests, waitlist, briefing, booking-metrics, events stream.
 
   // PR 3: tables, floor plans, venues.
 
   // PR 4: reservations and deposits.
-  "GET /api/v1/reservations": "pending-migration",
-  "POST /api/v1/reservations": "pending-migration",
-  "POST /api/v1/reservations/walk-in": "pending-migration",
-  "GET /api/v1/reservations/:id": "pending-migration",
-  "PATCH /api/v1/reservations/:id": "pending-migration",
-  "DELETE /api/v1/reservations/:id": "pending-migration",
-  "GET /api/v1/deposits": "pending-migration",
-  "POST /api/v1/deposits": "pending-migration",
-  "GET /api/v1/deposits/:id": "pending-migration",
-  "POST /api/v1/deposits/:id/capture": "pending-migration",
-  "POST /api/v1/deposits/:id/refund": "pending-migration",
-  "POST /api/v1/deposits/:id/forfeit": "pending-migration",
-
-  // PR 5: Matt's security rulings (availability → member, holds re-expressed).
-  "GET /api/v1/availability/:venueId": "pending-migration",
-  "GET /api/v1/availability/:venueId/dates": "pending-migration",
-  "POST /api/v1/holds": "pending-migration",
-  "GET /api/v1/holds/:id": "pending-migration",
-  "DELETE /api/v1/holds/:id": "pending-migration",
-  "POST /api/v1/holds/:id/confirm": "pending-migration",
 };
 
 describe("venue-scope coverage (no database)", () => {
@@ -216,6 +201,22 @@ describe("venue-scope coverage (no database)", () => {
       "PATCH /api/v1/tables/:id": "entity:table/member",
       "PATCH /api/v1/tables/:id/status": "entity:table/member",
       "DELETE /api/v1/tables/:id": "entity:table/member",
+      "POST /api/v1/reservations/walk-in": "body.venueId/member",
+      "GET /api/v1/reservations/:id": "entity:reservation/owner",
+      "PATCH /api/v1/reservations/:id": "entity:reservation/owner",
+      "DELETE /api/v1/reservations/:id": "entity:reservation/owner",
+      "POST /api/v1/deposits": "entity:reservation/member",
+      "GET /api/v1/deposits": "resolve:reservationId|venueId/member",
+      "GET /api/v1/deposits/:id": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/capture": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/refund": "entity:deposit/member",
+      "POST /api/v1/deposits/:id/forfeit": "entity:deposit/member",
+      "GET /api/v1/availability/:venueId": "params.venueId/member",
+      "GET /api/v1/availability/:venueId/dates": "params.venueId/member",
+      "POST /api/v1/holds": "body.venueId/member",
+      "GET /api/v1/holds/:id": "resolve:hold.venueId/member",
+      "DELETE /api/v1/holds/:id": "resolve:hold.venueId/member",
+      "POST /api/v1/holds/:id/confirm": "resolve:hold.venueId/member",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])

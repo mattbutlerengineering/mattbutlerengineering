@@ -84,6 +84,11 @@ let snapshot: DeviceContext = SSR_DEFAULTS;
 const listeners = new Set<() => void>();
 
 function getSnapshot(): DeviceContext {
+  // Initialise on first read, not first subscribe: subscribing happens after
+  // the first commit, and a component gating a canvas loop or timer on
+  // reduced motion must see the real device on its very first render.
+  // Idempotent — `ensureListeners` returns early once the queries exist.
+  ensureListeners();
   return snapshot;
 }
 

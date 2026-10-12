@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
+import type { DeviceContext } from "../useDeviceContext";
 
 /* ── Helpers ─────────────────────────────────── */
 
@@ -53,8 +53,11 @@ beforeEach(() => {
 /* ── Tests ───────────────────────────────────── */
 
 describe("useDeviceContext", () => {
-  it("returns SSR-safe defaults", () => {
-    const { result } = renderHook(() => useDeviceContext());
+  it("returns SSR-safe defaults", async () => {
+    const { mock } = createMatchMediaMock();
+    Object.defineProperty(window, "matchMedia", { value: mock, writable: true });
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
+    const { result } = renderHook(() => freshHook());
 
     expect(result.current).toEqual<DeviceContext>({
       pointer: "fine",
@@ -106,6 +109,26 @@ describe("useDeviceContext", () => {
     const { result } = renderHook(() => freshHook());
 
     expect(result.current.reducedMotion).toBe(true);
+  });
+
+  // framer-motion's useReducedMotion reads the query synchronously on the
+  // first render. Components that gate a canvas/RAF loop or a timer on
+  // `useMotionPreset().reduced` must see the real device on that same render,
+  // or a reduced-motion user gets one commit of the animated path first.
+  it("reports reduced motion on the very first render, before subscribing", async () => {
+    const { mock, setMatch } = createMatchMediaMock();
+    setMatch("(prefers-reduced-motion: reduce)", true);
+    Object.defineProperty(window, "matchMedia", { value: mock, writable: true });
+
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
+    const seen: boolean[] = [];
+    renderHook(() => {
+      const device = freshHook();
+      seen.push(device.reducedMotion);
+      return device;
+    });
+
+    expect(seen[0]).toBe(true);
   });
 
   it("detects mobile viewport", async () => {

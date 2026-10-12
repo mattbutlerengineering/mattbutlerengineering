@@ -87,4 +87,48 @@ describe("useIsAdmin", () => {
 
     expect(result.current).toBe(false);
   });
+
+  // Auth0 RBAC puts `permissions` in the ACCESS token only — the ID-token
+  // profile that `user.raw` exposes never carries it. The server's
+  // `hasPermission` reads the access token, so the UI must too (#6335).
+  describe("with an Auth0-shaped session (permissions only in the access token)", () => {
+    function accessTokenWith(payload: Record<string, unknown>): string {
+      const encode = (part: object) =>
+        btoa(JSON.stringify(part)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      return `${encode({ alg: "RS256", typ: "JWT" })}.${encode(payload)}.signature`;
+    }
+
+    it("returns true when the access token carries the admin permission", () => {
+      mockUseAuth.mockReturnValue({
+        ...authState(makeUser(undefined)),
+        accessToken: accessTokenWith({ sub: "auth0|user-123", permissions: ["admin"] }),
+      });
+
+      const { result } = renderHook(() => useIsAdmin());
+
+      expect(result.current).toBe(true);
+    });
+
+    it("returns false when the access token carries no admin permission", () => {
+      mockUseAuth.mockReturnValue({
+        ...authState(makeUser(undefined)),
+        accessToken: accessTokenWith({ sub: "auth0|user-123", permissions: ["staff"] }),
+      });
+
+      const { result } = renderHook(() => useIsAdmin());
+
+      expect(result.current).toBe(false);
+    });
+
+    it("returns false for an access token that is not a decodable JWT", () => {
+      mockUseAuth.mockReturnValue({
+        ...authState(makeUser(undefined)),
+        accessToken: "opaque-token",
+      });
+
+      const { result } = renderHook(() => useIsAdmin());
+
+      expect(result.current).toBe(false);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
@@ -10,6 +10,8 @@ import { CancelReservationDialog } from "../components/timeline/CancelReservatio
 import { formatLongDateWithYear, formatTime, formatTimeIn } from "../utils/format.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calendarLinks.js";
+import { specialRequestsText } from "../utils/reservation-display.js";
+import { CONFIRMATION_COPY } from "../constants/confirmation-copy.js";
 import styles from "./ManageReservationPage.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -76,6 +78,7 @@ export function ManageReservationPage() {
   const token = params.token || null;
   const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const specialRequestsId = useId();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["manageReservation", token],
@@ -150,6 +153,7 @@ export function ManageReservationPage() {
     ? formatTimeIn(reservation.endTime, venue.ianaTimezone)
     : formatTime(reservation.endTime);
   const canCancel = CANCELLABLE_STATUSES.has(reservation.status);
+  const requests = specialRequestsText(reservation.notes);
 
   return (
     <main>
@@ -195,18 +199,27 @@ export function ManageReservationPage() {
                     {formattedStart} – {formattedEnd}
                   </Text>
                 </Stack>
-
-                {reservation.notes && (
-                  <Stack direction="row" justify="between">
-                    <Text variant="body" color="secondary">
-                      Special Requests
-                    </Text>
-                    <Text variant="body">{reservation.notes}</Text>
-                  </Stack>
-                )}
               </Stack>
             </Stack>
           </Card>
+
+          {requests !== null && (
+            <Card role="group" aria-labelledby={specialRequestsId}>
+              <Stack gap="md" className={styles.cardInset}>
+                <Text as="h2" id={specialRequestsId} variant="label" color="secondary">
+                  {CONFIRMATION_COPY.specialRequestsLabel}
+                </Text>
+                <Stack gap="sm">
+                  <Text variant="body" color="secondary">
+                    {CONFIRMATION_COPY.acknowledgement}
+                  </Text>
+                  <Text variant="body" dir="auto" className={styles.requestsText}>
+                    {requests}
+                  </Text>
+                </Stack>
+              </Stack>
+            </Card>
+          )}
 
           {venue && (
             <Card>

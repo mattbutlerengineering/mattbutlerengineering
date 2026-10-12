@@ -194,7 +194,11 @@ export function DemoLayout() {
           theme={demoTheme}
           onThemeToggle={() => handleDarkModeChange(!darkMode)}
         />
-        <div className={styles.floatingControls} data-testid="demo-floating-controls">
+        <section
+          className={styles.floatingControls}
+          data-testid="demo-floating-controls"
+          aria-label="Demo display controls"
+        >
           <FloatingControls
             darkMode={darkMode}
             onDarkModeChange={handleDarkModeChange}
@@ -204,7 +208,7 @@ export function DemoLayout() {
             onVibeChange={setActiveVibe}
             onOpenCookiePrefs={openPrefs}
           />
-        </div>
+        </section>
         <main id="main-content" tabIndex={-1} style={{ outline: "none" }}>
           <Outlet />
         </main>

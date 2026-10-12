@@ -206,6 +206,11 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
     const required = requiredByLevel[n];
     const detected = detectedByLevel[n];
     if (required === 0) continue;
+    // L2 "Instructed" requires the agent-instructions OR-group specifically:
+    // L2's other criteria (e.g. .editorconfig) are not AI-specific, so any
+    // single one of them clearing the 1/required bar made a repo "Instructed"
+    // without a single instruction file (#5880).
+    if (n === 2 && !detectedIds.has("acmm:agent-instructions")) break;
     // L2 "Instructed" is reached with any single criterion; higher levels use 70%
     const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD;
     const ratio = detected / required;

@@ -8,16 +8,15 @@ import { SegmentedControl, type Segment } from "../../components/SegmentedContro
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { Slider } from "../../components/Slider/Slider";
 import { Tabs, type Tab } from "../../components/Tabs/Tabs";
+import { stubMatchMedia } from "../match-media";
 
-// The global test setup mocks `useReducedMotion` to `true`, which short-circuits
-// every motion-gated branch. This file overrides it to `false` so the *animated*
-// path is exercised — the transform/opacity + `layout` code that replaced the old
-// height/width/left/padding/margin animations. These assertions guard that the
-// components still render and behave when their compositor transitions are live.
-vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>("framer-motion");
-  return { ...actual, useReducedMotion: () => false };
-});
+// The global test setup reports `prefers-reduced-motion: reduce`, which
+// short-circuits every motion-gated branch. This file reports no preference so
+// the *animated* path is exercised — the transform/opacity + `layout` code that
+// replaced the old height/width/left/padding/margin animations. These
+// assertions guard that the components still render and behave when their
+// compositor transitions are live.
+stubMatchMedia([]);
 
 describe("compositor animations (animated path)", () => {
   describe("Alert", () => {

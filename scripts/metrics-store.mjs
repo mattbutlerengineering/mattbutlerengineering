@@ -141,9 +141,9 @@ export const DURABLE_OUTSIDE = {
 export const EXTERNAL = {
   "acmm-evals.jsonl": "plugins/acmm/scripts/evals.js",
   "acmm-cold-start.json": ".github/workflows/acmm-cold-start.yml",
-  "agent-perf.jsonl": "tools/cli/src/commands/stats.ts",
+  "agent-perf.jsonl": "historical; writer tools/cli stats.ts retired in #6397",
   "eval-reports.jsonl": "tools/cli/src/commands/agent-eval.ts",
-  "last-audit.json": "tools/cli/src/commands/stats.ts",
+  "last-audit.json": "historical; writer tools/cli stats.ts retired in #6397",
   "production-health/": ".github/workflows/production-feedback.yml",
 };
 

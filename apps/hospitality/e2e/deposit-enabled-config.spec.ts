@@ -25,9 +25,7 @@ test.describe("CancelReservationDialog fee banner — deposit-enabled venue", ()
   const RESERVATION_END = "2026-05-17T19:30:00.000Z";
   const RESERVATION_DATE = "2026-05-17";
 
-  test("renders the fee banner with the quoted late-cancellation amount", async ({
-    mockedPage,
-  }) => {
+  test("renders the staff fee banner: no fee, full deposit refund", async ({ mockedPage }) => {
     await mockedPage.clock.setFixedTime(FROZEN_NOW);
 
     await mockedPage.route("**/public/v1/venues/*", (route) =>
@@ -115,10 +113,13 @@ test.describe("CancelReservationDialog fee banner — deposit-enabled venue", ()
 
     const feeBanner = dialog.getByTestId("cancellation-fee-banner");
     await expect(feeBanner).toBeVisible();
-    // Pinned exactly in public-venue-config-deposit-enabled-mock.test.ts —
-    // the "late" fee bucket (feeAmountCents 2500, refundAmountCents 2500)
-    // computed from this fixture's deposit numbers + the frozen "now".
-    await expect(feeBanner).toContainText("Late cancellation fee: $25.00 — refund $25.00");
+    // The E2E seed user holds the `admin` permission (in the access token,
+    // where Auth0 RBAC puts it), so this is a staff cancel: the server waives
+    // the fee and refunds the full deposit, and the quote must say the same
+    // (#6335). The guest "late" bucket for this fixture ($25.00 fee, $25.00
+    // refund) stays pinned in public-venue-config-deposit-enabled-mock.test.ts
+    // and useCancellationQuote.test.ts.
+    await expect(feeBanner).toContainText("No cancellation fee — full refund of $50.00");
   });
 });
 

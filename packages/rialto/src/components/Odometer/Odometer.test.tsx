@@ -52,7 +52,7 @@ describe("Odometer", () => {
   });
 
   describe("reduced motion", () => {
-    // setup.ts mocks framer-motion useReducedMotion => true globally, so this
+    // setup.ts reports prefers-reduced-motion globally, so this
     // renders the reduced-motion path: the final formatted value, no roll.
     it("renders the final formatted value without rolling", () => {
       render(<Odometer value={9999} locale="en-US" />);

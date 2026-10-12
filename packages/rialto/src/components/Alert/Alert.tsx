@@ -1,5 +1,5 @@
 import { forwardRef, useState, type ReactNode } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Alert.module.css";
@@ -101,8 +101,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
     ref
   ) => {
     const [visible, setVisible] = useState(true);
-    const shouldReduceMotion = useReducedMotion();
-    const { precision } = useMotionPreset();
+    const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
     function handleDismiss() {
       setVisible(false);

@@ -101,7 +101,7 @@ The loop:
 1. **Work is filed, not assigned.** Scheduled routines audit the live site, triage
    Sentry, score the repo against a maturity model, and mine CI history for
    recurring failures — each files GitHub issues labeled `ready`.
-2. **Agents claim and implement.** `/implement-queue` claims a batch of independent
+2. **Agents claim and implement.** `/idea-to-prod:implement-queue` claims a batch of independent
    issues and runs one TDD worker per issue in an isolated git worktree: failing
    test first, minimal implementation, then lint/typecheck/test gates.
 3. **Reviewers gate the merge.** Seven specialist subagents review by change shape —

@@ -4,6 +4,11 @@ import { RialtoProvider } from "../RialtoProvider";
 import { useUIEnvironment } from "../useUIEnvironment";
 import { useThemeState } from "../../hooks/useThemeState";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
+import { stubMatchMedia } from "../../test/match-media";
+
+// No device preference matches — the global setup reports reduced motion,
+// which would (correctly) add the reduced-motion overrides to every wrapper.
+stubMatchMedia([]);
 
 /* ── Test consumer: mirrors how apps (e.g. marketing) wire the toggle ── */
 

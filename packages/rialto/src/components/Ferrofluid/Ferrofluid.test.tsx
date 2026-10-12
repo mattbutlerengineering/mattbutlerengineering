@@ -1,7 +1,38 @@
 import { render } from "@testing-library/react";
 import { Ferrofluid } from "./Ferrofluid";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
+
+// Record the transition each motion.* element receives, so the animated
+// (motion.circle) and static (plain <circle>) branches can be told apart.
+vi.mock("framer-motion", async () =>
+  (await import("../../test/record-motion")).recordingFramerMotion()
+);
+
+// Reduced by default, as the global setup is; the motion block flips the
+// device signal useMotionPreset() reads.
+stubMatchMedia([PREFERS_REDUCED_MOTION]);
 
 describe("Ferrofluid", () => {
+  beforeEach(() => {
+    setMatchingMedia([PREFERS_REDUCED_MOTION]);
+  });
+
+  describe("motion", () => {
+    it("drifts every blob on an infinite loop when motion is allowed", () => {
+      setMatchingMedia([]);
+      const { container } = render(<Ferrofluid blobCount={3} />);
+      const animated = container.querySelectorAll("circle[data-motion-transition]");
+      expect(animated).toHaveLength(3);
+      expect(animated[0]?.getAttribute("data-motion-transition")).toContain('"repeat":null');
+    });
+
+    it("renders static blobs under prefers-reduced-motion", () => {
+      const { container } = render(<Ferrofluid blobCount={3} />);
+      expect(container.querySelectorAll("circle")).toHaveLength(3);
+      expect(container.querySelectorAll("circle[data-motion-transition]")).toHaveLength(0);
+    });
+  });
+
   describe("accessibility", () => {
     it("is aria-hidden by default — decorative visual", () => {
       const { container } = render(<Ferrofluid />);

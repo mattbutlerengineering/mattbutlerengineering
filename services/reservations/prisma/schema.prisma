@@ -222,6 +222,10 @@ model Reservation {
   venueId            String?            @map("venue_id")
   venue              Venue?             @relation(fields: [venueId], references: [id])
   deposit            Deposit?
+  /// Booking-widget session (`ReservationHold.sessionId`) that confirmed this
+  /// reservation. Proof of ownership for the public deposit route (#6304).
+  /// Null for reservations created outside the widget.
+  originSessionId    String?            @map("origin_session_id")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 

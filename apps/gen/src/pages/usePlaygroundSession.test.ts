@@ -363,7 +363,10 @@ describe("usePlaygroundSession", () => {
 
   describe("derived display values", () => {
     it("prefers the active history entry's spec when not streaming", () => {
-      const entrySpec = { type: "Card", children: [] } as unknown as Spec;
+      const entrySpec: Spec = {
+        root: "card",
+        elements: { card: { type: "Card", props: {}, children: [] } },
+      };
       genStreamState = {
         ...genStreamState,
         spec: { type: "Box", children: [] } as unknown as Spec,

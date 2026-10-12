@@ -7,9 +7,10 @@ import {
   useId,
   cloneElement,
   isValidElement,
+  Fragment,
   type ReactNode,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { cn } from "../../utils/class-composer";
@@ -37,12 +38,16 @@ export interface TooltipProps {
   className?: string;
 }
 
+function mergeIds(...ids: unknown[]): string | undefined {
+  const merged = ids.filter((id): id is string => typeof id === "string" && id !== "").join(" ");
+  return merged || undefined;
+}
+
 export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
   ({ content, placement = "top", delay = 400, showOnFocus = true, children, className }, ref) => {
     const [open, setOpen] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const shouldReduceMotion = useReducedMotion();
-    const { precision } = useMotionPreset();
+    const { precision, reduced: shouldReduceMotion } = useMotionPreset();
     const tooltipId = useId();
 
     // A single trigger fires both mouseEnter and focus (pointing at a button,
@@ -93,11 +98,17 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     // DropdownMenu's cloneElement pattern) — screen readers only announce
     // aria-describedby for the element that currently has DOM focus, and
     // the wrapper div below never receives focus.
-    const trigger = isValidElement(children)
-      ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-          "aria-describedby": open ? tooltipId : undefined,
-        })
-      : children;
+    // Merge with — never replace — a consumer-supplied aria-describedby, and
+    // skip Fragments: they have no DOM node to receive the attribute.
+    const trigger =
+      isValidElement(children) && children.type !== Fragment
+        ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            "aria-describedby": mergeIds(
+              (children.props as Record<string, unknown>)["aria-describedby"],
+              open ? tooltipId : undefined
+            ),
+          })
+        : children;
 
     return (
       <div

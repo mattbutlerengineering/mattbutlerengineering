@@ -2256,13 +2256,6 @@
   </section>
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
-    function deriveHasChanges(result: SessionResult): boolean {
-      if (result.prUrl !== null) return true;
-      // If the session succeeded and produced a branch, there were likely changes
-      // even if the PR wasn't created (createPr: false path).
-      if (result.status === "succeeded" && result.branchName.length > 0) return true;
-      return false;
-    }
     export class ClaudeAdapter implements AgentAdapter {
       readonly name = "claude";
     
@@ -2274,52 +2267,6 @@
           typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
           process.env["ANTHROPIC_API_KEY"].length > 0
         );
-      }
-    
-      /**
-       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
-       * result back to AdapterResult.
-       */
-      async run(config: AdapterConfig): Promise<AdapterResult> {
-        const startTime = Date.now();
-    
-        try {
-          const sessionResult = await runSessionPipeline({
-            taskDescription: config.taskDescription,
-            repoPath: config.repoPath,
-            baseBranch: config.baseBranch,
-            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
-            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
-            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
-            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-            createPr: false, // Worktree lifecycle is managed by the caller / router
-          });
-    
-          const durationMs = Date.now() - startTime;
-          const rateLimited = sessionResult.failureCategory === "rate_limited";
-          const success = sessionResult.status === "succeeded";
-          const hasChanges = deriveHasChanges(sessionResult);
-    
-          return {
-            success,
-            hasChanges,
-            rateLimited,
-            durationMs,
-            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
-          };
-        } catch (err: unknown) {
-          const durationMs = Date.now() - startTime;
-          const message = err instanceof Error ? err.message : String(err);
-          const rateLimited = scanForRateLimitPatterns(message);
-    
-          return {
-            success: false,
-            hasChanges: false,
-            rateLimited,
-            durationMs,
-            error: message,
-          };
-        }
       }
     
       /**
@@ -2381,7 +2328,7 @@
       /**
        * Recovers Claude CLI's `is_error`/`result`/`subtype` failure message from
        * the same JSON stdout blob, falling back to raw stderr in
-       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
        * contract, mirrors opencode-adapter.ts).
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
@@ -2424,7 +2371,7 @@
       /**
        * Recover a human-readable error message from the CLI's stdout when the
        * run failed, for backends that emit structured JSON there instead of (or
-       * in addition to) stderr. Base implementation reports none — `run()`
+       * in addition to) stderr. Base implementation reports none — `dispatch()`
        * falls through to the raw stderr text (see ADR-017 failure-PR-body
        * contract, #3019).
        */
@@ -2447,28 +2394,15 @@
       }
     
       /**
-       * Execute the shared CLI adapter lifecycle:
+       * Execute the shared CLI adapter lifecycle WITHOUT committing:
        *   1. Truncate task description
        *   2. Spawn the CLI subprocess via buildArgs
        *   3. Detect rate limiting in combined output
-       *   4. Check for git changes; commit if present
+       *   4. Check for git changes
        *   5. Return normalized AdapterResult
-       */
-      async run(config: AdapterConfig): Promise<AdapterResult> {
-        const result = await this.dispatch(config);
-        if (result.hasChanges) {
-          await this.commitChanges(config.worktreePath, config.taskDescription);
-        }
-        return result;
-      }
-    
-      /**
-       * Spawn the CLI subprocess and detect changes WITHOUT committing them.
-       * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
-       * contract used by `--adapter` dispatch); the Phase
-       * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
-       * leaves the commit to `VerificationPhase`, mirroring how Claude's
-       * QueryPhase never commits either (#3234).
+       * The Phase pipeline (`run-cli-adapter-session.ts`) calls this and leaves the
+       * commit to `VerificationPhase`, mirroring how Claude's QueryPhase never
+       * commits either (#3234).
        */
       async dispatch(config: AdapterConfig): Promise<AdapterResult> {
         const startTime = Date.now();
@@ -2540,17 +2474,6 @@
         return scanForRateLimitPatterns(output);
       }
     
-      /**
-       * Build a short conventional commit message from the task description.
-       */
-      protected buildCommitMessage(task: string): string {
-        const maxSubject = 72;
-        const prefix = "feat: ";
-        const available = maxSubject - prefix.length;
-        const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-        return `${prefix}${subject}`;
-      }
-    
       // ── Private helpers ──────────────────────────────────────────────
     
       /**
@@ -2591,19 +2514,6 @@
         } catch {
           return false;
         }
-      }
-    
-      /**
-       * Stage all changes and commit with a descriptive message.
-       */
-      private async commitChanges(worktreePath: string, task: string): Promise<void> {
-        const gitOpts = { cwd: worktreePath, timeout: GIT_TIMEOUT_MS };
-        await execFileAsync("git", ["-C", worktreePath, "add", "-A"], gitOpts);
-        await execFileAsync(
-          "git",
-          ["-C", worktreePath, "commit", "-m", this.buildCommitMessage(task)],
-          gitOpts
-        );
       }
     }
   </file>
@@ -2963,7 +2873,7 @@
       /**
        * Recovers OpenCode's structured `type: "error"` event message from the
        * same NDJSON stdout stream on failure, falling back to raw stderr in
-       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * CliAdapterBase.dispatch() when stdout isn't JSON (ADR-017 failure-PR-body
        * contract, #3019).
        */
       protected override parseErrorFromStdout(stdout: string): string | undefined {
@@ -6059,118 +5969,6 @@
         }
       });
   </file>
-  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    async function getGitRoot(): Promise<string> {
-      try {
-        return await runGit(["rev-parse", "--show-toplevel"]);
-      } catch {
-        return process.cwd();
-      }
-    }
-    function getWorktreeDirs(gitRoot: string): string[] {
-      const worktreesDir = join(gitRoot, ".claude/worktrees");
-      try {
-        return readdirSync(worktreesDir);
-      } catch {
-        return [];
-      }
-    }
-    async function getRemoteBranches(gitRoot: string): Promise<string[]> {
-      try {
-        const output = await runGit(["branch", "-r"], { cwd: gitRoot });
-        return output
-          .split("\n")
-          .map((b) => b.replace(/^[* ] /, "").trim())
-          .filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
-    export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
-      .description("Clean up orphaned git worktrees from .claude/worktrees/")
-      .option("-d, --days <days>", "Remove worktrees older than N days", "1")
-      .option("-n, --dry-run", "Show what would be removed without removing", false)
-      .option("--force", "Force removal without confirmation", false)
-      .action(async (options) => {
-        const gitRoot = await getGitRoot();
-        const worktreesDir = join(gitRoot, ".claude/worktrees");
-        const daysOld = parseInt(options.days, 10);
-        const now = Date.now();
-        const cutoffMs = daysOld * 24 * 60 * 60 * 1000;
-    
-        const worktrees = getWorktreeDirs(gitRoot);
-        const remoteBranches = await getRemoteBranches(gitRoot);
-    
-        const toRemove: string[] = [];
-    
-        for (const wt of worktrees) {
-          const wtPath = join(worktreesDir, wt);
-          const branchName = `worktree-${wt}`;
-    
-          try {
-            const stats = statSync(wtPath);
-            const ageMs = now - stats.mtimeMs;
-    
-            if (ageMs > cutoffMs) {
-              const hasRemote = remoteBranches.some(
-                (rb) => rb === `origin/${branchName}` || rb.endsWith(`/${branchName}`)
-              );
-    
-              if (!hasRemote) {
-                toRemove.push(wt);
-              }
-            }
-          } catch {
-            toRemove.push(wt);
-          }
-        }
-    
-        if (toRemove.length === 0) {
-          console.log("No orphaned worktrees to clean up.");
-          return;
-        }
-    
-        console.log(`Found ${toRemove.length} orphaned worktrees to remove:`);
-        toRemove.forEach((wt) => console.log(`  - ${wt}`));
-    
-        if (options.dryRun) {
-          console.log("\nDry run - nothing removed.");
-          return;
-        }
-    
-        if (!options.force) {
-          console.log("\nUse --force to remove these worktrees.");
-          return;
-        }
-    
-        for (const wt of toRemove) {
-          const wtPath = join(worktreesDir, wt);
-          const branchName = `worktree-${wt}`;
-    
-          try {
-            await runGit(["worktree", "remove", "--force", "--", wtPath], { cwd: gitRoot });
-            console.log(`Removed worktree: ${wt}`);
-          } catch (err) {
-            console.warn(`git worktree remove failed for ${wt}: ${(err as Error).message}`);
-            try {
-              rmSync(wtPath, { recursive: true, force: true });
-              console.log(`Removed directory: ${wt}`);
-            } catch (e) {
-              console.error(`Failed to remove ${wt}:`, e);
-            }
-          }
-    
-          try {
-            await runGit(["branch", "-D", "--", branchName], { cwd: gitRoot });
-            console.log(`Deleted branch: ${branchName}`);
-          } catch (err) {
-            console.warn(`Could not delete branch ${branchName}: ${(err as Error).message}`);
-          }
-        }
-    
-        console.log(`\nCleaned up ${toRemove.length} worktrees.`);
-      });
-  </file>
   <file path="tools/cli/src/commands/generate.ts">
     function writeFile(filePath: string, content: string): void {
       const dir = resolve(filePath, "..");
@@ -7142,224 +6940,6 @@
         }
       });
   </file>
-  <file path="tools/cli/src/commands/prime.ts">
-    export const primeCommand = new Command("prime")
-      .description("Just-In-Time context priming: Pack relevant directories for a task")
-      .argument("<directive>", "The task description to identify relevant context")
-      .action(async (directive: string) => {
-        const root = findMonorepoRoot(process.cwd());
-        console.log(`🎯 Priming context for: "${directive}"`);
-    
-        const packages = new Set<string>();
-    
-        // Simple keyword-based detection for now
-        // Future: Use LLM or dependency graph
-        const lower = directive.toLowerCase();
-    
-        if (lower.includes("user")) packages.add("services/users");
-        if (lower.includes("reservation") || lower.includes("table") || lower.includes("venue"))
-          packages.add("services/reservations");
-        if (lower.includes("agent") || lower.includes("session")) packages.add("services/agent");
-        if (lower.includes("rialto") || lower.includes("ui") || lower.includes("component"))
-          packages.add("packages/rialto");
-        if (lower.includes("auth")) packages.add("packages/auth");
-        if (lower.includes("api") || lower.includes("client")) packages.add("packages/api-client");
-    
-        // If no specific package found, pack everything in services/ (conservative default)
-        if (packages.size === 0) {
-          console.log("No specific packages identified. Priming all core services...");
-          packages.add("services/users");
-          packages.add("services/agent");
-          packages.add("services/reservations");
-        }
-    
-        console.log(`Refreshing context for ${packages.size} packages...`);
-    
-        for (const pkg of packages) {
-          try {
-            console.log(`   Packing ${pkg}...`);
-            execSync(`pnpm --filter @mbe/cli start pack ${pkg}`, { cwd: root, stdio: "inherit" });
-          } catch {
-            console.error(`❌ Failed to pack ${pkg}`);
-          }
-        }
-    
-        console.log("\n✅ Context primed. You are ready to work with fresh semantic skeletons.");
-      });
-  </file>
-  <file path="tools/cli/src/commands/stats.ts">
-    interface AgentSessionRecord {
-      timestamp: string;
-      sessionId: string;
-      milestone?: string;
-      modelId: string;
-      researchTurns: number;
-      executionTurns: number;
-      totalTurns: number;
-      firstPassSuccess: boolean;
-      humanInterventions: number;
-      costUsd: number;
-    }
-    export const logSessionCommand = new Command("log-session")
-      .description("Log agent session performance metrics")
-      .requiredOption("--id <string>", "Unique session/task ID")
-      .option("--milestone <string>", "Current milestone (e.g. v1.3)")
-      .option("--model <string>", "Model ID used", "unknown")
-      .requiredOption("--research <number>", "Number of research turns", parseInt)
-      .requiredOption("--execution <number>", "Number of execution turns", parseInt)
-      .option("--success", "Whether it passed on first attempt", false)
-      .option("--interventions <number>", "Number of human interventions", parseInt, 0)
-      .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
-      .action(async (options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const logDir = join(root, "metrics");
-        const logFile = join(logDir, "agent-perf.jsonl");
-    
-        if (!existsSync(logDir)) {
-          mkdirSync(logDir, { recursive: true });
-        }
-    
-        const record: AgentSessionRecord = {
-          timestamp: new Date().toISOString(),
-          sessionId: options.id,
-          milestone: options.milestone,
-          modelId: options.model,
-          researchTurns: options.research,
-          executionTurns: options.execution,
-          totalTurns: options.research + options.execution,
-          firstPassSuccess: !!options.success,
-          humanInterventions: options.interventions,
-          costUsd: options.cost,
-        };
-    
-        appendFileSync(logFile, JSON.stringify(record) + "\n");
-        console.log(`✅ Session ${options.id} logged to ${logFile}`);
-      });
-    export const statsCommand = new Command("stats")
-      .description("Show agent performance statistics")
-      .action(async () => {
-        const root = findMonorepoRoot(process.cwd());
-        const logFile = join(root, "metrics/agent-perf.jsonl");
-    
-        if (!existsSync(logFile)) {
-          console.log("No performance data found. Run some tasks first!");
-          return;
-        }
-    
-        const lines = readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
-        const records: AgentSessionRecord[] = lines.map((l) => JSON.parse(l));
-    
-        const total = records.length;
-        const avgResearch = records.reduce((sum, r) => sum + r.researchTurns, 0) / total;
-        const avgExecution = records.reduce((sum, r) => sum + r.executionTurns, 0) / total;
-        const successRate = (records.filter((r) => r.firstPassSuccess).length / total) * 100;
-        const totalCost = records.reduce((sum, r) => sum + r.costUsd, 0);
-        const totalInterventions = records.reduce((sum, r) => sum + r.humanInterventions, 0);
-    
-        console.log("\n📊 Agent Performance Scoreboard");
-        console.log("===============================");
-        console.log(`Total Sessions:         ${total}`);
-        console.log(`Avg Research Turns:     ${avgResearch.toFixed(2)}`);
-        console.log(`Avg Execution Turns:    ${avgExecution.toFixed(2)}`);
-        console.log(`First-Pass Success:     ${successRate.toFixed(1)}%`);
-        console.log(
-          `Human Interventions:    ${totalInterventions} (${(totalInterventions / total).toFixed(2)} per session)`
-        );
-        console.log(`Total Cost (Est):       $${totalCost.toFixed(2)}`);
-        console.log("");
-      });
-    export const auditPerfCommand = new Command("audit-perf")
-      .description("Analyze agent performance logs and suggest optimizations")
-      .option("--auto-plan", "Automatically generate a GSD plan for the top improvement", false)
-      .action(async (options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const logFile = join(root, "metrics/agent-perf.jsonl");
-        const lastAuditFile = join(root, "metrics/last-audit.json");
-    
-        if (!existsSync(logFile)) {
-          console.log("No performance data found. Run some tasks first!");
-          return;
-        }
-    
-        const lines = readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
-        const records: AgentSessionRecord[] = lines.map((l) => JSON.parse(l));
-    
-        console.log("\n🕵️  Agent Performance Audit");
-        console.log("===========================");
-    
-        const improvements: { id: string; msg: string; action: string; priority: number }[] = [];
-    
-        // 1. Check for high research turns (Discovery issues)
-        const highResearch = records.filter((r) => r.researchTurns > 5);
-        if (highResearch.length > 0) {
-          const avg = highResearch.reduce((sum, r) => sum + r.researchTurns, 0) / highResearch.length;
-          improvements.push({
-            id: "discovery",
-            msg: `High Research Turns detected (Avg: ${avg.toFixed(1)})`,
-            action: "Run 'mbe pack <directory>' on frequently touched directories to compress context.",
-            priority: avg > 8 ? 1 : 2,
-          });
-        }
-    
-        // 2. Check for low first-pass success (Guardrail issues)
-        const failures = records.filter((r) => !r.firstPassSuccess);
-        if (failures.length > 0) {
-          const rate = (failures.length / records.length) * 100;
-          improvements.push({
-            id: "guardrails",
-            msg: `${rate.toFixed(1)}% of tasks failed on first pass`,
-            action: "Identify the failure pattern and implement a new Custom ESLint Rule (Phase 27).",
-            priority: rate > 20 ? 1 : 2,
-          });
-        }
-    
-        // 3. Check for human interventions (Guideline issues)
-        const interventions = records.filter((r) => r.humanInterventions > 0);
-        if (interventions.length > 0) {
-          improvements.push({
-            id: "guidelines",
-            msg: `Human interventions detected in ${interventions.length} sessions`,
-            action:
-              "Update AGENTS.md with specific naming or architectural guidelines to eliminate ambiguity.",
-            priority: 1,
-          });
-        }
-    
-        if (improvements.length === 0) {
-          console.log("✅ No significant process bottlenecks detected! Your AI velocity is optimized.");
-          return;
-        }
-    
-        // Sort by priority
-        improvements.sort((a, b) => a.priority - b.priority);
-    
-        console.log("Identified Optimization Opportunities:");
-        improvements.forEach((imp, i) => console.log(`${i + 1}. ${imp.msg}. ACTION: ${imp.action}`));
-    
-        // Save findings for recursion detection
-        writeFileSync(
-          lastAuditFile,
-          JSON.stringify({ timestamp: new Date().toISOString(), improvements }, null, 2)
-        );
-    
-        // Auto-plan generation
-        if (options.autoPlan && improvements.length > 0) {
-          const top = improvements[0];
-          if (!top) return;
-          const quickDir = join(root, ".planning/quick");
-          const planPath = join(quickDir, "AUTO-PERF-OPTIMIZATION.md");
-    
-          if (!existsSync(quickDir)) mkdirSync(quickDir, { recursive: true });
-    
-          const planContent = `# Auto-Generated Performance Optimization: ${top.id}\n\n**Source**: mbe audit-perf\n**Detected Issue**: ${top.msg}\n\n## Objective\n${top.action}\n\n## Implementation Steps\n1. Analyze the last 5 sessions in \`metrics/agent-perf.jsonl\` to find specific files.\n2. Apply the recommended optimization.\n3. Verify improvement by running \`mbe stats\`.\n`;
-    
-          writeFileSync(planPath, planContent);
-          console.log(`\n🚀 Created autonomous optimization plan at: ${planPath}`);
-        }
-    
-        console.log("");
-      });
-  </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     export const syncRulesRun = defineCommand({
       requiresAuth: false,
@@ -7512,175 +7092,6 @@
       },
     });
     export const usersCommand = new Command("users").description("User management commands");
-  </file>
-  <file path="tools/cli/src/commands/visual.ts">
-    export const visualCommand = new Command("visual")
-      .description("Run visual regression tests via Playwright")
-      .argument("[filter]", "Filter tests by component ID (e.g., button)")
-      .option("-u, --update", "Update visual baselines", false)
-      .action(async (filter: string | undefined, options) => {
-        const root = findMonorepoRoot(process.cwd());
-        console.log(`🚀 Running visual regression tests${filter ? ` for: "${filter}"` : ""}...`);
-    
-        const args = ["playwright", "test", "e2e/visual.spec.ts"];
-        if (filter) {
-          args.push("-g", filter);
-        }
-        if (options.update) {
-          args.push("--update-snapshots");
-        }
-    
-        const testProcess = spawn("pnpm", ["--filter", "@mbe/rialto-web", "exec", ...args], {
-          cwd: root,
-          stdio: "inherit",
-        });
-    
-        testProcess.on("close", (code) => {
-          if (code === 0) {
-            console.log("\n✅ Visual tests passed.");
-          } else {
-            console.error(`\n❌ Visual tests failed with code ${code}.`);
-          }
-          process.exit(code || 0);
-        });
-      });
-  </file>
-  <file path="tools/cli/src/commands/wave.ts">
-    interface WaveResult {
-      task: string;
-      branchName: string;
-      worktreePath: string;
-      success: boolean;
-      error?: string;
-    }
-    export const waveCommand = new Command("wave")
-      .description("Execute multiple tasks in parallel using git worktrees")
-      .argument("<tasks...>", "List of tasks to execute")
-      .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
-      .option("--base-branch <branch>", "Base branch to branch from", "main")
-      .option(
-        "--adapter <type>",
-        "Agent adapter: auto, claude, claude-cli, opencode, grok, omp",
-        "claude"
-      )
-      .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
-      .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
-      .option("--max-turns <n>", "Maximum turns per agent", "100")
-      .action(async (tasks: string[], options) => {
-        const root = findMonorepoRoot(process.cwd());
-        const maxParallel = parseInt(options.maxParallel, 10) || 3;
-        const maxBudget = parseFloat(options.maxBudget) || 2;
-        const maxTurns = parseInt(options.maxTurns, 10) || 100;
-        console.log(`🚀 Starting Wave with ${tasks.length} tasks (max parallel: ${maxParallel})...`);
-    
-        const results: WaveResult[] = [];
-        const queue = [...tasks];
-        const active = new Set<Promise<void>>();
-    
-        const runTask = async (task: string) => {
-          let worktree;
-          try {
-            console.log(`\n🌊 Spawning worktree for task: "${task}"`);
-            worktree = await createWorktree(root, options.baseBranch, task);
-    
-            console.log(`   Branch: ${worktree.branchName}`);
-            console.log(`   Path:   ${worktree.path}`);
-    
-            // Run agent in the worktree
-            const agentArgs = [
-              "agent",
-              "run",
-              task,
-              "--no-pr",
-              "--adapter",
-              options.adapter,
-              "--model",
-              options.model,
-              "--max-budget",
-              String(maxBudget),
-              "--max-turns",
-              String(maxTurns),
-            ];
-            const agentProcess = spawn("mbe", agentArgs, {
-              cwd: worktree.path,
-              stdio: "inherit",
-            });
-    
-            const success = await new Promise<boolean>((resolve) => {
-              agentProcess.on("close", (code) => resolve(code === 0));
-            });
-    
-            results.push({
-              task,
-              branchName: worktree.branchName,
-              worktreePath: worktree.path,
-              success,
-            });
-    
-            if (success) {
-              console.log(`✅ Task succeeded: "${task}"`);
-            } else {
-              console.log(`❌ Task failed:    "${task}"`);
-            }
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error(`💥 Error running task "${task}":`, msg);
-            results.push({
-              task,
-              branchName: worktree?.branchName || "unknown",
-              worktreePath: worktree?.path || "unknown",
-              success: false,
-              error: msg,
-            });
-          }
-        };
-    
-        while (queue.length > 0 || active.size > 0) {
-          while (queue.length > 0 && active.size < maxParallel) {
-            const task = queue.shift()!;
-            const promise = runTask(task).then(() => {
-              active.delete(promise);
-            });
-            active.add(promise);
-          }
-          if (active.size > 0) {
-            await Promise.race(active);
-          }
-        }
-    
-        console.log("\n🏁 Wave execution complete. Processing results...");
-    
-        // Final sequential merge
-        const successful = results.filter((r) => r.success);
-        if (successful.length > 0) {
-          console.log(`\nMerging ${successful.length} successful branches into current branch...`);
-          for (const res of successful) {
-            try {
-              console.log(`   Merging ${res.branchName}...`);
-              execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
-            } catch {
-              console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
-            }
-          }
-        }
-    
-        // Cleanup worktrees
-        console.log("\n🧹 Cleaning up worktrees...");
-        for (const res of results) {
-          if (res.worktreePath !== "unknown") {
-            await removeWorktree(root, res.worktreePath).catch(() => {});
-          }
-        }
-    
-        console.log("\n✨ Done.");
-    
-        const failed = results.filter((r) => !r.success);
-        if (failed.length > 0) {
-          console.log(`\n⚠️  ${failed.length} tasks failed:`);
-          failed.forEach((f) => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
-          process.exit(1);
-        }
-      });
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
     export const whoamiRun = defineCommand({
@@ -7918,6 +7329,16 @@
           audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
         },
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/constants/confirmation-copy.ts">
+    export const CONFIRMATION_COPY = Object.freeze({
+      specialRequestsLabel: "Special Requests",
+      acknowledgement,
+      hostCaption: `Guests see this with: “${acknowledgement}”`,
+    });
+    export function contactLine(contact: string): string {
+      return `No confirmation email or text is sent for this booking, so save these details. The venue has ${contact} on your reservation.`;
     }
   </file>
   <file path="apps/hospitality/src/constants/copilotContext.ts">
@@ -13088,9 +12509,8 @@
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
-      navigate: (path: string) => void;
+      runAction: (action: NavAction) => void;
       toggleTheme: () => void;
-      signOut: () => void;
     }
     interface UseCommandPaletteResult {
       readonly open: boolean;
@@ -13103,7 +12523,7 @@
     }
     function buildNavItems(
       sections: readonly NavSection[],
-      navigate: (path: string) => void
+      runAction: (action: NavAction) => void
     ): CommandItem[] {
       return sections.flatMap((section) => {
         const group = sectionGroupName(section);
@@ -13111,14 +12531,13 @@
           id: item.id,
           label: item.label,
           group,
-          onSelect: () => navigate(item.path),
+          onSelect: () => runAction(item.action),
         }));
       });
     }
     function buildActionItems(
-      navigate: (path: string) => void,
-      toggleTheme: () => void,
-      signOut: () => void
+      runAction: (action: NavAction) => void,
+      toggleTheme: () => void
     ): CommandItem[] {
       return [
         {
@@ -13127,31 +12546,25 @@
           group: "Actions",
           // Carries the intent the Reservations page reads on arrival (architecture § Amendment
           // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
-          onSelect: () => navigate("/reservations?new=true"),
+          onSelect: () => runAction({ type: "route", path: "/reservations?new=true" }),
         },
         {
           id: "action-walkin",
           label: "Walk-in guest",
           group: "Actions",
-          onSelect: () => navigate("/timeline?walkin=true"),
+          onSelect: () => runAction({ type: "route", path: "/timeline?walkin=true" }),
         },
         {
           id: "action-new-floor-plan",
           label: "New Floor Plan",
           group: "Actions",
-          onSelect: () => navigate("/floor-plans"),
+          onSelect: () => runAction({ type: "route", path: "/floor-plans" }),
         },
         {
           id: "action-toggle-theme",
           label: "Toggle Theme",
           group: "Actions",
           onSelect: toggleTheme,
-        },
-        {
-          id: "action-sign-out",
-          label: "Sign Out",
-          group: "Actions",
-          onSelect: signOut,
         },
       ];
     }
@@ -13164,18 +12577,14 @@
     }
     export function useCommandPalette({
       sections,
-      navigate,
+      runAction,
       toggleTheme,
-      signOut,
     }: UseCommandPaletteOptions): UseCommandPaletteResult {
       const [open, setOpen] = useState(false);
     
       const items = useMemo(
-        () => [
-          ...buildNavItems(sections, navigate),
-          ...buildActionItems(navigate, toggleTheme, signOut),
-        ],
-        [sections, navigate, toggleTheme, signOut]
+        () => [...buildNavItems(sections, runAction), ...buildActionItems(runAction, toggleTheme)],
+        [sections, runAction, toggleTheme]
       );
     
       const groups = useMemo(() => buildGroups(sections), [sections]);
@@ -13385,14 +12794,24 @@
           return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
       }
     }
+    export type CancellationInitiator = "staff" | "guest";
     export function evaluateCancellationQuote(
       policy: CancellationPolicy | null,
       reservationTime: Date,
       currency = "usd",
-      now: Date = new Date()
+      now: Date = new Date(),
+      initiator: CancellationInitiator = "guest"
     ): CancellationQuote | null {
       if (!policy) return null;
-      const fee = evaluateCancellationFee(policy, reservationTime, now);
+      const fee: CancellationFeeResult =
+        initiator === "staff"
+          ? {
+              feeType: "none",
+              feeAmountCents: 0,
+              refundAmountCents: policy.depositAmountCents,
+              depositAction: "refund_full",
+            }
+          : evaluateCancellationFee(policy, reservationTime, now);
       return { fee, label: buildFeeLabel(fee, currency), currency };
     }
     export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
@@ -13417,8 +12836,17 @@
       isLoading: boolean;
     } {
       const { policy, isLoading } = useVenuePolicy(slug);
+      // The server treats an admin canceller as `staff` (fee waived); a non-admin
+      // can only cancel their own reservation and gets guest rules.
+      const isAdmin = useIsAdmin();
       const quote = reservationTime
-        ? evaluateCancellationQuote(policy, reservationTime, currency)
+        ? evaluateCancellationQuote(
+            policy,
+            reservationTime,
+            currency,
+            undefined,
+            isAdmin ? "staff" : "guest"
+          )
         : null;
       return { quote, isLoading };
     }
@@ -13996,10 +13424,24 @@
     });
   </file>
   <file path="apps/hospitality/src/hooks/useIsAdmin.ts">
-    export function useIsAdmin(): boolean {
-      const { user } = useAuth();
-      const permissions = user?.raw?.permissions;
+    function accessTokenPermissions(accessToken: string | null): unknown {
+      const payload = accessToken?.split(".")[1];
+      if (!payload) return undefined;
+      try {
+        const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+        return (JSON.parse(json) as { permissions?: unknown }).permissions;
+      } catch {
+        return undefined;
+      }
+    }
+    function includesAdmin(permissions: unknown): boolean {
       return Array.isArray(permissions) && permissions.includes("admin");
+    }
+    export function useIsAdmin(): boolean {
+      const { user, accessToken } = useAuth();
+      return (
+        includesAdmin(accessTokenPermissions(accessToken)) || includesAdmin(user?.raw?.permissions)
+      );
     }
   </file>
   <file path="apps/hospitality/src/hooks/useNow.ts">
@@ -14940,14 +14382,20 @@
       onMouseEnter: () => void;
       onMouseLeave: () => void;
     } {
-      const shouldReduceMotion = useReducedMotion();
+      const { reduced: shouldReduceMotion, boop } = useMotionPreset();
       const scale = useMotionValue(1);
-      const { stiffness, damping, mass } = boop.transition;
-      const springScale = useSpring(scale, { stiffness, damping, mass });
+      // Under reduced motion `boop` carries an instant transition, not a spring.
+      // The spring is never rendered then (noop style below); `useSpring` is
+      // still called so the hook order stays fixed.
+      const spring = "stiffness" in boop.transition ? boop.transition : undefined;
+      const springScale = useSpring(
+        scale,
+        spring && { stiffness: spring.stiffness, damping: spring.damping, mass: spring.mass }
+      );
     
       const onMouseEnter = useCallback(() => {
         scale.set(boop.scale);
-      }, [scale]);
+      }, [scale, boop.scale]);
     
       const onMouseLeave = useCallback(() => {
         scale.set(1);
@@ -15498,7 +14946,7 @@
       fallbackTimeout = FALLBACK_TIMEOUT_MS,
     }: UseScrollRevealOptions = {}) {
       const controls = useAnimation();
-      const shouldReduceMotion = useReducedMotion();
+      const { reduced: shouldReduceMotion } = useMotionPreset();
       const ref = useRef<HTMLDivElement>(null);
       const inView = useInView(ref, { margin: margin as `${number}px`, once });
       const hasRevealedRef = useRef(false);
@@ -15506,7 +14954,7 @@
     
       // Derived during render from the three reveal routes — never mirrored back
       // into state from an effect, which would re-render into the same effect.
-      const revealed = Boolean(shouldReduceMotion) || inView || fallbackElapsed;
+      const revealed = shouldReduceMotion || inView || fallbackElapsed;
     
       useEffect(() => {
         if (shouldReduceMotion) {
@@ -15603,8 +15051,8 @@
       onMouseLeave: () => void;
     } {
       const elRef = useRef<HTMLDivElement | null>(null);
-      const shouldReduceMotion = useReducedMotion();
       const motionPreset = useMotionPreset();
+      const shouldReduceMotion = motionPreset.reduced;
     
       const rotateX = useMotionValue(0);
       const rotateY = useMotionValue(0);
@@ -16023,6 +15471,29 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/gen/src/lib/spec.ts">
+    export interface SpecStats {
+      elementCount: number;
+      componentTypes: string[];
+    }
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    export function decodeSpec(value: unknown): Spec | null {
+      if (!isRecord(value)) return null;
+      if (typeof value.root !== "string" || !isRecord(value.elements)) return null;
+      for (const element of Object.values(value.elements)) {
+        if (!isRecord(element) || typeof element.type !== "string") return null;
+      }
+      return value as unknown as Spec;
+    }
+    export function specStats(spec: Spec | null): SpecStats | null {
+      if (!spec) return null;
+      const elements = Object.values(spec.elements);
+      const types = new Set(elements.map((element) => element.type));
+      return { elementCount: elements.length, componentTypes: Array.from(types).sort() };
+    }
+  </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
     export type ApiErrorCategory = ErrorCategory | "network" | "timeout";
     export type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
@@ -16909,8 +16380,7 @@
       });
     
       const activeEntry = activeId ? specs.find((s) => s.id === activeId) : undefined;
-      // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
-      const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+      const activeEntrySpec = activeEntry ? (decodeSpec(activeEntry.spec) ?? undefined) : undefined;
       const activeEntryRawLines = activeEntry?.rawLines ?? [];
     
       const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
@@ -18424,6 +17894,11 @@
       MediaQueryList,
     ];
     function getSnapshot(): DeviceContext {
+      // Initialise on first read, not first subscribe: subscribing happens after
+      // the first commit, and a component gating a canvas loop or timer on
+      // reduced motion must see the real device on its very first render.
+      // Idempotent — `ensureListeners` returns early once the queries exist.
+      ensureListeners();
       return snapshot;
     }
     function getServerSnapshot(): DeviceContext {
@@ -18505,13 +17980,26 @@
       damping: number;
       mass: number;
     }
+    export type BoopHover = {
+      scale: number;
+      transition: SpringTransition | InstantTransition;
+    };
     export interface MotionPreset {
+      /**
+       * Whether the user prefers reduced motion — the same signal every field
+       * below is resolved from. Use it to choose keyframe targets (e.g. drop a
+       * slide offset from `initial`); never to choose a transition, which is
+       * already resolved.
+       */
+      reduced: boolean;
       /** Standard UI transitions, hover states, small movements. */
       precision: EasedTransition | InstantTransition;
       /** Toggles, AI elements, high-interaction components. */
       spring: SpringTransition | InstantTransition;
       /** Larger movements — dialog entrances, card expansions. */
       springGentle: SpringTransition | InstantTransition;
+      /** Brief spring scale on hover — pass to `whileHover`. At rest scale under reduced motion. */
+      boop: BoopHover;
       /** Cursor-tracking tilt — a `useSpring` config, not a transition. */
       tilt: SpringOptions;
     }
@@ -20981,6 +20469,16 @@
     }
   </file>
   <file path="services/reservations/src/routes/availability.ts">
+    type SlotsRoute = {
+      Params: { venueId: string };
+      Querystring: { date: string; partySize: string; duration?: string };
+      Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
+    };
+    type DatesRoute = {
+      Params: { venueId: string };
+      Querystring: { startDate: string; endDate: string; partySize: string };
+      Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
+    };
     export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singletons directly — tests inject fakes via
@@ -20992,11 +20490,7 @@
       fastify.addSchema(DateAvailabilitySchema);
     
       // GET /:venueId - Get available time slots for a date
-      fastify.get<{
-        Params: { venueId: string };
-        Querystring: { date: string; partySize: string; duration?: string };
-        Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
-      }>(
+      fastify.get<SlotsRoute>(
         "/:venueId",
         {
           preHandler: requireAuth,
@@ -21031,8 +20525,7 @@
             },
           },
         },
-        async (request, reply) => {
-          const { venueId } = request.params;
+        venueScoped<SlotsRoute>({ venue: "params" }, async (request, reply, { venueId }) => {
           const { date, partySize, duration } = request.query;
     
           // Validate venue exists
@@ -21074,15 +20567,11 @@
           );
     
           return { data: slots };
-        }
+        })
       );
     
       // GET /:venueId/dates - Get dates with availability in a range
-      fastify.get<{
-        Params: { venueId: string };
-        Querystring: { startDate: string; endDate: string; partySize: string };
-        Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
-      }>(
+      fastify.get<DatesRoute>(
         "/:venueId/dates",
         {
           preHandler: requireAuth,
@@ -21117,8 +20606,7 @@
             },
           },
         },
-        async (request, reply) => {
-          const { venueId } = request.params;
+        venueScoped<DatesRoute>({ venue: "params" }, async (request, reply, { venueId }) => {
           const { startDate, endDate, partySize } = request.query;
     
           // Validate venue exists
@@ -21147,7 +20635,7 @@
           );
     
           return { data: dates };
-        }
+        })
       );
     };
   </file>
@@ -21284,8 +20772,18 @@
       }>(
         "/public/v1/reservations/manage",
         {
+          schema: {
+            body: cancelReservationBodyJsonSchema,
+          },
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          // The body is optional: Ajv rejects an undefined body against an object
+          // schema, so default an omitted one to {} before validation runs.
+          preValidation: async (request) => {
+            if (request.body === undefined) {
+              request.body = {};
+            }
           },
           preHandler: requireManageToken,
         },
@@ -21361,51 +20859,54 @@
     };
   </file>
   <file path="services/reservations/src/routes/deposit-transition-handler.ts">
-    type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
-    type TransitionResult =
-      { kind: "not-found" } | { kind: "invalid"; message: string } | { kind: "ok"; deposit: Deposit };
+    export interface DepositTransitionRoute {
+      Params: { id: string };
+      Reply: { data: Deposit } | ReturnType<typeof createProblemDetails>;
+    }
     export function depositTransitionHandler(
       deposits: DepositService,
       transition: (id: string) => Promise<Deposit>
     ) {
-      return async (request: DepositTransitionRequest, reply: FastifyReply) => {
-        const result = await loadInVenueContext<TransitionResult>(
-          "deposit",
-          request.params.id,
-          async () => {
-            const existing = await deposits.getById(request.params.id);
-            if (!existing) {
-              return { kind: "not-found" };
-            }
-    
-            try {
-              const deposit = await transition(request.params.id);
-              return { kind: "ok", deposit };
-            } catch (err) {
-              if (err instanceof DepositTransitionError) {
-                return { kind: "invalid", message: err.message };
-              }
-              throw err;
-            }
+      return venueScoped<DepositTransitionRoute, Deposit>(
+        {
+          venue: {
+            entity: "deposit",
+            key: (request) => request.params.id,
+            load: (id) => deposits.getById(id),
+            notFound: "Deposit not found",
           },
-          { kind: "not-found" }
-        );
-    
-        if (result.kind === "not-found") {
-          return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        },
+        async (request, reply) => {
+          try {
+            return { data: await transition(request.params.id) };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
         }
-        if (result.kind === "invalid") {
-          return reply
-            .code(422)
-            .send(createProblemDetails(422, "Unprocessable Entity", result.message));
-        }
-        return { data: result.deposit };
-      };
+      );
     }
   </file>
   <file path="services/reservations/src/routes/deposits.ts">
     interface ApiResponse<T> {
       data: T;
+    }
+    type DepositsQuery = { reservationId?: string; venueId?: string; date?: string };
+    async function requireDepositSelector(
+      request: FastifyRequest<{ Querystring: DepositsQuery }>,
+      reply: FastifyReply
+    ): Promise<void> {
+      const { reservationId, venueId, date } = request.query;
+      if (reservationId || (venueId && date)) return;
+      reply
+        .code(400)
+        .send(
+          createProblemDetails(400, "Bad Request", "reservationId, or venueId and date, is required")
+        );
     }
     export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       const { depositService } = fastify.services;
@@ -21437,23 +20938,23 @@
             },
           },
         },
-        async (request, reply) => {
-          const venueId = await resolveReservationVenueId(request.body.reservationId);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          const deposit = await runWithVenueContext(venueId, () =>
-            depositService.create({
+        venueScoped(
+          {
+            venue: {
+              entity: "reservation",
+              key: (request: { body: { reservationId: string } }) => request.body.reservationId,
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, reply) => {
+            const deposit = await depositService.create({
               reservationId: request.body.reservationId,
               amountCents: request.body.amountCents,
               currency: request.body.currency,
-            })
-          );
-          return reply.code(201).send({ data: deposit });
-        }
+            });
+            return reply.code(201).send({ data: deposit });
+          }
+        )
       );
     
       // GET /api/v1/deposits?reservationId= — operator visibility: look up a
@@ -21464,17 +20965,15 @@
       //
       // GET /api/v1/deposits?venueId=&date= — deposit-exposure dashboard batch
       // read (#5832): every deposit for a venue's reservations on a given date.
-      // Unlike the reservationId= query above, `venueId` IS present in the
-      // querystring, so the app-wide preHandler already resolves it — the
-      // explicit `runWithVenueContext` below is kept anyway, matching every
-      // other route in this file, so the scope is never implicit.
+      // Here the venue is the query's own `venueId`. Either way the route
+      // declares its scope with `venueScoped`, so it is never implicit.
       fastify.get<{
-        Querystring: { reservationId?: string; venueId?: string; date?: string };
+        Querystring: DepositsQuery;
         Reply: ApiResponse<Deposit | Deposit[] | null> | ReturnType<typeof createProblemDetails>;
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireAdmin],
+          preHandler: [requireAuth, requireAdmin, requireDepositSelector],
           schema: {
             summary: "Get a reservation's deposit, or list a venue's deposits for a date",
             operationId: "getDeposits",
@@ -21512,40 +21011,25 @@
             },
           },
         },
-        async (request, reply) => {
-          const { reservationId, venueId, date } = request.query;
-    
-          if (reservationId) {
-            const resolvedVenueId = await resolveReservationVenueId(reservationId);
-            if (!resolvedVenueId) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+        venueScoped(
+          {
+            venue: {
+              // requireDepositSelector guarantees `venueId` when there is no
+              // `reservationId`; only an unresolvable reservation yields null.
+              resolve: async ({ query }) =>
+                query.reservationId ? resolveReservationVenueId(query.reservationId) : query.venueId!,
+              label: "reservationId|venueId",
+              notFound: "Reservation not found",
+            },
+          },
+          async (request, _reply, { venueId }) => {
+            const { reservationId, date } = request.query;
+            if (reservationId) {
+              return { data: await depositService.getByReservationId(reservationId) };
             }
-    
-            const deposit = await runWithVenueContext(resolvedVenueId, () =>
-              depositService.getByReservationId(reservationId)
-            );
-            return { data: deposit };
+            return { data: await depositService.listByVenueAndDate(venueId, new Date(date!)) };
           }
-    
-          if (venueId && date) {
-            const deposits = await runWithVenueContext(venueId, () =>
-              depositService.listByVenueAndDate(venueId, new Date(date))
-            );
-            return { data: deposits };
-          }
-    
-          return reply
-            .code(400)
-            .send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                "reservationId, or venueId and date, is required"
-              )
-            );
-        }
+        )
       );
     
       // GET /api/v1/deposits/:id — get deposit by ID
@@ -21578,24 +21062,22 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 6 / #5369 PR 7: resolves straight through the
-          // `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
-          // the deposit's own reservation done INSIDE the resolver, not via a
-          // prior unscoped `depositService.getById` — so the read below already
-          // runs inside the resolved venue context instead of repeating the
-          // "lookup can't run inside the scope it's computing" trap.
-          const deposit = await loadInVenueContext(
-            "deposit",
-            request.params.id,
-            () => depositService.getById(request.params.id),
-            null
-          );
-          if (!deposit) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-          }
-          return { data: deposit };
-        }
+        // ADR-026 §3.3 item 6 / #5369 PR 7: the venue resolves straight through
+        // the `SECURITY DEFINER` `app_resolve_venue_id('deposit', id)` — a join to
+        // the deposit's own reservation done INSIDE the resolver, not via a prior
+        // unscoped `depositService.getById` — so the load already runs inside the
+        // resolved venue context.
+        venueScoped(
+          {
+            venue: {
+              entity: "deposit",
+              key: (request: { params: { id: string } }) => request.params.id,
+              load: (id: string) => depositService.getById(id),
+              notFound: "Deposit not found",
+            },
+          },
+          async (_request, _reply, { entity: deposit }) => ({ data: deposit })
+        )
       );
     
       // POST /api/v1/deposits/:id/capture — apply (capture) a held deposit
@@ -21831,35 +21313,6 @@
           }
         }
       );
-    
-      // GET /events/test - Test endpoint to trigger an event (development only)
-      if (process.env.NODE_ENV !== "production") {
-        fastify.post<{
-          Body: { type: string; venueId: string; data: unknown };
-        }>(
-          "/test",
-          {
-            schema: {
-              summary: "Trigger a test event (development only)",
-              operationId: "testEvent",
-              tags: ["Events"],
-              body: testEventBodyJsonSchema,
-            },
-          },
-          async (request, reply) => {
-            const { type, venueId, data } = request.body;
-    
-            fastify.reservationEvents.emitChange({
-              type: type as ReservationEvent["type"],
-              venueId,
-              timestamp: new Date().toISOString(),
-              data: data as ReservationEvent["data"],
-            });
-    
-            return reply.send({ success: true, message: "Event emitted" });
-          }
-        );
-      }
     }
   </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
@@ -22478,6 +21931,17 @@
       // Generate a new session ID if not provided
       return randomUUID();
     }
+    type HoldIdRoute = { Params: { id: string } };
+    type CreateRoute = {
+      Body: CreateHoldRequest;
+      Reply: ApiResponse<ReservationHold> | ProblemDetails;
+    };
+    type GetRoute = HoldIdRoute & { Reply: ApiResponse<ReservationHold> | ProblemDetails };
+    type ReleaseRoute = HoldIdRoute & { Reply: { success: boolean } | ProblemDetails };
+    type ConfirmRoute = HoldIdRoute & {
+      Body: ConfirmHoldRequest;
+      Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
+    };
     export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       // Register schemas
       fastify.addSchema(HoldSchema);
@@ -22494,13 +21958,10 @@
       });
     
       // POST / - Create a hold
-      fastify.post<{
-        Body: CreateHoldRequest;
-        Reply: ApiResponse<ReservationHold> | ProblemDetails;
-      }>(
+      fastify.post<CreateRoute>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           config: {
             rateLimit: {
               max: 20,
@@ -22537,7 +21998,7 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped<CreateRoute>({ venue: "body" }, async (request, reply) => {
           const sessionId = getSessionId(request);
           const result = await holdService.create(request.body, sessionId);
     
@@ -22558,14 +22019,11 @@
           // Set the session ID header in response
           reply.header(SESSION_ID_HEADER, sessionId);
           return reply.code(201).send({ data: result.hold! });
-        }
+        })
       );
     
       // GET /:id - Get hold status
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<ReservationHold> | ProblemDetails;
-      }>(
+      fastify.get<GetRoute>(
         "/:id",
         {
           // Issue #4487: the per-IP cap runs BEFORE requireAuth so anonymous
@@ -22573,11 +22031,7 @@
           // 100/min onRequest limiter. Deliberately NOT a route-level
           // config.rateLimit — that would replace the global limiter and (#4492)
           // leave stages before the preHandler with no bound at all.
-          preHandler: [
-            publicRateLimitHook,
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-          ],
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Get hold status",
             operationId: "getHold",
@@ -22601,32 +22055,28 @@
             },
           },
         },
-        async (request, reply) => {
-          const hold = await holdService.getById(request.params.id);
+        venueScoped<GetRoute>(
+          { venue: holdVenue("Hold not found or expired") },
+          async (request, reply) => {
+            const hold = await holdService.getById(request.params.id);
     
-          if (!hold) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+            if (!hold) {
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+            }
+    
+            return { data: hold };
           }
-    
-          return { data: hold };
-        }
+        )
       );
     
       // DELETE /:id - Release a hold
-      fastify.delete<{
-        Params: { id: string };
-        Reply: { success: boolean } | ProblemDetails;
-      }>(
+      fastify.delete<ReleaseRoute>(
         "/:id",
         {
           // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-          preHandler: [
-            publicRateLimitHook,
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-          ],
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Release a hold",
             operationId: "releaseHold",
@@ -22662,43 +22112,38 @@
             },
           },
         },
-        async (request, reply) => {
-          const sessionId = request.headers[SESSION_ID_HEADER];
+        venueScoped<ReleaseRoute>(
+          { venue: holdVenue("Hold not found or not owned by this session") },
+          async (request, reply) => {
+            const sessionId = request.headers[SESSION_ID_HEADER];
     
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply
-              .code(401)
-              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            if (typeof sessionId !== "string" || sessionId.length === 0) {
+              return reply
+                .code(401)
+                .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            }
+    
+            const released = await holdService.release(request.params.id, sessionId);
+    
+            if (!released) {
+              return reply
+                .code(404)
+                .send(
+                  createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
+                );
+            }
+    
+            return { success: true };
           }
-    
-          const released = await holdService.release(request.params.id, sessionId);
-    
-          if (!released) {
-            return reply
-              .code(404)
-              .send(
-                createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
-              );
-          }
-    
-          return { success: true };
-        }
+        )
       );
     
       // POST /:id/confirm - Convert hold to reservation
-      fastify.post<{
-        Params: { id: string };
-        Body: ConfirmHoldRequest;
-        Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
-      }>(
+      fastify.post<ConfirmRoute>(
         "/:id/confirm",
         {
           // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
-          preHandler: [
-            publicRateLimitHook,
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, holdVenueIdFromParams),
-          ],
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Confirm a hold and create reservation",
             operationId: "confirmHold",
@@ -22742,25 +22187,20 @@
             },
           },
         },
-        async (request, reply) => {
-          const sessionId = request.headers[SESSION_ID_HEADER];
+        venueScoped<ConfirmRoute>(
+          { venue: holdVenue("Hold not found") },
+          async (request, reply, { venueId }) => {
+            const sessionId = request.headers[SESSION_ID_HEADER];
     
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply
-              .code(401)
-              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
-          }
+            if (typeof sessionId !== "string" || sessionId.length === 0) {
+              return reply
+                .code(401)
+                .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            }
     
-          // Re-resolved here (requireVenueAccess skips the resolver for admins) so
-          // the confirm runs inside the hold's own venue context, as sibling
-          // entity-addressed routes do, and is pinned to that venue.
-          const venueId = await holdService.getVenueId(request.params.id);
-          if (!venueId) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found"));
-          }
-    
-          const result = await runWithVenueContext(venueId, () =>
-            fastify.transitions.confirmHold(
+            // `venueScoped` resolved the hold's venue and entered its context, so the
+            // confirm runs inside it and is pinned to that venue.
+            const result = await fastify.transitions.confirmHold(
               {
                 holdId: request.params.id,
                 sessionId,
@@ -22768,45 +22208,45 @@
                 venueId,
               },
               { door: "staff-hold" }
-            )
-          );
+            );
     
-          if (!result.success) {
-            const statusMap: Record<string, number> = {
-              NOT_FOUND: 404,
-              EXPIRED: 410,
-              SESSION_MISMATCH: 403,
-              CONFLICT: 409,
-              PACING_EXCEEDED: 422,
-            };
-            const titleMap: Record<string, string> = {
-              NOT_FOUND: "Not Found",
-              EXPIRED: "Hold Expired",
-              SESSION_MISMATCH: "Forbidden",
-              CONFLICT: "Conflict",
-              PACING_EXCEEDED: "Pacing Limit Reached",
-            };
-            const statusCode = statusMap[result.errorCode] ?? 409;
-            const title = titleMap[result.errorCode] ?? "Conflict";
+            if (!result.success) {
+              const statusMap: Record<string, number> = {
+                NOT_FOUND: 404,
+                EXPIRED: 410,
+                SESSION_MISMATCH: 403,
+                CONFLICT: 409,
+                PACING_EXCEEDED: 422,
+              };
+              const titleMap: Record<string, string> = {
+                NOT_FOUND: "Not Found",
+                EXPIRED: "Hold Expired",
+                SESSION_MISMATCH: "Forbidden",
+                CONFLICT: "Conflict",
+                PACING_EXCEEDED: "Pacing Limit Reached",
+              };
+              const statusCode = statusMap[result.errorCode] ?? 409;
+              const title = titleMap[result.errorCode] ?? "Conflict";
     
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
+              return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
+            }
+    
+            // Self-service manage/cancel token, threaded through so the guest-facing
+            // confirmation screen can link straight to the manage page (#4978) —
+            // reuses the same signing logic as the authenticated-email path in
+            // public-reservations.ts rather than duplicating it. Only mint one when
+            // guestEmail was actually provided: confirm-hold.ts stores a missing
+            // email as `null`, and requireManageToken checks the token's signed
+            // email against that stored value with strict equality — signing with
+            // "" instead of omitting the token would produce a manage link that
+            // can never validate for a phone-only booking.
+            const manageToken = request.body.guestEmail
+              ? generateManageToken(result.reservation.id, request.body.guestEmail)
+              : undefined;
+    
+            return reply.code(201).send({ data: result.reservation, manageToken });
           }
-    
-          // Self-service manage/cancel token, threaded through so the guest-facing
-          // confirmation screen can link straight to the manage page (#4978) —
-          // reuses the same signing logic as the authenticated-email path in
-          // public-reservations.ts rather than duplicating it. Only mint one when
-          // guestEmail was actually provided: confirm-hold.ts stores a missing
-          // email as `null`, and requireManageToken checks the token's signed
-          // email against that stored value with strict equality — signing with
-          // "" instead of omitting the token would produce a manage link that
-          // can never validate for a phone-only booking.
-          const manageToken = request.body.guestEmail
-            ? generateManageToken(result.reservation.id, request.body.guestEmail)
-            : undefined;
-    
-          return reply.code(201).send({ data: result.reservation, manageToken });
-        }
+        )
       );
     };
   </file>
@@ -23045,6 +22485,16 @@
       amountCents: number;
       currency: string;
     }
+    function sessionIdsMatch(presented: string, stored: string): boolean {
+      const sha256 = (value: string) => createHash("sha256").update(value).digest();
+      return timingSafeEqual(sha256(presented), sha256(stored));
+    }
+    function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean {
+      const presented = request.headers[SESSION_ID_HEADER];
+      if (typeof presented !== "string" || presented.length === 0) return false;
+      if (originSessionId === null) return false;
+      return sessionIdsMatch(presented, originSessionId);
+    }
     export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
       const { depositService } = fastify.services;
     
@@ -23117,6 +22567,21 @@
               return reply
                 .status(404)
                 .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
+            }
+    
+            // Ownership proof, checked before any Stripe call (#6304). 403, not
+            // 404: the 404 above is the enumeration path, this is the auth path.
+            const originSessionId = await reservationService.getOriginSessionId(reservationId);
+            if (!ownsReservation(request, originSessionId)) {
+              return reply
+                .status(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    "Forbidden",
+                    `Pass the booking session ID via the ${SESSION_ID_HEADER} header to pay a deposit for this reservation.`
+                  )
+                );
             }
     
             // Check no deposit already exists for this reservation
@@ -24063,11 +23528,11 @@
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
-       * routes below. Both routes are guarded by `requireReservationOwnerOrAdmin`,
-       * which admits the reservation OWNER (guest email match), not only an
+       * routes below. Both routes are scoped by `reservationOwnerScope`, which
+       * admits the reservation OWNER (guest email match), not only an
        * admin — so `isAdmin` here MUST come from the verified
-       * `request.authorization.isAdmin` flag set by that guard, never from a
-       * client-supplied value, otherwise an owner could get the fee-waived
+       * `scope.isAdmin` flag `venueScoped` derives from the JWT's permissions,
+       * never from a client-supplied value, otherwise an owner could get the fee-waived
        * staff refund on their own cancellation. Admins get staff semantics
        * (waived fee, deposit refunded in full); a non-admin owner gets guest
        * semantics (the venue's cancellation-fee policy applies) — see
@@ -24198,7 +23663,7 @@
       }>(
         "/walk-in",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: requireAuth,
           schema: {
             summary: "Create a walk-in reservation",
             operationId: "createWalkIn",
@@ -24239,7 +23704,7 @@
             },
           },
         },
-        async (request, reply) => {
+        venueScoped({ venue: "body" }, async (request, reply) => {
           const userId = request.user?.id;
           // A picked guest must belong to this venue; unknown and foreign ids get
           // the same answer, before anything is written.
@@ -24270,7 +23735,7 @@
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
           return reply.code(201).send({ data: result.reservation });
-        }
+        })
       );
     
       // Get reservation by ID
@@ -24280,7 +23745,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Get reservation by ID",
             operationId: "getReservationById",
@@ -24315,21 +23780,9 @@
             },
           },
         },
-        async (request, reply) => {
-          const reservation = await loadInVenueContext(
-            "reservation",
-            request.params.id,
-            () => reservationService.getById(request.params.id),
-            null
-          );
-          if (!reservation) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return { data: reservation };
-        }
+        venueScoped(reservationOwnerScope, async (_request, _reply, { entity: reservation }) => ({
+          data: reservation,
+        }))
       );
     
       // Create reservation
@@ -24458,7 +23911,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Update a reservation",
             operationId: "updateReservation",
@@ -24526,151 +23979,130 @@
             },
           },
         },
-        async (request, reply) => {
-          // ADR-026 §3.3 item 2 / #5369 PR 5: this handler's whole body — the
-          // initial read below plus every branch's own reservation/venue/deposit
-          // calls — runs inside the resolved venue context, so all of them
-          // succeed under FORCE instead of the unscoped-read trap `resolveVenueId`
-          // exists to close.
-          const venueId = await resolveVenueId("reservation", request.params.id);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.params.id);
-            if (!reservation) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-            }
-    
-            if (request.body.status === "CANCELLED") {
-              try {
-                const result = await cancelReservationForRequest(
-                  reservation,
-                  request.log,
-                  request.authorization?.isAdmin === true,
-                  "staff-patch",
-                  {
-                    cancellationReason: request.body.cancellationReason,
-                    cancellationNote: request.body.cancellationNote,
-                  }
-                );
-    
-                if (!result.success) {
-                  return reply
-                    .code(result.status)
-                    .send(createProblemDetails(result.status, result.title, result.detail));
-                }
-    
-                return { data: result.reservation };
-              } catch (err) {
-                if (err instanceof ReservationTransitionError) {
-                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-                }
-                throw err;
-              }
-            }
-    
-            if (request.body.status === "NO_SHOW") {
-              try {
-                const result = await fastify.transitions.noShow(reservation, request.log);
-    
-                if (!result.success) {
-                  return reply
-                    .code(result.status)
-                    .send(createProblemDetails(result.status, result.title, result.detail));
-                }
-    
-                return {
-                  data: result.reservation,
-                  ...(result.depositWarning && { warning: result.depositWarning }),
-                };
-              } catch (err) {
-                if (err instanceof ReservationTransitionError) {
-                  return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-                }
-                throw err;
-              }
-            }
-    
-            // #2998: staff PATCH accepts partySize but previously bypassed the
-            // per_person-deposit guard added for the public manage route in
-            // #2997/#2931 (decision: Block) — route through the same check here
-            // so a staff caller can't silently diverge a held/pending deposit
-            // either. Staff who need to override should capture/refund the
-            // deposit first, or cancel and rebook.
-            if (
-              request.body.partySize !== undefined &&
-              (await isPartySizeDepositBlocked(
-                reservation,
-                request.body.partySize,
-                fastify.services.depositService
-              ))
-            ) {
-              return reply
-                .code(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Conflict",
-                    "This venue charges a per-person deposit and a payment is already pending or " +
-                      "held for this reservation. Capture or refund the deposit before changing party " +
-                      "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
-                    "about:blank",
-                    undefined,
-                    { code: "PARTY_SIZE_DEPOSIT_HELD" }
-                  )
-                );
-            }
-    
+        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+          if (request.body.status === "CANCELLED") {
             try {
-              const result = await fastify.transitions.updateByStaff(reservation, request.body);
+              const result = await cancelReservationForRequest(
+                reservation,
+                request.log,
+                isAdmin,
+                "staff-patch",
+                {
+                  cancellationReason: request.body.cancellationReason,
+                  cancellationNote: request.body.cancellationNote,
+                }
+              );
     
               if (!result.success) {
-                if (result.error === "Reservation not found") {
-                  return reply
-                    .code(404)
-                    .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-                }
-    
-                if (result.tableNotInVenue) {
-                  return reply
-                    .code(403)
-                    .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
-                }
-    
-                if (result.conflict?.hasConflict) {
-                  return reply
-                    .code(409)
-                    .send(
-                      createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
-                    );
-                }
-    
                 return reply
-                  .code(400)
-                  .send(
-                    createProblemDetails(
-                      400,
-                      "Bad Request",
-                      result.error ?? "Failed to update reservation"
-                    )
-                  );
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
               }
     
-              return { data: result.reservation! };
+              return { data: result.reservation };
             } catch (err) {
               if (err instanceof ReservationTransitionError) {
                 return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
               }
               throw err;
             }
-          });
-        }
+          }
+    
+          if (request.body.status === "NO_SHOW") {
+            try {
+              const result = await fastify.transitions.noShow(reservation, request.log);
+    
+              if (!result.success) {
+                return reply
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
+              }
+    
+              return {
+                data: result.reservation,
+                ...(result.depositWarning && { warning: result.depositWarning }),
+              };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
+            }
+          }
+    
+          // #2998: staff PATCH accepts partySize but previously bypassed the
+          // per_person-deposit guard added for the public manage route in
+          // #2997/#2931 (decision: Block) — route through the same check here
+          // so a staff caller can't silently diverge a held/pending deposit
+          // either. Staff who need to override should capture/refund the
+          // deposit first, or cancel and rebook.
+          if (
+            request.body.partySize !== undefined &&
+            (await isPartySizeDepositBlocked(
+              reservation,
+              request.body.partySize,
+              fastify.services.depositService
+            ))
+          ) {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Conflict",
+                  "This venue charges a per-person deposit and a payment is already pending or " +
+                    "held for this reservation. Capture or refund the deposit before changing party " +
+                    "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                  "about:blank",
+                  undefined,
+                  { code: "PARTY_SIZE_DEPOSIT_HELD" }
+                )
+              );
+          }
+    
+          try {
+            const result = await fastify.transitions.updateByStaff(reservation, request.body);
+    
+            if (!result.success) {
+              if (result.error === "Reservation not found") {
+                return reply
+                  .code(404)
+                  .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              }
+    
+              if (result.tableNotInVenue) {
+                return reply
+                  .code(403)
+                  .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+              }
+    
+              if (result.conflict?.hasConflict) {
+                return reply
+                  .code(409)
+                  .send(
+                    createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+                  );
+              }
+    
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    result.error ?? "Failed to update reservation"
+                  )
+                );
+            }
+    
+            return { data: result.reservation! };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+            }
+            throw err;
+          }
+        })
       );
     
       // Cancel reservation (DELETE)
@@ -24680,7 +24112,7 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
+          preHandler: requireAuth,
           schema: {
             summary: "Cancel a reservation",
             operationId: "cancelReservation",
@@ -24716,43 +24148,27 @@
             },
           },
         },
-        async (request, reply) => {
-          const venueId = await resolveVenueId("reservation", request.params.id);
-          if (!venueId) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          return runWithVenueContext(venueId, async () => {
-            const reservation = await reservationService.getById(request.params.id);
-            if (!reservation) {
+        venueScoped(reservationOwnerScope, async (request, reply, { entity: reservation, isAdmin }) => {
+          try {
+            const result = await cancelReservationForRequest(
+              reservation,
+              request.log,
+              isAdmin,
+              "staff-delete"
+            );
+            if (!result.success) {
               return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+                .code(result.status)
+                .send(createProblemDetails(result.status, result.title, result.detail));
             }
-    
-            try {
-              const result = await cancelReservationForRequest(
-                reservation,
-                request.log,
-                request.authorization?.isAdmin === true,
-                "staff-delete"
-              );
-              if (!result.success) {
-                return reply
-                  .code(result.status)
-                  .send(createProblemDetails(result.status, result.title, result.detail));
-              }
-              return { data: result.reservation };
-            } catch (err) {
-              if (err instanceof ReservationTransitionError) {
-                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
-              }
-              throw err;
+            return { data: result.reservation };
+          } catch (err) {
+            if (err instanceof ReservationTransitionError) {
+              return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
             }
-          });
-        }
+            throw err;
+          }
+        })
       );
     };
   </file>
@@ -24870,9 +24286,6 @@
       // SSE: no RLS-scoped Prisma read at all (broadcasts an in-memory emitter),
       // and `.inject()` cannot exercise a long-lived stream meaningfully.
       "GET /api/v1/events/stream",
-      // Dev/test-only helper (`process.env.NODE_ENV !== "production"`), no auth,
-      // no Prisma call — just re-emits onto the in-memory bus above.
-      "POST /api/v1/events/test",
     ]);
     export type FixtureKind = "not-rls" | "ok" | "broken";
     export interface RouteFixture {
@@ -25210,6 +24623,17 @@
         },
       });
       return extractId(res);
+    }
+    function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture {
+      return ok(async (ctx) => {
+        expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(ctx.venueA.id) }), "admin venue A");
+        expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(ctx.venueB.id) }), "admin venue B");
+        expectOk(await asMember(ctx, { method: "GET", url: urlFor(ctx.venueA.id) }), "member venue A");
+        expectDenied(
+          await asMember(ctx, { method: "GET", url: urlFor(ctx.venueB.id) }),
+          "member venue B"
+        );
+      });
     }
     export const FIXTURES: Record<string, RouteFixture> = {
       ...notRlsFixtures,
@@ -27993,6 +27417,7 @@
     export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
     export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
     export const modifyReservationBodyJsonSchema = toRequestJsonSchema(ModifyReservationBodySchema);
+    export const cancelReservationBodyJsonSchema = toRequestJsonSchema(CancelReservationBodySchema);
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     export const ListReservationsQuerySchema = z.object({
@@ -28339,6 +27764,12 @@
         specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
       })
       .describe("Fields to modify via guest self-service");
+    export const CancelReservationBodySchema = z
+      .object({
+        cancellationReason: z.string().max(500).describe("Why the guest is cancelling").optional(),
+        cancellationNote: z.string().max(500).describe("Free-text cancellation note").optional(),
+      })
+      .describe("Optional cancellation details supplied via guest self-service");
     export const PublicUnsubscribeQuerySchema = z.object({
       token: z.string().optional(),
     });
@@ -32268,6 +31699,8 @@
               guestId: guestDetails.guestId ?? null,
               notes: guestDetails.notes ?? null,
               userId: userId ?? null,
+              // Ownership proof for the public deposit route (#6304).
+              originSessionId: hold.sessionId,
               status: "CONFIRMED",
             },
             include: {
@@ -36415,6 +35848,20 @@
         return reservation ? toReservation(reservation) : null;
       },
     
+      /**
+       * The booking-widget session that confirmed this reservation (#6304), or
+       * `null` when the reservation does not exist or was created outside the
+       * widget. Kept off the serialized `Reservation` so the capability token is
+       * never echoed in an API response.
+       */
+      async getOriginSessionId(id: string): Promise<string | null> {
+        const row = await prisma.reservation.findUnique({
+          where: { id },
+          select: { originSessionId: true },
+        });
+        return row?.originSessionId ?? null;
+      },
+    
       async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
         const reservation = await prisma.reservation.create({
           data: {
@@ -39739,11 +39186,35 @@
       readonly env: ImportMetaEnv;
     }
   </file>
+  <file path="apps/hospitality/src/nav-actions.ts">
+    export type NavAction =
+      | { readonly type: "route"; readonly path: string }
+      | { readonly type: "chat" }
+      | { readonly type: "signout" };
+    export interface NavActionHandlers {
+      navigate: (path: string) => void;
+      toggleChat: () => void;
+      signOut: () => void;
+    }
+    export function runNavAction(action: NavAction, handlers: NavActionHandlers): void {
+      switch (action.type) {
+        case "route":
+          handlers.navigate(action.path);
+          return;
+        case "chat":
+          handlers.toggleChat();
+          return;
+        case "signout":
+          handlers.signOut();
+          return;
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/nav-sections.ts">
     export interface NavItem {
       id: string;
       label: string;
-      path: string;
+      action: NavAction;
       /** Setup step status — drives icon before the label */
       stepStatus?: "completed" | "current" | "locked";
       /** Prevents click and applies muted style */
@@ -39776,7 +39247,7 @@
         return {
           id: `setup-${step}`,
           label: STEP_LABELS[step],
-          path: STEP_PATHS[step],
+          action: { type: "route", path: STEP_PATHS[step] },
           stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
           disabled: isLocked,
         };
@@ -39792,20 +39263,28 @@
     function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
       const PRIMARY: NavSection = {
         items: [
-          { id: "briefing", label: "Tonight's Service", path: "/briefing" },
-          { id: "timeline", label: "Timeline", path: "/timeline" },
-          { id: "reservations", label: "Reservations", path: "/reservations" },
-          { id: "waitlist", label: "Waitlist", path: "/waitlist" },
-          { id: "guests", label: "Guests", path: "/guests" },
-          { id: "home", label: "Dashboard", path: "/dashboard" },
+          { id: "briefing", label: "Tonight's Service", action: { type: "route", path: "/briefing" } },
+          { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
+          {
+            id: "reservations",
+            label: "Reservations",
+            action: { type: "route", path: "/reservations" },
+          },
+          { id: "waitlist", label: "Waitlist", action: { type: "route", path: "/waitlist" } },
+          { id: "guests", label: "Guests", action: { type: "route", path: "/guests" } },
+          { id: "home", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
         ],
       };
     
       const MANAGE: NavSection = {
         label: "Manage",
         items: [
-          { id: "floor-plans", label: "Floor Plans", path: "/floor-plans" },
-          { id: "booking-widget", label: "Booking Widget", path: "/booking-widget" },
+          { id: "floor-plans", label: "Floor Plans", action: { type: "route", path: "/floor-plans" } },
+          {
+            id: "booking-widget",
+            label: "Booking Widget",
+            action: { type: "route", path: "/booking-widget" },
+          },
         ],
       };
     
@@ -41011,8 +40490,6 @@
       readonly name: string;
       /** Check whether the adapter's CLI / SDK dependency is installed and reachable. */
       isAvailable(): Promise<boolean>;
-      /** Execute the agent task and return a normalized result. */
-      run(config: AdapterConfig): Promise<AdapterResult>;
     }
   </file>
   <file path="packages/agent-core/src/context-budget.ts">
@@ -49648,16 +49125,25 @@
     
       /**
        * Create a Stripe PaymentIntent for a reservation's deposit.
+       * `sessionId` is the booking session that confirmed the reservation
+       * (`api.holds.getSessionId()`), sent as `x-session-id` — the server's
+       * proof of ownership (#6304).
        */
       async depositIntent(
         slug: string,
-        data: CreateDepositPaymentIntentRequest
+        data: CreateDepositPaymentIntentRequest,
+        sessionId: string
       ): Promise<DepositPaymentIntent> {
-        return this.client.postOne<DepositPaymentIntent>(
+        const response = await this.client.request(
           `/public/v1/venues/${slug}/deposits/payment-intent`,
-          data,
-          DepositPaymentIntentSchema
+          {
+            method: "POST",
+            body: JSON.stringify(data),
+            headers: { "x-session-id": sessionId },
+          },
+          z.object({ data: DepositPaymentIntentSchema })
         );
+        return response.data;
       }
     }
   </file>
@@ -50525,8 +50011,9 @@
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const p = pool as any;
         const total = p.totalCount ?? 0;
-        const active = p.activeCount ?? 0;
         const idle = p.idleCount ?? 0;
+        // pg-pool has no activeCount getter; checked-out connections = total - idle.
+        const active = Math.max(total - idle, 0);
         const waiting = p.waitingCount ?? 0;
         return {
           total,
@@ -51980,11 +51467,11 @@
       if (!(err instanceof Error)) return false;
       const stderr = (err as { stderr?: unknown }).stderr;
       const text = `${err.message}\n${typeof stderr === "string" ? stderr : ""}`;
-      return (
-        /HTTP 403/.test(text) &&
-        /api\.github\.com\/graphql/i.test(text) &&
-        /GraphQL is not available|use the REST API/i.test(text)
-      );
+      // gh prints this block two ways: `HTTP 403: <msg> (https://api.github.com/graphql)`
+      // and, behind the Claude Code proxy, `non-200 OK status code: 403 Forbidden body:
+      // "{...}"` with no URL at all (measured, #6312). Match on the 403 plus the
+      // block's own sentence, not on either gh formatting.
+      return /\b403\b/.test(text) && /GitHub GraphQL is not available/i.test(text);
     }
     export function createTransportRunner(opts: TransportOptions = {}): Run {
       const probe = opts.probe ?? probeGh;
@@ -54342,6 +53829,23 @@
         scope.setUser({ id: user.id, email: user.email });
       }
     }
+    export function captureRequestError(
+      error: unknown,
+      request: FastifyRequest,
+      reply: FastifyReply
+    ): void {
+      const { statusCode } = error as { statusCode?: number };
+      if ((statusCode ?? 500) < 500) return;
+    
+      Sentry.withScope((scope) => {
+        setSentryContext(scope, request);
+        scope.setTag("handled", "true");
+        Sentry.captureException(error);
+      });
+    
+      // Flag reply so onResponse hook doesn't double-capture this error
+      (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
+    }
     export const sentryFastifyPlugin = fp(
       async function sentryPlugin(fastify: FastifyInstance) {
         const config = resolveConfig(process.env.SENTRY_DSN);
@@ -54349,32 +53853,10 @@
           return;
         }
     
-        // 1. Explicit Error Handler
-        fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-          Sentry.withScope((scope) => {
-            setSentryContext(scope, request);
-            scope.setTag("handled", "true");
-            Sentry.captureException(error);
-          });
-    
-          // Flag reply so onResponse hook doesn't double-capture this error
-          (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
-    
-          const statusCode = error.statusCode ?? 500;
-    
-          // If it's a 500, we obscure the message for the client but log the real one
-          const title = error.name || "Internal Server Error";
-          const message = statusCode >= 500 ? "Internal Server Error" : error.message;
-    
-          reply
-            .status(statusCode)
-            .send(createProblemDetails(statusCode, title, message, "about:blank", request.url));
-        });
-    
         // 4xx statuses that indicate unexpected server-side issues worth tracking
         const NOTABLE_4XX = new Set([409, 422, 429]);
     
-        // 2. Response Hook for status-based logging (catches manual code(4xx).send())
+        // Response Hook for status-based logging (catches manual code(4xx).send())
         fastify.addHook("onResponse", async (request, reply) => {
           const status = reply.statusCode;
           const path = request.url.split("?")[0];
@@ -54414,6 +53896,18 @@
       readonly method?: string;
       readonly path?: string;
     }
+    export interface ReportableValidationError {
+      readonly name: "ApiValidationError";
+      readonly message: string;
+      readonly method?: string;
+      readonly path?: string;
+      readonly error: { readonly issues: readonly unknown[] };
+    }
+    function isValidationError(
+      error: ReportableApiError | ReportableValidationError
+    ): error is ReportableValidationError {
+      return "name" in error && error.name === "ApiValidationError";
+    }
     export interface InitOptions {
       readonly appName: string;
       readonly dsn: string;
@@ -54449,7 +53943,19 @@
         Sentry.captureException(error);
       });
     }
-    export function reportApiError(error: ReportableApiError): void {
+    export function reportApiError(error: ReportableApiError | ReportableValidationError): void {
+      if (isValidationError(error)) {
+        Sentry.withScope((scope) => {
+          scope.setContext("apiValidation", {
+            method: error.method,
+            path: error.path,
+            issues: error.error.issues,
+          });
+          Sentry.captureException(error);
+        });
+        return;
+      }
+    
       const code = error.statusCode;
     
       Sentry.addBreadcrumb({
@@ -54885,6 +54391,8 @@
     export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
       fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
         request.log.error(error);
+        // Single owner of the error-handler slot (ADR-008): report to Sentry here.
+        captureRequestError(error, request, reply);
     
         const { status, title, detail, extensions } = classifyError(error);
     
@@ -57999,10 +57507,10 @@
       readonly registeredUnder: "test" | "production";
     }
     export const ENV_CONDITIONAL_ROUTES: readonly EnvConditionalRoute[] = [
-      // `services/reservations/src/routes/events.ts:181` — a manual
-      // event-emitting endpoint registered only when `NODE_ENV !== "production"`,
-      // under the unconditional `/api/v1/events` prefix (`app.ts:231`).
-      { owner: "reservations", entry: "POST /api/v1/events/test", registeredUnder: "test" },
+      // Empty since `POST /api/v1/events/test` (reservations, `NODE_ENV !==
+      // "production"` only) was deleted by docs/fixes/venue-scoped-routes PR 5.
+      // The measurement stays: a new env-gated route fails the test below until it
+      // is listed here with a reason.
     ];
     export function printedRouteEntries(printedRoutes: string): string[] {
       const entries: string[] = [];
@@ -58740,6 +58248,67 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/special-requests-fixtures.ts">
+    export const TWO_LINE_NOTE =
+      "  Our anniversary.\nWindow seat if you can, and she can't have tree nuts.  \n";
+    export const TWO_LINE_DISPLAYED =
+      "Our anniversary.\nWindow seat if you can, and she can't have tree nuts.";
+    export const UNTRUSTED_NOTE = `<script>alert(1)</script>\n<a href="https://x">x</a> &amp; "double" 'single'`;
+    export const EMPTY_NOTES: readonly (string | null)[] = [null, "", "   ", "\n\t "];
+  </file>
+  <file path="packages/rialto/src/test/match-media.ts">
+    export const PREFERS_REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+    type ChangeListener = () => void;
+    export function stubMatchMedia(matching: readonly string[]): void {
+      matchingQueries = matching;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        get matches() {
+          return matchingQueries.includes(query);
+        },
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: (_type: string, listener: ChangeListener) => changeListeners.add(listener),
+        removeEventListener: (_type: string, listener: ChangeListener) =>
+          changeListeners.delete(listener),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+    export function setMatchingMedia(matching: readonly string[]): void {
+      matchingQueries = matching;
+      changeListeners.forEach((listener) => listener());
+    }
+  </file>
+  <file path="packages/rialto/src/test/record-motion.ts">
+    export async function recordingFramerMotion(): Promise<typeof FramerMotion> {
+      const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
+      const cache = new Map<PropertyKey, unknown>();
+      const motion = new Proxy(actual.motion, {
+        get(target, key) {
+          if (!cache.has(key)) {
+            const Inner = Reflect.get(target, key) as ElementType;
+            const Recorded = (props: { transition?: unknown; ref?: Ref<unknown> }) =>
+              createElement(Inner, {
+                ...props,
+                "data-motion-transition": JSON.stringify(props.transition ?? null),
+              });
+            Recorded.displayName = `Recorded(${String(key)})`;
+            cache.set(key, Recorded);
+          }
+          return cache.get(key);
+        },
+      });
+      // Overloaded signature: vi.fn() keeps only the last overload, so cast back.
+      const useSpring = vi.fn(actual.useSpring) as unknown as typeof actual.useSpring;
+      return { ...actual, motion, useSpring };
+    }
+    export function recordedTransitions(root: ParentNode = document): unknown[] {
+      return Array.from(root.querySelectorAll("[data-motion-transition]"))
+        .map((el) => JSON.parse(el.getAttribute("data-motion-transition") ?? "null") as unknown)
+        .filter((t) => t !== null);
+    }
+  </file>
   <file path="services/reservations/src/test/effects-harness.ts">
     export interface RecordedEvent {
       type: string;
@@ -58967,12 +58536,6 @@
     export function statusWord(reservation: Reservation, seated: boolean): string {
       return seated ? "Seated" : STATUS_LABEL[reservation.status];
     }
-    function isSeatableStatus(reservation: Reservation): boolean {
-      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
-    }
-    export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
-      return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
-    }
     function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
       if (reservation.status !== "CONFIRMED") return false;
       const start = new Date(reservation.startTime).getTime();
@@ -59020,6 +58583,19 @@
     
       return { seating, failure, seatRef, seat };
     }
+  </file>
+  <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
+    export type ReservationSheetSize = "compact" | "default";
+    export function reservationSheetSize(
+      notes: string | null | undefined,
+      expanded: boolean
+    ): ReservationSheetSize {
+      return expanded || specialRequestsText(notes) !== null ? "default" : "compact";
+    }
+    export const SHEET_BLOCK_SIZE: Readonly<Record<ReservationSheetSize, string>> = Object.freeze({
+      compact: "min(40vh, 240px)",
+      default: "min(50vh, 480px)",
+    });
   </file>
   <file path="apps/hospitality/src/components/timeline/table-status-menu.ts">
     export interface TableStatusMenuItem {
@@ -60999,6 +60575,10 @@
         minute: "2-digit",
       });
     }
+    export function specialRequestsText(notes: string | null | undefined): string | null {
+      const text = notes?.trim() ?? "";
+      return text === "" ? null : text;
+    }
   </file>
   <file path="apps/hospitality/src/utils/seated.ts">
     export const SEATED_EARLY_WINDOW_MS = 15 * 60_000;
@@ -61026,6 +60606,28 @@
           .filter((reservation) => isSeated(reservation, statusByTableId.get(reservation.tableId), now))
           .map((reservation) => reservation.id)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/seating.ts">
+    function tableAcceptsParty(table: Pick<Table, "status">): boolean {
+      return TABLE_VALID_TRANSITIONS[table.status].includes("OCCUPIED");
+    }
+    export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean {
+      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
+    }
+    export function canSeat(
+      reservation: Pick<Reservation, "status">,
+      table: Pick<Table, "status"> | undefined
+    ): boolean {
+      return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
+    }
+    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+      tables: readonly T[],
+      partySize: number
+    ): T[] {
+      return tables
+        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .sort((a, b) => a.capacity - b.capacity);
     }
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">

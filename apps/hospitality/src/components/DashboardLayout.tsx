@@ -22,11 +22,14 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
-import type { NavItem } from "../nav-sections.js";
+import { runNavAction } from "../nav-actions.js";
+import type { NavAction } from "../nav-actions.js";
 import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { LoadingPage } from "../pages/LoadingPage.js";
+import { describeApiError } from "../lib/describe-api-error.js";
+import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -65,7 +68,7 @@ function DashboardLayoutInner() {
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
-  const { selectedVenue } = useVenue();
+  const { selectedVenue, venuesError, refetchVenues } = useVenue();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -168,35 +171,37 @@ function DashboardLayoutInner() {
     signIn({ returnTo: (path || "/") + location.search + location.hash });
   }, [signIn, path, location.search, location.hash]);
 
-  // Build extra items to inject into named sections (immutable map)
-  const extraItems = useMemo(() => {
-    const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
-    return map;
+  const toggleChat = useCallback(() => {
+    setChatMounted(true);
+    setChatOpen((prev) => !prev);
   }, []);
 
-  // Handle navigation — intercept special paths
-  const handleNavigate = useCallback(
-    (path: string) => {
-      if (path === "/__signout__") {
-        signOut();
-        return;
-      }
-      navigate(path);
-    },
-    [navigate, signOut]
+  // One resolver for every surface (sidebar, command palette) — no sentinel paths to intercept.
+  const runAction = useCallback(
+    (action: NavAction) => runNavAction(action, { navigate, toggleChat, signOut }),
+    [navigate, toggleChat, signOut]
   );
 
   const sections = useMemo(
     () => [
-      ...buildNavSections(readiness, isAdmin),
+      ...buildNavSections(readiness, isAdmin).map((section) =>
+        section.label === "Account"
+          ? {
+              ...section,
+              items: [
+                ...section.items,
+                { id: "signout", label: "Sign Out", action: { type: "signout" } as const },
+              ],
+            }
+          : section
+      ),
       {
         label: "Tools" as const,
         items: [
           {
             id: "chat",
             label: "Chat",
-            path: "/__chat__",
+            action: { type: "chat" } as const,
           },
         ],
       },
@@ -210,19 +215,7 @@ function DashboardLayoutInner() {
     setOpen: setPaletteOpen,
     items: paletteItems,
     groups: paletteGroups,
-  } = useCommandPalette({ sections, navigate, toggleTheme, signOut });
-
-  const handleNavigateWithChat = useCallback(
-    (path: string) => {
-      if (path === "/__chat__") {
-        setChatMounted(true);
-        setChatOpen((prev) => !prev);
-        return;
-      }
-      handleNavigate(path);
-    },
-    [handleNavigate]
-  );
+  } = useCommandPalette({ sections, runAction, toggleTheme });
 
   const activePath = location.pathname;
 
@@ -262,6 +255,20 @@ function DashboardLayoutInner() {
   // Render-time gate: decide before painting any dashboard chrome, instead of
   // in a post-commit effect (#3889). All hooks above must still run
   // unconditionally on every render for the Rules of Hooks.
+  // A failed venues fetch also reads as "no-venue" downstream; show a retry
+  // state rather than sending an existing operator into onboarding.
+  if (venuesError && !selectedVenue) {
+    const { detail, raw } = describeApiError(venuesError);
+    return (
+      <ErrorRetryBanner
+        title="Venues not loaded."
+        error={detail}
+        details={raw}
+        onRetry={() => void refetchVenues()}
+      />
+    );
+  }
+
   if (isLoadingGate) {
     return <LoadingPage />;
   }
@@ -315,11 +322,10 @@ function DashboardLayoutInner() {
           <DashboardSidebar
             sections={sections}
             activePath={activePath}
-            onNavigate={handleNavigateWithChat}
-            extraItems={extraItems}
+            onAction={runAction}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
-            headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
+            headerSlot={<VenueSwitcher onNavigate={navigate} />}
           />
           <Button
             type="button"

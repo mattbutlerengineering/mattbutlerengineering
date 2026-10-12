@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
-import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion";
+import { motion, type HTMLMotionProps } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { Loader2 } from "lucide-react";
-import { precision, boop } from "../../tokens/motion";
 import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Button.module.css";
 
@@ -49,7 +49,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const classes = cn(
       styles.button,
@@ -69,11 +70,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isDisabled}
         aria-busy={isLoading || undefined}
         onClick={onClick}
-        whileHover={
-          isDisabled || shouldReduceMotion
-            ? undefined
-            : { scale: boop.scale, transition: boop.transition }
-        }
+        whileHover={isDisabled ? undefined : motionPreset.boop}
         whileTap={isDisabled || shouldReduceMotion ? undefined : "pressed"}
         variants={{
           pressed: {
@@ -81,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             y: 1,
           },
         }}
-        transition={precision}
+        transition={motionPreset.precision}
         {...(props as MotionButtonProps)}
       >
         {isLoading && (

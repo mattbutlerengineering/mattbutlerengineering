@@ -1,6 +1,7 @@
 import {
   useState,
   useRef,
+  useId,
   useCallback,
   useLayoutEffect,
   forwardRef,
@@ -9,8 +10,8 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
@@ -101,7 +102,11 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const menuId = useId();
+  const generatedTriggerId = useId();
+  const triggerId = (trigger.props as { id?: string }).id ?? generatedTriggerId;
+  const shouldReduceMotion = motionPreset.reduced;
 
   useReturnFocus(open);
 
@@ -197,16 +202,23 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         onClick={handleTriggerClick}
         onKeyDown={(e) => {
           if (!open && (e.key === "Enter" || e.key === " ")) {
+            // preventDefault suppresses the native click (no double toggle). For a
+            // native <button> re-dispatch it once so the consumer's onClick fires
+            // on keyboard activation; it bubbles to handleTriggerClick above.
             e.preventDefault();
-            handleTriggerClick();
+            const button = (e.target as Element).closest("button");
+            if (button) button.click();
+            else handleTriggerClick();
           } else if (open) {
             handleKeyDown(e);
           }
         }}
       >
         {cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
+          id: triggerId,
           "aria-haspopup": "menu",
           "aria-expanded": open,
+          "aria-controls": open ? menuId : undefined,
         })}
       </div>
 
@@ -215,12 +227,14 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         {open && (
           <motion.div
             className={cn(styles.menu, align === "right" && styles.menuRight)}
+            id={menuId}
             role="menu"
+            aria-labelledby={triggerId}
             onKeyDown={handleKeyDown}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
-            transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
+            transition={motionPreset.springGentle}
           >
             {items.map((entry, i) => {
               if (entry.type === "divider") {

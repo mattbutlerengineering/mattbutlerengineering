@@ -194,6 +194,32 @@ describe("confirmHold", () => {
     });
   });
 
+  describe("Slice 1b: Origin session is persisted (#6304)", () => {
+    it("copies the hold's sessionId onto the reservation's originSessionId", async () => {
+      const hold = makePrismaHold();
+      const create = vi.fn().mockResolvedValue(makeReservationResult(hold));
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: never) => Promise<unknown>) =>
+          fn(makeTxMock({ reservation: { ...makeTxMock().reservation, create } }) as never)
+      );
+
+      // No caller-supplied sessionId: the stored hold session is the source of truth.
+      const result = await confirmHold({
+        holdId: "hold-1",
+        guestDetails: { guestName: "Jane Doe", guestPhone: "+15551234567" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ originSessionId: "session-abc" }),
+        })
+      );
+    });
+  });
+
   describe("Slice 2: Hold not found", () => {
     it("returns NOT_FOUND when hold does not exist", async () => {
       vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);

@@ -267,6 +267,7 @@ export function DriverList() {
               {
                 key: "actions",
                 header: "",
+                ariaLabel: "Actions",
                 width: "60px",
                 align: "right",
                 render: (row) => {

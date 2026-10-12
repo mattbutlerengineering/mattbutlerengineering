@@ -1,5 +1,5 @@
 import { forwardRef, useMemo, type HTMLAttributes } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { SplitFlap } from "../SplitFlap";
@@ -78,8 +78,8 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
     },
     ref
   ) => {
-    const shouldReduceMotion = useReducedMotion();
     const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const formatted = useMemo(
       () => new Intl.NumberFormat(locale, formatOptions).format(value),

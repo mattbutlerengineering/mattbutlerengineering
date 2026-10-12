@@ -111,6 +111,16 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
   }
 }
 
+/**
+ * Maps an edited text field to its PATCH value: `undefined` when untouched
+ * (server skips it), `null` when the user emptied it (server clears it).
+ */
+function patchValue(input: string, original: string | null | undefined): string | null | undefined {
+  const next = input.trim();
+  if (next === (original ?? "")) return undefined;
+  return next || null;
+}
+
 /* ── Props ──────────────────────────────────── */
 
 export interface GuestDrawerProps {
@@ -154,9 +164,9 @@ export function GuestDrawer({
       if (!guest) return;
       await onSave(guest.id, {
         name: data.name.trim(),
-        email: data.email.trim() || undefined,
-        phone: data.phone.trim() || undefined,
-        notes: data.notes.trim() || undefined,
+        email: patchValue(data.email, guest.email),
+        phone: patchValue(data.phone, guest.phone),
+        notes: patchValue(data.notes, guest.notes),
         tags: extras.tags,
         dietaryRestrictions: extras.dietaryRestrictions,
       });

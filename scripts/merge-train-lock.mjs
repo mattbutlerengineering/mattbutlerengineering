@@ -1,44 +1,26 @@
 #!/usr/bin/env node
 /**
- * merge-train-lock.mjs — PID-aware merge-train lockfile guard.
+ * merge-train-lock.mjs — owner-token merge-train lock.
  *
- * Prevents concurrent merge-train /loop sessions from racing and
- * duplicate-fixing the same branch. The lock lives inside the git
- * common dir so it is shared across all worktrees of the same repo.
+ * Prevents concurrent merge-train sessions from racing and duplicate-fixing the
+ * same branch. The lock lives inside the git common dir so it is shared across
+ * all worktrees of the same repo.
  *
- * Per-zone locking: pass a `zone` to scope the lock to one workspace area
- * (e.g. `apps/hospitality`, `packages/rialto`). Non-overlapping zones acquire
- * concurrently; same-zone acquires serialize. With NO `zone` the behavior is
- * identical to the historical single global lock (`mbe-merge-train.lock`), so
- * every existing caller is 100% backward compatible.
+ * WHY AN OWNER TOKEN, NOT A PID: the only callers are short-lived `node`
+ * invocations from the queue profile, so any PID recorded is dead the moment the
+ * call returns. The owner is therefore a caller-supplied durable session id
+ * (`--owner`), and staleness is mtime-only (45 min without a heartbeat).
  *
- * Public API:
- *   acquireMergeTrainLock(opts?)  → { acquired: true } | { acquired: false, owner: number }
- *   releaseMergeTrainLock(opts?)  → void
- *   heartbeatMergeTrainLock(opts?) → void
- *   defaultLockDir()               → string  (git common dir path)
- *   zoneForPaths(paths)            → string | null  (deterministic zone derivation)
- *   lockNameForZone(zone?)         → string  (lockfile name for a zone)
- *   isFrontendPath(filePath)       → boolean  (frontend-tree predicate — a DIFFERENT
- *                                    question from zoneForPath; see its own doc comment)
+ * CLI:
+ *   node scripts/merge-train-lock.mjs acquire|heartbeat|release [--zone <z>] --owner <session-id>
+ *   Prints one JSON object. Exit 0 = success, 1 = refused (held by another owner /
+ *   not the owner), 2 = usage error. Omit --zone for the global lock.
+ *   `MBE_MERGE_TRAIN_LOCK_DIR` overrides the lock directory (tests).
  *
- * Options (all optional, primarily for testing):
- *   lockDir   {string}   — directory that contains the lock sub-dir (default: git common dir)
- *   zone      {string}   — workspace zone to scope the lock to (default: global lock)
- *   isPidAlive {fn}      — (pid: number) => boolean  injectable liveness check
- *   staleMs   {number}   — staleness window in ms (default: 45 minutes)
+ * Zone vocabulary (zoneForPaths etc.) lives in scripts/zone-vocabulary.mjs.
  *
- * Lock layout (global):
- *   <lockDir>/mbe-merge-train.lock/   ← atomic mkdir creates this
- *   <lockDir>/mbe-merge-train.lock/pid  ← owner PID as a decimal string
- *
- * Lock layout (zoned, e.g. zone "apps/hospitality"):
- *   <lockDir>/mbe-merge-train.apps__hospitality.lock/
- *   <lockDir>/mbe-merge-train.apps__hospitality.lock/pid
- *
- * Staleness reclaim: if the lock directory mtime is older than staleMs
- * OR the PID recorded in the pid file is no longer alive, the lock is
- * treated as crashed and reclaimed.
+ * Lock layout: <lockDir>/mbe-merge-train[.<zone>].lock/ (atomic mkdir) holding an
+ * `owner` file; the directory mtime is the heartbeat.
  *
  * @module merge-train-lock
  */
@@ -46,95 +28,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+import { fileURLToPath } from "node:url";
 
 const LOCK_NAME = "mbe-merge-train.lock";
+const OWNER_FILE = "owner";
 const DEFAULT_STALE_MS = 45 * 60 * 1000; // 45 minutes
-
-// Top-level workspace roots that define a "zone". A changed file under one of
-// these (e.g. apps/hospitality/...) belongs to the `<root>/<name>` zone.
-// Consumed elsewhere (dep-graph-discovery.mjs, regen-manifest.mjs) for real
-// pnpm-workspace classification — never add a non-pnpm-workspace root here.
-const WORKSPACE_ROOTS = ["apps", "packages", "services"];
-
-// Additional top-level trees that are large/active enough (CI + automation
-// workflows) to deserve their own `<root>/<name>` zone, same shape as
-// WORKSPACE_ROOTS, but kept as a SEPARATE constant: unlike WORKSPACE_ROOTS
-// this is consumed only by zoneForPath below, never by the pnpm-workspace
-// classifiers above. `.claude` is deliberately excluded — `.claude/skills/**`
-// is genuinely cross-cutting (see issue-zone.mjs's `skills` → null test).
-const EXTRA_ZONE_ROOTS = [".github"];
-
-// Zone used for any changed file that is NOT under a workspace root
-// (top-level config, docs/**, scripts/**, infrastructure/**, .claude/**, etc.).
-const ROOT_ZONE = "root";
-
-// ---------------------------------------------------------------------------
-// Zone derivation
-// ---------------------------------------------------------------------------
-
-/**
- * Maps a single changed file path to its zone.
- * `apps/<x>/...` → `apps/<x>`; same for packages/services. Everything else → "root".
- *
- * @param {string} filePath — repo-relative changed path (POSIX separators)
- * @returns {string}
- */
-function zoneForPath(filePath) {
-  const segments = filePath.split("/");
-  const root = segments[0];
-  if (segments.length >= 2 && (WORKSPACE_ROOTS.includes(root) || EXTRA_ZONE_ROOTS.includes(root))) {
-    return `${root}/${segments[1]}`;
-  }
-  return ROOT_ZONE;
-}
-
-/**
- * Derives a single zone for a changeset.
- *
- * - All files map to the same zone  → that zone (per-zone lock).
- * - Files span multiple zones, or the changeset is empty → null.
- *
- * A `null` result means the caller should fall back to the GLOBAL lock
- * (no `zone`), which serializes against every other train — the safe,
- * conservative choice for a cross-cutting PR.
- *
- * @param {string[]} paths — repo-relative changed paths
- * @returns {string | null}
- */
-function zoneForPaths(paths) {
-  if (!Array.isArray(paths) || paths.length === 0) {
-    return null;
-  }
-  const zones = new Set(paths.map(zoneForPath));
-  return zones.size === 1 ? [...zones][0] : null;
-}
-
-// Prefixes that define the "frontend" tree: apps/** and packages/rialto/**.
-// A DIFFERENT question from zoneForPath: zoneForPath answers "which
-// workspace zone owns this path" (every apps/packages/services path has
-// one); isFrontendPath answers "is this path front-end code" (most
-// packages/* and all of services/* are NOT frontend, even though
-// zoneForPath gives them a real, non-root zone).
-const FRONTEND_PREFIXES = ["apps/", "packages/rialto/"];
-
-/**
- * True when `filePath` is under the frontend tree (`apps/**` or
- * `packages/rialto/**`).
- *
- * @param {string} filePath — repo-relative path (POSIX separators)
- * @returns {boolean}
- */
-function isFrontendPath(filePath) {
-  return FRONTEND_PREFIXES.some((prefix) => filePath.startsWith(prefix));
-}
 
 /**
  * Returns the lockfile directory name for a zone.
- * No zone (null/undefined) → the historical global name (backward compatible).
+ * No zone (null/undefined) → the historical global name.
  *
  * @param {string | null} [zone]
  * @returns {string}
@@ -147,14 +49,7 @@ function lockNameForZone(zone) {
   return `mbe-merge-train.${safe}.lock`;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the git common dir for the current repository.
- * Falls back to the current working directory if git is unavailable.
- */
+/** Git common dir for the current repository (cwd if git is unavailable). */
 function defaultLockDir() {
   try {
     const result = execFileSync("git", ["rev-parse", "--git-common-dir"], {
@@ -167,139 +62,180 @@ function defaultLockDir() {
   }
 }
 
-/**
- * Default liveness check using process.kill(pid, 0).
- * Returns true if the process exists (signal 0 does not kill it).
- */
-function defaultIsPidAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
+function resolveLockPath(opts) {
+  return path.join(opts.lockDir ?? defaultLockDir(), lockNameForZone(opts.zone));
 }
 
-/**
- * Reads the PID from the lock's pid file.
- * Returns null if the file is missing or contains non-numeric content.
- */
-function readLockPid(lockPath) {
-  const pidFile = path.join(lockPath, "pid");
+function requireOwner(owner) {
+  if (typeof owner !== "string" || owner.trim() === "") {
+    throw new Error("merge-train-lock: a non-empty owner (session id) is required");
+  }
+  return owner.trim();
+}
+
+/** Owner recorded in the lock, or null when the file is missing/empty. */
+function readOwner(lockPath) {
   try {
-    const raw = fs.readFileSync(pidFile, "utf8").trim();
-    const pid = parseInt(raw, 10);
-    return Number.isFinite(pid) && pid > 0 ? pid : null;
+    return fs.readFileSync(path.join(lockPath, OWNER_FILE), "utf8").trim() || null;
   } catch {
     return null;
   }
 }
 
-/**
- * Writes the current process PID into the lock directory.
- */
-function writeLockPid(lockPath) {
-  fs.writeFileSync(path.join(lockPath, "pid"), String(process.pid));
-}
-
-/**
- * Returns true if the lock's mtime is older than staleMs.
- */
 function isStaleByTime(lockPath, staleMs) {
   try {
-    const { mtimeMs } = fs.statSync(lockPath);
-    return Date.now() - mtimeMs > staleMs;
+    return Date.now() - fs.statSync(lockPath).mtimeMs > staleMs;
   } catch {
     return false;
   }
 }
 
-/**
- * Removes the lock directory unconditionally.
- */
-function removeLock(lockPath) {
-  fs.rmSync(lockPath, { recursive: true, force: true });
+function touch(lockPath) {
+  const now = new Date();
+  fs.utimesSync(lockPath, now, now);
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+function claim(lockPath, owner) {
+  fs.mkdirSync(lockPath);
+  fs.writeFileSync(path.join(lockPath, OWNER_FILE), owner);
+}
 
 /**
- * Attempts to acquire the merge-train lock.
+ * Attempts to acquire the lock for `opts.owner`.
+ * Idempotent for the current owner (refreshes the heartbeat).
  *
- * @param {object} [opts]
- * @param {string} [opts.lockDir]      — directory containing the lock (default: git common dir)
- * @param {string} [opts.zone]         — workspace zone to scope the lock to (default: global lock)
- * @param {function} [opts.isPidAlive] — (pid: number) => boolean  (default: signal-0 check)
- * @param {number} [opts.staleMs]      — staleness window in ms (default: 45 min)
- * @returns {{ acquired: true } | { acquired: false, owner: number }}
+ * @param {object} opts
+ * @param {string} opts.owner      — durable session id (required)
+ * @param {string} [opts.lockDir]  — default: git common dir
+ * @param {string} [opts.zone]     — default: global lock
+ * @param {number} [opts.staleMs]  — default: 45 min
+ * @returns {{ acquired: true, owner: string } | { acquired: false, owner: string | null }}
  */
-function acquireMergeTrainLock(opts = {}) {
-  const lockDir = opts.lockDir ?? defaultLockDir();
-  const isPidAlive = opts.isPidAlive ?? defaultIsPidAlive;
+function acquireMergeTrainLock(opts) {
+  const owner = requireOwner(opts?.owner);
+  const lockPath = resolveLockPath(opts);
   const staleMs = opts.staleMs ?? DEFAULT_STALE_MS;
 
-  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
-
-  // Fast path: atomic mkdir succeeds → we own the lock.
   try {
-    fs.mkdirSync(lockPath);
-    writeLockPid(lockPath);
-    return { acquired: true };
+    claim(lockPath, owner);
+    return { acquired: true, owner };
   } catch (err) {
     if (err.code !== "EEXIST") {
       throw err;
     }
   }
 
-  // Lock already exists — check if it should be reclaimed.
-  const ownerPid = readLockPid(lockPath);
-  const stale = isStaleByTime(lockPath, staleMs) || ownerPid === null || !isPidAlive(ownerPid);
-
-  if (stale) {
-    removeLock(lockPath);
-    fs.mkdirSync(lockPath);
-    writeLockPid(lockPath);
-    return { acquired: true };
+  const holder = readOwner(lockPath);
+  if (holder === owner) {
+    touch(lockPath);
+    return { acquired: true, owner };
+  }
+  if (!isStaleByTime(lockPath, staleMs)) {
+    return { acquired: false, owner: holder };
   }
 
-  // Lock is held by a live owner — fall back to monitor-only.
-  return { acquired: false, owner: ownerPid };
-}
-
-/**
- * Releases the merge-train lock.
- * Safe to call when no lock is held (no-op).
- *
- * @param {object} [opts]
- * @param {string} [opts.lockDir] — directory containing the lock (default: git common dir)
- * @param {string} [opts.zone]    — workspace zone scoping the lock (default: global lock)
- */
-function releaseMergeTrainLock(opts = {}) {
-  const lockDir = opts.lockDir ?? defaultLockDir();
-  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
-  removeLock(lockPath);
-}
-
-/**
- * Touches the lock directory mtime to prevent stale-reclaim during a
- * long-running merge train. Call once per PR iteration.
- * Safe to call when no lock is held (no-op).
- *
- * @param {object} [opts]
- * @param {string} [opts.lockDir] — directory containing the lock (default: git common dir)
- * @param {string} [opts.zone]    — workspace zone scoping the lock (default: global lock)
- */
-function heartbeatMergeTrainLock(opts = {}) {
-  const lockDir = opts.lockDir ?? defaultLockDir();
-  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
+  fs.rmSync(lockPath, { recursive: true, force: true });
   try {
-    const now = new Date();
-    fs.utimesSync(lockPath, now, now);
-  } catch {
-    // Lock does not exist — no-op.
+    claim(lockPath, owner);
+    return { acquired: true, owner };
+  } catch (err) {
+    if (err.code !== "EEXIST") {
+      throw err;
+    }
+    // Lost the reclaim race to another session.
+    return { acquired: false, owner: readOwner(lockPath) };
   }
+}
+
+/**
+ * Releases the lock, only if `opts.owner` holds it. No lock → ok (no-op).
+ *
+ * @returns {{ ok: boolean, owner: string | null }} — `owner` is the actual holder
+ */
+function releaseMergeTrainLock(opts) {
+  const owner = requireOwner(opts?.owner);
+  const lockPath = resolveLockPath(opts);
+  if (!fs.existsSync(lockPath)) {
+    return { ok: true, owner: null };
+  }
+  const holder = readOwner(lockPath);
+  if (holder !== owner) {
+    return { ok: false, owner: holder };
+  }
+  fs.rmSync(lockPath, { recursive: true, force: true });
+  return { ok: true, owner };
+}
+
+/**
+ * Refreshes the lock mtime, only if `opts.owner` holds it. No lock → not ok.
+ *
+ * @returns {{ ok: boolean, owner: string | null }}
+ */
+function heartbeatMergeTrainLock(opts) {
+  const owner = requireOwner(opts?.owner);
+  const lockPath = resolveLockPath(opts);
+  const holder = readOwner(lockPath);
+  if (holder !== owner) {
+    return { ok: false, owner: holder };
+  }
+  touch(lockPath);
+  return { ok: true, owner };
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+const COMMANDS = {
+  acquire: (o) => {
+    const r = acquireMergeTrainLock(o);
+    return { exit: r.acquired ? 0 : 1, body: r };
+  },
+  heartbeat: (o) => {
+    const r = heartbeatMergeTrainLock(o);
+    return { exit: r.ok ? 0 : 1, body: r };
+  },
+  release: (o) => {
+    const r = releaseMergeTrainLock(o);
+    return { exit: r.ok ? 0 : 1, body: r };
+  },
+};
+
+function parseFlags(argv) {
+  const flags = {};
+  for (let i = 0; i < argv.length; i += 2) {
+    if (!argv[i].startsWith("--") || argv[i + 1] === undefined) {
+      return null;
+    }
+    flags[argv[i].slice(2)] = argv[i + 1];
+  }
+  return flags;
+}
+
+function main(argv, env) {
+  const [command, ...rest] = argv;
+  const flags = parseFlags(rest);
+  const usage = (error) => {
+    process.stdout.write(`${JSON.stringify({ error })}\n`);
+    return 2;
+  };
+  if (!COMMANDS[command]) {
+    return usage("usage: merge-train-lock.mjs acquire|heartbeat|release [--zone <z>] --owner <id>");
+  }
+  if (!flags?.owner?.trim()) {
+    return usage("--owner <session-id> is required");
+  }
+  const { exit, body } = COMMANDS[command]({
+    owner: flags.owner,
+    zone: flags.zone,
+    lockDir: env.MBE_MERGE_TRAIN_LOCK_DIR,
+  });
+  process.stdout.write(`${JSON.stringify(body)}\n`);
+  return exit;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  process.exitCode = main(process.argv.slice(2), process.env);
 }
 
 export {
@@ -307,9 +243,5 @@ export {
   releaseMergeTrainLock,
   heartbeatMergeTrainLock,
   defaultLockDir,
-  zoneForPath,
-  zoneForPaths,
   lockNameForZone,
-  isFrontendPath,
-  WORKSPACE_ROOTS,
 };

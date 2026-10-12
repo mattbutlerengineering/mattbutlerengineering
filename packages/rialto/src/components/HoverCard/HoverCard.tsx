@@ -6,8 +6,8 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { cn } from "../../utils/class-composer";
 import styles from "./HoverCard.module.css";
@@ -62,7 +62,8 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     const [open, setOpen] = useState(false);
     const openTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
 
     const scheduleOpen = useCallback(() => {
       clearTimeout(closeTimeoutRef.current);
@@ -109,7 +110,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
-              transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
+              transition={motionPreset.springGentle}
             >
               {content}
             </motion.div>

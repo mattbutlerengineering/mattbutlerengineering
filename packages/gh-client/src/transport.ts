@@ -32,20 +32,20 @@ export class GhGraphqlUnavailableError extends Error {
 }
 
 /**
- * True only for the exact shape `gh` prints when GitHub refuses GraphQL for
- * the whole session: an HTTP 403 from the GraphQL endpoint whose body points
- * at REST. A 401 (bad credentials), a scope-related 403, or any non-HTTP
+ * True only for the shape `gh` prints when GitHub refuses GraphQL for the
+ * whole session: a 403 (either `HTTP 403:` or `non-200 OK status code: 403`)
+ * whose body says "GitHub GraphQL is not available". A 401 (bad credentials), a scope-related 403, or any non-HTTP
  * failure does not match, so it surfaces unchanged instead of being retried.
  */
 export function isGraphqlUnavailableError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const stderr = (err as { stderr?: unknown }).stderr;
   const text = `${err.message}\n${typeof stderr === "string" ? stderr : ""}`;
-  return (
-    /HTTP 403/.test(text) &&
-    /api\.github\.com\/graphql/i.test(text) &&
-    /GraphQL is not available|use the REST API/i.test(text)
-  );
+  // gh prints this block two ways: `HTTP 403: <msg> (https://api.github.com/graphql)`
+  // and, behind the Claude Code proxy, `non-200 OK status code: 403 Forbidden body:
+  // "{...}"` with no URL at all (measured, #6312). Match on the 403 plus the
+  // block's own sentence, not on either gh formatting.
+  return /\b403\b/.test(text) && /GitHub GraphQL is not available/i.test(text);
 }
 
 /**

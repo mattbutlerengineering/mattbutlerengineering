@@ -182,6 +182,16 @@
   <section priority="medium" role="routes">
   <file path="src/routes/availability.ts">
     <item priority="high">
+      type SlotsRoute = {
+        Params: { venueId: string };
+        Querystring: { date: s...;
+    </item>
+    <item priority="high">
+      type DatesRoute = {
+        Params: { venueId: string };
+        Querystring: { startDa...;
+    </item>
+    <item priority="high">
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
@@ -209,11 +219,11 @@
     </item>
   </file>
   <file path="src/routes/deposit-transition-handler.ts">
-    <item priority="high">
-      type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
-    </item>
-    <item priority="high">
-      type TransitionResult = { kind: "not-found" } | { kind: "invalid"; message: st | { kind: "ok"; deposit: Deposit;
+    <item priority="low">
+      interface DepositTransitionRoute {
+        Params: { id: string };
+        Reply: { data: Deposit } | ReturnType<typeof createProblemDetails>;
+      }
     </item>
     <item priority="high">
       export function depositTransitionHandler(
@@ -227,6 +237,15 @@
       interface ApiResponse {
         data: T;
       }
+    </item>
+    <item priority="high">
+      type DepositsQuery = { reservationId?: string; venueId?: string; date?: string };
+    </item>
+    <item priority="low">
+      async function requireDepositSelector(
+        request: FastifyRequest<{ Querystring: DepositsQuery }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const depositRoutes: FastifyPluginAsync;
@@ -266,6 +285,25 @@
   <file path="src/routes/holds.ts">
     <item priority="medium">
       function getSessionId(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type HoldIdRoute = { Params: { id: string } };
+    </item>
+    <item priority="high">
+      type CreateRoute = {
+        Body: CreateHoldRequest;
+        Reply: ApiResponse<Reserva...;
+    </item>
+    <item priority="high">
+      type GetRoute = HoldIdRoute & { Reply: ApiResponse<ReservationHold> | Pro...;
+    </item>
+    <item priority="high">
+      type ReleaseRoute = HoldIdRoute & { Reply: { success: boolean } | ProblemDeta...;
+    </item>
+    <item priority="high">
+      type ConfirmRoute = HoldIdRoute & {
+        Body: ConfirmHoldRequest;
+        Reply: (Api...;
     </item>
     <item priority="high">
       export const holdRoutes: FastifyPluginAsync;
@@ -340,6 +378,12 @@
         amountCents: number;
         currency: string;
       }
+    </item>
+    <item priority="medium">
+      function sessionIdsMatch(presented: string, stored: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ownsReservation(request: FastifyRequest, originSessionId: string | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export const publicDepositRoutes: FastifyPluginAsync;
@@ -590,6 +634,9 @@
     </item>
     <item priority="low">
       async function createDisposableVenue(ctx: SweepContext): Promise<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture { /* ... */ }
     </item>
     <item priority="high">
       export const FIXTURES: Record<string, RouteFixture>;

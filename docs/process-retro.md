@@ -11,6 +11,281 @@ no retro.
 
 ---
 
+## 2026-10-11
+
+Window: **2026-10-04 → 2026-10-11**. Sources: GitHub REST via `gh api`
+(repo-scoped `pulls`/`issues`/`actions` endpoints — `search/*` is now 403 in
+this session, see Friction), `routine-liveness.yml` runs 12–19 and run
+`38149000982`'s job log, `scripts/routine-liveness.mjs`,
+`scripts/routine-manifest.mjs`, issue #6211, `metrics/process-metrics.jsonl`,
+`metrics/queue-telemetry.jsonl`, `.claude/improvement-loop/log.md`,
+`.github/workflows/{summary,secret-scan,adr-check,ci,apps-visual}.yml`, and the
+working tree at `7a93650`.
+
+**The factory cleared its backlog and broke its own smoke alarm in the same
+week.** 249 PRs merged (106 last week). **74 issues filed, 136 closed — net
+−62**, against net +67 last week; the `ready` queue went **60 → 2** and there
+are **zero open PRs**. Median open→merge for a PR created in-window was **13
+min**. By every throughput measure this was the best week on record here.
+
+Against that: the routine-liveness mechanism — the thing Pass 1 exists to
+protect, after every `mbe-*` routine died unnoticed for 19 days in July — now
+has **two independent faults that both fail toward a wrong answer**, one
+silently reporting dead routines as alive and one about to report live routines
+as dead. Both landed this week, inside the work meant to strengthen it.
+
+### Routine liveness
+
+**The GitHub Actions half is clean.** `routine-liveness.yml` ran all eight days
+(runs 12–19, every one `success`) — last week's 09-22/09-23 gaps did not recur.
+`drift-fix.yml` ran daily, all green. `scheduled-workflow-health.yml` ran daily,
+all green. `metrics-collectors.yml` ran daily with one failure (10-05).
+`audit-sweep.yml` is weekly and ran 10-05.
+
+**Fault 1 — three routines fire and emit no heartbeat; the grace that hides it
+expired tonight.** The heartbeat mechanism landed 2026-10-10 (#5978, log issue
+#6211) so that a routine whose correct output can be empty stops reading as
+dark. `ROUTINE_MANIFEST` moved `mbe-auditor`, `mbe-morning` and `mbe-ui-quality`
+to `signature: {type: "heartbeat"}` with `activatedAt: "2026-10-10"`, and
+`docs/routines/*.md` for all three now carry a mandatory FINAL STEP instructing
+them to comment on #6211 on every fire.
+
+**Issue #6211 has zero comments.** All three routines nevertheless demonstrably
+fired on 2026-10-11, after activation, and produced their normal artifacts:
+
+| Routine          | Fired (UTC) | Artifact                                |
+| ---------------- | ----------- | --------------------------------------- |
+| `mbe-ui-quality` | 10-11T07:36 | #6300, #6301, #6302 (`ui-quality:` ...) |
+| `mbe-auditor`    | 10-11T09:47 | #6304, #6305 (both `audit`-labelled)    |
+| `mbe-morning`    | 10-11T16:11 | #6312–#6315 + batch #6316               |
+
+Real output, no heartbeat. The repo-side contract is in place; the **live
+RemoteTrigger prompts at claude.ai were never updated to match it** — the same
+docs-updated/prompt-not-updated split that has kept #5604 and #5608 open for 20
+days.
+
+The cost is immediate and compounding. `noArtifactResult()` returns `pending`
+only while `nowMs - activatedAt < 2 × periodDays`; with `activatedAt`
+`2026-10-10` and `periodDays: 1` that grace expired at
+**2026-10-12T00:00:00Z** — about 40 minutes after this retro's data was
+gathered. Today's run (`38149000982`) still logged all three as
+`pending: activated 2026-10-10, younger than 2 x 1-day period`. Tomorrow's
+~14:53Z run will classify all three `dark`. And `decideIssueTransition()`
+returns `create` — not `skip` — when the prior issue is **closed**, so this is
+not a one-off: #6190 and #6191 were filed 10-10 and both closed the same day,
+which means three false `dark` `ci-fix` issues get filed **every day** until the
+live prompts emit heartbeats.
+
+**Fault 2 — `observedAt` prefers `mergedAt`, so a human's merge counts as a
+routine's fire.** `scripts/routine-liveness.mjs:707` builds a PR artifact as
+`observedAt: !latestCommit ? (pr.mergedAt ?? pr.createdAt) : …`. The module's
+own docstring, 150 lines above at `latestMatchingCommitAt()`, states the correct
+rule outright: "**`mergedAt` is never used — a merge is someone else's act, not
+a fire.**" The `latest-matching-commit` path honours that; the default
+`pr-title` path does the opposite.
+
+Measured today: `mbe-weekly-improve` and `mbe-doc-rot` both last fired
+**2026-10-02** (PRs #5982 and #5988, created 10-02). Both sat unmerged for a
+week and were merged by a human on **10-09**. Their period is 7 days, so at 9
+days since the last fire both should read `late`. Run `38149000982` reports both
+**`alive`** — age 2 days, from the merge. Neither produced a PR anywhere in this
+window; the checker cannot see that, because the only timestamp it consults is
+one a third party controls.
+
+This is the generalised form of the trap already recorded in gotchas § Metrics
+("a bot that writes to an issue as part of measuring it invalidates
+`updatedAt`"): **a timestamp a third party can bump is not a measure of the
+thing you are measuring.** It is load-bearing here — the one window where a
+weekly routine's death matters is the window a late merge papers over.
+
+`mbe-night` and `mbe-midday` remain `unverifiable` (#5604, #5608, both 20 days
+old). Everything else read `alive` and had the artifact to back it.
+
+### Blockers
+
+Only **18 open issues** repo-wide and **zero open PRs** — there is very little
+human-blocked work left to age. No issue carries `ready-for-human`, `stealable`
+or `agent-failed`. Untouched more than 7 days:
+
+| Issue                | Idle | The specific ask                                                                                |
+| -------------------- | ---- | ----------------------------------------------------------------------------------------------- |
+| #5873, #5874         | 13d  | Flip `remembered-on-arrival` M5.1/M5.2 from `blocked` to `ready`, or say what still blocks them |
+| #5875                | 13d  | Close the tracking issue, or re-point it once M5.1/M5.2 are unblocked                           |
+| #5878                | 13d  | Decide whether ACMM daily-audit data files get `tier:trivial`                                   |
+| #5880                | 13d  | Rule on whether ACMM L6's upstream-existence checks may be satisfied by dead artifacts          |
+| #5604, #5608         | 20d  | Add a liveness signature to the live `mbe-night` / `mbe-midday` prompts at claude.ai            |
+| #5962 (`ready`, 10d) | 2d   | Perform the October secret rotation — an agent cannot hold the credentials                      |
+
+Last week's escalations were worked, and that is the headline here: **#4670
+(orphaned-resource sweep), #5369 (Postgres RLS backstop), #5947 (hospitality
+bundle budget), #5955, #5958 and all three of last week's filed issues (#6039,
+#6040, #6041) closed.** The three stuck routine PRs (#5950, #5980, #5879) and
+the two cleanup items (#5999, #5848) all merged or closed on 10-09.
+
+### Friction
+
+235 PRs created in-window merged at a **median of 13 min** (p90 268 min); 14
+carryovers from earlier weeks also cleared. The merge path is not the
+constraint.
+
+**The week's one real stall was a dam, not a drip.** 26 PRs created on 10-04
+through 10-08 all merged inside a single two-hour window, **2026-10-09T01:00 →
+03:00Z** — 28 of that day's 38 merges. The slowest PRs in the window are all
+members of it: #6029 (110h), #6042 (98h, last week's own retro PR), #6070 (80h),
+#6073 (80h). Their labels say what held them: 9 `tier:standard`, 5
+`tier:critical`, 4 `tier:sensitive`, 4 `needs-review` — tiers that block
+auto-merge by design and wait on a person. Daily merges before the dam broke ran
+14–25; after it, 55 and 57. **The throughput ceiling this week was reviewer
+availability on a specific morning, not any machine in the pipeline.** That is
+the system working as designed, but it is worth naming: the factory now produces
+faster than one reviewer clears T2+.
+
+**New environmental constraint, worth recording before it costs someone a
+session:** `gh api search/issues` and `search/*` generally now return
+`403 — sessions are bound to their configured repositories. Use
+repository-scoped endpoints (repos/{owner}/{repo}/...)`. Last week's retro
+gathered its figures through `search/issues`; that path is gone. Every number
+above came from `repos/.../pulls`, `repos/.../issues` and
+`repos/.../actions/runs` instead. This is adjacent to, but distinct from, the
+GraphQL block already in gotchas § Claude Code Remote.
+
+### Recurring causes
+
+**626 failed workflow runs in the window. 475 of them (76%) executed zero
+jobs.** Sampled across every bot-authored branch class (`automation/*`,
+`changeset-release/main`, `revert-broken-main/*`, `chore/acmm*`), each failed
+run returns `total_count: 0` from `/actions/runs/{id}/jobs`: created,
+concluded `failure`, nothing ran. `automation/production-feedback` alone
+produced 208 — exactly 26 per workflow across 8 workflows.
+
+The mechanism is the `pull_request` arm of the documented `GITHUB_TOKEN`
+anti-recursion trap, and the split between workflows is exact:
+
+- `ci.yml`, `tier-classifier.yml`, `merge-queue.yml` carry a
+  `workflow_dispatch` escape hatch (#3538, #4070). Each bot commit produces
+  **two** runs on the same SHA at the same second — a `pull_request` run that
+  fails with zero jobs, and a `workflow_dispatch` run that succeeds. The PR
+  merges on the real one. All 26 `automation/production-feedback` PRs merged.
+- `adr-check.yml`, `secret-scan.yml`, `auto-review.yml`, `ai-attribution.yml`
+  and `auto-merge.yml` have **no** dispatch arm, so their only run is the
+  phantom.
+
+**Checked before reporting it as a gate hole, and it is not one:** `ci.yml`
+runs `check-adr` directly (line 302) and Trivy with
+`scanners: "vuln,secret,misconfig"` (line 197), and `secret-scan.yml` also
+triggers on push to `main`. The gates are covered; what is lost is **signal**.
+Three quarters of this repo's CI red is noise that executed nothing, which makes
+"is CI healthy?" unanswerable without per-run job counts. `ciHealth` is
+insulated only because #4538 scoped it to `--branch main`.
+
+**`summary.yml` has failed 36 times out of 36 — a 100% failure rate since it was
+added on 2026-10-09T04:39.** It has never once succeeded. Every `issues:
+opened` event fires it and it dies in `Run AI inference`:
+`API error: TypeError: Cannot use 'in' operator to search for 'choices' in OK`
+— `actions/ai-inference@v1` against `openai/gpt-4o` on GitHub Models is getting
+a bare `OK` where a JSON body with `choices` is expected. 36 of main's 69 real
+failures are this one workflow. It is **not** in gotchas.
+
+**Six broken-main incidents** (#6054, #6075, #6088, #6129, #6163, #6220) and
+**the auto-rollback net landed nothing.** Across the last three weeks 10 PRs
+were opened on `revert-broken-main/*`; **9 closed unmerged**, the sole merge
+being #5960 on 10-02 — and #6226 records even that one as a false positive from
+an unrelated test timeout. Typical lifetime is 24–35 minutes: the watchdog
+opens a revert, main is fixed by roll-forward instead, the revert is closed.
+Those PRs also contribute 52 of the phantom failures above. The machinery is
+now mostly generating work rather than absorbing it.
+
+**Live as of this writing: `Apps Visual Regression` is red on `main`.** The
+streak starts at `30f6f2128`, 17:50:46Z on 10-11, three seconds after #6324
+(`fix(rialto): resolve axe-serious findings on tape-chart`) merged at 17:50:43Z.
+Failure is `hospitality` `home@1280x720.png`, 460 pixels (1% of the image). The
+last four runs on main are red. This is the documented cascade — a shared rialto
+change shifting an unrelated app's baseline — so it needs a baseline regenerated
+from a Linux CI artifact, not a code fix. The check is advisory, not required,
+so it is not blocking merges.
+
+### Throughput
+
+**Sharply positive, and the direction is unambiguous.** 74 filed, 136 closed,
+net **−62**, reversing last week's +67. The `ready` queue went **60 → 2**
+(#5962, #6334) and open PRs went to **zero**. Daily merges: 14, 25, 24, 16, 20,
+38, 55, 57.
+
+**One sensor still cannot see any of it.** `queueEfficiency` last read
+`available: true` on **2026-09-24 — 17 days ago**. Last week's top-ranked change
+shipped (#6213, closing #6039 on 10-10 with the gh-client REST fallback), and
+the 10-11 reading is still `available: false`, with the reason **regressing**
+from `query_error` back to `credential_rejected` — the mislabel last week's
+retro specifically called out as misleading. `metrics/process-metrics.jsonl`
+also has **no rows at all for 10-09 or 10-10**. A fix that closes `completed`
+without restoring the capability is the failure mode this retro exists to catch;
+it is already covered by #6312 (filed by `mbe-morning` this morning), so it is
+not re-filed here.
+
+_Data honesty:_ the backlog and PR figures are live GitHub state and are solid.
+No composite-efficiency trend is drawn from `process-metrics.jsonl` — the sensor
+it would rest on has been blind for 17 days.
+
+### Top 3 changes
+
+1. **Make the liveness checker date a PR artifact by `createdAt`, never
+   `mergedAt`** (`scripts/routine-liveness.mjs:707`). One expression. The
+   module's own docstring already specifies the rule, and today the default path
+   violates it to report two routines that have not fired in 9 days as `alive`.
+   A liveness checker that fails toward "fine" is worse than none. Filed as
+   **#6342**.
+2. **Stop `summary.yml` failing on every issue opened.** 36/36 since 10-09,
+   never once green, 36 of main's 69 real failures. Either guard the inference
+   response or retire the workflow — a workflow that has never succeeded is not
+   earning its red. Filed as **#6343**.
+3. **Skip the phantom `pull_request` arm on bot-authored branches** for the five
+   workflows with no dispatch escape hatch. This is 76% of all CI red, and the
+   runs execute nothing. Removing it makes the remaining red mean something.
+   Filed as **#6344**.
+
+The heartbeat gap is higher-leverage than any of these and is deliberately
+**not** filed: its fix is editing live RemoteTrigger prompts at claude.ai, which
+no agent can reach. It is Escalation 1.
+
+### Escalations
+
+Only a human can do these. None is filed as `ready`.
+
+1. **Add the heartbeat FINAL STEP to the live `mbe-auditor`, `mbe-morning` and
+   `mbe-ui-quality` prompts at claude.ai — before tomorrow's 14:53Z liveness
+   run.** The exact line each must post to #6211 is already written in
+   `docs/routines/<name>.md`. Until then all three file a false `dark` `ci-fix`
+   issue **every day** (dedupe only skips an _open_ prior issue, and #6190/#6191
+   are closed). If the prompts cannot be updated today, the cheaper stopgap is
+   to push `activatedAt` forward in `ROUTINE_MANIFEST`.
+2. **Decide the auto-rollback watchdog's future.** 1 merge in 10 attempts over
+   three weeks, and that one a confirmed false positive (#6226). It costs 52
+   phantom CI failures a week and closes its own PRs within half an hour. Keep,
+   tune, or retire — but it should not stay in this state by default.
+3. **Update the live `mbe-night` and `mbe-midday` prompts** with a liveness
+   signature (#5604, #5608). Open 20 days; same root cause as Escalation 1.
+4. **Set `AUTOMATION_PAT` as a repo secret** (`docs/SECRETS.md`). Standing since
+   #3684, and it is the upstream cause of the phantom-run family above.
+5. **Grant cloud sessions `actions:write`, or decide against it.** Carried from
+   last week, unchanged: without it these sessions cannot re-run a job or
+   dispatch CI, which is the difference between a self-healing loop and one that
+   waits for you.
+6. **#5873/#5874/#5875 — flip `remembered-on-arrival` M5.1/M5.2 to `ready` or
+   state the blocker.** Carried from last week; now 13 days idle.
+7. **#5878 and #5880 — rule on the two ACMM policy questions.** 13 days idle;
+   both are judgement calls an agent should not make unilaterally.
+8. **#5962 — perform the October secret rotation.** Labelled `ready` but no
+   agent can hold the credentials; it will sit in the queue until a human takes
+   it or it is relabelled.
+9. **Regenerate the hospitality visual baselines** from a Linux CI artifact to
+   clear main's live `Apps Visual Regression` streak (from #6324). Advisory
+   check, so not urgent — but every commit since 17:50Z on 10-11 is red.
+10. **Label ≥10 pairs in `docs/ui-quality/calibration.json`.** Carried from last
+    week; seven fires now with the calibration stamp reading `stale`, which
+    suppresses every agent-built taste finding.
+
+---
+
 ## 2026-10-04
 
 Window: **2026-09-27 → 2026-10-04**. Sources: `routine-liveness.yml` run

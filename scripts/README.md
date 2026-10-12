@@ -40,16 +40,15 @@ Guard invariants across the monorepo. Run by CI on every PR.
 
 ## Agent / Automation
 
-| Script                  | Purpose                                                            |
-| ----------------------- | ------------------------------------------------------------------ |
-| `orchestrate.mjs`       | Multi-agent orchestration -- decompose task into parallel subtasks |
-| `orchestrate-multi.mjs` | Multi-session orchestration variant                                |
-| `auto-qa-tune.mjs`      | Auto-tune QA thresholds for the agent loop                         |
-| `chaos-agent.mjs`       | Seed detectable non-breaking bugs to test audit pipelines          |
-| `sensor-report.mjs`     | Unified sensor aggregation for the learning loop                   |
-| `verify-fixes.mjs`      | Post-fix verification for the learning loop                        |
-| `revert-rca.mjs`        | Trigger reflection on AI PR reversions                             |
-| `log-agent-cost.js`     | Log agent session cost for spend tracking                          |
+| Script                  | Purpose                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `orchestrate-multi.mjs` | Multi-session orchestration variant                       |
+| `auto-qa-tune.mjs`      | Auto-tune QA thresholds for the agent loop                |
+| `chaos-agent.mjs`       | Seed detectable non-breaking bugs to test audit pipelines |
+| `sensor-report.mjs`     | Unified sensor aggregation for the learning loop          |
+| `verify-fixes.mjs`      | Post-fix verification for the learning loop               |
+| `revert-rca.mjs`        | Trigger reflection on AI PR reversions                    |
+| `log-agent-cost.js`     | Log agent session cost for spend tracking                 |
 
 ## Metrics / Auditing
 
@@ -79,9 +78,8 @@ Guard invariants across the monorepo. Run by CI on every PR.
 | --------------------------- | -------------------------------------------------------------- |
 | `cleanup-chaos-branches.sh` | Delete stale `chaos/synthetic-bug-*` branches (local + remote) |
 
-Stale agent-worktree removal (`.claude/worktrees/`) lives on the `mbe cleanup-worktrees` CLI
-command (`tools/cli/src/commands/cleanup-worktrees.ts`), not a `scripts/` shell script — see
-[`tools/cli/CLAUDE.md`](../tools/cli/CLAUDE.md).
+Stale agent-worktree removal (`.claude/worktrees/`) lives in `scripts/reap-worktrees.mjs`
+(`decideWorktreeReap` refuses worktrees with an open PR or a live process).
 
 ## Testing
 

@@ -30,8 +30,8 @@ export interface TimelineGridProps {
   onTableStatusChange?: (tableId: string, status: TableStatus) => void;
   /** Parties on their (OCCUPIED) table right now — the block's success LED (ux.md Screen 2). */
   seatedIds?: ReadonlySet<string>;
-  /** Height, in px, of a sheet covering the grid's bottom edge (ux.md Screen 4). */
-  bottomInset?: number;
+  /** Height, as a CSS length, of a sheet covering the grid's bottom edge (ux.md Screen 4). */
+  bottomInset?: string;
   /** The quiet night over the hour columns (ux.md Screen 7); null or absent renders nothing. */
   emptyNight?: TimelineEmptyNightProps | null;
   /** The table whose status change is in flight — its trigger is disabled and gold. */

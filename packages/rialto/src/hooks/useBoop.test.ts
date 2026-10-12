@@ -1,11 +1,12 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
+const springOptions = vi.hoisted(() => [] as unknown[]);
+
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion");
   return {
     ...actual,
-    useReducedMotion: () => false,
     useMotionValue: (initial: number) => {
       let val = initial;
       return {
@@ -15,11 +16,18 @@ vi.mock("framer-motion", async () => {
         get: () => val,
       };
     },
-    useSpring: (source: unknown) => source,
+    useSpring: (source: unknown, options?: unknown) => {
+      springOptions.push(options);
+      return source;
+    },
   };
 });
 
 import { useBoop } from "./useBoop";
+import { stubMatchMedia } from "../test/match-media";
+
+// Full motion: no device preference matches (see test/match-media.ts).
+stubMatchMedia([]);
 
 describe("useBoop", () => {
   it("returns style with scale and event handlers", () => {
@@ -27,6 +35,12 @@ describe("useBoop", () => {
     expect(result.current.style).toHaveProperty("scale");
     expect(result.current.onMouseEnter).toBeTypeOf("function");
     expect(result.current.onMouseLeave).toBeTypeOf("function");
+  });
+
+  it("springs with the boop physics — stiffness 400, damping 15, mass 0.5", () => {
+    springOptions.length = 0;
+    renderHook(() => useBoop());
+    expect(springOptions.at(-1)).toEqual({ stiffness: 400, damping: 15, mass: 0.5 });
   });
 
   it("onMouseEnter sets scale to boop.scale (1.03)", () => {

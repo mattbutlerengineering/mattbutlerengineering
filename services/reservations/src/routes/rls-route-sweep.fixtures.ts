@@ -86,9 +86,6 @@ export const INFRA_ROUTES: ReadonlySet<string> = new Set([
   // SSE: no RLS-scoped Prisma read at all (broadcasts an in-memory emitter),
   // and `.inject()` cannot exercise a long-lived stream meaningfully.
   "GET /api/v1/events/stream",
-  // Dev/test-only helper (`process.env.NODE_ENV !== "production"`), no auth,
-  // no Prisma call — just re-emits onto the in-memory bus above.
-  "POST /api/v1/events/test",
 ]);
 
 export type FixtureKind = "not-rls" | "ok" | "broken";
@@ -937,30 +934,30 @@ const venueFixtures: Record<string, RouteFixture> = {
 };
 
 /**
- * Availability has NO `requireVenueAccess` at all (any authenticated caller
- * may check any venue's availability, by design) — its `:venueId` PARAM key
- * happens to match `venueIdFromParams`'s expected name, so the GLOBAL
- * preHandler resolves it correctly with no entity lookup. Genuinely "ok" for
- * every caller, including a member on venue B — that is not a bug here.
+ * Availability is `member`-scoped by its `:venueId` PARAM (`venueScoped`, the
+ * docs/fixes/venue-scoped-routes PR 5 ruling). Any authenticated caller used to
+ * read any venue's slots, and a member of venue A now gets a 403 on venue B.
  */
+function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixture {
+  return ok(async (ctx) => {
+    expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(ctx.venueA.id) }), "admin venue A");
+    expectOk(await asAdmin(ctx, { method: "GET", url: urlFor(ctx.venueB.id) }), "admin venue B");
+    expectOk(await asMember(ctx, { method: "GET", url: urlFor(ctx.venueA.id) }), "member venue A");
+    expectDenied(
+      await asMember(ctx, { method: "GET", url: urlFor(ctx.venueB.id) }),
+      "member venue B"
+    );
+  });
+}
+
 const availabilityFixtures: Record<string, RouteFixture> = {
-  "GET /api/v1/availability/:venueId": ok(async (ctx) => {
-    const url = (venueId: string) => `/api/v1/availability/${venueId}?date=2026-10-01&partySize=2`;
-    expectOk(await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }), "admin venue A");
-    expectOk(
-      await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }),
-      "member venue B (open route)"
-    );
-  }),
-  "GET /api/v1/availability/:venueId/dates": ok(async (ctx) => {
-    const url = (venueId: string) =>
-      `/api/v1/availability/${venueId}/dates?startDate=2026-10-01&endDate=2026-10-07&partySize=2`;
-    expectOk(await asAdmin(ctx, { method: "GET", url: url(ctx.venueA.id) }), "admin venue A");
-    expectOk(
-      await asMember(ctx, { method: "GET", url: url(ctx.venueB.id) }),
-      "member venue B (open route)"
-    );
-  }),
+  "GET /api/v1/availability/:venueId": okAvailabilityByParam(
+    (venueId) => `/api/v1/availability/${venueId}?date=2026-10-01&partySize=2`
+  ),
+  "GET /api/v1/availability/:venueId/dates": okAvailabilityByParam(
+    (venueId) =>
+      `/api/v1/availability/${venueId}/dates?startDate=2026-10-01&endDate=2026-10-07&partySize=2`
+  ),
 };
 
 /** A minimal valid `TableShapeMetadata` for the positions/assign fixtures below. */

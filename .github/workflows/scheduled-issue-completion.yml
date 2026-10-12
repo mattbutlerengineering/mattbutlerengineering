@@ -3,7 +3,8 @@ name: Scheduled Issue Completion
 # Every 12 hours, advance the autonomous issue pipeline by exactly one step:
 #
 #   1. `complete` — if any open issue is labeled `ready`, complete ONE end-to-end
-#      via the implement-queue skill (TDD, gates, PR, review gate, auto-merge).
+#      via the idea-to-prod implement-queue skill (TDD, gates, PR, review gate,
+#      auto-merge), cloned from mattbutlerengineering/skills at run time.
 #   2. `promote`  — else, if a promotable backlog exists, triage it and label the
 #      strongest 1-3 candidates `ready` (no implementation).
 #   3. `audit`    — else (nothing actionable), audit how the pipeline can be
@@ -153,6 +154,13 @@ jobs:
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
+      # implement-queue lives in the idea-to-prod plugin (skills#720); an
+      # Actions runner cannot load plugins (#6332), so fetch the public skills
+      # repo and have the agent follow the skill by path, with this repo's
+      # .claude/implement-queue.md supplying every hook.
+      - name: Fetch implement-queue skill
+        run: git clone --depth 1 https://github.com/mattbutlerengineering/skills.git /tmp/skills-plugin
+
       - name: Compose prompt
         id: prompt
         env:
@@ -163,7 +171,7 @@ jobs:
             complete)
               BUDGET="$INPUT_BUDGET"
               cat > /tmp/agent-prompt.txt <<'PROMPT_EOF'
-          You are the scheduled implement-queue runner (every 12 hours). Read and follow the skill at .claude/skills/implement-queue/SKILL.md exactly.
+          You are the scheduled implement-queue runner (every 12 hours). Read and follow the skill at /tmp/skills-plugin/skills/implement-queue/SKILL.md exactly, with this repo's queue profile .claude/implement-queue.md supplying every hook.
 
           Goal: COMPLETE exactly ONE `ready` issue end-to-end this run. Do not start a second issue.
 
@@ -200,7 +208,7 @@ jobs:
           You are the scheduled process-improvement auditor (every 12 hours). There are no `ready` and no promotable backlog issues, so audit how this repository's autonomous issue pipeline can be improved and file concrete issues to feed the queue.
 
           Investigate (read-only) for HIGH-VALUE, well-scoped improvements, e.g.:
-          - The implement-queue skill and scripts (.claude/skills/implement-queue/) and the merge-train / green-main flow.
+          - The implement-queue queue profile (.claude/implement-queue.md), its scripts, and the merge-train / green-main flow. The generic skill itself lives in mattbutlerengineering/skills; file skill-level findings there.
           - CI reliability and flakiness; recurring `ci-fix` / auto-health false positives (check recently closed issues: `gh issue list --state closed --limit 50`).
           - Test-coverage or observability gaps in frequently-changed subsystems.
           - Recurring failure patterns (revert-rca logs, health monitoring, dependency-audit drift).

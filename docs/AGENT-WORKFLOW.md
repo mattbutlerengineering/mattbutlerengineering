@@ -80,9 +80,9 @@ Built-in resilience:
 - **Draft PRs on failure** -- partial work preserved for inspection
 - **Failure memory** -- past failure context injected on retry
 
-## Implement Queue (`/implement-queue`)
+## Implement Queue (`/idea-to-prod:implement-queue`)
 
-Drains the `ready` backlog with the implement-issue quality pipeline (TDD, gates, review) per issue. Invoked locally via `/loop 30m /implement-queue`. Replaces the former `/ship-loop`.
+Drains the `ready` backlog with the implement-issue quality pipeline (TDD, gates, review) per issue. Invoked locally via `/loop 30m /idea-to-prod:implement-queue`. Replaces the former `/ship-loop`.
 
 **Priority: Security > CI fixes > Features > Audit findings.**
 

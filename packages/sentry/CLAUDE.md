@@ -17,17 +17,17 @@ src/
 
 ## Exports
 
-| Entry               | Key exports                                           |
-| ------------------- | ----------------------------------------------------- |
-| `@mbe/sentry`       | `resolveConfig`, `SentryConfig`                       |
-| `@mbe/sentry/node`  | `initSentry`, `sentryFastifyPlugin`                   |
-| `@mbe/sentry/react` | `initSentry`, `handleErrorBoundary`, `reportApiError` |
+| Entry               | Key exports                                                |
+| ------------------- | ---------------------------------------------------------- |
+| `@mbe/sentry`       | `resolveConfig`, `SentryConfig`                            |
+| `@mbe/sentry/node`  | `initSentry`, `captureRequestError`, `sentryFastifyPlugin` |
+| `@mbe/sentry/react` | `initSentry`, `handleErrorBoundary`, `reportApiError`      |
 
 ## Fastify Plugin (node)
 
 Registered by `createServiceApp` (`@mbe/service-bootstrap`). Captures unhandled errors and notable 4xx/5xx responses:
 
-- **500+**: captured via explicit error handler (masks real message from client) and `onResponse` hook
+- **500+**: `captureRequestError` (called by `errorHandlerPlugin`, the single error handler) captures the exception with its stack and flags the reply; the `onResponse` hook is a message-only fallback for 5xx that bypassed the handler
 - **409/422/429**: captured as warning-level messages
 - **401/403/404**: silently ignored (expected client errors)
 
@@ -58,7 +58,7 @@ componentDidCatch(error, info) {
 reportApiError(apiError);
 ```
 
-`reportApiError` classifies by status code: 5xx `captureException`, 401/403 `captureMessage` (warning), other 4xx breadcrumb only.
+`reportApiError` classifies by status code: 5xx `captureException`, 401/403 `captureMessage` (warning), other 4xx breadcrumb only. Response-schema validation failures (`ApiValidationError`, no `statusCode`) `captureException` with method, path and zod issues.
 
 ## Config Resolution
 

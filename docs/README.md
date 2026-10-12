@@ -43,7 +43,6 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 | [`rollback.md`](rollback.md)                           | Rollback procedures                            |
 | [`ship-loop-learnings.md`](ship-loop-learnings.md)     | Learnings from the ship loop                   |
 | [`ai-ops-runbook.md`](ai-ops-runbook.md)               | AI operations runbook                          |
-| [`autonomous-work-log.md`](autonomous-work-log.md)     | Log of autonomous agent work                   |
 
 ## Entry Points
 

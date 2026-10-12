@@ -8,11 +8,13 @@ import {
   type CancellationQuote,
 } from "./useCancellationQuote.js";
 import { useVenuePolicy } from "./useVenuePolicy.js";
+import { useIsAdmin } from "./useIsAdmin.js";
 
 // The quote owns fee evaluation + label formatting; it is tested here as a pure
 // function WITHOUT rendering the cancel dialog. The hook wrapper is exercised
 // separately with a stubbed `useVenuePolicy`.
 vi.mock("./useVenuePolicy.js", () => ({ useVenuePolicy: vi.fn() }));
+vi.mock("./useIsAdmin.js", () => ({ useIsAdmin: vi.fn() }));
 
 const basePolicy: CancellationPolicy = {
   depositAmountCents: 5000, // $50.00
@@ -67,6 +69,33 @@ describe("evaluateCancellationQuote", () => {
   it("defaults to usd when no currency is supplied", () => {
     const quote = evaluateCancellationQuote(basePolicy, hoursFromNow(4), undefined, NOW);
     expect(quote?.label).toContain("$50.00");
+  });
+});
+
+describe("evaluateCancellationQuote — staff initiator (#6335)", () => {
+  it("waives the late fee and refunds in full, matching the server's staff branch", () => {
+    // 1h before, 2h free window → a guest would pay 50%; staff cancel is fee-waived.
+    const quote = evaluateCancellationQuote(basePolicy, hoursFromNow(1), "usd", NOW, "staff");
+    expect(quote?.fee.feeType).toBe("none");
+    expect(quote?.fee.feeAmountCents).toBe(0);
+    expect(quote?.fee.refundAmountCents).toBe(5000);
+    expect(quote?.fee.depositAction).toBe("refund_full");
+    expect(quote?.label).toMatch(/no cancellation fee/i);
+    expect(withQuotedFeeNote("note", quote)).toBe("note");
+  });
+
+  it("waives the no-show fee for staff too", () => {
+    const quote = evaluateCancellationQuote(basePolicy, hoursAgo(1), "usd", NOW, "staff");
+    expect(quote?.fee.feeType).toBe("none");
+  });
+
+  it("still returns null without a policy", () => {
+    expect(evaluateCancellationQuote(null, hoursFromNow(1), "usd", NOW, "staff")).toBeNull();
+  });
+
+  it("keeps guest quoting unchanged by default", () => {
+    const quote = evaluateCancellationQuote(basePolicy, hoursFromNow(1), "usd", NOW);
+    expect(quote?.fee.feeType).toBe("late");
   });
 });
 
@@ -128,6 +157,31 @@ describe("useCancellationQuote", () => {
     expect(result.current.quote).not.toBeNull();
     expect(result.current.quote?.fee.feeType).toBe("none");
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("quotes no fee inside the late window for an admin (staff) canceller", () => {
+    vi.mocked(useIsAdmin).mockReturnValue(true);
+    vi.mocked(useVenuePolicy).mockReturnValue({ policy: basePolicy, isLoading: false });
+    const { result } = renderHook(() =>
+      useCancellationQuote({
+        slug: "the-oak-table",
+        reservationTime: new Date(Date.now() + 60 * 60 * 1000),
+      })
+    );
+    expect(result.current.quote?.fee.feeType).toBe("none");
+    expect(withQuotedFeeNote("n", result.current.quote)).toBe("n");
+  });
+
+  it("quotes the guest late fee for a non-admin canceller (server applies guest rules)", () => {
+    vi.mocked(useIsAdmin).mockReturnValue(false);
+    vi.mocked(useVenuePolicy).mockReturnValue({ policy: basePolicy, isLoading: false });
+    const { result } = renderHook(() =>
+      useCancellationQuote({
+        slug: "the-oak-table",
+        reservationTime: new Date(Date.now() + 60 * 60 * 1000),
+      })
+    );
+    expect(result.current.quote?.fee.feeType).toBe("late");
   });
 
   it("returns a null quote when no reservation time is supplied", () => {

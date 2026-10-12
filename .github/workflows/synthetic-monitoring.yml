@@ -25,8 +25,17 @@ jobs:
         id: health
         env:
           AUDIT_TOKEN: ${{ secrets.AUDIT_TOKEN }}
+          HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
         run: |
           CURL_ARGS=(-sf --max-time 15)
+          # Per-service detail (latency, checks) requires Bearer HEALTH_TOKEN
+          # (system.js isHealthAuthorized). Without it the response is the
+          # coarse subsystem-status shape, which every consumer tolerates.
+          if [ -n "${HEALTH_TOKEN:-}" ]; then
+            CURL_ARGS+=(-H "Authorization: Bearer ${HEALTH_TOKEN}")
+          else
+            echo "::warning::HEALTH_TOKEN secret not configured — per-service latency detail unavailable (coarse response only)"
+          fi
           if [ -n "${AUDIT_TOKEN:-}" ]; then
             CURL_ARGS+=(-H "X-Audit-Token: ${AUDIT_TOKEN}")
           else
@@ -62,15 +71,18 @@ jobs:
           HOUR_KEY=$(date -u +%Y-%m-%d-%H)
 
           # Extract per-service latencies from the health response
+          # Detailed responses carry probes under subsystems.{services,static_sites}.checks;
+          # a coarse response has none, so no sample is recorded (never crash).
           LATENCIES=$(echo "$HEALTH_RESPONSE" | jq -c '{
             timestamp: now | todate,
             services: (
-              [.services // {} | to_entries[] | {key: .key, value: {latency: (.value.latency // .value.checks[0].latency // null), status: .value.status}}]
+              [(.subsystems.services.checks // {}), (.subsystems.static_sites.checks // {})
+               | to_entries[] | {key: .key, value: {latency: (.value.latency // null), status: .value.status}}]
               | from_entries
             )
-          }' 2>/dev/null || echo '{}')
+          } | select(.services | length > 0)' 2>/dev/null || echo '{}')
 
-          if [ "$LATENCIES" != "{}" ]; then
+          if [ -n "$LATENCIES" ] && [ "$LATENCIES" != "{}" ]; then
             curl -sf -X PUT \
               "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/latency%2F${HOUR_KEY}" \
               -H "Authorization: Bearer ${CF_API_TOKEN}" \
@@ -117,7 +129,7 @@ jobs:
 
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           FAILING=$(echo "$HEALTH_RESPONSE" | jq -r '
-            [(.services // {} | to_entries[] | select(.value.status != "healthy" and .value.status != "ok") | .key)] | join(", ")' 2>/dev/null || echo "")
+            [(.subsystems // {} | to_entries[] | select(.value.status != "healthy") | .key)] | join(", ")' 2>/dev/null || echo "")
 
           PAYLOAD=$(jq -nc \
             --arg emoji "$EMOJI" \

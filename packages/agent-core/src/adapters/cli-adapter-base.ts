@@ -6,8 +6,8 @@
  *   - `cliBinary`   — the CLI binary name used with `which` and `execFile`
  *   - `buildArgs`   — construct the CLI argument list for a given config
  *
- * The base class owns: isAvailable, run (full lifecycle), truncateTask,
- * detectRateLimiting, buildCommitMessage, checkForChanges, commitChanges, spawnCli.
+ * The base class owns: isAvailable, dispatch (full lifecycle), runSession, truncateTask,
+ * detectRateLimiting, checkForChanges, spawnCli.
  */
 
 import { execFile as execFileCb } from "node:child_process";
@@ -66,7 +66,7 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
   /**
    * Recover a human-readable error message from the CLI's stdout when the
    * run failed, for backends that emit structured JSON there instead of (or
-   * in addition to) stderr. Base implementation reports none — `run()`
+   * in addition to) stderr. Base implementation reports none — `dispatch()`
    * falls through to the raw stderr text (see ADR-017 failure-PR-body
    * contract, #3019).
    */
@@ -89,28 +89,15 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
   }
 
   /**
-   * Execute the shared CLI adapter lifecycle:
+   * Execute the shared CLI adapter lifecycle WITHOUT committing:
    *   1. Truncate task description
    *   2. Spawn the CLI subprocess via buildArgs
    *   3. Detect rate limiting in combined output
-   *   4. Check for git changes; commit if present
+   *   4. Check for git changes
    *   5. Return normalized AdapterResult
-   */
-  async run(config: AdapterConfig): Promise<AdapterResult> {
-    const result = await this.dispatch(config);
-    if (result.hasChanges) {
-      await this.commitChanges(config.worktreePath, config.taskDescription);
-    }
-    return result;
-  }
-
-  /**
-   * Spawn the CLI subprocess and detect changes WITHOUT committing them.
-   * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
-   * contract used by `--adapter` dispatch); the Phase
-   * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
-   * leaves the commit to `VerificationPhase`, mirroring how Claude's
-   * QueryPhase never commits either (#3234).
+   * The Phase pipeline (`run-cli-adapter-session.ts`) calls this and leaves the
+   * commit to `VerificationPhase`, mirroring how Claude's QueryPhase never
+   * commits either (#3234).
    */
   async dispatch(config: AdapterConfig): Promise<AdapterResult> {
     const startTime = Date.now();
@@ -182,17 +169,6 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
     return scanForRateLimitPatterns(output);
   }
 
-  /**
-   * Build a short conventional commit message from the task description.
-   */
-  protected buildCommitMessage(task: string): string {
-    const maxSubject = 72;
-    const prefix = "feat: ";
-    const available = maxSubject - prefix.length;
-    const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-    return `${prefix}${subject}`;
-  }
-
   // ── Private helpers ──────────────────────────────────────────────
 
   /**
@@ -233,18 +209,5 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Stage all changes and commit with a descriptive message.
-   */
-  private async commitChanges(worktreePath: string, task: string): Promise<void> {
-    const gitOpts = { cwd: worktreePath, timeout: GIT_TIMEOUT_MS };
-    await execFileAsync("git", ["-C", worktreePath, "add", "-A"], gitOpts);
-    await execFileAsync(
-      "git",
-      ["-C", worktreePath, "commit", "-m", this.buildCommitMessage(task)],
-      gitOpts
-    );
   }
 }

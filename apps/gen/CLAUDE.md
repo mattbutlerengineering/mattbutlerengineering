@@ -37,7 +37,7 @@ Renders UIs defined in JSON format. The core rendering engine uses `@json-render
 
 1. **No direct DOM manipulation** - Always use the spec state.
 2. **Schema First** - All new component support must start with updating `types.ts`.
-3. **Theming** - Use Rialto design tokens via `ThemedApp.tsx`.
+3. **Theming** - Use Rialto design tokens via the providers in `App.tsx`.
 4. **Validation** - All spec updates must pass Zod validation before rendering.
 
 ## Commands

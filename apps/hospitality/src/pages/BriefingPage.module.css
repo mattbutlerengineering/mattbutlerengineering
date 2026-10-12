@@ -46,6 +46,12 @@
   font-style: italic;
 }
 
+/* The guest's Special Requests: upright, unlike the staff note, their line breaks kept */
+.requests {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .banner {
   margin-block: var(--rialto-space-md);
 }

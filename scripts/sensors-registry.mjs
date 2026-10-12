@@ -434,7 +434,7 @@ export const SENSORS = [
         available: true,
         stale_count: freshnessFindings(results).length,
         metrics: results.map((result) => ({
-          metric: result.metric,
+          metric: result.label ?? result.metric,
           state: result.state,
           age_days: result.ageDays,
           latest: result.latest ?? null,
@@ -529,10 +529,18 @@ export const SENSORS = [
     collect: ({ root, now }) => {
       // Single spend sink owned by agent-core's recordSpend seam (#2974).
       const spendPath = resolve(root, ".claude", "agent-spend", "sessions.jsonl");
-      return collectAgentCost(spendPath, now);
+      // `/implement-queue` workers never reach recordSpend; their usage is
+      // the orchestrator's queue-telemetry row (#5885).
+      const queueRows = safe(() => read("queue-telemetry", { root }));
+      return collectAgentCost(spendPath, now, queueRows);
     },
-    format: (data, name) =>
-      `${name} (per-issue attribution): $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} attributed sessions`,
+    format: (data, name) => {
+      const base = `${name} (per-issue attribution): $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} attributed sessions`;
+      if (!data.queue) return base;
+      const { sessions_7d, sessions_without_usage_7d, tokens_7d, cost_7d_usd } = data.queue;
+      const cost = cost_7d_usd === null ? "cost unknown" : `$${cost_7d_usd}`;
+      return `${base}; ${sessions_7d} queue worker sessions (7d): ${tokens_7d} tokens, ${cost}, ${sessions_without_usage_7d} rows without usage`;
+    },
   },
   {
     id: "ccusageCost",

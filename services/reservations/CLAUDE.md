@@ -300,9 +300,12 @@ type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled
 
 ### Availability
 
-| Method | Path                   | Description              |
-| ------ | ---------------------- | ------------------------ |
-| GET    | `/api/v1/availability` | Get available time slots |
+Authenticated (staff): requires a JWT and membership of the `:venueId` venue (ADR-020, `venueScoped`). The anonymous booking widget uses `/public/v1/venues/:slug/availability` instead.
+
+| Method | Path                                  | Description                     |
+| ------ | ------------------------------------- | ------------------------------- |
+| GET    | `/api/v1/availability/:venueId`       | Get available time slots        |
+| GET    | `/api/v1/availability/:venueId/dates` | Get dates with any availability |
 
 ### Holds (authenticated — staff)
 
@@ -389,6 +392,11 @@ Raw body access is required for HMAC signature verification — this route must 
 | GET    | `/public/v1/reservations/confirm`                 | Confirm attendance via token            |
 
 The public deposit route creates a Stripe PaymentIntent (manual capture) and a `Deposit` record in `pending` state, returning the `clientSecret` for Stripe.js to confirm on the frontend.
+It requires the `x-session-id` of the booking session that confirmed the
+reservation (`Reservation.originSessionId`, copied from the hold by
+`confirmHold`), compared in constant time before any Stripe call; a missing
+header, a mismatch, or a reservation with no originating session (created
+outside the widget) is a 403 (#6304).
 
 Every `/holds` route above requires the `x-session-id` returned at hold
 creation (a high-entropy capability token) for reads, releases and confirms —
@@ -513,9 +521,9 @@ Booking Widget ──> GET /public/v1/venues/:slug/availability ──> Time slo
 
 ### Auth Flow
 
-Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/availability`.
+Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/stripe/webhook` (including `/api/v1/availability/*`, which also requires venue membership).
 
-Unauthenticated routes: `/health`, `/ready`, `/api/v1/availability`, `/api/v1/stripe/webhook`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
+Unauthenticated routes: `/health`, `/ready`, `/api/v1/stripe/webhook`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
 
 ```typescript
 // Routes use @mbe/auth plugin

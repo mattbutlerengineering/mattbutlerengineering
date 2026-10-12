@@ -27,6 +27,9 @@ on:
 permissions:
   contents: read
   issues: write
+  # The ACMM audit's agent-PR reader (`gh pr list --search`) gets an empty
+  # list, not an error, without this, and every PR-outcome gate reads n=0 (#6311).
+  pull-requests: read
 
 concurrency:
   group: nightly-compliance

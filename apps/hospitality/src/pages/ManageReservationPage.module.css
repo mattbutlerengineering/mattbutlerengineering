@@ -50,3 +50,13 @@
   border-color: var(--rialto-accent);
   color: var(--rialto-accent);
 }
+
+/* The Special Requests card: token inset, the guest's line breaks kept */
+.cardInset {
+  padding: var(--rialto-space-lg);
+}
+
+.requestsText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

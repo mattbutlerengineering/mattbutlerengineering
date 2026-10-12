@@ -1,5 +1,31 @@
 # @mattbutlerengineering/rialto
 
+## 0.5.1
+
+### Patch Changes
+
+- [#6333](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6333) [`e29fefc`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e29fefc09fa01d9441566f05111965848d1d3624) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Finish ADR-025: Avatar, DepartureBoard, Ferrofluid, Handshake, NeonSign, SilkFlow, SplitFlap, WatchLoader and `useScrollReveal` now read reduced motion from `useMotionPreset().reduced` instead of framer-motion's `useReducedMotion()`, and `useBoop` takes its spring from the preset rather than the deprecated `boop` token. `useDeviceContext` now reads the device on its first render, so reduced-motion users never get one commit of the animated path. Full-motion behaviour is unchanged.
+
+## 0.5.0
+
+### Minor Changes
+
+- [#6328](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6328) [`a86c3a4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a86c3a4bda582ab04f8c5f87cd6be8a43b1d9e6e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `useMotionPreset()` now owns reduced motion and boop (ADR-025). It returns two new fields — `reduced` (the one `prefers-reduced-motion` signal) and `boop` (a ready `whileHover` target, at-rest under reduced motion) — and 38 components and hooks now resolve their transitions, boop hover, and reduced-motion check through it instead of importing `tokens/motion` statics or calling framer-motion's `useReducedMotion()`.
+
+  Behaviour change: under reduced motion, Popover, DropdownMenu, ContextMenu, HoverCard, ToastAnimated, and AnimatedTag now transition in zero time (previously 0.1s), and Button/Dialog's previously ungated `precision` transitions are instant too. The `boop` and `reduced` exports of `./motion` are deprecated in favour of `useMotionPreset()`; nothing is removed.
+
+## 0.4.2
+
+### Patch Changes
+
+- [#6324](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6324) [`30f6f21`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/30f6f2128ca3058339990e93a9de98c0e4ad521b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Fix axe-serious findings on `TapeChart` and `SegmentedControl`: unselected `SegmentedControl` segments now use `--rialto-text-secondary` (was tertiary, 4.07:1 on the recessed track), checked-in `TapeChart` bar metadata uses primary text (was 4.33:1), and the horizontally scrolling `TapeChart` grid is keyboard-focusable.
+
+## 0.4.1
+
+### Patch Changes
+
+- [#6309](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6309) [`638ea70`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/638ea70420ed12edf417e1ef4c7f8b24d6957bc4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add optional `ariaLabel` to `Table` column definitions, giving a visually empty header (e.g. a trailing actions column) an accessible name.
+
 ## 0.4.0
 
 ### Minor Changes

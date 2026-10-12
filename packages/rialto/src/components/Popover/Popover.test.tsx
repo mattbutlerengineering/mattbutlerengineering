@@ -274,4 +274,47 @@ describe("Popover", () => {
       expect(screen.getByText("Content")).toBeInTheDocument();
     });
   });
+
+  describe("trigger wrapping (a11y iteration 3)", () => {
+    it("calls the consumer's onClick when the trigger is activated by keyboard (Enter and Space)", async () => {
+      const onClick = vi.fn();
+      render(
+        <Popover trigger={<Button onClick={onClick}>Open</Button>}>
+          <p>Content</p>
+        </Popover>
+      );
+      const btn = screen.getByRole("button", { name: "Open" });
+      btn.focus();
+      await user.keyboard("{Enter}");
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      btn.focus();
+      await user.keyboard(" ");
+      expect(onClick).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps the consumer's ref, onKeyDown and non-owned aria-* on the trigger", async () => {
+      const ref = { current: null as HTMLButtonElement | null };
+      const onKeyDown = vi.fn();
+      render(
+        <Popover
+          trigger={
+            <button ref={ref} onKeyDown={onKeyDown} aria-describedby="hint" aria-label="Filters">
+              Open
+            </button>
+          }
+        >
+          <p>Content</p>
+        </Popover>
+      );
+      const btn = screen.getByRole("button", { name: "Filters" });
+      expect(ref.current).toBe(btn);
+      expect(btn).toHaveAttribute("aria-describedby", "hint");
+      btn.focus();
+      await user.keyboard("{Enter}");
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -1,6 +1,6 @@
 import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttributes } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springGentle } from "../../tokens/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useDismiss } from "../../hooks/useDismiss";
 import styles from "./NavigationMenu.module.css";
@@ -49,7 +49,7 @@ const OPEN_DELAY = 200;
 const CLOSE_DELAY = 150;
 
 function NavChevron({ open }: { open: boolean }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <motion.svg
       className={styles.chevron}
@@ -63,7 +63,7 @@ function NavChevron({ open }: { open: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
       animate={{ rotate: open ? 180 : 0 }}
-      transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+      transition={motionPreset.springGentle}
     >
       <path d="M2 3.5l3 3 3-3" />
     </motion.svg>
@@ -81,7 +81,8 @@ function NavTrigger({
   onOpen: (label: string) => void;
   onClose: () => void;
 }) {
-  const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
   const openTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -170,7 +171,7 @@ function NavTrigger({
             initial={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.95, y: -4 }}
-            transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+            transition={motionPreset.springGentle}
             onMouseEnter={cancelClose}
             onMouseLeave={startClose}
             onFocus={cancelClose}

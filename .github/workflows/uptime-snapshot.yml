@@ -16,8 +16,18 @@ jobs:
     steps:
       - name: Fetch system health
         id: health
+        env:
+          HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
         run: |
-          RESPONSE=$(curl -sf --max-time 30 \
+          CURL_ARGS=(-sf --max-time 30)
+          # Per-service uptime needs the detailed response (Bearer HEALTH_TOKEN);
+          # without the secret we record the coarse subsystem-status snapshot.
+          if [ -n "${HEALTH_TOKEN:-}" ]; then
+            CURL_ARGS+=(-H "Authorization: Bearer ${HEALTH_TOKEN}")
+          else
+            echo "::warning::HEALTH_TOKEN secret not configured — recording coarse snapshot"
+          fi
+          RESPONSE=$(curl "${CURL_ARGS[@]}" \
             "https://mattbutlerengineering.com/health/system" || echo '{"status":"error"}')
           echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"

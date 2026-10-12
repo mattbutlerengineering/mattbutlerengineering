@@ -13,7 +13,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
 import { getLabelsForSensor } from "./sensors-registry.mjs";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -401,26 +401,11 @@ export function findPriorCorsAuditIssue(candidates) {
 
 /** Pure: the log line for a `fileIssue()` result, one per action. */
 export function describeFilingResult(result, title) {
+  if (result.action === "skipped-error")
+    return `Skipping — could not read state of issue #${result.issueNumber}: ${title}`;
   if (result.action === "create") return `Created issue: ${title}`;
   if (result.action === "reopen") return `Reopened issue #${result.issueNumber}: ${title}`;
   return `Skipping — issue #${result.issueNumber} already tracks this: ${title}`;
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
-}
-
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
 }
 
 function createGitHubIssue(ghClient, title, body) {
@@ -449,7 +434,7 @@ function createGitHubIssue(ghClient, title, body) {
     const ledger = priorNumber !== null ? { [CORS_AUDIT_DEDUPE_KEY]: priorNumber } : {};
 
     const result = fileIssue({ title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY }, ledger, {
-      getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+      getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
       createIssue: () =>
         parseIssueNumberFromUrl(
           ghClient.issue.create([

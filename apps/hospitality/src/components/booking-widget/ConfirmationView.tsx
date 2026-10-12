@@ -1,4 +1,5 @@
-import { Button, Text } from "@mattbutlerengineering/rialto";
+import { useId } from "react";
+import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, PublicVenueConfig } from "@mbe/types";
 import {
   formatLongDateWithYear,
@@ -8,6 +9,8 @@ import {
 } from "../../utils/format.js";
 import { buildReservationIcs, downloadIcsFile } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
+import { specialRequestsText } from "../../utils/reservation-display.js";
+import { CONFIRMATION_COPY, contactLine } from "../../constants/confirmation-copy.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
@@ -50,6 +53,9 @@ export function ConfirmationView({
   venueConfig,
   venueTimezone,
 }: ConfirmationViewProps) {
+  const specialRequestsId = useId();
+  const requests = specialRequestsText(reservation.notes);
+  const contact = reservation.guestEmail || reservation.guestPhone;
   const effectiveTimezone = venueTimezone ?? venueConfig?.ianaTimezone;
   const formattedDate = formatLongDateWithYear(reservation.date);
   const formattedTime = effectiveTimezone
@@ -153,6 +159,29 @@ export function ConfirmationView({
         </dl>
       </div>
 
+      {/* Special Requests, said back verbatim */}
+      {requests !== null && (
+        <div className={styles.detailsCard} role="group" aria-labelledby={specialRequestsId}>
+          <Text
+            id={specialRequestsId}
+            variant="label"
+            as="h3"
+            color="secondary"
+            className={styles.detailsTitle}
+          >
+            {CONFIRMATION_COPY.specialRequestsLabel}
+          </Text>
+          <Stack gap="sm">
+            <Text variant="caption" color="secondary">
+              {CONFIRMATION_COPY.acknowledgement}
+            </Text>
+            <Text variant="caption" color="primary" dir="auto" className={styles.requestsText}>
+              {requests}
+            </Text>
+          </Stack>
+        </div>
+      )}
+
       {/* Deposit authorization notice */}
       {depositAmountCents != null && depositAmountCents > 0 && (
         <div className={styles.detailsCard}>
@@ -180,9 +209,9 @@ export function ConfirmationView({
       )}
 
       {/* Contact info note */}
-      {(reservation.guestEmail || reservation.guestPhone) && (
-        <Text variant="caption" color="secondary" align="center">
-          A confirmation has been sent to {reservation.guestEmail || reservation.guestPhone}.
+      {contact && (
+        <Text variant="caption" color="secondary" align="center" className={styles.contactLine}>
+          {contactLine(contact)}
         </Text>
       )}
 

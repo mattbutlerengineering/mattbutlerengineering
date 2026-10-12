@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { useMotionValue, useSpring, useReducedMotion, type MotionStyle } from "framer-motion";
+import { useMotionValue, useSpring, type MotionStyle } from "framer-motion";
 import { useMotionPreset } from "../providers/useMotionPreset";
 
 const NOOP_STYLE: MotionStyle = {};
@@ -15,8 +15,8 @@ export function useTilt(
   onMouseLeave: () => void;
 } {
   const elRef = useRef<HTMLDivElement | null>(null);
-  const shouldReduceMotion = useReducedMotion();
   const motionPreset = useMotionPreset();
+  const shouldReduceMotion = motionPreset.reduced;
 
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);

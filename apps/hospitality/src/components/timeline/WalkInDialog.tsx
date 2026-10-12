@@ -11,6 +11,7 @@ import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
+import { tablesThatFit } from "../../utils/seating.js";
 import styles from "./WalkInDialog.module.css";
 
 interface WalkInDialogProps {
@@ -40,10 +41,7 @@ const GUEST_NAME_HINT = "Name or phone — returning guests appear as you type."
 const GUEST_CLEARED = "Guest cleared.";
 
 function findBestTable(tables: Table[], partySize: number): string {
-  const eligible = tables
-    .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
-    .sort((a, b) => a.capacity - b.capacity);
-  return eligible[0]?.id ?? "";
+  return tablesThatFit(tables, partySize)[0]?.id ?? "";
 }
 
 /**
@@ -96,9 +94,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
     announce(GUEST_CLEARED);
   };
 
-  const availableTables = tables
-    .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
-    .sort((a, b) => a.capacity - b.capacity);
+  const availableTables = tablesThatFit(tables, partySize);
   const noTableFits = availableTables.length === 0;
 
   const tableOptions = availableTables.map((t) => ({

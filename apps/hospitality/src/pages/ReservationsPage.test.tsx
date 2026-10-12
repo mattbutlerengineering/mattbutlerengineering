@@ -192,6 +192,7 @@ function makeVenueContext(overrides: Partial<VenueContextValue> = {}): VenueCont
     selectedVenue: null,
     setVenueId: vi.fn(),
     isLoading: false,
+    venuesError: null,
     isMultiVenue: false,
     refetchVenues: vi.fn(),
     ...overrides,

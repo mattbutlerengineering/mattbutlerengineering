@@ -1,6 +1,6 @@
 import { forwardRef, useRef, useEffect, useState, useCallback, type HTMLAttributes } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { spring, boop } from "../../tokens/motion";
+import { motion } from "framer-motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn, variantClass } from "../../utils/class-composer";
 import { useDirection } from "../../hooks/useDirection";
 import styles from "./SegmentedControl.module.css";
@@ -54,7 +54,8 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const segmentRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-    const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
+    const shouldReduceMotion = motionPreset.reduced;
     const dir = useDirection(containerRef);
 
     const [indicator, setIndicator] = useState({ offset: 0, width: 0 });
@@ -126,7 +127,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                 insetInlineStart: indicator.offset,
                 width: indicator.width,
               }}
-              transition={shouldReduceMotion ? { duration: 0 } : spring}
+              transition={motionPreset.spring}
             />
           )}
 
@@ -149,11 +150,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                     ? (e: React.MouseEvent) => e.preventDefault()
                     : () => onChange(segment.id)
                 }
-                whileHover={
-                  segment.disabled || shouldReduceMotion
-                    ? undefined
-                    : { scale: boop.scale, transition: boop.transition }
-                }
+                whileHover={segment.disabled ? undefined : motionPreset.boop}
               >
                 {segment.label}
               </motion.button>

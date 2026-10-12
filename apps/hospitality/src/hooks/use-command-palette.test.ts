@@ -13,25 +13,23 @@ describe("useCommandPalette", () => {
     {
       label: "Main",
       items: [
-        { id: "dashboard", label: "Dashboard", path: "/dashboard" },
-        { id: "timeline", label: "Timeline", path: "/timeline" },
+        { id: "dashboard", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
+        { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
       ],
     },
     {
       label: "Settings",
-      items: [{ id: "profile", label: "Profile", path: "/profile" }],
+      items: [{ id: "profile", label: "Profile", action: { type: "route", path: "/profile" } }],
     },
   ];
 
-  const mockNavigate = vi.fn();
+  const mockRunAction = vi.fn();
   const mockToggleTheme = vi.fn();
-  const mockSignOut = vi.fn();
 
   const defaultOptions = {
     sections: mockSections,
-    navigate: mockNavigate,
+    runAction: mockRunAction,
     toggleTheme: mockToggleTheme,
-    signOut: mockSignOut,
   };
 
   it("returns open as false initially", () => {
@@ -67,14 +65,14 @@ describe("useCommandPalette", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
     const actionItems = result.current.items.filter((item) => item.group === "Actions");
-    expect(actionItems).toHaveLength(5);
+    expect(actionItems).toHaveLength(4);
 
     const labels = actionItems.map((item) => item.label);
     expect(labels).toContain("New Reservation");
     expect(labels).toContain("Walk-in guest");
     expect(labels).toContain("New Floor Plan");
     expect(labels).toContain("Toggle Theme");
-    expect(labels).toContain("Sign Out");
+    expect(labels).not.toContain("Sign Out");
   });
 
   it("navigating via item calls navigate", () => {
@@ -83,7 +81,7 @@ describe("useCommandPalette", () => {
     const dashboardItem = result.current.items.find((item) => item.id === "dashboard");
     dashboardItem?.onSelect!();
 
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
+    expect(mockRunAction).toHaveBeenCalledWith({ type: "route", path: "/dashboard" });
   });
 
   it("toggle theme action calls toggleTheme", () => {
@@ -95,13 +93,30 @@ describe("useCommandPalette", () => {
     expect(mockToggleTheme).toHaveBeenCalled();
   });
 
-  it("sign out action calls signOut", () => {
-    const { result } = renderHook(() => useCommandPalette(defaultOptions));
+  it("a chat nav item runs the chat action and never routes to a sentinel path", () => {
+    const sections: NavSection[] = [
+      { label: "Tools", items: [{ id: "chat", label: "Chat", action: { type: "chat" } }] },
+    ];
+    const { result } = renderHook(() => useCommandPalette({ ...defaultOptions, sections }));
 
-    const signOutItem = result.current.items.find((item) => item.id === "action-sign-out");
-    signOutItem?.onSelect!();
+    result.current.items.find((item) => item.id === "chat")?.onSelect!();
 
-    expect(mockSignOut).toHaveBeenCalled();
+    expect(mockRunAction).toHaveBeenCalledWith({ type: "chat" });
+    expect(mockRunAction).not.toHaveBeenCalledWith({ type: "route", path: "/__chat__" });
+  });
+
+  it("a signout nav item runs the signout action", () => {
+    const sections: NavSection[] = [
+      {
+        label: "Account",
+        items: [{ id: "signout", label: "Sign Out", action: { type: "signout" } }],
+      },
+    ];
+    const { result } = renderHook(() => useCommandPalette({ ...defaultOptions, sections }));
+
+    result.current.items.find((item) => item.id === "signout")?.onSelect!();
+
+    expect(mockRunAction).toHaveBeenCalledWith({ type: "signout" });
   });
 
   it("builds groups with Actions first, then the nav sections in order", () => {
@@ -113,8 +128,8 @@ describe("useCommandPalette", () => {
 
   it("deduplicates section group names", () => {
     const sectionsWithDupes: NavSection[] = [
-      { label: "Main", items: [{ id: "a", label: "A", path: "/a" }] },
-      { label: "Main", items: [{ id: "b", label: "B", path: "/b" }] },
+      { label: "Main", items: [{ id: "a", label: "A", action: { type: "route", path: "/a" } }] },
+      { label: "Main", items: [{ id: "b", label: "B", action: { type: "route", path: "/b" } }] },
     ];
 
     const { result } = renderHook(() =>
@@ -125,7 +140,9 @@ describe("useCommandPalette", () => {
   });
 
   it("uses 'Navigation' as group name for sections without label", () => {
-    const sectionsNoLabel: NavSection[] = [{ items: [{ id: "home", label: "Home", path: "/" }] }];
+    const sectionsNoLabel: NavSection[] = [
+      { items: [{ id: "home", label: "Home", action: { type: "route", path: "/" } }] },
+    ];
 
     const { result } = renderHook(() =>
       useCommandPalette({ ...defaultOptions, sections: sectionsNoLabel })
@@ -142,7 +159,7 @@ describe("useCommandPalette", () => {
     const walkinItem = result.current.items.find((item) => item.id === "action-walkin");
     walkinItem?.onSelect!();
 
-    expect(mockNavigate).toHaveBeenCalledWith("/timeline?walkin=true");
+    expect(mockRunAction).toHaveBeenCalledWith({ type: "route", path: "/timeline?walkin=true" });
   });
 
   it("new reservation action navigates to the Reservations page carrying the new=true intent (architecture § Amendment 2026-09-04)", () => {
@@ -152,6 +169,6 @@ describe("useCommandPalette", () => {
     expect(item?.label).toBe("New Reservation");
     item?.onSelect!();
 
-    expect(mockNavigate).toHaveBeenCalledWith("/reservations?new=true");
+    expect(mockRunAction).toHaveBeenCalledWith({ type: "route", path: "/reservations?new=true" });
   });
 });

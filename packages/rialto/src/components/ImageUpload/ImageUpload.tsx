@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useId, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Check, Plus } from "lucide-react";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
@@ -87,8 +87,7 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
     const autoId = useId();
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
-    const shouldReduceMotion = useReducedMotion();
-    const { spring } = useMotionPreset();
+    const { spring, reduced: shouldReduceMotion } = useMotionPreset();
 
     const hasPreview = Boolean(value);
     const isUploading = progress !== undefined && progress < 100;

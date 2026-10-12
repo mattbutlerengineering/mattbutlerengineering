@@ -9,16 +9,31 @@ describe("DashboardSidebar", () => {
     {
       label: "Main",
       items: [
-        { id: "dashboard", label: "Dashboard", path: "/dashboard" },
-        { id: "timeline", label: "Timeline", path: "/timeline" },
+        { id: "dashboard", label: "Dashboard", action: { type: "route", path: "/dashboard" } },
+        { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
       ],
     },
     {
       label: "Setup",
       items: [
-        { id: "hours", label: "Hours", path: "/hours", stepStatus: "completed" },
-        { id: "tables", label: "Tables", path: "/tables", stepStatus: "current" },
-        { id: "publish", label: "Publish", path: "/publish", stepStatus: "locked" },
+        {
+          id: "hours",
+          label: "Hours",
+          action: { type: "route", path: "/hours" },
+          stepStatus: "completed",
+        },
+        {
+          id: "tables",
+          label: "Tables",
+          action: { type: "route", path: "/tables" },
+          stepStatus: "current",
+        },
+        {
+          id: "publish",
+          label: "Publish",
+          action: { type: "route", path: "/publish" },
+          stepStatus: "locked",
+        },
       ],
     },
   ];
@@ -33,7 +48,7 @@ describe("DashboardSidebar", () => {
         <DashboardSidebar
           sections={mockSections}
           activePath="/dashboard"
-          onNavigate={vi.fn()}
+          onAction={vi.fn()}
           isMobileOpen={false}
           onMobileClose={vi.fn()}
           {...props}

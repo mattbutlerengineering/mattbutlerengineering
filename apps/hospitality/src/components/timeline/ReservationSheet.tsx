@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Badge, Button, Drawer, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -7,14 +7,11 @@ import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-s
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
-import {
-  canSeat,
-  findReservationTable,
-  occupiedCaption,
-  statusWord,
-  useSeatGuest,
-} from "./seat-guest.js";
+import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
+import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
+import { reservationSheetSize } from "./sheet-size.js";
 import styles from "./ReservationSheet.module.css";
 
 export interface ReservationSheetProps {
@@ -33,13 +30,17 @@ export interface ReservationSheetProps {
   onCancel: () => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
   onMarkNoShow: () => void;
+  /** Whether More ▾ is open. The page owns it, so the grid's inset can follow the sheet's height. */
+  expanded: boolean;
+  /** More ▾ was pressed; the owner flips `expanded`. */
+  onToggleExpanded: () => void;
 }
 
 /**
- * The phone's bottom sheet (ux.md Screen 4): the summary row, the guest's signals, and the actions,
- * at compact height; More ▾ grows it to the default height and reveals the `GuestCard`, contact
- * details and notes. The height change is a class swap — no transition — so the sheet never
- * animates under a thumb.
+ * The phone's bottom sheet (ux.md Screen 4): the summary row, the guest's signals, any Special
+ * Requests, and the actions, at compact height, or at the default height when there are Special
+ * Requests; More ▾ grows it to the default height and reveals the `GuestCard` and contact details.
+ * The height change is a class swap — no transition — so the sheet never animates under a thumb.
  */
 export function ReservationSheet({
   reservation,
@@ -52,10 +53,9 @@ export function ReservationSheet({
   onEdit,
   onCancel,
   onMarkNoShow,
+  expanded,
+  onToggleExpanded,
 }: ReservationSheetProps) {
-  // Keyed by reservation so a fresh selection opens compact again without an effect.
-  const [expandedFor, setExpandedFor] = useState<string | null>(null);
-  const expanded = expandedFor === reservation.id;
   const detailId = useId();
 
   const table = findReservationTable(reservation, tables);
@@ -76,7 +76,7 @@ export function ReservationSheet({
       open={open}
       onClose={onClose}
       side="bottom"
-      size={expanded ? "default" : "compact"}
+      size={reservationSheetSize(reservation.notes, expanded)}
       title={reservation.guestName || "Guest"}
     >
       <Stack gap="md">
@@ -134,6 +134,8 @@ export function ReservationSheet({
           </Stack>
         )}
 
+        <SpecialRequestsTicket notes={reservation.notes} />
+
         {failure && (
           <ErrorRetryBanner
             title="Guest not seated."
@@ -169,7 +171,7 @@ export function ReservationSheet({
           )}
           <Button
             variant="ghost"
-            onClick={() => setExpandedFor(expanded ? null : reservation.id)}
+            onClick={onToggleExpanded}
             aria-expanded={expanded}
             aria-controls={expanded ? detailId : undefined}
             disabled={seating}
@@ -201,16 +203,6 @@ export function ReservationSheet({
                 </Text>
                 <Text variant="body" as="div">
                   {reservation.guestPhone}
-                </Text>
-              </div>
-            )}
-            {reservation.notes && (
-              <div>
-                <Text variant="label" color="secondary">
-                  Notes
-                </Text>
-                <Text variant="body" as="div">
-                  {reservation.notes}
                 </Text>
               </div>
             )}

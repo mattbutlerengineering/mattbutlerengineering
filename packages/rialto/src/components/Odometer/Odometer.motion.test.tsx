@@ -1,17 +1,12 @@
-import type * as FramerMotion from "framer-motion";
 import { render, screen, act } from "@testing-library/react";
 import { Odometer } from "./Odometer";
+import { stubMatchMedia } from "../../test/match-media";
 
-// setup.ts mocks framer-motion useReducedMotion => true globally. Override it
-// at file scope so this suite exercises the ANIMATED branch (reduced === false):
-// the reel block re-settles with the token spring and SplitFlap reels roll.
-vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<typeof FramerMotion>("framer-motion");
-  return {
-    ...actual,
-    useReducedMotion: () => false,
-  };
-});
+// The global test setup reports `prefers-reduced-motion: reduce`. Report no
+// preference at file scope so this suite exercises the ANIMATED branch
+// (reduced === false): the reel block re-settles with the token spring and
+// SplitFlap reels roll.
+stubMatchMedia([]);
 
 describe("Odometer — animated path (reduced motion off)", () => {
   it("composes rolling SplitFlap reels for each digit run", () => {

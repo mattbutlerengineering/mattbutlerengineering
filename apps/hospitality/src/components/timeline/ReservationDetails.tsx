@@ -4,14 +4,10 @@ import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
-import {
-  canSeat,
-  findReservationTable,
-  occupiedCaption,
-  statusWord,
-  useSeatGuest,
-} from "./seat-guest.js";
+import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
+import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
 import styles from "./ReservationDetails.module.css";
 
 export interface ReservationDetailsProps {
@@ -164,16 +160,7 @@ export function ReservationDetails({
         )}
       </div>
 
-      {reservation.notes && (
-        <div>
-          <Text variant="label" color="secondary">
-            Notes
-          </Text>
-          <Text variant="body" as="div" className={styles.notesValue}>
-            {reservation.notes}
-          </Text>
-        </div>
-      )}
+      <SpecialRequestsTicket notes={reservation.notes} />
 
       <StaffDepositSection
         reservationId={reservation.id}

@@ -12,7 +12,7 @@
  * PRs merge without invalidating one another.
  *
  * This module never invents a second zone list. It derives the `<root>/<name>`
- * vocabulary straight from merge-train-lock (`WORKSPACE_ROOTS` + `zoneForPath`),
+ * vocabulary straight from zone-vocabulary (`WORKSPACE_ROOTS` + `zoneForPath`),
  * so the estimate and the lock always agree.
  *
  * Public API:
@@ -27,14 +27,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { WORKSPACE_ROOTS, zoneForPath, zoneForPaths } from "./merge-train-lock.mjs";
+import { WORKSPACE_ROOTS, zoneForPath, zoneForPaths } from "./zone-vocabulary.mjs";
 
 // Repo root resolved from this module's own location (scripts/ → repo root),
 // so the workspace scan is independent of the caller's cwd.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Default parallel-worker ceiling — mirrors MAX_CONCURRENT_WORKERS in
-// scripts/worker-dispatch.mjs and the "claim up to 3" batch in the skill.
+// the "claim up to 3" batch in the skill.
 const DEFAULT_MAX_WORKERS = 3;
 
 // ---------------------------------------------------------------------------
@@ -68,7 +68,7 @@ function buildScopeZoneMap(repoRoot = REPO_ROOT) {
       if (!entry.isDirectory()) continue;
       const scope = entry.name;
       if (map.has(scope)) continue; // first (highest-precedence) root wins
-      // Reuse merge-train-lock's path→zone formatting → guaranteed vocabulary.
+      // Reuse zone-vocabulary's path→zone formatting → guaranteed vocabulary.
       map.set(scope, zoneForPath(`${root}/${scope}/package.json`));
     }
   }
@@ -86,7 +86,7 @@ const SCOPE_ZONE_MAP = buildScopeZoneMap();
  * titles (#4079) but aren't literal workspace-package directory names, so
  * `buildScopeZoneMap`'s directory scan can never discover them on its own.
  * Each value is a REPRESENTATIVE PATH, not a hand-typed zone string — the
- * zone is always derived by running that path through merge-train-lock's own
+ * zone is always derived by running that path through zone-vocabulary's own
  * `zoneForPath`, so this can never drift into a second, divergent zone
  * vocabulary (see module docstring).
  *
@@ -105,7 +105,7 @@ const EXTRA_SCOPE_PATHS = {
 
 /**
  * Builds the alias scope→zone map from `EXTRA_SCOPE_PATHS`, reusing
- * merge-train-lock's `zoneForPath` for every value.
+ * zone-vocabulary's `zoneForPath` for every value.
  * @returns {Map<string, string>}
  */
 function buildExtraScopeZoneMap() {
@@ -140,7 +140,7 @@ const ROOT_DIR_EXCLUDE = new Set([...WORKSPACE_ROOTS, "node_modules", ".git"]);
  * Scans the repo root for real top-level directories that are NOT one of
  * the merge-train workspace roots (apps/packages/services) — e.g. `scripts/`,
  * `docs/`, `.claude/`. Every one of these already maps to the `root` zone
- * via merge-train-lock's `zoneForPath`; listing them here only widens what
+ * via zone-vocabulary's `zoneForPath`; listing them here only widens what
  * `extractPathsFromBody` recognizes as a path token at all — it never
  * changes what zone a recognized path resolves to.
  *
@@ -297,7 +297,7 @@ function parseScopes(title) {
  *
  * Each scope resolves to a workspace zone or null (global). A single distinct
  * zone → that zone; a single distinct null → global; a mix (or >1 zone) →
- * cross-cutting → global. Identical to merge-train-lock's zoneForPaths.
+ * cross-cutting → global. Identical to zone-vocabulary's zoneForPaths.
  *
  * @param {unknown} title
  * @returns {string | null}

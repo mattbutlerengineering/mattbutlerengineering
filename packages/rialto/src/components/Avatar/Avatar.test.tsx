@@ -1,20 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { Avatar } from "./Avatar";
+import { PREFERS_REDUCED_MOTION, setMatchingMedia, stubMatchMedia } from "../../test/match-media";
 
-// Override the global setup.ts mock so the splitflap effect is not
-// short-circuited by reduced-motion in these tests.
-vi.mock("framer-motion", async () => {
-  const actual =
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() required for vi.importActual generic
-    await vi.importActual<typeof import("framer-motion")>("framer-motion");
-  return {
-    ...actual,
-    useReducedMotion: () => false,
-  };
-});
+// Full motion by default so the splitflap effect is not short-circuited; the
+// reduced-motion case flips the device signal useMotionPreset() reads.
+stubMatchMedia([]);
 
 describe("Avatar", () => {
+  beforeEach(() => {
+    setMatchingMedia([]);
+  });
+
   it("renders engraved initials when no src is provided", () => {
     render(<Avatar name="Ada Lovelace" />);
     expect(screen.getByText("AL")).toBeInTheDocument();
@@ -48,6 +45,13 @@ describe("Avatar", () => {
     it("does not render the flap stage when transition defaults to fade", () => {
       const { rerender } = render(<Avatar src="/a.jpg" name="A" />);
       rerender(<Avatar src="/b.jpg" name="A" />);
+      expect(screen.queryByTestId("avatar-flap-stage")).not.toBeInTheDocument();
+    });
+
+    it("does not render the flap stage under prefers-reduced-motion", () => {
+      setMatchingMedia([PREFERS_REDUCED_MOTION]);
+      const { rerender } = render(<Avatar src="/a.jpg" name="A" transition="splitflap" />);
+      rerender(<Avatar src="/b.jpg" name="A" transition="splitflap" />);
       expect(screen.queryByTestId("avatar-flap-stage")).not.toBeInTheDocument();
     });
 

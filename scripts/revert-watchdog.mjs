@@ -55,7 +55,11 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { fileIssue } from "./lib/issue-filing.mjs";
+import {
+  fileIssue,
+  issueState as ghIssueState,
+  parseIssueNumberFromUrl,
+} from "./lib/issue-filing.mjs";
 
 /** Pure: builds the original watchdog issue title (format unchanged, #2958). */
 export function buildBrokenMainTitle(sha) {
@@ -775,23 +779,6 @@ function readFlag(args, name) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
-/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
-function getIssueStateViaGhClient(ghClient, issueNumber) {
-  try {
-    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
-    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
-  } catch {
-    return "missing";
-  }
-}
-
-/** Parses the issue number out of the URL `gh issue create` prints on success. */
-function parseIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
-  return parseInt(match[1], 10);
-}
-
 /**
  * Files (or dedupes against) the broken-main issue for `sha`. Searches for a
  * prior issue across both states — label `priority:critical`, the same
@@ -831,7 +818,7 @@ function createIssue(ghClient, args) {
   const ledger = priorNumber !== null ? { [sha]: priorNumber } : {};
 
   const result = fileIssue({ title, body, labels, dedupeKey: sha }, ledger, {
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    getIssueState: (issueNumber) => ghIssueState(ghClient, issueNumber),
     createIssue: () =>
       parseIssueNumberFromUrl(ghClient.issue.create(buildBrokenMainCreateArgs(title, body))),
     reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
@@ -907,7 +894,7 @@ function fileAuditCiFixIssue(ghClient, sha, ghsaIds) {
     { title, body, labels: ["ci-fix", COORDINATION_LABELS.READY], dedupeKey },
     ledger,
     {
-      getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+      getIssueState: (issueNumber) => ghIssueState(ghClient, issueNumber),
       createIssue: () =>
         parseIssueNumberFromUrl(
           ghClient.issue.create([

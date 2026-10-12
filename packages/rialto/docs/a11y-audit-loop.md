@@ -109,12 +109,49 @@ Autocomplete.tsx - a consumer-supplied `aria-describedby` replaced the hint link
 
 Final gates on merged main (#6197): `pnpm --dir packages/rialto test` 2379/2379, `typecheck` clean, `lint` 0 errors (pre-existing warnings only). Each part shipped with a patch changeset.
 
+## Iteration 3: Overlay Wrappers (cloneElement / trigger wrapping)
+
+Re-audit of the wrapper patterns deferred in Iteration 1. Scope: trigger `aria-*` wiring, consumer prop preservation through `cloneElement`, focus trap and return, Escape, Tooltip-as-only-name, and non-element children (#6314).
+
+### Popover.tsx
+
+Popover.tsx - re-checked after the controlled `open` rework (#6298): `aria-expanded` and `aria-controls` derive from the resolved `open` (controlled or not), and Escape, outside press and the close button all route through `onOpenChange`. **Not fixed** — compliant.
+Popover.tsx - trigger activated by keyboard never reached the consumer's `onClick`: the wrapper's Enter/Space handler called `preventDefault()` on the keydown, which cancels the native button click. Analytics or state handlers on the trigger silently skipped keyboard users. **FIXED**: the wrapper still handles Enter/Space (so keydown-driven activation and no double toggle are unchanged) but, for a native `<button>` trigger, re-dispatches a single `click()` so the consumer's `onClick` fires once and bubbles to the toggle.
+Popover.tsx - `cloneElement` preserves the consumer's `ref`, `onKeyDown` and non-owned `aria-*` (e.g. `aria-describedby`, `aria-label`). **Not fixed** — compliant (regression test added). `aria-haspopup`/`aria-expanded`/`aria-controls` are owned by the component and intentionally override.
+Popover.tsx - focus trap, initial focus and focus return (`useFocusTrap`, `useReturnFocus`) and Escape (`useEscapeKey`). **Not fixed** — compliant, covered by existing tests.
+Popover.tsx - wrapper `<div role="presentation" onClick onKeyDown>` remains. **Defer** — removing it means moving the handlers onto the clone and changing layout and the existing keyboard tests that fire on the wrapper; the behavioural defect it caused is fixed above.
+Popover.tsx - panel falls back to `aria-label="Popover"` when there is no `title`. **Defer** — a better name needs a new prop (no new APIs this iteration).
+Popover.tsx - a non-element `trigger` (a string) throws in `cloneElement`. **Defer** — the prop is typed `ReactElement`; the type is the contract.
+
+### DropdownMenu.tsx
+
+DropdownMenu.tsx - same keyboard-activation defect as Popover (consumer `onClick` skipped on Enter/Space). **FIXED**: same change.
+DropdownMenu.tsx - trigger had no `aria-controls` and the `role="menu"` had no accessible name. **FIXED**: menu gets a `useId` id; trigger gets `aria-controls` while open (no dangling reference when closed); menu is `aria-labelledby` the trigger. A consumer-supplied trigger `id` is kept; otherwise a generated one is injected.
+DropdownMenu.tsx - `useReturnFocus` interaction (#5618): capture runs in a layout effect declared before the item-focus layout effect, so focus returns to the trigger, not the first item. **Not fixed** — compliant; regression test added for Escape and Enter-select.
+DropdownMenu.tsx - Tab from an open menu leaves it open. **Defer** — closing on Tab races the return-focus `requestAnimationFrame` (focus would snap back to the trigger), which needs a hook change to opt out.
+DropdownMenu.tsx - wrapper `role="presentation"` div. **Defer** — as Popover.
+
+### Tooltip.tsx
+
+Tooltip.tsx - `cloneElement` set `aria-describedby` to `undefined` while closed and to the tooltip id while open, so a consumer's own `aria-describedby` on the trigger was always clobbered. **FIXED**: ids are merged (consumer first, tooltip id appended while open).
+Tooltip.tsx - a Fragment child received `aria-describedby`, producing a React "Invalid prop supplied to React.Fragment" warning and no effect. **FIXED**: Fragments are passed through untouched.
+Tooltip.tsx - consumer `ref` and handlers are preserved; plain-text children render untouched; Escape closes. **Not fixed** — compliant (regression tests added).
+Tooltip.tsx - the tooltip is exposed as a description only, never as the accessible name, so an icon-only trigger with no label stays unnamed. **Defer** — deriving a name from `content` would be a behaviour/API change; consumers must label icon-only triggers.
+
+---
+
+## Fixes applied this iteration (Iteration 3)
+
+- Popover: native-button triggers activate natively so the consumer's `onClick` fires on keyboard (1 fix)
+- DropdownMenu: same keyboard fix; `aria-controls` on trigger, `aria-labelledby` and id on the menu (2 fixes)
+- Tooltip: `aria-describedby` merged with the consumer's; Fragment children skipped (2 fixes)
+
 ---
 
 ## Queue for next iterations
 
 - ~~**Iteration 2**: Form components — Input, TextArea, Checkbox, Select, NumberInput, PinInput, Autocomplete~~ **Done** (see Iteration 2 above)
-- **Iteration 3**: Invasive wrapper refactors — Popover, DropdownMenu, Tooltip (cloneElement patterns)
+- ~~**Iteration 3**: Invasive wrapper refactors — Popover, DropdownMenu, Tooltip (cloneElement patterns)~~ **Done** (see Iteration 3 above)
 - **Iteration 4**: Non-overlay interactive — Slider, Tabs, Accordion, SegmentedControl
 - **Iteration 5**: Navigation — Navbar, Sidebar, Breadcrumb, Pagination
 - **Iteration 6**: Verify fixes with axe-core against showcase pages

@@ -1,0 +1,39 @@
+{
+  "budgets_usd": {
+    "S": 5,
+    "M": 15,
+    "L": 40
+  },
+  "routing": {
+    "mechanical": "claude-haiku-4-5",
+    "implementation": "claude-sonnet-5",
+    "architecture_review": "claude-fable-5"
+  },
+  "effort": {
+    "mechanical": "low",
+    "implementation": "medium",
+    "architecture_review": "high"
+  },
+  "wip_cap": 3,
+  "monthly_cap_usd": 300,
+  "conductor": {
+    "gate_command": "bash scripts/conductor-gate.sh",
+    "standing_consent": {
+      "enabled": false,
+      "tier_labels": []
+    },
+    "type_labels": {
+      "feature": "feature",
+      "ci-fix": "fix",
+      "bug": "fix"
+    },
+    "size_labels": {
+      "size:xs": "S",
+      "size:s": "S",
+      "size:m": "M",
+      "size:l": "L",
+      "size:xl": "L"
+    },
+    "default_size": "M"
+  }
+}

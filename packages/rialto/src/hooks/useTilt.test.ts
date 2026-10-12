@@ -5,13 +5,16 @@ vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion");
   return {
     ...actual,
-    useReducedMotion: () => false,
     useMotionValue: (initial: number) => ({ set: vi.fn(), get: () => initial }),
     useSpring: (source: unknown) => source,
   };
 });
 
 import { useTilt } from "./useTilt";
+import { stubMatchMedia } from "../test/match-media";
+
+// Full motion: no device preference matches (see test/match-media.ts).
+stubMatchMedia([]);
 
 describe("useTilt", () => {
   it("returns active handlers when enabled", () => {

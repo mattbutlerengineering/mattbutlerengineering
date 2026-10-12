@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { createTransportRunner, GhGraphqlUnavailableError } from "./transport.js";
+import {
+  createTransportRunner,
+  GhGraphqlUnavailableError,
+  isGraphqlUnavailableError,
+} from "./transport.js";
 import type { ExecRunner } from "./exec-runner.js";
 import type { SyncHttp } from "./sync-http.js";
 
@@ -58,6 +62,35 @@ describe("createTransportRunner", () => {
       expect(execRunner).toHaveBeenCalledTimes(1);
       expect(http).toHaveBeenCalledTimes(1);
       expect(probe).toHaveReturnedWith(true);
+    });
+
+    it("recognises the REAL gh error shape: no `HTTP 403:` prefix, no graphql URL (#6312)", () => {
+      // Captured from metrics/ai-issue-feedback.json (2026-10-11, a Claude Code
+      // Remote session). The fixture above is a shape real gh never prints, so
+      // the #6213 fallback never engaged in production.
+      const REAL =
+        "Command failed: gh issue list --state closed --limit 200 --json number\n" +
+        'non-200 OK status code: 403 Forbidden body: "{\\"message\\":\\"GitHub GraphQL is not available ' +
+        'from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...).\\"}"\n';
+      expect(isGraphqlUnavailableError(execError(REAL))).toBe(true);
+
+      const execRunner: ExecRunner = vi.fn().mockImplementation(() => {
+        throw execError(REAL);
+      });
+      const http: SyncHttp = vi.fn().mockReturnValue({ status: 200, body: "[]" });
+      const run = createTransportRunner({
+        probe: () => true,
+        runner: execRunner,
+        ...restOpts(http),
+      });
+      expect(run("gh", ["issue", "list", "--json", "number"])).toBe("[]");
+      expect(http).toHaveBeenCalledTimes(1);
+    });
+
+    it("still rejects a 403 that is not the GraphQL-unavailable block", () => {
+      expect(
+        isGraphqlUnavailableError(execError("non-200 OK status code: 403 Forbidden body: nope"))
+      ).toBe(false);
     });
 
     it("latches REST for the rest of the session — no flapping back to exec", () => {
