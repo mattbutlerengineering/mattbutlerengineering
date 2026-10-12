@@ -32,9 +32,8 @@
  */
 
 import { createGhClient } from "@mbe/gh-client";
-import { read, write, resolvePath } from "./metrics-store.mjs";
+import { readTelemetryRows, updateTelemetry, telemetryPath } from "./queue-telemetry-store.mjs";
 import { defaultFetchPrDetails, resolveHumanTouchReason } from "./backfill-human-touch-reasons.mjs";
-import { dedupeTelemetryRows } from "./collect-queue-telemetry.mjs";
 
 const DEFAULT_MAX_CALLS = 50;
 const STALE_PRLESS_DAYS = 30;
@@ -138,41 +137,34 @@ export function reconcileTelemetry(
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const rows = read("queue-telemetry");
-  if (!rows || rows.length === 0) {
+  if (readTelemetryRows().length === 0) {
     process.stdout.write("[reconcile-queue-telemetry] no telemetry rows — nothing to do\n");
     process.exit(0);
   }
 
-  const {
-    rows: reconciledRows,
-    reconciled,
-    calls,
-  } = reconcileTelemetry(rows, {
-    fetchPr: defaultFetchPr,
-    fetchPrDetails: defaultFetchPrDetails,
+  // The store collapses the rewrite on the row key before writing, so this
+  // rewrite cannot reintroduce the duplicates that #4223, #4572 and #4719
+  // put in the file (32 rows).
+  const { rows, removed, result } = updateTelemetry((current) => {
+    const {
+      rows: next,
+      reconciled,
+      calls,
+    } = reconcileTelemetry(current, {
+      fetchPr: defaultFetchPr,
+      fetchPrDetails: defaultFetchPrDetails,
+    });
+    return { rows: next, reconciled, calls };
   });
 
-  // This script REWRITES the whole sink rather than appending, so it is the
-  // one path that can reintroduce duplicates: a rewrite computed in a
-  // checkout behind main, landing on a main that has since gained rows,
-  // reconciles as "keep both". That is exactly how #4223, #4572 and #4719
-  // put 32 duplicate rows in the file. Collapsing here makes the rewrite
-  // idempotent on (issue_number, pr_number), the same invariant the append
-  // path has always enforced.
-  const { rows: dedupedRows, removed } = dedupeTelemetryRows(reconciledRows);
-
-  if (reconciled > 0 || removed > 0) {
-    write("queue-telemetry", dedupedRows);
-  }
   if (removed > 0) {
     process.stdout.write(
       `[reconcile-queue-telemetry] collapsed ${removed} duplicate row(s) on (issue, pr)\n`
     );
   }
-  const pending = dedupedRows.filter((r) => r.merged == null).length;
+  const pending = rows.filter((r) => r.merged == null).length;
   process.stdout.write(
-    `[reconcile-queue-telemetry] ${reconciled} row(s) reconciled (${calls} GitHub lookups, ` +
-      `${pending} still pending) → ${resolvePath("queue-telemetry")}\n`
+    `[reconcile-queue-telemetry] ${result.reconciled} row(s) reconciled (${result.calls} GitHub lookups, ` +
+      `${pending} still pending) → ${telemetryPath()}\n`
   );
 }

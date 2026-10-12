@@ -14,7 +14,7 @@
  * verdict only exist inside the worker session and cannot be reconstructed
  * from GitHub, so they are written as null. Outcome fields are left null too;
  * reconcile-queue-telemetry.mjs fills them. In-session rows, when present,
- * always win (dedupe is by pr_number).
+ * always win (the store refuses a placeholder for any covered PR).
  *
  * Pure core (`deriveTelemetryRows`) + a thin CLI. Node builtins and sibling
  * modules only (scripts/check-workflow-deps.mjs).
@@ -25,8 +25,11 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { appendTelemetryRow } from "./collect-queue-telemetry.mjs";
-import { read } from "./metrics-store.mjs";
+import {
+  appendTelemetryRow,
+  coveredPrNumbers,
+  readTelemetryRows,
+} from "./queue-telemetry-store.mjs";
 
 const AGENT_BRANCH_PREFIX = "worktree-agent-";
 const AGENT_LABEL = "agent-authored";
@@ -55,7 +58,7 @@ export function isAgentPr(pr) {
  * @returns {{ rows: object[], skipped: {existing: number, notAgent: number, noIssue: number} }}
  */
 export function deriveTelemetryRows(prs, existingRows) {
-  const covered = new Set(existingRows.map((r) => r.pr_number).filter((n) => n != null));
+  const covered = coveredPrNumbers(existingRows);
   const skipped = { existing: 0, notAgent: 0, noIssue: 0 };
   const rows = [];
 
@@ -126,11 +129,11 @@ function main(argv) {
     { encoding: "utf8" }
   );
   const prs = JSON.parse(raw);
-  const { rows, skipped } = deriveTelemetryRows(prs, read("queue-telemetry") ?? []);
+  const { rows, skipped } = deriveTelemetryRows(prs, readTelemetryRows());
 
   let written = 0;
   for (const row of rows) {
-    if (appendTelemetryRow(row).written) written += 1;
+    if (appendTelemetryRow(row, { ifPrAbsent: true }).written) written += 1;
   }
   console.log(
     `queue-telemetry: ${prs.length} merged PRs scanned, ${written} rows appended ` +
