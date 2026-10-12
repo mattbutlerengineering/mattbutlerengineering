@@ -17,6 +17,8 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+const TEST_KEY = "circuit-breaker:test";
+
 function createMockKv(data = null) {
   return {
     get: vi.fn(async () => data),
@@ -41,7 +43,7 @@ describe("Circuit Breaker", () => {
   describe("getCircuitState", () => {
     it("returns default state when KV has no data", async () => {
       const kv = createMockKv(null);
-      const state = await getCircuitState(kv);
+      const state = await getCircuitState(kv, TEST_KEY);
       expect(state.state).toBe("closed");
       expect(state.failures).toBe(0);
     });
@@ -49,7 +51,7 @@ describe("Circuit Breaker", () => {
     it("returns stored state from KV", async () => {
       const stored = { state: "open", failures: 3, lastFailure: 1000, openedAt: 1000 };
       const kv = createMockKv(stored);
-      const state = await getCircuitState(kv);
+      const state = await getCircuitState(kv, TEST_KEY);
       expect(state.state).toBe("open");
       expect(state.failures).toBe(3);
       expect(Object.isFrozen(state)).toBe(true);
@@ -61,7 +63,7 @@ describe("Circuit Breaker", () => {
           throw new Error("KV down");
         }),
       };
-      const state = await getCircuitState(kv);
+      const state = await getCircuitState(kv, TEST_KEY);
       expect(state.state).toBe("closed");
     });
   });
@@ -70,16 +72,16 @@ describe("Circuit Breaker", () => {
     it("saves state with longer TTL when open", async () => {
       const kv = createMockKv();
       const openState = { state: "open", failures: 3, lastFailure: 1000, openedAt: 1000 };
-      await saveCircuitState(kv, openState);
-      expect(kv.put).toHaveBeenCalledWith("circuit-breaker:api", JSON.stringify(openState), {
+      await saveCircuitState(kv, TEST_KEY, openState);
+      expect(kv.put).toHaveBeenCalledWith(TEST_KEY, JSON.stringify(openState), {
         expirationTtl: OPEN_DURATION_SECONDS + 10,
       });
     });
 
     it("saves state with standard TTL when closed", async () => {
       const kv = createMockKv();
-      await saveCircuitState(kv, defaultState());
-      expect(kv.put).toHaveBeenCalledWith("circuit-breaker:api", expect.any(String), {
+      await saveCircuitState(kv, TEST_KEY, defaultState());
+      expect(kv.put).toHaveBeenCalledWith(TEST_KEY, expect.any(String), {
         expirationTtl: 120,
       });
     });
