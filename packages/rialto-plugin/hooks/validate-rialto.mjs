@@ -5,10 +5,14 @@
  *
  * Checks for:
  * 1. Hardcoded color values (hex) instead of tokens
- * 2. Subpath imports from rialto (should use barrel)
- * 3. Physical directional CSS properties instead of logical
- * 4. Raw cubic-bezier in CSS instead of easing tokens
- * 5. Basic a11y: img without alt
+ * 2. Physical directional CSS properties instead of logical
+ * 3. Raw cubic-bezier in CSS instead of easing tokens
+ * 4. Basic a11y: img without alt
+ *
+ * Input: Claude Code passes the hook payload as JSON on stdin
+ * ({ tool_input: { file_path } }); there is no env var or argv for it.
+ * Self-contained on purpose — this plugin is published, so it cannot import
+ * from the repo's scripts/. Fails open (exit 0) on any unusable input.
  *
  * Warnings go to stderr (advisory, not blocking).
  * Early exits for non-Rialto files (< 10ms overhead).
@@ -28,7 +32,17 @@ const PHYSICAL_PROPS = [
   { pattern: /\btext-align:\s*right\b/, fix: "text-align: end" },
 ];
 
-const filePath = process.argv[2];
+function readFilePathFromStdin() {
+  try {
+    const payload = JSON.parse(readFileSync(0, "utf-8"));
+    const value = payload?.tool_input?.file_path;
+    return typeof value === "string" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+const filePath = readFilePathFromStdin();
 
 // Early exit: no file path provided
 if (!filePath) process.exit(0);
@@ -78,15 +92,7 @@ const warnings = lines.flatMap((line, i) => {
     results.push(`L${lineNum}: Hardcoded color "${hexMatch[0]}" — use a --rialto-* token instead`);
   }
 
-  // Rule 2: Subpath imports from rialto
-  const subpathMatch = line.match(/from\s+["']rialto\/(components|utils|hooks)\//);
-  if (subpathMatch) {
-    results.push(
-      `L${lineNum}: Subpath import "rialto/${subpathMatch[1]}/..." — import from "rialto" barrel instead`
-    );
-  }
-
-  // Rule 3: Physical directional CSS properties
+  // Rule 2: Physical directional CSS properties
   if (isCss) {
     for (const { pattern, fix } of PHYSICAL_PROPS) {
       if (pattern.test(line)) {
@@ -95,12 +101,12 @@ const warnings = lines.flatMap((line, i) => {
     }
   }
 
-  // Rule 4: Raw cubic-bezier in CSS
+  // Rule 3: Raw cubic-bezier in CSS
   if (isCss && line.includes("cubic-bezier(") && !line.includes("var(--rialto-ease")) {
     results.push(`L${lineNum}: Raw cubic-bezier() — use var(--rialto-ease-*) token`);
   }
 
-  // Rule 5: img without alt (basic a11y check in TSX/JSX)
+  // Rule 4: img without alt (basic a11y check in TSX/JSX)
   if (isJsx && /<img\b/.test(line) && !line.includes("alt=") && !line.includes("alt =")) {
     results.push(`L${lineNum}: <img> without alt attribute — add alt text for accessibility`);
   }

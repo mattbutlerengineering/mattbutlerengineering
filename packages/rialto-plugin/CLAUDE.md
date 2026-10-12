@@ -25,7 +25,6 @@ Claude Code plugin for the Rialto design system. Enhances agent productivity whe
 `hooks/hooks.json` wires a `PostToolUse` hook on every `Write` or `Edit` call. `hooks/validate-rialto.mjs` runs and emits advisory stderr warnings (never blocking) for:
 
 - **Hardcoded hex colors** — suggests `var(--rialto-*)` token instead
-- **Subpath imports** — `rialto/components/…` should be the `"rialto"` barrel
 - **Physical CSS properties** — `margin-left` → `margin-inline-start`, etc.
 - **Raw `cubic-bezier()`** — use `var(--rialto-ease-*)` token
 - **`<img>` without `alt`** — basic a11y check in `.tsx`/`.jsx` files
