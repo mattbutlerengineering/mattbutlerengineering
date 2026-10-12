@@ -7,13 +7,8 @@ import { getSegmentLabel, getSegmentVariant, isAllergyTag } from "../crm/guest-s
 import { useGuest } from "../../hooks/useGuests.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { formatTime } from "../../utils/format.js";
-import {
-  canSeat,
-  findReservationTable,
-  occupiedCaption,
-  statusWord,
-  useSeatGuest,
-} from "./seat-guest.js";
+import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
 import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
 import { reservationSheetSize } from "./sheet-size.js";

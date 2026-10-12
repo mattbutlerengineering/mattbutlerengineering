@@ -4908,12 +4908,6 @@
     export function statusWord(reservation: Reservation, seated: boolean): string {
       return seated ? "Seated" : STATUS_LABEL[reservation.status];
     }
-    function isSeatableStatus(reservation: Reservation): boolean {
-      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
-    }
-    export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
-      return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
-    }
     function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
       if (reservation.status !== "CONFIRMED") return false;
       const start = new Date(reservation.startTime).getTime();
@@ -5425,6 +5419,28 @@
           .filter((reservation) => isSeated(reservation, statusByTableId.get(reservation.tableId), now))
           .map((reservation) => reservation.id)
       );
+    }
+  </file>
+  <file path="src/utils/seating.ts">
+    function tableAcceptsParty(table: Pick<Table, "status">): boolean {
+      return TABLE_VALID_TRANSITIONS[table.status].includes("OCCUPIED");
+    }
+    export function isSeatableStatus(reservation: Pick<Reservation, "status">): boolean {
+      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
+    }
+    export function canSeat(
+      reservation: Pick<Reservation, "status">,
+      table: Pick<Table, "status"> | undefined
+    ): boolean {
+      return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
+    }
+    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
+      tables: readonly T[],
+      partySize: number
+    ): T[] {
+      return tables
+        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .sort((a, b) => a.capacity - b.capacity);
     }
   </file>
   <file path="src/utils/timeline-intent.ts">

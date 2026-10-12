@@ -176,6 +176,17 @@ describe("ReservationDetails", () => {
       expect(seatButton()).toBeInTheDocument();
     });
 
+    it.each(["DIRTY", "READY"] as const)(
+      "hides Seat Guest for a PENDING party whose table is %s (the table cannot take OCCUPIED)",
+      (status) => {
+        renderDetails({
+          reservation: makeReservation({ status: "PENDING" }),
+          tables: [makeTable({ status })],
+        });
+        expect(seatButton()).toBeNull();
+      }
+    );
+
     it("explains the missing button when the table is OCCUPIED by another party", () => {
       renderDetails({
         tables: [makeTable({ status: "OCCUPIED" })],

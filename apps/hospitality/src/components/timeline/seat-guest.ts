@@ -4,6 +4,7 @@ import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { STATUS_LABEL } from "../../utils/reservation-display.js";
 import { SEATED_EARLY_WINDOW_MS } from "../../utils/seated.js";
+import { isSeatableStatus } from "../../utils/seating.js";
 
 /**
  * What the detail panel and the phone sheet say about seating (ux.md Screen 5), written once so
@@ -21,15 +22,6 @@ export function findReservationTable(
 /** "Seated" is a fact about the floor (ux Decision a); every other word is the booking's status. */
 export function statusWord(reservation: Reservation, seated: boolean): string {
   return seated ? "Seated" : STATUS_LABEL[reservation.status];
-}
-
-function isSeatableStatus(reservation: Reservation): boolean {
-  return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
-}
-
-/** Seat Guest shows when status ∈ {PENDING, CONFIRMED} and the party's table is not OCCUPIED. */
-export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
-  return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
 }
 
 /**

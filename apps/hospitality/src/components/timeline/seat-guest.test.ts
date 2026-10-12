@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Reservation, Table } from "@mbe/types";
-import { canSeat, findReservationTable, occupiedCaption, statusWord } from "./seat-guest.js";
+import { findReservationTable, occupiedCaption, statusWord } from "./seat-guest.js";
 
 const START = "2026-09-04T19:00:00.000Z";
 const END = "2026-09-04T21:00:00.000Z";
@@ -116,19 +116,12 @@ describe("occupiedCaption", () => {
   });
 });
 
-describe("findReservationTable / canSeat / statusWord (unchanged behaviour)", () => {
+describe("findReservationTable / statusWord (unchanged behaviour)", () => {
   it("finds the reservation's table by id", () => {
     const reservation = makeReservation({ tableId: "t4" });
     const table = makeTable({ id: "t4" });
 
     expect(findReservationTable(reservation, [table])).toBe(table);
-  });
-
-  it("canSeat is true for a seatable status on a non-OCCUPIED table", () => {
-    const reservation = makeReservation({ status: "PENDING" });
-    const table = makeTable({ status: "AVAILABLE" });
-
-    expect(canSeat(reservation, table)).toBe(true);
   });
 
   it("statusWord reads 'Seated' when seated, regardless of underlying status", () => {
