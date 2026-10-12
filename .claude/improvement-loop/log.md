@@ -3322,3 +3322,9 @@ None (`agent-skip` count is 0). `#6332` (vague "use orchestrator and documentati
 ### Observation (not a finding — no rubric tell covers it)
 
 Both rialto-web demo routes show real layout collisions at the fold that the v1 rubric cannot express, so they were correctly **not** filed: the cookie-consent banner overlaps page content at 1280x720 on `demos/dashboard` (cutting through the speed-data table) and `demos/drivers` (covering the row count and pagination), and at 375x812 it degenerates into a narrow column of text overprinting the cards behind it. Separately, the demo toolbar on `demos/dashboard` sits on top of the breadcrumb. These cost us real ground in the rating pass — they are the stated reason ours lost to Tremor and only tied shadcn — yet no judged tell exists for overlapping/occluded content, so the rater can see the damage while the finder cannot report it. A rubric v2 tell for occlusion would close that gap; only a human bumps `rubric_version`.
+
+## 2026-10-12 — agent-PR predicate converged (#6380)
+
+- One canonical `isAgentPr` (`plugins/acmm/scripts/agent-pr.js`, the #5852 rule: `agent-authored` label OR an agent branch prefix, minus bookkeeping branches and bot authors) now backs collect-queue-efficiency, pr-metrics, collect-queue-telemetry-from-github, pr-outcomes and ai-audit.yml.
+- **Expect a one-time step** in the pr-acceptance, queue-efficiency and ai-audit series: `has-pr`-only PRs and bookkeeping PRs no longer count as agent PRs, and three extra agent branch prefixes now do. This is a population change, not a regression — do not file a sensor regression off the first reading after this lands.
+- `collect-repo-stats` still counts by label only (the search API cannot express the prefix/bookkeeping legs), so that one series remains a superset.

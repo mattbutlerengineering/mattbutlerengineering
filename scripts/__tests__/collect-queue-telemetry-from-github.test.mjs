@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   extractClosedIssue,
-  isAgentPr,
   deriveTelemetryRows,
 } from "../collect-queue-telemetry-from-github.mjs";
 
@@ -24,14 +23,6 @@ describe("extractClosedIssue", () => {
   it("returns null with no closing keyword or a non-string", () => {
     expect(extractClosedIssue("see #12")).toBeNull();
     expect(extractClosedIssue(null)).toBeNull();
-  });
-});
-
-describe("isAgentPr", () => {
-  it("matches the worktree-agent branch prefix or the agent-authored label", () => {
-    expect(isAgentPr(pr({ labels: [] }))).toBe(true);
-    expect(isAgentPr(pr({ headRefName: "fix/x" }))).toBe(true);
-    expect(isAgentPr(pr({ headRefName: "fix/x", labels: [] }))).toBe(false);
   });
 });
 

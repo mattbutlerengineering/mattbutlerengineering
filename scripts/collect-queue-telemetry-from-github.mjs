@@ -25,14 +25,13 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isAgentPr } from "../plugins/acmm/scripts/agent-pr.js";
 import {
   appendTelemetryRow,
   coveredPrNumbers,
   readTelemetryRows,
 } from "./queue-telemetry-store.mjs";
 
-const AGENT_BRANCH_PREFIX = "worktree-agent-";
-const AGENT_LABEL = "agent-authored";
 const CLOSING_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
 
 /** @param {unknown} body @returns {number|null} */
@@ -40,14 +39,6 @@ export function extractClosedIssue(body) {
   if (typeof body !== "string") return null;
   const m = CLOSING_RE.exec(body);
   return m ? Number(m[1]) : null;
-}
-
-/** @param {{headRefName?: string, labels?: Array<{name?: string}>}} pr */
-export function isAgentPr(pr) {
-  return (
-    (typeof pr.headRefName === "string" && pr.headRefName.startsWith(AGENT_BRANCH_PREFIX)) ||
-    (pr.labels ?? []).some((l) => l?.name === AGENT_LABEL)
-  );
 }
 
 /**
@@ -124,7 +115,7 @@ function main(argv) {
       "--limit",
       String(limit),
       "--json",
-      "number,headRefName,body,labels,createdAt,mergedAt",
+      "number,headRefName,author,body,labels,createdAt,mergedAt",
     ],
     { encoding: "utf8" }
   );
