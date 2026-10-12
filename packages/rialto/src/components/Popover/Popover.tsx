@@ -110,7 +110,10 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         role="presentation"
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
+          // A native <button> trigger activates itself (and fires the consumer's
+          // onClick, which bubbles to the handler above); only handle the key
+          // here for non-button triggers.
+          if ((e.key === "Enter" || e.key === " ") && !(e.target as Element).closest("button")) {
             e.preventDefault();
             setOpen(!open);
           }

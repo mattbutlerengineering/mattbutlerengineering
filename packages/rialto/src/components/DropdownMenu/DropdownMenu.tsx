@@ -1,6 +1,7 @@
 import {
   useState,
   useRef,
+  useId,
   useCallback,
   useLayoutEffect,
   forwardRef,
@@ -102,6 +103,9 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const wrapperRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const motionPreset = useMotionPreset();
+  const menuId = useId();
+  const generatedTriggerId = useId();
+  const triggerId = (trigger.props as { id?: string }).id ?? generatedTriggerId;
   const shouldReduceMotion = motionPreset.reduced;
 
   useReturnFocus(open);
@@ -197,7 +201,14 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         role="presentation"
         onClick={handleTriggerClick}
         onKeyDown={(e) => {
-          if (!open && (e.key === "Enter" || e.key === " ")) {
+          // A native <button> trigger activates itself (firing the consumer's
+          // onClick, which bubbles to the handler above); only handle the key
+          // here for non-button triggers.
+          if (
+            !open &&
+            (e.key === "Enter" || e.key === " ") &&
+            !(e.target as Element).closest("button")
+          ) {
             e.preventDefault();
             handleTriggerClick();
           } else if (open) {
@@ -206,8 +217,10 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         }}
       >
         {cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
+          id: triggerId,
           "aria-haspopup": "menu",
           "aria-expanded": open,
+          "aria-controls": open ? menuId : undefined,
         })}
       </div>
 
@@ -216,7 +229,9 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
         {open && (
           <motion.div
             className={cn(styles.menu, align === "right" && styles.menuRight)}
+            id={menuId}
             role="menu"
+            aria-labelledby={triggerId}
             onKeyDown={handleKeyDown}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

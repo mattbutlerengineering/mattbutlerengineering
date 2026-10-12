@@ -258,4 +258,48 @@ describe("DropdownMenu", () => {
     expect(copy).toHaveAttribute("data-active", "true");
     expect(edit).toHaveAttribute("data-active", "false");
   });
+
+  describe("trigger wrapping (a11y iteration 3)", () => {
+    it("calls the consumer's onClick when the trigger is activated by keyboard", async () => {
+      const onClick = vi.fn();
+      render(
+        <DropdownMenu trigger={<Button onClick={onClick}>Actions</Button>} items={basicItems} />
+      );
+      const btn = screen.getByRole("button", { name: /actions/i });
+      btn.focus();
+      await user.keyboard("{Enter}");
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+    });
+
+    it("links the trigger to the open menu with aria-controls and names the menu from the trigger", async () => {
+      render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
+      const btn = screen.getByRole("button", { name: /actions/i });
+      expect(btn).not.toHaveAttribute("aria-controls");
+      await user.click(btn);
+      const menu = screen.getByRole("menu", { name: /actions/i });
+      expect(btn).toHaveAttribute("aria-controls", menu.id);
+    });
+
+    it("keeps a consumer-supplied trigger id when naming the menu", async () => {
+      render(
+        <DropdownMenu trigger={<button id="my-trigger">Actions</button>} items={basicItems} />
+      );
+      await user.click(screen.getByRole("button", { name: /actions/i }));
+      expect(screen.getByRole("menu")).toHaveAttribute("aria-labelledby", "my-trigger");
+      expect(screen.getByRole("button", { name: /actions/i })).toHaveAttribute("id", "my-trigger");
+    });
+
+    it("returns focus to the trigger (not a menu item) on Escape and after selecting an item (#5618)", async () => {
+      render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
+      const btn = screen.getByRole("button", { name: /actions/i });
+      await user.click(btn);
+      expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveFocus();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(btn).toHaveFocus());
+      await user.click(btn);
+      await user.keyboard("{Enter}");
+      await waitFor(() => expect(btn).toHaveFocus());
+    });
+  });
 });

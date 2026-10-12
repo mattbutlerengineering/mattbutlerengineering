@@ -332,4 +332,57 @@ describe("Tooltip", () => {
     act(() => vi.advanceTimersByTime(1));
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
   });
+
+  it("merges the tooltip id into a consumer-supplied aria-describedby instead of replacing it", () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="Tip" delay={0}>
+        <button aria-describedby="help">Hover me</button>
+      </Tooltip>
+    );
+    const trigger = screen.getByRole("button");
+    expect(trigger).toHaveAttribute("aria-describedby", "help");
+    hoverIn(trigger.parentElement!, 0);
+    const tooltip = screen.getByRole("tooltip");
+    expect(trigger).toHaveAttribute("aria-describedby", `help ${tooltip.id}`);
+    hoverOut(trigger.parentElement!);
+    expect(trigger).toHaveAttribute("aria-describedby", "help");
+  });
+
+  it("does not inject aria-describedby into a Fragment child (no DOM node to receive it)", () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <Tooltip content="Tip" delay={0}>
+        <>
+          <button>One</button>
+        </>
+      </Tooltip>
+    );
+    const trigger = screen.getByRole("button");
+    hoverIn(trigger.parentElement!, 0);
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("keeps the consumer's own handlers and ref on the trigger", () => {
+    const ref = { current: null as HTMLButtonElement | null };
+    const onFocus = vi.fn();
+    render(
+      <Tooltip content="Tip">
+        <button ref={ref} onFocus={onFocus}>
+          Hover me
+        </button>
+      </Tooltip>
+    );
+    const trigger = screen.getByRole("button");
+    fireEvent.focus(trigger);
+    expect(onFocus).toHaveBeenCalledTimes(1);
+    expect(ref.current).toBe(trigger);
+  });
+
+  it("renders a plain-text child without throwing", () => {
+    render(<Tooltip content="Tip">just text</Tooltip>);
+    expect(screen.getByText("just text")).toBeInTheDocument();
+  });
 });
