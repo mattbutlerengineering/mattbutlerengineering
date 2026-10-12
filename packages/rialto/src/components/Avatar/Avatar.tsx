@@ -216,7 +216,11 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
     return (
       <div ref={ref} className={cn(styles.group, className)}>
         {overflow > 0 && (
-          <div className={cn(styles.overflow, styles[size])} aria-label={`${overflow} more`}>
+          <div
+            className={cn(styles.overflow, styles[size])}
+            role="img"
+            aria-label={`${overflow} more`}
+          >
             <span className={styles.overflowText} aria-hidden="true">
               +{overflow}
             </span>
