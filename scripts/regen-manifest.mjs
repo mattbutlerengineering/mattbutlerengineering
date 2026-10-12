@@ -67,9 +67,9 @@ export const FAMILIES = [
     id: "llms-txt",
     label: "llms.txt context files",
     // PostToolUse hook ownership: "warn" families are regenerated and only
-    // reported (pre-commit stages them); the default "stage" families are also
-    // `git add`ed. Each hook handles one mode, so one edit never runs a family
-    // twice.
+    // reported only; stage them yourself (`pnpm regen --check` in pre-push/CI
+    // enforces it). The default "stage" families are also `git add`ed. Each
+    // hook handles one mode, so one edit never runs a family twice.
     hookMode: "warn",
     // regen.mjs special-cases this family: it loops `mbe pack <pkg>` across
     // every known package (see regenLlms in regen.mjs). There is no single
@@ -158,7 +158,10 @@ export const FAMILIES = [
     id: "rialto-catalog-schemas",
     label: "packages/rialto-catalog/src/generated-schemas.ts",
     command: "pnpm --filter @mbe/rialto-catalog generate",
-    outputs: ["packages/rialto-catalog/src/generated-schemas.ts"],
+    outputs: [
+      "packages/rialto-catalog/src/generated-schemas.ts",
+      "packages/rialto-catalog/src/generated-catalog.ts",
+    ],
   },
   {
     id: "rialto-color-tokens",

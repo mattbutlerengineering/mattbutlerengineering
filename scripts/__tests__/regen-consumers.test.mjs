@@ -22,6 +22,10 @@ describe("artifactPaths", () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
+  it("covers generated-catalog.ts, which the rialto-catalog generator also writes", () => {
+    expect(artifactPaths()).toContain("packages/rialto-catalog/src/generated-catalog.ts");
+  });
+
   it("`--paths` prints exactly artifactPaths(), one per line", () => {
     expect(cli("--paths").trim().split("\n")).toEqual(artifactPaths());
   });
