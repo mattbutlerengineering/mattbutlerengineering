@@ -848,11 +848,12 @@
               );
           }
     
-          const { prompt, spec, rawLines } = parseResult.data;
+          const { prompt, kind, spec, rawLines } = parseResult.data;
     
           const result = await storedSpecService.create({
             userId: request.user!.id,
             prompt,
+            kind,
             spec,
             rawLines,
           });
@@ -2965,6 +2966,7 @@
       id: string;
       userId: string;
       prompt: string;
+      kind: string;
       spec: unknown;
       rawLines: unknown;
       isFavorite: boolean;
@@ -2977,6 +2979,7 @@
         id: s.id,
         userId: s.userId,
         prompt: s.prompt,
+        kind: s.kind,
         spec: s.spec,
         rawLines: s.rawLines,
         isFavorite: s.isFavorite,
@@ -3021,6 +3024,7 @@
       async create(data: {
         userId: string;
         prompt: string;
+        kind: string;
         spec: unknown;
         rawLines: unknown;
       }): Promise<StoredSpec> {
@@ -3030,6 +3034,7 @@
           data: {
             userId: data.userId,
             prompt: data.prompt,
+            kind: data.kind,
             spec: data.spec as Prisma.InputJsonValue,
             rawLines: data.rawLines as Prisma.InputJsonValue,
           },

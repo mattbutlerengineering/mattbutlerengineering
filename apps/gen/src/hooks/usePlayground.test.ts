@@ -233,31 +233,4 @@ describe("usePlayground", () => {
       duration: 5000,
     });
   });
-
-  it("toggles the gallery on Cmd/Ctrl+T", () => {
-    renderHook(() => usePlayground());
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true }));
-    });
-    expect(h.toggleGallery).toHaveBeenCalledTimes(1);
-  });
-
-  it("toggles the shortcuts help on '?'", () => {
-    renderHook(() => usePlayground());
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }));
-    });
-    expect(h.toggleShortcuts).toHaveBeenCalledTimes(1);
-  });
-
-  it("ignores '?' while typing in a form field", () => {
-    renderHook(() => usePlayground());
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    act(() => {
-      input.dispatchEvent(new KeyboardEvent("keydown", { key: "?", bubbles: true }));
-    });
-    expect(h.toggleShortcuts).not.toHaveBeenCalled();
-    input.remove();
-  });
 });

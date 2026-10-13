@@ -275,6 +275,47 @@ describe("PlaygroundBody — session-object interface", () => {
     expect(session.refine).toHaveBeenCalled();
   });
 
+  it("stops generation on Escape while streaming", () => {
+    const session = makeSession({ isStreaming: true });
+    render(
+      <PlaygroundBody session={session} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(session.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not stop on Escape when idle or while a dialog is open", () => {
+    const idle = makeSession();
+    const { unmount } = render(
+      <PlaygroundBody session={idle} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(idle.stop).not.toHaveBeenCalled();
+    unmount();
+
+    const dialog = makeSession({ isStreaming: true, galleryOpen: true });
+    render(
+      <PlaygroundBody session={dialog} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(dialog.stop).not.toHaveBeenCalled();
+  });
+
+  it("wires the table shortcuts to the session verbs", () => {
+    const session = makeSession();
+    render(
+      <PlaygroundBody session={session} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    fireEvent.keyDown(document, { altKey: true, shiftKey: true, code: "KeyF", key: "Dead" });
+    expect(session.toggleFullscreen).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(document, { altKey: true, shiftKey: true, code: "KeyN", key: "Dead" });
+    expect(session.reset).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(document, { altKey: true, shiftKey: true, code: "KeyT", key: "Dead" });
+    expect(session.toggleGallery).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(document, { key: "?" });
+    expect(session.toggleShortcuts).toHaveBeenCalledTimes(1);
+  });
+
   it("forwards the failing prompt to PromptBar so it can be restored for editing", () => {
     const session = makeSession({
       failedPrompt: "draw a broken form",

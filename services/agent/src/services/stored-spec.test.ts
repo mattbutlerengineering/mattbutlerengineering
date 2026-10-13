@@ -21,6 +21,7 @@ const mockSpec = {
   id: "spec-1",
   userId: "user-1",
   prompt: "Build a landing page",
+  kind: "generate",
   spec: { components: ["hero", "footer"] },
   rawLines: ["line 1", "line 2"],
   isFavorite: false,
@@ -41,6 +42,7 @@ describe("stored-spec", () => {
         id: "spec-1",
         userId: "user-1",
         prompt: "Build a landing page",
+        kind: "generate",
         spec: { components: ["hero", "footer"] },
         rawLines: ["line 1", "line 2"],
         isFavorite: false,
@@ -64,6 +66,7 @@ describe("stored-spec", () => {
       expect(result).toEqual({
         id: "spec-1",
         prompt: "Build a landing page",
+        kind: "generate",
         spec: { components: ["hero", "footer"] },
         rawLines: ["line 1", "line 2"],
         isFavorite: false,
@@ -122,6 +125,7 @@ describe("stored-spec", () => {
       const result = await storedSpecService.create({
         userId: "user-1",
         prompt: "Build a landing page",
+        kind: "refine",
         spec: { components: ["hero", "footer"] },
         rawLines: ["line 1", "line 2"],
       });
@@ -130,6 +134,7 @@ describe("stored-spec", () => {
         data: {
           userId: "user-1",
           prompt: "Build a landing page",
+          kind: "refine",
           spec: { components: ["hero", "footer"] },
           rawLines: ["line 1", "line 2"],
         },
@@ -148,6 +153,7 @@ describe("stored-spec", () => {
       await storedSpecService.create({
         userId: "user-1",
         prompt: "New spec",
+        kind: "generate",
         spec: {},
         rawLines: [],
       });
@@ -169,6 +175,7 @@ describe("stored-spec", () => {
       await storedSpecService.create({
         userId: "user-1",
         prompt: "New spec",
+        kind: "generate",
         spec: {},
         rawLines: [],
       });
