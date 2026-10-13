@@ -44,7 +44,7 @@ export function FloorPlanEditorPage() {
   const {
     tables,
     move: handleTableMove,
-    save: handleSave,
+    save: saveDraft,
     addTable,
     removeTable,
     dirty: hasChanges,
@@ -58,6 +58,12 @@ export function FloorPlanEditorPage() {
       : "Failed to save changes — positions reverted"
     : null;
   const saveError = draftSaveError ?? actionError;
+
+  // A new save attempt supersedes any stale set-active/delete error.
+  const handleSave = useCallback(async () => {
+    setActionError(null);
+    await saveDraft();
+  }, [saveDraft]);
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
@@ -96,14 +102,15 @@ export function FloorPlanEditorPage() {
   }, [pendingDeleteId, deleteTableMutation, removeTable]);
 
   // Auto-save with 1s debounce after changes.
-  // Skip when saveError is set — user must retry manually to avoid an infinite retry loop.
+  // Skip when the draft save failed — user must retry manually to avoid an infinite retry loop.
+  // Set-active/delete errors are not save failures and must not gate autosave.
   useEffect(() => {
-    if (!hasUnsentEdits || saveError) return;
+    if (!hasUnsentEdits || draftSaveError) return;
     const timer = setTimeout(() => {
       handleSave();
     }, 1000);
     return () => clearTimeout(timer);
-  }, [hasUnsentEdits, handleSave, saveError]);
+  }, [hasUnsentEdits, handleSave, draftSaveError]);
 
   // Window-level shortcuts: save and deselect only. Table nudge/delete are owned
   // by FloorPlanCanvas (focus-scoped), so open dialogs never trigger them.

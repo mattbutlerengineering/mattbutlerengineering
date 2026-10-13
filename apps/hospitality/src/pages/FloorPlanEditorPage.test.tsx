@@ -902,5 +902,32 @@ describe("FloorPlanEditorPage", () => {
       expect(positionOf(200, 300)).toBeDefined();
       expect(screen.getByText("Save Changes")).toBeDefined();
     });
+
+    it("a failed set-active does not disable autosave", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [TABLE_A] });
+      mockSetActive.mockRejectedValue(new Error("Activate failed"));
+      mockBulkUpdatePositions.mockResolvedValue(undefined);
+      renderPage();
+
+      fireEvent.click(await screen.findByText("Set as Active"));
+      await screen.findByText("Activate failed");
+
+      await selectAndMove("table-a");
+
+      await waitFor(() => expect(mockBulkUpdatePositions).toHaveBeenCalled(), { timeout: 3000 });
+    });
+
+    it("retrying from the banner clears a stale action error", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [] });
+      mockSetActive.mockRejectedValue(new Error("Activate failed"));
+      renderPage();
+
+      fireEvent.click(await screen.findByText("Set as Active"));
+      await screen.findByText("Activate failed");
+
+      fireEvent.click(screen.getByText("Retry"));
+
+      await waitFor(() => expect(screen.queryByText("Activate failed")).toBeNull());
+    });
   });
 });
