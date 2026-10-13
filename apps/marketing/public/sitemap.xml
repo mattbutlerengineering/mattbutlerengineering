@@ -365,10 +365,6 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://mattbutlerengineering.com/rialto/dashboard</loc>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://mattbutlerengineering.com/rialto/examples/availability-heatmap</loc>
     <priority>0.6</priority>
   </url>
