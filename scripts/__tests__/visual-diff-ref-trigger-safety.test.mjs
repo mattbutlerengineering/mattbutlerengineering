@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_PREFIX, buildRefName } from "../visual-diff-refs.mjs";
+import { parseWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -20,136 +21,44 @@ const SAMPLE_REF = buildRefName({
 });
 
 /**
- * Parsed textually rather than with a YAML library. `@mbe/scripts` declares no
- * YAML dependency and adding one would touch `pnpm-lock.yaml`, which is a turbo
- * `globalDependencies` entry — every task in the monorepo cache-busts for a
- * parser this guard can do without.
- *
- * The price of that choice is paid HERE, once: the normaliser below must accept
- * every shape `on:` can legally take, and must treat a shape it does not
- * recognise as a **violation** rather than as an absence. A textual parser that
+ * `on:` comes from the shared workflow parser (scripts/lib/workflow.mjs,
+ * #6393), which accepts every shape `on:` can legally take (block mapping,
+ * block/flow sequence, bare scalar, per-trigger flow mapping, quoted `"on":`
+ * key, any indentation). The fail-closed rule stays HERE: a workflow the
+ * parser cannot read is a **violation**, never an absence. A guard that
  * silently answers "no push trigger found" for a spelling it never learned is
  * precisely how the first version of this guard passed `on: [push]`,
  * `on: push`, `push: { branches: ['**'] }` and any indentation other than two
  * spaces.
  */
 
-/** Lines nested under `lines[startIdx]`, by indentation. */
-function blockAt(lines, startIdx) {
-  const indent = lines[startIdx].match(/^(\s*)/)[1].length;
-  const out = [];
-  for (const line of lines.slice(startIdx + 1)) {
-    if (line.trim() === "" || line.trim().startsWith("#")) continue;
-    if (line.match(/^(\s*)/)[1].length <= indent) break;
-    out.push(line);
-  }
-  return out;
-}
-
-/** `a, b, 'c'` -> `["a", "b", "c"]`. */
-function splitFlow(text) {
-  return text
-    .split(",")
-    .map((v) => v.trim().replace(/^["']|["']$/g, ""))
-    .filter(Boolean);
-}
-
-function unquote(text) {
-  return text.trim().replace(/^["']|["']$/g, "");
-}
-
 /**
- * A filter key that is present but in a form this parser cannot turn into a
- * list of globs — a YAML alias, a nested mapping, an empty block. Never
- * conflated with "absent": absent means the trigger is unfiltered (a hazard),
- * unreadable means the guard has no opinion (also a hazard). Both are
- * violations; neither is silence.
+ * A filter key that is present but in a form that cannot be turned into a
+ * list of globs (a nested mapping, an empty list). Never conflated with
+ * "absent": absent means the trigger is unfiltered (a hazard), unreadable
+ * means the guard has no opinion (also a hazard). Both are violations;
+ * neither is silence.
  */
 const UNREADABLE = Symbol("unreadable");
 
-/**
- * The `on:` section, normalised to `trigger name -> config`.
- *
- * Handles: block mapping at any indent, block sequence (`- push`), flow
- * sequence (`on: [push, …]`), bare scalar (`on: push`), a quoted `"on":` key,
- * and a per-trigger flow mapping (`push: { branches: [main] }`). Anything else
- * comes back as `{ unreadable }`.
- */
-export function parseOnSection(source) {
-  const lines = source.split("\n");
-  const onIdx = lines.findIndex((l) => /^(?:on|"on"|'on'):/.test(l));
-  if (onIdx === -1) return { triggers: new Map() };
-
-  const inline = lines[onIdx].slice(lines[onIdx].indexOf(":") + 1).trim();
-
-  if (inline.startsWith("{")) {
-    return { unreadable: "`on:` is a flow mapping this parser does not read" };
+/** The `on:` section as `{ triggers: Map<name, config> }`, or `{ unreadable }` if unparseable. */
+function readOnTriggers(source) {
+  try {
+    return { triggers: new Map(Object.entries(parseWorkflow(source).on)) };
+  } catch (error) {
+    return { unreadable: `workflow YAML could not be parsed: ${error.message.split("\n")[0]}` };
   }
-  if (inline.startsWith("[")) {
-    const names = splitFlow(inline.replace(/^\[|\]$/g, ""));
-    return { triggers: new Map(names.map((n) => [n, { kind: "none" }])) };
-  }
-  if (inline !== "" && !inline.startsWith("#")) {
-    return { triggers: new Map([[unquote(inline), { kind: "none" }]]) };
-  }
-
-  const block = blockAt(lines, onIdx);
-  if (block.length === 0) return { triggers: new Map() };
-
-  const base = block[0].match(/^(\s*)/)[1].length;
-  const triggers = new Map();
-
-  for (let i = 0; i < block.length; i++) {
-    if (block[i].match(/^(\s*)/)[1].length !== base) continue;
-    const item = block[i].trim();
-
-    if (item.startsWith("- ")) {
-      triggers.set(unquote(item.slice(2)), { kind: "none" });
-      continue;
-    }
-
-    const keyed = /^(?:([A-Za-z_][\w-]*)|"([^"]+)"|'([^']+)'):(.*)$/.exec(item);
-    if (!keyed) return { unreadable: `unrecognised line under \`on:\`: ${item}` };
-
-    const name = keyed[1] ?? keyed[2] ?? keyed[3];
-    const rest = keyed[4].trim();
-
-    if (rest.startsWith("{")) triggers.set(name, { kind: "flow", text: rest });
-    else if (rest === "" || rest.startsWith("#")) {
-      triggers.set(name, { kind: "block", lines: blockAt(block, i) });
-    } else return { unreadable: `\`${name}:\` carries a scalar this parser does not read` };
-  }
-
-  return { triggers };
 }
 
 /** The globs listed for `key`, `null` when absent, `UNREADABLE` when unjudgeable. */
 function filterValues(config, key) {
-  if (config.kind === "none") return null;
-
-  if (config.kind === "flow") {
-    const bracket = new RegExp(`\\b${key}\\s*:\\s*\\[([^\\]]*)\\]`).exec(config.text);
-    if (bracket) return splitFlow(bracket[1]);
-    const scalar = new RegExp(`\\b${key}\\s*:\\s*(["'][^"']*["']|[^,}\\s]+)`).exec(config.text);
-    if (scalar) return scalar[1].startsWith("*") ? UNREADABLE : [unquote(scalar[1])];
-    return null;
+  const value = config[key];
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string")) {
+    return value;
   }
-
-  const lines = config.lines;
-  const idx = lines.findIndex((l) => new RegExp(`^\\s*${key}:`).test(l));
-  if (idx === -1) return null;
-
-  const inline = lines[idx].slice(lines[idx].indexOf(":") + 1).trim();
-  if (inline.startsWith("[")) return splitFlow(inline.replace(/^\[|\]$/g, ""));
-  if (inline !== "" && !inline.startsWith("#")) {
-    // A YAML alias or anchor is a reference this parser cannot resolve.
-    return inline.startsWith("*") || inline.startsWith("&") ? UNREADABLE : [unquote(inline)];
-  }
-
-  const items = blockAt(lines, idx);
-  if (items.length === 0) return UNREADABLE;
-  if (!items.every((l) => l.trim().startsWith("- "))) return UNREADABLE;
-  return items.map((l) => unquote(l.trim().slice(2)));
+  return UNREADABLE;
 }
 
 /**
@@ -199,7 +108,7 @@ function matchesRef(patterns, ref) {
  */
 export function findTriggerViolations(source, fileName = "<source>", ref = SAMPLE_REF) {
   const violations = [];
-  const parsed = parseOnSection(source);
+  const parsed = readOnTriggers(source);
 
   if (parsed.unreadable) {
     violations.push(`${fileName}: ${parsed.unreadable} — cannot be shown safe`);
@@ -273,7 +182,7 @@ describe("visual-diffs ref namespace cannot start a CI run", () => {
     // Asserting zero unreadable files here is what makes the empty violation
     // list above mean "no hazard" rather than "gave up on 40 files".
     const unreadable = files.filter(
-      (file) => parseOnSection(readFileSync(resolve(WORKFLOW_DIR, file), "utf8")).unreadable
+      (file) => readOnTriggers(readFileSync(resolve(WORKFLOW_DIR, file), "utf8")).unreadable
     );
     expect(unreadable, unreadable.join("\n")).toEqual([]);
   });
@@ -282,7 +191,7 @@ describe("visual-diffs ref namespace cannot start a CI run", () => {
     // A parser that recognised no `push:` at all would also report no
     // violations. This is the count that separates the two.
     const withPush = files.filter((file) =>
-      parseOnSection(readFileSync(resolve(WORKFLOW_DIR, file), "utf8")).triggers?.has("push")
+      readOnTriggers(readFileSync(resolve(WORKFLOW_DIR, file), "utf8")).triggers?.has("push")
     );
     expect(withPush.length).toBeGreaterThan(5);
   });
@@ -478,7 +387,7 @@ describe("the measure/ ref namespace starts the measurement and nothing else", (
   });
 
   it("declares exactly two triggers — workflow_dispatch and a filtered push", () => {
-    const parsed = parseOnSection(read(NOISE_FLOOR_WORKFLOW));
+    const parsed = readOnTriggers(read(NOISE_FLOOR_WORKFLOW));
     expect(parsed.unreadable).toBeUndefined();
     expect([...parsed.triggers.keys()].sort()).toEqual(["push", "workflow_dispatch"]);
   });

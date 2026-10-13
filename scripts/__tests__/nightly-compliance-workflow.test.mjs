@@ -2,40 +2,26 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const SCRIPTS_DIR = resolve(ROOT, "scripts");
-const WORKFLOW_PATH = resolve(ROOT, ".github/workflows/nightly-compliance.yml");
-const WORKFLOW = readFileSync(WORKFLOW_PATH, "utf8");
+const WORKFLOW = loadWorkflow("nightly-compliance.yml");
 
 /**
- * Slice out a single named step's YAML text (from `- name: <name>` up to,
- * but not including, the next step at the same indentation). Parsed
- * textually, matching the precedent in ci-node-matrix.test.mjs and
- * pulumi-cli-pin.test.mjs — these are plain step lists with no anchors or
- * flow mappings a YAML library would be needed for.
+ * One named step from the parsed workflow (scripts/lib/workflow.mjs, #6393).
+ * Bash comments inside `run:` survive parsing, so the `stripComments` /
+ * trailing-reason-comment assertions below still see them in `step.run`.
  *
- * @param {string} source
  * @param {string} stepName
- * @returns {string}
  */
-function extractStep(source, stepName) {
-  const lines = source.split("\n");
-  const startIdx = lines.findIndex((l) => l.trim() === `- name: ${stepName}`);
-  if (startIdx === -1) {
-    throw new Error(`nightly-compliance.yml has no step named "${stepName}"`);
-  }
-  const indent = lines[startIdx].match(/^(\s*)- name:/)[1];
-  const nextBoundary = new RegExp(`^${indent}- name:`);
-  let endIdx = lines.length;
-  for (let i = startIdx + 1; i < lines.length; i++) {
-    if (nextBoundary.test(lines[i])) {
-      endIdx = i;
-      break;
-    }
-  }
-  return lines.slice(startIdx, endIdx).join("\n");
+function stepNamed(stepName) {
+  const step = Object.values(WORKFLOW.jobs)
+    .flatMap((job) => job.steps)
+    .find((candidate) => candidate.name === stepName);
+  if (!step) throw new Error(`nightly-compliance.yml has no step named "${stepName}"`);
+  return step;
 }
 
 /**
@@ -56,7 +42,7 @@ function stripComments(text) {
 }
 
 describe("nightly-compliance.yml Lint, typecheck, test step", () => {
-  const step = extractStep(WORKFLOW, "Lint, typecheck, test");
+  const step = stepNamed("Lint, typecheck, test").run;
 
   // Regression test for the falsifiability bug: GitHub Actions' default
   // shell is `bash -e {0}` (no pipefail). `pnpm "$cmd"` run as a bare
@@ -148,16 +134,16 @@ describe("nightly-compliance.yml captured-output artifact", () => {
   // stay retrievable — otherwise diagnosing a nightly failure still means
   // reproducing it by hand, which is what #5517 cost.
   it("uploads the captured command output, even when the run failed", () => {
-    const step = extractStep(WORKFLOW, "Upload captured command output");
+    const step = stepNamed("Upload captured command output");
 
-    expect(step).toMatch(/if:\s*always\(\)/);
-    expect(step).toMatch(/uses:\s*actions\/upload-artifact@[0-9a-f]{40}/);
-    expect(step).toMatch(/path:\s*\/tmp\/\*\.out/);
+    expect(step.if).toMatch(/^always\(\)$/);
+    expect(step.uses).toMatch(/^actions\/upload-artifact@[0-9a-f]{40}$/);
+    expect(step.with.path).toBe("/tmp/*.out");
   });
 });
 
 describe("nightly-compliance.yml Run gating scripts step", () => {
-  const step = extractStep(WORKFLOW, "Run gating scripts");
+  const step = stepNamed("Run gating scripts").run;
 
   // Regression test for the coverage bug: the loop scanned scripts/check-*.js
   // only, silently never running the 14 scripts/check-*.mjs gating scripts
@@ -223,7 +209,7 @@ describe("nightly-compliance.yml Run gating scripts step", () => {
 });
 
 describe("nightly-compliance.yml Run ACMM audit step", () => {
-  const step = extractStep(WORKFLOW, "Run ACMM audit");
+  const step = stepNamed("Run ACMM audit").run;
 
   // Regression test: the step used to pipe straight into `head -25` with no
   // pipefail, masking the audit's exit status, and — measured against a real
@@ -252,7 +238,7 @@ describe("nightly-compliance.yml Run ACMM audit step", () => {
 });
 
 describe("nightly-compliance.yml Detect drift step", () => {
-  const step = extractStep(WORKFLOW, "Detect drift");
+  const step = stepNamed("Detect drift").run;
 
   it("does not weaken the ✗ contract that drift detection keys on", () => {
     expect(step).toMatch(/grep -q '✗' \/tmp\/report\.md/);
@@ -267,7 +253,7 @@ describe("nightly-compliance.yml Detect drift step", () => {
 });
 
 describe("nightly-compliance.yml File meta-improvement issue if drift detected step (#5084)", () => {
-  const step = extractStep(WORKFLOW, "File meta-improvement issue if drift detected");
+  const step = stepNamed("File meta-improvement issue if drift detected").run;
 
   // Regression test for the bug this issue reports: the dedupe key used to
   // be keyed on `today` alone, so a persistent failure filed a fresh issue
@@ -301,7 +287,8 @@ describe("nightly-compliance.yml File meta-improvement issue if drift detected s
 });
 
 describe("nightly-compliance.yml Close superseded nightly-compliance issues step (#5454)", () => {
-  const step = extractStep(WORKFLOW, "Close superseded nightly-compliance issues");
+  const closeStep = stepNamed("Close superseded nightly-compliance issues");
+  const step = closeStep.run;
 
   // Regression test for the meta-issue this fixes: #5084 stopped duplicate
   // filing but nothing ever closed an OLDER superseded issue, so 8 near-
@@ -316,7 +303,7 @@ describe("nightly-compliance.yml Close superseded nightly-compliance issues step
   });
 
   it("only runs when drift was actually filed this run", () => {
-    expect(step).toMatch(/steps\.drift\.outputs\.drift == 'true'/);
-    expect(step).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
+    expect(closeStep.if).toMatch(/steps\.drift\.outputs\.drift == 'true'/);
+    expect(closeStep.if).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
   });
 });
