@@ -1,24 +1,17 @@
 import type { Reservation } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { reservationService } from "../services/reservation.js";
 
 export type ManagePreambleResult =
   | { ok: true; reservation: Reservation }
-  | { ok: false; status: 404; reason: "not_found" }
   | { ok: false; status: 409; reason: "cancelled" | "completed" };
 
 /**
- * Shared preamble for the manage-token routes (cancel, modify): load the
- * reservation by id and guard against terminal states. Both routes need the
- * same load → 404-if-missing → 409-if-CANCELLED → 409-if-COMPLETED sequence;
- * only the reply body text differs, which callers supply themselves by
- * switching on `reason`.
+ * Shared terminal-state guard for the manage-token routes (cancel, modify).
+ * The reservation itself is loaded once by `manageTokenScoped`; both routes
+ * then need the same 409-if-CANCELLED / 409-if-COMPLETED check, and only the
+ * reply body text differs, which callers supply by switching on `reason`.
  */
-export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> {
-  const reservation = await reservationService.getById(id);
-  if (!reservation) {
-    return { ok: false, status: 404, reason: "not_found" };
-  }
+export function guardManageState(reservation: Reservation): ManagePreambleResult {
   if (reservation.status === "CANCELLED") {
     return { ok: false, status: 409, reason: "cancelled" };
   }
@@ -87,17 +80,13 @@ export function reservationNotFoundProblem(): ReturnType<typeof createProblemDet
 }
 
 /**
- * Translates a failed loadReservationForManage() result into an RFC-7807
+ * Translates a failed guardManageState() result into an RFC-7807
  * problem-details body, built on createProblemDetails. `action` selects the
- * cancel- vs modify-specific copy for the cancelled/completed cases; the
- * not_found message is identical for both callers.
+ * cancel- vs modify-specific copy for the cancelled/completed cases.
  */
 export function manageProblemDetails(
   preamble: Extract<ManagePreambleResult, { ok: false }>,
   action: ManageAction
 ): ReturnType<typeof createProblemDetails> {
-  if (preamble.reason === "not_found") {
-    return reservationNotFoundProblem();
-  }
   return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
 }

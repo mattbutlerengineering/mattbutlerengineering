@@ -8,8 +8,7 @@ import {
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRiskResultJsonSchema);
@@ -43,7 +42,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
       const { slug } = request.params;
       const { email, phone } = request.query;
 
@@ -57,42 +56,34 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
 
       // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
       // run the guest lookup inside that venue's RLS context.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
+
+      const venue = await venueService.getBySlug(slug);
+      if (!venue) {
         return reply
           .status(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      return runWithVenueContext(venueId, async () => {
-        const venue = await venueService.getBySlug(slug);
-        if (!venue) {
-          return reply
-            .status(404)
-            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-        }
+      const guest = email
+        ? await guestService.findByEmail(venue.id, email)
+        : phone
+          ? await guestService.findByPhone(venue.id, phone)
+          : null;
 
-        const guest = email
-          ? await guestService.findByEmail(venue.id, email)
-          : phone
-            ? await guestService.findByPhone(venue.id, phone)
-            : null;
-
-        if (!guest) {
-          // Unknown guest — no deposit. The named score stays off this public body.
-          return reply.send({
-            data: { requiresDeposit: false },
-          });
-        }
-
-        const riskScore = assessGuestReliability(guest, venue.settings);
-
+      if (!guest) {
+        // Unknown guest — no deposit. The named score stays off this public body.
         return reply.send({
-          data: {
-            requiresDeposit: riskScore === "risky",
-          },
+          data: { requiresDeposit: false },
         });
+      }
+
+      const riskScore = assessGuestReliability(guest, venue.settings);
+
+      return reply.send({
+        data: {
+          requiresDeposit: riskScore === "risky",
+        },
       });
-    }
+    })
   );
 };

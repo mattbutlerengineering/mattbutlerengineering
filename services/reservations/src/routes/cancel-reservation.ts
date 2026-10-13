@@ -1,13 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import { cancelReservationBodyJsonSchema, createProblemDetails } from "@mbe/types";
-import { requireManageToken } from "../middleware/require-manage-token.js";
 import {
-  loadReservationForManage,
+  guardManageState,
   manageProblemDetails,
   reservationNotFoundProblem,
 } from "./load-reservation-for-manage.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { manageTokenScoped } from "./manage-token-scope.js";
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{
@@ -28,19 +26,14 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           request.body = {};
         }
       },
-      preHandler: requireManageToken,
     },
-    async (request, reply) => {
-      // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-      // SECURITY DEFINER function, then run the whole cancel flow inside
-      // that venue's RLS context.
-      const venueId = await resolveVenueId("reservation", request.managedReservationId);
-      if (!venueId) {
-        return reply.status(404).send(reservationNotFoundProblem());
-      }
-
-      return runWithVenueContext(venueId, async () => {
-        const preamble = await loadReservationForManage(request.managedReservationId);
+    // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+    // and loads the reservation once; the whole cancel flow runs inside that
+    // venue's RLS context.
+    manageTokenScoped(
+      { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+      async (request, reply, { reservation, token }) => {
+        const preamble = guardManageState(reservation);
         if (!preamble.ok) {
           return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
         }
@@ -48,7 +41,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         const result = await fastify.transitions.cancel(preamble.reservation, {
           door: "guest-manage",
           initiator: "guest",
-          manageToken: request.manageToken,
+          manageToken: token,
           reason: request.body?.cancellationReason,
           note: request.body?.cancellationNote,
           log: request.log,
@@ -63,7 +56,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({
           data: { status: result.reservation.status },
         });
-      });
-    }
+      }
+    )
   );
 };

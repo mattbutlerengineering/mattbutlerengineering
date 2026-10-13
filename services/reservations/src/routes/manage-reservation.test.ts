@@ -63,6 +63,7 @@ vi.mock("../services/resolve-venue.js", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 import { venueService } from "../services/venue.js";
 
 const mockReservation = {
@@ -109,11 +110,27 @@ describe("GET /public/v1/reservations/manage", () => {
     delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 
+  it("resolves the venue and loads the reservation exactly once per request", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+    vi.mocked(resolveVenueId).mockClear();
+    vi.mocked(reservationService.getById).mockClear();
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(resolveVenueId).toHaveBeenCalledTimes(1);
+    expect(reservationService.getById).toHaveBeenCalledTimes(1);
+  });
+
   it("returns reservation + venue details for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
@@ -135,7 +152,6 @@ describe("GET /public/v1/reservations/manage", () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce({
       ...mockVenue,
       settings: {},
@@ -153,8 +169,7 @@ describe("GET /public/v1/reservations/manage", () => {
   it("returns 404 with a code extension when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
 
     const response = await app.inject({

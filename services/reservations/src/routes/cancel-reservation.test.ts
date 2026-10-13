@@ -160,8 +160,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("cancels reservation and returns 200 for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
@@ -182,8 +181,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("cancels reservation and returns 200 when the token is sent as an Authorization: Bearer header", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
@@ -215,8 +213,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("sends cancellation notification with guest communication preference", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
@@ -242,8 +239,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("returns 200 even when NotificationPort throws", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
@@ -264,8 +260,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("returns 409 when reservation is already cancelled", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check (email matches); route handler gets CANCELLED → 409
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once: CANCELLED → 409
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "CANCELLED",
@@ -284,8 +279,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("returns 409 when reservation is completed", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check (email matches); route handler gets COMPLETED → 409
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once: COMPLETED → 409
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "COMPLETED",
@@ -303,7 +297,6 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("passes cancellationReason and cancellationNote from the request body through to the status update", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
@@ -328,8 +321,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("returns 404 when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
 
     const response = await app.inject({
@@ -400,8 +392,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
     });
 
     function setupCancelMocks(reservation: typeof mockReservation) {
-      // middleware ownership check + route handler each call getById once
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(reservation as never);
+      // the manage-token scope loads the reservation once
       vi.mocked(reservationService.getById).mockResolvedValueOnce(reservation as never);
       vi.mocked(reservationService.update).mockResolvedValueOnce({
         ...reservation,
@@ -518,8 +509,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       // Money path: if the deposit cannot be resolved, the reservation must not
       // be flipped to CANCELLED — that would strand a `held` deposit forever.
       const token = generateManageToken("res_1", "jane@example.com");
-      // middleware ownership check + route handler each call getById once
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
+      // the manage-token scope loads the reservation once
       vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
       vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(rawVenueWithPolicy);

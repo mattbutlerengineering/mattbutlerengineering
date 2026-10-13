@@ -1,8 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { reservationService } from "../services/reservation.js";
-import { requireManageToken } from "../middleware/require-manage-token.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
+import { manageTokenScoped } from "./manage-token-scope.js";
 
 const successHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -31,27 +28,17 @@ export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       config: {
         rateLimit: { max: 10, timeWindow: "1 minute" },
       },
-      preHandler: requireManageToken,
     },
-    async (request, reply) => {
-      // ADR-026 §3.3 item 4: resolve the reservation's venue through the
-      // SECURITY DEFINER function, then run the read + confirm inside that
-      // venue's RLS context.
-      const venueId = await resolveVenueId("reservation", request.managedReservationId);
-      if (!venueId) {
-        return reply.status(401).type("text/html").send(invalidHtml);
-      }
-
-      return runWithVenueContext(venueId, async () => {
-        const reservation = await reservationService.getById(request.managedReservationId);
-        if (!reservation) {
-          return reply.status(401).type("text/html").send(invalidHtml);
-        }
-
+    // ADR-026 §3.3 item 4: the scope verifies the token, resolves the venue
+    // and loads the reservation once; the confirm runs inside that venue's
+    // RLS context. A venue or reservation that is gone is this route's 401 page.
+    manageTokenScoped(
+      { missing: (reply) => reply.status(401).type("text/html").send(invalidHtml) },
+      async (_request, reply, { reservation }) => {
         await fastify.transitions.confirmAttendance(reservation);
 
         return reply.status(200).type("text/html").send(successHtml);
-      });
-    }
+      }
+    )
   );
 };

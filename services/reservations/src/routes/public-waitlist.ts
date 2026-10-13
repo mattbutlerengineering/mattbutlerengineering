@@ -9,13 +9,14 @@ import {
 import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
-import { resolveVenueId } from "../services/resolve-venue.js";
-import { runWithVenueContext } from "../services/venue-context-store.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import {
   generateWaitlistStatusToken,
   verifyWaitlistStatusToken,
 } from "../services/waitlist-status-token.js";
+import { publicVenueScoped } from "./public-venue-scope.js";
+
+const STATUS_NOT_FOUND_DETAIL = "No such waitlist entry for this venue.";
 
 interface PublicWaitlistJoinBody {
   venueId: string;
@@ -66,65 +67,57 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
       const { slug } = request.params;
       const { partySize, guestName, guestPhone } = request.body;
 
       // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
       // run the rest of the join inside that venue's RLS context — never the
       // client-supplied body.venueId, which could target another venue.
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) {
+
+      const venue = await venueService.getBySlug(slug);
+      if (!venue) {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      return runWithVenueContext(venueId, async () => {
-        const venue = await venueService.getBySlug(slug);
-        if (!venue) {
-          return reply
-            .code(404)
-            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-        }
+      if (!validatePhone(guestPhone)) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
+      }
 
-        if (!validatePhone(guestPhone)) {
-          return reply
-            .code(400)
-            .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
-        }
-
-        // Always join under the venue resolved from the trusted slug — never the
-        // client-supplied body.venueId, which could target another venue.
-        const entry = await waitlistService.create({
-          venueId: venue.id,
-          partySize,
-          guestName,
-          guestPhone,
-        });
-
-        // Fire-and-forget: SMS delivery failures must not block the response
-        fastify.waitlistNotifier
-          .notifyAdded({
-            id: entry.id,
-            guestPhone: entry.guestPhone,
-            guestName: entry.guestName,
-            position: entry.position,
-            estimatedWaitMinutes: entry.estimatedWaitMinutes,
-          })
-          .catch(() => {
-            // Already logged inside the notifier
-          });
-
-        return reply.code(201).send({
-          data: {
-            statusToken: generateWaitlistStatusToken(entry.id, venue.id),
-            position: entry.position,
-            estimatedWaitMinutes: entry.estimatedWaitMinutes,
-          },
-        });
+      // Always join under the venue resolved from the trusted slug — never the
+      // client-supplied body.venueId, which could target another venue.
+      const entry = await waitlistService.create({
+        venueId: venue.id,
+        partySize,
+        guestName,
+        guestPhone,
       });
-    }
+
+      // Fire-and-forget: SMS delivery failures must not block the response
+      fastify.waitlistNotifier
+        .notifyAdded({
+          id: entry.id,
+          guestPhone: entry.guestPhone,
+          guestName: entry.guestName,
+          position: entry.position,
+          estimatedWaitMinutes: entry.estimatedWaitMinutes,
+        })
+        .catch(() => {
+          // Already logged inside the notifier
+        });
+
+      return reply.code(201).send({
+        data: {
+          statusToken: generateWaitlistStatusToken(entry.id, venue.id),
+          position: entry.position,
+          estimatedWaitMinutes: entry.estimatedWaitMinutes,
+        },
+      });
+    })
   );
   // Live read of the guest's OWN entry. The credential is the signed,
   // expiring status token minted at join - never the guessable entry id. The
@@ -163,22 +156,20 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { slug } = request.params;
-      // One detail for every failure (bad token, wrong venue, gone entry) so
-      // the response is not an oracle.
-      const notFound = () =>
-        reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "No such waitlist entry for this venue."));
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        // One detail for every failure (bad token, wrong venue, gone entry,
+        // unknown slug) so the response is not an oracle.
+        notFound: () => ({ title: "Not Found", detail: STATUS_NOT_FOUND_DETAIL }),
+      },
+      async (request, reply, { venueId }) => {
+        const notFound = () =>
+          reply.code(404).send(createProblemDetails(404, "Not Found", STATUS_NOT_FOUND_DETAIL));
 
-      const venueId = await resolveVenueId("venue_slug", slug);
-      if (!venueId) return notFound();
+        const verified = verifyWaitlistStatusToken(request.query.token, venueId);
+        if (!verified.valid) return notFound();
 
-      const verified = verifyWaitlistStatusToken(request.query.token, venueId);
-      if (!verified.valid) return notFound();
-
-      return runWithVenueContext(venueId, async () => {
         const entry = await waitlistService.getById(verified.entryId);
         if (!entry || entry.venueId !== venueId) return notFound();
 
@@ -190,7 +181,7 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
             status: entry.status,
           },
         });
-      });
-    }
+      }
+    )
   );
 };

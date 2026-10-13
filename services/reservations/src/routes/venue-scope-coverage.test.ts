@@ -34,7 +34,6 @@ type UnscopedReason =
   | "cross-venue fan-out (admin)"
   | "venue-create"
   | "venue-group (no RLS)"
-  | "public slug"
   | "user-scoped (/me)"
   | "infra (no venue data)"
   | "webhook (signature-verified)";
@@ -49,7 +48,6 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "GET /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "PATCH /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "DELETE /api/v1/venues/groups/:id": "venue-group (no RLS)",
-  "GET /api/v1/venues/by-slug/:slug": "public slug",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
@@ -230,6 +228,19 @@ describe("venue-scope coverage (no database)", () => {
       "GET /api/v1/holds/:id": "resolve:hold.venueId/member",
       "DELETE /api/v1/holds/:id": "resolve:hold.venueId/member",
       "POST /api/v1/holds/:id/confirm": "resolve:hold.venueId/member",
+      // Public-slug and manage-token sources (authority is the slug / token, not membership).
+      "GET /api/v1/venues/by-slug/:slug": "slug/public",
+      "GET /public/v1/venues/:slug": "slug/public",
+      "GET /public/v1/venues/:slug/availability": "slug/public",
+      "POST /public/v1/venues/:slug/deposits/payment-intent": "slug/public",
+      "POST /public/v1/venues/:slug/holds": "slug/public",
+      "GET /public/v1/venues/:slug/holds/:holdId": "slug/public",
+      "POST /public/v1/venues/:slug/holds/:holdId/confirm": "slug/public",
+      "POST /public/v1/venues/:slug/reservations": "slug/public",
+      "GET /public/v1/reservations/manage": "token:manage/public",
+      "PATCH /public/v1/reservations/manage": "token:manage/public",
+      "DELETE /public/v1/reservations/manage": "token:manage/public",
+      "PATCH /public/v1/reservations/confirm": "token:manage/public",
     };
     const actual = Object.fromEntries(
       Object.keys(expected).map((route) => [route, app.venueScopes.get(route)])

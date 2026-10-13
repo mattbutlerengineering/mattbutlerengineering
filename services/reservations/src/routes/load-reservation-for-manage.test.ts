@@ -16,22 +16,8 @@ describe("reservationNotFoundProblem", () => {
 });
 
 describe("manageProblemDetails", () => {
-  const notFound: NotOkPreamble = { ok: false, status: 404, reason: "not_found" };
   const cancelled: NotOkPreamble = { ok: false, status: 409, reason: "cancelled" };
   const completed: NotOkPreamble = { ok: false, status: 409, reason: "completed" };
-
-  it("returns the shared not-found problem regardless of action", () => {
-    expect(manageProblemDetails(notFound, "cancel")).toMatchObject({
-      status: 404,
-      title: "Reservation Not Found",
-      code: "RESERVATION_NOT_FOUND",
-    });
-    expect(manageProblemDetails(notFound, "modify")).toMatchObject({
-      status: 404,
-      title: "Reservation Not Found",
-      code: "RESERVATION_NOT_FOUND",
-    });
-  });
 
   it("uses cancel-specific copy for an already-cancelled reservation", () => {
     expect(manageProblemDetails(cancelled, "cancel")).toMatchObject({
