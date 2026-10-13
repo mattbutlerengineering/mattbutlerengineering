@@ -500,3 +500,30 @@ describe("useGuestDirectory — selection survives the visible rows changing", (
     expect(mockGet).toHaveBeenCalledWith("g1");
   });
 });
+
+describe("useGuestDirectory — venue switch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockList.mockResolvedValue({ data: [makeGuest({ id: "g1" })], pagination: pagination() });
+    mockGetSegments.mockResolvedValue([]);
+  });
+
+  it("resets page and selection when venueId changes", async () => {
+    const { result, rerender } = renderHook(({ venueId }) => useGuestDirectory({ venueId }), {
+      wrapper: createWrapper(),
+      initialProps: { venueId: "venue-1" },
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.setPage(3);
+      result.current.selectGuest("g1");
+    });
+    expect(result.current.page).toBe(3);
+
+    rerender({ venueId: "venue-2" });
+
+    expect(result.current.page).toBe(1);
+    expect(result.current.selectedGuestId).toBeNull();
+  });
+});
