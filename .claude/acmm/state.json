@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-10-12T11:44:49.160Z",
+  "lastRun": "2026-10-13T11:31:21.142Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "121 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "125 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -585,7 +585,7 @@
     },
     "meta:audit-freshness": {
       "passed": true,
-      "evidence": "last audit was 1 day(s) ago (within 7-day window)",
+      "evidence": "last audit was 0 day(s) ago (within 7-day window)",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1059,6 +1059,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-10-13",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1251,26 +1257,26 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.004347826086956522,
+        "value": 0.006237006237006237,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 460
+        "sampleSize": 481
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9863636363636363,
+        "value": 0.9838056680161943,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 225
+        "sampleSize": 259
       },
       {
         "level": 5,
@@ -1290,177 +1296,178 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.004608294930875576,
+        "value": 0.00411522633744856,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 225
+        "sampleSize": 259
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.02304147465437788,
+        "value": 0.0205761316872428,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 225
+        "sampleSize": 259
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.004347826086956522,
-      "sample_size": 460,
+      "rate_30d": 0.006237006237006237,
+      "sample_size": 481,
       "flaky_shas": [
         "2b2af184d05e2f27dd83bac1504abad173bda939",
-        "75f231cd981ccac1476f79b938ca28d7acbb5203"
+        "75f231cd981ccac1476f79b938ca28d7acbb5203",
+        "857e0688e9a04a5d6e653146e56049386a6a6867"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-12T01:10:04.000Z",
-      "measured_at": "2026-10-12T11:44:49.158Z"
+      "oldest_record_at": "2026-09-13T01:18:42.000Z",
+      "measured_at": "2026-10-13T11:31:21.141Z"
     },
     "agent_pr": {
-      "sample_size": 225,
-      "merged_count": 217,
-      "closed_unmerged_count": 3,
-      "open_count": 5,
-      "acceptance_rate_30d": 0.9863636363636363,
-      "revert_rate_30d": 0.004608294930875576,
+      "sample_size": 259,
+      "merged_count": 243,
+      "closed_unmerged_count": 4,
+      "open_count": 12,
+      "acceptance_rate_30d": 0.9838056680161943,
+      "revert_rate_30d": 0.00411522633744856,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.3088888888888889,
-      "human_touch_ratio": 0.02304147465437788,
+      "median_time_to_merge_hours": 0.31194444444444447,
+      "human_touch_ratio": 0.0205761316872428,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-05T03:44:46.000Z",
+      "oldest_record_at": "2026-09-06T00:40:04.000Z",
       "recent_changes": [
         {
-          "number": 6417,
-          "title": "fix(hospitality): derive Seat Guest from TABLE_VALID_TRANSITIONS in one seating module",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6417",
-          "mergedAt": "2026-10-12T06:39:42Z"
+          "number": 6490,
+          "title": "fix(rialto): useCombobox input-mode ArrowUp from no highlight; drop GuestLookup Enter gate",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6490",
+          "mergedAt": "2026-10-13T02:26:18Z"
         },
         {
-          "number": 6415,
-          "title": "fix(scripts): one issueState(); a gh error is never 'missing' so it cannot file a duplicate",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6415",
-          "mergedAt": "2026-10-12T06:36:52Z"
+          "number": 6489,
+          "title": "fix(acmm): auto-issue-gen ignores the scanner's own acmm-labelled gap issues",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6489",
+          "mergedAt": "2026-10-13T02:26:13Z"
         },
         {
-          "number": 6413,
-          "title": "fix(gen): spec stats show real element counts; one spec module",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6413",
-          "mergedAt": "2026-10-12T06:30:54Z"
+          "number": 6503,
+          "title": "fix(notifications): venue-local booking time, monotonic iCal SEQUENCE, SMS link never truncated",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6503",
+          "mergedAt": "2026-10-13T02:24:45Z"
         },
         {
-          "number": 6403,
-          "title": "fix(database): derive pool busy count from totalCount - idleCount",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6403",
-          "mergedAt": "2026-10-12T06:29:29Z"
+          "number": 6478,
+          "title": "test: migrate remaining bespoke workflow-structure helpers onto scripts/lib/workflow.mjs",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6478",
+          "mergedAt": "2026-10-13T02:22:34Z"
         },
         {
-          "number": 6412,
-          "title": "fix(hospitality): command palette Chat routes to 404 — replace sentinel nav paths with nav actions",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6412",
-          "mergedAt": "2026-10-12T06:26:23Z"
+          "number": 6477,
+          "title": "fix(metrics): run queueEfficiency and ai-issue-feedback collectors in metrics-collectors.yml",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6477",
+          "mergedAt": "2026-10-13T02:22:30Z"
         },
         {
-          "number": 6411,
-          "title": "fix(cli): retire cleanup-worktrees and the unwired wave/visual/prime/stats commands",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6411",
-          "mergedAt": "2026-10-12T06:24:19Z"
+          "number": 6476,
+          "title": "fix(rialto): useCombobox input mode leaves Enter to the form when nothing is highlighted",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6476",
+          "mergedAt": "2026-10-12T22:06:54Z"
         },
         {
-          "number": 6410,
-          "title": "fix(sentry): report response-schema validation failures from reportApiError",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6410",
-          "mergedAt": "2026-10-12T06:19:17Z"
+          "number": 6361,
+          "title": "docs(secrets): correct DATABASE_URL rotation runbook to Pulumi config",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6361",
+          "mergedAt": "2026-10-12T21:56:21Z"
         },
         {
-          "number": 6409,
-          "title": "fix(hospitality): let GuestDrawer clear email, phone and notes",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6409",
-          "mergedAt": "2026-10-12T06:10:25Z"
+          "number": 6464,
+          "title": "refactor(scripts): fileIssue owns search -> state -> create/reopen, replacing bespoke findPrior*Issue finders",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6464",
+          "mergedAt": "2026-10-12T21:16:09Z"
         },
         {
-          "number": 6408,
-          "title": "fix(scripts): merge-train lock excludes other sessions via durable owner token CLI",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6408",
-          "mergedAt": "2026-10-12T06:03:29Z"
+          "number": 6470,
+          "title": "refactor(regen): every regen consumer derives from the manifest; hooks stop running each family twice",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6470",
+          "mergedAt": "2026-10-12T21:14:50Z"
         },
         {
-          "number": 6406,
-          "title": "fix(sentry): errorHandlerPlugin owns capture so captureException runs",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6406",
-          "mergedAt": "2026-10-12T06:03:10Z"
+          "number": 6473,
+          "title": "refactor(hospitality): GuestLookup keyboard owned by useCombobox input mode",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6473",
+          "mergedAt": "2026-10-12T21:11:49Z"
         },
         {
-          "number": 6407,
-          "title": "fix(edge-health): read /health/system through one snapshot parser",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6407",
-          "mergedAt": "2026-10-12T06:02:24Z"
+          "number": 6468,
+          "title": "feat(auth): one shared auth gate — useAuthGate() in @mbe/auth/react",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6468",
+          "mergedAt": "2026-10-12T20:56:52Z"
         },
         {
-          "number": 6405,
-          "title": "fix(hospitality): show a retry state instead of redirecting to /onboarding when the venues fetch fails",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6405",
-          "mergedAt": "2026-10-12T05:51:12Z"
+          "number": 6472,
+          "title": "fix(rialto): render sr-only text in Table empty-header columns (axe empty-table-header)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6472",
+          "mergedAt": "2026-10-12T20:53:06Z"
         },
         {
-          "number": 6404,
-          "title": "fix(rialto-plugin): read validate-rialto hook payload from stdin, drop unmatchable rule 2",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6404",
-          "mergedAt": "2026-10-12T05:50:31Z"
+          "number": 6469,
+          "title": "refactor(service-bootstrap): createServiceApp owns the database lifecycle",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6469",
+          "mergedAt": "2026-10-12T20:50:12Z"
         },
         {
-          "number": 6358,
-          "title": "fix(rialto): a11y audit iteration 3 — Popover, DropdownMenu, Tooltip trigger wrapping",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6358",
-          "mergedAt": "2026-10-12T02:15:53Z"
+          "number": 6471,
+          "title": "feat(rialto): RialtoProvider owns theme persistence; migrate gen, hospitality, rialto-web, marketing",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6471",
+          "mergedAt": "2026-10-12T20:50:01Z"
         },
         {
-          "number": 6359,
-          "title": "fix(metrics): revive queueEfficiency/ai-issue-feedback collectors and freshness-guard them",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6359",
-          "mergedAt": "2026-10-12T02:10:41Z"
+          "number": 6465,
+          "title": "refactor(scripts): parsed workflow module for gates and first workflow tests",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6465",
+          "mergedAt": "2026-10-12T20:25:33Z"
         },
         {
-          "number": 6357,
-          "title": "fix(acmm): delete dead-artifact criteria satisfiers and add substance checks",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6357",
-          "mergedAt": "2026-10-12T01:56:37Z"
+          "number": 6461,
+          "title": "refactor(cli): load mbe commands lazily so pack/check-adr/check-deps need no workspace build",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6461",
+          "mergedAt": "2026-10-12T20:20:45Z"
         },
         {
-          "number": 6356,
-          "title": "test(ci): pin tier-classifier ACMM exact-path rule negative controls",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6356",
-          "mergedAt": "2026-10-12T01:48:51Z"
+          "number": 6460,
+          "title": "fix(rialto): Combobox closes on Tab; useCombobox gains inputMode",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6460",
+          "mergedAt": "2026-10-12T20:20:38Z"
         },
         {
-          "number": 6349,
-          "title": "fix(scripts): routine-liveness dates a PR artifact by createdAt, never mergedAt",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6349",
-          "mergedAt": "2026-10-12T00:36:57Z"
+          "number": 6462,
+          "title": "fix(hospitality): floor-plan keyboard nudge/delete owned by FloorPlanCanvas, scoped to focus",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6462",
+          "mergedAt": "2026-10-12T20:18:50Z"
         },
         {
-          "number": 6346,
-          "title": "feat(hospitality): replace the watch loader with the Handshake on LoadingPage",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6346",
-          "mergedAt": "2026-10-11T23:56:28Z"
+          "number": 6463,
+          "title": "refactor(ui-quality): one work-dir module owns the layout and the manifest reader",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6463",
+          "mergedAt": "2026-10-12T20:17:37Z"
         },
         {
-          "number": 6339,
-          "title": "fix(hospitality): staff cancel no longer quotes or records a late fee the server waives",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6339",
-          "mergedAt": "2026-10-11T19:53:24Z"
+          "number": 6458,
+          "title": "fix(users,agent): close the pg pool when the app closes",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6458",
+          "mergedAt": "2026-10-12T19:57:26Z"
         }
       ],
-      "measured_at": "2026-10-12T11:44:49.158Z"
+      "measured_at": "2026-10-13T11:31:21.141Z"
     },
     "evals": {
       "n": 37,
@@ -1482,7 +1489,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 23,
-      "measured_at": "2026-10-12T11:44:49.158Z"
+      "measured_at": "2026-10-13T11:31:21.141Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
