@@ -13145,6 +13145,16 @@
       // Selection is independent of the visible rows: a guest that a search or page
       // change drops from view is fetched by id instead of leaving the drawer empty.
       const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+    
+      // A venue switch resets paging and selection (render-time derivation, no effect):
+      // page 3 of venue A may not exist in venue B, and A's guest must not stay selected.
+      const [prevVenueId, setPrevVenueId] = useState(venueId);
+      if (prevVenueId !== venueId) {
+        setPrevVenueId(venueId);
+        setPage(1);
+        setSelectedGuestId(null);
+      }
+    
       const visibleGuest = guests.find((g) => g.id === selectedGuestId) ?? null;
       const { data: fetchedGuest } = useGuest(visibleGuest ? null : selectedGuestId);
       const selectedGuest = visibleGuest ?? (selectedGuestId ? (fetchedGuest ?? null) : null);
