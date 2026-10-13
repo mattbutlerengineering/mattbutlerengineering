@@ -97,6 +97,7 @@ export type {
 export type {
   WaitlistJoinRequest,
   WaitlistJoinResult,
+  WaitlistEstimate,
   WaitlistStatus,
   WaitlistEntry,
   CreateWaitlistEntryRequest,

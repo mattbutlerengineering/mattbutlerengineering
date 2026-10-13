@@ -603,6 +603,10 @@
       "WaitlistJoinResult",
       WaitlistJoinResultSchema
     );
+    export const waitlistEstimateJsonSchema = toFastifyJsonSchema(
+      "WaitlistEstimate",
+      WaitlistEstimateSchema
+    );
     export const floorPlanLayoutJsonSchema = toFastifyJsonSchema(
       "FloorPlanLayout",
       FloorPlanLayoutSchema
@@ -1243,6 +1247,7 @@
       guestPhone: z.string(),
     });
     export const WaitlistJoinResultSchema = z.object({
+      statusToken: z.string(),
       position: z.number(),
       estimatedWaitMinutes: z.number(),
     });
@@ -1253,6 +1258,11 @@
       "expired",
       "cancelled",
     ]);
+    export const WaitlistEstimateSchema = z.object({
+      position: z.number(),
+      estimatedWaitMinutes: z.number(),
+      status: WaitlistStatusSchema,
+    });
     export const WaitlistEntrySchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -2176,8 +2186,19 @@
       guestPhone: string;
     }
     export interface WaitlistJoinResult {
+      /**
+       * Signed, expiring capability for reading this one entry's live status
+       * (`GET .../waitlist/status?token=`). The entry id itself is a guessable cuid
+       * and is deliberately never exposed or accepted as the credential.
+       */
+      statusToken: string;
       position: number;
       estimatedWaitMinutes: number;
+    }
+    export interface WaitlistEstimate {
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
     export interface WaitlistEntry {

@@ -21,6 +21,9 @@ vi.mock("./database.js", async () => {
           }) => unknown
         ) => fn({ $executeRaw: executeRaw, $executeRawUnsafe: executeRawUnsafe })
       ),
+      venue: { findUnique: vi.fn() },
+      table: { findMany: vi.fn() },
+      reservation: { findMany: vi.fn() },
       waitlistEntry: {
         count: vi.fn(),
         create: vi.fn(),
@@ -36,6 +39,10 @@ import { waitlistService } from "./waitlist.js";
 import { prisma } from "./database.js";
 
 const NOW = new Date("2026-06-01T18:00:00Z");
+const TWO_TABLES = [
+  { id: "t1", capacity: 4, minCovers: 1, maxCovers: null, isActive: true },
+  { id: "t2", capacity: 4, minCovers: 1, maxCovers: null, isActive: true },
+];
 
 function makeEntry(overrides: Record<string, unknown> = {}) {
   return {
@@ -61,9 +68,14 @@ describe("waitlistService", () => {
   });
 
   describe("create", () => {
-    it("computes position from waiting count and estimated wait with default turn time", async () => {
+    it("estimates the new entry's wait from table turnover at its position", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(NOW);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce(TWO_TABLES as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
       vi.mocked(prisma.waitlistEntry.count).mockResolvedValueOnce(2 as never);
-      const created = makeEntry({ position: 3, estimatedWaitMinutes: 90 });
+      const created = makeEntry({ position: 3, estimatedWaitMinutes: 75 });
       vi.mocked(prisma.waitlistEntry.create).mockResolvedValueOnce(created as never);
 
       const result = await waitlistService.create({
@@ -76,7 +88,7 @@ describe("waitlistService", () => {
       expect(prisma.waitlistEntry.count).toHaveBeenCalledWith({
         where: { venueId: "venue-1", status: "waiting" },
       });
-      // 2 waiting entries -> position 3; 3 * 30min default turn time = 90min
+      // Position 3 of 2 free tables: first table again after one 75min cycle.
       expect(prisma.waitlistEntry.create).toHaveBeenCalledWith({
         data: {
           venueId: "venue-1",
@@ -84,10 +96,11 @@ describe("waitlistService", () => {
           guestName: "Jane Doe",
           guestPhone: "+15551234567",
           position: 3,
-          estimatedWaitMinutes: 90,
+          estimatedWaitMinutes: 75,
         },
       });
       expect(result).toEqual(created);
+      vi.useRealTimers();
     });
 
     it("uses provided avgTurnTimeMinutes for the wait estimate", async () => {
@@ -107,6 +120,48 @@ describe("waitlistService", () => {
         data: expect.objectContaining({ position: 1, estimatedWaitMinutes: 15 }),
       });
       expect(result.estimatedWaitMinutes).toBe(15);
+    });
+  });
+
+  describe("withLiveEstimates", () => {
+    it("rewrites each waiting entry's estimate from current table turnover, not its stored snapshot", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(NOW);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce(TWO_TABLES as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
+        {
+          tableId: "t2",
+          status: "CONFIRMED",
+          startTime: new Date(NOW.getTime() - 30 * 60_000),
+          endTime: new Date(NOW.getTime() + 40 * 60_000),
+        },
+      ] as never);
+      const entries = [
+        makeEntry({ id: "a", position: 1, estimatedWaitMinutes: 999 }),
+        makeEntry({ id: "b", position: 2, estimatedWaitMinutes: 999 }),
+        makeEntry({ id: "c", position: 3, estimatedWaitMinutes: 999 }),
+      ];
+
+      const result = await waitlistService.withLiveEstimates(entries as never);
+
+      expect(result.map((e) => e.estimatedWaitMinutes)).toEqual([0, 40, 75]);
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ status: { in: ["PENDING", "CONFIRMED"] } }),
+      });
+      vi.useRealTimers();
+    });
+
+    it("keeps the stored estimate when no table can seat the party", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+
+      const result = await waitlistService.withLiveEstimates([
+        makeEntry({ estimatedWaitMinutes: 42 }),
+      ] as never);
+
+      expect(result[0]?.estimatedWaitMinutes).toBe(42);
     });
   });
 

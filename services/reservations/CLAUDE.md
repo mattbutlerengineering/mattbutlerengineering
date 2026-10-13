@@ -385,6 +385,8 @@ Raw body access is required for HMAC signature verification — this route must 
 | DELETE | `/public/v1/venues/:slug/holds/:holdId`           | Release hold (public)                   |
 | POST   | `/public/v1/venues/:slug/holds/:holdId/confirm`   | Confirm hold → reservation (public)     |
 | POST   | `/public/v1/venues/:slug/reservations`            | Confirm hold → reservation (public)     |
+| POST   | `/public/v1/venues/:slug/waitlist`                | Join the walk-in waitlist (public)      |
+| GET    | `/public/v1/venues/:slug/waitlist/status?token=`  | Live position + wait estimate (public)  |
 | POST   | `/public/v1/venues/:slug/deposits/payment-intent` | Create Stripe PaymentIntent for deposit |
 | GET    | `/public/v1/reservations/manage`                  | Get reservation via manage token        |
 | PATCH  | `/public/v1/reservations/manage`                  | Modify reservation via manage token     |

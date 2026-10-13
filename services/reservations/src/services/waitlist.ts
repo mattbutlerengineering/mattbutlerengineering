@@ -3,8 +3,9 @@ import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./
 import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { estimateWaitFromTurnover } from "./waitlist-estimate.js";
+import type { VenueSettings } from "@mbe/types";
 
-const DEFAULT_AVG_TURN_TIME_MINUTES = 30;
 /** How long a notified party has to claim their table before the entry expires. */
 export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
 
@@ -29,6 +30,34 @@ export interface CreateWaitlistEntryInput {
   guestName: string;
   guestPhone: string;
   avgTurnTimeMinutes?: number;
+}
+
+const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Loads the venue's settings, active tables and live PENDING/CONFIRMED bookings once,
+ * and returns a pure `(position, partySize) -> minutes | null` estimator over
+ * table turnover (see waitlist-estimate.ts). Null means no table fits.
+ */
+async function loadEstimator(
+  venueId: string,
+  now: Date
+): Promise<(position: number, partySize: number) => number | null> {
+  const [venue, tables, reservations] = await Promise.all([
+    prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
+    prisma.table.findMany({ where: { venueId, isActive: true } }),
+    prisma.reservation.findMany({
+      where: {
+        venueId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        endTime: { gt: now },
+        startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
+      },
+    }),
+  ]);
+  const settings = venue?.settings as VenueSettings | null | undefined;
+  return (position, partySize) =>
+    estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
 }
 
 async function recalculateVenuePositions(venueId: string): Promise<void> {
@@ -65,14 +94,16 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
 export const waitlistService = {
   async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
     const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-    const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
 
     const existingCount = await prisma.waitlistEntry.count({
       where: { venueId, status: "waiting" },
     });
 
     const position = calculatePosition(existingCount);
-    const estimatedWait = estimateWaitMinutes(position, turnTime);
+    const estimatedWait =
+      avgTurnTimeMinutes !== undefined
+        ? estimateWaitMinutes(position, avgTurnTimeMinutes)
+        : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
 
     return prisma.waitlistEntry.create({
       data: {
@@ -83,6 +114,22 @@ export const waitlistService = {
         position,
         estimatedWaitMinutes: estimatedWait,
       },
+    });
+  },
+
+  /**
+   * Replaces each waiting entry's stored (join-time) estimate with one computed
+   * from current table turnover. Entries that no table can seat keep their
+   * stored value. Computed on every read, never persisted.
+   */
+  async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
+    const first = entries[0];
+    if (!first) return entries;
+    const estimate = await loadEstimator(first.venueId, new Date());
+    return entries.map((entry) => {
+      if (entry.status !== "waiting") return entry;
+      const minutes = estimate(entry.position, entry.partySize);
+      return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
     });
   },
 

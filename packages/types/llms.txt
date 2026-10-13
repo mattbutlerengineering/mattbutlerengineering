@@ -330,6 +330,9 @@
       export const waitlistJoinResultJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const waitlistEstimateJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const floorPlanLayoutJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -718,6 +721,9 @@
     </item>
     <item priority="high">
       export const WaitlistStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistEstimateSchema: unknown;
     </item>
     <item priority="high">
       export const WaitlistEntrySchema: unknown;
@@ -1481,8 +1487,16 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistEstimate {
+        position: number;
+        estimatedWaitMinutes: number;
+        status: WaitlistStatus;
       }
     </item>
     <item priority="low">

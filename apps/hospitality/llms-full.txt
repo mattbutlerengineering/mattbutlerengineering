@@ -73,6 +73,7 @@
       | "waitlist-join"
       | "waitlist-confirmation";
     export interface WaitlistResult {
+      statusToken: string;
       position: number;
       estimatedWaitMinutes: number;
     }
