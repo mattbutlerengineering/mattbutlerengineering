@@ -539,6 +539,9 @@
     <item priority="high">
       export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
+    <item priority="high">
+      export const projectEvent: EventProjector;
+    </item>
   </file>
   <file path="src/services/stored-spec.ts">
     <item priority="low">

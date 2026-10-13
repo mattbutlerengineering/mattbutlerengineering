@@ -8067,6 +8067,9 @@
     <item priority="high">
       export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
+    <item priority="high">
+      export const projectEvent: EventProjector;
+    </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
     <item priority="low">
@@ -15069,22 +15072,10 @@
   </file>
   <file path="packages/test-fixtures/src/reservations.ts">
     <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-      }
+      type MockTable = Table;
     </item>
     <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
+      type MockReservation = Reservation & { readonly table: Table };
     </item>
     <item priority="low">
       interface MockPagination {
@@ -15237,20 +15228,10 @@
   </file>
   <file path="packages/test-fixtures/src/users.ts">
     <item priority="low">
-      interface MockUserPreferences {
-        theme: "light" | "dark" | "system";
-        emailNotifications: boolean;
-        marketingEmails: boolean;
-      }
+      type MockUserPreferences = UserPreferences;
     </item>
     <item priority="low">
-      interface MockUser {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
+      type MockUser = User;
     </item>
     <item priority="high">
       export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }

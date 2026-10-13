@@ -57,6 +57,7 @@ vi.mock("../services/session-executor.js", () => ({
 }));
 
 const { prisma } = await import("../services/database.js");
+const { projectEvent } = await import("../services/storage-event-mapper.js");
 const { getSessionEventEmitter } = await import("../services/session-event-emitter.js");
 const { buildApp } = await import("../app.js");
 
@@ -122,11 +123,11 @@ describe("Session Events SSE Integration", () => {
       sdkSessionId: null,
     } as unknown as never);
 
+    // Replay the STORED shape (what the DB holds), not the in-memory event shape.
     const events = buildMinimalSuccessFixture({ sessionId: "session-1" }).map((e, i) => ({
       id: `evt-${i}`,
       sessionId: "session-1",
-      type: e.type,
-      data: e.data,
+      ...projectEvent(e),
       createdAt: new Date(),
     }));
 
