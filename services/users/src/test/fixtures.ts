@@ -21,3 +21,5 @@ export { createMockPaginatedResponse as makePaginatedResponse } from "@mbe/test-
 // Constant aliases for tests that reference MOCK_USER / MOCK_JWT_PAYLOAD directly
 export const MOCK_USER = createMockUser();
 export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
+// Routes guarded by requireAdmin / requireOwnershipOrAdmin need admin asked for explicitly.
+export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
