@@ -1,4 +1,4 @@
-import type { VenueSettings } from "@mbe/types";
+import { partyFitsTable, type PartyFitTable, type VenueSettings } from "@mbe/types";
 import {
   checkTableConflict,
   checkPacingForSlot,
@@ -7,11 +7,20 @@ import {
 } from "./slot-rules.js";
 
 export type BookableError =
-  { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
+  | { code: "PARTY_DOES_NOT_FIT"; message: string }
+  | { code: "CONFLICT"; message: string }
+  | { code: "PACING_EXCEEDED"; message: string };
 
 export interface AssertBookableOptions {
   /** Table being checked for conflict. */
   tableId: string;
+  /**
+   * The table's party-fit fields. Pass it wherever the caller names the table
+   * (the server-picked path already filters by fit): the party must satisfy
+   * partyFitsTable. Omit only when fit was settled earlier (hold confirmation,
+   * whose hold was fit-checked at creation).
+   */
+  table?: PartyFitTable;
   /** Window to check — [startTime, endTime). */
   window: { startTime: Date; endTime: Date };
   /** Party size to add when computing pacing. */
@@ -50,6 +59,13 @@ export function assertBookable(opts: AssertBookableOptions): BookableError | und
     excludeHoldId,
     excludeSessionId,
   } = opts;
+
+  if (opts.table && !partyFitsTable(opts.table, partySize)) {
+    return {
+      code: "PARTY_DOES_NOT_FIT",
+      message: `Party size ${partySize} does not fit this table`,
+    };
+  }
 
   // Filter out the excluded hold so self-conflict is not flagged during confirmation.
   const filteredHolds = holds.filter((h) => {

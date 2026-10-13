@@ -87,6 +87,8 @@ const mockReservation = {
   updatedAt: "2026-06-01T00:00:00Z",
 };
 
+const IN_WINDOW_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 const mockVenue = {
   id: "venue_1",
   name: "The Oak Table",
@@ -165,11 +167,12 @@ describe("PATCH /public/v1/reservations/manage", () => {
       reservation: updatedReservation,
     } as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
+      payload: { partySize: 6, startTime: IN_WINDOW_START },
     });
 
     expect(response.statusCode).toBe(200);
@@ -219,11 +222,12 @@ describe("PATCH /public/v1/reservations/manage", () => {
       error: "Time slot has a conflict with an existing reservation or hold",
       conflict: { hasConflict: true },
     } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: "2026-06-15T18:00:00-07:00" },
+      payload: { startTime: IN_WINDOW_START },
     });
 
     expect(response.statusCode).toBe(409);
@@ -473,12 +477,13 @@ describe("PATCH /public/v1/reservations/manage", () => {
         reservation: updatedReservation,
       } as never);
       vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
       const response = await transportApp.inject({
         method: "PATCH",
         url: "/public/v1/reservations/manage",
         headers: { authorization: `Bearer ${token}` },
-        payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
+        payload: { partySize: 6, startTime: IN_WINDOW_START },
       });
 
       expect(response.statusCode).toBe(200);
