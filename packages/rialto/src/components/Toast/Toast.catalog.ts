@@ -6,6 +6,8 @@ import type { CatalogMeta } from "../catalog-meta";
 
 export const toastCatalogMeta = {
   name: "Toast",
+  // Toast is a useToast() provider pattern with no declarative renderer in the registry.
+  include: false,
   description:
     "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
   charLimits: {

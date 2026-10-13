@@ -67,6 +67,19 @@ import type { ReactNode } from "react";
 // AI-generated specs should use the navigate/validateForm actions instead
 // of trying to render Toast directly.
 
+/**
+ * Row identity for Table/DataTable. A JSON spec cannot carry a `rowKey`
+ * function, so the adapters derive it: `row.id ?? index`. The component calls
+ * rowKey(row) with only the row, so the index is resolved by row reference.
+ */
+function rowIdentity(data: readonly Record<string, unknown>[]) {
+  const indexes = new Map(data.map((row, index) => [row, index]));
+  return (row: Record<string, unknown>): string | number => {
+    const id = row.id;
+    return typeof id === "string" || typeof id === "number" ? id : `row-${indexes.get(row) ?? 0}`;
+  };
+}
+
 /* ── Alias seam ──────────────────────────────────────────────────
  * ADR-013 moves prop aliases out of the adapters and into declarative
  * `aliases` maps on each `*.catalog.ts`, which flow into `catalogMeta`. The
@@ -387,7 +400,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         <Table
           columns={props.columns}
           data={props.data}
-          rowKey={props.rowKey}
+          rowKey={rowIdentity(props.data)}
           density={props.density}
           striped={props.striped}
         />
@@ -407,7 +420,6 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
             rowHeader?: boolean;
           }[];
           data: Record<string, unknown>[];
-          rowKey?: (row: Record<string, unknown>) => string | number;
           density?: "compact" | "default" | "spacious";
           striped?: boolean;
           emptyMessage?: string;
@@ -418,7 +430,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           <DataTable
             columns={p.columns}
             data={p.data}
-            rowKey={p.rowKey ?? ((row) => String(row.id ?? ""))}
+            rowKey={rowIdentity(p.data)}
             density={p.density}
             striped={p.striped}
             emptyMessage={p.emptyMessage}
