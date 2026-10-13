@@ -86,7 +86,10 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         next = (currentIndex + 1) % enabledSegments.length;
       } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        next = (currentIndex - 1 + enabledSegments.length) % enabledSegments.length;
+        next =
+          currentIndex === -1
+            ? enabledSegments.length - 1
+            : (currentIndex - 1 + enabledSegments.length) % enabledSegments.length;
       } else if (e.key === "Home") {
         next = 0;
       } else if (e.key === "End") {
@@ -102,6 +105,12 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         }
       }
     };
+
+    // Roving tabindex needs exactly one stop: when `value` matches no segment,
+    // fall back to the first enabled segment so the group stays reachable.
+    const tabStopId = segments.some((s) => s.id === value)
+      ? value
+      : segments.find((s) => !s.disabled)?.id;
 
     return (
       <div
@@ -143,7 +152,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                 className={cn(styles.segment, active && styles.segmentActive)}
                 role="radio"
                 aria-checked={active}
-                tabIndex={active ? 0 : -1}
+                tabIndex={segment.id === tabStopId ? 0 : -1}
                 aria-disabled={segment.disabled || undefined}
                 onClick={
                   segment.disabled
