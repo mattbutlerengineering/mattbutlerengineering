@@ -509,7 +509,7 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(502);
   });
 
   it("fails instead of silently returning a 200 empty body when zero elements were produced", async () => {
@@ -545,7 +545,7 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(502);
   });
 
   it("still fails fast on a tool-error, since maxSteps is 1 and no retry is possible", async () => {
@@ -574,7 +574,7 @@ describe("POST /api/gen/ui", () => {
       payload: { prompt: "a booking form" },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(502);
   });
 
   it("caps repeated calls with a 429 (max: 20/hour)", async () => {
