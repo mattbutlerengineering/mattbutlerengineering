@@ -51,6 +51,20 @@ describe("CommandPalette", () => {
       expect(screen.getByText("Edit")).toBeInTheDocument();
     });
 
+    it("renders and selects items whose group is missing from groups, after listed groups", async () => {
+      const user = userEvent.setup();
+      const onSelect = vi.fn();
+      const withExport: CommandItem[] = [
+        { id: "export", label: "Download spec", group: "Export", onSelect },
+        { id: "undo", label: "Undo", group: "Edit", onSelect: vi.fn() },
+      ];
+      render(<CommandPalette open onOpenChange={() => {}} items={withExport} groups={["Edit"]} />);
+      const options = screen.getAllByRole("option");
+      expect(options.map((o) => o.textContent)).toEqual(["Undo", "Download spec"]);
+      await user.click(screen.getByText("Download spec"));
+      expect(onSelect).toHaveBeenCalledTimes(1);
+    });
+
     it("renders custom placeholder", () => {
       render(
         <CommandPalette open onOpenChange={() => {}} items={items} placeholder="Type a command" />
