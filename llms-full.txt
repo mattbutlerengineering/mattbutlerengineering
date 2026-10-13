@@ -52681,6 +52681,18 @@
       return Math.floor(ms / 1000);
     }
   </file>
+  <file path="packages/observability/src/build-info.ts">
+    export const UNKNOWN_BUILD = "unknown";
+    export interface BuildInfo {
+      readonly sha: string;
+      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
+      readonly version: string;
+    }
+    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
+      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
+      return { sha, version: sha };
+    }
+  </file>
   <file path="packages/observability/src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
@@ -53166,9 +53178,9 @@
     
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: config.serviceName,
-        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
         [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
-        "deploy.sha": process.env.DEPLOY_SHA ?? "unknown",
+        "deploy.sha": resolveBuildInfo(process.env).sha,
         "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
         "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
       });
@@ -53755,7 +53767,7 @@
     export interface SentryConfig {
       readonly dsn: string;
       readonly environment: string;
-      readonly release: string | undefined;
+      readonly release: string;
       readonly enabled: boolean;
     }
     export function resolveConfig(dsn: string | undefined): SentryConfig {
@@ -53768,7 +53780,7 @@
           "development",
         release:
           (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
+          resolveBuildInfo(typeof process !== "undefined" ? process.env : {}).version,
         enabled: resolvedDsn.length > 0,
       };
     }
@@ -53975,7 +53987,7 @@
         // An own `release: undefined` key would override the SDK's default, which
         // reads the SENTRY_RELEASE global that sentryVitePlugin injects into the
         // bundle — so only pass release when one was actually resolved.
-        ...(config.release !== undefined && { release: config.release }),
+        ...(config.release !== UNKNOWN_BUILD && { release: config.release }),
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
         integrations: [],

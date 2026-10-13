@@ -5,7 +5,7 @@
       interface SentryConfig {
         dsn: string;
         environment: string;
-        release: string | undefined;
+        release: string;
         enabled: boolean;
       }
     </item>

@@ -60,6 +60,7 @@ import { FastifyOtelInstrumentation } from "@fastify/otel";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 
 function fakeRequest(url: string): IncomingMessage {
   return { url } as IncomingMessage;
@@ -119,6 +120,24 @@ describe("initTelemetry", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+  });
+
+  it("derives service.version from DEPLOY_SHA, and 'unknown' when unset (never 0.0.0)", async () => {
+    process.env.DEPLOY_SHA = "deadbeef";
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+    expect(vi.mocked(resourceFromAttributes).mock.calls[0]?.[0]).toMatchObject({
+      "service.version": "deadbeef",
+    });
+
+    vi.clearAllMocks();
+    vi.resetModules();
+    delete process.env.DEPLOY_SHA;
+    const fresh = await import("./sdk.js");
+    fresh.initTelemetry({ serviceName: "test-service" });
+    expect(vi.mocked(resourceFromAttributes).mock.calls[0]?.[0]).toMatchObject({
+      "service.version": "unknown",
+    });
   });
 
   it("adds LangfuseSpanProcessor when LANGFUSE_PUBLIC_KEY is set", async () => {
