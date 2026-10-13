@@ -196,8 +196,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
     const waitlistAId = `rls-sweep-wl-a-${randomUUID()}`;
     const waitlistBId = `rls-sweep-wl-b-${randomUUID()}`;
     // Dedicated row for the "seat" fixture (#5369 PR 3): the item-7
-    // WAITLIST_EXPIRY non-HTTP test also asserts `waitlistA` stays "waiting"
-    // after its own call, so a fixture that mutates the same row (even one
+    // WAITLIST_EXPIRY non-HTTP test expires `waitlistA` (seeded `notified`,
+    // since expire only moves notified -> expired) in its own call, so a fixture that mutates the same row (even one
     // that today 404s before ever reaching the DB, per the tripwire) is a
     // latent coupling — the moment item-2's fix makes `seat` actually write,
     // it would flip a status a different test depends on. Seat gets its own
@@ -252,8 +252,8 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       );
       await seedClient.query(
         `INSERT INTO waitlist_entries
-           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, updated_at)
-         VALUES ($1, $2, 2, 'RLS Sweep Waitlist A', '+15550000001', 1, 10, now())`,
+           (id, venue_id, party_size, guest_name, guest_phone, position, estimated_wait_minutes, status, notified_at, expires_at, updated_at)
+         VALUES ($1, $2, 2, 'RLS Sweep Waitlist A', '+15550000001', 1, 10, 'notified', now(), now() + interval '5 minutes', now())`,
         [waitlistAId, venueAId]
       );
       await seedClient.query(
