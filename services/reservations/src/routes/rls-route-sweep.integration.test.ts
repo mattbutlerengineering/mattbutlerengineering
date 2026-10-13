@@ -6,7 +6,14 @@ import pg from "pg";
 import type { FastifyInstance } from "fastify";
 import { jwtVerify } from "jose";
 import { MIGRATIONS_DIR, parseRlsDeclarations } from "../services/rls-force-coverage.js";
-import { FIXTURES as STAFF_FIXTURES, type SweepContext } from "./rls-route-sweep.fixtures.js";
+import {
+  FIXTURES as STAFF_FIXTURES,
+  asAdmin,
+  asMember,
+  expectBroken,
+  expectDenied,
+  type SweepContext,
+} from "./rls-route-sweep.fixtures.js";
 import { PUBLIC_FIXTURES } from "./rls-route-sweep.fixtures-public.js";
 
 const FIXTURES = { ...STAFF_FIXTURES, ...PUBLIC_FIXTURES };
@@ -449,6 +456,143 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       await fixture.run(ctx);
     });
   }
+
+  /**
+   * The UNSCOPED `cross-venue fan-out` routes (tables, reservations,
+   * floor-plans lists and the table/reservation creates) are not declared
+   * through `venueScoped`, so their RLS context comes from an explicit
+   * `runWithVenueContext` around the handler when a venue is named (it used
+   * to come from the global hook). The fixtures above check status codes
+   * only; these prove the RIGHT ROWS come back under FORCE RLS as the
+   * non-superuser owner role: a venue-A caller sees venue A's rows, never
+   * venue B's.
+   */
+  describe("UNSCOPED fan-out routes return the right rows", () => {
+    const idsOf = (body: string): string[] =>
+      (JSON.parse(body) as { data: Array<{ id: string }> }).data.map((row) => row.id);
+
+    const lists = [
+      {
+        name: "tables",
+        url: (venueId: string) => `/api/v1/tables?venueId=${venueId}&limit=100`,
+        rowA: () => ctx.tableA,
+        rowB: () => ctx.tableB,
+      },
+      {
+        name: "reservations",
+        url: (venueId: string) => `/api/v1/reservations?venueId=${venueId}&limit=100`,
+        rowA: () => ctx.reservationA,
+        rowB: () => ctx.reservationB,
+      },
+      {
+        name: "floor-plans",
+        url: (venueId: string) => `/api/v1/floor-plans?venueId=${venueId}&limit=100`,
+        rowA: () => ctx.floorPlanA,
+        rowB: () => ctx.floorPlanB,
+      },
+    ];
+
+    for (const list of lists) {
+      it(`GET ${list.name}: admin with a venueId sees only that venue's rows`, async () => {
+        const forA = await asAdmin(ctx, { method: "GET", url: list.url(ctx.venueA.id) });
+        expect(forA.statusCode, forA.body).toBe(200);
+        expect(idsOf(forA.body)).toContain(list.rowA());
+        expect(idsOf(forA.body)).not.toContain(list.rowB());
+
+        const forB = await asAdmin(ctx, { method: "GET", url: list.url(ctx.venueB.id) });
+        expect(forB.statusCode, forB.body).toBe(200);
+        expect(idsOf(forB.body)).toContain(list.rowB());
+        expect(idsOf(forB.body)).not.toContain(list.rowA());
+      });
+
+      it(`GET ${list.name}: member sees their own venue's rows, is denied another's`, async () => {
+        const own = await asMember(ctx, { method: "GET", url: list.url(ctx.venueA.id) });
+        expect(own.statusCode, own.body).toBe(200);
+        expect(idsOf(own.body)).toContain(list.rowA());
+        expect(idsOf(own.body)).not.toContain(list.rowB());
+
+        const other = await asMember(ctx, { method: "GET", url: list.url(ctx.venueB.id) });
+        if (list.name === "floor-plans") {
+          // No requireVenueAccess here: a member is filtered to their venues.
+          expect(other.statusCode, other.body).toBe(200);
+          expect(idsOf(other.body)).not.toContain(list.rowB());
+        } else {
+          expectDenied(other, `member venue B ${list.name}`);
+        }
+      });
+
+      it(`GET ${list.name}: admin with no venue runs with no context (tripwire)`, async () => {
+        expectBroken(
+          await asAdmin(ctx, { method: "GET", url: `/api/v1/${list.name}` }),
+          `admin, no venueId ${list.name}`,
+          ctx
+        );
+      });
+    }
+
+    it("POST tables: the created row lands in the named venue and is readable there", async () => {
+      const create = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/tables",
+        payload: { name: `RLS Fan-out Table ${randomUUID()}`, capacity: 2, venueId: ctx.venueB.id },
+      });
+      expect(create.statusCode, create.body).toBeLessThan(300);
+      const created = (JSON.parse(create.body) as { data: { id: string; venueId: string } }).data;
+      expect(created.venueId).toBe(ctx.venueB.id);
+
+      const forB = await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/tables?venueId=${ctx.venueB.id}&limit=100`,
+      });
+      expect(idsOf(forB.body)).toContain(created.id);
+      const forA = await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/tables?venueId=${ctx.venueA.id}&limit=100`,
+      });
+      expect(idsOf(forA.body)).not.toContain(created.id);
+    });
+
+    it("POST reservations: a member's create lands in their venue and is readable there", async () => {
+      const table = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/tables",
+        payload: {
+          name: `RLS Fan-out Res Table ${randomUUID()}`,
+          capacity: 4,
+          venueId: ctx.venueA.id,
+        },
+      });
+      const tableId = (JSON.parse(table.body) as { data: { id: string } }).data.id;
+      const create = await asMember(ctx, {
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date: "2026-10-20",
+          startTime: "2026-10-20T18:00:00Z",
+          endTime: "2026-10-20T20:00:00Z",
+          partySize: 2,
+          tableId,
+          venueId: ctx.venueA.id,
+          guestName: "RLS Fan-out Guest",
+          guestEmail: `rls-fan-out-${randomUUID()}@example.com`,
+        },
+      });
+      expect(create.statusCode, create.body).toBe(201);
+      const created = (JSON.parse(create.body) as { data: { id: string; venueId: string } }).data;
+      expect(created.venueId).toBe(ctx.venueA.id);
+
+      const forA = await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/reservations?venueId=${ctx.venueA.id}&limit=100`,
+      });
+      expect(idsOf(forA.body)).toContain(created.id);
+      const forB = await asAdmin(ctx, {
+        method: "GET",
+        url: `/api/v1/reservations?venueId=${ctx.venueB.id}&limit=100`,
+      });
+      expect(idsOf(forB.body)).not.toContain(created.id);
+    });
+  });
 
   /**
    * ADR-026 §3.3 item 7's other two shapes: neither goes through

@@ -16134,29 +16134,6 @@
       }
       await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
     }
-    export function venueContextPreHandler(
-      resolveVenueId: VenueIdResolver
-    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
-      return async function setVenueContextPreHandler(
-        request: FastifyRequest,
-        _reply: FastifyReply
-      ): Promise<void> {
-        const result = resolveVenueId(request);
-        if (isThenable(result)) {
-          const venueId = await result;
-          enterVenueContext(typeof venueId === "string" ? venueId : null);
-          return;
-        }
-        enterVenueContext(typeof result === "string" ? result : null);
-      };
-    }
-    function isThenable(value: unknown): value is PromiseLike<string | null | undefined> {
-      return (
-        typeof value === "object" &&
-        value !== null &&
-        typeof (value as { then?: unknown }).then === "function"
-      );
-    }
   </file>
   </section>
   <section priority="medium" role="pages">
@@ -21194,10 +21171,7 @@
       }>(
         "/stream",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
           schema: {
             summary: "Subscribe to real-time reservation events",
             operationId: "streamEvents",
@@ -21313,10 +21287,13 @@
     
           // Platform admins are scoped to every venue (matches requireVenueAccess,
           // ADR-020); everyone else sees only floor plans for venues they belong to.
-          if (hasPermission(user, "admin")) {
-            return floorPlanService.list(page, limit, request.query.venueId);
-          }
-          return floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId);
+          // No guard here: a named venue only scopes the RLS context, and
+          // `listForMember` filters a non-admin to their own venues.
+          return inNamedVenueContext(request.query.venueId, () =>
+            hasPermission(user, "admin")
+              ? floorPlanService.list(page, limit, request.query.venueId)
+              : floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId)
+          );
         }
       );
     
@@ -22359,6 +22336,22 @@
         }
       );
     };
+  </file>
+  <file path="services/reservations/src/routes/named-venue.ts">
+    export const queryVenueId: VenueIdResolver = (request) => {
+      const query = request.query as { venueId?: unknown } | null | undefined;
+      return typeof query?.venueId === "string" ? query.venueId : null;
+    };
+    export const bodyVenueId: VenueIdResolver = (request) => {
+      const body = request.body as { venueId?: unknown } | null | undefined;
+      return typeof body?.venueId === "string" ? body.venueId : null;
+    };
+    export function inNamedVenueContext<T>(
+      venueId: string | null | undefined,
+      work: () => Promise<T>
+    ): Promise<T> {
+      return typeof venueId === "string" ? runWithVenueContext(venueId, work) : work();
+    }
   </file>
   <file path="services/reservations/src/routes/public-availability.ts">
     export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
@@ -23554,15 +23547,18 @@
         },
         async (request, _reply) => {
           const { page, limit } = parsePaginationQuery(request.query);
-          return reservationService.list({
-            page,
-            limit,
-            date: request.query.date,
-            status: request.query.status,
-            tableId: request.query.tableId,
-            venueId: request.query.venueId,
-            guestId: request.query.guestId,
-          });
+          // Context only for a named venue; a guestId-only list runs without one.
+          return inNamedVenueContext(request.query.venueId, () =>
+            reservationService.list({
+              page,
+              limit,
+              date: request.query.date,
+              status: request.query.status,
+              tableId: request.query.tableId,
+              venueId: request.query.venueId,
+              guestId: request.query.guestId,
+            })
+          );
         }
       );
     
@@ -23750,7 +23746,7 @@
           // route-level limiter keeps the default `onRequest` hook, so it runs
           // before requireAuth and the 401 surface stays bounded
           // (gotchas § Fastify / rate limiting).
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
           config: {
             rateLimit: {
               max: 20,
@@ -23796,65 +23792,70 @@
             },
           },
         },
-        async (request, reply) => {
-          const userId = request.user?.id;
+        async (request, reply) =>
+          inNamedVenueContext(request.body.venueId, async () => {
+            const userId = request.user?.id;
     
-          const useEnhancedValidation = request.features.check("enhanced-validation");
+            const useEnhancedValidation = request.features.check("enhanced-validation");
     
-          if (useEnhancedValidation && request.body.partySize > 20) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Party size exceeds limit for enhanced validation"
-                )
-              );
-          }
-    
-          // requireVenueAccess has already admitted only a member of the body's
-          // venueId (or a platform admin), so CRM linking runs whenever a venue
-          // is named.
-          let body = request.body;
-          if (request.body.venueId) {
-            const link = await linkOrCreateGuest({
-              venueId: request.body.venueId,
-              guestId: request.body.guestId,
-              guestEmail: request.body.guestEmail,
-              guestPhone: request.body.guestPhone,
-              guestName: request.body.guestName,
-            });
-            if (!link.ok) {
+            if (useEnhancedValidation && request.body.partySize > 20) {
               return reply
                 .code(400)
-                .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "Party size exceeds limit for enhanced validation"
+                  )
+                );
             }
-            if (link.guestId) {
-              body = { ...request.body, guestId: link.guestId };
+    
+            // requireVenueAccess has already admitted only a member of the body's
+            // venueId (or a platform admin), so CRM linking runs whenever a venue
+            // is named.
+            let body = request.body;
+            if (request.body.venueId) {
+              const link = await linkOrCreateGuest({
+                venueId: request.body.venueId,
+                guestId: request.body.guestId,
+                guestEmail: request.body.guestEmail,
+                guestPhone: request.body.guestPhone,
+                guestName: request.body.guestName,
+              });
+              if (!link.ok) {
+                return reply
+                  .code(400)
+                  .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+              }
+              if (link.guestId) {
+                body = { ...request.body, guestId: link.guestId };
+              }
             }
-          }
     
-          const result = await fastify.transitions.createByStaff(body, userId);
+            const result = await fastify.transitions.createByStaff(body, userId);
     
-          if (result.tableNotInVenue) {
-            return reply
-              .code(403)
-              .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
-          }
+            if (result.tableNotInVenue) {
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+            }
     
-          if (!result.success) {
-            const statusCode = result.conflict?.hasConflict ? 409 : 400;
-            const title = statusCode === 409 ? "Conflict" : "Bad Request";
-            return reply
-              .code(statusCode)
-              .send(
-                createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation")
-              );
-          }
+            if (!result.success) {
+              const statusCode = result.conflict?.hasConflict ? 409 : 400;
+              const title = statusCode === 409 ? "Conflict" : "Bad Request";
+              return reply
+                .code(statusCode)
+                .send(
+                  createProblemDetails(
+                    statusCode,
+                    title,
+                    result.error ?? "Failed to create reservation"
+                  )
+                );
+            }
     
-          return reply.code(201).send({ data: result.reservation! });
-        }
+            return reply.code(201).send({ data: result.reservation! });
+          })
       );
     
       // Update reservation
@@ -24866,10 +24867,7 @@
       }>(
         "/",
         {
-          preHandler: [
-            requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-          ],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
           schema: {
             summary: "List all tables",
             operationId: "listTables",
@@ -24892,7 +24890,9 @@
         async (request) => {
           const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
-          return tableService.list(page, limit, activeOnly, request.query.venueId);
+          return inNamedVenueContext(request.query.venueId, () =>
+            tableService.list(page, limit, activeOnly, request.query.venueId)
+          );
         }
       );
     
@@ -24952,7 +24952,7 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, bodyVenueId)],
           schema: {
             summary: "Create a new table",
             operationId: "createTable",
@@ -24983,21 +24983,22 @@
             },
           },
         },
-        async (request, reply) => {
-          try {
-            const table = await tableService.create(request.body);
-            return reply.code(201).send({ data: table });
-          } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              const err = new Error("A table with this name already exists") as Error & {
-                statusCode?: number;
-              };
-              err.statusCode = 400;
-              throw err;
+        async (request, reply) =>
+          inNamedVenueContext(request.body.venueId, async () => {
+            try {
+              const table = await tableService.create(request.body);
+              return reply.code(201).send({ data: table });
+            } catch (error) {
+              if (error instanceof Error && error.message.includes("Unique constraint")) {
+                const err = new Error("A table with this name already exists") as Error & {
+                  statusCode?: number;
+                };
+                err.statusCode = 400;
+                throw err;
+              }
+              throw error;
             }
-            throw error;
-          }
-        }
+          })
       );
     
       // Update table (requires auth)
@@ -25227,40 +25228,6 @@
         })
       );
     };
-  </file>
-  <file path="services/reservations/src/routes/venue-access.ts">
-    export const venueIdFromQuery: VenueIdResolver = (request) => {
-      const query = request.query as { venueId?: unknown } | null | undefined;
-      return typeof query?.venueId === "string" ? query.venueId : null;
-    };
-    export const venueIdFromBody: VenueIdResolver = (request) => {
-      const body = request.body as { venueId?: unknown } | null | undefined;
-      return typeof body?.venueId === "string" ? body.venueId : null;
-    };
-    export const venueIdFromParams: VenueIdResolver = (request) => {
-      const params = request.params as { venueId?: unknown } | null | undefined;
-      return typeof params?.venueId === "string" ? params.venueId : null;
-    };
-    export function venueIdFromEntity(
-      kind: EntityKind,
-      getKey: (request: FastifyRequest) => unknown
-    ): VenueIdResolver {
-      return async (request) => {
-        const key = getKey(request);
-        if (typeof key !== "string") return null;
-        return resolveVenueId(kind, key);
-      };
-    }
-    export async function loadInVenueContext<T>(
-      kind: EntityKind,
-      key: string,
-      load: () => Promise<T>,
-      fallback: T
-    ): Promise<T> {
-      const venueId = await resolveVenueId(kind, key);
-      if (!venueId) return fallback;
-      return runWithVenueContext(venueId, load);
-    }
   </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
@@ -36444,7 +36411,7 @@
        * `"<HTTP method> <route>"` for the request that produced this query.
        * Always `null` in this PR: threading it through the request-scoped
        * `AsyncLocalStorage` store (`venue-context-store.ts`) touches every
-       * `enterVenueContext`/`runWithVenueContext` call site for a field this PR
+       * `runWithVenueContext` call site for a field this PR
        * doesn't yet need — deferred rather than done here, per the issue's own
        * escape hatch, until the route-sweep suite (PR 2) shows it's needed for
        * triage.
@@ -37679,9 +37646,6 @@
     };
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
-    export function enterVenueContext(venueId: string | null): void {
-      venueContextStorage.enterWith(venueId);
-    }
     export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
       return venueContextStorage.run(venueId, fn);
     }
@@ -57069,24 +57033,6 @@
         logger: fastify.log,
       });
       fastify.decorate("transitions", transitions);
-    
-      // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
-      // `app.venue_id` session variable for every request whose venue is
-      // resolvable from its own query/body/params, so the RLS policies already
-      // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
-      // (parts 2-4) see the same venue scope the application layer does.
-      //
-      // Registered as a shared `addHook`, which Fastify always runs BEFORE a
-      // route's own `preHandler` option array — so this necessarily runs before
-      // `requireAuth`/`requireVenueAccess`, not after, despite those guards
-      // being the more familiar "runs first" preHandlers. That ordering is safe:
-      // this hook never makes an authorization decision (it can only narrow
-      // which rows are visible, exactly like the app-level `where: { venueId }`
-      // filters it backstops) and `requireVenueAccess` still independently
-      // 403s a non-member on every route that has it, after this hook runs. A
-      // request with no resolvable venue id (public routes, health checks,
-      // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
-      fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });

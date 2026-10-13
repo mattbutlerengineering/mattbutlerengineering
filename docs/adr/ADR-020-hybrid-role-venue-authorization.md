@@ -72,6 +72,22 @@ land in `@mbe/auth/fastify`:
   the property pure-JWT claims cannot provide and the direct fix for the PII
   exposure.
 
+### Amendment 2026-10-12: `requireVenueAccess` is declared through `venueScoped`
+
+`services/reservations` no longer wires `requireVenueAccess` and a venue
+resolver by hand on each route. A route declares its venue source (query, body,
+params, an entity, or a custom resolve) and its access once through
+`venueScoped` (`routes/venue-scope.ts`), which invokes `requireVenueAccess`
+(or `requireOwnershipOrAdmin` for owner access) per request with the venue it
+resolved. The `requireVenueAccess` decision matrix above is **unchanged**:
+missing user 401, platform `admin` allowed without a lookup, unresolvable venue
+403, membership per request, instant revocation. The admin 404 for an
+unresolvable venue is `venueScoped` behaviour layered on top of that matrix,
+not a change to it. Routes that cannot be expressed
+that way (an admin who may omit `venueId`) are listed with a reason in
+`routes/venue-scope-coverage.test.ts` and keep a direct `requireVenueAccess`
+guard. See ADR-026's 2026-10-12 amendment for the venue-context half.
+
 ### `requireVenueCreateAccess` — the third case (amended 2026-08-22)
 
 The two guards above assume every operator already belongs to a venue. That

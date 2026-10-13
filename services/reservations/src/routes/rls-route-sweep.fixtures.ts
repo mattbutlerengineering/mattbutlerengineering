@@ -195,7 +195,7 @@ export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer m
  * equals `reservationA`'s `guestEmail` — `requireReservationOwnerOrAdmin`'s
  * non-admin, non-staff identity space (#5369 PR 7 / PR 5 carry-forward: the
  * `/reservations/:id` sweep used to prove only the admin path, never the
- * `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
+ * former `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
  */
 export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
 
@@ -327,7 +327,7 @@ function notRls(run: RouteFixture["run"]): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `?venueId=`-filtered list route
- * (`venueIdFromQuery`, ADR-026 §4's global preHandler picks the same key up):
+ * (the route names its venue in the query and enters that venue's context itself):
  * both venues answer for admin, venue A answers for the member, venue B is
  * denied for the member.
  */
@@ -355,7 +355,7 @@ function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `body.venueId`-scoped create route
- * (`venueIdFromBody`): each call gets a fresh body (via `bodyFor`, so
+ * (the venue is named in the body): each call gets a fresh body (via `bodyFor`, so
  * unique-constrained fields like a table/guest name never collide) — both
  * venues succeed for admin, venue A succeeds for the member, venue B is
  * denied for the member (before any row is even attempted).
@@ -383,7 +383,7 @@ function okCreateByBody(path: string, bodyFor: (venueId: string) => object): Rou
 
 /**
  * Generic "ok" fixture for a read-only entity-addressed route (ADR-026 §3.3
- * item 2, fixed by #5369 PR 5's `resolveVenueId`/`loadInVenueContext`): both
+ * item 2, fixed by #5369 PR 5's `resolveVenueId`/former `loadInVenueContext`): both
  * the seeded venue-A and venue-B rows are safe to read repeatedly (no
  * mutation), so this reuses `idA`/`idB` directly rather than creating
  * disposable rows the way the mutating variant below has to.
@@ -708,7 +708,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
 /**
  * Tables: list/create scope by `?venueId=`/`body.venueId`; every entity-
  * addressed `:id` route (ADR-026 §3.3 item 2) resolves its venue via
- * `venueIdFromEntity`/`loadInVenueContext` (#5369 PR 5) — fixed.
+ * former `venueIdFromEntity`/former `loadInVenueContext` (#5369 PR 5) — fixed.
  */
 const tableFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/tables": okScopedByQuery("/api/v1/tables"),
@@ -832,7 +832,7 @@ async function createDisposableVenue(ctx: SweepContext): Promise<string> {
  * preHandler only reads a `venueId` KEY, and these routes address the venue by
  * its own `:id`) and item 8 (`POST /` inserts a venue row with no context to
  * satisfy its own `WITH CHECK`) are now RESOLVED too (#5369 PR 7), via
- * `resolveVenueId`/`loadInVenueContext` for item 5 and a generated-up-front id
+ * `resolveVenueId`/former `loadInVenueContext` for item 5 and a generated-up-front id
  * plus `setVenueContext` on the create's own transaction for item 8. Item 3
  * (public-shaped slug lookup, reused by the authenticated `by-slug` route too)
  * remains open.
@@ -994,10 +994,10 @@ const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle"
 
 /**
  * Floor plans. `GET /` is the sweep's SECOND mixed case: with `?venueId=`
- * the global preHandler resolves context and both `list`/`listForMember`
+ * the route enters that venue's context and both `list`/`listForMember`
  * run scoped (ok); without it, `listForMember` (and, for an admin, `list`
  * itself) is an unscoped `floorPlan.findMany` — item 1's third bullet.
- * Every other route here was item 2 (`venueIdFromEntity` on the floor
+ * Every other route here was item 2 (former `venueIdFromEntity` on the floor
  * plan's own `:id`, its `body.floorPlanId`, or a table's `:tableId`) —
  * fixed by #5369 PR 5.
  */
@@ -1257,9 +1257,9 @@ const reservationFixtures: Record<string, RouteFixture> = {
   // Reservation `/:id` routes authorize owner-or-admin
   // (`requireReservationOwnerOrAdmin`): admin always short-circuits past the
   // resolver entirely (`requireOwnershipOrAdmin`'s `isAdmin` branch), so the
-  // admin-only legs below prove the HANDLER'S OWN `loadInVenueContext` read
+  // admin-only legs below prove the HANDLER'S OWN former `loadInVenueContext` read
   // resolves in both venues, but never exercise the owner resolver's
-  // identical `loadInVenueContext` wrap — the actual non-admin path (#5369
+  // identical former `loadInVenueContext` wrap — the actual non-admin path (#5369
   // PR 5 carry-forward). The diner-owner leg does: `asDiner` authenticates as
   // the guest whose verified email matches `reservationA`'s `guestEmail`, a
   // genuine non-admin owner. The non-owner-member leg proves the opposite —
@@ -1459,7 +1459,7 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
  * route in this family — addressed by an opaque deposit/reservation id.
  * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and the
  * capture/refund/forfeit family now resolve through the `SECURITY DEFINER`
- * `app_resolve_venue_id` function (`resolveVenueId`/`loadInVenueContext`)
+ * `app_resolve_venue_id` function (`resolveVenueId`/former `loadInVenueContext`)
  * instead of an unscoped `reservation.findUnique`/`deposit.findUnique` read.
  */
 const depositFixtures: Record<string, RouteFixture> = {

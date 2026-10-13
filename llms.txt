@@ -5253,14 +5253,6 @@
         options: SetVenueContextOptions = {}
       ): Promise<void> { /* ... */ }
     </item>
-    <item priority="high">
-      export function venueContextPreHandler(
-        resolveVenueId: VenueIdResolver
-      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isThenable(value: unknown): value is PromiseLike<string | null | undefined> { /* ... */ }
-    </item>
   </file>
   </section>
   <section priority="medium" role="pages">
@@ -6370,6 +6362,20 @@
       export const modifyReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/named-venue.ts">
+    <item priority="high">
+      export const queryVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export const bodyVenueId: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export function inNamedVenueContext<T>(
+        venueId: string | null | undefined,
+        work: () => Promise<T>
+      ): Promise<T> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/public-availability.ts">
     <item priority="high">
       export const publicAvailabilityRoutes: FastifyPluginAsync;
@@ -6723,31 +6729,6 @@
     </item>
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/reservations/src/routes/venue-access.ts">
-    <item priority="high">
-      export const venueIdFromQuery: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromBody: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export const venueIdFromParams: VenueIdResolver;
-    </item>
-    <item priority="high">
-      export function venueIdFromEntity(
-        kind: EntityKind,
-        getKey: (request: FastifyRequest) => unknown
-      ): VenueIdResolver { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function loadInVenueContext<T>(
-        kind: EntityKind,
-        key: string,
-        load: () => Promise<T>,
-        fallback: T
-      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/venue-scope.ts">
@@ -9542,9 +9523,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/venue-context-store.ts">
-    <item priority="high">
-      export function enterVenueContext(venueId: string | null): void { /* ... */ }
-    </item>
     <item priority="high">
       export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
     </item>

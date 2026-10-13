@@ -12,7 +12,7 @@ import {
   SseConnectionManager,
   type SseConnectionConfig,
 } from "../services/sse-connection-manager.js";
-import { venueIdFromQuery } from "./venue-access.js";
+import { queryVenueId } from "./named-venue.js";
 
 /** Shared connection manager — one per process. */
 const connectionManager = new SseConnectionManager();
@@ -90,10 +90,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
   }>(
     "/stream",
     {
-      preHandler: [
-        requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
-      ],
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, queryVenueId)],
       schema: {
         summary: "Subscribe to real-time reservation events",
         operationId: "streamEvents",
