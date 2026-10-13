@@ -2,6 +2,7 @@ import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm } from "./GuestDetailsForm";
@@ -126,6 +127,18 @@ export function BookingWidget({
     ? BOOKING_STEPS_WITH_DEPOSIT
     : BOOKING_STEPS_NO_DEPOSIT;
 
+  // The venue's own maxAdvanceBooking (days) bounds the date picker; an
+  // explicit `maxDate` prop still wins.
+  const maxAdvanceDays = data.venueConfig?.settings.maxAdvanceBooking;
+  const effectiveMaxDate =
+    maxDate ??
+    (maxAdvanceDays === undefined
+      ? undefined
+      : addDays(
+          venueDate(new Date(), venueTimezone ?? data.venueConfig?.ianaTimezone),
+          maxAdvanceDays
+        ));
+
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
   return (
@@ -164,7 +177,7 @@ export function BookingWidget({
           phone={phone}
           enableDateRange={enableDateRange}
           minDate={minDate}
-          maxDate={maxDate}
+          maxDate={effectiveMaxDate}
           venueTimezone={venueTimezone}
         />
       )}

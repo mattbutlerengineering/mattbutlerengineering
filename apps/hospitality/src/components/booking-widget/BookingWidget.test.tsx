@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BookingWidget } from "./BookingWidget.js";
 import { MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
+import { addDays, venueDate } from "../../utils/service-day.js";
 import React from "react";
 
 process.env.TZ = "UTC";
@@ -11,8 +12,10 @@ process.env.TZ = "UTC";
 // Computed relative to the real clock (not a fixed literal) — canProceed now
 // rejects a selected date before today (#4981), so a hardcoded past date
 // would fail as soon as the calendar moved past it.
+// Fixed clock (Date only) so slot fixtures dated 2026-05-20 are never "past".
+const FIXED_NOW = new Date("2026-05-01T12:00:00Z");
 const FUTURE_DATE = (() => {
-  const d = new Date();
+  const d = new Date(FIXED_NOW);
   d.setDate(d.getDate() + 30);
   return d.toISOString().slice(0, 10);
 })();
@@ -132,6 +135,8 @@ describe("BookingWidget", () => {
   };
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(FIXED_NOW);
     vi.resetAllMocks();
     // resetAllMocks wipes the "s1" default; PaymentStep needs the booking
     // session as deposit ownership proof (#6304).
@@ -141,10 +146,39 @@ describe("BookingWidget", () => {
     );
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // venueSlug is mandatory for booking since #4487 — the hold lifecycle runs
   // through /public/v1/venues/:slug/holds, the only hold route an anonymous
   // widget may call.
   const renderWidget = () => render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
+
+  it("bounds the date picker by the venue's maxAdvanceBooking", async () => {
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: { maxAdvanceBooking: 14 },
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
+    renderWidget();
+
+    const expectedMax = addDays(venueDate(new Date(), "America/New_York"), 14);
+    await waitFor(() =>
+      expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax)
+    );
+  });
 
   it("completes the full booking flow", async () => {
     // Step 1: Date & Party

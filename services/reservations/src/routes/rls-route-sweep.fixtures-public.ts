@@ -8,6 +8,7 @@ import {
   createDisposableStaffHold,
   expectDenied,
   expectOk,
+  inWindowDate,
   type RouteFixture,
   type SweepContext,
 } from "./rls-route-sweep.fixtures.js";
@@ -153,7 +154,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       const res = await asAdmin(ctx, {
         method: "POST",
         url: `/public/v1/venues/${ctx.venueA.slug}/holds`,
-        payload: { date: "2026-10-08", startTime: "2026-10-08T18:00:00Z", partySize: 2 },
+        payload: { date: inWindowDate(8), startTime: `${inWindowDate(8)}T18:00:00Z`, partySize: 2 },
       });
       expectOk(res, "create hold under the slug-resolved venue");
       const body = JSON.parse(res.body) as { data: { venueId: string } };
@@ -165,7 +166,11 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
         await asAdmin(ctx, {
           method: "POST",
           url: `/public/v1/venues/${UNKNOWN_SLUG}/holds`,
-          payload: { date: "2026-10-08", startTime: "2026-10-08T18:00:00Z", partySize: 2 },
+          payload: {
+            date: inWindowDate(8),
+            startTime: `${inWindowDate(8)}T18:00:00Z`,
+            partySize: 2,
+          },
         }),
         "unknown slug"
       );
@@ -192,7 +197,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
   "GET /public/v1/venues/:slug/holds/:holdId": {
     kind: "ok",
     run: async (ctx) => {
-      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, "2026-10-12");
+      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, inWindowDate(12));
 
       const res = await asAdmin(ctx, {
         method: "GET",
@@ -219,7 +224,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
   "POST /public/v1/venues/:slug/holds/:holdId/confirm": {
     kind: "ok",
     run: async (ctx) => {
-      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, "2026-10-09");
+      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, inWindowDate(9));
       expectOk(
         await asAdmin(ctx, {
           method: "POST",
@@ -236,7 +241,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       // A second, never-confirmed hold — addressed through venue B's slug.
       // Its own venueId (A) doesn't match the resolved context, so the
       // confirm attempt must deny rather than silently confirm under B.
-      const otherHold = await createDisposablePublicHold(ctx, ctx.venueA.slug, "2026-10-15");
+      const otherHold = await createDisposablePublicHold(ctx, ctx.venueA.slug, inWindowDate(15));
       expectDenied(
         await asAdmin(ctx, {
           method: "POST",
@@ -251,7 +256,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
   "POST /public/v1/venues/:slug/reservations": {
     kind: "ok",
     run: async (ctx) => {
-      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, "2026-10-10");
+      const hold = await createDisposablePublicHold(ctx, ctx.venueA.slug, inWindowDate(10));
       expectOk(
         await asAdmin(ctx, {
           method: "POST",

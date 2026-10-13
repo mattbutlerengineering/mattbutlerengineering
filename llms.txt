@@ -2415,6 +2415,9 @@
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
@@ -6467,6 +6470,9 @@
       type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
+      export function inWindowDate(daysAhead: number): string { /* ... */ }
+    </item>
+    <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
     <item priority="high">
@@ -8605,6 +8611,9 @@
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
+    <item priority="high">
+      export const BOOKING_WINDOW_ERROR: unknown;
+    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -9180,6 +9189,26 @@
         operatingHours: OperatingHours | null,
         date: string
       ): DaySchedule | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingWindow {
+        earliest: Date;
+        latestLocalDate: string | null;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function addCalendarDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookingWindow(
+        settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+        now: Date,
+        ianaTimezone: string
+      ): BookingWindow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
@@ -15500,6 +15529,21 @@
       }
     </item>
   </file>
+  <file path="packages/types/src/party-fit.ts">
+    <item priority="low">
+      interface PartyFitTable {
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function partyFitsTable(table: PartyFitTable, partySize: number): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="packages/types/src/reservation.ts">
     <item priority="low">
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
@@ -17489,10 +17533,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-        tables: readonly T[],
-        partySize: number
-      ): T[] { /* ... */ }
+      export function tablesThatFit<
+        T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+      >(tables: readonly T[], partySize: number): T[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/service-day.ts">

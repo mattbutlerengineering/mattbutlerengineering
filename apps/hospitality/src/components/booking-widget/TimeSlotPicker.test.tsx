@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TimeSlotPicker } from "./TimeSlotPicker.js";
 import type { TimeSlot } from "@mbe/types";
@@ -36,6 +36,26 @@ function makeSlot(time: string, available = true): TimeSlot {
 }
 
 describe("TimeSlotPicker", () => {
+  // Fixed clock (Date only), device-local 10:00 on the fixtures' day (2026-05-20):
+  // every fixture slot is later than "now" and the date is not a future date.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-20T10:00:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("does not offer a slot that is already past (now - 30min)", () => {
+    vi.setSystemTime(new Date("2026-05-20T18:00:00Z"));
+    const slots = [makeSlot("2026-05-20T17:30:00Z"), makeSlot("2026-05-20T18:30:00Z")];
+    render(
+      <TimeSlotPicker {...defaultProps} slots={slots} date="2026-05-20" venueTimezone="UTC" />
+    );
+    expect(screen.queryByText("5:30 PM")).toBeNull();
+    expect(screen.getByText("6:30 PM")).toBeDefined();
+  });
+
   const defaultProps = {
     slots: [] as TimeSlot[],
     selectedSlot: null,
@@ -302,10 +322,10 @@ describe("TimeSlotPicker", () => {
       const originalTz = process.env.TZ;
       process.env.TZ = "America/Los_Angeles";
       try {
-        // 17:00Z on 2026-05-17 is 1:00 PM in New York (EDT, UTC-4) but
+        // 17:00Z on 2026-05-21 is 1:00 PM in New York (EDT, UTC-4) but
         // 10:00 AM on a Los Angeles device (PDT, UTC-7) — the bug rendered
         // the latter with no indication a timezone was in play.
-        const slot = makeSlot("2026-05-17T17:00:00Z");
+        const slot = makeSlot("2026-05-21T17:00:00Z");
         render(
           <TimeSlotPicker {...defaultProps} slots={[slot]} venueTimezone="America/New_York" />
         );

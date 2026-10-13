@@ -1,5 +1,6 @@
 import {
   toDateString,
+  tableMaxCovers,
   type Reservation,
   type ReservationStatus,
   type Table,
@@ -463,12 +464,14 @@ export const reservationService = {
       const targetTableId = data.tableId ?? existing.tableId;
       const table = await prisma.table.findUnique({
         where: { id: targetTableId },
-        select: { capacity: true },
+        select: { capacity: true, maxCovers: true },
       });
-      if (table && data.partySize > table.capacity) {
+      // Same ceiling the booking path uses: maxCovers, else capacity.
+      const ceiling = table ? tableMaxCovers(table) : undefined;
+      if (ceiling !== undefined && data.partySize > ceiling) {
         return {
           success: false,
-          error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+          error: `Party size ${data.partySize} exceeds table capacity of ${ceiling}`,
           capacityExceeded: true,
         };
       }

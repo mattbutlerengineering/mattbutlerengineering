@@ -7985,6 +7985,19 @@
         body: loadFixture(fixtureName),
       });
     }
+    function slotsResponse(route: Route): Promise<void> {
+      const now = new Date();
+      const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
+      const year =
+        thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
+          ? now.getUTCFullYear()
+          : now.getUTCFullYear() + 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`),
+      });
+    }
     function emptyPaginated(route: Route): Promise<void> {
       return route.fulfill({
         status: 200,
@@ -8685,16 +8698,12 @@
           }),
         });
       });
-      await page.route("**/api/v1/availability/*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/api/v1/availability/*", slotsResponse);
       // Public (slug-scoped) availability — the booking widget's api client is
       // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
-      await page.route("**/public/v1/venues/*/availability*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/public/v1/venues/*/availability*", slotsResponse);
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -24167,6 +24176,9 @@
     }
     export type PayloadOrFactory =
       InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    export function inWindowDate(daysAhead: number): string {
+      return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
@@ -24406,8 +24418,8 @@
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
-          date: "2026-10-08",
-          time: "2026-10-08T18:00:00Z",
+          date: inWindowDate(8),
+          time: `${inWindowDate(8)}T18:00:00Z`,
           partySize: 2,
           tableId,
         },
@@ -30778,9 +30790,11 @@
       const { reservations, holds } = await fetchConflictData(venueId, date);
     
       const slots: TimeSlot[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
         const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+        if (!isSlotInBookingWindow(slotStart, window)) continue;
         const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
         // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
@@ -30915,6 +30929,7 @@
       }
     
       const results: DateAvailability[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = toDateString(d);
@@ -30936,6 +30951,7 @@
     
         for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
           const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+          if (!isSlotInBookingWindow(slotStart, window)) continue;
           const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
           // Applies checkPacingForSlot the same way generateTimeSlots does, so a
@@ -30981,15 +30997,14 @@
       return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
     }
     async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
-      return prisma.table.findMany({
-        where: {
-          venueId,
-          isActive: true,
-          minCovers: { lte: partySize },
-          OR: [{ maxCovers: { gte: partySize } }, { maxCovers: null }],
-        },
+      // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
+      // place - @mbe/types' partyFitsTable - so it is applied here rather than
+      // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
+      const tables = await prisma.table.findMany({
+        where: { venueId, isActive: true },
         orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       });
+      return filterSuitableTables(tables, partySize);
     }
     export async function fetchConflictData(
       venueId: string,
@@ -33893,6 +33908,7 @@
     };
   </file>
   <file path="services/reservations/src/services/hold.ts">
+    export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
         id: hold.id,
@@ -33937,6 +33953,15 @@
     
         // Calculate times
         const startTime = new Date(time);
+    
+        // Guests may only hold a slot inside the venue's booking window (not in
+        // the past, within min/max advance) - the same rule generateTimeSlots
+        // applies when listing slots, so a hand-crafted request can't bypass it.
+        if (
+          !isSlotInBookingWindow(startTime, bookingWindow(settings, new Date(), venue.ianaTimezone))
+        ) {
+          return { success: false, error: BOOKING_WINDOW_ERROR };
+        }
         const duration = estimateDuration(partySize, settings);
         const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
         const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
@@ -35947,12 +35972,14 @@
           const targetTableId = data.tableId ?? existing.tableId;
           const table = await prisma.table.findUnique({
             where: { id: targetTableId },
-            select: { capacity: true },
+            select: { capacity: true, maxCovers: true },
           });
-          if (table && data.partySize > table.capacity) {
+          // Same ceiling the booking path uses: maxCovers, else capacity.
+          const ceiling = table ? tableMaxCovers(table) : undefined;
+          if (ceiling !== undefined && data.partySize > ceiling) {
             return {
               success: false,
-              error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+              error: `Party size ${data.partySize} exceeds table capacity of ${ceiling}`,
               capacityExceeded: true,
             };
           }
@@ -36494,10 +36521,7 @@
       return largestRule.durationMinutes + extraTime;
     }
     export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
-      return tables.filter(
-        (t) =>
-          t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
-      );
+      return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
     }
     export function parseOperatingHours(
       operatingHours: OperatingHours | null,
@@ -36507,6 +36531,39 @@
       // YYYY-MM-DD strings parse as UTC midnight; getUTCDay keeps weekday resolution
       // timezone-stable (same as internal getDaySchedule via getUTCDay).
       return scheduleForDay(operatingHours, new Date(date).getUTCDay());
+    }
+    export interface BookingWindow {
+      /** Earliest bookable instant (inclusive). */
+      earliest: Date;
+      /** Last bookable venue-local date (YYYY-MM-DD, inclusive); null = unbounded. */
+      latestLocalDate: string | null;
+      ianaTimezone: string;
+    }
+    function addCalendarDays(date: string, days: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    export function bookingWindow(
+      settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+      now: Date,
+      ianaTimezone: string
+    ): BookingWindow {
+      const minHours = settings?.minAdvanceBooking ?? 0;
+      const maxDays = settings?.maxAdvanceBooking;
+      return {
+        earliest: new Date(now.getTime() + minHours * MS_PER_HOUR),
+        latestLocalDate:
+          maxDays === undefined
+            ? null
+            : addCalendarDays(venueLocalDateString(now, ianaTimezone), maxDays),
+        ianaTimezone,
+      };
+    }
+    export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean {
+      if (slotStart < window.earliest) return false;
+      if (window.latestLocalDate === null) return true;
+      return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -55828,6 +55885,19 @@
       hasPreferences: boolean;
     }
   </file>
+  <file path="packages/types/src/party-fit.ts">
+    export interface PartyFitTable {
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+    }
+    export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number {
+      return table.maxCovers ?? table.capacity;
+    }
+    export function partyFitsTable(table: PartyFitTable, partySize: number): boolean {
+      return table.minCovers <= partySize && partySize <= tableMaxCovers(table);
+    }
+  </file>
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
@@ -60691,12 +60761,11 @@
     ): boolean {
       return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
     }
-    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-      tables: readonly T[],
-      partySize: number
-    ): T[] {
+    export function tablesThatFit<
+      T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+    >(tables: readonly T[], partySize: number): T[] {
       return tables
-        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .filter((table) => tableAcceptsParty(table) && partyFitsTable(table, partySize))
         .sort((a, b) => a.capacity - b.capacity);
     }
   </file>
