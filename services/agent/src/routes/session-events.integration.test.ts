@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { AgentSessionEvent } from "@mbe/types";
-import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
+import { buildBugFixFixture } from "@mbe/agent-test-utils";
 
 /**
  * Integration tests for the session events SSE endpoint.
@@ -124,7 +124,7 @@ describe("Session Events SSE Integration", () => {
     } as unknown as never);
 
     // Replay the STORED shape (what the DB holds), not the in-memory event shape.
-    const events = buildMinimalSuccessFixture({ sessionId: "session-1" }).map((e, i) => ({
+    const events = buildBugFixFixture({ sessionId: "session-1" }).map((e, i) => ({
       id: `evt-${i}`,
       sessionId: "session-1",
       ...projectEvent(e),
@@ -140,6 +140,9 @@ describe("Session Events SSE Integration", () => {
     });
 
     expect(response.headers["content-type"]).toContain("text/event-stream");
+    // Stored-shape fields from projectEvent (not the in-memory tool_use shape).
+    expect(response.body).toContain('"toolName":"Read"');
+    expect(response.body).toContain('"toolInput":{"file_path":"/repo/src/auth.ts"}');
   });
 
   it("returns 404 for non-existent session", async () => {
