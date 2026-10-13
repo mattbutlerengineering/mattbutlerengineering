@@ -12450,6 +12450,91 @@
       return rest as unknown as TParams;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/floor-plan-draft-reducer.ts">
+    export interface Position {
+      readonly x: number;
+      readonly y: number;
+    }
+    export type PositionMap = ReadonlyMap<string, Position>;
+    export interface DraftState {
+      readonly base: readonly Table[];
+      readonly edits: PositionMap;
+      readonly inFlight: PositionMap | null;
+      /** Wrapped so a thrown `null`/`undefined` is still distinguishable from "no failure". */
+      readonly saveFailure: { readonly error: unknown } | null;
+    }
+    export type DraftAction =
+      | { readonly type: "synced"; readonly tables: readonly Table[] }
+      | { readonly type: "moved"; readonly tableId: string; readonly x: number; readonly y: number }
+      | { readonly type: "tableAdded"; readonly table: Table }
+      | { readonly type: "tableRemoved"; readonly tableId: string }
+      | { readonly type: "saveStarted" }
+      | { readonly type: "saveSucceeded" }
+      | { readonly type: "saveFailed"; readonly error: unknown };
+    export const INITIAL_DRAFT: DraftState = {
+      base: [],
+      edits: new Map(),
+      inFlight: null,
+      saveFailure: null,
+    };
+    function withPosition(table: Table, pos: Position): Table {
+      const existing = table.shapeMetadata ?? {
+        ...SHAPE_DEFAULTS.rectangle,
+        shape: "rectangle" as const,
+      };
+      return { ...table, shapeMetadata: { ...existing, x: pos.x, y: pos.y } };
+    }
+    function applyPositions(tables: readonly Table[], positions: PositionMap | null): Table[] {
+      if (!positions || positions.size === 0) return [...tables];
+      return tables.map((t) => {
+        const pos = positions.get(t.id);
+        return pos ? withPosition(t, pos) : t;
+      });
+    }
+    export function selectTables(state: DraftState): Table[] {
+      return applyPositions(applyPositions(state.base, state.inFlight), state.edits);
+    }
+    export function selectDirty(state: DraftState): boolean {
+      return state.edits.size > 0 || state.inFlight !== null;
+    }
+    function without(map: PositionMap, id: string): PositionMap {
+      if (!map.has(id)) return map;
+      const next = new Map(map);
+      next.delete(id);
+      return next;
+    }
+    export function draftReducer(state: DraftState, action: DraftAction): DraftState {
+      switch (action.type) {
+        case "synced":
+          // Server data replaces base only; unsaved edits and in-flight moves stay layered on top.
+          return { ...state, base: action.tables };
+        case "moved":
+          return {
+            ...state,
+            edits: new Map(state.edits).set(action.tableId, { x: action.x, y: action.y }),
+          };
+        case "tableAdded":
+          return { ...state, base: [...state.base, action.table] };
+        case "tableRemoved":
+          return {
+            ...state,
+            base: state.base.filter((t) => t.id !== action.tableId),
+            edits: without(state.edits, action.tableId),
+            inFlight: state.inFlight && without(state.inFlight, action.tableId),
+          };
+        case "saveStarted":
+          if (state.inFlight !== null || state.edits.size === 0) return state;
+          return { ...state, inFlight: state.edits, edits: new Map(), saveFailure: null };
+        case "saveSucceeded":
+          if (state.inFlight === null) return state;
+          return { ...state, base: applyPositions(state.base, state.inFlight), inFlight: null };
+        case "saveFailed":
+          // Rollback: drop the failed moves so positions revert to base. Moves made while the
+          // save was in flight are newer and stay as edits.
+          return { ...state, inFlight: null, saveFailure: { error: action.error } };
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/sse-query-keys.ts">
     export const SSE_INVALIDATION_QUERY_KEYS = [
       RESERVATIONS_QUERY_KEY,
@@ -12947,6 +13032,92 @@
       useEffect(() => {
         document.title = title;
       }, [title]);
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorPlanDraft.ts">
+    export interface PositionUpdate {
+      tableId: string;
+      shapeMetadata: NonNullable<Table["shapeMetadata"]>;
+    }
+    export interface UseFloorPlanDraftOptions {
+      /** Latest tables from the server (may refetch at any time). */
+      serverTables: readonly Table[] | undefined;
+      /** Persist moved tables; reject to signal failure. */
+      persist: (positions: PositionUpdate[]) => Promise<unknown>;
+    }
+    function toUpdate(table: Table | undefined, tableId: string, x: number, y: number): PositionUpdate {
+      const existing = table?.shapeMetadata;
+      return {
+        tableId,
+        shapeMetadata: {
+          x,
+          y,
+          width: existing?.width ?? SHAPE_DEFAULTS.rectangle.width,
+          height: existing?.height ?? SHAPE_DEFAULTS.rectangle.height,
+          shape: existing?.shape ?? ("rectangle" as const),
+          rotation: existing?.rotation,
+          color: existing?.color,
+        },
+      };
+    }
+    export function useFloorPlanDraft({ serverTables, persist }: UseFloorPlanDraftOptions) {
+      const [state, dispatch] = useReducer(draftReducer, INITIAL_DRAFT);
+      // Mirrors reducer state so save() can read/guard synchronously before re-render.
+      const stateRef = useRef(state);
+    
+      const send = useCallback((action: Parameters<typeof draftReducer>[1]) => {
+        stateRef.current = draftReducer(stateRef.current, action);
+        dispatch(action);
+      }, []);
+    
+      useEffect(() => {
+        if (serverTables) send({ type: "synced", tables: serverTables });
+      }, [serverTables, send]);
+    
+      const tables = useMemo(() => selectTables(state), [state]);
+    
+      const move = useCallback(
+        (tableId: string, x: number, y: number) => send({ type: "moved", tableId, x, y }),
+        [send]
+      );
+    
+      const save = useCallback(async () => {
+        const current = stateRef.current;
+        if (current.inFlight !== null || current.edits.size === 0) return;
+        const positions = Array.from(current.edits, ([id, p]) =>
+          toUpdate(
+            current.base.find((t) => t.id === id),
+            id,
+            p.x,
+            p.y
+          )
+        );
+        send({ type: "saveStarted" });
+        try {
+          await persist(positions);
+          send({ type: "saveSucceeded" });
+        } catch (err) {
+          send({ type: "saveFailed", error: err });
+        }
+      }, [persist, send]);
+    
+      const addTable = useCallback((table: Table) => send({ type: "tableAdded", table }), [send]);
+      const removeTable = useCallback(
+        (tableId: string) => send({ type: "tableRemoved", tableId }),
+        [send]
+      );
+    
+      return {
+        tables,
+        move,
+        save,
+        addTable,
+        removeTable,
+        dirty: selectDirty(state),
+        hasUnsentEdits: state.edits.size > 0,
+        isSaving: state.inFlight !== null,
+        saveFailure: state.saveFailure,
+      };
     }
   </file>
   <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
