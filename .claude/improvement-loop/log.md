@@ -3329,6 +3329,12 @@ Both rialto-web demo routes show real layout collisions at the fold that the v1 
 - **Expect a one-time step** in the pr-acceptance, queue-efficiency and ai-audit series: `has-pr`-only PRs and bookkeeping PRs no longer count as agent PRs, and three extra agent branch prefixes now do. This is a population change, not a regression — do not file a sensor regression off the first reading after this lands.
 - `collect-repo-stats` still counts by label only (the search API cannot express the prefix/bookkeeping legs), so that one series remains a superset.
 
+## 2026-10-13
+
+**queueEfficiency:** composite 0.974 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:53, size:xl:8, size:m:32, size:xs:69, size:l:8
+**Issues filed:** 0
+
 ## 2026-10-13 — mbe-evening
 
 ### Metrics
