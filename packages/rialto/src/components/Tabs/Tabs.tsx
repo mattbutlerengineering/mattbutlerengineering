@@ -57,7 +57,18 @@ export interface TabsProps extends Omit<HTMLAttributes<HTMLDivElement>, "childre
 
 /* ── Component ───────────────────────────────── */
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
-  ({ tabs, defaultTab, onTabChange, className, ...props }, ref) => {
+  (
+    {
+      tabs,
+      defaultTab,
+      onTabChange,
+      className,
+      "aria-label": ariaLabel,
+      "aria-labelledby": ariaLabelledBy,
+      ...props
+    },
+    ref
+  ) => {
     const [activeId, setActiveId] = useState(defaultTab ?? tabs[0]?.id ?? "");
     const [indicator, setIndicator] = useState({ left: 0, width: 0 });
     const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -91,7 +102,11 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 
     const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
       const enabledTabs = tabs.filter((t) => !t.disabled);
-      const currentIndex = enabledTabs.findIndex((t) => t.id === activeId);
+      // No match: the fallback tab stop is the first enabled item.
+      const currentIndex = Math.max(
+        0,
+        enabledTabs.findIndex((t) => t.id === activeId)
+      );
       let nextIndex: number;
 
       if (e.key === "ArrowRight") {
@@ -115,6 +130,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
     };
 
     const activeTab = tabs.find((t) => t.id === activeId);
+    // Roving tabindex needs exactly one stop: when the active id matches no tab,
+    // fall back to the first enabled tab so the list stays keyboard reachable.
+    const tabStopId = activeTab ? activeId : tabs.find((t) => !t.disabled)?.id;
 
     return (
       <div ref={ref} className={className} {...props}>
@@ -122,6 +140,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
           ref={listRef}
           className={styles.tabList}
           role="tablist"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           tabIndex={-1}
           onKeyDown={handleKeyDown}
         >
@@ -136,8 +156,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
               role="tab"
               id={`${baseId}-tab-${tab.id}`}
               aria-selected={tab.id === activeId}
-              aria-controls={`${baseId}-panel-${tab.id}`}
-              tabIndex={tab.id === activeId ? 0 : -1}
+              aria-controls={tab.id === activeId ? `${baseId}-panel-${tab.id}` : undefined}
+              tabIndex={tab.id === tabStopId ? 0 : -1}
               aria-disabled={tab.disabled || undefined}
               className={cn(styles.tab, tab.id === activeId && styles.tabActive)}
               onClick={tab.disabled ? undefined : () => selectTab(tab.id)}

@@ -80,7 +80,11 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       const enabledSegments = segments.filter((s) => !s.disabled);
-      const currentIndex = enabledSegments.findIndex((s) => s.id === value);
+      // No match: the fallback tab stop is the first enabled item.
+      const currentIndex = Math.max(
+        0,
+        enabledSegments.findIndex((s) => s.id === value)
+      );
       let next: number | null = null;
 
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
@@ -102,6 +106,12 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         }
       }
     };
+
+    // Roving tabindex needs exactly one stop: when `value` matches no segment,
+    // fall back to the first enabled segment so the group stays reachable.
+    const tabStopId = segments.some((s) => s.id === value)
+      ? value
+      : segments.find((s) => !s.disabled)?.id;
 
     return (
       <div
@@ -143,7 +153,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                 className={cn(styles.segment, active && styles.segmentActive)}
                 role="radio"
                 aria-checked={active}
-                tabIndex={active ? 0 : -1}
+                tabIndex={segment.id === tabStopId ? 0 : -1}
                 aria-disabled={segment.disabled || undefined}
                 onClick={
                   segment.disabled
