@@ -13063,14 +13063,14 @@
       // Mirrors reducer state so save() can read/guard synchronously before re-render.
       const stateRef = useRef(state);
     
-      useEffect(() => {
-        if (serverTables) dispatch({ type: "synced", tables: serverTables });
-      }, [serverTables]);
-    
       const send = useCallback((action: Parameters<typeof draftReducer>[1]) => {
         stateRef.current = draftReducer(stateRef.current, action);
         dispatch(action);
       }, []);
+    
+      useEffect(() => {
+        if (serverTables) send({ type: "synced", tables: serverTables });
+      }, [serverTables, send]);
     
       const tables = useMemo(() => selectTables(state), [state]);
     
