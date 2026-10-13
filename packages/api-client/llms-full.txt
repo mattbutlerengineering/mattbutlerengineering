@@ -26,8 +26,10 @@
       baseBranch?: string;
       parentId?: string;
     }
+    type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
     export interface ListSessionsParams {
-      status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+      /** Query vocabulary of GET /v1/sessions (AgentSessionStatusSchema), not the lowercase response status. */
+      status?: AgentSessionQueryStatus;
       page?: number;
       limit?: number;
     }

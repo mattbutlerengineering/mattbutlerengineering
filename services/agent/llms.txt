@@ -178,6 +178,9 @@
     <item priority="high">
       export const orchestrateRoutes: FastifyPluginAsync;
     </item>
+    <item priority="medium">
+      function bearerToken(header: string | undefined): string | null { /* ... */ }
+    </item>
   </file>
   <file path="src/routes/remediation.ts">
     <item priority="high">
