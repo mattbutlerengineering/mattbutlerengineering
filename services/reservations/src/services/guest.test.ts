@@ -207,6 +207,40 @@ describe("guestService", () => {
       expect(result.phone).toBe("+19999999999");
     });
 
+    it("saves notes on a matched guest that has none", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: null }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "nut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "nut allergy" }),
+      });
+    });
+
+    it("never overwrites existing notes on a matched guest", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).not.toHaveBeenCalled();
+    });
+
     it("falls back to phone lookup when email not found", async () => {
       vi.mocked(prisma.guest.findUnique)
         .mockResolvedValueOnce(null as never) // email lookup

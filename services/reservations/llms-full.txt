@@ -9694,12 +9694,14 @@
       email: string | null;
       phone: string | null;
       dietaryRestrictions: string[] | null;
+      notes?: string | null;
     };
     type IncomingGuestData = {
       name: string;
       email?: string;
       phone?: string;
       dietaryRestrictions?: string[];
+      notes?: string;
     };
     export function applyDietaryRestrictions(
       existing: string[] | null | undefined,
@@ -9732,6 +9734,11 @@
     
       if (incoming.phone !== undefined && existing.phone !== incoming.phone) {
         updateData.phone = incoming.phone;
+      }
+    
+      // Fill empty notes only: a typed note is never lost, an existing one never overwritten.
+      if (incoming.notes && !existing.notes) {
+        updateData.notes = incoming.notes;
       }
     
       if (incoming.dietaryRestrictions && incoming.dietaryRestrictions.length > 0) {
@@ -10057,6 +10064,7 @@
             email: existing.email,
             phone: existing.phone,
             dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+            notes: existing.notes,
           };
           const updateData = buildGuestUpdateData(snapshot, data);
           if (Object.keys(updateData).length > 0) {
@@ -14691,6 +14699,8 @@
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
       /** Persists notified state on the row; null if the party is no longer waiting. */
       markNotified(id: string): Promise<{ id: string } | null>;
+      /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
+      revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -14746,6 +14756,7 @@
         listWaiting,
         notifyTableReady: notifyNextTableReady,
         markNotified,
+        revertNotified,
         logger,
       } = deps;
     
@@ -14795,13 +14806,20 @@
           }
         }
     
-        // Always schedule expiry regardless of SMS outcome
-        await scheduler.schedule(
-          JOB_TYPES.WAITLIST_EXPIRY,
-          { waitlistEntryId: input.id, venueId: input.venueId },
-          FIVE_MINUTES_MS,
-          `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
-        );
+        // Always schedule expiry regardless of SMS outcome. If scheduling fails the
+        // row would stay notified forever (host can't retry, next guest never
+        // notified), so roll it back to waiting and surface the error.
+        try {
+          await scheduler.schedule(
+            JOB_TYPES.WAITLIST_EXPIRY,
+            { waitlistEntryId: input.id, venueId: input.venueId },
+            FIVE_MINUTES_MS,
+            `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
+          );
+        } catch (err) {
+          await revertNotified(input.id);
+          throw err;
+        }
       }
     
       async function handleExpiry(input: HandleExpiryInput): Promise<void> {
@@ -14839,6 +14857,7 @@
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
         markNotified: (id) => waitlistService.markNotified(id),
+        revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
     
@@ -15075,6 +15094,24 @@
           return null;
         }
         // The notified party left the waiting queue: close the gap behind it.
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /**
+       * Undoes markNotified when the expiry job could not be scheduled, so the host
+       * can retry. Only a `notified` entry reverts; anything else -> null.
+       */
+      async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "notified" },
+            data: { status: "waiting", notifiedAt: null, expiresAt: null },
+          });
+        } catch {
+          return null;
+        }
         await recalculateVenuePositions(entry.venueId);
         return entry;
       },

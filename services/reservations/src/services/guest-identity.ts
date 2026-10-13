@@ -14,6 +14,7 @@ type GuestSnapshot = {
   email: string | null;
   phone: string | null;
   dietaryRestrictions: string[] | null;
+  notes?: string | null;
 };
 
 type IncomingGuestData = {
@@ -21,6 +22,7 @@ type IncomingGuestData = {
   email?: string;
   phone?: string;
   dietaryRestrictions?: string[];
+  notes?: string;
 };
 
 /**
@@ -63,6 +65,11 @@ export function buildGuestUpdateData(
 
   if (incoming.phone !== undefined && existing.phone !== incoming.phone) {
     updateData.phone = incoming.phone;
+  }
+
+  // Fill empty notes only: a typed note is never lost, an existing one never overwritten.
+  if (incoming.notes && !existing.notes) {
+    updateData.notes = incoming.notes;
   }
 
   if (incoming.dietaryRestrictions && incoming.dietaryRestrictions.length > 0) {
