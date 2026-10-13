@@ -125,6 +125,21 @@ describe("waitlistService", () => {
     });
   });
 
+  describe("listActive", () => {
+    it("keeps notified parties on the staff list (waiting + notified), so they can still be seated", async () => {
+      const notified = makeEntry({ status: "notified", notifiedAt: NOW });
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([notified] as never);
+
+      const result = await waitlistService.listActive("venue-1");
+
+      expect(prisma.waitlistEntry.findMany).toHaveBeenCalledWith({
+        where: { venueId: "venue-1", status: { in: ["waiting", "notified"] } },
+        orderBy: { position: "asc" },
+      });
+      expect(result).toEqual([notified]);
+    });
+  });
+
   describe("getById", () => {
     it("returns the entry when found", async () => {
       const entry = makeEntry();

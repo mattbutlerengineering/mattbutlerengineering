@@ -125,7 +125,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-      const entries = await waitlistService.listWaiting(venueId);
+      const entries = await waitlistService.listActive(venueId);
       return reply.send({ data: entries });
     })
   );

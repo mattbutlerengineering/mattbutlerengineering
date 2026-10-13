@@ -93,6 +93,14 @@ export const waitlistService = {
     });
   },
 
+  /** Staff view: parties still waiting plus notified ones holding their claim window. */
+  async listActive(venueId: string): Promise<WaitlistEntryData[]> {
+    return prisma.waitlistEntry.findMany({
+      where: { venueId, status: { in: ["waiting", "notified"] } },
+      orderBy: { position: "asc" },
+    });
+  },
+
   async getById(id: string): Promise<WaitlistEntryData | null> {
     return prisma.waitlistEntry.findUnique({ where: { id } });
   },

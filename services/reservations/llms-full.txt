@@ -6771,7 +6771,7 @@
           },
         },
         venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-          const entries = await waitlistService.listWaiting(venueId);
+          const entries = await waitlistService.listActive(venueId);
           return reply.send({ data: entries });
         })
       );
@@ -14751,6 +14751,14 @@
       async listWaiting(venueId: string): Promise<WaitlistEntryData[]> {
         return prisma.waitlistEntry.findMany({
           where: { venueId, status: "waiting" },
+          orderBy: { position: "asc" },
+        });
+      },
+    
+      /** Staff view: parties still waiting plus notified ones holding their claim window. */
+      async listActive(venueId: string): Promise<WaitlistEntryData[]> {
+        return prisma.waitlistEntry.findMany({
+          where: { venueId, status: { in: ["waiting", "notified"] } },
           orderBy: { position: "asc" },
         });
       },
