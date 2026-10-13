@@ -85,6 +85,7 @@ vi.mock("../services/waitlist.js", () => ({
     create: vi.fn(),
     listWaiting: vi.fn(),
     getById: vi.fn(),
+    withLiveEstimates: vi.fn(),
     seat: vi.fn(),
     cancel: vi.fn(),
     expire: vi.fn(),
@@ -119,6 +120,10 @@ import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
+import {
+  generateWaitlistStatusToken,
+  WAITLIST_STATUS_TOKEN_TTL_MS,
+} from "../services/waitlist-status-token.js";
 
 const mockVenue = {
   id: "venue-1",
@@ -189,15 +194,17 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     expect(body.data.estimatedWaitMinutes).toBe(45);
   });
 
-  it("returns the entry id so the guest can read their live estimate", async () => {
+  it("returns a status token, never the bare entry id", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/waitlist",
       payload: validPayload,
     });
 
-    const body = JSON.parse(res.payload) as { data: { entryId: string } };
-    expect(body.data.entryId).toBe("entry-1");
+    const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
+    expect(typeof body.data.statusToken).toBe("string");
+    expect(body.data).not.toHaveProperty("entryId");
+    expect(res.payload).not.toContain("entry-1");
   });
 
   it("does not leak guest PII in the response", async () => {
@@ -208,7 +215,11 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     });
 
     const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
-    expect(Object.keys(body.data).sort()).toEqual(["entryId", "estimatedWaitMinutes", "position"]);
+    expect(Object.keys(body.data).sort()).toEqual([
+      "estimatedWaitMinutes",
+      "position",
+      "statusToken",
+    ]);
   });
 
   it("always joins the venue resolved from the slug, ignoring a mismatched body.venueId", async () => {
@@ -272,7 +283,7 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
   });
 });
 
-describe("GET /public/v1/venues/:slug/waitlist/:entryId", () => {
+describe("GET /public/v1/venues/:slug/waitlist/status", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
@@ -289,33 +300,58 @@ describe("GET /public/v1/venues/:slug/waitlist/:entryId", () => {
     vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
     vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
     vi.mocked(waitlistService.getById).mockResolvedValue(mockEntry as never);
+    vi.mocked(waitlistService.withLiveEstimates).mockImplementation(((entries: unknown[]) =>
+      Promise.resolve(
+        entries.map((e) => ({ ...(e as object), estimatedWaitMinutes: 12 }))
+      )) as never);
   });
 
-  const url = "/public/v1/venues/the-oak-table/waitlist/entry-1";
+  const urlFor = (token: string, slug = "the-oak-table") =>
+    `/public/v1/venues/${slug}/waitlist/status?token=${encodeURIComponent(token)}`;
+  const goodToken = () => generateWaitlistStatusToken("entry-1", "venue-1");
 
-  it("returns only the live position, estimate and status for that entry", async () => {
-    const res = await app.inject({ method: "GET", url });
+  it("returns the live position, computed estimate and status for the token's entry", async () => {
+    const res = await app.inject({ method: "GET", url: urlFor(goodToken()) });
 
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
-    expect(body.data).toEqual({ position: 4, estimatedWaitMinutes: 45, status: "waiting" });
+    expect(body.data).toEqual({ position: 4, estimatedWaitMinutes: 12, status: "waiting" });
   });
 
-  it("returns 404 for an entry that belongs to another venue", async () => {
+  it("rejects a bare entry id used as a token", async () => {
+    const res = await app.inject({ method: "GET", url: urlFor("entry-1") });
+
+    expect(res.statusCode).toBe(404);
+    expect(waitlistService.getById).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token minted for another venue", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: urlFor(generateWaitlistStatusToken("entry-1", "venue-2")),
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("rejects an expired token", async () => {
+    const old = generateWaitlistStatusToken(
+      "entry-1",
+      "venue-1",
+      Date.now() - WAITLIST_STATUS_TOKEN_TTL_MS - 1000
+    );
+    const res = await app.inject({ method: "GET", url: urlFor(old) });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns 404 when the entry belongs to another venue", async () => {
     vi.mocked(waitlistService.getById).mockResolvedValue({
       ...mockEntry,
       venueId: "venue-2",
     } as never);
 
-    const res = await app.inject({ method: "GET", url });
-
-    expect(res.statusCode).toBe(404);
-  });
-
-  it("returns 404 for an unknown entry", async () => {
-    vi.mocked(waitlistService.getById).mockResolvedValue(null);
-
-    const res = await app.inject({ method: "GET", url });
+    const res = await app.inject({ method: "GET", url: urlFor(goodToken()) });
 
     expect(res.statusCode).toBe(404);
   });
@@ -323,7 +359,7 @@ describe("GET /public/v1/venues/:slug/waitlist/:entryId", () => {
   it("returns 404 for an unknown venue slug", async () => {
     vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 
-    const res = await app.inject({ method: "GET", url });
+    const res = await app.inject({ method: "GET", url: urlFor(goodToken()) });
 
     expect(res.statusCode).toBe(404);
     expect(waitlistService.getById).not.toHaveBeenCalled();

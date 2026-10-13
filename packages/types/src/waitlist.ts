@@ -8,13 +8,17 @@ export interface WaitlistJoinRequest {
 
 /** Response shape for `POST /public/v1/venues/:slug/waitlist` (unauthenticated booking widget). */
 export interface WaitlistJoinResult {
-  /** Unguessable id of the guest's own entry; the key for the live-estimate read. */
-  entryId: string;
+  /**
+   * Signed, expiring capability for reading this one entry's live status
+   * (`GET .../waitlist/status?token=`). The entry id itself is a guessable cuid
+   * and is deliberately never exposed or accepted as the credential.
+   */
+  statusToken: string;
   position: number;
   estimatedWaitMinutes: number;
 }
 
-/** Response shape for `GET /public/v1/venues/:slug/waitlist/:entryId` — the guest's live place in line. */
+/** Response shape for `GET /public/v1/venues/:slug/waitlist/status` — the guest's live place in line. */
 export interface WaitlistEstimate {
   position: number;
   estimatedWaitMinutes: number;

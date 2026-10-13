@@ -361,8 +361,8 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
   },
   // The live-estimate read: joins under venue A, reads it back through A's
   // slug (ok), then through venue B's slug and an unknown slug (denied) - the
-  // entry id alone must never cross venues.
-  "GET /public/v1/venues/:slug/waitlist/:entryId": {
+  // status token is bound to its venue and must never cross venues.
+  "GET /public/v1/venues/:slug/waitlist/status": {
     kind: "ok",
     run: async (ctx) => {
       const join = await asAdmin(ctx, {
@@ -376,18 +376,18 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
         },
       });
       expectOk(join, "join waitlist to read back");
-      const { data } = JSON.parse(join.body) as { data: { entryId: string } };
+      const { data } = JSON.parse(join.body) as { data: { statusToken: string } };
 
       const res = await asAdmin(ctx, {
         method: "GET",
-        url: `/public/v1/venues/${ctx.venueA.slug}/waitlist/${data.entryId}`,
+        url: `/public/v1/venues/${ctx.venueA.slug}/waitlist/status?token=${encodeURIComponent(data.statusToken)}`,
       });
       expectOk(res, "read the live estimate under the entry's own venue slug");
 
       expectDenied(
         await asAdmin(ctx, {
           method: "GET",
-          url: `/public/v1/venues/${ctx.venueB.slug}/waitlist/${data.entryId}`,
+          url: `/public/v1/venues/${ctx.venueB.slug}/waitlist/status?token=${encodeURIComponent(data.statusToken)}`,
         }),
         "entry addressed through another venue's slug"
       );
@@ -395,7 +395,7 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       expectDenied(
         await asAdmin(ctx, {
           method: "GET",
-          url: `/public/v1/venues/${UNKNOWN_SLUG}/waitlist/${data.entryId}`,
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/waitlist/status?token=${encodeURIComponent(data.statusToken)}`,
         }),
         "unknown slug"
       );

@@ -6,7 +6,7 @@ import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./WaitlistJoinView.module.css";
 
 export interface WaitlistJoinedResult {
-  entryId: string;
+  statusToken: string;
   position: number;
   estimatedWaitMinutes: number;
 }

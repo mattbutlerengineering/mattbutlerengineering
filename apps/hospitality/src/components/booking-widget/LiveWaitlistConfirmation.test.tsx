@@ -20,11 +20,17 @@ function renderLive() {
       <LiveWaitlistConfirmation
         api={api}
         venueSlug="the-oak-table"
-        joined={{ entryId: "wl-1", position: 3, estimatedWaitMinutes: 225 }}
+        joined={{ statusToken: "tok-1", position: 3, estimatedWaitMinutes: 45 }}
         onNewBooking={vi.fn()}
       />
     </QueryClientProvider>
   );
+}
+
+async function advancePoll() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(WAITLIST_ESTIMATE_POLL_MS + 10);
+  });
 }
 
 describe("LiveWaitlistConfirmation", () => {
@@ -40,32 +46,64 @@ describe("LiveWaitlistConfirmation", () => {
   it("shows the join-time snapshot first, then the server's live value on the next poll", async () => {
     waitlistEstimate.mockResolvedValue({
       position: 1,
-      estimatedWaitMinutes: 75,
+      estimatedWaitMinutes: 12,
       status: "waiting",
     });
     renderLive();
 
     expect(screen.getByText("#3")).toBeDefined();
-    expect(screen.getByText("225 min")).toBeDefined();
+    expect(screen.getByText("45 min")).toBeDefined();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(WAITLIST_ESTIMATE_POLL_MS + 10);
-    });
+    await advancePoll();
 
-    expect(waitlistEstimate).toHaveBeenCalledWith("the-oak-table", "wl-1");
+    expect(waitlistEstimate).toHaveBeenCalledWith("the-oak-table", "tok-1");
     expect(screen.getByText("#1")).toBeDefined();
-    expect(screen.getByText("75 min")).toBeDefined();
+    expect(screen.getByText("12 min")).toBeDefined();
   });
 
   it("keeps showing the last known value when a poll fails", async () => {
     waitlistEstimate.mockRejectedValue(new Error("network"));
     renderLive();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(WAITLIST_ESTIMATE_POLL_MS + 10);
-    });
+    await advancePoll();
 
     expect(screen.getByText("#3")).toBeDefined();
-    expect(screen.getByText("225 min")).toBeDefined();
+    expect(screen.getByText("45 min")).toBeDefined();
+  });
+
+  it("tells a notified guest their table is ready and stops polling", async () => {
+    waitlistEstimate.mockResolvedValue({
+      position: 1,
+      estimatedWaitMinutes: 0,
+      status: "notified",
+    });
+    renderLive();
+
+    await advancePoll();
+
+    expect(screen.getByText(/your table is ready/i)).toBeDefined();
+    expect(screen.queryByText("Estimated wait")).toBeNull();
+
+    const callsAfterNotified = waitlistEstimate.mock.calls.length;
+    await advancePoll();
+    expect(waitlistEstimate.mock.calls.length).toBe(callsAfterNotified);
+  });
+
+  it.each([
+    ["seated", /seated/i],
+    ["expired", /expired/i],
+    ["cancelled", /cancelled/i],
+  ])("shows a terminal message for %s and stops polling", async (status, message) => {
+    waitlistEstimate.mockResolvedValue({ position: 1, estimatedWaitMinutes: 0, status });
+    renderLive();
+
+    await advancePoll();
+
+    expect(screen.getByText(message)).toBeDefined();
+    expect(screen.queryByText("Estimated wait")).toBeNull();
+
+    const calls = waitlistEstimate.mock.calls.length;
+    await advancePoll();
+    expect(waitlistEstimate.mock.calls.length).toBe(calls);
   });
 });

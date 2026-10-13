@@ -1464,7 +1464,7 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
-        entryId: string;
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }

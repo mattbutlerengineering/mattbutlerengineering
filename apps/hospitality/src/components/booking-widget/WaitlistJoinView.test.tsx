@@ -133,7 +133,7 @@ describe("WaitlistJoinView", () => {
   it("calls onJoined with position and estimatedWaitMinutes after successful join", async () => {
     const onJoined = vi.fn();
     mockApi.publicVenue.joinWaitlist.mockResolvedValue({
-      entryId: "wl-1",
+      statusToken: "tok-1",
       position: 3,
       estimatedWaitMinutes: 45,
     });
@@ -144,7 +144,11 @@ describe("WaitlistJoinView", () => {
     fireEvent.click(screen.getByText(/Join Waitlist/i));
 
     await waitFor(() => {
-      expect(onJoined).toHaveBeenCalledWith({ position: 3, estimatedWaitMinutes: 45 });
+      expect(onJoined).toHaveBeenCalledWith({
+        statusToken: "tok-1",
+        position: 3,
+        estimatedWaitMinutes: 45,
+      });
     });
     expect(mockApi.publicVenue.joinWaitlist).toHaveBeenCalledWith("test-venue", {
       venueId: "venue-1",

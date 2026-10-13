@@ -1349,7 +1349,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
-        entryId: string;
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -9650,6 +9650,39 @@
       export const venueService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-estimate.ts">
+    <item priority="low">
+      type EstimateTable = TableFilter;
+    </item>
+    <item priority="low">
+      interface EstimateReservation {
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        status: string;
+      }
+    </item>
+    <item priority="low">
+      interface EstimateInput {
+        position: number;
+        partySize: number;
+        now: Date;
+        tables: readonly EstimateTable[];
+        reservations: readonly EstimateReservation[];
+      }
+    </item>
+    <item priority="medium">
+      function freeInMs(
+        tableId: string,
+        now: number,
+        durationMs: number,
+        reservations: readonly EstimateReservation[]
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitFromTurnover(input: EstimateInput): number | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-notifier.ts">
     <item priority="low">
       interface WaitlistNotifierLogger {
@@ -9718,6 +9751,28 @@
       export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-status-token.ts">
+    <item priority="high">
+      export const WAITLIST_STATUS_TOKEN_TTL_MS: unknown;
+    </item>
+    <item priority="medium">
+      function sign(entryId: string, venueId: string, expiry: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateWaitlistStatusToken(
+        entryId: string,
+        venueId: string,
+        now: number = Date.now()
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyWaitlistStatusToken(
+        token: string,
+        venueId: string,
+        now: number = Date.now()
+      ): { valid: false } | { valid: true; entryId: string } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
     <item priority="high">
       export function calculatePosition(existingCount: number): number { /* ... */ }
@@ -9754,7 +9809,10 @@
       }
     </item>
     <item priority="low">
-      async function resolveTurnTimeMinutes(venueId: string, partySize: number): Promise<number> { /* ... */ }
+      async function loadEstimator(
+        venueId: string,
+        now: Date
+      ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
@@ -16084,7 +16142,7 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
-        entryId: string;
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }

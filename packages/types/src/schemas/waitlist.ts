@@ -8,7 +8,7 @@ export const WaitlistJoinRequestSchema = z.object({
 });
 
 export const WaitlistJoinResultSchema = z.object({
-  entryId: z.string(),
+  statusToken: z.string(),
   position: z.number(),
   estimatedWaitMinutes: z.number(),
 });

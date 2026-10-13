@@ -1247,7 +1247,7 @@
       guestPhone: z.string(),
     });
     export const WaitlistJoinResultSchema = z.object({
-      entryId: z.string(),
+      statusToken: z.string(),
       position: z.number(),
       estimatedWaitMinutes: z.number(),
     });
@@ -2169,8 +2169,12 @@
       guestPhone: string;
     }
     export interface WaitlistJoinResult {
-      /** Unguessable id of the guest's own entry; the key for the live-estimate read. */
-      entryId: string;
+      /**
+       * Signed, expiring capability for reading this one entry's live status
+       * (`GET .../waitlist/status?token=`). The entry id itself is a guessable cuid
+       * and is deliberately never exposed or accepted as the credential.
+       */
+      statusToken: string;
       position: number;
       estimatedWaitMinutes: number;
     }

@@ -10,7 +10,7 @@ export interface LiveWaitlistConfirmationProps {
   api: BookingWidgetApiClient;
   venueSlug: string;
   /** The join response: the entry id to poll, and the snapshot shown until the first poll lands. */
-  joined: { entryId: string; position: number; estimatedWaitMinutes: number };
+  joined: { statusToken: string; position: number; estimatedWaitMinutes: number };
   onNewBooking: () => void;
 }
 
@@ -28,14 +28,16 @@ export function LiveWaitlistConfirmation({
   onNewBooking,
 }: LiveWaitlistConfirmationProps) {
   const { data } = useQuery<WaitlistEstimate>({
-    queryKey: ["waitlist-estimate", venueSlug, joined.entryId],
-    queryFn: () => api.publicVenue.waitlistEstimate(venueSlug, joined.entryId),
+    queryKey: ["waitlist-estimate", venueSlug, joined.statusToken],
+    queryFn: () => api.publicVenue.waitlistEstimate(venueSlug, joined.statusToken),
     initialData: {
       position: joined.position,
       estimatedWaitMinutes: joined.estimatedWaitMinutes,
       status: "waiting",
     },
-    refetchInterval: WAITLIST_ESTIMATE_POLL_MS,
+    // Only a guest still in line has a number worth polling for.
+    refetchInterval: (query) =>
+      query.state.data?.status === "waiting" ? WAITLIST_ESTIMATE_POLL_MS : false,
     refetchIntervalInBackground: false,
     retry: false,
   });
@@ -44,6 +46,7 @@ export function LiveWaitlistConfirmation({
     <WaitlistConfirmationView
       position={data.position}
       estimatedWaitMinutes={data.estimatedWaitMinutes}
+      status={data.status}
       onNewBooking={onNewBooking}
     />
   );
