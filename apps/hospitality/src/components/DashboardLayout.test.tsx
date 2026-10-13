@@ -554,6 +554,32 @@ describe("DashboardLayout", () => {
     });
   });
 
+  describe("desktop content top padding (#6367 WO-2)", () => {
+    it("gives .content the same top padding as its sides on desktop, no xl override", () => {
+      // The desktop .content rule must not override padding-block-start —
+      // top padding should equal --rialto-space-lg, matching the sides,
+      // instead of the taller --rialto-space-xl that pushed primary
+      // content below the fold.
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "DashboardLayout.module.css"),
+        "utf-8"
+      );
+      const desktopContentRule = css.match(/\.content\s*\{([^}]*)\}/)?.[1] ?? "";
+      expect(desktopContentRule).toMatch(/padding:\s*var\(--rialto-space-lg\)/);
+      expect(desktopContentRule).not.toMatch(/padding-block-start/);
+    });
+
+    it("leaves the mobile .content padding override (--rialto-space-md) unchanged", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "DashboardLayout.module.css"),
+        "utf-8"
+      );
+      const mobileBlock = css.match(/@media[^{]*\{([\s\S]*)\}\s*$/)?.[1] ?? "";
+      const mobileContentRule = mobileBlock.match(/\.content\s*\{([^}]*)\}/)?.[1] ?? "";
+      expect(mobileContentRule).toMatch(/padding:\s*var\(--rialto-space-md\)/);
+    });
+  });
+
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",

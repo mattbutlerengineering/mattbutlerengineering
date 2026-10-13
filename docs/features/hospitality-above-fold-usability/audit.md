@@ -2,7 +2,7 @@
 stage: implement
 run: feature:hospitality-above-fold-usability
 date: 2026-10-13
-wo: WO-1
+wo: WO-2
 ---
 
 # Fold-budget audit
@@ -26,18 +26,48 @@ present in `src/main.tsx` (`waitlist`, `dashboard`, `briefing`, `chat`,
 pages plus ProfilePage/SettingsPage from the table, not the stale table
 verbatim, since Waitlist is a named key page the table omits.
 
-## Routes × viewports (BEFORE)
+## WO-2: shared lever
+
+Removed the `padding-block-start: var(--rialto-space-xl)` override from
+`.content` in `DashboardLayout.module.css`, so desktop top padding now
+equals the side padding, `--rialto-space-lg`. Mobile's
+`padding: var(--rialto-space-md)` override (inside the
+`@media (max-width: 767px)` block) is untouched.
+
+Token values (`packages/rialto/src/tokens/spacing.css`):
+`--rialto-space-xl` = 32px, `--rialto-space-lg` = 24px. Every page that
+routes its primary content through `DashboardLayout`'s `.content` wrapper
+therefore loses exactly 8px of top padding uniformly — a static, token-level
+fact, not a per-page measurement.
+
+Guarded by a new unit test,
+`DashboardLayout.test.tsx` › "desktop content top padding (#6367 WO-2)",
+which reads the CSS source and asserts the desktop `.content` rule has no
+`padding-block-start` override and keeps `padding: var(--rialto-space-lg)`,
+and that the mobile override is unchanged. Confirmed RED against the
+pre-fix CSS, then GREEN after the one-line removal (TDD, not a
+post-hoc test).
+
+## Routes × viewports (BEFORE / AFTER-WO-2)
+
+This worktree has no live E2E environment (no `E2E_AUTH0_*` credentials —
+same gap WO-1 recorded), so `fold-budget.spec.ts` could not be executed here
+either; both BEFORE and the exact AFTER-WO-2 content-start-Y per route stay
+measured, not estimated, and are left for a run with E2E credentials to
+fill. The only safe inference from the CSS change alone is the uniform -8px
+delta above — not a per-route pass/fail, since a route's content-start-Y also
+depends on its own header/status chrome height (WO-3's lever).
 
 | Page             | Route           | 1280×720 content-start-Y | 1366×768 content-start-Y |
 | ---------------- | --------------- | ------------------------ | ------------------------ |
-| HomePage         | `/dashboard`    | _pending run_            | _pending run_            |
-| ReservationsPage | `/reservations` | _pending run_            | _pending run_            |
-| GuestsPage       | `/guests`       | _pending run_            | _pending run_            |
-| TimelinePage     | `/timeline`     | _pending run_            | _pending run_            |
-| FloorPlansPage   | `/floor-plans`  | _pending run_            | _pending run_            |
-| WaitlistPage     | `/waitlist`     | _pending run_            | _pending run_            |
-| ProfilePage      | `/profile`      | _pending run_            | _pending run_            |
-| SettingsPage     | `/settings`     | _pending run_            | _pending run_            |
+| HomePage         | `/dashboard`    | _pending E2E run_        | _pending E2E run_        |
+| ReservationsPage | `/reservations` | _pending E2E run_        | _pending E2E run_        |
+| GuestsPage       | `/guests`       | _pending E2E run_        | _pending E2E run_        |
+| TimelinePage     | `/timeline`     | _pending E2E run_        | _pending E2E run_        |
+| FloorPlansPage   | `/floor-plans`  | _pending E2E run_        | _pending E2E run_        |
+| WaitlistPage     | `/waitlist`     | _pending E2E run_        | _pending E2E run_        |
+| ProfilePage      | `/profile`      | _pending E2E run_        | _pending E2E run_        |
+| SettingsPage     | `/settings`     | _pending E2E run_        | _pending E2E run_        |
 
 ## Wiring check (done, not pending)
 

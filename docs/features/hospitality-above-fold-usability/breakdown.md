@@ -32,7 +32,7 @@ declaring done.
       explicit reference into whatever runs the hospitality e2e suite in
       CI (verify, don't assume — a spec no workflow names never runs).
 
-- [ ] **WO-2: Shared lever — DashboardLayout top padding** — Remove the
+- [x] **WO-2: Shared lever — DashboardLayout top padding** — Remove the
       `padding-block-start: var(--rialto-space-xl)` override from
       `.content` in `DashboardLayout.module.css` so top padding equals
       the sides (`--rialto-space-lg`). Acceptance: computed top padding

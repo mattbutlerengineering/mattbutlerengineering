@@ -134,7 +134,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: var(--rialto-space-lg);
-  padding-block-start: var(--rialto-space-xl);
   outline: none;
 }
 
