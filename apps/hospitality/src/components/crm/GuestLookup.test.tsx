@@ -200,6 +200,16 @@ describe("GuestLookup", () => {
     expect(input).toHaveAttribute("aria-activedescendant", first!.id);
   });
 
+  it("highlights the last row on ArrowUp when nothing is highlighted", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya, priyanka], query: "pri" });
+    render(<Harness />);
+    type("pri");
+    const input = combobox();
+    const [, second] = screen.getAllByRole("option") as HTMLElement[];
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(input).toHaveAttribute("aria-activedescendant", second!.id);
+  });
+
   it("leaves Home and End to the text input so the caret still moves", () => {
     mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya, priyanka], query: "pri" });
     render(<Harness />);

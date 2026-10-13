@@ -299,6 +299,14 @@ describe("useCombobox — inputMode", () => {
     expect(result.current.focusedIndex).toBe(2);
   });
 
+  it("ArrowUp on an open list with nothing focused lands on the last enabled item", () => {
+    const { result } = renderHook(() => useCombobox({ items: withDisabled, inputMode: "input" }));
+    act(() => result.current.openWithFocus());
+    expect(result.current.focusedIndex).toBe(-1);
+    press(result, "ArrowUp");
+    expect(result.current.focusedIndex).toBe(2);
+  });
+
   it("clamps at the ends by default and skips disabled items", () => {
     const { result } = renderHook(() => useCombobox({ items: withDisabled, inputMode: "input" }));
     press(result, "ArrowDown");
