@@ -143,7 +143,8 @@ function findForbiddenKey(value: unknown, forbidden: string[], path = "$"): stri
 describe("GET /api/v1/reservations/metrics/daily", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
-  const mockJWTPayload = createMockJWTPayload();
+  // Platform admin skips the venue-membership lookup (ADR-020); these suites test wiring, not venue authz.
+  const mockJWTPayload = createMockJWTPayload({ permissions: ["admin"] });
 
   beforeEach(async () => {
     process.env = {

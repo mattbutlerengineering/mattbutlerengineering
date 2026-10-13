@@ -13,6 +13,8 @@ export interface OrchestratorConfig {
   readonly taskDescription: string;
   readonly apiBaseUrl: string;
   readonly sessionClient?: AgentSessionClient;
+  /** Credentials for sub-session calls (ignored when sessionClient is supplied). */
+  readonly getAccessToken?: () => string | null | Promise<string | null>;
   readonly model: string;
   readonly sessionModel: string;
   readonly maxBudgetPerSession: number;

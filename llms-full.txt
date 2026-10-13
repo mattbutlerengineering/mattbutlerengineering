@@ -5922,214 +5922,6 @@
         }
       });
   </file>
-  <file path="tools/cli/src/commands/generate.ts">
-    function writeFile(filePath: string, content: string): void {
-      const dir = resolve(filePath, "..");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(filePath, content, "utf8");
-    }
-    function componentTemplate(name: string): string {
-      return `import styles from "./${name}.module.css";
-    
-    export interface ${name}Props {
-      children?: React.ReactNode;
-      className?: string;
-    }
-    
-    /**
-     * ${name} component
-     */
-    export function ${name}({ children, className }: ${name}Props) {
-      return (
-        <div className={\`\${styles.root} \${className || ""}\`}>
-          {children}
-        </div>
-      );
-    }
-    `;
-    }
-    function componentStyleTemplate(): string {
-      return `.root {
-      display: block;
-    }
-    `;
-    }
-    function componentTestTemplate(name: string): string {
-      return `import { describe, it, expect } from "vitest";
-    import { render, screen } from "@testing-library/react";
-    import { ${name} } from "./${name}";
-    
-    describe("${name}", () => {
-      it("renders children correctly", () => {
-        render(<${name}>Test Content</${name}>);
-        expect(screen.getByText("Test Content")).toBeInTheDocument();
-      });
-    });
-    `;
-    }
-    function componentIndexTemplate(name: string): string {
-      return `export * from "./${name}";
-    `;
-    }
-    function routeTemplate(name: string): string {
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      return `import type { FastifyInstance } from "fastify";
-    import { z } from "zod";
-    
-    export async function ${name}Routes(fastify: FastifyInstance) {
-      fastify.get("/${slug}", {
-        schema: {
-          description: "Example generated route",
-          response: {
-            200: {
-              type: "object",
-              properties: {
-                message: { type: "string" },
-              },
-            },
-          },
-        },
-        handler: async (request, reply) => {
-          return { message: "Hello from ${name}" };
-        },
-      });
-    }
-    `;
-    }
-    export const generateCommand = new Command("generate")
-      .alias("g")
-      .description("Generate monorepo entities (components, routes)");
-  </file>
-  <file path="tools/cli/src/commands/health.ts">
-    interface ServiceHealth {
-      status: string;
-      version?: string;
-      latency?: number;
-      checks?: Array<{ name: string; status: string; latency?: number }>;
-    }
-    interface SystemHealth {
-      status: string;
-      timestamp: string;
-      services?: Record<string, ServiceHealth>;
-      staticSites?: Record<string, { status: string }>;
-      ci?: { status: string };
-      deploy?: { status: string };
-    }
-    function colorize(text: string, status: string): string {
-      const colors: Record<string, string> = {
-        healthy: "\x1b[32m",
-        ok: "\x1b[32m",
-        degraded: "\x1b[33m",
-        unhealthy: "\x1b[31m",
-        error: "\x1b[31m",
-        unknown: "\x1b[90m",
-      };
-      const reset = "\x1b[0m";
-      const color = colors[status] ?? colors.unknown;
-      return `${color}${text}${reset}`;
-    }
-    function statusIcon(status: string): string {
-      switch (status) {
-        case "healthy":
-        case "ok":
-          return "\x1b[32m●\x1b[0m";
-        case "degraded":
-          return "\x1b[33m●\x1b[0m";
-        case "unhealthy":
-        case "error":
-          return "\x1b[31m●\x1b[0m";
-        default:
-          return "\x1b[90m●\x1b[0m";
-      }
-    }
-    function padRight(str: string, len: number): string {
-      return str + " ".repeat(Math.max(0, len - str.length));
-    }
-    function formatOutput(data: SystemHealth): void {
-      console.log();
-      console.log(`  System: ${colorize(data.status.toUpperCase(), data.status)}`);
-      console.log(`  Checked: ${data.timestamp}`);
-      console.log();
-    
-      if (data.services) {
-        console.log("  \x1b[1mAPI Services\x1b[0m");
-        for (const [name, svc] of Object.entries(data.services)) {
-          const latency = svc.latency != null ? `${svc.latency}ms` : "";
-          const version = svc.version ? `v${svc.version}` : "";
-          console.log(
-            `    ${statusIcon(svc.status)} ${padRight(name, 16)} ${padRight(latency, 8)} ${version}`
-          );
-        }
-        console.log();
-      }
-    
-      if (data.staticSites) {
-        console.log("  \x1b[1mStatic Sites\x1b[0m");
-        for (const [name, site] of Object.entries(data.staticSites)) {
-          console.log(`    ${statusIcon(site.status)} ${name}`);
-        }
-        console.log();
-      }
-    
-      if (data.ci) {
-        console.log(`  \x1b[1mCI:\x1b[0m ${statusIcon(data.ci.status)} ${data.ci.status}`);
-      }
-      if (data.deploy) {
-        console.log(`  \x1b[1mDeploy:\x1b[0m ${statusIcon(data.deploy.status)} ${data.deploy.status}`);
-      }
-      console.log();
-    }
-    async function fetchHealth(): Promise<SystemHealth> {
-      const response = await fetch(HEALTH_URL, {
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!response.ok) {
-        throw new Error(`Health endpoint returned ${response.status}`);
-      }
-      return response.json() as Promise<SystemHealth>;
-    }
-    export const healthRun = defineCommand({
-      async run(): Promise<CommandResult> {
-        const data = await fetchHealth();
-        return { kind: "json", data };
-      },
-    });
-    export const healthCommand = new Command("health")
-      .description("Show system health status")
-      .option("--json", "Output raw JSON")
-      .option("--watch", "Refresh every 10 seconds")
-      .action(async (options: { json?: boolean; watch?: boolean }) => {
-        const run = async () => {
-          const result = await healthRun({});
-    
-          if (result.kind === "error") {
-            console.error(`\x1b[31mError:\x1b[0m ${result.message}`);
-            if (!options.watch) process.exit(1);
-            return;
-          }
-    
-          if (result.kind === "json") {
-            const data = result.data as SystemHealth;
-            if (options.json) {
-              console.log(JSON.stringify(data, null, 2));
-            } else {
-              if (options.watch) {
-                process.stdout.write("\x1b[2J\x1b[H");
-              }
-              formatOutput(data);
-            }
-          }
-        };
-    
-        await run();
-    
-        if (options.watch) {
-          setInterval(() => {
-            void run();
-          }, 10_000);
-        }
-      });
-  </file>
   <file path="tools/cli/src/commands/issue.ts">
     type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
     export const VALID_TRANSITION_STATES = Object.keys(TRANSITIONS) as TransitionState[];
@@ -6285,266 +6077,6 @@
     export const mcpCommand = new Command("mcp").description(
       "Model Context Protocol (MCP) server management"
     );
-  </file>
-  <file path="tools/cli/src/commands/new.ts">
-    function toTitleCase(name: string): string {
-      return name
-        .split("-")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
-    }
-    function detectNextPort(appsDir: string): number {
-      const KNOWN_PORTS = [3000, 3001, 3002, 3003, 3004];
-      const usedPorts = new Set<number>(KNOWN_PORTS);
-    
-      if (existsSync(appsDir)) {
-        const appDirs = readdirSync(appsDir, { withFileTypes: true })
-          .filter((d) => d.isDirectory())
-          .map((d) => d.name);
-    
-        for (const appDir of appDirs) {
-          const viteConfigPath = join(appsDir, appDir, "vite.config.ts");
-          if (existsSync(viteConfigPath)) {
-            const content = readFileSync(viteConfigPath, "utf8");
-            const match = /port:\s*(\d+)/.exec(content);
-            if (match?.[1]) {
-              usedPorts.add(parseInt(match[1], 10));
-            }
-          }
-        }
-      }
-    
-      let port = 3005;
-      while (usedPorts.has(port)) {
-        port++;
-      }
-      return port;
-    }
-    function generatePackageJson(name: string): string {
-      return JSON.stringify(
-        {
-          name: `@mbe/${name}`,
-          version: "0.0.0",
-          private: true,
-          type: "module",
-          scripts: {
-            dev: "vite",
-            build: "tsc && vite build",
-            preview: "vite preview",
-            lint: "eslint .",
-            typecheck: "tsc --noEmit",
-          },
-          dependencies: {
-            "@mattbutlerengineering/rialto": "workspace:*",
-            "framer-motion": "^12.34.0",
-            "lucide-react": "^0.575.0",
-            react: "^19.2.4",
-            "react-dom": "^19.2.4",
-            "react-router": "^8.3.0",
-          },
-          devDependencies: {
-            "@mbe/config": "workspace:*",
-            "@types/react": "^19.2.14",
-            "@types/react-dom": "^19.2.3",
-            "@vitejs/plugin-react": "^5.1.4",
-            typescript: "^5.9.3",
-            vite: "^7.3.1",
-          },
-        },
-        null,
-        2
-      );
-    }
-    function generateTsConfig(): string {
-      return JSON.stringify(
-        {
-          extends: "../../packages/config/tsconfig.app.json",
-          compilerOptions: {
-            outDir: "./dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2
-      );
-    }
-    function generateViteConfig(name: string, port: number): string {
-      return [
-        'import { defineConfig } from "vite";',
-        'import react from "@vitejs/plugin-react";',
-        "",
-        "export default defineConfig({",
-        `  base: "/${name}/",`,
-        "  plugins: [react()],",
-        "  server: {",
-        `    port: ${port},`,
-        "  },",
-        "});",
-        "",
-      ].join("\n");
-    }
-    function generateIndexHtml(name: string): string {
-      const titleName = toTitleCase(name);
-      return [
-        "<!doctype html>",
-        '<html lang="en">',
-        "  <head>",
-        '    <meta charset="UTF-8" />',
-        '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
-        `    <title>${titleName} | MBE</title>`,
-        '    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
-        "  </head>",
-        "  <body>",
-        '    <div id="root"></div>',
-        '    <script type="module" src="/src/main.tsx"></script>',
-        "  </body>",
-        "</html>",
-        "",
-      ].join("\n");
-    }
-    function generateMainTsx(name: string): string {
-      return [
-        'import "@mattbutlerengineering/rialto/styles";',
-        'import "./global.css";',
-        'import { StrictMode } from "react";',
-        'import { createRoot } from "react-dom/client";',
-        'import { BrowserRouter } from "react-router";',
-        'import { RialtoProvider } from "@mattbutlerengineering/rialto";',
-        'import { App } from "./App";',
-        "",
-        'createRoot(document.getElementById("root")!).render(',
-        "  <StrictMode>",
-        '    <RialtoProvider theme="system">',
-        `      <BrowserRouter basename="/${name}">`,
-        "        <App />",
-        "      </BrowserRouter>",
-        "    </RialtoProvider>",
-        "  </StrictMode>",
-        ");",
-        "",
-      ].join("\n");
-    }
-    function generateAppTsx(): string {
-      return [
-        'import { Routes, Route } from "react-router";',
-        'import { ExamplePage } from "./pages/ExamplePage";',
-        "",
-        "export function App() {",
-        "  return (",
-        "    <Routes>",
-        '      <Route path="/" element={<ExamplePage />} />',
-        "    </Routes>",
-        "  );",
-        "}",
-        "",
-      ].join("\n");
-    }
-    function generateGlobalCss(name: string): string {
-      return `/* Global styles for ${name} app */\n`;
-    }
-    function generateExamplePage(): string {
-      return [
-        'import { Card, Stack, Text, Button } from "@mattbutlerengineering/rialto";',
-        "",
-        "export function ExamplePage() {",
-        "  return (",
-        "    <Stack",
-        '      direction="column"',
-        '      gap="lg"',
-        '      style={{ padding: "var(--rialto-space-xl)", maxWidth: "800px", margin: "0 auto" }}',
-        "    >",
-        '      <Text variant="display" size="2xl">',
-        "        Welcome",
-        "      </Text>",
-        '      <Text variant="body" size="md">',
-        "        This app is powered by Rialto.",
-        "      </Text>",
-        "      <Card>",
-        '        <Stack direction="column" gap="md">',
-        '          <Text variant="heading" size="lg">',
-        "            Getting Started",
-        "          </Text>",
-        '          <Text variant="body">Edit src/pages/ExamplePage.tsx to start building.</Text>',
-        '          <Button variant="primary">Learn More</Button>',
-        "        </Stack>",
-        "      </Card>",
-        "    </Stack>",
-        "  );",
-        "}",
-        "",
-      ].join("\n");
-    }
-    function generateFaviconSvg(): string {
-      return [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">',
-        '  <rect width="512" height="512" rx="96" fill="#f8f6f3"/>',
-        "  <text",
-        '    x="256" y="372"',
-        '    font-family="system-ui, -apple-system, sans-serif"',
-        '    font-size="360"',
-        '    font-weight="500"',
-        '    fill="#c4922a"',
-        '    text-anchor="middle"',
-        "  >R</text>",
-        "</svg>",
-        "",
-      ].join("\n");
-    }
-    function writeFile(filePath: string, content: string): void {
-      const dir = resolve(filePath, "..");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(filePath, content, "utf8");
-    }
-    export const newCommand = new Command("new")
-      .alias("init")
-      .description("Scaffold a new app with Rialto provider and example page")
-      .argument("<name>", "App name in kebab-case (creates apps/<name>/)")
-      .option("-p, --port <port>", "Dev server port (default: auto-detect next available)")
-      .action(async (name: string, options: { port?: string }) => {
-        // Validate name format
-        if (!/^[a-z][a-z0-9-]*$/.test(name)) {
-          console.error(
-            `Error: App name "${name}" is invalid. Use kebab-case (lowercase letters, numbers, hyphens only, must start with a letter).`
-          );
-          process.exit(1);
-        }
-    
-        const repoRoot = findMonorepoRoot(process.cwd());
-        const appsDir = join(repoRoot, "apps");
-        const appDir = join(appsDir, name);
-    
-        // Check for existing directory
-        if (existsSync(appDir)) {
-          console.error(`Error: apps/${name}/ already exists.`);
-          process.exit(1);
-        }
-    
-        // Determine port
-        const port = options.port ? parseInt(options.port, 10) : detectNextPort(appsDir);
-    
-        if (options.port && (isNaN(port) || port < 1 || port > 65535)) {
-          console.error(`Error: Invalid port "${options.port}". Must be a number between 1 and 65535.`);
-          process.exit(1);
-        }
-    
-        // Generate all files
-        writeFile(join(appDir, "package.json"), generatePackageJson(name));
-        writeFile(join(appDir, "tsconfig.json"), generateTsConfig());
-        writeFile(join(appDir, "vite.config.ts"), generateViteConfig(name, port));
-        writeFile(join(appDir, "index.html"), generateIndexHtml(name));
-        writeFile(join(appDir, "public", "favicon.svg"), generateFaviconSvg());
-        writeFile(join(appDir, "src", "main.tsx"), generateMainTsx(name));
-        writeFile(join(appDir, "src", "App.tsx"), generateAppTsx());
-        writeFile(join(appDir, "src", "global.css"), generateGlobalCss(name));
-        writeFile(join(appDir, "src", "pages", "ExamplePage.tsx"), generateExamplePage());
-    
-        console.log(`Scaffolded apps/${name}/`);
-        console.log("");
-        console.log("Next steps:");
-        console.log("  pnpm install");
-        console.log(`  pnpm --filter @mbe/${name} dev`);
-        console.log(`  Open http://localhost:${port}/${name}/`);
-      });
   </file>
   <file path="tools/cli/src/commands/pack.ts">
     function truncateType(type: string, maxLength = 60): string {
@@ -6939,68 +6471,6 @@
       .action(async () => {
         const result = await syncRulesRun({});
         await runCommand(result, {});
-      });
-  </file>
-  <file path="tools/cli/src/commands/up.ts">
-    function run(command: string, cwd: string) {
-      console.log(`\n🏃 Running: ${command}`);
-      execSync(command, { cwd, stdio: "inherit" });
-    }
-    export const upCommand = new Command("up")
-      .description("Launch the entire development environment (Docker, DB, Turbo)")
-      .option("--skip-infra", "Skip Docker infrastructure setup", false)
-      .option("--skip-db", "Skip database push/seed", false)
-      .action(async (options) => {
-        const root = findMonorepoRoot(process.cwd());
-    
-        console.log("🚀 Starting MBE Development Stack...");
-    
-        try {
-          // 1. Pre-flight checks
-          try {
-            execSync("docker --version", { stdio: "ignore" });
-          } catch {
-            console.error("❌ Error: Docker is not installed or not in PATH.");
-            process.exit(1);
-          }
-    
-          // 2. Infrastructure
-          if (!options.skipInfra) {
-            console.log("\n📦 Setting up infrastructure...");
-            run("docker compose -f infrastructure/docker-compose.yml up postgres -d --wait", root);
-          }
-    
-          // 3. Database & Environment
-          if (!options.skipDb) {
-            console.log("\n💾 Initializing environment and database...");
-            run("pnpm env:init", root);
-            run("pnpm db:push", root);
-            // Check for seed script
-            const hasSeed =
-              existsSync(join(root, "scripts/seed.js")) ||
-              existsSync(join(root, "packages/api-client/scripts/seed.ts"));
-            if (hasSeed) {
-              // If there's a seed script in package.json, run it
-              try {
-                run("pnpm db:seed", root);
-              } catch {
-                console.log("⚠️ No db:seed script found or it failed. Skipping seeding.");
-              }
-            }
-          }
-    
-          // 4. Turbo Dev
-          console.log("\n📡 Launching dev servers via Turbo...");
-          const turbo = spawn("pnpm", ["dev"], { cwd: root, stdio: "inherit" });
-    
-          turbo.on("close", (code) => {
-            console.log(`\n👋 Turbo exited with code ${code}`);
-            process.exit(code || 0);
-          });
-        } catch (error) {
-          console.error("\n❌ Bootstrapping failed:", error instanceof Error ? error.message : error);
-          process.exit(1);
-        }
       });
   </file>
   <file path="tools/cli/src/commands/users.ts">
@@ -8515,6 +7985,19 @@
         body: loadFixture(fixtureName),
       });
     }
+    function slotsResponse(route: Route): Promise<void> {
+      const now = new Date();
+      const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
+      const year =
+        thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
+          ? now.getUTCFullYear()
+          : now.getUTCFullYear() + 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`),
+      });
+    }
     function emptyPaginated(route: Route): Promise<void> {
       return route.fulfill({
         status: 200,
@@ -9215,16 +8698,12 @@
           }),
         });
       });
-      await page.route("**/api/v1/availability/*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/api/v1/availability/*", slotsResponse);
       // Public (slug-scoped) availability — the booking widget's api client is
       // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
-      await page.route("**/public/v1/venues/*/availability*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/public/v1/venues/*/availability*", slotsResponse);
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -19183,6 +18662,11 @@
         parsed: z.infer<TSchema>
       ) => GenToolMap | Promise<GenToolMap>;
     }
+    function toError(err: unknown): Error & { statusCode: number } {
+      return Object.assign(new Error("Generation failed upstream", { cause: err }), {
+        statusCode: 502,
+      });
+    }
     export function createGenRoute<TSchema extends z.ZodType>(
       config: GenRouteConfig<TSchema>
     ): FastifyPluginAsync {
@@ -19248,8 +18732,11 @@
                         controller.enqueue(event.content);
                       }
                     });
-                  } finally {
                     controller.close();
+                  } catch (err) {
+                    // Error the stream — closing here would turn an upstream
+                    // failure (e.g. 529/401) into an empty-looking 200.
+                    controller.error(toError(err));
                   }
                 },
               });
@@ -19263,8 +18750,9 @@
                   await runner.run(messages, tools, async (event) => {
                     controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                   });
-                } finally {
                   controller.close();
+                } catch (err) {
+                  controller.error(toError(err));
                 }
               },
             });
@@ -19869,6 +19357,9 @@
               {
                 taskDescription,
                 apiBaseUrl,
+                // Sub-session calls hit this service's own requireAuth routes —
+                // forward the caller's verified bearer token or every call 401s.
+                getAccessToken: () => bearerToken(request.headers.authorization),
                 parentSessionId: parentSession.id,
                 model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
                 sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
@@ -19925,6 +19416,9 @@
         }
       );
     };
+    function bearerToken(header: string | undefined): string | null {
+      return header?.startsWith("Bearer ") ? header.slice(7) : null;
+    }
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -24697,6 +24191,9 @@
     }
     export type PayloadOrFactory =
       InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    export function inWindowDate(daysAhead: number): string {
+      return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
@@ -24936,8 +24433,8 @@
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
-          date: "2026-10-08",
-          time: "2026-10-08T18:00:00Z",
+          date: inWindowDate(8),
+          time: `${inWindowDate(8)}T18:00:00Z`,
           partySize: 2,
           tableId,
         },
@@ -31308,9 +30805,11 @@
       const { reservations, holds } = await fetchConflictData(venueId, date);
     
       const slots: TimeSlot[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
         const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+        if (!isSlotInBookingWindow(slotStart, window)) continue;
         const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
         // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
@@ -31445,6 +30944,7 @@
       }
     
       const results: DateAvailability[] = [];
+      const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
     
       for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = toDateString(d);
@@ -31466,6 +30966,7 @@
     
         for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
           const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+          if (!isSlotInBookingWindow(slotStart, window)) continue;
           const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
           // Applies checkPacingForSlot the same way generateTimeSlots does, so a
@@ -31511,15 +31012,14 @@
       return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
     }
     async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
-      return prisma.table.findMany({
-        where: {
-          venueId,
-          isActive: true,
-          minCovers: { lte: partySize },
-          OR: [{ maxCovers: { gte: partySize } }, { maxCovers: null }],
-        },
+      // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
+      // place - @mbe/types' partyFitsTable - so it is applied here rather than
+      // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
+      const tables = await prisma.table.findMany({
+        where: { venueId, isActive: true },
         orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       });
+      return filterSuitableTables(tables, partySize);
     }
     export async function fetchConflictData(
       venueId: string,
@@ -34423,6 +33923,7 @@
     };
   </file>
   <file path="services/reservations/src/services/hold.ts">
+    export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
         id: hold.id,
@@ -34467,6 +33968,15 @@
     
         // Calculate times
         const startTime = new Date(time);
+    
+        // Guests may only hold a slot inside the venue's booking window (not in
+        // the past, within min/max advance) - the same rule generateTimeSlots
+        // applies when listing slots, so a hand-crafted request can't bypass it.
+        if (
+          !isSlotInBookingWindow(startTime, bookingWindow(settings, new Date(), venue.ianaTimezone))
+        ) {
+          return { success: false, error: BOOKING_WINDOW_ERROR };
+        }
         const duration = estimateDuration(partySize, settings);
         const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
         const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
@@ -36477,12 +35987,14 @@
           const targetTableId = data.tableId ?? existing.tableId;
           const table = await prisma.table.findUnique({
             where: { id: targetTableId },
-            select: { capacity: true },
+            select: { capacity: true, maxCovers: true },
           });
-          if (table && data.partySize > table.capacity) {
+          // Same ceiling the booking path uses: maxCovers, else capacity.
+          const ceiling = table ? tableMaxCovers(table) : undefined;
+          if (ceiling !== undefined && data.partySize > ceiling) {
             return {
               success: false,
-              error: `Party size ${data.partySize} exceeds table capacity of ${table.capacity}`,
+              error: `Party size ${data.partySize} exceeds table capacity of ${ceiling}`,
               capacityExceeded: true,
             };
           }
@@ -37024,10 +36536,7 @@
       return largestRule.durationMinutes + extraTime;
     }
     export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
-      return tables.filter(
-        (t) =>
-          t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
-      );
+      return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
     }
     export function parseOperatingHours(
       operatingHours: OperatingHours | null,
@@ -37037,6 +36546,39 @@
       // YYYY-MM-DD strings parse as UTC midnight; getUTCDay keeps weekday resolution
       // timezone-stable (same as internal getDaySchedule via getUTCDay).
       return scheduleForDay(operatingHours, new Date(date).getUTCDay());
+    }
+    export interface BookingWindow {
+      /** Earliest bookable instant (inclusive). */
+      earliest: Date;
+      /** Last bookable venue-local date (YYYY-MM-DD, inclusive); null = unbounded. */
+      latestLocalDate: string | null;
+      ianaTimezone: string;
+    }
+    function addCalendarDays(date: string, days: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    export function bookingWindow(
+      settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+      now: Date,
+      ianaTimezone: string
+    ): BookingWindow {
+      const minHours = settings?.minAdvanceBooking ?? 0;
+      const maxDays = settings?.maxAdvanceBooking;
+      return {
+        earliest: new Date(now.getTime() + minHours * MS_PER_HOUR),
+        latestLocalDate:
+          maxDays === undefined
+            ? null
+            : addCalendarDays(venueLocalDateString(now, ianaTimezone), maxDays),
+        ianaTimezone,
+      };
+    }
+    export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean {
+      if (slotStart < window.earliest) return false;
+      if (window.latestLocalDate === null) return true;
+      return venueLocalDateString(slotStart, window.ianaTimezone) <= window.latestLocalDate;
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
     export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
@@ -42938,8 +42480,17 @@
     }
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
+    function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient {
+      return (
+        config.sessionClient ??
+        new AgentSessionClient({
+          baseUrl: config.apiBaseUrl,
+          getAccessToken: config.getAccessToken,
+        })
+      );
+    }
     function createSessionTools(config: OrchestratorConfig) {
-      const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+      const client = resolveSessionClient(config);
     
       const createSessionTool = tool(
         "create_session",
@@ -43019,10 +42570,7 @@
         "list_sessions",
         "List all sessions. Use to check overall progress.",
         {
-          status: z
-            .enum(["pending", "running", "succeeded", "failed", "cancelled"])
-            .optional()
-            .describe("Filter by status"),
+          status: AgentSessionStatusSchema.optional().describe("Filter by status"),
           page: z.number().optional().describe("Page number (default 1)"),
           limit: z.number().optional().describe("Items per page (default 20)"),
         },
@@ -43141,8 +42689,7 @@
       emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);
     
       // Session client for status gathering after orchestration completes (reads only — default retries are fine)
-      const sessionClient =
-        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+      const sessionClient = resolveSessionClient(config);
     
       // Create MCP server with session management tools
       const tools = createSessionTools(config);
@@ -46553,6 +46100,8 @@
       readonly taskDescription: string;
       readonly apiBaseUrl: string;
       readonly sessionClient?: AgentSessionClient;
+      /** Credentials for sub-session calls (ignored when sessionClient is supplied). */
+      readonly getAccessToken?: () => string | null | Promise<string | null>;
       readonly model: string;
       readonly sessionModel: string;
       readonly maxBudgetPerSession: number;
@@ -47597,23 +47146,6 @@
       readonly cache_creation_input_tokens: number;
       readonly cache_read_input_tokens: number;
     }
-    export interface MockResultMessage {
-      readonly type: "result";
-      readonly subtype: "success" | "error_max_turns" | "error_during_turn";
-      readonly uuid: string;
-      readonly session_id: string;
-      readonly duration_ms: number;
-      readonly duration_api_ms: number;
-      readonly is_error: boolean;
-      readonly num_turns: number;
-      readonly result: string;
-      readonly stop_reason: string;
-      readonly total_cost_usd: number;
-      readonly usage: MockTokenUsage;
-      readonly modelUsage: Record<string, unknown>;
-      readonly permission_denials: unknown[];
-      readonly errors?: readonly string[];
-    }
     export interface MockClientOptions {
       /**
        * Mode of operation.
@@ -47664,28 +47196,18 @@
       callIndex: number,
       tokens: Readonly<{ input: number; output: number }>,
       costUsd: number
-    ): MockResultMessage {
-      return {
-        type: "result",
-        subtype: "success",
-        uuid: `mock-uuid-${callIndex}`,
-        session_id: `mock-session-${callIndex}`,
-        duration_ms: 1000,
-        duration_api_ms: 900,
-        is_error: false,
-        num_turns: 3,
-        result: `Mock task completed successfully (call ${callIndex})`,
-        stop_reason: "end_turn",
-        total_cost_usd: costUsd,
-        usage: {
-          input_tokens: tokens.input,
-          output_tokens: tokens.output,
-          cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0,
+    ): SDKResultMessage {
+      return buildSuccessResult(
+        {
+          sessionId: `mock-session-${callIndex}`,
+          numTurns: 3,
+          costUsd,
+          inputTokens: tokens.input,
+          outputTokens: tokens.output,
+          durationMs: 1000,
         },
-        modelUsage: {},
-        permission_denials: [],
-      };
+        `Mock task completed successfully (call ${callIndex})`
+      );
     }
     export interface MockClaudeClient {
       /**
@@ -47795,7 +47317,7 @@
           );
           costHistory.push(deterministicCostUsd);
           tokenHistory.push({ input: deterministicTokens.input, output: deterministicTokens.output });
-          yield result as unknown as SDKMessage;
+          yield result;
         }
       }
     
@@ -47829,6 +47351,52 @@
       };
     }
   </file>
+  <file path="packages/agent-test-utils/src/sdk-result.ts">
+    export interface ResultInputs {
+      readonly sessionId: string;
+      readonly numTurns: number;
+      readonly costUsd: number;
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+      readonly durationMs: number;
+    }
+    export function fixtureUuid(seed: string): SDKResultMessage["uuid"] {
+      const hex = Buffer.from(seed).toString("hex").padEnd(32, "0").slice(0, 32);
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] {
+      return {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 },
+        inference_geo: "us",
+        iterations: [],
+        server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
+        service_tier: "standard",
+        speed: "standard",
+      };
+    }
+    export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage {
+      return {
+        type: "result",
+        subtype: "success",
+        uuid: fixtureUuid(opts.sessionId),
+        session_id: opts.sessionId,
+        duration_ms: opts.durationMs,
+        duration_api_ms: Math.floor(opts.durationMs * 0.9),
+        is_error: false,
+        num_turns: opts.numTurns,
+        result,
+        stop_reason: "end_turn",
+        total_cost_usd: opts.costUsd,
+        usage: buildUsage(opts.inputTokens, opts.outputTokens),
+        modelUsage: {},
+        permission_denials: [],
+      };
+    }
+  </file>
   <file path="packages/agent-test-utils/src/session-fixtures.ts">
     export interface ToolCallRecord {
       readonly toolName: string;
@@ -47855,75 +47423,41 @@
         data: { message: `Session ${sessionId} started` },
       };
     }
+    function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent {
+      return {
+        type: mapped.type,
+        timestamp: makeTimestamp(offsetMs),
+        data: { message: JSON.stringify(mapped) },
+      };
+    }
     function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent {
-      return {
-        type: "session:assistant",
-        timestamp: makeTimestamp(offsetMs),
-        data: {
-          type: "assistant",
-          message: {
-            id: `msg_${Math.random().toString(36).slice(2, 10)}`,
-            type: "message",
-            role: "assistant",
-            content: [{ type: "text", text }],
-            model: "claude-sonnet-4-6",
-            stop_reason: null,
-            stop_sequence: null,
-            usage: { input_tokens: 100, output_tokens: 50 },
-          },
-        } as unknown as SessionEvent["data"],
-      };
+      return buildMappedEvent({ type: "session:assistant", text }, offsetMs);
     }
-    function buildToolUseEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent {
-      return {
-        type: "session:tool_use",
-        timestamp: makeTimestamp(offsetMs),
-        data: {
-          type: "tool_use",
-          tool_use: {
-            id: `toolu_${Math.random().toString(36).slice(2, 10)}`,
-            name: call.toolName,
-            input: call.input,
-          },
-        } as unknown as SessionEvent["data"],
-      };
+    function toolUseIdFor(call: ToolCallRecord, index: number): string {
+      return `toolu_${index}_${call.toolName.toLowerCase()}`;
     }
-    function buildToolResultEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent {
-      return {
-        type: "session:tool_result",
-        timestamp: makeTimestamp(offsetMs),
-        data: {
-          type: "tool_result",
-          tool_use_id: `toolu_${Math.random().toString(36).slice(2, 10)}`,
-          content: call.output ?? "Tool executed successfully",
-        } as unknown as SessionEvent["data"],
-      };
+    function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+      return buildMappedEvent(
+        {
+          type: "session:tool_use",
+          toolName: call.toolName,
+          toolInput: call.input,
+          toolUseId: toolUseIdFor(call, index),
+        },
+        offsetMs
+      );
+    }
+    function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent {
+      return buildMappedEvent(
+        { type: "session:tool_result", toolUseId: toolUseIdFor(call, index), isError: false },
+        offsetMs
+      );
     }
     function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent {
       return {
         type: "session:result",
         timestamp: makeTimestamp(opts.durationMs),
-        data: {
-          type: "result",
-          subtype: "success",
-          uuid: `uuid_${opts.sessionId}`,
-          session_id: opts.sessionId,
-          duration_ms: opts.durationMs,
-          duration_api_ms: Math.floor(opts.durationMs * 0.9),
-          is_error: false,
-          num_turns: opts.numTurns,
-          result: opts.resultText,
-          stop_reason: "end_turn",
-          total_cost_usd: opts.costUsd,
-          usage: {
-            input_tokens: opts.inputTokens,
-            output_tokens: opts.outputTokens,
-            cache_creation_input_tokens: 0,
-            cache_read_input_tokens: 0,
-          },
-          modelUsage: {},
-          permission_denials: [],
-        } as unknown as SessionEvent["data"],
+        data: buildSuccessResult(opts, opts.resultText),
       };
     }
     export function buildMinimalSuccessFixture(opts: FixtureOptions = {}): readonly SessionEvent[] {
@@ -47975,14 +47509,14 @@
       const events: SessionEvent[] = [buildStartEvent(o.sessionId)];
       let offset = 500;
     
-      for (const call of o.toolCalls) {
+      for (const [index, call] of o.toolCalls.entries()) {
         events.push(
           buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset)
         );
         offset += 200;
-        events.push(buildToolUseEvent(call, offset));
+        events.push(buildToolUseEvent(call, index, offset));
         offset += 100;
-        events.push(buildToolResultEvent(call, offset));
+        events.push(buildToolResultEvent(call, index, offset));
         offset += 100;
       }
     
@@ -48016,26 +47550,20 @@
           timestamp: makeTimestamp(o.durationMs),
           data: {
             type: "result",
-            subtype: "error_during_turn",
-            uuid: `uuid_${o.sessionId}`,
+            subtype: "error_during_execution",
+            uuid: fixtureUuid(o.sessionId),
             session_id: o.sessionId,
             duration_ms: o.durationMs,
             duration_api_ms: Math.floor(o.durationMs * 0.9),
             is_error: true,
             num_turns: o.numTurns,
-            result: "",
             stop_reason: "error",
             total_cost_usd: o.costUsd,
-            usage: {
-              input_tokens: o.inputTokens,
-              output_tokens: o.outputTokens,
-              cache_creation_input_tokens: 0,
-              cache_read_input_tokens: 0,
-            },
+            usage: buildUsage(o.inputTokens, o.outputTokens),
             modelUsage: {},
             permission_denials: [],
             errors: ["Rate limit exceeded. Please try again later."],
-          } as unknown as SessionEvent["data"],
+          },
         },
       ];
     }
@@ -48087,12 +47615,20 @@
       return events
         .filter((e) => e.type === "session:tool_use")
         .map((e) => {
-          const data = e.data as { tool_use?: { name: string; input: Record<string, unknown> } };
-          return {
-            toolName: data.tool_use?.name ?? "unknown",
-            input: data.tool_use?.input ?? {},
-          };
+          const mapped = parseMappedEvent(e);
+          return mapped?.type === "session:tool_use"
+            ? { toolName: mapped.toolName, input: mapped.toolInput }
+            : { toolName: "unknown", input: {} };
         });
+    }
+    function parseMappedEvent(event: SessionEvent): MappedEvent | undefined {
+      const data = event.data;
+      if (!("message" in data) || typeof data.message !== "string") return undefined;
+      try {
+        return JSON.parse(data.message) as MappedEvent;
+      } catch {
+        return undefined;
+      }
     }
     export function compareToolCalls(
       expected: readonly ToolCallRecord[],
@@ -48363,8 +47899,10 @@
       baseBranch?: string;
       parentId?: string;
     }
+    type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
     export interface ListSessionsParams {
-      status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+      /** Query vocabulary of GET /v1/sessions (AgentSessionStatusSchema), not the lowercase response status. */
+      status?: AgentSessionQueryStatus;
       page?: number;
       limit?: number;
     }
@@ -53211,6 +52749,18 @@
       return Math.floor(ms / 1000);
     }
   </file>
+  <file path="packages/observability/src/build-info.ts">
+    export const UNKNOWN_BUILD = "unknown";
+    export interface BuildInfo {
+      readonly sha: string;
+      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
+      readonly version: string;
+    }
+    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
+      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
+      return { sha, version: sha };
+    }
+  </file>
   <file path="packages/observability/src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
@@ -53696,9 +53246,9 @@
     
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: config.serviceName,
-        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
         [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
-        "deploy.sha": process.env.DEPLOY_SHA ?? "unknown",
+        "deploy.sha": resolveBuildInfo(process.env).sha,
         "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
         "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
       });
@@ -54285,7 +53835,7 @@
     export interface SentryConfig {
       readonly dsn: string;
       readonly environment: string;
-      readonly release: string | undefined;
+      readonly release: string;
       readonly enabled: boolean;
     }
     export function resolveConfig(dsn: string | undefined): SentryConfig {
@@ -54298,7 +53848,7 @@
           "development",
         release:
           (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
+          resolveBuildInfo(typeof process !== "undefined" ? process.env : {}).version,
         enabled: resolvedDsn.length > 0,
       };
     }
@@ -54505,7 +54055,7 @@
         // An own `release: undefined` key would override the SDK's default, which
         // reads the SENTRY_RELEASE global that sentryVitePlugin injects into the
         // bundle — so only pass release when one was actually resolved.
-        ...(config.release !== undefined && { release: config.release }),
+        ...(config.release !== UNKNOWN_BUILD && { release: config.release }),
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
         integrations: [],
@@ -55412,6 +54962,19 @@
       const dot = name.lastIndexOf(".");
       return dot === -1 ? "" : name.slice(dot).toLowerCase();
     }
+    function hasShebang(path: string): boolean {
+      const fd = openSync(path, "r");
+      try {
+        const buf = Buffer.alloc(2);
+        return readSync(fd, buf, 0, 2, 0) === 2 && buf.toString("latin1") === "#!";
+      } finally {
+        closeSync(fd);
+      }
+    }
+    function isScannable(name: string, full: string): boolean {
+      const ext = extensionOf(name);
+      return ext === "" ? hasShebang(full) : TEXT_EXTENSIONS.has(ext);
+    }
     export function collectFiles(rootDir: string): SourceFile[] {
       const out: SourceFile[] = [];
     
@@ -55424,7 +54987,7 @@
             continue;
           }
           if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
-          if (!TEXT_EXTENSIONS.has(extensionOf(entry.name))) continue;
+          if (!isScannable(entry.name, full)) continue;
           if (statSync(full).size > MAX_FILE_BYTES) continue;
           const relPath = relative(rootDir, full).split(sep).join("/");
           out.push({ relPath, content: readFileSync(full, "utf8") });
@@ -55437,24 +55000,58 @@
   </file>
   <file path="packages/supply-chain-scanner/src/rule-engine.ts">
     export interface Rule {
-      /** Non-global regex tested per line. (Global regexes carry lastIndex state — banned.) */
+      /** Non-global regex tested per line / folded continuation. (Global regexes carry lastIndex state — banned.) */
       readonly pattern: RegExp;
       readonly category: Category;
       readonly severity: Severity;
+      /** Optional file-path filter; the rule is skipped for files that match. */
+      readonly excludes?: RegExp;
+    }
+    interface Group {
+      readonly text: string;
+      /** Physical lines in the group after the first. */
+      readonly rest: readonly string[];
+    }
+    function continuationGroup(
+      lines: readonly string[],
+      start: number,
+      continues: RegExp
+    ): Group | null {
+      let text = lines[start]!;
+      const rest: string[] = [];
+      while (
+        continues.test(text) &&
+        rest.length + 1 < MAX_JOINED_LINES &&
+        start + rest.length + 1 < lines.length
+      ) {
+        const next = lines[start + rest.length + 1]!;
+        rest.push(next);
+        text = `${text.replace(/\\\s*$/, "")} ${next.trim()}`;
+      }
+      return rest.length > 0 ? { text, rest } : null;
     }
     export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
       const findings: Finding[] = [];
       const lines = content.split(/\r?\n/);
+      const prose = isProseFile(file);
+      const continues = prose ? PROSE_CONTINUES : CONTINUES;
+      const active = rules.filter((r) => !r.excludes || !r.excludes.test(file));
+      const add = (rule: Rule, line: number, text: string): void => {
+        findings.push({
+          category: rule.category,
+          severity: rule.severity,
+          file,
+          line,
+          evidence: text.trim().slice(0, MAX_EVIDENCE),
+        });
+      };
       for (const [i, line] of lines.entries()) {
-        for (const rule of rules) {
+        const group = continuationGroup(lines, i, continues);
+        for (const rule of active) {
           if (rule.pattern.test(line)) {
-            findings.push({
-              category: rule.category,
-              severity: rule.severity,
-              file,
-              line: i + 1,
-              evidence: line.trim().slice(0, MAX_EVIDENCE),
-            });
+            add(rule, i + 1, line);
+          } else if (group && rule.pattern.test(group.text)) {
+            if (!group.rest.some((l) => rule.pattern.test(l))) add(rule, i + 1, group.text);
           }
         }
       }
@@ -55594,7 +55191,8 @@
         email_verified: true,
         name: "Test User",
         picture: "https://example.com/pic.jpg",
-        permissions: ["admin"],
+        // Least privilege: tests that need admin must ask for it explicitly.
+        permissions: [],
         ...overrides,
       });
     }
@@ -56344,6 +55942,19 @@
       firstName: string | null;
       visitCount: number;
       hasPreferences: boolean;
+    }
+  </file>
+  <file path="packages/types/src/party-fit.ts">
+    export interface PartyFitTable {
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+    }
+    export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number {
+      return table.maxCovers ?? table.capacity;
+    }
+    export function partyFitsTable(table: PartyFitTable, partySize: number): boolean {
+      return table.minCovers <= partySize && partySize <= tableMaxCovers(table);
     }
   </file>
   <file path="packages/types/src/reservation.ts">
@@ -59118,6 +58729,7 @@
   <file path="services/users/src/test/fixtures.ts">
     export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
+    export const ADMIN_JWT_PAYLOAD = createMockJWTPayload({ permissions: ["admin"] });
   </file>
   </section>
   <section priority="medium" role="timeline">
@@ -61209,12 +60821,11 @@
     ): boolean {
       return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
     }
-    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-      tables: readonly T[],
-      partySize: number
-    ): T[] {
+    export function tablesThatFit<
+      T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+    >(tables: readonly T[], partySize: number): T[] {
       return tables
-        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .filter((table) => tableAcceptsParty(table) && partyFitsTable(table, partySize))
         .sort((a, b) => a.capacity - b.capacity);
     }
   </file>

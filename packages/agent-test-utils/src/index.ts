@@ -3,7 +3,6 @@ export { createMockClaudeClient, createMockQueryStream } from "./mock-claude-cli
 export type {
   MockMode,
   MockTokenUsage,
-  MockResultMessage,
   MockClientOptions,
   MockCallRecord,
   MockClaudeClient,

@@ -561,6 +561,11 @@
         parsed: z.infer<TSchema>
       ) => GenToolMap | Promise<GenToolMap>;
     }
+    function toError(err: unknown): Error & { statusCode: number } {
+      return Object.assign(new Error("Generation failed upstream", { cause: err }), {
+        statusCode: 502,
+      });
+    }
     export function createGenRoute<TSchema extends z.ZodType>(
       config: GenRouteConfig<TSchema>
     ): FastifyPluginAsync {
@@ -626,8 +631,11 @@
                         controller.enqueue(event.content);
                       }
                     });
-                  } finally {
                     controller.close();
+                  } catch (err) {
+                    // Error the stream — closing here would turn an upstream
+                    // failure (e.g. 529/401) into an empty-looking 200.
+                    controller.error(toError(err));
                   }
                 },
               });
@@ -641,8 +649,9 @@
                   await runner.run(messages, tools, async (event) => {
                     controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                   });
-                } finally {
                   controller.close();
+                } catch (err) {
+                  controller.error(toError(err));
                 }
               },
             });
@@ -1247,6 +1256,9 @@
               {
                 taskDescription,
                 apiBaseUrl,
+                // Sub-session calls hit this service's own requireAuth routes —
+                // forward the caller's verified bearer token or every call 401s.
+                getAccessToken: () => bearerToken(request.headers.authorization),
                 parentSessionId: parentSession.id,
                 model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
                 sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
@@ -1303,6 +1315,9 @@
         }
       );
     };
+    function bearerToken(header: string | undefined): string | null {
+      return header?.startsWith("Bearer ") ? header.slice(7) : null;
+    }
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;

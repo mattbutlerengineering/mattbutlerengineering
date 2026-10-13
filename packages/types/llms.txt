@@ -1035,6 +1035,21 @@
       }
     </item>
   </file>
+  <file path="src/party-fit.ts">
+    <item priority="low">
+      interface PartyFitTable {
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function tableMaxCovers(table: Pick<PartyFitTable, "capacity" | "maxCovers">): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function partyFitsTable(table: PartyFitTable, partySize: number): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/reservation.ts">
     <item priority="low">
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";

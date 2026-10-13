@@ -299,6 +299,58 @@ describe("createGenRoute factory", () => {
     });
   });
 
+  describe("upstream model failure", () => {
+    const cases = [
+      { format: "text" as const, status: 529 },
+      { format: "text" as const, status: 401 },
+      { format: "ndjson" as const, status: 529 },
+      { format: "ndjson" as const, status: 401 },
+    ];
+
+    it.each(cases)(
+      "errors the $format stream on upstream $status instead of closing as an empty 200",
+      async ({ format, status }) => {
+        app = buildTestApp();
+        await app.register(
+          createGenRoute({
+            path: "/api/test/fail",
+            costLogLabel: "test-fail cost log",
+            rateLimit: { max: 50, timeWindow: "1 hour" },
+            schema: ChatSchema,
+            streamFormat: format,
+            maxSteps: 1,
+            getTools: async () => ({}),
+          })
+        );
+        await app.ready();
+        vi.mocked(streamText).mockReturnValueOnce({
+          fullStream: mockStream([
+            { type: "error", error: Object.assign(new Error(`upstream ${status}`), { status }) },
+          ]),
+        } as never);
+
+        const outcome = await app
+          .inject({
+            method: "POST",
+            url: "/api/test/fail",
+            payload: { messages: [{ role: "user", content: "hello" }] },
+          })
+          .then(
+            (r) => ({ rejected: false as const, code: r.statusCode, body: r.body }),
+            () => ({ rejected: true as const, code: 0, body: "" })
+          );
+
+        // A failed model call must be client-visible: an errored stream (fastify
+        // answers with an error status while no bytes are sent) or an aborted
+        // response — never a clean 200.
+        // Upstream status/detail must not leak: always a generic 502.
+        expect(outcome.rejected).toBe(false);
+        expect(outcome.code).toBe(502);
+        expect(outcome.body).not.toContain(`upstream ${status}`);
+      }
+    );
+  });
+
   describe("cost logging", () => {
     beforeEach(async () => {
       app = buildTestApp();

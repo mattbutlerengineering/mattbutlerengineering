@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./build-info": {
+      "types": "./src/build-info.ts",
+      "production": "./dist/build-info.js",
+      "default": "./src/build-info.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "production": "./dist/index.js",

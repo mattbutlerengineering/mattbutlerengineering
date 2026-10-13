@@ -13,6 +13,10 @@ beforeAll(() => {
   writeFileSync(join(root, "image.png"), "not-really-binary");
   mkdirSync(join(root, "node_modules", "evil"), { recursive: true });
   writeFileSync(join(root, "node_modules", "evil", "index.js"), "hacked");
+  writeFileSync(join(root, "server.py"), "import os");
+  mkdirSync(join(root, "bin"));
+  writeFileSync(join(root, "bin", "run"), "#!/usr/bin/env bash\necho hi");
+  writeFileSync(join(root, "bin", "LICENSE"), "MIT License");
   mkdirSync(join(root, "nested"));
   writeFileSync(join(root, "nested", "deep.ts"), "export const y = 2;");
 });
@@ -27,6 +31,16 @@ describe("collectFiles", () => {
     expect(rels).toContain("index.js");
     expect(rels).toContain("SKILL.md");
     expect(rels).toContain("nested/deep.ts");
+  });
+
+  it("collects .py files", () => {
+    expect(collectFiles(root).map((f) => f.relPath)).toContain("server.py");
+  });
+
+  it("collects extension-less files with a shebang, not other extension-less files", () => {
+    const rels = collectFiles(root).map((f) => f.relPath);
+    expect(rels).toContain("bin/run");
+    expect(rels).not.toContain("bin/LICENSE");
   });
 
   it("skips node_modules", () => {

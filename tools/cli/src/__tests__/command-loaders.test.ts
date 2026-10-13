@@ -37,19 +37,19 @@ describe("registerCommands", () => {
         "agent",
         "check-model",
         "loop",
-        "new",
-        "up",
-        "generate",
         "pack",
         "pack-changed",
         "sync-rules",
         "check-adr",
         "check-deps",
-        "health",
         "mcp",
         "issue",
       ].sort()
     );
+  });
+
+  it.each(["new", "generate", "up", "health"])("does not register retired command %s", (name) => {
+    expect(COMMAND_NAMES).not.toContain(name);
   });
 
   it("loads every command when none is named (help, no args)", async () => {

@@ -256,69 +256,6 @@
       export const checkDepsCommand: unknown;
     </item>
   </file>
-  <file path="src/commands/generate.ts">
-    <item priority="medium">
-      function writeFile(filePath: string, content: string): void { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentStyleTemplate(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentTestTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function componentIndexTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function routeTemplate(name: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export const generateCommand: unknown;
-    </item>
-  </file>
-  <file path="src/commands/health.ts">
-    <item priority="high">
-      interface ServiceHealth {
-        status: string;
-        version?: string;
-        latency?: number;
-        checks?: Array<{ name: string; status: string; latency?: number }>;
-      }
-    </item>
-    <item priority="high">
-      interface SystemHealth {
-        status: string;
-        timestamp: string;
-        services?: Record<string, ServiceHealth>;
-        staticSites?: Record<string, { status: string }>;
-        ci?: { status: string };
-      }
-    </item>
-    <item priority="medium">
-      function colorize(text: string, status: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function statusIcon(status: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function padRight(str: string, len: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function formatOutput(data: SystemHealth): void { /* ... */ }
-    </item>
-    <item priority="low">
-      async function fetchHealth(): Promise<SystemHealth> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const healthRun: unknown;
-    </item>
-    <item priority="high">
-      export const healthCommand: unknown;
-    </item>
-  </file>
   <file path="src/commands/issue.ts">
     <item priority="high">
       type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
@@ -360,47 +297,6 @@
       export const mcpCommand: unknown;
     </item>
   </file>
-  <file path="src/commands/new.ts">
-    <item priority="medium">
-      function toTitleCase(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function detectNextPort(appsDir: string): number { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generatePackageJson(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateTsConfig(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateViteConfig(name: string, port: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateIndexHtml(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateMainTsx(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateAppTsx(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateGlobalCss(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateExamplePage(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function generateFaviconSvg(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function writeFile(filePath: string, content: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export const newCommand: unknown;
-    </item>
-  </file>
   <file path="src/commands/pack.ts">
     <item priority="medium">
       function truncateType(type: string, maxLength = 60): string { /* ... */ }
@@ -435,14 +331,6 @@
     </item>
     <item priority="high">
       export const syncRulesCommand: unknown;
-    </item>
-  </file>
-  <file path="src/commands/up.ts">
-    <item priority="medium">
-      function run(command: string, cwd: string) { /* ... */ }
-    </item>
-    <item priority="high">
-      export const upCommand: unknown;
     </item>
   </file>
   <file path="src/commands/users.ts">

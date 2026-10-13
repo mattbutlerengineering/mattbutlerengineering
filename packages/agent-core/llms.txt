@@ -1749,6 +1749,9 @@
   </file>
   <file path="src/orchestrator.ts">
     <item priority="medium">
+      function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient { /* ... */ }
+    </item>
+    <item priority="medium">
       function createSessionTools(config: OrchestratorConfig) { /* ... */ }
     </item>
     <item priority="medium">
@@ -2564,8 +2567,8 @@
         taskDescription: string;
         apiBaseUrl: string;
         sessionClient?: AgentSessionClient;
+        getAccessToken?: () => string | null | Promise<string | null>;
         model: string;
-        sessionModel: string;
       }
     </item>
     <item priority="high">
