@@ -6904,10 +6904,7 @@
       return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
     }
     export function getSegmentLabel(visitCount: number, tags: readonly string[] | null): string {
-      const tagList = (tags ?? []).map((tag) => tag.toLowerCase());
-      if (tagList.includes("vip") || visitCount >= 10) return "VIP";
-      if (visitCount >= 2) return "Repeat";
-      return "New";
+      return classifyGuestSegment(visitCount, tags);
     }
     export function getSegmentVariant(label: string): GuestSegmentVariant {
       if (label === "VIP") return "accent";
@@ -33700,6 +33697,33 @@
         updatedAt: guest.updatedAt.toISOString(),
       };
     }
+    async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
+      // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+      // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+      const rows = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$queryRaw<{ vip: number; fresh: number }[]>`
+        SELECT
+          count(*) FILTER (WHERE is_vip)::int AS vip,
+          count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
+        FROM (
+          SELECT
+            visit_count,
+            (
+              visit_count >= ${VIP_VISIT_THRESHOLD}
+              OR CASE
+                WHEN jsonb_typeof(tags) = 'array' THEN EXISTS (
+                  SELECT 1 FROM jsonb_array_elements_text(tags) AS tag WHERE lower(tag) = ${VIP_TAG}
+                )
+                ELSE false
+              END
+            ) AS is_vip
+          FROM guests
+          WHERE venue_id = ${venueId}
+        ) AS g`;
+      });
+      return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
+    }
     export const guestService = {
       async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
         const [guests, total] = await Promise.all([
@@ -33992,10 +34016,9 @@
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     
-        const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
+        const [totalGuests, recentVisitors, atRiskGuests, lapsedGuests, segmentCounts] =
           await Promise.all([
             prisma.guest.count({ where: { venueId } }),
-            prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
             prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
             prisma.guest.count({
               where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
@@ -34006,16 +34029,21 @@
                 OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
               },
             }),
-            prisma.guest.count({ where: { venueId, visitCount: 0 } }),
+            countVipAndNew(venueId),
           ]);
+        const { vip: vipGuests, fresh: newGuests } = segmentCounts;
     
         return [
           { name: "All Guests", description: "Total guests in database", count: totalGuests },
-          { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
+          {
+            name: "VIP",
+            description: `Tagged VIP or ${VIP_VISIT_THRESHOLD}+ visits`,
+            count: vipGuests,
+          },
           { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
           { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
           { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
-          { name: "New", description: "Booked but never visited", count: newGuests },
+          { name: "New", description: `Fewer than ${REPEAT_VISIT_THRESHOLD} visits`, count: newGuests },
         ];
       },
     
@@ -56100,6 +56128,23 @@
     export interface BulkUpdateTablePositionsRequest {
       floorPlanId: string;
       positions: UpdateTablePositionRequest[];
+    }
+  </file>
+  <file path="packages/types/src/guest-segment.ts">
+    export const VIP_TAG = "vip";
+    export const VIP_VISIT_THRESHOLD = 10;
+    export const REPEAT_VISIT_THRESHOLD = 2;
+    export type GuestSegmentName = "VIP" | "Repeat" | "New";
+    export function hasVipTag(tags: readonly string[] | null | undefined): boolean {
+      return (tags ?? []).some((tag) => tag.toLowerCase() === VIP_TAG);
+    }
+    export function classifyGuestSegment(
+      visitCount: number,
+      tags: readonly string[] | null | undefined
+    ): GuestSegmentName {
+      if (hasVipTag(tags) || visitCount >= VIP_VISIT_THRESHOLD) return "VIP";
+      if (visitCount >= REPEAT_VISIT_THRESHOLD) return "Repeat";
+      return "New";
     }
   </file>
   <file path="packages/types/src/guest.ts">

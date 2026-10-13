@@ -8672,6 +8672,9 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
+    <item priority="low">
+      async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> { /* ... */ }
+    </item>
     <item priority="high">
       export const guestService: unknown;
     </item>
@@ -15582,6 +15585,29 @@
         floorPlanId: string;
         positions: UpdateTablePositionRequest[];
       }
+    </item>
+  </file>
+  <file path="packages/types/src/guest-segment.ts">
+    <item priority="high">
+      export const VIP_TAG: unknown;
+    </item>
+    <item priority="high">
+      export const VIP_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="high">
+      export const REPEAT_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="low">
+      type GuestSegmentName = "VIP" | "Repeat" | "New";
+    </item>
+    <item priority="high">
+      export function hasVipTag(tags: readonly string[] | null | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function classifyGuestSegment(
+        visitCount: number,
+        tags: readonly string[] | null | undefined
+      ): GuestSegmentName { /* ... */ }
     </item>
   </file>
   <file path="packages/types/src/guest.ts">

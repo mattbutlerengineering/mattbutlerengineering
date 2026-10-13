@@ -1382,6 +1382,9 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
+    <item priority="low">
+      async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> { /* ... */ }
+    </item>
     <item priority="high">
       export const guestService: unknown;
     </item>
