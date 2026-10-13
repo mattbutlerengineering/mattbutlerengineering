@@ -31,6 +31,18 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
 const encoder = new TextEncoder();
 
 /**
+ * Client-safe wrapper for a runner failure. The upstream error (e.g. an
+ * Anthropic 401 "invalid x-api-key") must not reach the browser or pick the
+ * HTTP status, and a <500 would also be skipped by captureRequestError — so
+ * answer a generic 502 and keep the original as `cause` for server logging.
+ */
+function toError(err: unknown): Error & { statusCode: number } {
+  return Object.assign(new Error("Generation failed upstream", { cause: err }), {
+    statusCode: 502,
+  });
+}
+
+/**
  * Factory for gen streaming routes. Owns: Zod parsing + 400 error, auth preHandler,
  * stream headers, protocol framing (text/plain or NDJSON), and cost logging.
  *
@@ -102,8 +114,11 @@ export function createGenRoute<TSchema extends z.ZodType>(
                     controller.enqueue(event.content);
                   }
                 });
-              } finally {
                 controller.close();
+              } catch (err) {
+                // Error the stream — closing here would turn an upstream
+                // failure (e.g. 529/401) into an empty-looking 200.
+                controller.error(toError(err));
               }
             },
           });
@@ -117,8 +132,9 @@ export function createGenRoute<TSchema extends z.ZodType>(
               await runner.run(messages, tools, async (event) => {
                 controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
               });
-            } finally {
               controller.close();
+            } catch (err) {
+              controller.error(toError(err));
             }
           },
         });
