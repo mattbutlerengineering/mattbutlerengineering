@@ -67,7 +67,7 @@
     },
     "test": {
       "dependsOn": ["^build", "db:generate"],
-      "inputs": ["src/**", "package.json", "vitest.config.ts"]
+      "inputs": ["$TURBO_DEFAULT$"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],

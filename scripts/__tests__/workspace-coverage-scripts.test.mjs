@@ -21,7 +21,7 @@ const WORKSPACE_LITERAL_DIRS = ["infrastructure/pulumi", "scripts"];
  * `test:coverage`. Remove an entry once the package gains the script —
  * the assertion below will fail loudly if it's left stale.
  */
-const KNOWN_MISSING_COVERAGE_SCRIPT = new Set(["packages/config", "packages/rialto"]);
+const KNOWN_MISSING_COVERAGE_SCRIPT = new Set([]);
 
 function workspacePackageDirs() {
   const dirs = new Set(WORKSPACE_LITERAL_DIRS);
