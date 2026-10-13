@@ -5910,6 +5910,9 @@
         streamFormat: "text" | "ndjson";
       }
     </item>
+    <item priority="medium">
+      function toError(err: unknown): Error & { statusCode: number } { /* ... */ }
+    </item>
     <item priority="high">
       export function createGenRoute<TSchema extends z.ZodType>(
         config: GenRouteConfig<TSchema>
