@@ -1,11 +1,15 @@
 import { test, expect } from "./fixtures.js";
 
 /**
- * Fold-budget measurement (#6367, WO-1): records where each page's
- * primary-content region starts, in viewport pixels, at the two laptop
- * sizes named in prd.md. No assertions yet — the guard lands in WO-4 once
- * WO-2/WO-3 have had a chance to pull the number up. Output doubles as the
- * BEFORE column of docs/features/hospitality-above-fold-usability/audit.md.
+ * Fold-budget measurement + guard (#6367, WO-1/WO-4): records where each
+ * page's primary-content region starts, in viewport pixels, at the two
+ * laptop sizes named in prd.md, and attaches the reading for
+ * docs/features/hospitality-above-fold-usability/audit.md. The six PRD-1 key
+ * pages are additionally gated at 1280×720: content-start-Y must stay under
+ * the fold (720px) once DashboardLayout's padding (WO-2) and any per-page
+ * header tightening (WO-3) are in place. Non-key routes, and the key pages'
+ * 1366×768 reading, stay report-only — no live tree has ever been measured
+ * past that size and the PRD only commits SC-1..SC-4 against 1280×720.
  */
 
 const VIEWPORTS = [
@@ -13,21 +17,24 @@ const VIEWPORTS = [
   { label: "1366x768", width: 1366, height: 768 },
 ] as const;
 
+const FOLD_BUDGET_PX = 720;
+const GUARD_VIEWPORT_LABEL = "1280x720";
+
 // Route path (relative to baseURL) per page. Six are the PRD-1 key pages;
 // the rest round out "every route" for the audit.
-const ROUTES: readonly { page: string; path: string }[] = [
-  { page: "HomePage", path: "dashboard" },
-  { page: "ReservationsPage", path: "reservations" },
-  { page: "GuestsPage", path: "guests" },
-  { page: "TimelinePage", path: "timeline" },
-  { page: "FloorPlansPage", path: "floor-plans" },
-  { page: "WaitlistPage", path: "waitlist" },
-  { page: "ProfilePage", path: "profile" },
-  { page: "SettingsPage", path: "settings" },
+const ROUTES: readonly { page: string; path: string; guarded: boolean }[] = [
+  { page: "HomePage", path: "dashboard", guarded: true },
+  { page: "ReservationsPage", path: "reservations", guarded: true },
+  { page: "GuestsPage", path: "guests", guarded: true },
+  { page: "TimelinePage", path: "timeline", guarded: true },
+  { page: "FloorPlansPage", path: "floor-plans", guarded: true },
+  { page: "WaitlistPage", path: "waitlist", guarded: true },
+  { page: "ProfilePage", path: "profile", guarded: false },
+  { page: "SettingsPage", path: "settings", guarded: false },
 ];
 
 test.describe("Fold budget measurement", () => {
-  for (const { page: pageName, path } of ROUTES) {
+  for (const { page: pageName, path, guarded } of ROUTES) {
     for (const viewport of VIEWPORTS) {
       test(`${pageName} @ ${viewport.label}`, async ({ mockedPage }, testInfo) => {
         await mockedPage.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -38,13 +45,19 @@ test.describe("Fold budget measurement", () => {
 
         const contentStartY = await primaryContent.evaluate((el) => el.getBoundingClientRect().top);
 
-        // No assertion yet (WO-1 is measurement-only) — attach for audit.md.
+        // Attach for audit.md regardless of guard status.
         await testInfo.attach(`fold-budget-${pageName}-${viewport.label}`, {
           body: JSON.stringify({ page: pageName, path, viewport: viewport.label, contentStartY }),
           contentType: "application/json",
         });
 
         expect(typeof contentStartY).toBe("number");
+
+        // WO-4 guard: key pages must clear the fold at 1280×720. Non-key
+        // routes and the 1366×768 reading stay report-only (see header note).
+        if (guarded && viewport.label === GUARD_VIEWPORT_LABEL) {
+          expect(contentStartY).toBeLessThan(FOLD_BUDGET_PX);
+        }
       });
     }
   }

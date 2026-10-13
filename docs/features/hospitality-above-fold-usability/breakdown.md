@@ -56,13 +56,19 @@ declaring done.
       affirmatively convicted — see audit.md's "WO-3: per-page header
       tightening — no-op" section.
 
-- [ ] **WO-4: Fold-budget guard** — Promote the measurement into a gate:
+- [x] **WO-4: Fold-budget guard** — Promote the measurement into a gate:
       in the WO-1 spec, assert content-start-Y < 720 at 1280×720 for the
       six key pages (non-key routes stay report-only). Acceptance: guard
       fails when `--rialto-space-2xl` is temporarily substituted into
       `.content` top padding (red proven, then reverted), passes on the
       real tree; runs in the same CI surface as the rest of the
-      hospitality e2e suite.
+      hospitality e2e suite. **Guard added, red/green not provable here**:
+      the assertion landed in `fold-budget.spec.ts`, but this worktree still
+      has no `E2E_AUTH0_*` credentials (same gap WO-1/WO-2/WO-3 recorded) —
+      `pnpm exec playwright test` fails pre-flight in `validateAuth0Config`
+      before a single test runs, even for `--list`, so the red-then-reverted
+      proof cannot be performed in this environment. See audit.md for the
+      full record and the next run's job.
 
 - [ ] **WO-5: Visual baselines + gates sweep** — If the spacing change
       trips visual snapshots, regenerate baselines from the Linux CI

@@ -2,7 +2,7 @@
 stage: implement
 run: feature:hospitality-above-fold-usability
 date: 2026-10-13
-wo: WO-3
+wo: WO-4
 ---
 
 # Fold-budget audit
@@ -88,6 +88,28 @@ budget — it is a record that the measurement WO-3 depends on is still
 unavailable. No CSS/markup changes were made for WO-3; a future run with a
 live E2E environment should fill the BEFORE/AFTER-WO-2 columns above first,
 then re-open WO-3 if any key page measures ≥ 720.
+
+## WO-4: fold-budget guard
+
+`fold-budget.spec.ts` now asserts `contentStartY < 720` at 1280×720 for the
+six key pages (HomePage, ReservationsPage, GuestsPage, TimelinePage,
+FloorPlansPage, WaitlistPage); ProfilePage/SettingsPage and the 1366×768
+reading stay report-only, per the breakdown's acceptance criteria. Lint and
+`tsc --noEmit -p tsconfig.e2e.json` are both clean.
+
+The breakdown's acceptance also asks for an empirical red/green proof —
+substitute `--rialto-space-2xl` into `.content`'s top padding, confirm the
+guard fails, revert, confirm it passes. That proof requires actually running
+`fold-budget.spec.ts`, which requires the live E2E environment this worktree
+has lacked since WO-1 (no `E2E_AUTH0_*` credentials). Confirmed again for
+WO-4: `pnpm exec playwright test e2e/fold-budget.spec.ts --list` fails
+pre-flight in `auth.setup.ts`'s `validateAuth0Config()` call before listing a
+single test, so the guard cannot be exercised — red, green, or otherwise — in
+this environment. The assertion is in place and will fire the next time the
+suite runs with real credentials; a run with a live E2E environment should
+perform the substitute/revert proof before relying on this gate, and should
+also backfill the BEFORE / AFTER-WO-2 columns above that this same gap has
+left as `_pending E2E run_` since WO-1.
 
 ## Wiring check (done, not pending)
 
