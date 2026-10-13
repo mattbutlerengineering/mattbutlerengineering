@@ -87,8 +87,10 @@ import standards_index
 from cli import read_event, read_file, report
 from cost_ledger import COST_LEDGER
 from knowledge_plane import (ADR_TOKEN, CLOSES_TOKEN, PRD_TOKEN, WO_TOKEN,
-                             fence_closes, fence_open, parse_run, repo_root,
-                             row_done, row_pre_ledger, run_dirs, unfenced)
+                             adr_record, fence_closes, fence_open,
+                             local_link_targets, parse_run, repo_root,
+                             resolve_link, row_done, row_pre_ledger,
+                             run_dirs, status_head, unfenced)
 from protocol import read_frontmatter
 # Not every factory PR implements a work order: a governance or chore PR
 # (the merge-auth removal in #139, a docs fix) closes an issue but maps to no
@@ -103,25 +105,10 @@ from protocol import read_frontmatter
 NO_WO_DECLARATION = re.compile(r"\bno[\s-]+work[\s-]+order\b[ \t]*:[ \t]*\S",
                                re.IGNORECASE)
 
-# ADR status vocabulary (docs/adr/README.md), as a status head plus an
-# optional free-text annotation: "accepted (shipped by ...)" is accepted.
-# Only full supersession retires a decision — "superseded in part by" and
-# "amended by" leave the ADR live, so citing it is not drift.
-ADR_STATUS = re.compile(
-    r"^(accepted|provisional"
-    r"|(?P<retired>superseded by ADR-(?P<by>\d{4}))"
-    r"|superseded in part by ADR-\d{4}"
-    r"|amended by ADR-\d{4})"
-    r"(\s*\(.*\))?$")
-ADR_STATUS_LINE = re.compile(r"^-\s*Status:\s*(.+?)\s*$")
 # An index row: | [0032](0032-slug.md) | Decision | status |
 ADR_INDEX_ROW = re.compile(
     r"^\|\s*\[(?P<num>\d{4})\]\((?P<file>[^)]+)\)\s*\|[^|]*\|"
     r"\s*(?P<status>[^|]*?)\s*\|")
-
-# Markdown links to repo paths; URLs, autolinks and bare anchors are not.
-MD_LINK = re.compile(r"\[[^\]]*\]\(\s*<?([^)>\s]+)>?")
-URL_TARGET = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
 
 # H reads verification.md the way the verify skill writes it: markdown
 # headings delimit criteria, a LABELLED line asserts the verdict, fenced
@@ -401,7 +388,8 @@ def check_link_integrity(root, parsed=None):
         if len(paths) > 1:
             listed = ", ".join(str(p) for p in paths)
             problems.append(f"C: duplicate PRD id {prd_id} in {listed}")
-    adr_numbers = {path.name[:4] for path, _ in parsed["adr_files"]}
+    adr_numbers = {adr_record(path, lines)["number"]
+                   for path, lines in parsed["adr_files"]}
     wo_rows = collect_wo_rows(parsed)
     for path, lines in parsed["scannable"]:
         rel = path.relative_to(root)
@@ -424,32 +412,6 @@ def check_link_integrity(root, parsed=None):
                             f"C: {rel}:{lineno} dangling {token}"
                             " (no breakdown row)")
     return problems
-
-
-def _adr_status_from_lines(lines):
-    """(lineno, status text) of an ADR's Status line, given its LINES
-    (a knowledge_plane.parse_run adr_files entry); (0, None) if absent.
-    Pure sibling of _adr_status, which reads the file itself —
-    tests/test_factory_init.py::TestSeededADRs still calls that one
-    directly against the seed tree on disk, so its own signature stays
-    (path) -> (lineno, text)."""
-    for lineno, line in enumerate(lines, 1):
-        match = ADR_STATUS_LINE.match(line)
-        if match:
-            return lineno, match.group(1)
-    return 0, None
-
-
-def _adr_status(path):
-    """(lineno, status text) of an ADR's Status line; (0, None) if absent."""
-    return _adr_status_from_lines(
-        path.read_text(encoding="utf-8").splitlines())
-
-
-def _status_head(text):
-    """The decision state alone, annotation stripped; None if unknown."""
-    match = ADR_STATUS.match(text or "")
-    return match.group(1) if match else None
 
 
 def _claim_path(root, raw):
@@ -562,7 +524,7 @@ def check_blueprint_drift(root, parsed=None):
     whether an index row's named file actually exists — parse_run only
     captures the ADR files it FOUND via its own glob, so a row naming one
     it did not find is either genuinely missing or (rarer) names a file
-    outside the NNNN-*.md pattern parse_run does not walk; only a live
+    outside the ADR file set (knowledge_plane.adr_paths); only a live
     `.is_file()` answers both cases the same way the pre-migration code
     did, and the "problem strings byte-identical" constraint rules out
     guessing from parsed["adr_files"] membership instead."""
@@ -581,19 +543,19 @@ def check_blueprint_drift(root, parsed=None):
     retired = {}   # ADR number -> the ADR number that superseded it
     for path, lines in parsed["adr_files"]:
         rel = path.relative_to(root)
-        number = path.name[:4]
-        lineno, text = _adr_status_from_lines(lines)
+        record = adr_record(path, lines)
+        number, text = record["number"], record["status"]
         statuses[number] = None
         if text is None:
             problems.append(f"D: {rel} declares no Status line")
             continue
-        match = ADR_STATUS.match(text)
-        if not match:
-            problems.append(f"D: {rel}:{lineno} unknown ADR status {text!r}")
+        if record["head"] is None:
+            problems.append(
+                f"D: {rel}:{record['lineno']} unknown ADR status {text!r}")
             continue
         statuses[number] = text
-        if match.group("retired"):
-            retired[number] = match.group("by")
+        if record["superseded_by"]:
+            retired[number] = record["superseded_by"]
 
     readme_lines = parsed["adr_readme"]
     if statuses and readme_lines is None:
@@ -620,7 +582,7 @@ def check_blueprint_drift(root, parsed=None):
             lineno, indexed = rows[number]
             if text is None:  # already flagged; nothing to compare against
                 continue
-            if _status_head(indexed) != _status_head(text):
+            if status_head(indexed) != status_head(text):
                 problems.append(
                     f"D: docs/adr/README.md:{lineno} ADR-{number} index"
                     f" status {indexed!r} does not match the file's {text!r}")
@@ -721,17 +683,12 @@ def check_staleness(root, parsed=None):
     for path, lines in parsed["scannable"]:
         rel = path.relative_to(root)
         for lineno, line in enumerate(lines, 1):
-            for target in MD_LINK.findall(line):
-                if URL_TARGET.match(target) or target.startswith("#"):
-                    continue
-                cleaned = target.split("#", 1)[0]
-                if not cleaned:
-                    continue
-                base = root if cleaned.startswith("/") else path.parent
-                if not (base / cleaned.lstrip("/")).exists():
+            for target in local_link_targets(line):
+                resolved = resolve_link(root, path, target)
+                if resolved is not None and not resolved.exists():
                     problems.append(
-                        f"I: {rel}:{lineno} stale link {cleaned}"
-                        " (no such path)")
+                        f"I: {rel}:{lineno} stale link"
+                        f" {target.split('#', 1)[0]} (no such path)")
     return problems
 
 
@@ -1340,17 +1297,6 @@ def check_prd_coverage(root, parsed=None):
     return problems
 
 
-def _adr_status_by_number(parsed):
-    """{ADR number: raw Status text (None when absent or unparseable)} —
-    reuses D's own _adr_status_from_lines over parsed["adr_files"], never
-    a second status parser. Detector K's own tiny slice of what D already
-    validates: K only needs the raw text to compare against "accepted"
-    (_status_head), it does not need D's own malformed-status problem
-    strings (D already owns reporting those)."""
-    return {path.name[:4]: _adr_status_from_lines(lines)[1]
-            for path, lines in parsed["adr_files"]}
-
-
 # ADR-0073's Consequences: build_index never reads the previously
 # committed docs/standards.json, so every ADR-derived entry it builds
 # fresh carries status "advisory" by construction — it has no other
@@ -1388,10 +1334,9 @@ def check_standards_drift(root, parsed=None):
         compared on every field EXCEPT `status` (see _DRIFT_FIELDS —
         `status` can never "drift" from an ADR regen by definition, since
         an ADR bullet never states one).
-    (2) an `enforced`-status entry's source ADR's status
-        (_adr_status_by_number, reusing _adr_status_from_lines/
-        _status_head — the same machinery detector D already owns, not a
-        second status parser) is not `accepted`.
+    (2) an `enforced`-status entry's source ADR's status (its
+        knowledge_plane.adr_record — the same reading detector D and
+        adr_status use, not a second status parser) is not `accepted`.
 
     An absent docs/standards.json is not a K problem — mirrors detector
     G's "an absent ledger is silent" precedent (check_cost_ledger): the
@@ -1440,15 +1385,18 @@ def check_standards_drift(root, parsed=None):
             " fresh ADR regeneration (run"
             " `python3 standards_index.py update`)")
 
-    statuses = _adr_status_by_number(parsed)
+    records = {record["number"]: record for record in
+               (adr_record(path, lines)
+                for path, lines in parsed["adr_files"])}
     for entry in committed:
         if not isinstance(entry, dict) or entry.get("status") != "enforced":
             continue
         number = standards_index.adr_number(entry.get("source"))
         if number is None:
             continue
-        status = statuses.get(number)
-        if _status_head(status) != "accepted":
+        record = records.get(number, {})
+        status = record.get("status")
+        if record.get("head") != "accepted":
             problems.append(
                 f"K: enforced statement {entry.get('slug')!r} cites"
                 f" ADR-{number}, status {status!r} (not accepted)")

@@ -63,7 +63,7 @@ import sys
 from pathlib import Path
 
 from cli import read_file, report
-from knowledge_plane import repo_root
+from knowledge_plane import adr_paths, repo_root
 
 STANDARDS_PATH = "docs/standards.json"
 
@@ -197,15 +197,11 @@ def build_index(root):
     "duplicate declared where it collides" convention detector C uses for
     a duplicate PRD id."""
     root = Path(root)
-    adr_dir = root / "docs" / "adr"
-    if not adr_dir.is_dir():
-        return [], []
     entries = []
     problems = []
     seen = {}  # slug -> "rel:lineno" of its first occurrence
-    for path in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
+    for number, path in adr_paths(root):
         rel = path.relative_to(root)
-        number = path.name[:4]
         lines = path.read_text(encoding="utf-8").splitlines()
         for start, body in _normative_sections(lines):
             for offset, line in enumerate(body):

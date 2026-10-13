@@ -25,8 +25,8 @@ import conductor_consent as consent
 import factory_config
 from cli import CLI_FAILURES, detail
 from conductor import (BLOCK, COMPLETED, TERMINAL, answers, append,
-                       ask_row, current_state, item_view, load, next_ask,
-                       parsed_at, stamp, view)
+                       ask_row, current_state, item_branch, item_view, load,
+                       next_ask, parsed_at, stamp, view)
 
 STEPS = ("spec", "build", "verify", "review", "ship")
 SEQUENCE = ("planned", "spec", "awaiting-gate", "build", "verify",
@@ -41,10 +41,6 @@ GATE_OPTIONS = ["approve", "block"]
 PAUSE_OPTIONS = ["resume", "stop"]
 # A batch-level answer with one of these choices holds all dispatch.
 HOLD_CHOICES = ("decline", "stop")
-# The consenting choice of a merge ask: an item's own ask, and a train
-# ask that covers several items in order.
-MERGE_CHOICE = "merge"
-TRAIN_CHOICE = "train"
 FAILURE_PAUSE = 3
 GATE_PATH = re.compile(r"docs/adr/.+|docs/design/.+|(?:.+/)?"
                        r"(?:prd|architecture)\.md")
@@ -52,65 +48,35 @@ UNCHECKED_ROW = re.compile(r"- \[ \] .*")
 VERDICTS = ("pass", "changes")
 
 
-def item_branch(batch, item):
-    """The item's branch (Owner, 2026-10-10): conductor/<batch>-<n>."""
-    return f"conductor/{batch}-{item[1:]}"
-
-
-def consents(rows, item):
-    """(own, trains): the merge asks covering the item whose answer
-    consents — its own asks answered `merge`, and train asks listing it
-    answered `train` — in ledger order."""
-    given = answers(rows)
-    own, trains = [], []
-    for row in rows:
-        if row["kind"] != "ask" or row["ask_kind"] != "merge":
-            continue
-        choice = (given.get(row["id"]) or {}).get("choice")
-        if row["item"] == item and choice == MERGE_CHOICE:
-            own.append(row)
-        elif item in row.get("covers", []) and choice == TRAIN_CHOICE:
-            trains.append(row)
-    return own, trains
-
-
-def _merge_ready(rows, item):
-    """True when an answer or a standing consent covers the shipped item
-    and, on a train, every earlier item has merged; the merge
-    precondition re-checks."""
-    own, trains = consents(rows, item)
-    if own or consent.standing(rows, item):
-        return True
-    if not trains:
-        return False
-    covers = trains[-1]["covers"]
-    return all(current_state(rows, earlier) == "merged"
-               for earlier in covers[:covers.index(item)])
-
-
-def merge_due(rows):
-    """The items whose ship step completed and that wait for a merge ask
-    the Conductor words: none answered to consent, and none pending,
-    whether the item's own or a train listing it. PURE."""
+def _shipped(rows):
+    """The plan's items whose ship step completed, in plan order."""
     read = view(rows)
+    return [entry["item"] for entry in (read["plan"] or {}).get("items", [])
+            if read["items"][entry["item"]]["state"] == "ship"
+            and read["items"][entry["item"]]["completed"]]
+
+
+def merge_due(rows, facts, policy=None):
+    """The shipped items that wait for a merge ask the Conductor words:
+    conductor_consent.cover reads them OWED, and no ask is pending,
+    whether the item's own or a train listing it. `facts` maps an item
+    to its branch facts; a shipped item with no gate_blobs read yet is
+    not judged. PURE."""
+    given = answers(rows)
     pending = [row for row in rows if row["kind"] == "ask"
-               and row["ask_kind"] == "merge"
-               and row["id"] not in read["answers"]]
+               and row["ask_kind"] == "merge" and row["id"] not in given]
     due = []
-    for entry in (read["plan"] or {}).get("items", []):
-        item = entry["item"]
-        found = read["items"][item]
-        if found["state"] != "ship" or not found["completed"] \
-                or found["pending"] is not None \
+    for item in _shipped(rows):
+        blobs = facts.get(item, {}).get("gate_blobs")
+        if blobs is None or item_view(rows, item)["pending"] is not None \
                 or any(item in row.get("covers", []) for row in pending):
             continue
-        own, trains = consents(rows, item)
-        if not (own or trains or consent.standing(rows, item)):
+        if consent.cover(rows, item, blobs, policy)[0] == consent.OWED:
             due.append(item)
     return due
 
 
-def standing_due(rows):
+def standing_due(rows, facts, policy=None):
     """The merge-due items no merge ask covers at all, answered or not:
     the ones the standing policy may cover (ADR-0086). Once the Owner
     has a merge ask on an item, the Owner's answer decides it. PURE."""
@@ -118,7 +84,8 @@ def standing_due(rows):
     for row in rows:
         if row["kind"] == "ask" and row["ask_kind"] == "merge":
             asked.update([row["item"], *row.get("covers", [])])
-    return [item for item in merge_due(rows) if item not in asked]
+    return [item for item in merge_due(rows, facts, policy)
+            if item not in asked]
 
 
 def _successors(item_type, state, rows, item):
@@ -207,20 +174,80 @@ def _band(entry, step):
                 None)
 
 
+def stall_options(entry, state, band=None):
+    """The stall ask's options for a step: retry-up only below the top
+    band — `band` when given (the band a run actually used), else the
+    step's planned band."""
+    band = band or _band(entry, state)
+    return [option for option in STALL_OPTIONS
+            if option != "retry-up" or band != BANDS[-1]]
+
+
+def _choices(options):
+    """The question's closing choice, naming only `options` (#725)."""
+    words = [OPTION_WORDS[option] for option in options]
+    said = ", or ".join([", ".join(words[:-1]), words[-1]])
+    return said[0].upper() + said[1:] + "?"
+
+
 def stall_rows(rows, now, entry, reason, recommended, why):
     """[state row, stall ask] for an item that stalls in its current
-    state. retry-up is offered only below the top band."""
+    state. retry-up is offered only when the run leaving this state
+    (if any — a dead runner leaves none) was not already at the top
+    band: the planned band alone misses a prior retry-up bump (#732)."""
     item = entry["item"]
     state = current_state(rows, item)
-    band = _band(entry, state)
-    options = [option for option in STALL_OPTIONS
-               if option != "retry-up" or band != BANDS[-1]]
+    finishing = item_view(rows, item)["finishing"]
+    options = stall_options(entry, state, finishing["band"]
+                            if finishing is not None else None)
     moved = state_row(now, item, state, "stalled", reason)
     asked, problems = ask_row(
         rows + [moved], now, item, "stall",
-        f"{item} stalled in {state}: {reason}. Retry, retry one band up,"
-        " or block?", options, recommended, why)
+        f"{item} stalled in {state}: {reason}. {_choices(options)}",
+        options, recommended, why)
     return [moved, asked], problems
+
+
+def prior_stalls(rows, item, step):
+    """[(run row or None, stall reason)], oldest first: the item's latest
+    consecutive runs of `step` that each ended in a stall. A run of the
+    step that did not stall ends the streak."""
+    found = item_view(rows, item)
+    by_id = {row["run_id"]: row for row in found["runs"]}
+    launches = []
+    for row in found["states"]:
+        if row["to"] == step and "run_id" in row:
+            launches.append([by_id.get(row["run_id"]), None])
+        elif row["to"] == "stalled" and row["from"] == step and launches:
+            launches[-1][1] = row["reason"]
+    streak = []
+    for run, reason in launches:
+        streak = streak + [(run, reason)] if reason is not None else []
+    return streak
+
+
+def worker_advice(rows, entry, step, band, reason):
+    """(recommended, why) for the stall ask of a failed Worker run of
+    `step` at `band`, from the item's rows before that run launched
+    (#725). A first failure recommends retry; a second consecutive
+    budget stop at the same band recommends retry-up while it is offered
+    and the run was not already one band up, else block, since the
+    ceiling is the same and so is the outcome."""
+    earlier = prior_stalls(rows, entry["item"], step)
+    if not earlier:
+        return "retry", WORKER_WHY
+    run, last = earlier[-1]
+    if reason == BUDGET_REASON and last == BUDGET_REASON \
+            and (run or {}).get("band") == band:
+        ceiling = next(s["ceiling_usd"] for s in entry["steps"]
+                       if s["step"] == step)
+        up = "retry-up" in stall_options(entry, step) \
+            and band == _band(entry, step)
+        return ("retry-up" if up else BLOCK), REPEAT_BUDGET_WHY.format(
+            step=step, ceiling=ceiling,
+            remedy=("retry it one band up, on a stronger model" if up
+                    else "block it"))
+    return "retry", ATTEMPT_WHY.format(n=len(earlier) + 1, step=step)
 
 
 def queue_stall(root, batch, now, item, reason, recommended, why):
@@ -234,6 +261,20 @@ def queue_stall(root, batch, now, item, reason, recommended, why):
     return append(root, batch, build)
 
 
+OPTION_WORDS = {"retry": "retry", "retry-up": "retry one band up",
+                "block": "block"}
+WORKER_WHY = ("a first failure is evidence about the item as often as about"
+              " the agent, so nothing retries without your answer")
+ATTEMPT_WHY = ("attempt {n} at {step} failed after an earlier one did, so"
+               " the item is as likely a cause as the agent; nothing"
+               " retries without your answer")
+# The stall reason conductor_run gives a run the harness stopped at its
+# --max-budget-usd ceiling.
+BUDGET_STOP = "error_max_budget_usd"
+BUDGET_REASON = f"the Worker run ended {BUDGET_STOP}"
+REPEAT_BUDGET_WHY = ("a second consecutive budget stop on {step} at the same"
+                     " ${ceiling:.2f} ceiling: the outcome repeats at that"
+                     " ceiling, so a plain retry spends it again; {remedy}")
 IDLE_WHY = ("a dead runner or an idle step is evidence about the run more"
             " than about the item")
 CHANGES_WHY = "a second request for changes is evidence about the item"
@@ -337,7 +378,7 @@ def _gate_question(entry, rows):
             " plan estimate?")
 
 
-def _after_step(rows, now, entry, launched, facts):
+def _after_step(rows, now, entry, launched, facts, policy):
     """(ready step or None, rows to write) once the item's launched step
     has finished with a completed run."""
     item, state = entry["item"], launched["to"]
@@ -364,9 +405,13 @@ def _after_step(rows, now, entry, launched, facts):
             return None, []
         return ("build" if facts[item]["unchecked"] else "verify"), []
     if state == "ship":
-        if _merge_ready(rows, item):
-            return "merge", []
-        standing = facts.get(item, {}).get("standing")
+        if "gate_blobs" not in facts.get(item, {}):
+            return None, []
+        reading, _ = consent.cover(rows, item, facts[item]["gate_blobs"],
+                                   policy)
+        if reading != consent.OWED:
+            return ("merge" if reading == consent.COVERED else None), []
+        standing = facts[item].get("standing")
         if standing is not None and not standing["problems"]:
             return "merge", [consent.consent_row(
                 now, item, standing["labels"], standing["policy"])]
@@ -403,7 +448,7 @@ def _merge_gone(rows, now, entry, merging, alive):
     return written
 
 
-def _candidate(rows, now, entry, alive, facts):
+def _candidate(rows, now, entry, alive, facts, policy):
     """(ready step or None, in flight?, rows to write) for one item."""
     found = item_view(rows, entry["item"])
     state, launched = found["state"], found["last"]
@@ -434,24 +479,26 @@ def _candidate(rows, now, entry, alive, facts):
         return None, flying, written
     if not found["completed"]:
         return None, False, []
-    ready, written = _after_step(rows, now, entry, launched, facts)
+    ready, written = _after_step(rows, now, entry, launched, facts,
+                                 policy)
     return ready, False, written
 
 
-def survey(rows, now, wip_cap, alive, facts):
+def survey(rows, now, wip_cap, alive, facts, policy=None):
     """(ready steps, rows to write, problems): PURE over the ledger's
     rows. Ready steps are [{"item", "step"}] in plan order, at most
     wip_cap minus the runs in flight, and none while dispatch is held.
     Rows to write are new stall and gate asks with their state moves,
     and the batch pause after FAILURE_PAUSE consecutive failed runs.
-    `facts` maps an item to its branch facts (gate_blobs, unchecked)."""
+    `facts` maps an item to its branch facts (gate_blobs, unchecked);
+    `policy` is the resolved standing-consent policy (None: off)."""
     plan = view(rows)["plan"]
     if plan is None:
         return None, None, ["cd: the batch ledger has no plan row"]
     writes, candidates, flying = [], [], 0
     for entry in plan["items"]:
         ready, in_flight, written = _candidate(rows + writes, now, entry,
-                                               alive, facts)
+                                               alive, facts, policy)
         writes += written
         flying += in_flight
         if ready is not None:
@@ -550,23 +597,33 @@ def pid_alive(pid):
     return True
 
 
-def standing_facts(git, gh, batch, rows, policy):
-    """({item: {"problems", "labels", "policy"}}, problems): the standing
-    policy's verdict on each item it may cover (ADR-0086), from the item
-    branch's gate files and, under a tier list, its issue's labels. Empty
-    while the policy is off."""
+def shipped_facts(git, batch, rows):
+    """({item: {"gate_blobs"}}, problems) for the shipped items, which
+    conductor_consent.cover reads (issue #734)."""
     facts = {}
-    for item in standing_due(rows) if policy["enabled"] else []:
+    for item in _shipped(rows):
         blobs, problems = gate_blobs(git, item_branch(batch, item))
         if problems:
             return None, problems
+        facts[item] = {"gate_blobs": blobs}
+    return facts, []
+
+
+def standing_facts(gh, rows, facts, policy):
+    """({item: {"problems", "labels", "policy"}}, problems): the standing
+    policy's verdict on each item it may cover (ADR-0086), from the item
+    branch's gate files in `facts` and, under a tier list, its issue's
+    labels. Empty while the policy is off."""
+    verdicts = {}
+    for item in standing_due(rows, facts, policy) if policy["enabled"] \
+            else []:
         labels, problems = consent.issue_labels(gh, item, policy)
         if problems:
             return None, problems
-        facts[item] = {"problems": consent.standing_problems(
-            item, blobs, labels, policy), "labels": labels,
-            "policy": policy}
-    return facts, []
+        verdicts[item] = {"problems": consent.standing_problems(
+            item, facts[item]["gate_blobs"], labels, policy),
+            "labels": labels, "policy": policy}
+    return verdicts, []
 
 
 def advance(root, batch, now, wip_cap, alive, git, gh=None, policy=None):
@@ -576,11 +633,15 @@ def advance(root, batch, now, wip_cap, alive, git, gh=None, policy=None):
     rows, problems = load(root, batch)
     if problems:
         return None, problems
+    policy = policy or {"enabled": False}
     facts, problems = branch_facts(git, batch, needs_facts(rows))
     if problems:
         return None, problems
-    standing, problems = standing_facts(
-        git, gh, batch, rows, policy or {"enabled": False})
+    shipped, problems = shipped_facts(git, batch, rows)
+    if problems:
+        return None, problems
+    facts.update(shipped)
+    standing, problems = standing_facts(gh, rows, facts, policy)
     if problems:
         return None, problems
     for item, verdict in standing.items():
@@ -588,7 +649,8 @@ def advance(root, batch, now, wip_cap, alive, git, gh=None, policy=None):
     outcome = {}
 
     def build(rows):
-        ready, writes, problems = survey(rows, now, wip_cap, alive, facts)
+        ready, writes, problems = survey(rows, now, wip_cap, alive, facts,
+                                         policy)
         outcome.update(ready=ready, writes=writes or [], rows=rows)
         return writes, problems
     _, problems = append(root, batch, build)
@@ -598,7 +660,8 @@ def advance(root, batch, now, wip_cap, alive, git, gh=None, policy=None):
                 if row["kind"] == "ask"]
     after = outcome["rows"] + outcome["writes"]
     return {"ask": next_ask(after), "ready": outcome["ready"],
-            "recorded": recorded, "merge_due": merge_due(after)}, []
+            "recorded": recorded,
+            "merge_due": merge_due(after, facts, policy)}, []
 
 
 def next_cli(root, batch, args, now, git, alive, gh=None):
