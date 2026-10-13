@@ -12713,7 +12713,7 @@
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
@@ -14695,9 +14695,11 @@
               break;
             }
             case "Enter": {
-              e.preventDefault();
+              // ARIA APG: with no active option, Enter belongs to the input/form.
               const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
-              if (focused && !focused.disabled) select(focused.value);
+              if (!focused) break;
+              e.preventDefault();
+              if (!focused.disabled) select(focused.value);
               break;
             }
             case "Escape":
@@ -18273,6 +18275,14 @@
       }, [device.reducedMotion, vibe]);
     }
   </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
+    }
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;
@@ -18509,6 +18519,53 @@
       return typeof source === "string" && SILENT_SOURCES.has(source);
     }
   </file>
+  <file path="packages/auth/src/react/auth-gate.ts">
+    export type AuthGate =
+      | { readonly phase: "signing-out" }
+      | { readonly phase: "loading" }
+      | { readonly phase: "callback" }
+      | { readonly phase: "error"; readonly error: Error; readonly onCallback: boolean }
+      | { readonly phase: "signed-out"; readonly afterSignOut: boolean }
+      | { readonly phase: "expired" }
+      | { readonly phase: "ready" };
+    export interface AuthGateFacts {
+      readonly isLoading: boolean;
+      readonly isAuthenticated: boolean;
+      readonly error: Error | undefined;
+      readonly sessionExpired: boolean;
+      readonly activeNavigator: ActiveNavigator | undefined;
+    }
+    export type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
+    export function resolveAuthGate(facts: AuthGateFacts, location: AuthGateLocation): AuthGate {
+      const onCallback = location.pathname.endsWith("/callback");
+    
+      if (facts.isLoading) {
+        if (facts.activeNavigator === "signoutRedirect") return { phase: "signing-out" };
+        return { phase: onCallback ? "callback" : "loading" };
+      }
+    
+      if (facts.error) return { phase: "error", error: facts.error, onCallback };
+    
+      // Only an in-flight OIDC response is a real wait. A bare /callback is where
+      // sign-out lands — waiting there would hang on a loader forever.
+      if (onCallback && !facts.isAuthenticated) {
+        return hasAuthParams(location as Location)
+          ? { phase: "callback" }
+          : { phase: "signed-out", afterSignOut: true };
+      }
+    
+      // Before isAuthenticated: react-oidc-context does not re-evaluate it when a
+      // token expires in place.
+      if (facts.sessionExpired) return { phase: "expired" };
+    
+      if (!facts.isAuthenticated) return { phase: "signed-out", afterSignOut: false };
+    
+      return { phase: "ready" };
+    }
+    export function useAuthGate(): AuthGate {
+      return resolveAuthGate(useAuth(), window.location);
+    }
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
     export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
@@ -18708,6 +18765,14 @@
     export const SessionLifecycleContext = createContext<SessionLifecycleState>(DEFAULT_STATE);
     export function useSessionLifecycle(): SessionLifecycleState {
       return use(SessionLifecycleContext);
+    }
+  </file>
+  <file path="packages/auth/src/react/signin-return-to.ts">
+    export function rememberSigninReturnTo(returnTo: string | undefined): void {
+      lastSigninReturnTo = returnTo;
+    }
+    export function signinReturnTo(): string {
+      return isSafeReturnTo(lastSigninReturnTo) ? lastSigninReturnTo : "/";
     }
   </file>
   </section>
@@ -19611,18 +19676,6 @@
           return reply.send(stream);
         }
       );
-    };
-  </file>
-  <file path="services/agent/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getAgentHealth" },
-          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
-        ],
-      });
     };
   </file>
   <file path="services/agent/src/routes/orchestrate.ts">
@@ -22163,19 +22216,6 @@
             return reply.code(204).send();
           }
         ),
-      });
-    };
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/health", operationId: "getHealthApi" },
-          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
-        ],
       });
     };
   </file>
@@ -26819,18 +26859,6 @@
         await handler(event);
       }
     }
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
-        ],
-      });
-    };
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -39557,14 +39585,6 @@
       return buildOperationalSections(isAdmin);
     }
   </file>
-  <file path="apps/hospitality/src/return-to-store.ts">
-    export function rememberReturnTo(returnTo?: string): void {
-      storedReturnTo = returnTo;
-    }
-    export function readReturnTo(): string | undefined {
-      return storedReturnTo;
-    }
-  </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
     interface ImportMetaEnv {
       readonly VITE_AUTH_AUTHORITY: string;
@@ -50220,6 +50240,7 @@
       getSlowQueryStats: () => SlowQueryStats;
       getPoolMetrics: () => PoolMetrics;
       getServiceStatus: () => ServiceStatus;
+      /** Idempotent. Callers own the lifecycle: createServiceApp wires it to fastify onClose. */
       shutdown: () => Promise<void>;
     }
     export interface PrismaLike {
@@ -50369,8 +50390,6 @@
         await basePrisma.$disconnect();
         await pool.end();
       }
-    
-      process.on("beforeExit", shutdown);
     
       return {
         prisma,
@@ -54600,6 +54619,14 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
+    export interface ServiceDatabaseConfig {
+      /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+      readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+      /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+      readonly healthRoutes: readonly HealthRouteConfig[];
+      /** Overrides the shared Auth0 JWKS check — for tests without network. */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
     export interface ServiceAppConfig {
       /** Swagger/OpenAPI metadata — differs per service */
       readonly swagger: SwaggerConfig;
@@ -54607,6 +54634,8 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+      /** Owns the service's database: health, /ready, and pool shutdown on close. */
+      readonly database?: ServiceDatabaseConfig;
     }
     export interface AppOptions {
       logger?: boolean | object;
@@ -54637,6 +54666,20 @@
         log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
         return fallbackUrl;
       }
+    }
+    async function registerDatabase(
+      fastify: FastifyInstance,
+      database: ServiceDatabaseConfig
+    ): Promise<void> {
+      const { db, healthRoutes, checkAuth0 } = database;
+      // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+      fastify.addHook("onClose", async () => db.shutdown());
+      await fastify.register(registerHealthRoutes, {
+        db,
+        routes: healthRoutes,
+        ...(checkAuth0 && { checkAuth0 }),
+      });
+      await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
     }
     export async function createServiceApp(
       config: ServiceAppConfig,
@@ -54810,6 +54853,11 @@
       // Policy (successor computation, sunset headers, deprecation decorators) is
       // governed by ADR-002 and lives in apply-versioning.ts.
       applyVersioning(fastify, config.apiVersioning);
+    
+      // --- Database lifecycle ---
+      if (config.database) {
+        await registerDatabase(fastify, config.database);
+      }
     
       return fastify;
     }
@@ -56773,18 +56821,18 @@
             serverUrl: "http://localhost:3003",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getAgentHealth" },
+              { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+            ],
+          },
         },
         options
       );
     
-      // Release the pg pool once fastify has drained requests. startServiceServer
-      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-      // fires (#6373).
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
       await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
@@ -56864,6 +56912,14 @@
             serverUrl: "http://localhost:3004",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/health", operationId: "getHealthApi" },
+              { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+            ],
+          },
         },
         options
       );
@@ -56980,19 +57036,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-      // (#5469). `@mbe/database`'s createDatabase() registers its own
-      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-      // SIGINT handler always ends with an explicit `process.exit(0)` — which
-      // never fires `beforeExit` — so the pool was previously torn down by abrupt
-      // process termination on every deploy instead of a graceful disconnect.
-      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-      // jobWorker below) runs deterministically after requests drain, so wire
-      // db.shutdown() here instead. Registered unconditionally (not gated on
-      // NODE_ENV !== "test" like the background jobs below) since it has no
-      // observable side effect beyond closing a connection that tests mock out.
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is
       // resolvable from its own query/body/params, so the RLS policies already
@@ -57012,8 +57055,6 @@
       fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
@@ -57153,18 +57194,18 @@
             serverUrl: "http://localhost:3001",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+            ],
+          },
         },
         options
       );
     
-      // Release the pg pool once fastify has drained requests. startServiceServer
-      // ends SIGTERM with process.exit(0), so createDatabase's beforeExit hook never
-      // fires (#6373).
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     

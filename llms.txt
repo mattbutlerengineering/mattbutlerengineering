@@ -5699,6 +5699,14 @@
       export function useMotionPreset(): MotionPreset { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    <item priority="high">
+      export const ThemeStateContext: unknown;
+    </item>
+    <item priority="high">
+      export function useTheme(): ThemeState { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
@@ -5827,6 +5835,29 @@
       export function isSilentAuthError(error: unknown): boolean { /* ... */ }
     </item>
   </file>
+  <file path="packages/auth/src/react/auth-gate.ts">
+    <item priority="low">
+      type AuthGate = { readonly phase: "signing-out | { readonly phase: "loading" } | { readonly phase: "callback" } | { readonly phase: "error"; rea | { readonly phase: "signed-out" | { readonly phase: "expired" } | { readonly phase: "ready" };
+    </item>
+    <item priority="low">
+      interface AuthGateFacts {
+        isLoading: boolean;
+        isAuthenticated: boolean;
+        error: Error | undefined;
+        sessionExpired: boolean;
+        activeNavigator: ActiveNavigator | undefined;
+      }
+    </item>
+    <item priority="low">
+      type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
+    </item>
+    <item priority="high">
+      export function resolveAuthGate(facts: AuthGateFacts, location: AuthGateLocation): AuthGate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useAuthGate(): AuthGate { /* ... */ }
+    </item>
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
     <item priority="low">
       type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigat...;
@@ -5883,6 +5914,14 @@
     </item>
     <item priority="high">
       export function useSessionLifecycle(): SessionLifecycleState { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/auth/src/react/signin-return-to.ts">
+    <item priority="high">
+      export function rememberSigninReturnTo(returnTo: string | undefined): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function signinReturnTo(): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -6031,11 +6070,6 @@
     </item>
     <item priority="high">
       export const genUiRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/agent/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/agent/src/routes/orchestrate.ts">
@@ -6290,11 +6324,6 @@
   <file path="services/reservations/src/routes/guests.ts">
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/holds.ts">
@@ -6863,11 +6892,6 @@
         async register(): Promise<unknown>;
         async dispatch(): Promise<unknown>;
       }
-    </item>
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
@@ -9928,14 +9952,6 @@
         readiness: VenueReadiness,
         isAdmin: boolean
       ): readonly NavSection[] { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/return-to-store.ts">
-    <item priority="high">
-      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function readReturnTo(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
@@ -14705,10 +14721,18 @@
       }
     </item>
     <item priority="low">
+      interface ServiceDatabaseConfig {
+        db: HealthDb & { readonly shutdown: () => Promise<void> };
+        healthRoutes: readonly HealthRouteConfig[];
+        checkAuth0?: () => Promise<Auth0CheckResult>;
+      }
+    </item>
+    <item priority="low">
       interface ServiceAppConfig {
         swagger: SwaggerConfig;
         apiVersioning?: ApiVersioningConfig;
         registerSchemas?: (fastify: FastifyInstance) => void;
+        database?: ServiceDatabaseConfig;
       }
     </item>
     <item priority="low">
@@ -14721,6 +14745,12 @@
     </item>
     <item priority="medium">
       function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function registerDatabase(
+        fastify: FastifyInstance,
+        database: ServiceDatabaseConfig
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function createServiceApp(

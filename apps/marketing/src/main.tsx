@@ -9,7 +9,7 @@ import {
   ErrorBoundary,
   ToastProvider,
   unregisterStaleServiceWorkers,
-  useThemeState,
+  useTheme,
 } from "@mattbutlerengineering/rialto";
 
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
@@ -26,18 +26,21 @@ initSentry({
 unregisterStaleServiceWorkers();
 
 /* ── Root component ───────────────────────────── */
-function Root() {
-  const { theme, toggleTheme } = useThemeState();
+function ThemedApp() {
+  const { theme, toggleTheme } = useTheme();
+  return <App theme={theme} onThemeToggle={toggleTheme} />;
+}
 
+function Root() {
   return (
     // RialtoProvider MUST wrap BrowserRouter (outside it).
     // `presenting` vibe: more whitespace + softer radii for the marketing surface.
-    <RialtoProvider theme={theme} vibe="presenting">
+    <RialtoProvider persistTheme vibe="presenting">
       <ToastProvider>
         <ErrorBoundary onError={handleErrorBoundary}>
           <QueryProvider>
             <BrowserRouter>
-              <App theme={theme} onThemeToggle={toggleTheme} />
+              <ThemedApp />
             </BrowserRouter>
           </QueryProvider>
         </ErrorBoundary>

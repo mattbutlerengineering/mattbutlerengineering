@@ -13,7 +13,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
 import { getLabelsForSensor } from "./sensors-registry.mjs";
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
+import { fileIssueViaGhClient } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -375,29 +375,13 @@ export function buildReport(serviceResults, edgeResult) {
 
 // ── Issue Creation ─────────────────────────────────────────────────
 
-const CORS_AUDIT_TITLE_PATTERN = /^CORS audit:/;
+export const CORS_AUDIT_TITLE_PATTERN = /^CORS audit:/;
 
 /** dedupeKey fed to `fileIssue()`: this audit files one aggregate issue per
  * outstanding CORS problem set, not one per finding, so a single constant
  * key is enough to dedupe across runs (mirrors revert-watchdog's per-sha key,
  * just with no varying identity here). */
 const CORS_AUDIT_DEDUPE_KEY = "cors-audit";
-
-/**
- * Pure: finds a prior CORS audit issue among candidate issues (any state) by
- * title prefix. Feeds `fileIssue()`'s dedupe-by-ledger decision so a rerun
- * with no changes skips, and a rerun after the last one was closed reopens
- * it instead of filing a duplicate.
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @returns {number | null}
- */
-export function findPriorCorsAuditIssue(candidates) {
-  const match = (candidates ?? []).find((issue) =>
-    CORS_AUDIT_TITLE_PATTERN.test(issue?.title ?? "")
-  );
-  return match ? match.number : null;
-}
 
 /** Pure: the log line for a `fileIssue()` result, one per action. */
 export function describeFilingResult(result, title) {
@@ -412,41 +396,20 @@ function createGitHubIssue(ghClient, title, body) {
   const labels = getLabelsForSensor("cors");
 
   try {
-    // A failed search must not swallow a genuine CORS finding — fail open
-    // (treat as "no prior found", file the issue) rather than closed.
     // Title search (not a label filter) — the "audit" label is shared by
     // every audit-family producer, so a label-only search's default result
     // window can push an older CORS-audit issue out before it's ever seen.
-    let candidates = [];
-    try {
-      candidates = ghClient.issue.list([
-        "--search",
-        "CORS audit in:title",
-        "--state",
-        "all",
-        "--json",
-        "number,title",
-      ]);
-    } catch (err) {
-      console.error(`[cors-audit] search failed, proceeding as no-match: ${err.message}`);
-    }
-    const priorNumber = findPriorCorsAuditIssue(candidates);
-    const ledger = priorNumber !== null ? { [CORS_AUDIT_DEDUPE_KEY]: priorNumber } : {};
-
-    const result = fileIssue({ title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY }, ledger, {
-      getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
-      createIssue: () =>
-        parseIssueNumberFromUrl(
-          ghClient.issue.create([
-            "--title",
-            title,
-            ...labels.flatMap((l) => ["--label", l]),
-            "--body",
-            body,
-          ])
-        ),
-      reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
-    });
+    // A failed search fails open: it must not swallow a genuine CORS finding.
+    const result = fileIssueViaGhClient(
+      ghClient,
+      { title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY },
+      {
+        listArgs: ["--search", "CORS audit in:title", "--state", "all", "--json", "number,title"],
+        match: (issue) => CORS_AUDIT_TITLE_PATTERN.test(issue?.title ?? ""),
+        onSearchError: (err) =>
+          console.error(`[cors-audit] search failed, proceeding as no-match: ${err.message}`),
+      }
+    );
 
     console.log(describeFilingResult(result, title));
   } catch (err) {

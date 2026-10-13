@@ -2328,9 +2328,11 @@
               break;
             }
             case "Enter": {
-              e.preventDefault();
+              // ARIA APG: with no active option, Enter belongs to the input/form.
               const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
-              if (focused && !focused.disabled) select(focused.value);
+              if (!focused) break;
+              e.preventDefault();
+              if (!focused.disabled) select(focused.value);
               break;
             }
             case "Escape":
@@ -3222,6 +3224,14 @@
         if (device.reducedMotion) return REDUCED_PRESET;
         return vibe === "game" ? GAME_PRESET : STANDARD_PRESET;
       }, [device.reducedMotion, vibe]);
+    }
+  </file>
+  <file path="src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
     }
   </file>
   <file path="src/providers/useUIEnvironment.ts">

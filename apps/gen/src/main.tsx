@@ -6,7 +6,6 @@ import { createBrowserRouter, RouterProvider, Navigate } from "react-router";
 import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
-import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { App, CallbackRedirect } from "./App";
 
 initSentry({
@@ -43,15 +42,10 @@ const authConfig = {
   audience: import.meta.env.VITE_AUTH_AUDIENCE,
 };
 
-/**
- * Bridge component that reads theme from ThemeContext and passes it to
- * RialtoProvider. Must be a child of ThemeProvider to call useTheme().
- */
+/** Theme persistence and live OS tracking are owned by RialtoProvider (`persistTheme`). */
 function ThemedApp() {
-  const { theme } = useTheme();
-
   return (
-    <RialtoProvider theme={theme}>
+    <RialtoProvider persistTheme>
       <ToastProvider>
         <AuthProvider config={authConfig}>
           <ErrorBoundary onError={handleErrorBoundary}>
@@ -98,8 +92,6 @@ const router = createBrowserRouter(
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <ThemedApp />
-    </ThemeProvider>
+    <ThemedApp />
   </StrictMode>
 );

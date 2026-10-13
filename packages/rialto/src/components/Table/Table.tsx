@@ -179,7 +179,6 @@ function TableInner<T extends Record<string, unknown>>(
                   alignClass(col.align)
                 )}
                 style={col.width ? { width: col.width } : undefined}
-                aria-label={col.ariaLabel}
                 aria-sort={
                   sortKey === col.key
                     ? sortDir === "asc"
@@ -202,6 +201,9 @@ function TableInner<T extends Record<string, unknown>>(
                       <SortArrow direction={sortKey === col.key ? sortDir : null} />
                     </span>
                   </button>
+                ) : col.header === "" && col.ariaLabel ? (
+                  // axe empty-table-header needs text content; aria-label alone doesn't count
+                  <span className={styles.srOnly}>{col.ariaLabel}</span>
                 ) : (
                   col.header
                 )}

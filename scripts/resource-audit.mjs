@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
+import { fileIssueViaGhClient } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -306,24 +306,8 @@ export function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
 // This audit's report title varies run to run (`Orphaned resources found
 // (${n})`), so it can't be the dedupe key itself — mirrors cors-audit's
 // fixed-prefix title search + constant dedupeKey.
-const RESOURCE_AUDIT_TITLE_PATTERN = /^Orphaned resources found/;
+export const RESOURCE_AUDIT_TITLE_PATTERN = /^Orphaned resources found/;
 const RESOURCE_AUDIT_DEDUPE_KEY = "resource-audit";
-
-/**
- * Pure: finds a prior resource-audit issue among candidate issues (any
- * state) by title prefix. Feeds `fileIssue()`'s dedupe-by-ledger decision
- * (#3775) — this producer previously had no dedup at all and filed a fresh
- * issue every run; this is an intentional behavior change.
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @returns {number | null}
- */
-export function findPriorResourceAuditIssue(candidates) {
-  const match = (candidates ?? []).find((issue) =>
-    RESOURCE_AUDIT_TITLE_PATTERN.test(issue?.title ?? "")
-  );
-  return match ? match.number : null;
-}
 
 /**
  * Pure: decides whether the tracked issue's count is still current.
@@ -394,42 +378,34 @@ export function refreshTrackedCount(ghClient, issueNumber, priorTitle, title, bo
 
 function createGitHubIssue(ghClient, title, body, totalOrphaned) {
   try {
-    // A failed search must not swallow a genuine orphaned-resource finding —
-    // fail open (treat as "no prior found", file the issue) rather than closed.
-    let candidates = [];
-    try {
-      candidates = ghClient.issue.list([
-        "--search",
-        "Orphaned resources found in:title",
-        "--state",
-        "all",
-        "--json",
-        "number,title",
-      ]);
-    } catch (err) {
-      console.error(`[resource-audit] search failed, proceeding as no-match: ${err.message}`);
-    }
-    const prior = (candidates ?? []).find((issue) =>
-      RESOURCE_AUDIT_TITLE_PATTERN.test(issue?.title ?? "")
-    );
-    const priorNumber = findPriorResourceAuditIssue(candidates);
-    const ledger = priorNumber !== null ? { [RESOURCE_AUDIT_DEDUPE_KEY]: priorNumber } : {};
-
-    const result = fileIssue(
+    // A failed search fails open: it must not swallow a genuine finding.
+    const result = fileIssueViaGhClient(
+      ghClient,
       { title, body, labels: ["audit"], dedupeKey: RESOURCE_AUDIT_DEDUPE_KEY },
-      ledger,
       {
-        getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
-        createIssue: () =>
-          parseIssueNumberFromUrl(
-            ghClient.issue.create(["--title", title, "--label", "audit", "--body", body])
-          ),
-        reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+        listArgs: [
+          "--search",
+          "Orphaned resources found in:title",
+          "--state",
+          "all",
+          "--json",
+          "number,title",
+        ],
+        match: (issue) => RESOURCE_AUDIT_TITLE_PATTERN.test(issue?.title ?? ""),
+        onSearchError: (err) =>
+          console.error(`[resource-audit] search failed, proceeding as no-match: ${err.message}`),
       }
     );
 
     if (result.action === "skip") {
-      refreshTrackedCount(ghClient, result.issueNumber, prior?.title, title, body, totalOrphaned);
+      refreshTrackedCount(
+        ghClient,
+        result.issueNumber,
+        result.prior?.title,
+        title,
+        body,
+        totalOrphaned
+      );
     } else if (result.action === "skipped-error") {
       console.log(`Could not read state of issue #${result.issueNumber} — not filing: ${title}`);
     } else if (result.action === "reopen") {

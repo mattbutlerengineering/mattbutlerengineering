@@ -16,30 +16,9 @@
 
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
+import { fileIssueBySearch, ghIssueDeps } from "./lib/issue-filing.mjs";
 
 const ghClient = createGhClient();
-
-/**
- * Pure: builds the `gh issue create` args for an RCA issue. The `ready`
- * label is sourced from `@mbe/gh-client`'s coordination-label machine
- * (#2933) rather than a re-typed string literal, so it can never drift from
- * the canonical label name.
- */
-export function buildRcaCreateArgs(title, body) {
-  return [
-    "--title",
-    title,
-    "--body",
-    body,
-    "--label",
-    "meta-improvement",
-    "--label",
-    COORDINATION_LABELS.READY,
-    "--label",
-    "critical",
-  ];
-}
 
 // A revert PR is always titled `revert: #<N> ...` by the watchdog (see
 // `.github/workflows/revert-watchdog.yml`'s "Propose Revert PR" step) and by
@@ -193,22 +172,6 @@ export function extractRcaPrNumber(issue) {
 }
 
 /**
- * Pure: finds a prior RCA issue for `prNumber` among candidate issues (any
- * state). Feeds `fileIssue()`'s dedupe-by-ledger decision (#3775): a rerun
- * for the same reverted PR skips (still open) or reopens (previously
- * closed) instead of filing a duplicate RCA — this producer previously had
- * no dedup ledger at all beyond its own merged-revert-state gate (#3590).
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @param {number} prNumber
- * @returns {number | null}
- */
-export function findPriorRcaIssue(candidates, prNumber) {
-  const match = (candidates ?? []).find((issue) => extractRcaPrNumber(issue) === prNumber);
-  return match ? match.number : null;
-}
-
-/**
  * Orchestrates the RCA decision with injected gh operations (testable
  * without the network). Only files an RCA issue when a revert of `prNumber`
  * is actually merged (#3583) — a proposed-but-open revert, or no revert at
@@ -263,25 +226,16 @@ export function runRevertRca({
   });
   const labels = ["meta-improvement", COORDINATION_LABELS.READY, "critical"];
 
-  // A failed search must not swallow a genuine confirmed revert — fail open
-  // (treat as "no prior found", file the issue) rather than closed.
-  let candidates = [];
-  try {
-    candidates = searchRcaIssues();
-  } catch (err) {
-    log(`search for a prior RCA issue failed, proceeding as no-match: ${err.message}`);
-  }
-  const priorNumber = findPriorRcaIssue(candidates, prNumber);
-  const ledger = priorNumber !== null ? { [prNumber]: priorNumber } : {};
-
-  const result = fileIssue(
+  // A failed search fails open: it must not swallow a genuine confirmed revert.
+  const result = fileIssueBySearch(
     { title: rcaTitle, body: rcaBody, labels, dedupeKey: prNumber },
-    ledger,
     {
-      getIssueState,
-      createIssue,
-      reopenIssue,
-    }
+      search: searchRcaIssues,
+      match: (issue) => extractRcaPrNumber(issue) === prNumber,
+      onSearchError: (err) =>
+        log(`search for a prior RCA issue failed, proceeding as no-match: ${err.message}`),
+    },
+    { getIssueState, createIssue, reopenIssue }
   );
 
   if (result.action === "skip") {
@@ -356,10 +310,7 @@ function main() {
         "--json",
         "number,title",
       ]),
-    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
-    createIssue: (title, body) =>
-      parseIssueNumberFromUrl(ghClient.issue.create(buildRcaCreateArgs(title, body))),
-    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    ...ghIssueDeps(ghClient),
     log: (msg) => console.log(msg),
   });
 }

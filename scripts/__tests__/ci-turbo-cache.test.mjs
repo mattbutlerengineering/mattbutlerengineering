@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getJob, loadWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+const PARSED = loadWorkflow("ci.yml");
 
 /**
  * Local turbo cache reuse for CI (#4504), plus real remote caching (#3388).
@@ -27,53 +29,39 @@ const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8")
  * gone, along with the per-step `TURBO_TOKEN`/`TURBO_TEAM` env overrides
  * that would otherwise clobber the values the new action exports.
  *
- * Parsed textually rather than with a YAML library, matching the precedent
- * in pulumi-cli-pin.test.mjs / ci-node-matrix.test.mjs: nothing in
- * `scripts/` depends on a YAML parser, and these are plain scalar/expression
- * lines with no anchors or flow mappings to get wrong.
+ * Job/step structure is asserted on the parsed workflow
+ * (scripts/lib/workflow.mjs, #6393). The few checks about YAML comments (a
+ * parser drops them) and file-wide absences stay raw-text checks on WORKFLOW.
  */
-function jobBlock(source, jobName) {
-  const lines = source.split("\n");
-  const start = lines.findIndex((l) => new RegExp(`^ {2}${jobName}:\\s*$`).test(l));
-  if (start === -1) throw new Error(`ci.yml has no top-level \`${jobName}:\` job`);
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((l) => /^ {2}\S/.test(l));
-  const blockLines = end === -1 ? rest : rest.slice(0, end);
-  return blockLines.join("\n");
+function jobOf(jobName) {
+  const job = getJob(PARSED, jobName);
+  if (!job) throw new Error(`ci.yml has no top-level \`${jobName}:\` job`);
+  return job;
 }
 
 /**
- * Isolate the single `steps:` entry (a `- name:` … `uses:` … `with:` block)
- * that mounts `.turbo/cache`, so `key:`/`restore-keys:` assertions can't
- * accidentally match the unrelated "Restore Prisma clients" step's `key:`
- * line sitting in the same job.
+ * The single step that mounts `.turbo/cache`, so `key:`/`restore-keys:`
+ * assertions can't accidentally match the unrelated "Restore Prisma clients"
+ * step's `key:` sitting in the same job.
  */
-function turboCacheStep(block) {
-  const lines = block.split("\n");
-  const pathIdx = lines.findIndex((l) => /path:\s*\.turbo\/cache/.test(l));
-  if (pathIdx === -1) return undefined;
-  let stepStart = pathIdx;
-  while (stepStart > 0 && !/^\s*- name:/.test(lines[stepStart])) stepStart--;
-  let stepEnd = pathIdx + 1;
-  while (stepEnd < lines.length && !/^\s*- name:/.test(lines[stepEnd])) stepEnd++;
-  return lines.slice(stepStart, stepEnd).join("\n");
+function turboCacheStep(job) {
+  return job.steps.find((s) => String(s.with.path ?? "").includes(".turbo/cache"));
 }
 
 const CACHE_JOBS = ["build", "test", "typecheck"];
 
 describe("ci.yml turbo caching (local + remote)", () => {
   for (const job of CACHE_JOBS) {
-    const block = jobBlock(WORKFLOW, job);
-    const step = turboCacheStep(block);
+    const step = turboCacheStep(jobOf(job));
 
     it(`${job} job restores/saves .turbo/cache via actions/cache`, () => {
       expect(step).toBeDefined();
-      expect(step).toMatch(/uses:\s*actions\/cache@/);
-      expect(step).toMatch(/path:\s*\.turbo\/cache/);
+      expect(step.uses).toMatch(/^actions\/cache@/);
+      expect(step.with.path).toMatch(/\.turbo\/cache/);
     });
 
     it(`${job} job's cache key includes the pnpm-lock.yaml hash and sha`, () => {
-      const keyLine = step?.split("\n").find((l) => /^\s*key:/.test(l));
+      const keyLine = step?.with.key;
       expect(keyLine).toBeDefined();
       expect(keyLine).toMatch(/turbo/);
       expect(keyLine).toMatch(/hashFiles\(\s*['"]pnpm-lock\.yaml['"]\s*\)/);
@@ -81,8 +69,7 @@ describe("ci.yml turbo caching (local + remote)", () => {
     });
 
     it(`${job} job's restore-keys let a PR reuse a prior run's cache, scoped to the lockfile hash`, () => {
-      const restoreKeysLine = step?.split("\n").find((l) => /^\s*restore-keys:/.test(l));
-      expect(restoreKeysLine).toBeDefined();
+      expect(step?.with["restore-keys"]).toBeDefined();
     });
   }
 
@@ -101,10 +88,17 @@ describe("ci.yml turbo caching (local + remote)", () => {
 
   for (const job of REMOTE_CACHE_JOBS) {
     it(`${job} job runs the pinned GitHub-Actions-backed turbo remote cache action`, () => {
-      const block = jobBlock(WORKFLOW, job);
-      expect(block).toMatch(/uses:\s*rharkor\/caching-for-turbo@[0-9a-f]{40}\s*#/);
+      const uses = jobOf(job).steps.map((s) => s.uses ?? "");
+      expect(uses.some((u) => /^rharkor\/caching-for-turbo@[0-9a-f]{40}$/.test(u))).toBe(true);
     });
   }
+
+  it("annotates every rharkor/caching-for-turbo pin with a trailing version comment", () => {
+    // Raw-text check: a YAML parser drops comments.
+    const uses = WORKFLOW.split("\n").filter((l) => /uses:\s*rharkor\/caching-for-turbo@/.test(l));
+    expect(uses.length).toBeGreaterThan(0);
+    for (const line of uses) expect(line).toMatch(/@[0-9a-f]{40}\s*#/);
+  });
 
   it("pins rharkor/caching-for-turbo to the same commit SHA everywhere it's used", () => {
     const pins = [...WORKFLOW.matchAll(/uses:\s*rharkor\/caching-for-turbo@([0-9a-f]{40})/g)].map(

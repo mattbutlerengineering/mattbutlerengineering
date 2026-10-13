@@ -71,7 +71,6 @@ src/
 ├── app.ts              # Fastify app builder
 ├── index.ts            # Entry point
 ├── routes/
-│   ├── health.ts       # Health check endpoints
 │   ├── sessions.ts     # Session CRUD                → /v1/sessions
 │   ├── session-events.ts # SSE event streaming       → /v1/sessions
 │   ├── orchestrate.ts  # Multi-session orchestration  → /v1/orchestrate

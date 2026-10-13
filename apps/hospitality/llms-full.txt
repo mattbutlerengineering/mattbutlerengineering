@@ -2396,7 +2396,7 @@
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, theme: resolvedTheme, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
@@ -4983,14 +4983,6 @@
         return buildSetupSections(readiness, isAdmin);
       }
       return buildOperationalSections(isAdmin);
-    }
-  </file>
-  <file path="src/return-to-store.ts">
-    export function rememberReturnTo(returnTo?: string): void {
-      storedReturnTo = returnTo;
-    }
-    export function readReturnTo(): string | undefined {
-      return storedReturnTo;
     }
   </file>
   <file path="src/vite-env.d.ts">

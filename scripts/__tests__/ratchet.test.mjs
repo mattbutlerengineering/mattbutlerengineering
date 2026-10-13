@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  compare,
-  findPriorRegressionIssue,
-  fetchIssuesByLabel,
-  fileRegressionIssueIfNew,
-} from "../lib/ratchet.mjs";
+import { compare, fetchIssuesByLabel, fileRegressionIssueIfNew } from "../lib/ratchet.mjs";
 
 describe("compare (shared ratchet core)", () => {
   it("flags a regression when a metric drops below baseline (default direction)", () => {
@@ -113,34 +108,6 @@ describe("compare (shared ratchet core)", () => {
   it("returns the highest severity across multiple regressions", () => {
     const { severity } = compare({ a: 80, b: 89 }, { a: 96, b: 96 }, { threshold: 5 });
     expect(severity).toBe("high");
-  });
-});
-
-describe("findPriorRegressionIssue (shared dedupe lookup)", () => {
-  const MARKER = "<!-- acmm-regression -->";
-
-  it("finds an open issue carrying the marker", () => {
-    const issues = [{ number: 10, body: `something ${MARKER} else`, state: "open" }];
-    expect(findPriorRegressionIssue(issues, MARKER)).toBe(10);
-  });
-
-  it("returns null when no issue carries the marker", () => {
-    const issues = [{ number: 10, body: "unrelated", state: "open" }];
-    expect(findPriorRegressionIssue(issues, MARKER)).toBeNull();
-  });
-
-  it("also finds a closed issue that carries the marker — feeds the reopen path", () => {
-    const issues = [{ number: 10, body: MARKER, state: "closed" }];
-    expect(findPriorRegressionIssue(issues, MARKER)).toBe(10);
-  });
-
-  it("returns null for an empty list", () => {
-    expect(findPriorRegressionIssue([], MARKER)).toBeNull();
-  });
-
-  it("is scoped to the marker passed in — a different marker does not match", () => {
-    const issues = [{ number: 10, body: MARKER, state: "open" }];
-    expect(findPriorRegressionIssue(issues, "<!-- antipattern-regression -->")).toBeNull();
   });
 });
 
@@ -258,5 +225,24 @@ describe("fileRegressionIssueIfNew (threads the injected ghClient through fileIs
 
     expect(result).toEqual({ filed: true, action: "create" });
     expect(ghClient.issue.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("matches on the marker in the body only — a different marker or an unrelated body files fresh", async () => {
+    const ghClient = makeGhClient({
+      list: vi.fn().mockReturnValue([
+        { number: 10, body: "<!-- antipattern-regression -->", state: "open" },
+        { number: 11, body: "unrelated", state: "open" },
+      ]),
+      view: vi.fn().mockReturnValue({ state: "open" }),
+    });
+
+    const result = await fileRegressionIssueIfNew({
+      label: "acmm",
+      marker: MARKER,
+      payload: { title: "t", body: "b", labels: ["acmm"] },
+      ghClient,
+    });
+
+    expect(result).toEqual({ filed: true, action: "create" });
   });
 });

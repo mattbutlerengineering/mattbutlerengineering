@@ -6,7 +6,7 @@ import {
   issueTitleFor,
   formatIssueBody,
   validateLabels,
-  findPriorReminderIssue,
+  isSameReminderTitle,
   runSecretRotationReminder,
 } from "../secret-rotation-reminder.mjs";
 
@@ -71,6 +71,12 @@ describe("formatIssueBody", () => {
     expect(body).toContain("AUTH0_CLIENT_SECRET");
     expect(body).toContain("rotates every 6 months");
   });
+
+  it("names DATABASE_URL as Pulumi config, not a GitHub secret", () => {
+    const body = formatIssueBody(getDueSecrets(1), 1, 2026);
+    expect(body).toContain("`DATABASE_URL` (Pulumi config `mbe-infrastructure:databaseUrl`)");
+    expect(body).not.toContain("- [ ] `DATABASE_URL` —");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -106,27 +112,23 @@ describe("validateLabels", () => {
 });
 
 // ---------------------------------------------------------------------------
-// findPriorReminderIssue — the #3775 dedup ledger lookup (any state, so a
+// isSameReminderTitle — the #3775 dedupe match (any state, so a
 // previously-closed reminder for this exact month/year can be reopened).
 // ---------------------------------------------------------------------------
 
-describe("findPriorReminderIssue", () => {
+describe("isSameReminderTitle", () => {
   const title = "chore: rotate secrets due January 2026";
 
-  it("finds a candidate issue with the exact same title", () => {
-    expect(findPriorReminderIssue([{ number: 5, title }], title)).toBe(5);
+  it("matches an issue with the exact same title", () => {
+    expect(isSameReminderTitle({ number: 5, title }, title)).toBe(true);
   });
 
   it("matches case-insensitively", () => {
-    expect(findPriorReminderIssue([{ number: 5, title: title.toUpperCase() }], title)).toBe(5);
+    expect(isSameReminderTitle({ number: 5, title: title.toUpperCase() }, title)).toBe(true);
   });
 
-  it("returns null when no candidate matches", () => {
-    expect(findPriorReminderIssue([{ number: 5, title: "some other issue" }], title)).toBeNull();
-  });
-
-  it("returns null for an empty issue list", () => {
-    expect(findPriorReminderIssue([], title)).toBeNull();
+  it("does not match a different title", () => {
+    expect(isSameReminderTitle({ number: 5, title: "some other issue" }, title)).toBe(false);
   });
 });
 

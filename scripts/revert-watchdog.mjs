@@ -55,11 +55,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
-import {
-  fileIssue,
-  issueState as ghIssueState,
-  parseIssueNumberFromUrl,
-} from "./lib/issue-filing.mjs";
+import { fileIssueViaGhClient } from "./lib/issue-filing.mjs";
 
 /** Pure: builds the original watchdog issue title (format unchanged, #2958). */
 export function buildBrokenMainTitle(sha) {
@@ -76,26 +72,13 @@ export function buildBrokenMainBody(sha, prNumber) {
 }
 
 /**
- * Pure: builds the `gh issue create` args for a broken-main issue. Carries
- * `ci-fix` + `ready` (#2958) alongside the pre-existing `priority:critical`
- * so the implement-queue's Phase 1 (`--label ready`, prioritized by
- * `ci-fix`) actually sees it. `ready` is sourced from `@mbe/gh-client`'s
- * coordination-label machine rather than a re-typed string literal.
+ * Labels on a broken-main issue: `ci-fix` + `ready` (#2958) alongside the
+ * pre-existing `priority:critical`, so the implement-queue's Phase 1
+ * (`--label ready`, prioritized by `ci-fix`) actually sees it. `ready` is
+ * sourced from `@mbe/gh-client`'s coordination-label machine rather than a
+ * re-typed string literal.
  */
-export function buildBrokenMainCreateArgs(title, body) {
-  return [
-    "--title",
-    title,
-    "--body",
-    body,
-    "--label",
-    "ci-fix",
-    "--label",
-    COORDINATION_LABELS.READY,
-    "--label",
-    "priority:critical",
-  ];
-}
+export const BROKEN_MAIN_LABELS = ["ci-fix", COORDINATION_LABELS.READY, "priority:critical"];
 
 const CULPRIT_SHA_PATTERN = /Broken Main at commit ([0-9a-f]{7,40})/;
 
@@ -108,22 +91,6 @@ export function extractCulpritSha(issue) {
 /** Pure: comment posted when auto-closing a recovered watchdog issue. */
 export function buildRecoveryComment(greenSha) {
   return `Main has recovered — commit ${greenSha} passed CI and is a descendant of the culprit commit. Auto-closing.`;
-}
-
-/**
- * Pure: finds a prior broken-main issue for `sha` among candidate issues
- * (any state — open or closed), by extracting each candidate's culprit SHA
- * from its title and matching it against `sha`. Feeds `fileIssue()`'s
- * dedupe-by-ledger decision (#3675): a match lets a rerun for the same
- * culprit commit skip or reopen instead of filing a duplicate.
- *
- * @param {Array<{number: number, title: string}>} candidates
- * @param {string} sha
- * @returns {number | null}
- */
-export function findPriorBrokenMainIssue(candidates, sha) {
-  const match = (candidates ?? []).find((issue) => extractCulpritSha(issue) === sha);
-  return match ? match.number : null;
 }
 
 /**
@@ -483,8 +450,8 @@ export async function resolveRevertAction({
 // issue instead" case from an ordinary "nothing to do" skip; checkBaseline()
 // below is the only reader of that field. Titles/bodies are pure and
 // unit-tested the same way buildBrokenMainTitle/Body are; the GitHub
-// mutation lives in fileAuditCiFixIssue(), which reuses fileIssue()'s
-// dedupe-by-ledger decision exactly like createIssue() does.
+// mutation lives in fileAuditCiFixIssue(), which shares createIssue()'s
+// search -> state -> create/reopen path (fileIssueViaGhClient).
 // ---------------------------------------------------------------------------
 
 /** Pure: builds the ci-fix issue title naming the GHSA id(s) an audit-only `CI Gate` failure surfaced (#3855). */
@@ -511,20 +478,17 @@ export function extractAuditCiFixGhsaIds(issue) {
 }
 
 /**
- * Pure: finds a prior audit ci-fix issue among candidates whose GHSA set
- * matches `ghsaIds` exactly (order-independent) — the same dedupe-lookup
- * role `findPriorBrokenMainIssue` plays for broken-main issues.
+ * Pure: true when `issue` is an audit ci-fix issue whose GHSA set matches
+ * `ghsaIds` exactly (order-independent) — the dedupe match for
+ * `fileAuditCiFixIssue`, the role `extractCulpritSha` plays for broken-main.
  *
- * @param {Array<{number: number, title: string}>} candidates
+ * @param {{title?: string}} issue
  * @param {string[]} ghsaIds
- * @returns {number | null}
+ * @returns {boolean}
  */
-export function findPriorAuditCiFixIssue(candidates, ghsaIds) {
+export function matchesAuditCiFixGhsaSet(issue, ghsaIds) {
   const key = [...ghsaIds].sort().join(",");
-  const match = (candidates ?? []).find(
-    (issue) => extractAuditCiFixGhsaIds(issue).slice().sort().join(",") === key
-  );
-  return match ? match.number : null;
+  return extractAuditCiFixGhsaIds(issue).slice().sort().join(",") === key;
 }
 
 // ---------------------------------------------------------------------------
@@ -797,32 +761,18 @@ function createIssue(ghClient, args) {
 
   const title = buildBrokenMainTitle(sha);
   const body = buildBrokenMainBody(sha, pr);
-  const labels = ["ci-fix", COORDINATION_LABELS.READY, "priority:critical"];
 
-  // A failed search must not swallow a genuine broken-main alert — fail
-  // open (treat as "no prior found", file the issue) rather than closed.
-  let candidates = [];
-  try {
-    candidates = ghClient.issue.list([
-      "--label",
-      "priority:critical",
-      "--state",
-      "all",
-      "--json",
-      "number,title",
-    ]);
-  } catch (err) {
-    console.error(`[revert-watchdog] search failed, proceeding as no-match: ${err.message}`);
-  }
-  const priorNumber = findPriorBrokenMainIssue(candidates, sha);
-  const ledger = priorNumber !== null ? { [sha]: priorNumber } : {};
-
-  const result = fileIssue({ title, body, labels, dedupeKey: sha }, ledger, {
-    getIssueState: (issueNumber) => ghIssueState(ghClient, issueNumber),
-    createIssue: () =>
-      parseIssueNumberFromUrl(ghClient.issue.create(buildBrokenMainCreateArgs(title, body))),
-    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
-  });
+  // A failed search fails open: it must not swallow a genuine broken-main alert.
+  const result = fileIssueViaGhClient(
+    ghClient,
+    { title, body, labels: BROKEN_MAIN_LABELS, dedupeKey: sha },
+    {
+      listArgs: ["--label", "priority:critical", "--state", "all", "--json", "number,title"],
+      match: (issue) => extractCulpritSha(issue) === sha,
+      onSearchError: (err) =>
+        console.error(`[revert-watchdog] search failed, proceeding as no-match: ${err.message}`),
+    }
+  );
 
   console.log(JSON.stringify({ action: result.action, issueNumber: result.issueNumber }));
 }
@@ -861,9 +811,8 @@ async function closeRecovered(ghClient, args) {
 /**
  * Files (or dedupes against) the ci-fix issue for a diff-independent `pnpm
  * audit` CI Gate failure (#3855). Mirrors createIssue()'s dedupe pattern —
- * search-by-label, look up a prior match via the pure finder, feed both into
- * fileIssue() — but scoped to the `ci-fix` label and matched by GHSA set
- * instead of culprit sha (a rerun for the *same commit* would find the
+ * search-by-label, then fileIssueViaGhClient() — but scoped to the `ci-fix`
+ * label and matched by GHSA set instead of culprit sha (a rerun for the *same commit* would find the
  * *same* GHSA set, but a later commit hitting the same still-unfixed
  * advisory should also dedupe against it).
  */
@@ -872,43 +821,16 @@ function fileAuditCiFixIssue(ghClient, sha, ghsaIds) {
   const body = buildAuditCiFixBody(sha, ghsaIds);
   const dedupeKey = [...ghsaIds].sort().join(",");
 
-  let candidates = [];
-  try {
-    candidates = ghClient.issue.list([
-      "--label",
-      "ci-fix",
-      "--state",
-      "all",
-      "--json",
-      "number,title",
-    ]);
-  } catch (err) {
-    console.error(
-      `[revert-watchdog] ci-fix issue search failed, proceeding as no-match: ${err.message}`
-    );
-  }
-  const priorNumber = findPriorAuditCiFixIssue(candidates, ghsaIds);
-  const ledger = priorNumber !== null ? { [dedupeKey]: priorNumber } : {};
-
-  const result = fileIssue(
+  const result = fileIssueViaGhClient(
+    ghClient,
     { title, body, labels: ["ci-fix", COORDINATION_LABELS.READY], dedupeKey },
-    ledger,
     {
-      getIssueState: (issueNumber) => ghIssueState(ghClient, issueNumber),
-      createIssue: () =>
-        parseIssueNumberFromUrl(
-          ghClient.issue.create([
-            "--title",
-            title,
-            "--body",
-            body,
-            "--label",
-            "ci-fix",
-            "--label",
-            COORDINATION_LABELS.READY,
-          ])
+      listArgs: ["--label", "ci-fix", "--state", "all", "--json", "number,title"],
+      match: (issue) => matchesAuditCiFixGhsaSet(issue, ghsaIds),
+      onSearchError: (err) =>
+        console.error(
+          `[revert-watchdog] ci-fix issue search failed, proceeding as no-match: ${err.message}`
         ),
-      reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
     }
   );
 

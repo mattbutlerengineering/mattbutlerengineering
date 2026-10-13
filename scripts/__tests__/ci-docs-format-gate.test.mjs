@@ -25,7 +25,7 @@ const WORKFLOW = loadWorkflow("ci.yml");
  * Asserts on the parsed workflow (scripts/lib/workflow.mjs, #6393), so the
  * checks survive reformatting of the YAML.
  */
-function jobBlock(jobName) {
+function requireJob(jobName) {
   const job = getJob(WORKFLOW, jobName);
   if (!job) throw new Error(`ci.yml has no top-level \`${jobName}:\` job`);
   return job;
@@ -35,18 +35,18 @@ const JOB = "docs-format";
 
 describe("ci.yml docs-only formatting gate", () => {
   it("defines the job", () => {
-    expect(() => jobBlock(JOB)).not.toThrow();
+    expect(() => requireJob(JOB)).not.toThrow();
   });
 
   it("runs the same prettier check the Build chain runs, not a hand-rolled subset", () => {
     // `pnpm check:prettier` is `prettier --check .` and is what repo-audit
     // calls. Re-implementing the glob here would let the two drift, which is
     // the class of bug this whole file exists for.
-    expect(jobRunText(jobBlock(JOB))).toMatch(/^pnpm check:prettier\s*$/m);
+    expect(jobRunText(requireJob(JOB))).toMatch(/^pnpm check:prettier\s*$/m);
   });
 
   it("runs exactly when the Build chain does NOT, so it is not redundant work", () => {
-    const block = jobBlock(JOB);
+    const block = requireJob(JOB);
     expect(block.needs).toEqual(["detect-changes"]);
     expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code != 'true'/);
   });
@@ -65,7 +65,7 @@ describe("ci.yml docs-only formatting gate", () => {
     // report-health's loop treats anything that is not failure/cancelled as
     // success, and a skipped job is neither. Without the has_code gate, the
     // first docs push after a red code run would report main healthy.
-    const block = jobBlock("report-health");
+    const block = requireJob("report-health");
     expect(block.needs).toContain("detect-changes");
     expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code == 'true'/);
   });
@@ -74,7 +74,7 @@ describe("ci.yml docs-only formatting gate", () => {
     // A job that runs but is absent from ci-gate's needs merges invisibly
     // (#5003). scripts/check-ci-gate-coverage.mjs enforces this repo-wide;
     // asserted here too so this job's own purpose cannot be quietly defeated.
-    const gate = jobBlock("ci-gate");
+    const gate = requireJob("ci-gate");
     expect(gate.needs).toContain(JOB);
     // The result check hands the whole `needs` context to the fail-closed
     // module (scripts/ci-gate-required-results.mjs), so being in `needs:` is

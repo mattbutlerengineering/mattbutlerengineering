@@ -5,7 +5,7 @@ import {
   findOrphanedDoApps,
   findOrphanedDnsRecords,
   buildReport,
-  findPriorResourceAuditIssue,
+  RESOURCE_AUDIT_TITLE_PATTERN,
   decideOrphanCountRefresh,
   refreshTrackedCount,
   extractZoneId,
@@ -140,31 +140,19 @@ describe("buildReport", () => {
 });
 
 // ---------------------------------------------------------------------------
-// findPriorResourceAuditIssue — the #3775 dedup ledger lookup. Previously
-// this producer had no dedup at all (a fresh issue was filed every run);
-// this is an intentional behavior change, matching the fixed-title-prefix
-// search strategy `buildReport`'s varying-count title requires.
+// RESOURCE_AUDIT_TITLE_PATTERN — the #3775 dedupe match handed to
+// fileIssueViaGhClient. The title carries a varying count, so the match is a
+// fixed-prefix one regardless of count.
 // ---------------------------------------------------------------------------
 
-describe("findPriorResourceAuditIssue", () => {
-  test("finds a prior resource-audit issue by title prefix, regardless of count", () => {
-    const candidates = [{ number: 3, title: "Orphaned resources found (2)" }];
-    expect(findPriorResourceAuditIssue(candidates)).toBe(3);
+describe("RESOURCE_AUDIT_TITLE_PATTERN", () => {
+  test("matches a prior resource-audit issue by title prefix, regardless of count", () => {
+    expect(RESOURCE_AUDIT_TITLE_PATTERN.test("Orphaned resources found (2)")).toBe(true);
+    expect(RESOURCE_AUDIT_TITLE_PATTERN.test("Orphaned resources found (5)")).toBe(true);
   });
 
-  test("matches regardless of state — feeds the reopen path for a closed prior issue", () => {
-    const candidates = [{ number: 3, title: "Orphaned resources found (5)", state: "closed" }];
-    expect(findPriorResourceAuditIssue(candidates)).toBe(3);
-  });
-
-  test("returns null when no candidate matches the title prefix", () => {
-    const candidates = [{ number: 3, title: "unrelated issue" }];
-    expect(findPriorResourceAuditIssue(candidates)).toBeNull();
-  });
-
-  test("returns null for empty or nullish input", () => {
-    expect(findPriorResourceAuditIssue([])).toBeNull();
-    expect(findPriorResourceAuditIssue(null)).toBeNull();
+  test("does not match an unrelated title", () => {
+    expect(RESOURCE_AUDIT_TITLE_PATTERN.test("unrelated issue")).toBe(false);
   });
 });
 

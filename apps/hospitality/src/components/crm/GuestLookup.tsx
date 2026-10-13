@@ -56,10 +56,6 @@ export interface GuestLookupProps {
   "data-testid"?: string;
 }
 
-function clamp(index: number, last: number): number {
-  return Math.min(Math.max(index, 0), last);
-}
-
 function resultsSentence(count: number): string {
   return `${count} result${count === 1 ? "" : "s"} available`;
 }
@@ -104,11 +100,17 @@ export function GuestLookup({
   const last = rows.length - 1;
 
   const items = rows.map((guest) => ({ value: guest.id, label: guest.name }));
-  const { open, focusedIndex, openWithFocus, close, setFocusedIndex } = useCombobox({
-    items,
-    containerRef,
-    extraContainerRefs: [listRef],
-  });
+  const { open, focusedIndex, openWithFocus, close, select, setFocusedIndex, handleKeyDown } =
+    useCombobox({
+      items,
+      inputMode: "input",
+      containerRef,
+      extraContainerRefs: [listRef],
+      onSelect: (id) => {
+        const guest = rows.find((row) => row.id === id);
+        if (guest) onPick(guest);
+      },
+    });
 
   // A settled answer that is not a failure: loading, rows, or a confirmed no-match.
   const hasContent = lookup.query !== "" && !failed;
@@ -157,20 +159,10 @@ export function GuestLookup({
       ?.scrollIntoView?.({ block: "nearest" });
   }, [visible, focusedIndex]);
 
-  const openList = () => {
-    openWithFocus();
-    setFocusedIndex(-1);
-  };
-
-  const pick = (guest: Guest) => {
-    close();
-    onPick(guest);
-  };
-
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     void onChange(event);
     if (picked && event.target.value === "") onClear();
-    openList();
+    openWithFocus();
   };
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
@@ -178,44 +170,15 @@ export function GuestLookup({
     close();
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    switch (event.key) {
-      case "ArrowDown":
-      case "ArrowUp": {
-        event.preventDefault();
-        if (!visible) {
-          if (hasContent) openList();
-          return;
-        }
-        if (last < 0) return;
-        const delta = event.key === "ArrowDown" ? 1 : -1;
-        const fromEdge = delta > 0 ? 0 : last;
-        setFocusedIndex(focusedIndex < 0 ? fromEdge : clamp(focusedIndex + delta, last));
-        return;
-      }
-      case "Home":
-      case "End":
-        if (visible && last >= 0) {
-          event.preventDefault();
-          setFocusedIndex(event.key === "Home" ? 0 : last);
-        }
-        return;
-      case "Enter": {
-        const focused = visible ? rows[focusedIndex] : undefined;
-        if (focused) {
-          event.preventDefault();
-          pick(focused);
-        }
-        return;
-      }
-      case "Escape":
-        if (visible) event.preventDefault();
-        if (open) close();
-        return;
-      case "Tab":
-        if (open) close();
-        return;
+  // The hook owns the key table; this gate keeps it off while no answer is showing (the debounce
+  // pause or a failed lookup), and leaves Enter to the form unless a row is highlighted.
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!hasContent) {
+      if (open && (event.key === "Escape" || event.key === "Tab")) close();
+      return;
     }
+    if (event.key === "Enter" && !activeOptionId) return;
+    handleKeyDown(event);
   };
 
   const liveMessage = !visible
@@ -253,9 +216,9 @@ export function GuestLookup({
         onChange={handleChange}
         onBlur={handleBlur}
         onFocus={() => {
-          if (!open && hasContent) openList();
+          if (!open && hasContent) openWithFocus();
         }}
-        onKeyDown={handleKeyDown}
+        onKeyDown={handleInputKeyDown}
         {...(describedBy ? { "aria-describedby": describedBy } : {})}
       />
       {failureShown && (
@@ -307,7 +270,7 @@ export function GuestLookup({
                 data-option-index={index}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  pick(guest);
+                  select(guest.id);
                 }}
                 onMouseEnter={() => setFocusedIndex(index)}
               >

@@ -1,11 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
-  buildBrokenMainCreateArgs,
+  BROKEN_MAIN_LABELS,
   buildBrokenMainTitle,
   buildBrokenMainBody,
   extractCulpritSha,
-  findPriorBrokenMainIssue,
   buildRecoveryComment,
   selectIssuesToClose,
   runAutoCloseWatchdog,
@@ -32,7 +31,7 @@ import {
   buildAuditCiFixTitle,
   buildAuditCiFixBody,
   extractAuditCiFixGhsaIds,
-  findPriorAuditCiFixIssue,
+  matchesAuditCiFixGhsaSet,
 } from "../revert-watchdog.mjs";
 
 const SHA = "abc1234def5678901234567890123456789abcd";
@@ -106,32 +105,16 @@ describe("buildBrokenMainBody", () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildBrokenMainCreateArgs — label vocabulary fix (#2958)
+// BROKEN_MAIN_LABELS — label vocabulary fix (#2958)
 // ---------------------------------------------------------------------------
 
-describe("buildBrokenMainCreateArgs", () => {
+describe("BROKEN_MAIN_LABELS", () => {
   it("carries ci-fix, ready, and priority:critical labels", () => {
-    const args = buildBrokenMainCreateArgs("title", "body");
-
-    expect(args).toEqual([
-      "--title",
-      "title",
-      "--body",
-      "body",
-      "--label",
-      "ci-fix",
-      "--label",
-      COORDINATION_LABELS.READY,
-      "--label",
-      "priority:critical",
-    ]);
+    expect(BROKEN_MAIN_LABELS).toEqual(["ci-fix", COORDINATION_LABELS.READY, "priority:critical"]);
   });
 
   it("uses the shared ready label constant instead of a re-typed literal", () => {
-    const args = buildBrokenMainCreateArgs("title", "body");
-    const readyIdx = args.indexOf(COORDINATION_LABELS.READY);
-    expect(readyIdx).toBeGreaterThan(-1);
-    expect(args[readyIdx - 1]).toBe("--label");
+    expect(BROKEN_MAIN_LABELS).toContain(COORDINATION_LABELS.READY);
   });
 });
 
@@ -151,34 +134,6 @@ describe("extractCulpritSha", () => {
   it("returns null for a missing title", () => {
     expect(extractCulpritSha({})).toBeNull();
     expect(extractCulpritSha(null)).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// findPriorBrokenMainIssue — dedup lookup feeding fileIssue() (#3675)
-// ---------------------------------------------------------------------------
-
-describe("findPriorBrokenMainIssue", () => {
-  it("returns null when there are no candidates", () => {
-    expect(findPriorBrokenMainIssue([], SHA)).toBeNull();
-  });
-
-  it("returns the matching issue's number when a candidate's culprit sha matches", () => {
-    const candidates = [
-      { number: 11, title: buildBrokenMainTitle(OTHER_SHA) },
-      { number: 22, title: buildBrokenMainTitle(SHA) },
-    ];
-    expect(findPriorBrokenMainIssue(candidates, SHA)).toBe(22);
-  });
-
-  it("returns null when no candidate's culprit sha matches", () => {
-    const candidates = [{ number: 11, title: buildBrokenMainTitle(OTHER_SHA) }];
-    expect(findPriorBrokenMainIssue(candidates, SHA)).toBeNull();
-  });
-
-  it("treats a nullish candidates array as empty", () => {
-    expect(findPriorBrokenMainIssue(null, SHA)).toBeNull();
-    expect(findPriorBrokenMainIssue(undefined, SHA)).toBeNull();
   });
 });
 
@@ -972,32 +927,24 @@ describe("extractAuditCiFixGhsaIds", () => {
   });
 });
 
-describe("findPriorAuditCiFixIssue", () => {
-  it("returns null when there are no candidates", () => {
-    expect(findPriorAuditCiFixIssue([], ["GHSA-rgw5-rvv9-x895"])).toBeNull();
+describe("matchesAuditCiFixGhsaSet", () => {
+  it("matches regardless of GHSA id order", () => {
+    const issue = {
+      title: buildAuditCiFixTitle(["GHSA-dddd-eeee-ffff", "GHSA-rgw5-rvv9-x895"]),
+    };
+    expect(matchesAuditCiFixGhsaSet(issue, ["GHSA-rgw5-rvv9-x895", "GHSA-dddd-eeee-ffff"])).toBe(
+      true
+    );
   });
 
-  it("returns the matching issue's number regardless of GHSA id order", () => {
-    const candidates = [
-      { number: 11, title: buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc"]) },
-      {
-        number: 22,
-        title: buildAuditCiFixTitle(["GHSA-dddd-eeee-ffff", "GHSA-rgw5-rvv9-x895"]),
-      },
-    ];
-    expect(
-      findPriorAuditCiFixIssue(candidates, ["GHSA-rgw5-rvv9-x895", "GHSA-dddd-eeee-ffff"])
-    ).toBe(22);
+  it("does not match a different GHSA set", () => {
+    const issue = { title: buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc"]) };
+    expect(matchesAuditCiFixGhsaSet(issue, ["GHSA-rgw5-rvv9-x895"])).toBe(false);
   });
 
-  it("returns null when no candidate's GHSA set matches", () => {
-    const candidates = [{ number: 11, title: buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc"]) }];
-    expect(findPriorAuditCiFixIssue(candidates, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
-  });
-
-  it("treats a nullish candidates array as empty", () => {
-    expect(findPriorAuditCiFixIssue(null, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
-    expect(findPriorAuditCiFixIssue(undefined, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
+  it("does not match an unrelated or missing title", () => {
+    expect(matchesAuditCiFixGhsaSet({ title: "unrelated" }, ["GHSA-rgw5-rvv9-x895"])).toBe(false);
+    expect(matchesAuditCiFixGhsaSet(null, ["GHSA-rgw5-rvv9-x895"])).toBe(false);
   });
 });
 

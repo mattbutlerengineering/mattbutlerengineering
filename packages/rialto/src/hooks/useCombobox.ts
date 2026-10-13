@@ -194,9 +194,11 @@ export function useCombobox({
           break;
         }
         case "Enter": {
-          e.preventDefault();
+          // ARIA APG: with no active option, Enter belongs to the input/form.
           const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
-          if (focused && !focused.disabled) select(focused.value);
+          if (!focused) break;
+          e.preventDefault();
+          if (!focused.disabled) select(focused.value);
           break;
         }
         case "Escape":
