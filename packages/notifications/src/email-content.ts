@@ -1,6 +1,7 @@
 import type { BookingNotificationInput } from "./port.js";
 import { escapeHtml, sanitizeUrl } from "./sanitize.js";
 import { escapeIcalText } from "./ical.js";
+import { toVenueLocalTime } from "./venue-time.js";
 
 export { escapeHtml, sanitizeUrl, escapeIcalText };
 
@@ -77,11 +78,12 @@ export function buildBookingEmail(
   event: NotificationEventType
 ): BookingEmailTemplate {
   const copy = eventCopy(input.venueName, event);
+  const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
 
   const lines = [
     `<h1>${copy.heading}</h1>`,
     `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-    `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
+    `<p>${when.date} at ${when.display} — Party of ${input.partySize}</p>`,
   ];
 
   if (copy.includeAddress && input.venueAddress) {

@@ -12,6 +12,12 @@ export interface BookingNotificationInput {
   venueTimezone: string;
   venueAddress: string | null;
   manageToken: string;
+  /**
+   * The reservation's `updatedAt`. The iCal SEQUENCE for confirm/modify/cancel
+   * is derived from it (see `calendarSequence`) so it only ever increases.
+   */
+  updatedAt?: string;
+  /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
   sequence?: number;
 }
 

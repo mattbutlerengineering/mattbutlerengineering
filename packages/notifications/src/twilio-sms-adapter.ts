@@ -1,4 +1,5 @@
 import { retry } from "@mbe/api-client";
+import { toVenueLocalTime } from "./venue-time.js";
 import type {
   SmsPort,
   SmsNotificationInput,
@@ -41,6 +42,20 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }
 
+const SMS_SEGMENT_LIMIT = 160;
+
+/**
+ * Picks the most informative candidate that fits one SMS segment. The manage
+ * link is never cut: if even the shortest candidate overflows (the signed
+ * token alone is ~170 chars), it is sent whole as a multi-segment message,
+ * because a truncated link is a dead link.
+ */
+function fitReminderBody(candidates: readonly string[]): string {
+  return (
+    candidates.find((c) => c.length <= SMS_SEGMENT_LIMIT) ?? candidates[candidates.length - 1]!
+  );
+}
+
 export class TwilioSmsAdapter implements SmsPort {
   private readonly client: TwilioClient | null;
   private readonly fromNumber: string;
@@ -56,13 +71,18 @@ export class TwilioSmsAdapter implements SmsPort {
     if (!this.client) return;
 
     const name = input.guestName ?? "Guest";
-    const dateStr = formatDate(input.date);
-    const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+    const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
+    const dateStr = formatDate(when.date);
+    const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
 
-    const body = `${name}, reminder: ${input.venueName} ${dateStr} at ${input.startTime} for ${input.partySize}. Manage: ${manageUrl}`;
-    const trimmed = body.length > 160 ? body.slice(0, 160) : body;
-
-    await this.sendWithRetry(input.guestPhone, trimmed);
+    await this.sendWithRetry(
+      input.guestPhone,
+      fitReminderBody([
+        `${name}, reminder: ${input.venueName} ${dateStr} at ${when.display} for ${input.partySize}. Manage: ${manageUrl}`,
+        `${name}, reminder: ${input.venueName} ${dateStr} ${when.display}. Manage: ${manageUrl}`,
+        `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
+      ])
+    );
   }
 
   async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {

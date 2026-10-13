@@ -90,6 +90,7 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
         venueName: venue.name,
         venueTimezone: venue.ianaTimezone,
         venueAddress: null,
+        updatedAt: reservation.updatedAt,
         manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
       };
 
