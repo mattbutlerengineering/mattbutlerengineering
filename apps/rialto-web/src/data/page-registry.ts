@@ -17,7 +17,7 @@
  * export doesn't match their label) and carry an explicit `load` override.
  */
 
-import { derivePath } from "./derive-path.mjs";
+import { derivePath } from "../../../../scripts/ui-quality/derive-path.mjs";
 
 export { derivePath };
 

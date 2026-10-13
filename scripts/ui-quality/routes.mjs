@@ -32,7 +32,7 @@ import { createRequire } from "node:module";
 import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { derivePath } from "../../apps/rialto-web/src/data/derive-path.mjs";
+import { derivePath } from "./derive-path.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 

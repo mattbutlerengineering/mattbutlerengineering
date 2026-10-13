@@ -208,7 +208,7 @@ export const FAMILIES = [
     // Same inputs as the route inventory, plus the shared derivePath module.
     changedBy(path) {
       return ROUTER_FILES.some((file) => path === file || path.endsWith(`/${file}`)) ||
-        path.endsWith("apps/rialto-web/src/data/derive-path.mjs")
+        path.endsWith("scripts/ui-quality/derive-path.mjs")
         ? { command: this.command, outputs: this.outputs }
         : null;
     },
