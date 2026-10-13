@@ -225,6 +225,5 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 function bearerToken(header: string | undefined): string | null {
-  const match = header?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
+  return header?.startsWith("Bearer ") ? header.slice(7) : null;
 }
