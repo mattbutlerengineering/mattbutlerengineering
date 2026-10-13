@@ -40,7 +40,7 @@ import conductor_plan
 import conductor_run
 import factory_config
 from cli import CLI_FAILURES, detail, gh_read
-from conductor import BLOCK, answers, append, current_state, is_text, \
+from conductor import BLOCK, append, current_state, is_text, \
     item_view, load, stamp
 from cost_ledger import ISSUE_KEY
 
@@ -100,34 +100,6 @@ def _shipped_problems(rows, item):
     return _refused(f"{item}'s ship step has not completed")
 
 
-def _approved_blobs(rows, item):
-    """{gate path: blob id} approved at the item's gate asks, the later
-    approval winning for a path approved twice."""
-    given = answers(rows)
-    approved = {}
-    for row in item_view(rows, item)["asks"]:
-        if row["ask_kind"] == "gate" \
-                and (given.get(row["id"]) or {}).get("choice") == "approve":
-            approved.update(row.get("gate_blobs") or {})
-    return approved
-
-
-def _train_problems(rows, item, train, blobs):
-    covers = train["covers"]
-    for earlier in covers[:covers.index(item)]:
-        state = current_state(rows, earlier)
-        if state != "merged":
-            return _refused(f"{item} rides train {train['id']} behind"
-                            f" {earlier}, which is {state}, not merged")
-    approved = _approved_blobs(rows, item)
-    for path in sorted(blobs):
-        if approved.get(path) != blobs[path]:
-            return _refused(f"{item}'s gate file {path} is not the one"
-                            " approved at its gate ask; it needs its own"
-                            " merge ask")
-    return []
-
-
 def merge_problems(rows, item, blobs, policy=None):
     """Problems refusing a merge of `item`, PURE over the ledger's rows,
     `blobs` ({gate path: blob id} the item branch changes) and the
@@ -143,21 +115,11 @@ def merge_problems(rows, item, blobs, policy=None):
 
 
 def cover_problems(rows, item, blobs, policy=None):
-    """The answer half of merge_problems: an own merge answer, or a
-    train answer with the earlier items merged and the gate blobs as
-    approved, or else a standing consent the policy, as it reads now,
-    still covers: still on, and still no gate-path file (ADR-0086).
-    Re-run after the merge turn updates the branch."""
-    own, trains = flow.consents(rows, item)
-    if own:
-        return []
-    if trains:
-        return _train_problems(rows, item, trains[-1], blobs)
-    if consent.standing(rows, item) is None:
-        return _refused(f"no merge answer covers {item}")
-    return [problem for reason in consent.standing_problems(
-        item, blobs, None, policy or {"enabled": False})
-        for problem in _refused(reason)]
+    """The answer half of merge_problems: conductor_consent.cover's
+    reasons, refused, unless it reads the item COVERED (ADR-0085,
+    ADR-0086). Re-run after the merge turn updates the branch."""
+    _, reasons = consent.cover(rows, item, blobs, policy)
+    return [problem for reason in reasons for problem in _refused(reason)]
 
 
 # --- the merge turn (WO-0161) ------------------------------------------
@@ -197,7 +159,8 @@ def _git(git, worktree, args, what, recommended=BLOCK):
     try:
         return git(["-C", str(worktree), *args]).stdout
     except CLI_FAILURES as err:
-        raise Stall(f"{what} failed: {detail(err)}", recommended)
+        raise Stall(f"{what} failed: {detail(err, every_line=True)}",
+                    recommended)
 
 
 def factory_source(worktree):
@@ -239,12 +202,15 @@ def update_branch(git, tool, worktree, branch):
         git(["-C", str(worktree), "merge", "--no-edit", "origin/main"])
         return
     except CLI_FAILURES as err:
-        failure = detail(err)
+        failure = detail(err, every_line=True)
     conflicted = _git(git, worktree, ["diff", "--name-only",
                                       "--diff-filter=U"],
                       "listing conflicts").split()
     if conflicted != [MANIFEST] or not factory_source(worktree):
-        _git(git, worktree, ["merge", "--abort"], "aborting the merge")
+        if conflicted:
+            # A merge git refused before starting (a dirty tracked file,
+            # #726) left nothing to abort, and its reason is the stall.
+            _git(git, worktree, ["merge", "--abort"], "aborting the merge")
         raise Stall(f"merging origin/main into {branch} conflicts in"
                     f" {', '.join(conflicted)}" if conflicted
                     else f"merging origin/main into {branch} failed:"
@@ -450,7 +416,7 @@ def _read(gh, args, operation, expect=dict):
     return result.value
 
 
-def _pr_number(gh, branch):
+def pr_number(gh, branch):
     listed = _read(gh, ["pr", "list", "--head", branch, "--state", "open",
                         "--json", "number"], "gh pr list", expect=list)
     if len(listed) != 1 or not isinstance(listed[0], dict) \
@@ -597,7 +563,7 @@ def _turn(root, batch, item, ports, worktree, gate, policy):
     _git(git, worktree, ["push", "origin", branch], f"pushing {branch}",
          RETRY)
     head = _git(git, worktree, ["rev-parse", "HEAD"], "reading HEAD").strip()
-    pr = _pr_number(gh, branch)
+    pr = pr_number(gh, branch)
     checks = wait_checks(gh, head, clock, sleep)
     queued = has_queue(gh)
     if not queued:
@@ -620,7 +586,8 @@ def _drift(rows, item, git, branch, worktree):
         status = git(["-C", str(worktree), "status", "--porcelain",
                       "--untracked-files=all"]).stdout
     except CLI_FAILURES as err:
-        return None, [f"cd: git status in {worktree} failed: {detail(err)}"]
+        return None, [f"cd: git status in {worktree} failed:"
+                      f" {detail(err, every_line=True)}"]
     dirty = sorted(line[3:] for line in status.splitlines() if line)
     if dirty:
         return (f"{item}'s worktree holds changes no commit carries:"
@@ -634,7 +601,7 @@ def _drift(rows, item, git, branch, worktree):
                         f"origin/main...{head}"]).stdout.split()
     except CLI_FAILURES as err:
         return None, [f"cd: git diff {head[:12]} {branch} failed:"
-                      f" {detail(err)}"]
+                      f" {detail(err, every_line=True)}"]
     own_dirs = {path[:-len("verification.md")] for path in verified
                 if VERIFICATION.fullmatch(path)}
     grown = _show(git, branch, COSTS) if COSTS in changed else None

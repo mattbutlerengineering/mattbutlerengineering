@@ -24,7 +24,8 @@ import ast
 import re
 from pathlib import Path
 
-from knowledge_plane import ADR_TOKEN, breakdown_files, row_work_order
+from knowledge_plane import (ADR_TOKEN, adr_paths, breakdown_files,
+                             row_work_order)
 
 # Bare filenames a breakdown row names in prose ("assembler.yml + guards",
 # "budget_guard.py + handoff.py + cost ledger") — a best-effort scan of the
@@ -75,13 +76,10 @@ def cited_adrs(text):
 
 
 def adr_path(root, number):
-    """The docs/adr file for a 4-digit ADR number, or None. Same glob
-    gates.check_blueprint_drift uses to walk the blueprint plane."""
-    adr_dir = Path(root) / "docs" / "adr"
-    if not adr_dir.is_dir():
-        return None
-    matches = sorted(adr_dir.glob(f"{number}-*.md"))
-    return matches[0] if matches else None
+    """The docs/adr file for a 4-digit ADR number, or None — read from
+    knowledge_plane.adr_paths, the ADR file set every reader shares."""
+    return next((path for found, path in adr_paths(root)
+                 if found == number), None)
 
 
 def _resolve_file(root, name):

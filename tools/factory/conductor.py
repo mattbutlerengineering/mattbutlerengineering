@@ -18,9 +18,10 @@ closing a batch).
         number block. Writes nothing. --agents names the charter stub
         directory (default factory/agents/, which a consumer repo lacks).
   python3 conductor.py open <batch> [--agents DIR] <#N>...
-        Plan, then create the conductor/<batch> branch and worktree from
-        origin/main, write the plan and reserve rows, and queue the spend
-        ask.
+        Plan, check what every `run` will need (factory.json, the cost
+        ledger on origin/main, no push gap), then create the
+        conductor/<batch> branch and worktree from origin/main, write the
+        plan and reserve rows, and queue the spend ask.
   python3 conductor.py next <batch>
         Record any new stall and gate asks, then print as JSON the oldest
         unanswered ask, the steps ready to launch under wip_cap (a
@@ -30,7 +31,8 @@ closing a batch).
   python3 conductor.py run <batch> <#N> <step>
         One metered headless Worker run of the item's step in its own
         worktree (conductor/<batch>-<n>): launch row, brief, harness, spend
-        row, push, PR, run row; any failure queues a stall ask.
+        row, push, PR, run row; any failure queues a stall ask, and a
+        launch refusal no retry fixes pauses dispatch behind an ask.
   python3 conductor.py merge <batch> <#N>
         One merge turn, refused unless the item is reviewed with a pass
         from a distinct reviewer and an answer covers it: merge
@@ -51,7 +53,13 @@ closing a batch).
         the scorecard to docs/factory/scorecards.jsonl only when it
         computes, write the close row and the closing merge ask, commit,
         push (never forced), open the closing PR, and label each blocked
-        item's issue needs-human with its reason.
+        item's issue needs-human with its reason, creating the label
+        when the repo lacks it.
+  python3 conductor.py close <batch> --merge
+        Once the Owner answered the closing ask `merge`: commit and push
+        the answer row to conductor/<batch>, so the merged ledger holds
+        it, wait for that head's checks, then squash-merge or enqueue
+        the closing PR.
   python3 conductor.py ask <batch> --kind K --question Q --option O
                            [--option O ...] --recommended O --why W
                            [--item #N] [--covers #N ...]
@@ -82,12 +90,28 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cli import gh_runner, report, runner
+# Before any sibling import (#726): a run must never dirty its own
+# worktree with bytecode. A repo that once tracked tools/factory/
+# __pycache__ saw every run rewrite it, and close's merge of main
+# refused. The .gitignore the payload ships covers the untracked case.
+sys.dont_write_bytecode = True
+
+from cli import gh_runner, report, runner  # noqa: E402
 from cost_ledger import ISSUE_KEY
 from knowledge_plane import repo_root
 
-LEDGER = "docs/factory/batches/{batch}/ledger.jsonl"
-BATCH_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
+# The Batch's names (#735): every ref, path and run id a batch makes is
+# formed here and nowhere else. An item's name is its batch's name plus
+# -<n>, and a batch name never ends in -<digits>, so no item's branch or
+# worktree is ever another batch's (item #2 of `oct` is not batch
+# `oct-2`). A run id is parsed from the right, so a batch whose name
+# extends another's (`oct-2-x`) never claims that batch's runs.
+BATCH_NAME = re.compile(r"(?![a-z0-9-]*-\d+$)[a-z0-9][a-z0-9-]*")
+WORKTREES = ".claude/worktrees"
+BATCH_DIR = "docs/factory/batches/{batch}"
+LEDGER = BATCH_DIR + "/ledger.jsonl"
+RUNS = BATCH_DIR + "/runs"
+RUN_ID = re.compile(r"conductor-(?P<batch>.+)-(?P<n>\d+)-[a-z]+-\d+")
 AT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 WORKER_ENV = "CONDUCTOR_WORKER"
@@ -128,6 +152,55 @@ STANDING = "standing"
 COMPLETED = "completed"
 # The stall answers that resume an item's stalled step.
 RETRIES = ("retry", "retry-up")
+
+
+def batch_name_problems(batch):
+    """The batch name lands in refs and paths: anything but a slug that
+    no item name can equal is refused before it is used."""
+    if isinstance(batch, str) and BATCH_NAME.fullmatch(batch):
+        return []
+    return [f"cd: batch {batch!r} is not a batch name (lowercase letters,"
+            " digits and hyphens, never ending in -<digits>, which names"
+            " an item)"]
+
+
+def _item_name(batch, item):
+    return f"{batch}-{item[1:]}"
+
+
+def batch_dir(batch):
+    return BATCH_DIR.format(batch=batch)
+
+
+def batch_branch(batch):
+    return f"conductor/{batch}"
+
+
+def item_branch(batch, item):
+    """The item's branch (Owner, 2026-10-10): conductor/<batch>-<n>."""
+    return f"conductor/{_item_name(batch, item)}"
+
+
+def batch_worktree(batch):
+    """Relative to the main checkout."""
+    return f"{WORKTREES}/conductor-{batch}"
+
+
+def item_worktree(batch, item):
+    """Relative to the main checkout."""
+    return f"{WORKTREES}/conductor-{_item_name(batch, item)}"
+
+
+def run_id(batch, item, step, seq):
+    return f"conductor-{_item_name(batch, item)}-{step}-{seq}"
+
+
+def run_item(batch, run):
+    """The item key of one of this batch's run ids, else None."""
+    found = RUN_ID.fullmatch(run)
+    if found is None or found["batch"] != batch:
+        return None
+    return f"#{found['n']}"
 
 
 def is_text(value):
@@ -276,9 +349,9 @@ def parse(text, shown):
 def _ledger(root, batch):
     """(path, shown, problems) for a batch's ledger. The batch name lands
     in a path, so anything but a slug is refused before it is used."""
-    if not (isinstance(batch, str) and BATCH_NAME.fullmatch(batch)):
-        return None, None, [f"cd: batch {batch!r} is not a batch name"
-                            " (lowercase letters, digits and hyphens)"]
+    problems = batch_name_problems(batch)
+    if problems:
+        return None, None, problems
     shown = LEDGER.format(batch=batch)
     path = Path(root) / shown
     if not path.is_file():
@@ -591,7 +664,7 @@ def _answer_cli(root, batch, args, now, env):
 
 
 def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
-         alive=None, harness=None, tool=None, sleep=None):
+         alive=None, harness=None, tool=None, sleep=None, netrc=None):
     env = os.environ if env is None else env
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
@@ -608,7 +681,8 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
     if argv[:1] == ["plan"]:
         problems = conductor_plan.plan_cli(root, argv[1:], now, run, git)
     elif argv[:1] == ["open"] and len(argv) >= 3:
-        problems = conductor_plan.open_cli(root, argv[1:], now, run, git)
+        problems = conductor_plan.open_cli(root, argv[1:], now, run, git,
+                                           netrc)
     elif len(argv) >= 2:
         command, batch, args = argv[0], argv[1], argv[2:]
         if command == "next" and env.get(WORKER_ENV):
@@ -631,7 +705,7 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
                                                      now)
         elif command == "close":
             problems = conductor_close.close_cli(root, [batch, *args],
-                                                 clock, git, run)
+                                                 clock, git, run, sleep)
         elif command == "merge":
             problems = conductor_merge.merge_cli(root, [batch, *args], clock,
                                                  git, run, tool, sleep)
@@ -642,4 +716,7 @@ def main(argv, env=None, clock=None, root=None, run=gh_runner, git=None,
 
 
 if __name__ == "__main__":
+    # Its children too: the gate command a merge turn runs, and the
+    # Worker harness (whose env worker_env also pins).
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     sys.exit(main(sys.argv[1:]))

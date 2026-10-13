@@ -27,6 +27,7 @@ TEMPLATED_STAGES = [s for s in STAGES + MAINTENANCE_STAGES
 UTILITY_SKILLS = ["address-pr-review", "animated-diagram",
                   "architecture-diagram", "audit", "automate", "autorun",
                   "conduct", "deepen", "doctor", "factory-init",
+                  "implement-queue",
                   "interactive-architecture-diagram", "knowledge-base",
                   "launch-demo", "lean", "mermaid", "pipeline-board",
                   "polish", "prisma-migrations", "ux-patterns",
