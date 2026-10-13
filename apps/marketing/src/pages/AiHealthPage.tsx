@@ -394,6 +394,9 @@ export function AiHealthPage() {
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PRs Merged (30d)</Text>
             <Text className={styles.statValue}>{formatCount(metrics.prsMerged)}</Text>
+            {metrics.prMetricsAsOf && (
+              <Text className={styles.statNote}>snapshot as of {metrics.prMetricsAsOf}</Text>
+            )}
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Issues Ready</Text>

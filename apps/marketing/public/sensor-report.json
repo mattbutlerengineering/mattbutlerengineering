@@ -164,6 +164,7 @@
     },
     "issues": {
       "available": true,
+      "open": 41,
       "created_7d": 158,
       "closed_7d": 200,
       "closure_rate": 127,

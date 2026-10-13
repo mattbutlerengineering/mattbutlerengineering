@@ -400,10 +400,6 @@
       const importModule = PAGE_MODULES[modulePath]!;
       return () => importModule().then((mod) => ({ default: mod[exportName] }));
     }
-    function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
-      if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
-      return `/components/${entry.id}`;
-    }
     export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] {
       return rawEntries.map((entry) => ({
         id: entry.id,
