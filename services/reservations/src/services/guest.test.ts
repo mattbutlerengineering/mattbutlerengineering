@@ -13,6 +13,7 @@ vi.mock("./database.js", async () => {
         count: vi.fn(),
       },
       $queryRaw: vi.fn(),
+      $transaction: vi.fn(),
     },
   });
 });
@@ -487,8 +488,27 @@ describe("guestService", () => {
   });
 
   describe("getSegments", () => {
+    const order: string[] = [];
+    let txQueryRaw: ReturnType<typeof vi.fn>;
+    let txExecuteRaw: ReturnType<typeof vi.fn>;
+
+    /** Mirrors a real interactive transaction: the callback receives a tx; calls are recorded in order. */
     function mockCounts(vip: number, fresh: number) {
-      vi.mocked(prisma.$queryRaw).mockResolvedValue([{ vip, fresh }] as never);
+      order.length = 0;
+      txQueryRaw = vi.fn(async () => {
+        order.push("queryRaw");
+        return [{ vip, fresh }];
+      });
+      txExecuteRaw = vi.fn(async () => {
+        order.push("setVenueContext");
+        return 0;
+      });
+      vi.mocked(prisma.$transaction).mockImplementation((async (fn: (tx: unknown) => unknown) =>
+        fn({
+          $queryRaw: txQueryRaw,
+          $executeRaw: txExecuteRaw,
+          $executeRawUnsafe: txExecuteRaw,
+        })) as never);
     }
 
     it("returns all six segment categories with the shared VIP/New counts", async () => {
@@ -530,7 +550,7 @@ describe("guestService", () => {
 
       await guestService.getSegments("venue-1");
 
-      const [strings, ...values] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [
+      const [strings, ...values] = txQueryRaw.mock.calls[0] as unknown as [
         TemplateStringsArray,
         ...unknown[],
       ];
@@ -540,6 +560,19 @@ describe("guestService", () => {
       expect(values).toEqual(
         expect.arrayContaining([VIP_VISIT_THRESHOLD, REPEAT_VISIT_THRESHOLD, VIP_TAG, "venue-1"])
       );
+    });
+
+    it("sets the venue RLS context in the same transaction before the raw count (guests is FORCE RLS)", async () => {
+      vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(2, 5);
+
+      const segments = await guestService.getSegments("venue-1");
+
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(order.at(-1)).toBe("queryRaw");
+      expect(order.length).toBeGreaterThan(1);
+      expect(order.slice(0, -1).every((c) => c === "setVenueContext")).toBe(true);
+      expect(segments.find((x) => x.name === "VIP")?.count).toBe(2);
     });
 
     it("a 7-visit untagged guest is Repeat, so neither VIP nor New (shared predicate)", () => {

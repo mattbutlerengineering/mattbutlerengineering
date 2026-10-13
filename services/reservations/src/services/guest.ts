@@ -12,6 +12,7 @@ import type {
 import { REPEAT_VISIT_THRESHOLD, VIP_TAG, VIP_VISIT_THRESHOLD } from "@mbe/types";
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 import { prisma } from "./database.js";
 import { runLapsedGuestScan, type LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { buildGuestUpdateData } from "./guest-identity.js";
@@ -86,7 +87,11 @@ function mapPrismaGuest(guest: {
  * `array_contains` is case-sensitive and would disagree with the client badge.
  */
 async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
-  const rows = await prisma.$queryRaw<{ vip: number; fresh: number }[]>`
+  // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+  // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+  const rows = await prisma.$transaction(async (tx) => {
+    await setVenueContext(tx, venueId);
+    return tx.$queryRaw<{ vip: number; fresh: number }[]>`
     SELECT
       count(*) FILTER (WHERE is_vip)::int AS vip,
       count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
@@ -105,6 +110,7 @@ async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: nu
       FROM guests
       WHERE venue_id = ${venueId}
     ) AS g`;
+  });
   return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
 }
 

@@ -9901,7 +9901,11 @@
       };
     }
     async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
-      const rows = await prisma.$queryRaw<{ vip: number; fresh: number }[]>`
+      // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+      // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+      const rows = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$queryRaw<{ vip: number; fresh: number }[]>`
         SELECT
           count(*) FILTER (WHERE is_vip)::int AS vip,
           count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
@@ -9920,6 +9924,7 @@
           FROM guests
           WHERE venue_id = ${venueId}
         ) AS g`;
+      });
       return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
     }
     export const guestService = {
