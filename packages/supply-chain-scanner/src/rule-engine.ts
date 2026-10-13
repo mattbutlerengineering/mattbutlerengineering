@@ -7,6 +7,20 @@ export interface Rule {
   readonly severity: Severity;
   /** Optional file-path filter; the rule is skipped for files that match. */
   readonly excludes?: RegExp;
+  /** Optional language filter; the rule is skipped for files detected as one of these. */
+  readonly excludeLanguages?: readonly Language[];
+}
+
+export type Language = "python" | "other";
+
+const PYTHON_SHEBANG = /^#!\s*\S*\/(?:env\s+(?:-\S+\s+)*)?python[\d.]*(?:\s|$)/;
+
+/** Language from the extension, or from the shebang interpreter for extension-less files. */
+export function detectLanguage(file: string, content: string): Language {
+  const base = file.slice(file.lastIndexOf("/") + 1);
+  if (base.includes(".")) return /\.py$/i.test(base) ? "python" : "other";
+  const firstLine = content.split(/\r?\n/, 1)[0] ?? "";
+  return PYTHON_SHEBANG.test(firstLine) ? "python" : "other";
 }
 
 const MAX_EVIDENCE = 120;
@@ -58,7 +72,10 @@ export function applyRules(file: string, content: string, rules: readonly Rule[]
   const lines = content.split(/\r?\n/);
   const prose = isProseFile(file);
   const continues = prose ? PROSE_CONTINUES : CONTINUES;
-  const active = rules.filter((r) => !r.excludes || !r.excludes.test(file));
+  const language = detectLanguage(file, content);
+  const active = rules.filter(
+    (r) => (!r.excludes || !r.excludes.test(file)) && !r.excludeLanguages?.includes(language)
+  );
   const add = (rule: Rule, line: number, text: string): void => {
     findings.push({
       category: rule.category,
