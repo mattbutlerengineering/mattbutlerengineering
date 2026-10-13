@@ -1,3 +1,4 @@
+import { classifyGuestSegment } from "@mbe/types";
 import { describe, it, expect } from "vitest";
 import {
   ALLERGY_KEYWORDS,
@@ -50,6 +51,20 @@ describe("guest-signals", () => {
     it("is New otherwise", () => {
       expect(getSegmentLabel(0, null)).toBe("New");
       expect(getSegmentLabel(1, [])).toBe("New");
+    });
+  });
+
+  describe("agreement with the shared segment rule (server counts use the same predicate)", () => {
+    it.each([
+      [2, ["vip"], "VIP"],
+      [9, [], "Repeat"],
+      [10, null, "VIP"],
+      [7, null, "Repeat"],
+      [0, null, "New"],
+      [1, null, "New"],
+    ] as const)("%i visits, tags %j -> %s", (visits, tags, expected) => {
+      expect(getSegmentLabel(visits, tags)).toBe(classifyGuestSegment(visits, tags));
+      expect(getSegmentLabel(visits, tags)).toBe(expected);
     });
   });
 

@@ -877,10 +877,7 @@
       return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
     }
     export function getSegmentLabel(visitCount: number, tags: readonly string[] | null): string {
-      const tagList = (tags ?? []).map((tag) => tag.toLowerCase());
-      if (tagList.includes("vip") || visitCount >= 10) return "VIP";
-      if (visitCount >= 2) return "Repeat";
-      return "New";
+      return classifyGuestSegment(visitCount, tags);
     }
     export function getSegmentVariant(label: string): GuestSegmentVariant {
       if (label === "VIP") return "accent";

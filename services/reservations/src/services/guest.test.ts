@@ -12,10 +12,17 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
+      $queryRaw: vi.fn(),
     },
   });
 });
 
+import {
+  classifyGuestSegment,
+  REPEAT_VISIT_THRESHOLD,
+  VIP_TAG,
+  VIP_VISIT_THRESHOLD,
+} from "@mbe/types";
 import { guestService } from "./guest.js";
 import { prisma } from "./database.js";
 
@@ -480,60 +487,64 @@ describe("guestService", () => {
   });
 
   describe("getSegments", () => {
-    it("returns all six segment categories", async () => {
+    function mockCounts(vip: number, fresh: number) {
+      vi.mocked(prisma.$queryRaw).mockResolvedValue([{ vip, fresh }] as never);
+    }
+
+    it("returns all six segment categories with the shared VIP/New counts", async () => {
       vi.mocked(prisma.guest.count)
         .mockResolvedValueOnce(100 as never) // total
-        .mockResolvedValueOnce(10 as never) // VIP
         .mockResolvedValueOnce(30 as never) // recent
         .mockResolvedValueOnce(20 as never) // at risk
-        .mockResolvedValueOnce(15 as never) // lapsed
-        .mockResolvedValueOnce(25 as never); // new
+        .mockResolvedValueOnce(15 as never); // lapsed
+      mockCounts(10, 25);
 
       const segments = await guestService.getSegments("venue-1");
 
-      expect(segments).toHaveLength(6);
-      expect(segments.map((s) => s.name)).toEqual([
-        "All Guests",
-        "VIP",
-        "Recent",
-        "At Risk",
-        "Lapsed",
-        "New",
+      expect(segments.map((s) => [s.name, s.count])).toEqual([
+        ["All Guests", 100],
+        ["VIP", 10],
+        ["Recent", 30],
+        ["At Risk", 20],
+        ["Lapsed", 15],
+        ["New", 25],
       ]);
-      const [allGuests, vip] = segments;
-      if (!allGuests || !vip) throw new Error("expected at least two segments");
-      expect(allGuests.count).toBe(100);
-      expect(vip.count).toBe(10);
     });
 
-    it("all segment count queries include venueId for index utilisation", async () => {
+    it("all prisma segment count queries include venueId for index utilisation", async () => {
       vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(0, 0);
 
       await guestService.getSegments("venue-1");
 
-      // Every count call must pass venueId so the DB uses guests_venue_id_visit_count_idx
-      // and guests_venue_id_last_visit_idx instead of sequential scans
       const calls = vi.mocked(prisma.guest.count).mock.calls;
-      expect(calls).toHaveLength(6);
+      expect(calls).toHaveLength(4);
       for (const [args] of calls) {
         expect((args as { where: { venueId: string } }).where.venueId).toBe("venue-1");
       }
     });
 
-    it("VIP segment uses visitCount filter that benefits from index", async () => {
+    it("VIP/New are counted in SQL from the shared thresholds and the vip tag, scoped to the venue", async () => {
       vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+      mockCounts(0, 0);
 
       await guestService.getSegments("venue-1");
 
-      const calls = vi.mocked(prisma.guest.count).mock.calls;
-      // VIP = index 1, New = index 5
-      const vipCall = calls[1]?.[0] as
-        { where: { venueId: string; visitCount: { gte: number } } } | undefined;
-      const newCall = calls[5]?.[0] as
-        { where: { venueId: string; visitCount: number } } | undefined;
-      if (!vipCall || !newCall) throw new Error("expected VIP and New segment count calls");
-      expect(vipCall.where.visitCount).toEqual({ gte: 5 });
-      expect(newCall.where.visitCount).toBe(0);
+      const [strings, ...values] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      const sql = strings.join("?");
+      expect(sql).toContain("jsonb_array_elements_text");
+      expect(sql).toContain("venue_id");
+      expect(values).toEqual(
+        expect.arrayContaining([VIP_VISIT_THRESHOLD, REPEAT_VISIT_THRESHOLD, VIP_TAG, "venue-1"])
+      );
+    });
+
+    it("a 7-visit untagged guest is Repeat, so neither VIP nor New (shared predicate)", () => {
+      expect(classifyGuestSegment(7, null)).toBe("Repeat");
+      expect(classifyGuestSegment(2, ["vip"])).toBe("VIP");
     });
   });
 });
