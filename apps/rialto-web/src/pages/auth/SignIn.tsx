@@ -368,6 +368,7 @@ export function SignIn() {
   }
 
   async function handlePasskey() {
+    if (phase !== "idle") return;
     setPhase("submitting");
     await delay(SIMULATED_NETWORK_MS);
     await completeSignIn("Signed in with your passkey");
@@ -437,7 +438,7 @@ export function SignIn() {
             setPassword={setPassword}
             passwordError={passwordError}
             setPasswordError={setPasswordError}
-            isLoading={isLoading}
+            isLoading={isLoading || isVerified}
             onSubmit={handleCredentialsSubmit}
             onPasskey={handlePasskey}
             onSocial={handleSocial}

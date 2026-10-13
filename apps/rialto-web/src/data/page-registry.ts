@@ -7,7 +7,7 @@
  * Raw entries only need to declare `{id, label, category, comingSoon?}` —
  * `path` and `load` are derived by convention in `buildPageRegistry`:
  *   - path: /components/{id}, or /examples/{id sans "example-" prefix} for
- *     the Examples category, or /dashboard for the Dashboard category.
+ *     the Examples category.
  *   - load: resolved by finding the page module whose file name matches
  *     PascalCase(label) + "Page" (or + "ExamplePage" for Examples), via
  *     import.meta.glob — this preserves per-page code splitting and fails

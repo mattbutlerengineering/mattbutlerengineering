@@ -305,6 +305,22 @@ describe("SignIn — credentials step", () => {
     expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
   });
 
+  it("ignores a second passkey click during the verified window", async () => {
+    renderSignInWithRoutes();
+    fireEvent.click(screen.getByRole("button", { name: /use a passkey instead/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000); // network done, now settling as verified
+    });
+    fireEvent.click(screen.getByRole("button", { name: /use a passkey instead/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    const successToasts = toastSpy.mock.calls.filter(([arg]) => arg.variant === "success");
+    expect(successToasts).toHaveLength(1);
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+
   it.each(["Google", "GitHub"])(
     "the %s button surfaces a demo note instead of doing nothing",
     (name) => {
