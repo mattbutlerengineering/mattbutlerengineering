@@ -3,8 +3,9 @@ import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./
 import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { estimateDuration } from "./slot-rules.js";
+import type { VenueSettings } from "@mbe/types";
 
-const DEFAULT_AVG_TURN_TIME_MINUTES = 30;
 /** How long a notified party has to claim their table before the entry expires. */
 export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
 
@@ -29,6 +30,19 @@ export interface CreateWaitlistEntryInput {
   guestName: string;
   guestPhone: string;
   avgTurnTimeMinutes?: number;
+}
+
+/**
+ * Per-position turn time when the caller names none: the same party-size
+ * duration the availability engine books a table for (venue `durationRules`,
+ * else its defaults), so both the staff and public joins agree.
+ */
+async function resolveTurnTimeMinutes(venueId: string, partySize: number): Promise<number> {
+  const venue = await prisma.venue.findUnique({
+    where: { id: venueId },
+    select: { settings: true },
+  });
+  return estimateDuration(partySize, venue?.settings as VenueSettings | null | undefined);
 }
 
 async function recalculateVenuePositions(venueId: string): Promise<void> {
@@ -65,7 +79,7 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
 export const waitlistService = {
   async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
     const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-    const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
+    const turnTime = avgTurnTimeMinutes ?? (await resolveTurnTimeMinutes(venueId, partySize));
 
     const existingCount = await prisma.waitlistEntry.count({
       where: { venueId, status: "waiting" },

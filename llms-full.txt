@@ -4461,6 +4461,7 @@
       | "waitlist-join"
       | "waitlist-confirmation";
     export interface WaitlistResult {
+      entryId: string;
       position: number;
       estimatedWaitMinutes: number;
     }
@@ -23377,6 +23378,7 @@
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addSchema(waitlistJoinResultJsonSchema);
+      fastify.addSchema(waitlistEstimateJsonSchema);
     
       fastify.post<{
         Params: { slug: string };
@@ -23461,8 +23463,62 @@
     
             return reply.code(201).send({
               data: {
+                entryId: entry.id,
                 position: entry.position,
                 estimatedWaitMinutes: entry.estimatedWaitMinutes,
+              },
+            });
+          });
+        }
+      );
+      // Live read of the guest's OWN entry. The entry id (returned only to the
+      // joiner) is the capability; the response carries no PII. Rate limiting stays
+      // on the global onRequest limiter - no route-level config.rateLimit here.
+      fastify.get<{
+        Params: { slug: string; entryId: string };
+        Reply: ApiResponse<WaitlistEstimate> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/waitlist/:entryId",
+        {
+          schema: {
+            summary: "Read a waitlist entry's live position and estimate (public)",
+            description:
+              "Returns the current position and wait estimate for the guest's own waitlist entry, addressed by the entry id returned when they joined.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug", "entryId"],
+              properties: { slug: { type: "string" }, entryId: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "WaitlistEstimate#" } },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug, entryId } = request.params;
+          const notFound = () =>
+            reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "No such waitlist entry for this venue."));
+    
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) return notFound();
+    
+          return runWithVenueContext(venueId, async () => {
+            const entry = await waitlistService.getById(entryId);
+            // An entry from another venue is indistinguishable from a missing one.
+            if (!entry || entry.venueId !== venueId) return notFound();
+    
+            return reply.send({
+              data: {
+                position: entry.position,
+                estimatedWaitMinutes: entry.estimatedWaitMinutes,
+                status: entry.status,
               },
             });
           });
@@ -27340,6 +27396,10 @@
       "WaitlistJoinResult",
       WaitlistJoinResultSchema
     );
+    export const waitlistEstimateJsonSchema = toFastifyJsonSchema(
+      "WaitlistEstimate",
+      WaitlistEstimateSchema
+    );
     export const floorPlanLayoutJsonSchema = toFastifyJsonSchema(
       "FloorPlanLayout",
       FloorPlanLayoutSchema
@@ -27980,6 +28040,7 @@
       guestPhone: z.string(),
     });
     export const WaitlistJoinResultSchema = z.object({
+      entryId: z.string(),
       position: z.number(),
       estimatedWaitMinutes: z.number(),
     });
@@ -27990,6 +28051,11 @@
       "expired",
       "cancelled",
     ]);
+    export const WaitlistEstimateSchema = z.object({
+      position: z.number(),
+      estimatedWaitMinutes: z.number(),
+      status: WaitlistStatusSchema,
+    });
     export const WaitlistEntrySchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -38553,6 +38619,13 @@
       guestPhone: string;
       avgTurnTimeMinutes?: number;
     }
+    async function resolveTurnTimeMinutes(venueId: string, partySize: number): Promise<number> {
+      const venue = await prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { settings: true },
+      });
+      return estimateDuration(partySize, venue?.settings as VenueSettings | null | undefined);
+    }
     async function recalculateVenuePositions(venueId: string): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
         where: { venueId, status: "waiting" },
@@ -38586,7 +38659,7 @@
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
         const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-        const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
+        const turnTime = avgTurnTimeMinutes ?? (await resolveTurnTimeMinutes(venueId, partySize));
     
         const existingCount = await prisma.waitlistEntry.count({
           where: { venueId, status: "waiting" },
@@ -49211,6 +49284,18 @@
       }
     
       /**
+       * The guest's live position and wait estimate for their own entry
+       * (`entryId` comes from {@link joinWaitlist}).
+       */
+      async waitlistEstimate(slug: string, entryId: string): Promise<WaitlistEstimate> {
+        return this.client.getOne<WaitlistEstimate>(
+          `/public/v1/venues/${slug}/waitlist/${encodeURIComponent(entryId)}`,
+          undefined,
+          WaitlistEstimateSchema
+        );
+      }
+    
+      /**
        * Create a Stripe PaymentIntent for a reservation's deposit.
        * `sessionId` is the booking session that confirmed the reservation
        * (`api.holds.getSessionId()`), sent as `x-session-id` — the server's
@@ -56728,8 +56813,15 @@
       guestPhone: string;
     }
     export interface WaitlistJoinResult {
+      /** Unguessable id of the guest's own entry; the key for the live-estimate read. */
+      entryId: string;
       position: number;
       estimatedWaitMinutes: number;
+    }
+    export interface WaitlistEstimate {
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
     }
     export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
     export interface WaitlistEntry {

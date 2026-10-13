@@ -51,6 +51,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        entryId: string;
         position: number;
         estimatedWaitMinutes: number;
       }

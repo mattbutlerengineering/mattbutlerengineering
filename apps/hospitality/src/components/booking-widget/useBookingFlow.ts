@@ -26,6 +26,7 @@ export type BookingStep =
   | "waitlist-confirmation";
 
 export interface WaitlistResult {
+  entryId: string;
   position: number;
   estimatedWaitMinutes: number;
 }

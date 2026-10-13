@@ -21,6 +21,7 @@ vi.mock("./database.js", async () => {
           }) => unknown
         ) => fn({ $executeRaw: executeRaw, $executeRawUnsafe: executeRawUnsafe })
       ),
+      venue: { findUnique: vi.fn() },
       waitlistEntry: {
         count: vi.fn(),
         create: vi.fn(),
@@ -62,8 +63,9 @@ describe("waitlistService", () => {
 
   describe("create", () => {
     it("computes position from waiting count and estimated wait with default turn time", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({ settings: null } as never);
       vi.mocked(prisma.waitlistEntry.count).mockResolvedValueOnce(2 as never);
-      const created = makeEntry({ position: 3, estimatedWaitMinutes: 90 });
+      const created = makeEntry({ position: 3, estimatedWaitMinutes: 225 });
       vi.mocked(prisma.waitlistEntry.create).mockResolvedValueOnce(created as never);
 
       const result = await waitlistService.create({
@@ -76,7 +78,8 @@ describe("waitlistService", () => {
       expect(prisma.waitlistEntry.count).toHaveBeenCalledWith({
         where: { venueId: "venue-1", status: "waiting" },
       });
-      // 2 waiting entries -> position 3; 3 * 30min default turn time = 90min
+      // 2 waiting entries -> position 3; 3 * 75min (the availability engine's
+      // default duration for a party of 2) = 225min
       expect(prisma.waitlistEntry.create).toHaveBeenCalledWith({
         data: {
           venueId: "venue-1",
@@ -84,10 +87,35 @@ describe("waitlistService", () => {
           guestName: "Jane Doe",
           guestPhone: "+15551234567",
           position: 3,
-          estimatedWaitMinutes: 90,
+          estimatedWaitMinutes: 225,
         },
       });
       expect(result).toEqual(created);
+    });
+
+    it("derives the turn time from the venue's own duration rules when none is passed", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        settings: { durationRules: [{ minPartySize: 1, maxPartySize: 4, durationMinutes: 20 }] },
+      } as never);
+      vi.mocked(prisma.waitlistEntry.count).mockResolvedValueOnce(1 as never);
+      vi.mocked(prisma.waitlistEntry.create).mockResolvedValueOnce(
+        makeEntry({ position: 2, estimatedWaitMinutes: 40 }) as never
+      );
+
+      await waitlistService.create({
+        venueId: "venue-1",
+        partySize: 2,
+        guestName: "Jane Doe",
+        guestPhone: "+15551234567",
+      });
+
+      expect(prisma.venue.findUnique).toHaveBeenCalledWith({
+        where: { id: "venue-1" },
+        select: { settings: true },
+      });
+      expect(prisma.waitlistEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ position: 2, estimatedWaitMinutes: 40 }),
+      });
     });
 
     it("uses provided avgTurnTimeMinutes for the wait estimate", async () => {

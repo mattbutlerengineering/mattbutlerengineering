@@ -132,7 +132,11 @@ describe("WaitlistJoinView", () => {
 
   it("calls onJoined with position and estimatedWaitMinutes after successful join", async () => {
     const onJoined = vi.fn();
-    mockApi.publicVenue.joinWaitlist.mockResolvedValue({ position: 3, estimatedWaitMinutes: 45 });
+    mockApi.publicVenue.joinWaitlist.mockResolvedValue({
+      entryId: "wl-1",
+      position: 3,
+      estimatedWaitMinutes: 45,
+    });
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} onJoined={onJoined} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });

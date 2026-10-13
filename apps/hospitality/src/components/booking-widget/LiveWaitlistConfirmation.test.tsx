@@ -1,0 +1,71 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LiveWaitlistConfirmation, WAITLIST_ESTIMATE_POLL_MS } from "./LiveWaitlistConfirmation.js";
+
+vi.mock("@mattbutlerengineering/rialto", () => ({
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
+  Heading: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
+}));
+
+const waitlistEstimate = vi.fn();
+const api = { publicVenue: { waitlistEstimate } } as any;
+
+function renderLive() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <LiveWaitlistConfirmation
+        api={api}
+        venueSlug="the-oak-table"
+        joined={{ entryId: "wl-1", position: 3, estimatedWaitMinutes: 225 }}
+        onNewBooking={vi.fn()}
+      />
+    </QueryClientProvider>
+  );
+}
+
+describe("LiveWaitlistConfirmation", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    waitlistEstimate.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the join-time snapshot first, then the server's live value on the next poll", async () => {
+    waitlistEstimate.mockResolvedValue({
+      position: 1,
+      estimatedWaitMinutes: 75,
+      status: "waiting",
+    });
+    renderLive();
+
+    expect(screen.getByText("#3")).toBeDefined();
+    expect(screen.getByText("225 min")).toBeDefined();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WAITLIST_ESTIMATE_POLL_MS + 10);
+    });
+
+    expect(waitlistEstimate).toHaveBeenCalledWith("the-oak-table", "wl-1");
+    expect(screen.getByText("#1")).toBeDefined();
+    expect(screen.getByText("75 min")).toBeDefined();
+  });
+
+  it("keeps showing the last known value when a poll fails", async () => {
+    waitlistEstimate.mockRejectedValue(new Error("network"));
+    renderLive();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WAITLIST_ESTIMATE_POLL_MS + 10);
+    });
+
+    expect(screen.getByText("#3")).toBeDefined();
+    expect(screen.getByText("225 min")).toBeDefined();
+  });
+});

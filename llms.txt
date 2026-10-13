@@ -1349,6 +1349,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        entryId: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -7074,6 +7075,9 @@
       export const waitlistJoinResultJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const waitlistEstimateJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const floorPlanLayoutJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -7462,6 +7466,9 @@
     </item>
     <item priority="high">
       export const WaitlistStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistEstimateSchema: unknown;
     </item>
     <item priority="high">
       export const WaitlistEntrySchema: unknown;
@@ -9745,6 +9752,9 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+    <item priority="low">
+      async function resolveTurnTimeMinutes(venueId: string, partySize: number): Promise<number> { /* ... */ }
     </item>
     <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
@@ -12902,7 +12912,7 @@
         async guestRisk(): Promise<unknown>;
         async recognizeGuest(): Promise<unknown>;
         async joinWaitlist(): Promise<unknown>;
-        async depositIntent(): Promise<unknown>;
+        async waitlistEstimate(): Promise<unknown>;
       }
     </item>
   </file>
@@ -16074,8 +16084,16 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
+        entryId: string;
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistEstimate {
+        position: number;
+        estimatedWaitMinutes: number;
+        status: WaitlistStatus;
       }
     </item>
     <item priority="low">

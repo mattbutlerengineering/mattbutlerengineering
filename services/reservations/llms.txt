@@ -2472,6 +2472,9 @@
       }
     </item>
     <item priority="low">
+      async function resolveTurnTimeMinutes(venueId: string, partySize: number): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
     </item>
     <item priority="high">

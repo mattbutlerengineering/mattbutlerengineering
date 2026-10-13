@@ -9,7 +9,7 @@ import { GuestDetailsForm } from "./GuestDetailsForm";
 import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
-import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
+import { LiveWaitlistConfirmation } from "./LiveWaitlistConfirmation";
 import { useBookingFlow } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
@@ -273,10 +273,11 @@ export function BookingWidget({
         />
       )}
 
-      {state === "waitlist-confirmation" && data.waitlistResult && (
-        <WaitlistConfirmationView
-          position={data.waitlistResult.position}
-          estimatedWaitMinutes={data.waitlistResult.estimatedWaitMinutes}
+      {state === "waitlist-confirmation" && data.waitlistResult && venueSlug && (
+        <LiveWaitlistConfirmation
+          api={api}
+          venueSlug={venueSlug}
+          joined={data.waitlistResult}
           onNewBooking={actions.resetFlow}
         />
       )}

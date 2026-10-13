@@ -189,6 +189,17 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     expect(body.data.estimatedWaitMinutes).toBe(45);
   });
 
+  it("returns the entry id so the guest can read their live estimate", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/waitlist",
+      payload: validPayload,
+    });
+
+    const body = JSON.parse(res.payload) as { data: { entryId: string } };
+    expect(body.data.entryId).toBe("entry-1");
+  });
+
   it("does not leak guest PII in the response", async () => {
     const res = await app.inject({
       method: "POST",
@@ -197,7 +208,7 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     });
 
     const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
-    expect(Object.keys(body.data).sort()).toEqual(["estimatedWaitMinutes", "position"]);
+    expect(Object.keys(body.data).sort()).toEqual(["entryId", "estimatedWaitMinutes", "position"]);
   });
 
   it("always joins the venue resolved from the slug, ignoring a mismatched body.venueId", async () => {
@@ -258,6 +269,64 @@ describe("POST /public/v1/venues/:slug/waitlist", () => {
     const body = JSON.parse(res.payload) as { data: unknown };
     const result = WaitlistJoinResultSchema.safeParse(body.data);
     expect(result.success).toBe(true);
+  });
+});
+
+describe("GET /public/v1/venues/:slug/waitlist/:entryId", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+    vi.mocked(waitlistService.getById).mockResolvedValue(mockEntry as never);
+  });
+
+  const url = "/public/v1/venues/the-oak-table/waitlist/entry-1";
+
+  it("returns only the live position, estimate and status for that entry", async () => {
+    const res = await app.inject({ method: "GET", url });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
+    expect(body.data).toEqual({ position: 4, estimatedWaitMinutes: 45, status: "waiting" });
+  });
+
+  it("returns 404 for an entry that belongs to another venue", async () => {
+    vi.mocked(waitlistService.getById).mockResolvedValue({
+      ...mockEntry,
+      venueId: "venue-2",
+    } as never);
+
+    const res = await app.inject({ method: "GET", url });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns 404 for an unknown entry", async () => {
+    vi.mocked(waitlistService.getById).mockResolvedValue(null);
+
+    const res = await app.inject({ method: "GET", url });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns 404 for an unknown venue slug", async () => {
+    vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
+
+    const res = await app.inject({ method: "GET", url });
+
+    expect(res.statusCode).toBe(404);
+    expect(waitlistService.getById).not.toHaveBeenCalled();
   });
 });
 
