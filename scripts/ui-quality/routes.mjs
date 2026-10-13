@@ -383,11 +383,7 @@ function registryRows(io, prefix) {
     const label = str("label");
     const category = str("category");
     const path =
-      category === "Dashboard"
-        ? "dashboard"
-        : category === "Examples"
-          ? `examples/${id.replace(/^example-/, "")}`
-          : `components/${id}`;
+      category === "Examples" ? `examples/${id.replace(/^example-/, "")}` : `components/${id}`;
     const load = prop(ts, obj, "load");
     const exportName = `${toPascalCase(label)}${category === "Examples" ? "ExamplePage" : "Page"}`;
     const module = load
