@@ -2527,6 +2527,9 @@
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
@@ -6513,6 +6516,9 @@
     </item>
     <item priority="low">
       type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
+    </item>
+    <item priority="high">
+      export function inWindowDate(daysAhead: number): string { /* ... */ }
     </item>
     <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;

@@ -529,6 +529,9 @@
       type PayloadOrFactory = InjectOptions["payload"] | ((ctx: SweepContext) => Inject;
     </item>
     <item priority="high">
+      export function inWindowDate(daysAhead: number): string { /* ... */ }
+    </item>
+    <item priority="high">
       export const ADMIN_HEADERS: Record<string, string>;
     </item>
     <item priority="high">

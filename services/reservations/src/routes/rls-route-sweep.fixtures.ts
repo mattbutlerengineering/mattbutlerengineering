@@ -177,6 +177,16 @@ export type PayloadOrFactory =
   InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
 
 /** `x-auth-bypass` short-circuits `requireAuth`/`requireVenueAccess` to a hardcoded platform-admin identity. */
+/**
+ * A YYYY-MM-DD date `daysAhead` days from today (UTC). Hold creation enforces
+ * the venue booking window (not in the past, within min/max advance), so hold
+ * fixtures must request a time relative to now rather than a fixed calendar
+ * date that will eventually be in the past.
+ */
+export function inWindowDate(daysAhead: number): string {
+  return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
 /** Matched by the `jose` mock in the test file to a non-admin member of venue A. */
 export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
@@ -514,8 +524,8 @@ export async function createDisposableStaffHold(
     headers: { "x-session-id": sessionId },
     payload: {
       venueId,
-      date: "2026-10-08",
-      time: "2026-10-08T18:00:00Z",
+      date: inWindowDate(8),
+      time: `${inWindowDate(8)}T18:00:00Z`,
       partySize: 2,
       tableId,
     },
@@ -576,8 +586,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableA,
       },
@@ -588,8 +598,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },
@@ -605,8 +615,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
         url: HOLDS_URL,
         payload: {
           venueId: ctx.venueA.id,
-          date: "2026-10-03",
-          time: "2026-10-03T18:00:00Z",
+          date: inWindowDate(3),
+          time: `${inWindowDate(3)}T18:00:00Z`,
           partySize: 2,
           tableId: memberTable,
         },
@@ -619,8 +629,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueB.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },

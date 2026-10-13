@@ -23,6 +23,26 @@ function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<
   });
 }
 
+/**
+ * Serves the availability-slots fixture re-dated to the next 17 May. The
+ * booking widget drops slots already past, so a fixed 2026 date would
+ * eventually be filtered out; the same month/day keeps the venue-timezone DST
+ * offset (and so every rendered time) identical to the fixture's.
+ */
+function slotsResponse(route: Route): Promise<void> {
+  const now = new Date();
+  const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
+  const year =
+    thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
+      ? now.getUTCFullYear()
+      : now.getUTCFullYear() + 1;
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`),
+  });
+}
+
 function emptyPaginated(route: Route): Promise<void> {
   return route.fulfill({
     status: 200,
@@ -793,16 +813,12 @@ export async function mockApi(page: Page): Promise<void> {
       }),
     });
   });
-  await page.route("**/api/v1/availability/*", (route) =>
-    jsonResponse(route, "availability-slots")
-  );
+  await page.route("**/api/v1/availability/*", slotsResponse);
   // Public (slug-scoped) availability — the booking widget's api client is
   // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
   // (the staff route above 401s for guests). The `**/public/v1/venues/*`
   // config glob below never reaches it (`*` never crosses `/`).
-  await page.route("**/public/v1/venues/*/availability*", (route) =>
-    jsonResponse(route, "availability-slots")
-  );
+  await page.route("**/public/v1/venues/*/availability*", slotsResponse);
 
   // Holds
   await page.route("**/api/v1/holds/*/confirm", (route) => {

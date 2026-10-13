@@ -8515,6 +8515,19 @@
         body: loadFixture(fixtureName),
       });
     }
+    function slotsResponse(route: Route): Promise<void> {
+      const now = new Date();
+      const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
+      const year =
+        thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
+          ? now.getUTCFullYear()
+          : now.getUTCFullYear() + 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`),
+      });
+    }
     function emptyPaginated(route: Route): Promise<void> {
       return route.fulfill({
         status: 200,
@@ -9215,16 +9228,12 @@
           }),
         });
       });
-      await page.route("**/api/v1/availability/*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/api/v1/availability/*", slotsResponse);
       // Public (slug-scoped) availability — the booking widget's api client is
       // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
       // (the staff route above 401s for guests). The `**/public/v1/venues/*`
       // config glob below never reaches it (`*` never crosses `/`).
-      await page.route("**/public/v1/venues/*/availability*", (route) =>
-        jsonResponse(route, "availability-slots")
-      );
+      await page.route("**/public/v1/venues/*/availability*", slotsResponse);
     
       // Holds
       await page.route("**/api/v1/holds/*/confirm", (route) => {
@@ -24492,6 +24501,9 @@
     }
     export type PayloadOrFactory =
       InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    export function inWindowDate(daysAhead: number): string {
+      return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
@@ -24731,8 +24743,8 @@
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
-          date: "2026-10-08",
-          time: "2026-10-08T18:00:00Z",
+          date: inWindowDate(8),
+          time: `${inWindowDate(8)}T18:00:00Z`,
           partySize: 2,
           tableId,
         },

@@ -4759,6 +4759,9 @@
     }
     export type PayloadOrFactory =
       InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
+    export function inWindowDate(daysAhead: number): string {
+      return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
     export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
     export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
     export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
@@ -4998,8 +5001,8 @@
         headers: { "x-session-id": sessionId },
         payload: {
           venueId,
-          date: "2026-10-08",
-          time: "2026-10-08T18:00:00Z",
+          date: inWindowDate(8),
+          time: `${inWindowDate(8)}T18:00:00Z`,
           partySize: 2,
           tableId,
         },

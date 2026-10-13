@@ -263,6 +263,9 @@
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
