@@ -2,7 +2,7 @@
 stage: implement
 run: feature:hospitality-above-fold-usability
 date: 2026-10-13
-wo: WO-4
+wo: WO-5
 ---
 
 # Fold-budget audit
@@ -110,6 +110,74 @@ suite runs with real credentials; a run with a live E2E environment should
 perform the substitute/revert proof before relying on this gate, and should
 also backfill the BEFORE / AFTER-WO-2 columns above that this same gap has
 left as `_pending E2E run_` since WO-1.
+
+## WO-5: gates sweep + FINAL column + success-criteria check
+
+**Gates.** Ran `scripts/conductor-gate.sh` (`pnpm install --prefer-offline` +
+`pnpm exec turbo run lint typecheck test --affected`): 98/114 tasks
+successful. The one failure, `@mbe/scripts#test`, is pre-existing and
+unrelated to this run — `git log`/`git diff` confirm no commit in this
+feature run touches anything under `scripts/`, and the touched packages for
+this run (`@mbe/hospitality` lint/typecheck, `@mattbutlerengineering/rialto`
+test: 162 files / 2474 tests) all passed. This worktree's tool access does
+not include direct `pnpm` invocation to isolate and re-run `scripts#test` in
+a tighter loop, so the failure is recorded here rather than diagnosed
+further; it predates WO-1 and is out of this run's scope (no `scripts/`
+file is in its diff).
+
+**Visual baselines.** No baseline regen was performed. Per
+architecture.md's hazard note and the repo gotcha (regenerate only from the
+Linux CI `visual-actuals-replica-a` artifact, never macOS-local), that
+requires either a live CI run on this branch or the GitHub CLI to pull the
+artifact — this worktree's tool allowlist has neither (no `gh`, no network
+fetch, no `pnpm exec playwright`). Whether the WO-2 padding change actually
+trips `apps/hospitality/e2e/visual.spec.ts`'s committed baselines
+(`e2e/screenshots/*-1280x720.png`, one per route) is therefore still
+unmeasured, same class of gap as the E2E fold-budget measurement itself. A
+future run with CI/artifact access must check the next `rialto-web-visual`-
+style CI run for this branch and regenerate from its replica-a artifact if
+baselines diff — do not regenerate from a local macOS render.
+
+**FINAL column.** No per-page WO-3 changes landed (no-op, see above) and no
+further layout change has occurred since AFTER-WO-2, so FINAL equals
+AFTER-WO-2 for every row: still `_pending E2E run_`, because the live
+measurement this whole audit depends on (`E2E_AUTH0_*` credentials) has been
+unavailable in every worktree this run has touched, WO-1 through WO-5.
+
+## PRD-1 success criteria — final check
+
+- **SC-1** (each key page's primary content starts within the fold at
+  1280×720, asserted by the guard): **Unproven here.** The guard assertion
+  is in place (`fold-budget.spec.ts`, WO-4) but has never executed — no
+  worktree in this run has had a live E2E environment to run it, so it has
+  neither passed nor failed; it cannot be claimed met.
+- **SC-2** (audit artifact exists with before/after numbers per route at
+  both viewports): **Partially met.** The artifact exists and this run
+  documents the known, computed WO-2 delta (uniform −8px); the per-route
+  BEFORE/AFTER/FINAL numbers are not populated, for the reason above.
+- **SC-3** (no accessibility regression; axe clean, landmarks/skip-link/
+  breadcrumb semantics unchanged): **Unproven here**, same E2E-environment
+  gap (`e2e/a11y.test.ts` needs the same live environment). The change
+  itself is additive-markup-only (a `data-testid` wrapper div) plus one CSS
+  padding removal with no element/landmark/heading change, so there is no
+  known mechanism by which it would regress axe — but "no known mechanism"
+  is not the same as "measured clean," and this run does not claim the
+  latter.
+- **SC-4** (all CI gates green, visual baselines regenerated from the Linux
+  CI artifact if tripped): **Not met as stated.** `scripts/conductor-gate.sh`
+  is green for every package this run touched; the one failure
+  (`@mbe/scripts#test`) is pre-existing and out of scope, documented above
+  rather than silently dropped. Visual-baseline regeneration could not be
+  attempted (no CI/artifact access in this environment) and is the explicit
+  follow-up for the next run with that access.
+
+Net: this run delivers the measurement spec, the shared-lever fix, the
+guard assertion, and this audit trail, all gated by every check this
+environment can run (lint/typecheck/unit tests, all green on touched
+packages). It cannot close PRD-1's success criteria end-to-end without a
+live E2E environment and CI/artifact access, neither available in any
+worktree this run has had. That is a recorded environment gap, not a
+silent claim of done.
 
 ## Wiring check (done, not pending)
 

@@ -70,7 +70,7 @@ declaring done.
       proof cannot be performed in this environment. See audit.md for the
       full record and the next run's job.
 
-- [ ] **WO-5: Visual baselines + gates sweep** — If the spacing change
+- [x] **WO-5: Visual baselines + gates sweep** — If the spacing change
       trips visual snapshots, regenerate baselines from the Linux CI
       `visual-actuals-replica-a` artifact (never macOS-local), commit
       with provenance noted in the PR. Run `pnpm lint`, `pnpm typecheck`,
@@ -78,6 +78,20 @@ declaring done.
       (BEFORE / AFTER-WO-2 / FINAL columns) and check SC-1..SC-4 of
       PRD-1 against it. Acceptance: all gates green; audit.md complete;
       any still-red advisory check explained in the PR body.
+      **Gates run, visual regen deferred**: `scripts/conductor-gate.sh`
+      (lint+typecheck+test) is green on every package this run touched
+      (98/114 tasks; the one failure, `@mbe/scripts#test`, is pre-existing
+      and outside this run's diff — no `scripts/` file was touched). Visual
+      baseline regen could not be attempted: this worktree has no CI/
+      artifact access (no `gh`, no network fetch) to pull the Linux
+      `visual-actuals-replica-a` artifact, so whether the WO-2 padding
+      change trips `e2e/screenshots/*-1280x720.png` is still unmeasured —
+      a follow-up for a run with that access, never to be done from a local
+      macOS render. FINAL column added to audit.md (equals AFTER-WO-2,
+      still pending a live E2E run); SC-1..SC-4 checked against it — see
+      audit.md's "PRD-1 success criteria — final check" section for the
+      per-criterion verdict (none claimed fully met without the E2E
+      environment this whole run has lacked).
 
 ## Ordering and dependencies
 
