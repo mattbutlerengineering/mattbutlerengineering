@@ -6,6 +6,7 @@ export type { JobWorkerConfig, JobHandlerMap } from "./worker.js";
 export { JOB_TYPES } from "./job-types.js";
 export type {
   JobType,
+  JobContext,
   JobPayloadMap,
   ReminderPayload,
   PostVisitFollowupPayload,

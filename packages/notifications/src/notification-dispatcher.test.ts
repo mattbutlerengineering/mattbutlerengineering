@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NotificationDispatcher } from "./notification-dispatcher.js";
+import { NotificationDispatcher, PartialDeliveryError } from "./notification-dispatcher.js";
 import type { BookingNotificationInput, NotificationPort } from "./port.js";
 import type { SmsPort } from "./sms-port.js";
 
@@ -171,6 +171,64 @@ describe("NotificationDispatcher", () => {
 
       expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledOnce();
       expect(mockEmailAdapter.sendBookingReminder).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("sendBookingReminder — channel failures and missing phone", () => {
+    it("rethrows PartialDeliveryError naming delivered channels when SMS fails after email delivered; retry sends only SMS", async () => {
+      mockSmsAdapter.sendBookingReminder.mockRejectedValueOnce(new Error("twilio down"));
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+        smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+      });
+
+      const err = await dispatcher.sendBookingReminder(emailInput, "both").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PartialDeliveryError);
+      expect((err as PartialDeliveryError).deliveredChannels).toEqual(["email"]);
+
+      await dispatcher.sendBookingReminder(emailInput, "both", { skipChannels: ["email"] });
+
+      expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+      expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledTimes(2);
+    });
+
+    it("rethrows when no channel was delivered so the job retries", async () => {
+      mockEmailAdapter.sendBookingReminder.mockRejectedValueOnce(new Error("resend down"));
+      mockSmsAdapter.sendBookingReminder.mockRejectedValueOnce(new Error("twilio down"));
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+        smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+      });
+
+      await expect(dispatcher.sendBookingReminder(emailInput, "both")).rejects.toThrow();
+    });
+
+    it("sends one email and no SMS attempt for 'both' guest without a phone", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+        smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+      });
+
+      await dispatcher.sendBookingReminder({ ...emailInput, guestPhone: null }, "both");
+
+      expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+      expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
+    });
+
+    it("falls back to email for 'sms_only' guest without a phone", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+        smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+      });
+
+      await dispatcher.sendBookingReminder({ ...emailInput, guestPhone: "  " }, "sms_only");
+
+      expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+      expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
     });
   });
 

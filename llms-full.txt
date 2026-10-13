@@ -34304,7 +34304,8 @@
     export interface ReminderDispatcher {
       sendBookingReminder(
         input: BookingNotificationInput,
-        preference: CommunicationPreference
+        preference: CommunicationPreference,
+        options?: ReminderOptions
       ): Promise<void>;
     }
     export interface JobWorkerLogger {
@@ -34325,7 +34326,7 @@
       logger: JobWorkerLogger;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
-      async function deliverReminder(payload: ReminderPayload): Promise<void> {
+      async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
         return runWithVenueContext(payload.venueId, async () => {
           const reservation = await deps.getReservation(payload.reservationId);
           if (!reservation) return;
@@ -34356,7 +34357,22 @@
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
-          await deps.dispatcher.sendBookingReminder(input, preference);
+          // Channels delivered by an earlier attempt are skipped; on a partial
+          // delivery the delivered channels are persisted on the job before the
+          // rethrow, so the retry sends only what is still undelivered.
+          const alreadyDelivered: ReminderChannel[] = payload.deliveredChannels ?? [];
+          try {
+            await deps.dispatcher.sendBookingReminder(input, preference, {
+              skipChannels: alreadyDelivered,
+            });
+          } catch (err) {
+            if (err instanceof PartialDeliveryError) {
+              await ctx.updateData({
+                deliveredChannels: [...new Set([...alreadyDelivered, ...err.deliveredChannels])],
+              });
+            }
+            throw err;
+          }
         });
       }
     
@@ -34416,6 +34432,7 @@
           worker = new JobWorker({
             redisUrl: config.redisUrl,
             handlers: config.handlers,
+            logger: log,
             ...(config.queueName !== undefined ? { queueName: config.queueName } : {}),
           });
           log.info("reservations job worker started");
@@ -51749,7 +51766,7 @@
     }
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
-    export class UnknownJobTypeError extends Error {
+    export class UnknownJobTypeError extends UnrecoverableError {
       constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
         super(
           reason === "no-handler"
@@ -51761,18 +51778,28 @@
     }
     export async function dispatchJob(
       handlers: JobHandlerMap,
-      job: { name: string; data: unknown }
+      job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
     ): Promise<void> {
       if (!JOB_TYPE_SET.has(job.name)) {
         throw new UnknownJobTypeError(job.name);
       }
     
       const jobType = job.name as JobType;
-      const handler = (handlers as Partial<Record<JobType, (data: unknown) => Promise<void>>>)[jobType];
+      const handler = (
+        handlers as Partial<Record<JobType, (data: unknown, ctx: JobContext) => Promise<void>>>
+      )[jobType];
       if (!handler) {
         throw new UnknownJobTypeError(jobType, "no-handler");
       }
-      await handler(job.data);
+      const ctx: JobContext = {
+        updateData: async (patch) => {
+          await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
+            ...(job.data as object),
+            ...patch,
+          });
+        },
+      };
+      await handler(job.data, ctx);
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
@@ -51793,6 +51820,16 @@
     export interface ReminderPayload {
       reservationId: string;
       venueId: string;
+      /**
+       * Channels already delivered by an earlier attempt of this job. Written back
+       * via JobContext.updateData before a retry so a delivered channel is never
+       * re-sent.
+       */
+      deliveredChannels?: ("email" | "sms")[];
+    }
+    export interface JobContext {
+      /** Persist a patch of new job data (shallow-merged over the current payload) for the retry. */
+      updateData(patch: object): Promise<void>;
     }
     export interface PostVisitFollowupPayload {
       reservationId: string;
@@ -51839,7 +51876,7 @@
       [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
     };
     export type JobHandlerMap = Partial<{
-      [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+      [K in JobType]: (payload: JobPayloadMap[K], ctx: JobContext) => Promise<void>;
     }>;
   </file>
   <file path="packages/jobs/src/scheduler.ts">
@@ -51944,6 +51981,11 @@
       redisUrl: string;
       queueName?: string;
       handlers: JobHandlerMap;
+      /** Receives final job failures and worker-level errors. */
+      logger?: JobWorkerErrorLogger;
+    }
+    export interface JobWorkerErrorLogger {
+      error(details: object, msg: string): void;
     }
     export class JobWorker {
       private readonly worker: Worker;
@@ -51965,6 +52007,19 @@
           (job) => dispatchJob(config.handlers, job),
           { connection: this.redis }
         );
+    
+        const logger = config.logger;
+        if (logger) {
+          this.worker.on("failed", (job, err) => {
+            logger.error(
+              { jobId: job?.id, jobName: job?.name, attemptsMade: job?.attemptsMade, err },
+              "job failed"
+            );
+          });
+          this.worker.on("error", (err) => {
+            logger.error({ err }, "job worker error");
+          });
+        }
       }
     
       /**
@@ -52338,6 +52393,20 @@
       /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
       smsManageBaseUrl?: string;
     }
+    export type ReminderChannel = "email" | "sms";
+    export interface ReminderOptions {
+      /** Channels already delivered on an earlier attempt — not re-sent on retry. */
+      skipChannels?: readonly ReminderChannel[];
+    }
+    export class PartialDeliveryError extends Error {
+      constructor(
+        readonly deliveredChannels: readonly ReminderChannel[],
+        readonly failures: readonly unknown[]
+      ) {
+        super(`Reminder partially delivered; delivered: ${deliveredChannels.join(", ")}`);
+        this.name = "PartialDeliveryError";
+      }
+    }
     export class NotificationDispatcher {
       private readonly emailAdapter: NotificationPort;
       private readonly smsAdapter: SmsPort | null;
@@ -52370,20 +52439,28 @@
         );
       }
     
-      private shouldSendSms(preference: CommunicationPreference): boolean {
-        return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
+      private shouldSendSms(preference: CommunicationPreference, guestPhone?: string | null): boolean {
+        return (
+          (preference === "sms_only" || preference === "both") &&
+          this.smsAdapter !== null &&
+          Boolean(guestPhone?.trim())
+        );
       }
     
       /**
        * Returns true when an sms_only guest must receive a message via email
-       * because no SMS adapter is configured.
+       * because SMS cannot be delivered (no SMS adapter configured, or the guest
+       * has no phone number).
        *
        * Used for messages that CAN travel via SMS (e.g. reminders) — when the
        * SMS channel is unavailable, we fall back to email rather than silently
        * dropping the notification.
        */
-      private requiresEmailFallback(preference: CommunicationPreference): boolean {
-        return preference === "sms_only" && this.smsAdapter === null;
+      private requiresEmailFallback(
+        preference: CommunicationPreference,
+        guestPhone?: string | null
+      ): boolean {
+        return preference === "sms_only" && !this.shouldSendSms(preference, guestPhone);
       }
     
       /**
@@ -52399,22 +52476,45 @@
         await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
-      /** Booking reminder — transactional, sent via channel(s) matching preference. */
+      /**
+       * Booking reminder — transactional, sent via channel(s) matching preference.
+       *
+       * Channels are settled independently. If nothing delivered, the first error
+       * is rethrown (safe to retry everything). If some delivered and others
+       * failed, a PartialDeliveryError names the delivered channels so the retry
+       * can pass them back as `skipChannels` and never re-send them.
+       */
       async sendBookingReminder(
         input: BookingNotificationInput,
-        preference: CommunicationPreference
+        preference: CommunicationPreference,
+        options: ReminderOptions = {}
       ): Promise<void> {
-        const sends: Promise<void>[] = [];
+        const skip = new Set(options.skipChannels ?? []);
+        const sends: { channel: ReminderChannel; promise: Promise<void> }[] = [];
     
-        if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
-          sends.push(this.emailAdapter.sendBookingReminder(input));
+        if (
+          !skip.has("email") &&
+          (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference, input.guestPhone))
+        ) {
+          sends.push({ channel: "email", promise: this.emailAdapter.sendBookingReminder(input) });
         }
     
-        if (this.shouldSendSms(preference)) {
-          sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
+        if (!skip.has("sms") && this.shouldSendSms(preference, input.guestPhone)) {
+          sends.push({
+            channel: "sms",
+            promise: this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)),
+          });
         }
     
-        await Promise.all(sends);
+        const results = await Promise.allSettled(sends.map((s) => s.promise));
+        const failures = results.flatMap((r) => (r.status === "rejected" ? [r.reason as unknown] : []));
+        if (failures.length === 0) return;
+        if (failures.length === results.length) throw failures[0];
+    
+        const delivered = sends
+          .filter((_, i) => results[i]!.status === "fulfilled")
+          .map((s) => s.channel);
+        throw new PartialDeliveryError(delivered, failures);
       }
     
       /** Booking modified — transactional. */

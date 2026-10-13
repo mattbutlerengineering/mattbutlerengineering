@@ -15,6 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import type { Reservation, Venue } from "@mbe/types";
+import { PartialDeliveryError } from "@mbe/notifications";
 
 interface JobsModuleShape {
   dispatchJob(handlers: unknown, job: { name: string; data: unknown }): Promise<void>;
@@ -23,7 +24,13 @@ interface JobsModuleShape {
 
 const bus = vi.hoisted(() => ({
   scheduled: [] as Array<{ type: string; payload: unknown; delayMs: number; jobId?: string }>,
-  processor: null as ((job: { name: string; data: unknown }) => Promise<void>) | null,
+  processor: null as
+    | ((job: {
+        name: string;
+        data: unknown;
+        updateData?: (d: never) => Promise<void>;
+      }) => Promise<void>)
+    | null,
   schedulerClosed: false,
   workerClosed: false,
 }));
@@ -321,6 +328,36 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(deps.getReservation).toHaveBeenCalledWith("res_1");
     expect(deps.getVenue).toHaveBeenCalledWith("venue_1");
     expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledOnce();
+  });
+
+  it("partial delivery: first attempt rethrows and records email as delivered; the retry skips email", async () => {
+    const deps = makeDeps();
+    deps.dispatcher.sendBookingReminder
+      .mockRejectedValueOnce(new PartialDeliveryError(["email"], [new Error("twilio down")]))
+      .mockResolvedValueOnce(undefined);
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
+
+    // Minimal stand-in for a BullMQ job: updateData replaces job.data.
+    const job = {
+      name: JOB_TYPES.BOOKING_REMINDER,
+      data: { ...reminderPayload } as Record<string, unknown>,
+      updateData: vi.fn(async (d: Record<string, unknown>) => {
+        job.data = d;
+      }),
+    };
+
+    await expect(bus.processor!(job)).rejects.toBeInstanceOf(PartialDeliveryError);
+    expect(job.data).toMatchObject({ deliveredChannels: ["email"] });
+
+    await bus.processor!(job);
+
+    expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledTimes(2);
+    expect(deps.dispatcher.sendBookingReminder.mock.calls[1]![2]).toEqual({
+      skipChannels: ["email"],
+    });
   });
 
   it("reminder handler skips delivery when the reservation is gone (no pointless retry)", async () => {

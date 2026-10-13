@@ -28,7 +28,8 @@ vi.mock("bullmq", () => {
     }
   }
 
-  return { Queue: MockQueue, Worker: MockWorker };
+  class UnrecoverableError extends Error {}
+  return { Queue: MockQueue, Worker: MockWorker, UnrecoverableError };
 });
 
 vi.mock("ioredis", () => {
@@ -94,7 +95,7 @@ describe("JobScheduler + JobWorker integration", () => {
 
     // Verify the dedicated handler was called directly with the payload
     expect(bookingReminderHandler).toHaveBeenCalledOnce();
-    expect(bookingReminderHandler).toHaveBeenCalledWith(payload);
+    expect(bookingReminderHandler).toHaveBeenCalledWith(payload, expect.any(Object));
 
     await scheduler.close();
   });
@@ -121,7 +122,7 @@ describe("JobScheduler + JobWorker integration", () => {
     });
 
     expect(lapsedGuestScanHandler).toHaveBeenCalledOnce();
-    expect(lapsedGuestScanHandler).toHaveBeenCalledWith(lapsedPayload);
+    expect(lapsedGuestScanHandler).toHaveBeenCalledWith(lapsedPayload, expect.any(Object));
 
     await scheduler.close();
   });

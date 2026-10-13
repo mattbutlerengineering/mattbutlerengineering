@@ -1,7 +1,12 @@
 import type { FastifyBaseLogger } from "fastify";
 import { JobWorker, JOB_TYPES } from "@mbe/jobs";
-import type { JobHandlerMap, ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
-import type { BookingNotificationInput } from "@mbe/notifications";
+import type { JobContext, JobHandlerMap, ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
+import { PartialDeliveryError } from "@mbe/notifications";
+import type {
+  BookingNotificationInput,
+  ReminderChannel,
+  ReminderOptions,
+} from "@mbe/notifications";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 import { resolveChannel } from "./contact-policy.js";
 import { runWithVenueContext } from "./venue-context-store.js";
@@ -13,7 +18,8 @@ import { runWithVenueContext } from "./venue-context-store.js";
 export interface ReminderDispatcher {
   sendBookingReminder(
     input: BookingNotificationInput,
-    preference: CommunicationPreference
+    preference: CommunicationPreference,
+    options?: ReminderOptions
   ): Promise<void>;
 }
 
@@ -64,7 +70,7 @@ export interface ReservationJobHandlerDeps {
  * legacy-payload fallback.
  */
 export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
-  async function deliverReminder(payload: ReminderPayload): Promise<void> {
+  async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
     return runWithVenueContext(payload.venueId, async () => {
       const reservation = await deps.getReservation(payload.reservationId);
       if (!reservation) return;
@@ -95,7 +101,22 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
       };
 
       // Dispatcher failures propagate so BullMQ retries per the queue policy.
-      await deps.dispatcher.sendBookingReminder(input, preference);
+      // Channels delivered by an earlier attempt are skipped; on a partial
+      // delivery the delivered channels are persisted on the job before the
+      // rethrow, so the retry sends only what is still undelivered.
+      const alreadyDelivered: ReminderChannel[] = payload.deliveredChannels ?? [];
+      try {
+        await deps.dispatcher.sendBookingReminder(input, preference, {
+          skipChannels: alreadyDelivered,
+        });
+      } catch (err) {
+        if (err instanceof PartialDeliveryError) {
+          await ctx.updateData({
+            deliveredChannels: [...new Set([...alreadyDelivered, ...err.deliveredChannels])],
+          });
+        }
+        throw err;
+      }
     });
   }
 
@@ -164,6 +185,7 @@ export function createReservationJobWorker(
       worker = new JobWorker({
         redisUrl: config.redisUrl,
         handlers: config.handlers,
+        logger: log,
         ...(config.queueName !== undefined ? { queueName: config.queueName } : {}),
       });
       log.info("reservations job worker started");
