@@ -13891,7 +13891,7 @@
     <item priority="high">
       export async function dispatchJob(
         handlers: JobHandlerMap,
-        job: { name: string; data: unknown }
+        job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
       ): Promise<void> { /* ... */ }
     </item>
   </file>
@@ -13912,6 +13912,12 @@
       interface ReminderPayload {
         reservationId: string;
         venueId: string;
+        deliveredChannels?: ("email" | "sms")[];
+      }
+    </item>
+    <item priority="low">
+      interface JobContext {
+        
       }
     </item>
     <item priority="low">
@@ -13951,7 +13957,7 @@
     </item>
     <item priority="low">
       type JobHandlerMap = Partial<{
-        [K in JobType]: (payload: JobPayloadMap[K]) =...;
+        [K in JobType]: (payload: JobPayloadMap[K], c...;
     </item>
   </file>
   <file path="packages/jobs/src/scheduler.ts">
@@ -14187,11 +14193,18 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl?: string;
-        logger?: DispatcherLogger;
       }
     </item>
     <item priority="low">
-      interface DispatcherLogger {
+      type ReminderChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface ReminderOptions {
+        skipChannels?: readonly ReminderChannel[];
+      }
+    </item>
+    <item priority="high">
+      class PartialDeliveryError {
         
       }
     </item>
@@ -14200,7 +14213,7 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        logger: DispatcherLogger | null;
+        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>
@@ -16071,7 +16084,7 @@
       export function createResendAdapter(): ResendNotificationAdapter { /* ... */ }
     </item>
     <item priority="high">
-      export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher { /* ... */ }
+      export function createNotificationPort(): NotificationDispatcher { /* ... */ }
     </item>
   </file>
   <file path="services/users/src/app.ts">

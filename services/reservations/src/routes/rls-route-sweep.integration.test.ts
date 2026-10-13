@@ -489,10 +489,10 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       // venueId alongside waitlistEntryId, so the handler wraps the whole
       // body in runWithVenueContext(payload.venueId, …) before calling
       // waitlistService.expire.
-      await handlers[JOB_TYPES.WAITLIST_EXPIRY]!({
-        waitlistEntryId: ctx.waitlistA,
-        venueId: ctx.venueA.id,
-      });
+      await handlers[JOB_TYPES.WAITLIST_EXPIRY]!(
+        { waitlistEntryId: ctx.waitlistA, venueId: ctx.venueA.id },
+        { updateData: async () => undefined }
+      );
 
       // Read it back through the SAME production scoping helper the app
       // itself uses (`runWithVenueContext` + the wrapped `prisma` export),
@@ -530,10 +530,13 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       // Correct payload: `deliverReminder` wraps its whole body in
       // `runWithVenueContext(payload.venueId, …)`, so both RLS-scoped reads
       // resolve and the reminder dispatches.
-      await handlers[JOB_TYPES.BOOKING_REMINDER]!({
-        reservationId: ctx.reservationA,
-        venueId: ctx.venueA.id,
-      });
+      await handlers[JOB_TYPES.BOOKING_REMINDER]!(
+        {
+          reservationId: ctx.reservationA,
+          venueId: ctx.venueA.id,
+        },
+        { updateData: async () => undefined }
+      );
       expect(sendBookingReminder).toHaveBeenCalledTimes(1);
 
       // Mismatched payload (the shape a corrupted/forged job would take): venue
@@ -542,10 +545,13 @@ describe.skipIf(!DATABASE_URL)("RLS route sweep (#5369 PR 2)", () => {
       // no throw. This is the correct behavior a background job with no
       // request boundary still needs.
       sendBookingReminder.mockClear();
-      await handlers[JOB_TYPES.DAY_OF_REMINDER]!({
-        reservationId: ctx.reservationA,
-        venueId: ctx.venueB.id,
-      });
+      await handlers[JOB_TYPES.DAY_OF_REMINDER]!(
+        {
+          reservationId: ctx.reservationA,
+          venueId: ctx.venueB.id,
+        },
+        { updateData: async () => undefined }
+      );
       expect(sendBookingReminder).not.toHaveBeenCalled();
     });
 

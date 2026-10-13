@@ -1,6 +1,6 @@
 import { UnrecoverableError } from "bullmq";
 import { JOB_TYPES } from "./job-types.js";
-import type { JobType, JobHandlerMap } from "./job-types.js";
+import type { JobType, JobHandlerMap, JobContext } from "./job-types.js";
 
 const JOB_TYPE_SET: ReadonlySet<string> = new Set(Object.values(JOB_TYPES));
 
@@ -21,16 +21,26 @@ export class UnknownJobTypeError extends UnrecoverableError {
 
 export async function dispatchJob(
   handlers: JobHandlerMap,
-  job: { name: string; data: unknown }
+  job: { name: string; data: unknown; updateData?: (data: never) => Promise<void> }
 ): Promise<void> {
   if (!JOB_TYPE_SET.has(job.name)) {
     throw new UnknownJobTypeError(job.name);
   }
 
   const jobType = job.name as JobType;
-  const handler = (handlers as Partial<Record<JobType, (data: unknown) => Promise<void>>>)[jobType];
+  const handler = (
+    handlers as Partial<Record<JobType, (data: unknown, ctx: JobContext) => Promise<void>>>
+  )[jobType];
   if (!handler) {
     throw new UnknownJobTypeError(jobType, "no-handler");
   }
-  await handler(job.data);
+  const ctx: JobContext = {
+    updateData: async (patch) => {
+      await (job.updateData as ((d: object) => Promise<void>) | undefined)?.({
+        ...(job.data as object),
+        ...patch,
+      });
+    },
+  };
+  await handler(job.data, ctx);
 }

@@ -98,11 +98,18 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl?: string;
-        logger?: DispatcherLogger;
       }
     </item>
     <item priority="low">
-      interface DispatcherLogger {
+      type ReminderChannel = "email" | "sms";
+    </item>
+    <item priority="low">
+      interface ReminderOptions {
+        skipChannels?: readonly ReminderChannel[];
+      }
+    </item>
+    <item priority="high">
+      class PartialDeliveryError {
         
       }
     </item>
@@ -111,7 +118,7 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        logger: DispatcherLogger | null;
+        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>

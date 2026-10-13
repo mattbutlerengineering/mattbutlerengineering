@@ -27,7 +27,7 @@ describe("dispatchJob", () => {
     await dispatchJob(handlers, { name: JOB_TYPES.BOOKING_REMINDER, data: payload });
 
     expect(handlers[JOB_TYPES.BOOKING_REMINDER]).toHaveBeenCalledOnce();
-    expect(handlers[JOB_TYPES.BOOKING_REMINDER]).toHaveBeenCalledWith(payload);
+    expect(handlers[JOB_TYPES.BOOKING_REMINDER]).toHaveBeenCalledWith(payload, expect.any(Object));
   });
 
   it("only calls the matched handler, not others", async () => {
@@ -85,5 +85,22 @@ describe("dispatchJob", () => {
     await expect(
       dispatchJob({}, { name: JOB_TYPES.WAITLIST_EXPIRY, data: {} })
     ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+
+  it("gives the handler a context whose updateData merges into the job data", async () => {
+    const handler = vi
+      .fn()
+      .mockImplementation(async (_p: unknown, ctx: { updateData(d: object): Promise<void> }) => {
+        await ctx.updateData({ deliveredChannels: ["email"] });
+      });
+    const updateData = vi.fn().mockResolvedValue(undefined);
+    const data = { reservationId: "r", venueId: "v" };
+
+    await dispatchJob(
+      { [JOB_TYPES.BOOKING_REMINDER]: handler },
+      { name: JOB_TYPES.BOOKING_REMINDER, data, updateData }
+    );
+
+    expect(updateData).toHaveBeenCalledWith({ ...data, deliveredChannels: ["email"] });
   });
 });

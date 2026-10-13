@@ -2476,7 +2476,7 @@
       export function createResendAdapter(): ResendNotificationAdapter { /* ... */ }
     </item>
     <item priority="high">
-      export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher { /* ... */ }
+      export function createNotificationPort(): NotificationDispatcher { /* ... */ }
     </item>
   </file>
   </section>

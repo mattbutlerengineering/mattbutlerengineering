@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NotificationDispatcher } from "./notification-dispatcher.js";
+import { NotificationDispatcher, PartialDeliveryError } from "./notification-dispatcher.js";
 import type { BookingNotificationInput, NotificationPort } from "./port.js";
 import type { SmsPort } from "./sms-port.js";
 
@@ -175,23 +175,22 @@ describe("NotificationDispatcher", () => {
   });
 
   describe("sendBookingReminder — channel failures and missing phone", () => {
-    it("does not rethrow (so a retry cannot re-send the email) when SMS fails after email was delivered, and logs it", async () => {
+    it("rethrows PartialDeliveryError naming delivered channels when SMS fails after email delivered; retry sends only SMS", async () => {
       mockSmsAdapter.sendBookingReminder.mockRejectedValueOnce(new Error("twilio down"));
-      const logger = { warn: vi.fn() };
       const dispatcher = new NotificationDispatcher({
         emailAdapter: mockEmailAdapter,
         smsAdapter: mockSmsAdapter,
         smsManageBaseUrl: SMS_MANAGE_BASE_URL,
-        logger,
       });
 
-      await expect(dispatcher.sendBookingReminder(emailInput, "both")).resolves.toBeUndefined();
+      const err = await dispatcher.sendBookingReminder(emailInput, "both").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PartialDeliveryError);
+      expect((err as PartialDeliveryError).deliveredChannels).toEqual(["email"]);
+
+      await dispatcher.sendBookingReminder(emailInput, "both", { skipChannels: ["email"] });
 
       expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({ channel: "sms", reservationId: emailInput.reservationId }),
-        expect.any(String)
-      );
+      expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledTimes(2);
     });
 
     it("rethrows when no channel was delivered so the job retries", async () => {

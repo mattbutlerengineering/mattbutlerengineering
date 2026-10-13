@@ -199,7 +199,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   setStripeWebhookLogger(fastify.log);
 
   // Wire notification port (injected or default Resend-backed)
-  const notificationPort = options.notificationPort ?? createNotificationPort(fastify.log);
+  const notificationPort = options.notificationPort ?? createNotificationPort();
   fastify.decorate("notificationPort", notificationPort);
 
   // Single owner of the notifier infrastructure (issue #3088): reads env

@@ -10481,7 +10481,8 @@
     export interface ReminderDispatcher {
       sendBookingReminder(
         input: BookingNotificationInput,
-        preference: CommunicationPreference
+        preference: CommunicationPreference,
+        options?: ReminderOptions
       ): Promise<void>;
     }
     export interface JobWorkerLogger {
@@ -10502,7 +10503,7 @@
       logger: JobWorkerLogger;
     }
     export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
-      async function deliverReminder(payload: ReminderPayload): Promise<void> {
+      async function deliverReminder(payload: ReminderPayload, ctx: JobContext): Promise<void> {
         return runWithVenueContext(payload.venueId, async () => {
           const reservation = await deps.getReservation(payload.reservationId);
           if (!reservation) return;
@@ -10533,7 +10534,22 @@
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
-          await deps.dispatcher.sendBookingReminder(input, preference);
+          // Channels delivered by an earlier attempt are skipped; on a partial
+          // delivery the delivered channels are persisted on the job before the
+          // rethrow, so the retry sends only what is still undelivered.
+          const alreadyDelivered: ReminderChannel[] = payload.deliveredChannels ?? [];
+          try {
+            await deps.dispatcher.sendBookingReminder(input, preference, {
+              skipChannels: alreadyDelivered,
+            });
+          } catch (err) {
+            if (err instanceof PartialDeliveryError) {
+              await ctx.updateData({
+                deliveredChannels: [...new Set([...alreadyDelivered, ...err.deliveredChannels])],
+              });
+            }
+            throw err;
+          }
         });
       }
     
@@ -14932,7 +14948,7 @@
       setStripeWebhookLogger(fastify.log);
     
       // Wire notification port (injected or default Resend-backed)
-      const notificationPort = options.notificationPort ?? createNotificationPort(fastify.log);
+      const notificationPort = options.notificationPort ?? createNotificationPort();
       fastify.decorate("notificationPort", notificationPort);
     
       // Single owner of the notifier infrastructure (issue #3088): reads env
@@ -15137,7 +15153,7 @@
         publicApiBaseUrl,
       });
     }
-    export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher {
+    export function createNotificationPort(): NotificationDispatcher {
       const emailAdapter = createResendAdapter();
     
       const smsAdapter =
@@ -15158,7 +15174,6 @@
         emailAdapter,
         smsAdapter,
         smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
-        ...(logger ? { logger } : {}),
       });
     }
   </file>

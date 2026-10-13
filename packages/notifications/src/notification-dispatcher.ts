@@ -12,13 +12,27 @@ export interface NotificationDispatcherConfig {
   smsAdapter: SmsPort | null;
   /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
   smsManageBaseUrl?: string;
-  /** Receives per-channel delivery failures that are absorbed (another channel delivered). */
-  logger?: DispatcherLogger;
 }
 
-/** Narrow logger shape — satisfied by `FastifyBaseLogger`. */
-export interface DispatcherLogger {
-  warn(details: object, msg: string): void;
+export type ReminderChannel = "email" | "sms";
+
+export interface ReminderOptions {
+  /** Channels already delivered on an earlier attempt — not re-sent on retry. */
+  skipChannels?: readonly ReminderChannel[];
+}
+
+/**
+ * Thrown when some reminder channels delivered and others failed. Carries the
+ * delivered channels so the caller can record them and skip them on retry.
+ */
+export class PartialDeliveryError extends Error {
+  constructor(
+    readonly deliveredChannels: readonly ReminderChannel[],
+    readonly failures: readonly unknown[]
+  ) {
+    super(`Reminder partially delivered; delivered: ${deliveredChannels.join(", ")}`);
+    this.name = "PartialDeliveryError";
+  }
 }
 
 /**
@@ -43,13 +57,11 @@ export class NotificationDispatcher {
   private readonly emailAdapter: NotificationPort;
   private readonly smsAdapter: SmsPort | null;
   private readonly smsManageBaseUrl: string;
-  private readonly logger: DispatcherLogger | null;
 
   constructor(config: NotificationDispatcherConfig) {
     this.emailAdapter = config.emailAdapter;
     this.smsAdapter = config.smsAdapter;
     this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
-    this.logger = config.logger ?? null;
   }
 
   private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
@@ -113,26 +125,27 @@ export class NotificationDispatcher {
   /**
    * Booking reminder — transactional, sent via channel(s) matching preference.
    *
-   * Channels are settled independently. If at least one channel delivered, a
-   * failure on another is logged and NOT rethrown: the queue retries the whole
-   * job, which would re-send the already-delivered channel (the guest would get
-   * the same reminder email up to 3x). Only when nothing was delivered does the
-   * error propagate so BullMQ retries safely.
+   * Channels are settled independently. If nothing delivered, the first error
+   * is rethrown (safe to retry everything). If some delivered and others
+   * failed, a PartialDeliveryError names the delivered channels so the retry
+   * can pass them back as `skipChannels` and never re-send them.
    */
   async sendBookingReminder(
     input: BookingNotificationInput,
-    preference: CommunicationPreference
+    preference: CommunicationPreference,
+    options: ReminderOptions = {}
   ): Promise<void> {
-    const sends: { channel: "email" | "sms"; promise: Promise<void> }[] = [];
+    const skip = new Set(options.skipChannels ?? []);
+    const sends: { channel: ReminderChannel; promise: Promise<void> }[] = [];
 
     if (
-      this.shouldSendEmail(preference) ||
-      this.requiresEmailFallback(preference, input.guestPhone)
+      !skip.has("email") &&
+      (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference, input.guestPhone))
     ) {
       sends.push({ channel: "email", promise: this.emailAdapter.sendBookingReminder(input) });
     }
 
-    if (this.shouldSendSms(preference, input.guestPhone)) {
+    if (!skip.has("sms") && this.shouldSendSms(preference, input.guestPhone)) {
       sends.push({
         channel: "sms",
         promise: this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)),
@@ -140,18 +153,14 @@ export class NotificationDispatcher {
     }
 
     const results = await Promise.allSettled(sends.map((s) => s.promise));
-    const failures = results.flatMap((r, i) =>
-      r.status === "rejected" ? [{ channel: sends[i]!.channel, reason: r.reason as unknown }] : []
-    );
+    const failures = results.flatMap((r) => (r.status === "rejected" ? [r.reason as unknown] : []));
     if (failures.length === 0) return;
-    if (failures.length === results.length) throw failures[0]!.reason;
+    if (failures.length === results.length) throw failures[0];
 
-    for (const { channel, reason } of failures) {
-      this.logger?.warn(
-        { channel, reservationId: input.reservationId, err: reason },
-        "Reminder channel failed after another channel delivered; not retrying to avoid duplicates"
-      );
-    }
+    const delivered = sends
+      .filter((_, i) => results[i]!.status === "fulfilled")
+      .map((s) => s.channel);
+    throw new PartialDeliveryError(delivered, failures);
   }
 
   /** Booking modified — transactional. */
