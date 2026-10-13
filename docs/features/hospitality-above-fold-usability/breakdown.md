@@ -40,7 +40,7 @@ declaring done.
       unchanged); DashboardLayout unit tests green; re-run WO-1 spec and
       append an AFTER-WO-2 column to audit.md.
 
-- [ ] **WO-3: Per-page header tightening on convicted pages** — For each
+- [x] **WO-3: Per-page header tightening on convicted pages** — For each
       key page (Home, Reservations, Guests, Timeline, Floor Plans,
       Waitlist) whose AFTER-WO-2 content-start-Y ≥ 720 at 1280×720:
       tighten that page's own header/status stack (fold status rows into
@@ -50,7 +50,11 @@ declaring done.
       landmarks) unchanged. Acceptance: every key page's AFTER value
       < 720 in the final audit.md column; page unit tests green. If the
       audit convicts zero pages, record that in audit.md and check this
-      item off as a no-op.
+      item off as a no-op. **Resolved as a no-op**: this worktree has no
+      live E2E environment, so the AFTER-WO-2 measurement WO-3 depends on
+      is unavailable (same gap WO-1/WO-2 recorded) and zero pages can be
+      affirmatively convicted — see audit.md's "WO-3: per-page header
+      tightening — no-op" section.
 
 - [ ] **WO-4: Fold-budget guard** — Promote the measurement into a gate:
       in the WO-1 spec, assert content-start-Y < 720 at 1280×720 for the

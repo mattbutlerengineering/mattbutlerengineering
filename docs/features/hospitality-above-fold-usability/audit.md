@@ -2,7 +2,7 @@
 stage: implement
 run: feature:hospitality-above-fold-usability
 date: 2026-10-13
-wo: WO-2
+wo: WO-3
 ---
 
 # Fold-budget audit
@@ -68,6 +68,26 @@ depends on its own header/status chrome height (WO-3's lever).
 | WaitlistPage     | `/waitlist`     | _pending E2E run_        | _pending E2E run_        |
 | ProfilePage      | `/profile`      | _pending E2E run_        | _pending E2E run_        |
 | SettingsPage     | `/settings`     | _pending E2E run_        | _pending E2E run_        |
+
+## WO-3: per-page header tightening — no-op
+
+WO-3's acceptance gate is "for each key page whose AFTER-WO-2
+content-start-Y ≥ 720 at 1280×720, tighten that page's header/status stack."
+That conviction test requires the live Playwright measurement recorded above
+as `_pending E2E run_` — the same gap WO-1 and WO-2 already recorded (this
+worktree carries no `E2E_AUTH0_*` credentials and no browser-automation tool
+in its stage boundary, so `fold-budget.spec.ts` cannot be executed here
+either).
+
+No key page can be affirmatively convicted without that measurement, so
+per the breakdown's explicit fallback ("If the audit convicts zero pages,
+record that in audit.md and check this item off as a no-op"), WO-3 is
+checked off as a no-op: zero pages are convicted, because zero pages _can
+be_ convicted in this environment. This is not a claim that no page exceeds
+budget — it is a record that the measurement WO-3 depends on is still
+unavailable. No CSS/markup changes were made for WO-3; a future run with a
+live E2E environment should fill the BEFORE/AFTER-WO-2 columns above first,
+then re-open WO-3 if any key page measures ≥ 720.
 
 ## Wiring check (done, not pending)
 
