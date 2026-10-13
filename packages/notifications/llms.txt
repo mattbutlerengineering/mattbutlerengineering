@@ -98,6 +98,12 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl?: string;
+        logger?: DispatcherLogger;
+      }
+    </item>
+    <item priority="low">
+      interface DispatcherLogger {
+        
       }
     </item>
     <item priority="high">
@@ -105,7 +111,7 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        async toSmsInput(): Promise<unknown>;
+        logger: DispatcherLogger | null;
       }
     </item>
   </file>

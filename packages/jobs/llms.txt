@@ -94,6 +94,12 @@
         redisUrl: string;
         queueName?: string;
         handlers: JobHandlerMap;
+        logger?: JobWorkerErrorLogger;
+      }
+    </item>
+    <item priority="low">
+      interface JobWorkerErrorLogger {
+        
       }
     </item>
     <item priority="high">

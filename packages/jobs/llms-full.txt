@@ -1,7 +1,7 @@
 <codebase path="packages/jobs">
   <section priority="medium" role="src">
   <file path="src/dispatch-job.ts">
-    export class UnknownJobTypeError extends Error {
+    export class UnknownJobTypeError extends UnrecoverableError {
       constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
         super(
           reason === "no-handler"
@@ -196,6 +196,11 @@
       redisUrl: string;
       queueName?: string;
       handlers: JobHandlerMap;
+      /** Receives final job failures and worker-level errors. */
+      logger?: JobWorkerErrorLogger;
+    }
+    export interface JobWorkerErrorLogger {
+      error(details: object, msg: string): void;
     }
     export class JobWorker {
       private readonly worker: Worker;
@@ -217,6 +222,19 @@
           (job) => dispatchJob(config.handlers, job),
           { connection: this.redis }
         );
+    
+        const logger = config.logger;
+        if (logger) {
+          this.worker.on("failed", (job, err) => {
+            logger.error(
+              { jobId: job?.id, jobName: job?.name, attemptsMade: job?.attemptsMade, err },
+              "job failed"
+            );
+          });
+          this.worker.on("error", (err) => {
+            logger.error({ err }, "job worker error");
+          });
+        }
       }
     
       /**

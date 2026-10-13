@@ -28,7 +28,8 @@ vi.mock("bullmq", () => {
     }
   }
 
-  return { Queue: MockQueue, Worker: MockWorker };
+  class UnrecoverableError extends Error {}
+  return { Queue: MockQueue, Worker: MockWorker, UnrecoverableError };
 });
 
 vi.mock("ioredis", () => {

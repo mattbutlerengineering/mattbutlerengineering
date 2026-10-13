@@ -12,6 +12,13 @@ export interface NotificationDispatcherConfig {
   smsAdapter: SmsPort | null;
   /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
   smsManageBaseUrl?: string;
+  /** Receives per-channel delivery failures that are absorbed (another channel delivered). */
+  logger?: DispatcherLogger;
+}
+
+/** Narrow logger shape — satisfied by `FastifyBaseLogger`. */
+export interface DispatcherLogger {
+  warn(details: object, msg: string): void;
 }
 
 /**
@@ -36,11 +43,13 @@ export class NotificationDispatcher {
   private readonly emailAdapter: NotificationPort;
   private readonly smsAdapter: SmsPort | null;
   private readonly smsManageBaseUrl: string;
+  private readonly logger: DispatcherLogger | null;
 
   constructor(config: NotificationDispatcherConfig) {
     this.emailAdapter = config.emailAdapter;
     this.smsAdapter = config.smsAdapter;
     this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+    this.logger = config.logger ?? null;
   }
 
   private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
@@ -64,20 +73,28 @@ export class NotificationDispatcher {
     );
   }
 
-  private shouldSendSms(preference: CommunicationPreference): boolean {
-    return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
+  private shouldSendSms(preference: CommunicationPreference, guestPhone?: string | null): boolean {
+    return (
+      (preference === "sms_only" || preference === "both") &&
+      this.smsAdapter !== null &&
+      Boolean(guestPhone?.trim())
+    );
   }
 
   /**
    * Returns true when an sms_only guest must receive a message via email
-   * because no SMS adapter is configured.
+   * because SMS cannot be delivered (no SMS adapter configured, or the guest
+   * has no phone number).
    *
    * Used for messages that CAN travel via SMS (e.g. reminders) — when the
    * SMS channel is unavailable, we fall back to email rather than silently
    * dropping the notification.
    */
-  private requiresEmailFallback(preference: CommunicationPreference): boolean {
-    return preference === "sms_only" && this.smsAdapter === null;
+  private requiresEmailFallback(
+    preference: CommunicationPreference,
+    guestPhone?: string | null
+  ): boolean {
+    return preference === "sms_only" && !this.shouldSendSms(preference, guestPhone);
   }
 
   /**
@@ -93,22 +110,48 @@ export class NotificationDispatcher {
     await this.emailAdapter.sendBookingConfirmation(emailInput);
   }
 
-  /** Booking reminder — transactional, sent via channel(s) matching preference. */
+  /**
+   * Booking reminder — transactional, sent via channel(s) matching preference.
+   *
+   * Channels are settled independently. If at least one channel delivered, a
+   * failure on another is logged and NOT rethrown: the queue retries the whole
+   * job, which would re-send the already-delivered channel (the guest would get
+   * the same reminder email up to 3x). Only when nothing was delivered does the
+   * error propagate so BullMQ retries safely.
+   */
   async sendBookingReminder(
     input: BookingNotificationInput,
     preference: CommunicationPreference
   ): Promise<void> {
-    const sends: Promise<void>[] = [];
+    const sends: { channel: "email" | "sms"; promise: Promise<void> }[] = [];
 
-    if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
-      sends.push(this.emailAdapter.sendBookingReminder(input));
+    if (
+      this.shouldSendEmail(preference) ||
+      this.requiresEmailFallback(preference, input.guestPhone)
+    ) {
+      sends.push({ channel: "email", promise: this.emailAdapter.sendBookingReminder(input) });
     }
 
-    if (this.shouldSendSms(preference)) {
-      sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
+    if (this.shouldSendSms(preference, input.guestPhone)) {
+      sends.push({
+        channel: "sms",
+        promise: this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)),
+      });
     }
 
-    await Promise.all(sends);
+    const results = await Promise.allSettled(sends.map((s) => s.promise));
+    const failures = results.flatMap((r, i) =>
+      r.status === "rejected" ? [{ channel: sends[i]!.channel, reason: r.reason as unknown }] : []
+    );
+    if (failures.length === 0) return;
+    if (failures.length === results.length) throw failures[0]!.reason;
+
+    for (const { channel, reason } of failures) {
+      this.logger?.warn(
+        { channel, reservationId: input.reservationId, err: reason },
+        "Reminder channel failed after another channel delivered; not retrying to avoid duplicates"
+      );
+    }
   }
 
   /** Booking modified — transactional. */

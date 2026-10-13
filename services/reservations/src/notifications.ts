@@ -4,6 +4,7 @@ import {
   TwilioSmsAdapter,
   NotificationDispatcher,
 } from "@mbe/notifications";
+import type { DispatcherLogger } from "@mbe/notifications";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
 
 /**
@@ -45,7 +46,7 @@ export function createResendAdapter(): ResendNotificationAdapter {
  * Creates the default NotificationDispatcher backed by Resend (email)
  * and optionally Twilio (SMS). Reads env vars once at creation time.
  */
-export function createNotificationPort(): NotificationDispatcher {
+export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher {
   const emailAdapter = createResendAdapter();
 
   const smsAdapter =
@@ -66,5 +67,6 @@ export function createNotificationPort(): NotificationDispatcher {
     emailAdapter,
     smsAdapter,
     smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+    ...(logger ? { logger } : {}),
   });
 }

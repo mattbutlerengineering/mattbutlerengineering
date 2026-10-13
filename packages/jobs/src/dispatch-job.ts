@@ -1,9 +1,14 @@
+import { UnrecoverableError } from "bullmq";
 import { JOB_TYPES } from "./job-types.js";
 import type { JobType, JobHandlerMap } from "./job-types.js";
 
 const JOB_TYPE_SET: ReadonlySet<string> = new Set(Object.values(JOB_TYPES));
 
-export class UnknownJobTypeError extends Error {
+/**
+ * UnrecoverableError makes BullMQ fail the job immediately: retrying a job
+ * nobody can handle only burns attempts.
+ */
+export class UnknownJobTypeError extends UnrecoverableError {
   constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
     super(
       reason === "no-handler"

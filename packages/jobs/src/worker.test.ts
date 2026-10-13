@@ -5,16 +5,22 @@ const mocks = vi.hoisted(() => ({
   workerClose: vi.fn().mockResolvedValue(undefined),
   redisQuit: vi.fn().mockResolvedValue("OK"),
   redisCtor: vi.fn(),
+  listeners: {} as Record<string, (...args: unknown[]) => void>,
 }));
 
 vi.mock("bullmq", () => {
   class MockWorker {
     close = mocks.workerClose;
+    on(event: string, fn: (...args: unknown[]) => void) {
+      mocks.listeners[event] = fn;
+      return this;
+    }
     constructor(_name: string, _processor: unknown, _opts?: unknown) {
       // mock
     }
   }
-  return { Worker: MockWorker };
+  class UnrecoverableError extends Error {}
+  return { Worker: MockWorker, UnrecoverableError };
 });
 
 vi.mock("ioredis", () => {
@@ -78,5 +84,42 @@ describe("JobWorker lifecycle", () => {
 
     expect(mocks.workerClose).toHaveBeenCalledOnce();
     expect(mocks.redisQuit).toHaveBeenCalledOnce();
+  });
+
+  describe("failure reporting", () => {
+    it("logs a failed job with its name, id, attempts and error", () => {
+      const logger = { error: vi.fn() };
+      new JobWorker({
+        redisUrl: "redis://localhost:6379",
+        handlers: makeHandlers(),
+        logger,
+      });
+
+      const err = new Error("boom");
+      mocks.listeners.failed!({ id: "j1", name: JOB_TYPES.BOOKING_REMINDER, attemptsMade: 3 }, err);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: "j1",
+          jobName: JOB_TYPES.BOOKING_REMINDER,
+          attemptsMade: 3,
+          err,
+        }),
+        expect.any(String)
+      );
+    });
+
+    it("logs worker-level errors", () => {
+      const logger = { error: vi.fn() };
+      new JobWorker({ redisUrl: "redis://localhost:6379", handlers: makeHandlers(), logger });
+
+      const err = new Error("redis gone");
+      mocks.listeners.error!(err);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err }),
+        expect.any(String)
+      );
+    });
   });
 });

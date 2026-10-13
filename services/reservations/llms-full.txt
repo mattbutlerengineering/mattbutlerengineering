@@ -10593,6 +10593,7 @@
           worker = new JobWorker({
             redisUrl: config.redisUrl,
             handlers: config.handlers,
+            logger: log,
             ...(config.queueName !== undefined ? { queueName: config.queueName } : {}),
           });
           log.info("reservations job worker started");
@@ -14931,7 +14932,7 @@
       setStripeWebhookLogger(fastify.log);
     
       // Wire notification port (injected or default Resend-backed)
-      const notificationPort = options.notificationPort ?? createNotificationPort();
+      const notificationPort = options.notificationPort ?? createNotificationPort(fastify.log);
       fastify.decorate("notificationPort", notificationPort);
     
       // Single owner of the notifier infrastructure (issue #3088): reads env
@@ -15136,7 +15137,7 @@
         publicApiBaseUrl,
       });
     }
-    export function createNotificationPort(): NotificationDispatcher {
+    export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher {
       const emailAdapter = createResendAdapter();
     
       const smsAdapter =
@@ -15157,6 +15158,7 @@
         emailAdapter,
         smsAdapter,
         smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        ...(logger ? { logger } : {}),
       });
     }
   </file>

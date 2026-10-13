@@ -164,6 +164,7 @@ export function createReservationJobWorker(
       worker = new JobWorker({
         redisUrl: config.redisUrl,
         handlers: config.handlers,
+        logger: log,
         ...(config.queueName !== undefined ? { queueName: config.queueName } : {}),
       });
       log.info("reservations job worker started");

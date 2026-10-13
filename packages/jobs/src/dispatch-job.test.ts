@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { UnrecoverableError } from "bullmq";
 import { dispatchJob, UnknownJobTypeError } from "./dispatch-job.js";
 import { JOB_TYPES } from "./job-types.js";
 import type { JobHandlerMap } from "./worker.js";
@@ -75,5 +76,14 @@ describe("dispatchJob", () => {
     await expect(
       dispatchJob(handlers, { name: JOB_TYPES.WAITLIST_EXPIRY, data: {} })
     ).rejects.toThrow(/no handler registered.*waitlist-expiry/i);
+  });
+
+  it("throws UnrecoverableError (no retries) for unknown and handler-less job types", async () => {
+    await expect(dispatchJob(makeHandlers(), { name: "ghost", data: {} })).rejects.toBeInstanceOf(
+      UnrecoverableError
+    );
+    await expect(
+      dispatchJob({}, { name: JOB_TYPES.WAITLIST_EXPIRY, data: {} })
+    ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 });

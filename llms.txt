@@ -13976,6 +13976,12 @@
         redisUrl: string;
         queueName?: string;
         handlers: JobHandlerMap;
+        logger?: JobWorkerErrorLogger;
+      }
+    </item>
+    <item priority="low">
+      interface JobWorkerErrorLogger {
+        
       }
     </item>
     <item priority="high">
@@ -14181,6 +14187,12 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl?: string;
+        logger?: DispatcherLogger;
+      }
+    </item>
+    <item priority="low">
+      interface DispatcherLogger {
+        
       }
     </item>
     <item priority="high">
@@ -14188,7 +14200,7 @@
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
         smsManageBaseUrl: string;
-        async toSmsInput(): Promise<unknown>;
+        logger: DispatcherLogger | null;
       }
     </item>
   </file>
@@ -16059,7 +16071,7 @@
       export function createResendAdapter(): ResendNotificationAdapter { /* ... */ }
     </item>
     <item priority="high">
-      export function createNotificationPort(): NotificationDispatcher { /* ... */ }
+      export function createNotificationPort(logger?: DispatcherLogger): NotificationDispatcher { /* ... */ }
     </item>
   </file>
   <file path="services/users/src/app.ts">
