@@ -5840,8 +5840,7 @@
         "list_sessions",
         "List all sessions. Use to check overall progress.",
         {
-          status: AgentSessionStatusSchema.optional()
-            .describe("Filter by status"),
+          status: AgentSessionStatusSchema.optional().describe("Filter by status"),
           page: z.number().optional().describe("Page number (default 1)"),
           limit: z.number().optional().describe("Items per page (default 20)"),
         },
