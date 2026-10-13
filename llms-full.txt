@@ -2102,8 +2102,6 @@
   <file path="packages/rialto/src/components/Toast/Toast.catalog.ts">
     export const toastCatalogMeta = {
       name: "Toast",
-      // Toast is a useToast() provider pattern with no declarative renderer in the registry.
-      include: false,
       description:
         "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
       charLimits: {
@@ -7160,11 +7158,21 @@
       readonly capped: boolean;
       readonly failingGates: ReadonlyArray<AcmmFailingGate>;
     }
+    export const AI_HEALTH_READ_FIELDS = {
+      summary: ["sensors_available", "sensors_total"],
+      sensors: {
+        ciHealth: ["pass_rate_pct", "completed"],
+        prMetrics: ["latest"],
+        issues: ["queue_depth", "open"],
+      },
+    } as const;
     export interface HealthMetrics {
       readonly timestamp: string | null;
       readonly ciPassRate: number | null;
       readonly ciRecentRuns: number | null;
       readonly prsMerged: number | null;
+      /** Date (YYYY-MM-DD) of the prMetrics snapshot behind `prsMerged`; it updates weekly, not daily. */
+      readonly prMetricsAsOf: string | null;
       readonly issuesReady: number | null;
       readonly issuesOpen: number | null;
       readonly sensorsAvailable: number | null;
@@ -7281,7 +7289,6 @@
       const raw = asRecord(report);
       const sensors = asRecord(raw.sensors);
       const summary = asRecord(raw.summary);
-      const ci = asRecord(sensors.ci);
       const ciHealth = asRecord(sensors.ciHealth);
       const prMetrics = asRecord(sensors.prMetrics);
       const prMetricsLatest = asRecord(prMetrics.latest);
@@ -7290,13 +7297,14 @@
     
       return {
         timestamp: readString(raw.timestamp) ?? readString(raw.generated_at),
-        ciPassRate: readNumber(ci.passRate) ?? readNumber(ciHealth.pass_rate_pct),
-        ciRecentRuns: readNumber(ci.recentRuns) ?? readNumber(ciHealth.completed),
-        prsMerged: readNumber(prMetrics.merged30d) ?? readNumber(prMetricsLatest.merged),
-        issuesReady: readNumber(issues.ready) ?? readNumber(issues.queue_depth),
+        ciPassRate: readNumber(ciHealth.pass_rate_pct),
+        ciRecentRuns: readNumber(ciHealth.completed),
+        prsMerged: readNumber(prMetricsLatest.merged),
+        prMetricsAsOf: readString(prMetricsLatest.date),
+        issuesReady: readNumber(issues.queue_depth),
         issuesOpen: readNumber(issues.open),
-        sensorsAvailable: readNumber(summary.available) ?? readNumber(summary.sensors_available),
-        sensorsTotal: readNumber(summary.total) ?? readNumber(summary.sensors_total),
+        sensorsAvailable: readNumber(summary.sensors_available),
+        sensorsTotal: readNumber(summary.sensors_total),
         sensorEntries: Object.entries(sensors).map(([key, value]) => [key, asRecord(value)] as const),
         regressionLabels: regressions.map(formatRegressionLabel),
         queueEfficiency: normalizeQueueEfficiency(sensors),
@@ -7472,7 +7480,7 @@
     export const DEMO_PAGES: readonly NavItem[] = [
       { id: "sign-in", label: "Sign In", path: DEMO_ROUTES.signIn },
       { id: "sign-up", label: "Sign Up", path: DEMO_ROUTES.signUp },
-      { id: "dashboard", label: "Pit Wall", path: DEMO_ROUTES.dashboard },
+      { id: "dashboard", label: "Dashboard", path: DEMO_ROUTES.dashboard },
       { id: "drivers", label: "Drivers CRUD", path: DEMO_ROUTES.drivers },
       { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
       { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },
@@ -7540,10 +7548,6 @@
     
       const importModule = PAGE_MODULES[modulePath]!;
       return () => importModule().then((mod) => ({ default: mod[exportName] }));
-    }
-    function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
-      if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
-      return `/components/${entry.id}`;
     }
     export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] {
       return rawEntries.map((entry) => ({
@@ -7839,10 +7843,6 @@
       points: number;
       wins: number;
       podiums: number;
-      /** Optional career summary (collected by the driver form). */
-      bio?: string;
-      /** Optional date of birth, ISO yyyy-mm-dd. */
-      dob?: string;
     }
     interface DriverContextValue {
       drivers: Driver[];
@@ -11488,7 +11488,7 @@
         onGenerationComplete: () =>
           toast({ title: "Generation complete", variant: "success", duration: 3000 }),
       });
-      const { reset, error, openGallery } = session;
+      const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
     
       const onSignOut = useCallback(() => {
         reset();
@@ -11514,6 +11514,32 @@
           });
         }
       }, [error, toast]);
+    
+      // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
+      useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "t") {
+            e.preventDefault();
+            toggleGallery();
+          }
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+      }, [toggleGallery]);
+    
+      // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
+      useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+          if (e.key !== "?") return;
+          const tag = (e.target as HTMLElement)?.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+          if ((e.target as HTMLElement)?.isContentEditable) return;
+          e.preventDefault();
+          toggleShortcuts();
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+      }, [toggleShortcuts]);
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
@@ -11552,7 +11578,7 @@
           id: "new-generation",
           label: "New Generation",
           group: "Actions",
-          shortcut: shortcutKeys("newGeneration"),
+          shortcut: ["⌘", "N"],
           onSelect: () => {
             closePalette();
             reset();
@@ -11562,7 +11588,7 @@
           id: "toggle-fullscreen",
           label: "Toggle Fullscreen",
           group: "Actions",
-          shortcut: shortcutKeys("fullscreen"),
+          shortcut: ["⌘", "F"],
           onSelect: () => {
             closePalette();
             toggleFullscreen();
@@ -11574,7 +11600,7 @@
                 id: "stop-generation",
                 label: "Stop Generation",
                 group: "Actions",
-                shortcut: shortcutKeys("stop"),
+                shortcut: ["Esc"],
                 onSelect: () => {
                   closePalette();
                   stop();
@@ -11586,7 +11612,7 @@
           id: "open-templates",
           label: "Browse Templates",
           group: "Actions",
-          shortcut: shortcutKeys("templates"),
+          shortcut: ["⌘", "T"],
           onSelect: () => {
             closePalette();
             openGallery();
@@ -11618,7 +11644,7 @@
           id: "toggle-history",
           label: "Toggle History Panel",
           group: "Panels",
-          shortcut: shortcutKeys("history"),
+          shortcut: ["⌘", "1"],
           onSelect: () => {
             closePalette();
             toggleHistory();
@@ -11628,7 +11654,7 @@
           id: "toggle-inspector",
           label: "Toggle JSON Inspector",
           group: "Panels",
-          shortcut: shortcutKeys("inspector"),
+          shortcut: ["⌘", "2"],
           onSelect: () => {
             closePalette();
             toggleInspector();
@@ -11638,7 +11664,7 @@
           id: "keyboard-shortcuts",
           label: "Keyboard Shortcuts",
           group: "Settings",
-          shortcut: shortcutKeys("help"),
+          shortcut: ["?"],
           onSelect: () => {
             closePalette();
             openShortcuts();
@@ -11665,34 +11691,9 @@
       ];
     }
   </file>
-  <file path="apps/gen/src/hooks/useShortcuts.ts">
-    export type ShortcutHandlers = Partial<Record<ShortcutAction, () => void>>;
-    function isTypingTarget(target: EventTarget | null): boolean {
-      const el = target as HTMLElement | null;
-      const tag = el?.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!el?.isContentEditable;
-    }
-    export function useShortcuts(handlers: ShortcutHandlers): void {
-      useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
-          const action = matchShortcut(e);
-          if (!action) return;
-          const handler = handlers[action];
-          if (!handler) return;
-          // Only Escape (stop) works while typing; Option+digit etc. produce characters.
-          if (action !== "stop" && isTypingTarget(e.target)) return;
-          e.preventDefault();
-          handler();
-        };
-        document.addEventListener("keydown", onKeyDown);
-        return () => document.removeEventListener("keydown", onKeyDown);
-      }, [handlers]);
-    }
-  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
       prompt: string;
-      kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
     }
@@ -15248,122 +15249,6 @@
   </file>
   </section>
   <section priority="medium" role="lib">
-  <file path="apps/gen/src/lib/entry-kind.ts">
-    export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
-      kind: EntryKind;
-      prompt: string;
-    } {
-      if (entry.kind) return { kind: entry.kind, prompt: entry.prompt };
-      for (const [prefix, kind] of LEGACY_PREFIXES) {
-        if (entry.prompt.startsWith(prefix)) {
-          return { kind, prompt: entry.prompt.slice(prefix.length) };
-        }
-      }
-      return { kind: "generate", prompt: entry.prompt };
-    }
-  </file>
-  <file path="apps/gen/src/lib/shortcuts.ts">
-    export type ShortcutAction =
-      "newGeneration" | "templates" | "history" | "inspector" | "fullscreen" | "stop" | "help";
-    export type ShortcutSection = "Navigation" | "Editing" | "Panels" | "General";
-    export interface ShortcutDef {
-      id: string;
-      label: string;
-      section: ShortcutSection;
-      /** Canonical key tokens: optional "Alt"/"Shift" modifiers, then the key. */
-      keys: readonly string[];
-      /** Present when the global handler owns this binding. */
-      action?: ShortcutAction;
-    }
-    export const SHORTCUTS: readonly ShortcutDef[] = [
-      { id: "palette", label: "Command palette", section: "Navigation", keys: ["Mod", "K"] },
-      {
-        id: "templates",
-        label: "Templates gallery",
-        section: "Navigation",
-        keys: ["Alt", "Shift", "T"],
-        action: "templates",
-      },
-      {
-        id: "newGeneration",
-        label: "New generation",
-        section: "Navigation",
-        keys: ["Alt", "Shift", "N"],
-        action: "newGeneration",
-      },
-      { id: "send", label: "Send prompt", section: "Editing", keys: ["Enter"] },
-      { id: "newline", label: "New line", section: "Editing", keys: ["Shift", "Enter"] },
-      { id: "prevPrompt", label: "Previous prompt", section: "Editing", keys: ["↑"] },
-      { id: "nextPrompt", label: "Next prompt", section: "Editing", keys: ["↓"] },
-      { id: "stop", label: "Stop generation", section: "Editing", keys: ["Esc"], action: "stop" },
-      {
-        id: "history",
-        label: "Toggle history panel",
-        section: "Panels",
-        keys: ["Alt", "1"],
-        action: "history",
-      },
-      {
-        id: "inspector",
-        label: "Toggle JSON inspector",
-        section: "Panels",
-        keys: ["Alt", "2"],
-        action: "inspector",
-      },
-      {
-        id: "fullscreen",
-        label: "Toggle fullscreen",
-        section: "Panels",
-        keys: ["Alt", "Shift", "F"],
-        action: "fullscreen",
-      },
-      { id: "help", label: "Show this help", section: "General", keys: ["?"], action: "help" },
-    ];
-    export const SHORTCUT_SECTIONS: readonly ShortcutSection[] = [
-      "Navigation",
-      "Editing",
-      "Panels",
-      "General",
-    ];
-    function isMac(): boolean {
-      return typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
-    }
-    export function displayKeys(def: ShortcutDef, mac: boolean = isMac()): string[] {
-      return def.keys.map((k) => {
-        if (k === "Mod") return mac ? "⌘" : "Ctrl";
-        if (k === "Alt") return mac ? "⌥" : "Alt";
-        if (k === "Shift" && mac) return "⇧";
-        return k;
-      });
-    }
-    export function shortcutKeys(id: string, mac?: boolean): string[] {
-      const def = SHORTCUTS.find((s) => s.id === id);
-      if (!def) throw new Error(`Unknown shortcut: ${id}`);
-      return displayKeys(def, mac);
-    }
-    function mainKeyMatches(token: string, event: KeyboardEvent, usesAlt: boolean): boolean {
-      if (token === "Esc") return event.key === "Escape";
-      // With Alt held, macOS rewrites event.key (Option+F -> a symbol), so match the
-      // physical key via event.code instead.
-      if (usesAlt) return event.code === (/^\d$/.test(token) ? `Digit${token}` : `Key${token}`);
-      return event.key === token;
-    }
-    export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
-      if (event.metaKey || event.ctrlKey) return null;
-      for (const def of SHORTCUTS) {
-        if (!def.action) continue;
-        const token = def.keys[def.keys.length - 1];
-        if (token === undefined) continue;
-        const usesAlt = def.keys.includes("Alt");
-        if (event.altKey !== usesAlt) continue;
-        // Bare keys like "?" are shifted on many layouts, so only require Shift
-        // to match when the binding is an Alt combo.
-        if (usesAlt && event.shiftKey !== def.keys.includes("Shift")) continue;
-        if (mainKeyMatches(token, event, usesAlt)) return def.action;
-      }
-      return null;
-    }
-  </file>
   <file path="apps/gen/src/lib/spec.ts">
     export interface SpecStats {
       elementCount: number;
@@ -16226,9 +16111,9 @@
       const [activeId, setActiveId] = useState<string | null>(null);
       const [filter, setFilter] = useState<"all" | "favorites">("all");
       // Track the most recently submitted prompt without triggering a re-render.
-      // `promptRef` holds the user's text saved to history; `kindRef` its kind.
+      // `promptRef` holds the string saved to history (tagged "Refined:"/
+      // "Recovered:" per the existing convention).
       const promptRef = useRef("");
-      const kindRef = useRef<EntryKind>("generate");
       // The exact user-entered text (untagged), so a failure can restore it for
       // editing (`failedPrompt` below). State, not a ref — it's read during
       // render, and react-hooks/refs forbids reading ref.current at render time.
@@ -16246,13 +16131,12 @@
           options?.onGenerationComplete?.();
           void saveSpec({
             prompt: promptRef.current,
-            kind: kindRef.current,
             spec: completedSpec,
             rawLines: completedRawLines,
           }).then((stored) => setActiveId(stored.id));
         },
-        // Record the failed attempt in the same history mechanism (kind
-        // "failed") so a
+        // Record the failed attempt in the same history mechanism (tagged
+        // "Failed:", following the existing "Refined:" convention) so a
         // failure -> success recovery is visible. Not selected as active —
         // that would null out displayError (see the derivation below) and hide
         // the error the user is meant to see and act on. Skipped for a
@@ -16261,8 +16145,7 @@
         onError: (err) => {
           if (!rawPrompt || isTransportError(err)) return;
           void saveSpec({
-            prompt: rawPrompt,
-            kind: "failed",
+            prompt: `Failed: ${rawPrompt}`,
             spec: EMPTY_SPEC,
             rawLines: [],
           }).catch((saveErr: unknown) => {
@@ -16305,14 +16188,12 @@
           if (mode === "refine" && displaySpec) {
             refineSpecRef.current = displaySpec;
             const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
-            promptRef.current = prompt;
-            kindRef.current = "refine";
+            promptRef.current = `Refined: ${prompt}`;
             setActiveId(null);
             void send(refinementPrompt);
           } else {
             refineSpecRef.current = null;
             promptRef.current = prompt;
-            kindRef.current = "generate";
             setActiveId(null);
             void send(prompt);
           }
@@ -16333,33 +16214,18 @@
         if (initialPromptHandledRef.current) return;
         initialPromptHandledRef.current = true;
         const initialPrompt = new URLSearchParams(window.location.search).get("prompt")?.trim();
-        if (!initialPrompt) return;
-        // Consume the param so a reload or sign-in round-trip doesn't regenerate.
-        const params = new URLSearchParams(window.location.search);
-        params.delete("prompt");
-        const search = params.toString();
-        window.history.replaceState(
-          window.history.state,
-          "",
-          `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`
-        );
-        queueMicrotask(() => submit(initialPrompt));
+        if (initialPrompt) queueMicrotask(() => submit(initialPrompt));
       }, [submit]);
     
       const replay = useCallback(
         (id: string) => {
           const entry = specs.find((s) => s.id === id);
           if (!entry) return;
-          const { kind, prompt } = resolveEntry(entry);
-          // A refine entry only makes sense on top of its parent spec, which isn't
-          // stored — replaying the bare instruction would be meaningless.
-          if (kind === "refine") return;
-          promptRef.current = prompt;
-          kindRef.current = "generate";
-          setRawPrompt(prompt);
+          promptRef.current = entry.prompt;
+          setRawPrompt(entry.prompt);
           refineSpecRef.current = null;
           resetTo(null);
-          void send(prompt);
+          void send(entry.prompt);
         },
         [specs, resetTo, send]
       );
@@ -16367,19 +16233,20 @@
       // "Retry with error context": when the last attempt failed with a
       // generation/validation error, feed it back to the model instead of a
       // bare resubmit (reuses the same send() call — no new backend endpoint).
-      // Always based on the untagged rawPrompt (or a selected entry's prompt),
-      // so history labels can never leak into the model prompt. A refine failure's spec context
+      // Always based on the untagged rawPrompt (or a selected entry's prompt) —
+      // never on promptRef.current, which carries the "Refined:"/"Recovered:"
+      // history label — so repeated retries can't pile tags onto each other or
+      // leak them into the model prompt. A refine failure's spec context
       // (refineSpecRef, captured at submit-time) is re-embedded so the retry
       // doesn't lose it. A transport failure (auth/network — see
       // isTransportError) isn't recoverable by feeding it back to the model, so
       // that case is just a bare resubmit, same as having no error at all.
       const retry = useCallback(() => {
-        const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
+        const retryPrompt = activeEntry?.prompt ?? rawPrompt;
         if (!retryPrompt) return;
         const recoverableError = error && !isTransportError(error) ? error : null;
         setRawPrompt(retryPrompt);
-        promptRef.current = retryPrompt;
-        kindRef.current = recoverableError ? "recover" : "generate";
+        promptRef.current = recoverableError ? `Recovered: ${retryPrompt}` : retryPrompt;
         resetTo(null);
         if (recoverableError) {
           const promptWithContext = refineSpecRef.current
@@ -19096,12 +18963,11 @@
               );
           }
     
-          const { prompt, kind, spec, rawLines } = parseResult.data;
+          const { prompt, spec, rawLines } = parseResult.data;
     
           const result = await storedSpecService.create({
             userId: request.user!.id,
             prompt,
-            kind,
             spec,
             rawLines,
           });
@@ -24297,7 +24163,7 @@
        * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
        * other fixture or suite. `waitlistA` is also read by the item-7
        * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
-       * which expires it (it is seeded `notified`) after its own call — sharing it with
+       * which asserts it stays `"waiting"` after its own call — sharing it with
        * a fixture that writes (even one that 404s before reaching the DB today,
        * per the tripwire) would couple the two the moment item-2's fix makes
        * `seat` actually succeed.
@@ -24537,17 +24403,6 @@
         },
       });
       return extractId(res);
-    }
-    async function createDisposableNotifiedWaitlistEntry(
-      ctx: SweepContext,
-      venueId: string
-    ): Promise<string> {
-      const id = await createDisposableWaitlistEntry(ctx, venueId);
-      const { waitlistService } = await import("../services/waitlist.js");
-      const { runWithVenueContext } = await import("../services/venue-context-store.js");
-      const notified = await runWithVenueContext(venueId, () => waitlistService.markNotified(id));
-      expect(notified?.status, "seed: entry should be notified").toBe("notified");
-      return id;
     }
     async function createDisposableReservation(
       ctx: SweepContext,
@@ -26345,7 +26200,7 @@
           },
         },
         venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-          const entries = await waitlistService.listActive(venueId);
+          const entries = await waitlistService.listWaiting(venueId);
           return reply.send({ data: entries });
         })
       );
@@ -26416,9 +26271,7 @@
               venueId: entry.venueId,
             });
     
-            // Re-read so the response carries the persisted notified state.
-            const current = await waitlistService.getById(entry.id);
-            return reply.send({ data: current ?? entry });
+            return reply.send({ data: entry });
           }
         )
       );
@@ -30680,7 +30533,6 @@
       id: string;
       userId: string;
       prompt: string;
-      kind: string;
       spec: unknown;
       rawLines: unknown;
       isFavorite: boolean;
@@ -30693,7 +30545,6 @@
         id: s.id,
         userId: s.userId,
         prompt: s.prompt,
-        kind: s.kind,
         spec: s.spec,
         rawLines: s.rawLines,
         isFavorite: s.isFavorite,
@@ -30738,7 +30589,6 @@
       async create(data: {
         userId: string;
         prompt: string;
-        kind: string;
         spec: unknown;
         rawLines: unknown;
       }): Promise<StoredSpec> {
@@ -30748,7 +30598,6 @@
           data: {
             userId: data.userId,
             prompt: data.prompt,
-            kind: data.kind,
             spec: data.spec as Prisma.InputJsonValue,
             rawLines: data.rawLines as Prisma.InputJsonValue,
           },
@@ -38360,8 +38209,6 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
-      /** Persists notified state on the row; null if the party is no longer waiting. */
-      markNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -38416,7 +38263,6 @@
         expireEntry,
         listWaiting,
         notifyTableReady: notifyNextTableReady,
-        markNotified,
         logger,
       } = deps;
     
@@ -38451,10 +38297,6 @@
       }
     
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
-        // Record notified state first: a party that was seated/cancelled in the
-        // meantime gets no SMS and no expiry job.
-        if (!(await markNotified(input.id))) return;
-    
         if (smsAdapter) {
           try {
             await smsAdapter.sendWaitlistTableReady({
@@ -38509,7 +38351,6 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-        markNotified: (id) => waitlistService.markNotified(id),
         logger: consoleLogger,
       });
     
@@ -38534,7 +38375,6 @@
     }
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
-    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
@@ -38577,10 +38417,7 @@
         await setVenueContext(tx, venueId);
         return tx.$executeRaw`
           UPDATE "waitlist_entries" AS w
-          SET position = v.position,
-              -- Estimate follows position: keep the entry's own turn time
-              -- (estimate / position at join) and re-multiply by its new position.
-              estimated_wait_minutes = (w.estimated_wait_minutes / GREATEST(w.position, 1)) * v.position
+          SET position = v.position
           FROM (VALUES ${rows}) AS v(id, position)
           WHERE w.id = v.id
         `;
@@ -38617,14 +38454,6 @@
         });
       },
     
-      /** Staff view: parties still waiting plus notified ones holding their claim window. */
-      async listActive(venueId: string): Promise<WaitlistEntryData[]> {
-        return prisma.waitlistEntry.findMany({
-          where: { venueId, status: { in: ["waiting", "notified"] } },
-          orderBy: { position: "asc" },
-        });
-      },
-    
       async getById(id: string): Promise<WaitlistEntryData | null> {
         return prisma.waitlistEntry.findUnique({ where: { id } });
       },
@@ -38657,35 +38486,10 @@
         return entry;
       },
     
-      /**
-       * Records the notified lifecycle state on the row. Only a `waiting` entry
-       * can be notified; anything else (seated/cancelled/already notified) -> null.
-       */
-      async markNotified(id: string): Promise<WaitlistEntryData | null> {
-        const notifiedAt = new Date();
-        let entry: WaitlistEntryData;
-        try {
-          entry = await prisma.waitlistEntry.update({
-            where: { id, status: "waiting" },
-            data: {
-              status: "notified",
-              notifiedAt,
-              expiresAt: new Date(notifiedAt.getTime() + NOTIFY_CLAIM_WINDOW_MS),
-            },
-          });
-        } catch {
-          return null;
-        }
-        // The notified party left the waiting queue: close the gap behind it.
-        await recalculateVenuePositions(entry.venueId);
-        return entry;
-      },
-    
-      /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
       async expire(id: string): Promise<WaitlistEntryData | null> {
         try {
           return await prisma.waitlistEntry.update({
-            where: { id, status: "notified" },
+            where: { id },
             data: { status: "expired" },
           });
         } catch {
@@ -39263,13 +39067,10 @@
       rawLines: string[];
       timestamp: Date;
     }
-    export type EntryKind = "generate" | "refine" | "recover" | "failed";
     export interface StoredSpec {
       id: string;
       userId: string;
       prompt: string;
-      /** Absent on responses from a server that predates the field. */
-      kind?: EntryKind;
       spec: unknown;
       rawLines: string[];
       isFavorite: boolean;
@@ -53777,7 +53578,6 @@
       },
       Toast: {
         name: "Toast",
-        include: false,
         description:
           "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
         charLimits: { title: 50, description: 120 },

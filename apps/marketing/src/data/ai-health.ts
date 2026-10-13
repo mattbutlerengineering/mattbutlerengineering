@@ -230,11 +230,28 @@ export interface AcmmMetrics {
 }
 
 /** Safe view model for AiHealthPage — every field is null/empty on a miss. */
+/**
+ * Every report field `normalizeSensorReport` reads for the key-metric stats.
+ * scripts/__tests__/ai-health-reader-contract.test.mjs asserts each one is
+ * emitted by buildReport() / the sensor collectors, so a renamed or invented
+ * field fails a test instead of rendering a permanent "—".
+ */
+export const AI_HEALTH_READ_FIELDS = {
+  summary: ["sensors_available", "sensors_total"],
+  sensors: {
+    ciHealth: ["pass_rate_pct", "completed"],
+    prMetrics: ["latest"],
+    issues: ["queue_depth", "open"],
+  },
+} as const;
+
 export interface HealthMetrics {
   readonly timestamp: string | null;
   readonly ciPassRate: number | null;
   readonly ciRecentRuns: number | null;
   readonly prsMerged: number | null;
+  /** Date (YYYY-MM-DD) of the prMetrics snapshot behind `prsMerged`; it updates weekly, not daily. */
+  readonly prMetricsAsOf: string | null;
   readonly issuesReady: number | null;
   readonly issuesOpen: number | null;
   readonly sensorsAvailable: number | null;
@@ -368,7 +385,6 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
   const raw = asRecord(report);
   const sensors = asRecord(raw.sensors);
   const summary = asRecord(raw.summary);
-  const ci = asRecord(sensors.ci);
   const ciHealth = asRecord(sensors.ciHealth);
   const prMetrics = asRecord(sensors.prMetrics);
   const prMetricsLatest = asRecord(prMetrics.latest);
@@ -377,13 +393,14 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
 
   return {
     timestamp: readString(raw.timestamp) ?? readString(raw.generated_at),
-    ciPassRate: readNumber(ci.passRate) ?? readNumber(ciHealth.pass_rate_pct),
-    ciRecentRuns: readNumber(ci.recentRuns) ?? readNumber(ciHealth.completed),
-    prsMerged: readNumber(prMetrics.merged30d) ?? readNumber(prMetricsLatest.merged),
-    issuesReady: readNumber(issues.ready) ?? readNumber(issues.queue_depth),
+    ciPassRate: readNumber(ciHealth.pass_rate_pct),
+    ciRecentRuns: readNumber(ciHealth.completed),
+    prsMerged: readNumber(prMetricsLatest.merged),
+    prMetricsAsOf: readString(prMetricsLatest.date),
+    issuesReady: readNumber(issues.queue_depth),
     issuesOpen: readNumber(issues.open),
-    sensorsAvailable: readNumber(summary.available) ?? readNumber(summary.sensors_available),
-    sensorsTotal: readNumber(summary.total) ?? readNumber(summary.sensors_total),
+    sensorsAvailable: readNumber(summary.sensors_available),
+    sensorsTotal: readNumber(summary.sensors_total),
     sensorEntries: Object.entries(sensors).map(([key, value]) => [key, asRecord(value)] as const),
     regressionLabels: regressions.map(formatRegressionLabel),
     queueEfficiency: normalizeQueueEfficiency(sensors),

@@ -213,13 +213,16 @@
         criteriaTotal: number | null;
       }
     </item>
+    <item priority="high">
+      export const AI_HEALTH_READ_FIELDS: unknown;
+    </item>
     <item priority="low">
       interface HealthMetrics {
         timestamp: string | null;
         ciPassRate: number | null;
         ciRecentRuns: number | null;
         prsMerged: number | null;
-        issuesReady: number | null;
+        prMetricsAsOf: string | null;
       }
     </item>
     <item priority="medium">

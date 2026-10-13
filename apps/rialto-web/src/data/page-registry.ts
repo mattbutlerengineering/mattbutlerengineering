@@ -17,6 +17,10 @@
  * export doesn't match their label) and carry an explicit `load` override.
  */
 
+import { derivePath } from "./derive-path.mjs";
+
+export { derivePath };
+
 export interface PageEntry {
   id: string;
   label: string;
@@ -110,12 +114,6 @@ function resolveLoad(entry: RawPageEntry): () => Promise<unknown> {
 
   const importModule = PAGE_MODULES[modulePath]!;
   return () => importModule().then((mod) => ({ default: mod[exportName] }));
-}
-
-/** Derives a page's route path from its id + category. */
-function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
-  if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
-  return `/components/${entry.id}`;
 }
 
 /** Builds full PageEntry objects (path + load resolved) from raw entries. */

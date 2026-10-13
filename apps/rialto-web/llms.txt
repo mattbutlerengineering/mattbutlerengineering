@@ -209,9 +209,6 @@
     <item priority="medium">
       function resolveLoad(entry: RawPageEntry): () => Promise<unknown> { /* ... */ }
     </item>
-    <item priority="medium">
-      function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string { /* ... */ }
-    </item>
     <item priority="high">
       export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] { /* ... */ }
     </item>
