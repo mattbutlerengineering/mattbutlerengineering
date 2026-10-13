@@ -5,3 +5,4 @@
 {"wo": "#6367", "run_id": "conductor-b20261013-6367-build-4", "model": "claude-sonnet-5", "tokens": 1893414, "cost": 1.6118553999999996, "outcome": "completed", "at": "2026-10-13"}
 {"wo": "#6367", "run_id": "conductor-b20261013-6367-build-5", "model": "claude-sonnet-5", "tokens": 313657, "cost": 1.6761858, "outcome": "completed", "at": "2026-10-13"}
 {"wo": "#6367", "run_id": "conductor-b20261013-6367-build-6", "model": "claude-sonnet-5", "tokens": 1763377, "cost": 1.6457574000000004, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-verify-1", "model": "claude-sonnet-5", "tokens": 3293844, "cost": 1.2920984, "outcome": "completed", "at": "2026-10-13"}
