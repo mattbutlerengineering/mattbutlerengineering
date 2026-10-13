@@ -1,4 +1,4 @@
-import type { MappedEvent } from "@mbe/agent-core";
+import type { EventProjector, MappedEvent, SessionEvent } from "@mbe/agent-core";
 
 // ── Private helpers ───────────────────────────────────────────────────
 
@@ -74,3 +74,26 @@ export function mapForStorage(event: MappedEvent): { type: string; data: Record<
     data: { ...event },
   };
 }
+
+// ── Event projection ──────────────────────────────────────────────────
+
+/**
+ * Projects a runtime SessionEvent to the stored shape. `run-hardened-query`
+ * emits typed MappedEvents as JSON in the event message; those are parsed and
+ * passed through `mapForStorage` (truncation + field selection). Plain message
+ * events (session:start, session:error, …) are stored verbatim.
+ */
+export const projectEvent: EventProjector = (event: SessionEvent) => {
+  const eventData = event.data as { message?: string };
+  if (typeof eventData.message === "string") {
+    try {
+      const parsed = JSON.parse(eventData.message) as MappedEvent;
+      if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
+        return mapForStorage(parsed);
+      }
+    } catch {
+      // Not JSON — fall through to plain message storage.
+    }
+  }
+  return { type: event.type, data: event.data };
+};

@@ -99,6 +99,10 @@ describe("createMockReservation", () => {
     expect(res.guestName).toBe("John Doe");
   });
 
+  it("accepts the real contract's nullable guestName (walk-in with no name)", () => {
+    expect(createMockReservation({ guestName: null }).guestName).toBeNull();
+  });
+
   it("supports cross-domain composition: links userId from createMockUser", () => {
     const user = createMockUser({ id: "user-xyz" });
     const res = createMockReservation({ userId: user.id });

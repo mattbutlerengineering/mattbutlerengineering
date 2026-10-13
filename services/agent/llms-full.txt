@@ -2938,6 +2938,20 @@
         data: { ...event },
       };
     }
+    export const projectEvent: EventProjector = (event: SessionEvent) => {
+      const eventData = event.data as { message?: string };
+      if (typeof eventData.message === "string") {
+        try {
+          const parsed = JSON.parse(eventData.message) as MappedEvent;
+          if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
+            return mapForStorage(parsed);
+          }
+        } catch {
+          // Not JSON — fall through to plain message storage.
+        }
+      }
+      return { type: event.type, data: event.data };
+    };
   </file>
   <file path="src/services/stored-spec.ts">
     export interface StoredSpecResponse {
