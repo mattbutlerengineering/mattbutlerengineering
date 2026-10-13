@@ -714,6 +714,11 @@ describe("collectQueueEfficiency — review_coverage", () => {
 // `commits` — but only for AI PRs, since non-AI PRs are filtered out by
 // collectQueueEfficiency immediately anyway.
 
+/** Batched-commit fake: one call, returns Map<number, commits> built from a per-PR fn. */
+function fakeFetchCommits(perPr) {
+  return vi.fn((numbers) => new Map(numbers.map((n) => [n, perPr(n)])));
+}
+
 describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
   const NOW = new Date("2026-09-25T12:00:00Z");
 
@@ -732,31 +737,47 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
     ]);
   });
 
-  it("fetches commits per AI PR via pr.view, but skips non-AI PRs", () => {
+  it("fetches commits in ONE batched call (O(batches), not O(PRs)) and skips non-AI PRs", () => {
     const mergedAt = "2026-09-24T12:00:00Z";
     const prs = [
       { number: 1, headRefName: "worktree-agent-abc", labels: [], mergedAt },
       { number: 2, headRefName: "feature/human-work", labels: [{ name: "feature" }], mergedAt },
     ];
-    const ghClient = {
-      pr: {
-        list: vi.fn().mockReturnValue(prs),
-        view: vi.fn().mockReturnValue({
-          commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
-        }),
-      },
-    };
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs), view: vi.fn() } };
+    const fetchCommits = fakeFetchCommits(() => [
+      { messageHeadline: "a" },
+      { messageHeadline: "b" },
+    ]);
 
-    const result = readMergedAiPrsPaged(ghClient, NOW);
+    const result = readMergedAiPrsPaged(ghClient, NOW, fetchCommits);
 
-    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
-    expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+    expect(ghClient.pr.view).not.toHaveBeenCalled();
+    expect(fetchCommits).toHaveBeenCalledTimes(1);
+    expect(fetchCommits).toHaveBeenCalledWith([1]);
     expect(result[0]).toMatchObject({
       commitCount: 2,
       commits: [{ messageHeadline: "a" }, { messageHeadline: "b" }],
     });
     expect(result[1]).toMatchObject({ commitCount: 1 });
     expect(result[1].commits).toBeUndefined();
+  });
+
+  it("does not call pr.view once per AI PR: 110 AI PRs cost one commit-fetch call (#6549)", () => {
+    const mergedAt = "2026-09-24T12:00:00Z";
+    const prs = Array.from({ length: 110 }, (_, i) => ({
+      number: i + 1,
+      headRefName: "worktree-agent-x",
+      labels: [],
+      mergedAt,
+    }));
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs), view: vi.fn() } };
+    const fetchCommits = fakeFetchCommits(() => [{ messageHeadline: "a" }]);
+
+    const result = readMergedAiPrsPaged(ghClient, NOW, fetchCommits);
+
+    expect(result).toHaveLength(110);
+    expect(ghClient.pr.view).not.toHaveBeenCalled();
+    expect(fetchCommits).toHaveBeenCalledTimes(1);
   });
 
   it("propagates a thrown error from the list call", () => {
@@ -805,18 +826,14 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
         mergedAt: "2026-09-18T12:00:00Z",
       },
     ];
-    const ghClient = {
-      pr: {
-        list: vi.fn().mockReturnValue(prs),
-        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "a" }] }),
-      },
-    };
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs), view: vi.fn() } };
+    const fetchCommits = fakeFetchCommits(() => [{ messageHeadline: "a" }]);
 
-    const result = readMergedAiPrsPaged(ghClient, NOW);
+    const result = readMergedAiPrsPaged(ghClient, NOW, fetchCommits);
 
     expect(result.map((pr) => pr.number)).toEqual([2]);
-    expect(ghClient.pr.view).toHaveBeenCalledTimes(1);
-    expect(ghClient.pr.view).toHaveBeenCalledWith(2, ["--json", "commits"]);
+    expect(fetchCommits).toHaveBeenCalledTimes(1);
+    expect(fetchCommits).toHaveBeenCalledWith([2]);
   });
 
   it("a PR merged 7.5 days ago yields no baseline and no regression", () => {
@@ -841,20 +858,15 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
         mergedAt: at(2),
       })),
     ];
-    const ghClient = {
-      pr: {
-        list: vi.fn().mockReturnValue(prs),
-        view: vi.fn((n) => ({
-          commits:
-            n >= 100 && n < 106
-              ? [{ messageHeadline: "a" }, { messageHeadline: "b" }, { messageHeadline: "c" }]
-              : [{ messageHeadline: "a" }],
-        })),
-      },
-    };
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs), view: vi.fn() } };
+    const fetchCommits = fakeFetchCommits((n) =>
+      n >= 100 && n < 106
+        ? [{ messageHeadline: "a" }, { messageHeadline: "b" }, { messageHeadline: "c" }]
+        : [{ messageHeadline: "a" }]
+    );
 
     const result = collectQueueEfficiency(
-      () => readMergedAiPrsPaged(ghClient, NOW),
+      () => readMergedAiPrsPaged(ghClient, NOW, fetchCommits),
       () => null,
       NOW,
       () => []
@@ -878,14 +890,10 @@ describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
         mergedAt: "2026-09-24T12:00:00Z",
       },
     ];
-    const ghClient = {
-      pr: {
-        list: vi.fn().mockReturnValue(prs),
-        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "x" }] }),
-      },
-    };
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs), view: vi.fn() } };
+    const fetchCommits = fakeFetchCommits(() => [{ messageHeadline: "x" }]);
 
-    const result = defaultReadPrs(ghClient, NOW);
+    const result = defaultReadPrs(ghClient, NOW, fetchCommits);
 
     expect(result).toEqual([{ ...prs[0], commits: [{ messageHeadline: "x" }], commitCount: 1 }]);
   });

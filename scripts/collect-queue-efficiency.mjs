@@ -60,8 +60,8 @@ export const QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE = 15;
  * Scoped to the current window only, not the full 21-day/3-week baseline
  * window `collectQueueEfficiency` also computes, so the baseline is always
  * null under this reader (as it was in 100% of historical reports under the
- * old 45-PR-total cap). Populating it would multiply the per-PR `pr view`
- * calls below roughly 4x (measured: ~110 AI PRs/8 days vs. ~430/30 days).
+ * old 45-PR-total cap). Populating it would multiply the batched
+ * commit calls below roughly 4x (measured: ~110 AI PRs/8 days vs. ~430/30 days).
  * Revisit if a future change wants the 3-week baseline populated.
  */
 const READ_PRS_LOOKBACK_DAYS = 8;
@@ -323,17 +323,65 @@ function isoDateDaysAgo(now, days) {
   return new Date(+now - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+/** PRs per GraphQL request when batching commit lookups (keeps the node budget small). */
+const COMMIT_BATCH_SIZE = 25;
+
+/** Per-call timeout for the batched `gh api graphql` request — one call covers ~25 PRs. */
+const COMMIT_BATCH_TIMEOUT_MS = 120_000;
+
 /**
- * Fetches one PR's commits (for effectiveCommitCount) via a single `pr view`
- * call. Only called for AI PRs — see readMergedAiPrsPaged.
+ * Resolves `owner/name` for the batched GraphQL query: GITHUB_REPOSITORY in
+ * Actions, else `gh repo view`. Validated before it is interpolated into a query.
  *
- * @param {import("@mbe/gh-client").GhClient} ghClient
- * @param {number} prNumber
- * @returns {Array<{ messageHeadline?: string }>}
+ * @returns {{ owner: string, name: string }}
  */
-function fetchPrCommits(ghClient, prNumber) {
-  const detail = ghClient.pr.view(prNumber, ["--json", "commits"]);
-  return Array.isArray(detail?.commits) ? detail.commits : [];
+function resolveRepo() {
+  const slug =
+    process.env.GITHUB_REPOSITORY ??
+    execFileSync("gh", ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], {
+      encoding: "utf-8",
+      timeout: 30_000,
+    }).trim();
+  const match = /^([\w.-]+)\/([\w.-]+)$/.exec(slug);
+  if (!match) throw new Error(`unrecognised repository slug: ${slug}`);
+  return { owner: match[1], name: match[2] };
+}
+
+/**
+ * Default batched commit reader: ONE `gh api graphql` call per
+ * COMMIT_BATCH_SIZE PRs (aliased `pullRequest` lookups), instead of one
+ * `gh pr view` per PR. ~110 AI PRs/week at ~4s per `pr view` was ~7 minutes of
+ * serial subprocesses and timed the sensor out (#6549).
+ *
+ * @param {number[]} prNumbers integers only (interpolated into the query)
+ * @returns {Map<number, Array<{ messageHeadline?: string }>>}
+ */
+export function fetchCommitsBatched(prNumbers) {
+  const { owner, name } = resolveRepo();
+  const result = new Map();
+  for (let i = 0; i < prNumbers.length; i += COMMIT_BATCH_SIZE) {
+    const chunk = prNumbers.slice(i, i + COMMIT_BATCH_SIZE).filter(Number.isInteger);
+    const fields = chunk
+      .map(
+        (n) =>
+          `p${n}: pullRequest(number: ${n}) { commits(first: 100) { nodes { commit { messageHeadline } } } }`
+      )
+      .join(" ");
+    const query = `query { repository(owner: "${owner}", name: "${name}") { ${fields} } }`;
+    const raw = execFileSync("gh", ["api", "graphql", "-f", `query=${query}`], {
+      encoding: "utf-8",
+      timeout: COMMIT_BATCH_TIMEOUT_MS,
+    });
+    const repo = JSON.parse(raw)?.data?.repository ?? {};
+    for (const n of chunk) {
+      const nodes = repo[`p${n}`]?.commits?.nodes ?? [];
+      result.set(
+        n,
+        nodes.map((node) => ({ messageHeadline: node?.commit?.messageHeadline }))
+      );
+    }
+  }
+  return result;
 }
 
 /**
@@ -354,14 +402,17 @@ function fetchPrCommits(ghClient, prNumber) {
  *   1. One cheap `pr list` call over the lookback window, WITHOUT `commits`
  *      — no per-PR node multiplication, so ~200 PRs in one call is safe
  *      (measured: 216 merged PRs in the last 8 days).
- *   2. `commits` fetched per-PR (one `pr view` call each), but only for AI
- *      PRs — ~110/8 days in this repo, not the full merged-PR volume.
+ *   2. `commits` fetched for AI PRs only (~110/8 days) in batched GraphQL
+ *      calls of COMMIT_BATCH_SIZE PRs each — NOT one `pr view` per PR, which
+ *      took ~4s apiece and timed the sensor out (#6549).
  *
  * @param {import("@mbe/gh-client").GhClient} ghClient
  * @param {Date} now
+ * @param {(prNumbers: number[]) => Map<number, Array<{ messageHeadline?: string }>>} [fetchCommits]
+ *   injectable batched commit reader (defaults to GraphQL, O(PRs/25) calls)
  * @returns {Array<object>}
  */
-export function readMergedAiPrsPaged(ghClient, now) {
+export function readMergedAiPrsPaged(ghClient, now, fetchCommits = fetchCommitsBatched) {
   const cutoff = isoDateDaysAgo(now, READ_PRS_LOOKBACK_DAYS);
   const windowStart = +now - READ_PRS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   // No `--state merged`: `merged:>=` already implies it, and under
@@ -377,9 +428,11 @@ export function readMergedAiPrsPaged(ghClient, now) {
     "number,state,headRefName,author,createdAt,mergedAt,closedAt,labels,additions,deletions",
   ]);
   const inWindow = prs.filter((pr) => Date.parse(pr.mergedAt) >= windowStart);
+  const agentNumbers = inWindow.filter(isAgentPr).map((pr) => pr.number);
+  const commitsByPr = agentNumbers.length > 0 ? fetchCommits(agentNumbers) : new Map();
   return inWindow.map((pr) => {
     if (!isAgentPr(pr)) return { ...pr, commitCount: 1 };
-    const commits = fetchPrCommits(ghClient, pr.number);
+    const commits = commitsByPr.get(pr.number) ?? [];
     return { ...pr, commits, commitCount: commits.length };
   });
 }
@@ -395,9 +448,13 @@ export function readMergedAiPrsPaged(ghClient, now) {
  * @param {Date} [now]
  * @returns {Array<object>|null}
  */
-export function defaultReadPrs(ghClient = createGhClient(), now = new Date()) {
+export function defaultReadPrs(
+  ghClient = createGhClient(),
+  now = new Date(),
+  fetchCommits = fetchCommitsBatched
+) {
   try {
-    return readMergedAiPrsPaged(ghClient, now);
+    return readMergedAiPrsPaged(ghClient, now, fetchCommits);
   } catch {
     return null;
   }

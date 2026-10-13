@@ -21,6 +21,12 @@ import { buildQueueEfficiencyProcessEntry } from "./optimize-implement-queue.mjs
 import { resolvePath } from "./metrics-store.mjs";
 
 /**
+ * The 343-PR `pr list` search measured ~20s, over gh-client's 15s default
+ * (#6549: `spawnSync gh ETIMEDOUT`). Generous because it is one call.
+ */
+const LIST_TIMEOUT_MS = 120_000;
+
+/**
  * @param {string} jsonlText existing file contents ("" when absent)
  * @param {{ date: string, sensor: string }} entry
  * @returns {string} new contents with `entry` as the only same-day row for its sensor
@@ -48,7 +54,7 @@ export function upsertQueueEfficiencyRow(jsonlText, entry) {
  */
 export function recordQueueEfficiency({
   now = new Date(),
-  readPrs = () => readMergedAiPrsPaged(createGhClient(), now),
+  readPrs = () => readMergedAiPrsPaged(createGhClient({ timeoutMs: LIST_TIMEOUT_MS }), now),
   collect = () => collectQueueEfficiency(readPrs, undefined, now),
 } = {}) {
   return buildQueueEfficiencyProcessEntry(now.toISOString().slice(0, 10), collect());
