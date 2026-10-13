@@ -19667,6 +19667,9 @@
               {
                 taskDescription,
                 apiBaseUrl,
+                // Sub-session calls hit this service's own requireAuth routes —
+                // forward the caller's verified bearer token or every call 401s.
+                getAccessToken: () => bearerToken(request.headers.authorization),
                 parentSessionId: parentSession.id,
                 model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
                 sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
@@ -19723,6 +19726,10 @@
         }
       );
     };
+    function bearerToken(header: string | undefined): string | null {
+      const match = header?.match(/^Bearer\s+(.+)$/i);
+      return match?.[1] ?? null;
+    }
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -42701,8 +42708,17 @@
     }
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
+    function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient {
+      return (
+        config.sessionClient ??
+        new AgentSessionClient({
+          baseUrl: config.apiBaseUrl,
+          getAccessToken: config.getAccessToken,
+        })
+      );
+    }
     function createSessionTools(config: OrchestratorConfig) {
-      const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+      const client = resolveSessionClient(config);
     
       const createSessionTool = tool(
         "create_session",
@@ -42782,9 +42798,7 @@
         "list_sessions",
         "List all sessions. Use to check overall progress.",
         {
-          status: z
-            .enum(["pending", "running", "succeeded", "failed", "cancelled"])
-            .optional()
+          status: AgentSessionStatusSchema.optional()
             .describe("Filter by status"),
           page: z.number().optional().describe("Page number (default 1)"),
           limit: z.number().optional().describe("Items per page (default 20)"),
@@ -42904,8 +42918,7 @@
       emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);
     
       // Session client for status gathering after orchestration completes (reads only — default retries are fine)
-      const sessionClient =
-        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
+      const sessionClient = resolveSessionClient(config);
     
       // Create MCP server with session management tools
       const tools = createSessionTools(config);
@@ -46316,6 +46329,8 @@
       readonly taskDescription: string;
       readonly apiBaseUrl: string;
       readonly sessionClient?: AgentSessionClient;
+      /** Credentials for sub-session calls (ignored when sessionClient is supplied). */
+      readonly getAccessToken?: () => string | null | Promise<string | null>;
       readonly model: string;
       readonly sessionModel: string;
       readonly maxBudgetPerSession: number;
@@ -48126,8 +48141,10 @@
       baseBranch?: string;
       parentId?: string;
     }
+    type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
     export interface ListSessionsParams {
-      status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+      /** Query vocabulary of GET /v1/sessions (AgentSessionStatusSchema), not the lowercase response status. */
+      status?: AgentSessionQueryStatus;
       page?: number;
       limit?: number;
     }

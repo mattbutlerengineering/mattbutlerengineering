@@ -6031,6 +6031,9 @@
     <item priority="high">
       export const orchestrateRoutes: FastifyPluginAsync;
     </item>
+    <item priority="medium">
+      function bearerToken(header: string | undefined): string | null { /* ... */ }
+    </item>
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     <item priority="high">
@@ -10987,6 +10990,9 @@
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
     <item priority="medium">
+      function resolveSessionClient(config: OrchestratorConfig): AgentSessionClient { /* ... */ }
+    </item>
+    <item priority="medium">
       function createSessionTools(config: OrchestratorConfig) { /* ... */ }
     </item>
     <item priority="medium">
@@ -11802,8 +11808,8 @@
         taskDescription: string;
         apiBaseUrl: string;
         sessionClient?: AgentSessionClient;
+        getAccessToken?: () => string | null | Promise<string | null>;
         model: string;
-        sessionModel: string;
       }
     </item>
     <item priority="high">
@@ -12538,9 +12544,12 @@
         baseBranch?: string;
       }
     </item>
+    <item priority="high">
+      type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
+    </item>
     <item priority="low">
       interface ListSessionsParams {
-        status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+        status?: AgentSessionQueryStatus;
         page?: number;
         limit?: number;
       }
