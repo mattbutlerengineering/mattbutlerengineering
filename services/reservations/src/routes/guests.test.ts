@@ -426,6 +426,32 @@ describe("Guest Routes", () => {
       expect(body.data.id).toBe("guest-123");
     });
 
+    it("passes notes through to the service", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(guestService.findOrCreate).mockResolvedValueOnce(mockGuest);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/find-or-create",
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          venueId: "venue-123",
+          name: "Ana",
+          email: "ana@example.com",
+          notes: "nut allergy",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(guestService.findOrCreate).toHaveBeenCalledWith(
+        "venue-123",
+        expect.objectContaining({ notes: "nut allergy" })
+      );
+    });
+
     it("returns 400 without email or phone", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,

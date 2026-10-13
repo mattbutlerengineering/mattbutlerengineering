@@ -92,7 +92,7 @@ describe("useGuests", () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data).toEqual(guests);
+    expect(result.current.data?.data).toEqual(guests);
     expect(result.current.error).toBeNull();
   });
 
@@ -171,7 +171,7 @@ describe("useGuestSearch", () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data).toEqual(guests);
+    expect(result.current.data?.data).toEqual(guests);
   });
 });
 

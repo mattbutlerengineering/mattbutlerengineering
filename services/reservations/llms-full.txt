@@ -2171,16 +2171,17 @@
         },
         preHandler: requireAuth,
         handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
-          const { email, phone, name, dietaryRestrictions } = request.body;
-          if (!email && !phone) {
+          const { email, phone, name, notes, dietaryRestrictions } = request.body;
+          if (!hasGuestContact({ email, phone })) {
             return reply
               .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+              .send(createProblemDetails(400, "Bad Request", GUEST_CONTACT_REQUIRED_MESSAGE));
           }
           const guest = await guestService.findOrCreate(venueId, {
             email,
             phone,
             name,
+            notes,
             dietaryRestrictions,
           });
           return { data: guest };
@@ -9941,7 +9942,13 @@
        */
       async findOrCreate(
         venueId: string,
-        data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
+        data: {
+          email?: string;
+          phone?: string;
+          name: string;
+          notes?: string;
+          dietaryRestrictions?: string[];
+        }
       ): Promise<Guest> {
         // Resolve identity: email takes precedence over phone
         const existing =
@@ -9979,6 +9986,7 @@
             email: data.email,
             phone: data.phone,
             name: data.name,
+            ...(data.notes ? { notes: data.notes } : {}),
             ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
               ? { dietaryRestrictions: data.dietaryRestrictions }
               : {}),

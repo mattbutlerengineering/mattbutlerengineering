@@ -1,4 +1,10 @@
-import type { Guest, GuestSegment, LapsingGuest, UpdateGuestRequest } from "@mbe/types";
+import type {
+  Guest,
+  GuestSegment,
+  LapsingGuest,
+  PaginatedResponse,
+  UpdateGuestRequest,
+} from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
 import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -11,23 +17,33 @@ export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
 
 export interface UseGuestsParams {
   venueId?: string | null;
+  page?: number;
   limit?: number;
   enabled?: boolean;
 }
 
 export interface UseGuestsResult {
-  data: Guest[] | undefined;
+  /** A page of guests plus the API's pagination meta (total, page count). */
+  data: PaginatedResponse<Guest> | undefined;
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
 }
 
-export const useGuests = createQueryHook<Guest[], UseGuestsParams>({
+const EMPTY_PAGE: PaginatedResponse<Guest> = {
+  data: [],
+  pagination: { page: 1, limit: 50, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+};
+
+export const useGuests = createQueryHook<PaginatedResponse<Guest>, UseGuestsParams>({
   key: GUESTS_QUERY_KEY,
   fetcher: async (params, api) => {
-    if (!params?.venueId) return [];
-    const response = await api.guests.list({ venueId: params.venueId, limit: params.limit ?? 50 });
-    return response.data;
+    if (!params?.venueId) return EMPTY_PAGE;
+    return api.guests.list({
+      venueId: params.venueId,
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    });
   },
   getEnabled: (params) => !!params?.venueId,
 });
@@ -40,12 +56,11 @@ export interface UseGuestSearchParams {
   enabled?: boolean;
 }
 
-const useGuestSearchQuery = createQueryHook<Guest[], UseGuestSearchParams>({
+const useGuestSearchQuery = createQueryHook<PaginatedResponse<Guest>, UseGuestSearchParams>({
   key: GUESTS_QUERY_KEY,
   fetcher: async (params, api) => {
-    if (!params?.venueId || !params.query) return [];
-    const response = await api.guests.search({ venueId: params.venueId, query: params.query });
-    return response.data;
+    if (!params?.venueId || !params.query) return EMPTY_PAGE;
+    return api.guests.search({ venueId: params.venueId, query: params.query });
   },
   getEnabled: (params) => !!params?.venueId && !!params?.query,
 });

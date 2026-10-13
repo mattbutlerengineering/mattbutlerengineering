@@ -4065,13 +4065,14 @@
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
+        page?: number;
         limit?: number;
         enabled?: boolean;
       }
     </item>
     <item priority="low">
       interface UseGuestsResult {
-        data: Guest[] | undefined;
+        data: PaginatedResponse<Guest> | undefined;
         isLoading: boolean;
         error: Error | null;
         refetch: () => void;
@@ -6886,6 +6887,23 @@
     </item>
     <item priority="high">
       export const FloorPlanSchema: unknown;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/guest-form.ts">
+    <item priority="high">
+      export const GUEST_CONTACT_REQUIRED_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export function hasGuestContact(contact: {
+        email?: string | null | undefined;
+        phone?: string | null | undefined;
+      }): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const AddGuestFormSchema: unknown;
+    </item>
+    <item priority="low">
+      type AddGuestFormValues = z.infer<typeof AddGuestFormSchema>;
     </item>
   </file>
   <file path="packages/types/src/schemas/guest.ts">

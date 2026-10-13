@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { z } from "zod";
 import {
   Alert,
   Button,
@@ -14,7 +13,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
-import type { GuestSegment } from "@mbe/types";
+import { AddGuestFormSchema, type AddGuestFormValues, type GuestSegment } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { useGuestDirectory, type UseGuestDirectoryResult } from "../hooks/useGuestDirectory.js";
@@ -38,19 +37,9 @@ const SEGMENT_ACCENT_COLORS = [
 
 /* ── Schema ─────────────────────────────────── */
 
-const guestFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Please enter a valid email address").or(z.literal("")),
-  phone: z
-    .string()
-    .regex(/^[+\d\s\-().]{7,}$/, "Please enter a valid phone number")
-    .or(z.literal("")),
-  notes: z.string(),
-});
-
-type GuestFormValues = z.infer<typeof guestFormSchema>;
-
-const ADD_GUEST_INITIAL: GuestFormValues = { name: "", email: "", phone: "", notes: "" };
+// One create-guest contract: the form schema lives in @mbe/types beside the
+// find-or-create body schema, so client and server reject the same input.
+const ADD_GUEST_INITIAL: AddGuestFormValues = { name: "", email: "", phone: "", notes: "" };
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -75,14 +64,14 @@ function GuestsLoadingSkeleton() {
 interface AddGuestDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: GuestFormValues) => Promise<void>;
+  onSubmit: (data: AddGuestFormValues) => Promise<void>;
 }
 
 function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
   const { fields, setField, isPending, error, reset, handleSubmit } = useFormState(
     ADD_GUEST_INITIAL,
     onSubmit,
-    guestFormSchema
+    AddGuestFormSchema
   );
 
   const handleClose = () => {
@@ -165,6 +154,10 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     isLoading,
     error,
     refetch,
+    totalCount,
+    page,
+    totalPages,
+    setPage,
     searchQuery,
     setSearchQuery,
     isSearchActive,
@@ -185,18 +178,14 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     enabled: !!selectedGuestId,
   });
 
-  const totalGuestCount = (segments ?? []).reduce(
-    (sum: number, s: GuestSegment) => sum + s.count,
-    0
-  );
-
-  const handleAddGuest = async (data: GuestFormValues) => {
+  const handleAddGuest = async (data: AddGuestFormValues) => {
     if (!selectedVenueId) return;
     await addGuest({
       venueId: selectedVenueId,
       name: data.name.trim(),
       ...(data.email.trim() ? { email: data.email.trim() } : {}),
       ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
+      ...(data.notes.trim() ? { notes: data.notes.trim() } : {}),
     });
     setAddDialogOpen(false);
   };
@@ -225,7 +214,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
           onSearchChange={setSearchQuery}
           onAddGuest={() => setAddDialogOpen(true)}
           guestCount={guests.length}
-          totalCount={totalGuestCount}
+          totalCount={totalCount}
           isSearchActive={isSearchActive}
           isLoading={isLoading}
           isEmpty={!error && guests.length === 0}
@@ -265,6 +254,30 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
 
       {!isLoading && !error && guests.length > 0 && (
         <GuestTable guests={guests} selectedGuestId={selectedGuestId} onRowClick={selectGuest} />
+      )}
+
+      {!isSearchActive && totalPages > 1 && (
+        <Stack direction="row" gap="sm" align="center" justify="center">
+          <Button
+            variant="ghost"
+            aria-label="Previous page"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous
+          </Button>
+          <Text variant="caption" color="secondary">
+            Page {page} of {totalPages}
+          </Text>
+          <Button
+            variant="ghost"
+            aria-label="Next page"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+          >
+            Next
+          </Button>
+        </Stack>
       )}
 
       <GuestDrawer

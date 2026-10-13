@@ -51,7 +51,7 @@ export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGues
 
   const query = eligible && settled === trimmed ? trimmed : "";
   const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
-  const matches = query !== "" ? (data ?? []) : [];
+  const matches = query !== "" ? (data?.data ?? []) : [];
 
   return {
     rows: matches.slice(0, MAX_ROWS),

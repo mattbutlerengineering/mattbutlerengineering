@@ -354,6 +354,27 @@
       updatedAt: z.string(),
     });
   </file>
+  <file path="src/schemas/guest-form.ts">
+    export const GUEST_CONTACT_REQUIRED_MESSAGE = "Either email or phone is required";
+    export function hasGuestContact(contact: {
+      email?: string | null | undefined;
+      phone?: string | null | undefined;
+    }): boolean {
+      return Boolean(contact.email?.trim() || contact.phone?.trim());
+    }
+    export const AddGuestFormSchema = z
+      .object({
+        name: z.string().trim().min(1, "Name is required"),
+        email: z.string().email("Please enter a valid email address").or(z.literal("")),
+        phone: z
+          .string()
+          .regex(/^[+\d\s\-().]{7,}$/, "Please enter a valid phone number")
+          .or(z.literal("")),
+        notes: z.string(),
+      })
+      .refine(hasGuestContact, { message: GUEST_CONTACT_REQUIRED_MESSAGE, path: ["email"] });
+    export type AddGuestFormValues = z.infer<typeof AddGuestFormSchema>;
+  </file>
   <file path="src/schemas/guest.ts">
     export const StaffNoteSchema = z.object({
       text: z.string(),
@@ -809,6 +830,12 @@
       email: z.email().describe("Guest email (used for matching)").optional(),
       phone: z.string().describe("Guest phone (used for matching if email not found)").optional(),
       name: z.string().describe("Guest name"),
+      notes: z
+        .string()
+        .describe(
+          "Internal notes, stored when the guest is created (never overwrites an existing guest)"
+        )
+        .optional(),
       dietaryRestrictions: z
         .array(z.string())
         .describe("Dietary restrictions to merge with existing guest profile")
