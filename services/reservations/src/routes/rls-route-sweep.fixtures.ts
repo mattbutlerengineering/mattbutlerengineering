@@ -134,7 +134,7 @@ export interface SweepContext {
    * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
    * other fixture or suite. `waitlistA` is also read by the item-7
    * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
-   * which asserts it stays `"waiting"` after its own call — sharing it with
+   * which expires it (it is seeded `notified`) after its own call — sharing it with
    * a fixture that writes (even one that 404s before reaching the DB today,
    * per the tripwire) would couple the two the moment item-2's fix makes
    * `seat` actually succeed.
@@ -474,6 +474,25 @@ async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string)
     },
   });
   return extractId(res);
+}
+
+/**
+ * A disposable waitlist entry already in the `notified` state. `expire` only
+ * transitions notified -> expired (#6492), so its [ok] cases need this shape.
+ * Notified via the real `waitlistService.markNotified` inside the venue's RLS
+ * context (what the notify route does, minus the SMS/Redis job), so the write
+ * still goes through the production scoping path.
+ */
+async function createDisposableNotifiedWaitlistEntry(
+  ctx: SweepContext,
+  venueId: string
+): Promise<string> {
+  const id = await createDisposableWaitlistEntry(ctx, venueId);
+  const { waitlistService } = await import("../services/waitlist.js");
+  const { runWithVenueContext } = await import("../services/venue-context-store.js");
+  const notified = await runWithVenueContext(venueId, () => waitlistService.markNotified(id));
+  expect(notified?.status, "seed: entry should be notified").toBe("notified");
+  return id;
 }
 
 /**
@@ -1417,7 +1436,7 @@ const waitlistFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.waitlistB
   ),
   "PUT /api/v1/waitlist/:id/expire": okEntityMutation(
-    createDisposableWaitlistEntry,
+    createDisposableNotifiedWaitlistEntry,
     (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/expire` }),
     (ctx) => ctx.waitlistB
   ),

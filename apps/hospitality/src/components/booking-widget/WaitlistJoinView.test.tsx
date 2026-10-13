@@ -56,6 +56,13 @@ describe("WaitlistJoinView", () => {
     vi.resetAllMocks();
   });
 
+  it("shows no invented wait estimate when the server has not supplied one", () => {
+    const { estimatedWaitMinutes: _omit, ...withoutEstimate } = DEFAULT_PROPS;
+    render(<WaitlistJoinView {...withoutEstimate} />);
+    expect(screen.queryByText(/Estimated wait/)).toBeNull();
+    expect(screen.queryByText(/~30 min/)).toBeNull();
+  });
+
   it("shows no-availability message with estimated wait time", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     expect(screen.getAllByText(/No tables available/i).length).toBeGreaterThan(0);

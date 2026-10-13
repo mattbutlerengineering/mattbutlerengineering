@@ -24294,7 +24294,7 @@
        * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
        * other fixture or suite. `waitlistA` is also read by the item-7
        * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
-       * which asserts it stays `"waiting"` after its own call — sharing it with
+       * which expires it (it is seeded `notified`) after its own call — sharing it with
        * a fixture that writes (even one that 404s before reaching the DB today,
        * per the tripwire) would couple the two the moment item-2's fix makes
        * `seat` actually succeed.
@@ -24534,6 +24534,17 @@
         },
       });
       return extractId(res);
+    }
+    async function createDisposableNotifiedWaitlistEntry(
+      ctx: SweepContext,
+      venueId: string
+    ): Promise<string> {
+      const id = await createDisposableWaitlistEntry(ctx, venueId);
+      const { waitlistService } = await import("../services/waitlist.js");
+      const { runWithVenueContext } = await import("../services/venue-context-store.js");
+      const notified = await runWithVenueContext(venueId, () => waitlistService.markNotified(id));
+      expect(notified?.status, "seed: entry should be notified").toBe("notified");
+      return id;
     }
     async function createDisposableReservation(
       ctx: SweepContext,
@@ -26331,7 +26342,7 @@
           },
         },
         venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-          const entries = await waitlistService.listWaiting(venueId);
+          const entries = await waitlistService.listActive(venueId);
           return reply.send({ data: entries });
         })
       );
@@ -26402,7 +26413,9 @@
               venueId: entry.venueId,
             });
     
-            return reply.send({ data: entry });
+            // Re-read so the response carries the persisted notified state.
+            const current = await waitlistService.getById(entry.id);
+            return reply.send({ data: current ?? entry });
           }
         )
       );
@@ -38344,6 +38357,8 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
+      /** Persists notified state on the row; null if the party is no longer waiting. */
+      markNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -38398,6 +38413,7 @@
         expireEntry,
         listWaiting,
         notifyTableReady: notifyNextTableReady,
+        markNotified,
         logger,
       } = deps;
     
@@ -38432,6 +38448,10 @@
       }
     
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
+        // Record notified state first: a party that was seated/cancelled in the
+        // meantime gets no SMS and no expiry job.
+        if (!(await markNotified(input.id))) return;
+    
         if (smsAdapter) {
           try {
             await smsAdapter.sendWaitlistTableReady({
@@ -38486,6 +38506,7 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
+        markNotified: (id) => waitlistService.markNotified(id),
         logger: consoleLogger,
       });
     
@@ -38510,6 +38531,7 @@
     }
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
+    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
@@ -38552,7 +38574,10 @@
         await setVenueContext(tx, venueId);
         return tx.$executeRaw`
           UPDATE "waitlist_entries" AS w
-          SET position = v.position
+          SET position = v.position,
+              -- Estimate follows position: keep the entry's own turn time
+              -- (estimate / position at join) and re-multiply by its new position.
+              estimated_wait_minutes = (w.estimated_wait_minutes / GREATEST(w.position, 1)) * v.position
           FROM (VALUES ${rows}) AS v(id, position)
           WHERE w.id = v.id
         `;
@@ -38589,6 +38614,14 @@
         });
       },
     
+      /** Staff view: parties still waiting plus notified ones holding their claim window. */
+      async listActive(venueId: string): Promise<WaitlistEntryData[]> {
+        return prisma.waitlistEntry.findMany({
+          where: { venueId, status: { in: ["waiting", "notified"] } },
+          orderBy: { position: "asc" },
+        });
+      },
+    
       async getById(id: string): Promise<WaitlistEntryData | null> {
         return prisma.waitlistEntry.findUnique({ where: { id } });
       },
@@ -38621,10 +38654,35 @@
         return entry;
       },
     
+      /**
+       * Records the notified lifecycle state on the row. Only a `waiting` entry
+       * can be notified; anything else (seated/cancelled/already notified) -> null.
+       */
+      async markNotified(id: string): Promise<WaitlistEntryData | null> {
+        const notifiedAt = new Date();
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "waiting" },
+            data: {
+              status: "notified",
+              notifiedAt,
+              expiresAt: new Date(notifiedAt.getTime() + NOTIFY_CLAIM_WINDOW_MS),
+            },
+          });
+        } catch {
+          return null;
+        }
+        // The notified party left the waiting queue: close the gap behind it.
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
       async expire(id: string): Promise<WaitlistEntryData | null> {
         try {
           return await prisma.waitlistEntry.update({
-            where: { id },
+            where: { id, status: "notified" },
             data: { status: "expired" },
           });
         } catch {

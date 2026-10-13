@@ -9,10 +9,12 @@ vi.mock("../services/waitlist.js", () => ({
   waitlistService: {
     create: vi.fn(),
     listWaiting: vi.fn(),
+    listActive: vi.fn(),
     getById: vi.fn(),
     seat: vi.fn(),
     cancel: vi.fn(),
     expire: vi.fn(),
+    markNotified: vi.fn(),
   },
 }));
 
@@ -286,7 +288,7 @@ describe("Waitlist Routes", () => {
 
   describe("GET /api/v1/waitlist", () => {
     it("lists waiting entries for a venue", async () => {
-      vi.mocked(waitlistService.listWaiting).mockResolvedValue([mockEntry, mockEntry2] as never);
+      vi.mocked(waitlistService.listActive).mockResolvedValue([mockEntry, mockEntry2] as never);
 
       const response = await app.inject({
         method: "GET",
@@ -298,7 +300,7 @@ describe("Waitlist Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data).toHaveLength(2);
       expect(body.data[0].id).toBe("entry-1");
-      expect(waitlistService.listWaiting).toHaveBeenCalledWith("venue-1");
+      expect(waitlistService.listActive).toHaveBeenCalledWith("venue-1");
     });
 
     it("returns 400 when venueId missing", async () => {
@@ -540,7 +542,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
     expect(response.statusCode).toBe(403);
     expect(JSON.parse(response.body)).toEqual(FORBIDDEN);
     expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-1");
-    expect(waitlistService.listWaiting).not.toHaveBeenCalled();
+    expect(waitlistService.listActive).not.toHaveBeenCalled();
   });
 
   it("returns 200 when a member lists their venue's waitlist", async () => {
@@ -548,7 +550,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
       .fn<VenueMembershipLookup>()
       .mockImplementation(async (_sub, venueId) => venueId === "venue-1");
     await buildAs(["staff"], lookup);
-    vi.mocked(waitlistService.listWaiting).mockResolvedValue([mockEntry] as never);
+    vi.mocked(waitlistService.listActive).mockResolvedValue([mockEntry] as never);
 
     const response = await app.inject({
       method: "GET",
@@ -558,7 +560,7 @@ describe("Waitlist Routes — venue authorization (ADR-020)", () => {
 
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body).data[0].id).toBe("entry-1");
-    expect(waitlistService.listWaiting).toHaveBeenCalledWith("venue-1");
+    expect(waitlistService.listActive).toHaveBeenCalledWith("venue-1");
   });
 
   it("returns 403 when a non-member adds to a venue's waitlist", async () => {

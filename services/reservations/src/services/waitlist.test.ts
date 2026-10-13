@@ -125,6 +125,21 @@ describe("waitlistService", () => {
     });
   });
 
+  describe("listActive", () => {
+    it("keeps notified parties on the staff list (waiting + notified), so they can still be seated", async () => {
+      const notified = makeEntry({ status: "notified", notifiedAt: NOW });
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([notified] as never);
+
+      const result = await waitlistService.listActive("venue-1");
+
+      expect(prisma.waitlistEntry.findMany).toHaveBeenCalledWith({
+        where: { venueId: "venue-1", status: { in: ["waiting", "notified"] } },
+        orderBy: { position: "asc" },
+      });
+      expect(result).toEqual([notified]);
+    });
+  });
+
   describe("getById", () => {
     it("returns the entry when found", async () => {
       const entry = makeEntry();
@@ -214,6 +229,55 @@ describe("waitlistService", () => {
     });
   });
 
+  describe("markNotified", () => {
+    it("records notified status, notifiedAt and expiresAt only from waiting, then recalculates positions", async () => {
+      const notified = makeEntry({ status: "notified" });
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(notified as never);
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([] as never);
+
+      const result = await waitlistService.markNotified("wl-1");
+
+      expect(prisma.waitlistEntry.update).toHaveBeenCalledWith({
+        where: { id: "wl-1", status: "waiting" },
+        data: {
+          status: "notified",
+          notifiedAt: expect.any(Date),
+          expiresAt: expect.any(Date),
+        },
+      });
+      const { data } = vi.mocked(prisma.waitlistEntry.update).mock.calls[0]![0] as {
+        data: { notifiedAt: Date; expiresAt: Date };
+      };
+      expect(data.expiresAt.getTime() - data.notifiedAt.getTime()).toBe(5 * 60 * 1000);
+      expect(prisma.waitlistEntry.findMany).toHaveBeenCalled();
+      expect(result).toEqual(notified);
+    });
+
+    it("returns null when the entry is no longer waiting", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce(new Error("not found"));
+      expect(await waitlistService.markNotified("wl-1")).toBeNull();
+      expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("recalculation keeps estimates in step with position", () => {
+    it("rewrites estimated_wait_minutes (position x turn time) alongside position", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
+        makeEntry({ status: "seated" }) as never
+      );
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([
+        { id: "wl-3", position: 3 },
+      ] as never);
+
+      await waitlistService.seat("wl-1");
+
+      const sqlTexts = vi
+        .mocked(prisma.$executeRaw)
+        .mock.calls.map((call) => (call[0] as unknown as string[]).join("?"));
+      expect(sqlTexts.some((t) => t.includes("estimated_wait_minutes"))).toBe(true);
+    });
+  });
+
   describe("expire", () => {
     it("marks the entry expired without recalculating positions", async () => {
       const expired = makeEntry({ status: "expired" });
@@ -222,7 +286,7 @@ describe("waitlistService", () => {
       const result = await waitlistService.expire("wl-1");
 
       expect(prisma.waitlistEntry.update).toHaveBeenCalledWith({
-        where: { id: "wl-1" },
+        where: { id: "wl-1", status: "notified" },
         data: { status: "expired" },
       });
       expect(result).toEqual(expired);
@@ -230,10 +294,10 @@ describe("waitlistService", () => {
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
 
-    it("returns null when the entry does not exist", async () => {
+    it("is a no-op (null) when the entry was already seated or cancelled", async () => {
       vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce({ code: "P2025" } as never);
 
-      expect(await waitlistService.expire("missing")).toBeNull();
+      expect(await waitlistService.expire("wl-seated")).toBeNull();
     });
   });
 });

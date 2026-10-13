@@ -27,6 +27,8 @@ export interface WaitlistNotifierDeps {
   // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
   // the notifier's own public method, so both must accept venueId.
   notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
+  /** Persists notified state on the row; null if the party is no longer waiting. */
+  markNotified(id: string): Promise<{ id: string } | null>;
   logger: WaitlistNotifierLogger;
 }
 
@@ -95,6 +97,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     expireEntry,
     listWaiting,
     notifyTableReady: notifyNextTableReady,
+    markNotified,
     logger,
   } = deps;
 
@@ -129,6 +132,10 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
   }
 
   async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
+    // Record notified state first: a party that was seated/cancelled in the
+    // meantime gets no SMS and no expiry job.
+    if (!(await markNotified(input.id))) return;
+
     if (smsAdapter) {
       try {
         await smsAdapter.sendWaitlistTableReady({
@@ -194,6 +201,7 @@ export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): Waitlis
     expireEntry: (id) => waitlistService.expire(id),
     listWaiting: (venueId) => waitlistService.listWaiting(venueId),
     notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
+    markNotified: (id) => waitlistService.markNotified(id),
     logger: consoleLogger,
   });
 
