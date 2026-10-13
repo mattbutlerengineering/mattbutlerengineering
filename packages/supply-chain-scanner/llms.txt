@@ -37,16 +37,17 @@
         pattern: RegExp;
         category: Category;
         severity: Severity;
+        appliesTo?: RegExp;
       }
     </item>
     <item priority="high">
-      interface LogicalLine {
-        line: number;
+      interface Group {
         text: string;
+        rest: readonly string[];
       }
     </item>
     <item priority="medium">
-      function toLogicalLines(content: string): LogicalLine[] { /* ... */ }
+      function continuationGroup(lines: readonly string[], start: number): Group | null { /* ... */ }
     </item>
     <item priority="high">
       export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }

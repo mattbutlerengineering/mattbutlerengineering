@@ -27,6 +27,8 @@ const RULES: readonly Rule[] = [
   // Dynamic require/import where the argument is NOT a plain string literal.
   {
     pattern: /\b(require|import)\s*\(\s*[^'"`)\s]/,
+    // JS/TS only — Python's `from x import (A, B)` is a plain parenthesized import.
+    appliesTo: /\.[cm]?[jt]sx?$/i,
     category: "malicious-command",
     severity: "high",
   },

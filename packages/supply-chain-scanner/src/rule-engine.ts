@@ -1,62 +1,72 @@
 import type { Category, Finding, Severity } from "./types.js";
 
 export interface Rule {
-  /** Non-global regex tested per logical line. (Global regexes carry lastIndex state — banned.) */
+  /** Non-global regex tested per line / folded continuation. (Global regexes carry lastIndex state — banned.) */
   readonly pattern: RegExp;
   readonly category: Category;
   readonly severity: Severity;
+  /** Optional file-path filter; the rule is skipped for files that do not match. */
+  readonly appliesTo?: RegExp;
 }
 
 const MAX_EVIDENCE = 120;
 
-/** Max physical lines folded into one logical line (bounds work, limits cross-line noise). */
+/** Max physical lines folded into one continuation group (bounds work, limits cross-line noise). */
 const MAX_JOINED_LINES = 4;
 
 /** A line that cannot be complete alone: trailing backslash continuation, or an open `(` / `|`. */
 const CONTINUES = /(\\|\(|\|)\s*$/;
 
-interface LogicalLine {
-  readonly line: number;
+interface Group {
   readonly text: string;
+  /** Physical lines in the group after the first. */
+  readonly rest: readonly string[];
 }
 
-/**
- * Fold continuation lines (`curl x \` + `| sh`, `require(` + `name)`) into one
- * logical line, reported at its first physical line.
- */
-function toLogicalLines(content: string): LogicalLine[] {
-  const lines = content.split(/\r?\n/);
-  const out: LogicalLine[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    let text = lines[i]!;
-    let taken = 1;
-    while (CONTINUES.test(text) && taken < MAX_JOINED_LINES && i + taken < lines.length) {
-      text = `${text.replace(/\\\s*$/, "")} ${lines[i + taken]!.trim()}`;
-      taken++;
-    }
-    out.push({ line: i + 1, text });
-    i += taken - 1;
+/** Fold the continuation group starting at `start`, or null when the line does not continue. */
+function continuationGroup(lines: readonly string[], start: number): Group | null {
+  let text = lines[start]!;
+  const rest: string[] = [];
+  while (
+    CONTINUES.test(text) &&
+    rest.length + 1 < MAX_JOINED_LINES &&
+    start + rest.length + 1 < lines.length
+  ) {
+    const next = lines[start + rest.length + 1]!;
+    rest.push(next);
+    text = `${text.replace(/\\\s*$/, "")} ${next.trim()}`;
   }
-  return out;
+  return rest.length > 0 ? { text, rest } : null;
 }
 
 /**
- * Apply regex rules to a file's text, one logical line at a time (continuations
- * folded). Pure: returns a new array. Each matching line yields one Finding per
- * matching rule.
+ * Apply regex rules to a file's text. Every physical line is tested first and
+ * reports at its own line. Only when a rule matched no physical line of a
+ * continuation group (`curl x \` + `| sh`, `require(` + `name)`) is the folded
+ * group tested, reporting at the group's first line. Prose files are never
+ * folded (markdown table rows end in `|`). Pure: returns a new array.
  */
 export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
   const findings: Finding[] = [];
-  for (const { line: lineNo, text: line } of toLogicalLines(content)) {
-    for (const rule of rules) {
+  const lines = content.split(/\r?\n/);
+  const prose = isProseFile(file);
+  const active = rules.filter((r) => !r.appliesTo || r.appliesTo.test(file));
+  const add = (rule: Rule, line: number, text: string): void => {
+    findings.push({
+      category: rule.category,
+      severity: rule.severity,
+      file,
+      line,
+      evidence: text.trim().slice(0, MAX_EVIDENCE),
+    });
+  };
+  for (const [i, line] of lines.entries()) {
+    const group = prose ? null : continuationGroup(lines, i);
+    for (const rule of active) {
       if (rule.pattern.test(line)) {
-        findings.push({
-          category: rule.category,
-          severity: rule.severity,
-          file,
-          line: lineNo,
-          evidence: line.trim().slice(0, MAX_EVIDENCE),
-        });
+        add(rule, i + 1, line);
+      } else if (group && rule.pattern.test(group.text)) {
+        if (!group.rest.some((l) => rule.pattern.test(l))) add(rule, i + 1, group.text);
       }
     }
   }

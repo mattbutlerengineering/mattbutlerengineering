@@ -40,6 +40,11 @@ describe("detectPromptInjection", () => {
     const f = detectPromptInjection(file("SKILL.md", `hello${String.fromCodePoint(cp)}world`));
     expect(f.some((x) => x.severity === "med")).toBe(true);
   });
+  it("does not join markdown table rows into a window", () => {
+    const md =
+      "| Flag | Effect |\n| --- | --- |\n| `--ignore` | skip all files |\n| `--rules` | rule file path |";
+    expect(detectPromptInjection(file("SKILL.md", md))).toHaveLength(0);
+  });
   it("flags base64 blobs only in prose files", () => {
     const blob = "Z".repeat(120);
     expect(detectPromptInjection(file("notes.md", blob)).length).toBeGreaterThan(0);
@@ -116,6 +121,15 @@ describe("detectMaliciousCommands", () => {
   it("does not flag a multi-line require of a literal", () => {
     const f = detectMaliciousCommands(file("a.js", "const m = require(\n  'fs'\n);"));
     expect(f).toHaveLength(0);
+  });
+  it("does not flag parenthesized python imports as dynamic import", () => {
+    const py = "from mcp.types import (Tool, TextContent)\nfrom a import (\n    B,\n    C,\n)\n";
+    const f = detectMaliciousCommands(file("server.py", py));
+    expect(f.filter((x) => x.severity === "high")).toEqual([]);
+  });
+  it("reports a joined-group match at its own physical line", () => {
+    const f = detectMaliciousCommands(file("a.js", "const out = run(\n  execSync(cmd)\n);"));
+    expect(f.map((x) => x.line)).toEqual([2]);
   });
   it("flags os.system in python", () => {
     const f = detectMaliciousCommands(file("server.py", "import os\nos.system(cmd)"));
