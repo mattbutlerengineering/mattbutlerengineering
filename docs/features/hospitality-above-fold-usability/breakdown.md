@@ -18,7 +18,7 @@ declaring done.
 
 ## Work items
 
-- [ ] **WO-1: Fold-budget measurement spec + audit artifact** — Add
+- [x] **WO-1: Fold-budget measurement spec + audit artifact** — Add
       `apps/hospitality/e2e/fold-budget.spec.ts` using the `authPage`
       fixture: for every route in `apps/hospitality/CLAUDE.md`'s page
       table, at 1280×720 and 1366×768, record

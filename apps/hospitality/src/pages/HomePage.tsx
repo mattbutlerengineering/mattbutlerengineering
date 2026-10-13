@@ -74,46 +74,48 @@ export function HomePage() {
         }
       />
 
-      {loadFailure && (
-        <ErrorRetryBanner
-          title="Couldn't load the dashboard."
-          error={loadFailure.detail}
-          details={loadFailure.raw}
-          onRetry={handleRetry}
-        />
-      )}
-
-      {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
-
-      <div className={styles.actionsRow}>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
-          Walk-in
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
-          View Floor Plan
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/guests")}>
-          Guest Lookup
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/booking-widget")}>
-          Booking Widget
-        </Button>
-      </div>
-
-      <div className={styles.contentGrid}>
-        <ReservationList reservations={reservations} isLoading={isLoading} />
-        <ActivityFeed events={feedEvents} isConnected={isConnected} />
-      </div>
-
-      <div className={styles.dashboardWidgets}>
-        <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
-        {!isLoading && (
-          <DepositExposureWidget
-            depositAtRiskCount={stats.depositAtRiskCount}
-            noShowExposureCents={stats.noShowExposureCents}
-            currency={selectedVenue?.currencyCode ?? "USD"}
+      <div data-testid="primary-content">
+        {loadFailure && (
+          <ErrorRetryBanner
+            title="Couldn't load the dashboard."
+            error={loadFailure.detail}
+            details={loadFailure.raw}
+            onRetry={handleRetry}
           />
         )}
+
+        {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
+
+        <div className={styles.actionsRow}>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
+            Walk-in
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
+            View Floor Plan
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/guests")}>
+            Guest Lookup
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/booking-widget")}>
+            Booking Widget
+          </Button>
+        </div>
+
+        <div className={styles.contentGrid}>
+          <ReservationList reservations={reservations} isLoading={isLoading} />
+          <ActivityFeed events={feedEvents} isConnected={isConnected} />
+        </div>
+
+        <div className={styles.dashboardWidgets}>
+          <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
+          {!isLoading && (
+            <DepositExposureWidget
+              depositAtRiskCount={stats.depositAtRiskCount}
+              noShowExposureCents={stats.noShowExposureCents}
+              currency={selectedVenue?.currencyCode ?? "USD"}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

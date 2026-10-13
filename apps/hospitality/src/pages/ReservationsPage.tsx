@@ -209,172 +209,174 @@ export function ReservationsPage() {
       <PageHeader title="Reservations" description="View and manage reservations" />
       <LiveStatus status={status} />
 
-      {lastUpdatedDisplay && (
-        <div className={styles.statusBar}>
-          <Text variant="caption" color="secondary">
-            Updated {lastUpdatedDisplay}
-          </Text>
-        </div>
-      )}
-
-      <div className={styles.statsRow}>
-        <KpiStat label="Total" value={kpi(stats.total)} />
-        <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
-        <KpiStat label="Pending" value={kpi(stats.pending)} />
-        <KpiStat label="Cancelled" value={kpi(stats.cancelled)} />
-      </div>
-
-      <div className={styles.toolbar}>
-        <SegmentedControl
-          segments={[...STATUS_SEGMENTS]}
-          value={statusFilter}
-          onChange={(value) => {
-            setParam("status", value as typeof params.status);
-          }}
-          size="sm"
-        />
-        <Input
-          aria-label="Search by guest name"
-          placeholder="Search by guest name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <Input
-          aria-label="Filter by date"
-          type="date"
-          value={selectedDate}
-          onChange={(e) => {
-            setParam("date", e.target.value);
-          }}
-        />
-        <Button
-          ref={newReservationButtonRef}
-          variant="primary"
-          size="sm"
-          onClick={() => setShowNewReservationDialog(true)}
-          disabled={!selectedVenueId}
-        >
-          New reservation
-        </Button>
-      </div>
-
-      {errorDescription && (
-        <div className={styles.banner}>
-          <ErrorRetryBanner
-            title="Couldn't load reservations."
-            error={errorDescription.detail}
-            details={errorDescription.raw}
-            onRetry={handleRetry}
-          />
-        </div>
-      )}
-
-      {showLoading && <ReservationsLoadingRows />}
-
-      {loaded && (
-        <Text className={styles.srOnly} aria-live="polite" role="status">
-          {`${filteredReservations.length} reservation${
-            filteredReservations.length !== 1 ? "s" : ""
-          } shown`}
-        </Text>
-      )}
-
-      {dayIsEmpty && (
-        <EmptyState
-          variant="flat"
-          heading={`Nothing on the book for ${dateLabel}.`}
-          description="New bookings show here as they land."
-          action={
-            <Button
-              variant="secondary"
-              onClick={() => setShowNewReservationDialog(true)}
-              disabled={!selectedVenueId}
-            >
-              New reservation
-            </Button>
-          }
-        />
-      )}
-
-      {loaded && !dayIsEmpty && filteredReservations.length === 0 && (
-        <EmptyState
-          heading="No reservations"
-          description={
-            searchQuery.trim()
-              ? `No reservations matching '${searchQuery.trim()}'.`
-              : `No ${statusFilter.toLowerCase()} reservations found for ${dateLabel}.`
-          }
-        />
-      )}
-
-      {loaded && filteredReservations.length > 0 && (
-        <Card>
-          <div className={styles.tableWrapper}>
-            {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
-            <table className={styles.table}>
-              <thead className={styles.thead}>
-                <tr>
-                  <th className={styles.th}>Time</th>
-                  <th className={styles.th}>Guest</th>
-                  <th className={styles.th}>Party Size</th>
-                  <th className={styles.th}>Table</th>
-                  <th className={styles.th}>Status</th>
-                  <th className={styles.th}>Notes</th>
-                  <th className={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={styles.tbody}>
-                {filteredReservations.map((reservation) => (
-                  <tr key={reservation.id}>
-                    <td className={styles.td}>
-                      {formatReservationTime(reservation.startTime)} -{" "}
-                      {formatReservationTime(reservation.endTime)}
-                    </td>
-                    <td className={styles.td}>
-                      <Text variant="body" color="primary" className={styles.guestName}>
-                        {reservation.guestName ?? "Guest"}
-                      </Text>
-                      {reservation.guestEmail && (
-                        <Text variant="caption" color="secondary">
-                          {reservation.guestEmail}
-                        </Text>
-                      )}
-                      {reservation.guest && reservation.guest.visitCount > 1 && (
-                        <Badge variant="accent" size="sm">
-                          {ordinalVisit(reservation.guest.visitCount)}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className={styles.td}>{reservation.partySize}</td>
-                    <td className={styles.td}>{resolveTableName(reservation, tablesById)}</td>
-                    <td className={styles.td}>
-                      <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
-                        {STATUS_LABEL[reservation.status]}
-                      </Badge>
-                    </td>
-                    <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
-                    <td className={styles.td}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          navigate(
-                            `/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`
-                          )
-                        }
-                        aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
-                      >
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {/* eslint-enable mbe-local/prefer-rialto-components */}
+      <div data-testid="primary-content">
+        {lastUpdatedDisplay && (
+          <div className={styles.statusBar}>
+            <Text variant="caption" color="secondary">
+              Updated {lastUpdatedDisplay}
+            </Text>
           </div>
-        </Card>
-      )}
+        )}
+
+        <div className={styles.statsRow}>
+          <KpiStat label="Total" value={kpi(stats.total)} />
+          <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
+          <KpiStat label="Pending" value={kpi(stats.pending)} />
+          <KpiStat label="Cancelled" value={kpi(stats.cancelled)} />
+        </div>
+
+        <div className={styles.toolbar}>
+          <SegmentedControl
+            segments={[...STATUS_SEGMENTS]}
+            value={statusFilter}
+            onChange={(value) => {
+              setParam("status", value as typeof params.status);
+            }}
+            size="sm"
+          />
+          <Input
+            aria-label="Search by guest name"
+            placeholder="Search by guest name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Input
+            aria-label="Filter by date"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setParam("date", e.target.value);
+            }}
+          />
+          <Button
+            ref={newReservationButtonRef}
+            variant="primary"
+            size="sm"
+            onClick={() => setShowNewReservationDialog(true)}
+            disabled={!selectedVenueId}
+          >
+            New reservation
+          </Button>
+        </div>
+
+        {errorDescription && (
+          <div className={styles.banner}>
+            <ErrorRetryBanner
+              title="Couldn't load reservations."
+              error={errorDescription.detail}
+              details={errorDescription.raw}
+              onRetry={handleRetry}
+            />
+          </div>
+        )}
+
+        {showLoading && <ReservationsLoadingRows />}
+
+        {loaded && (
+          <Text className={styles.srOnly} aria-live="polite" role="status">
+            {`${filteredReservations.length} reservation${
+              filteredReservations.length !== 1 ? "s" : ""
+            } shown`}
+          </Text>
+        )}
+
+        {dayIsEmpty && (
+          <EmptyState
+            variant="flat"
+            heading={`Nothing on the book for ${dateLabel}.`}
+            description="New bookings show here as they land."
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => setShowNewReservationDialog(true)}
+                disabled={!selectedVenueId}
+              >
+                New reservation
+              </Button>
+            }
+          />
+        )}
+
+        {loaded && !dayIsEmpty && filteredReservations.length === 0 && (
+          <EmptyState
+            heading="No reservations"
+            description={
+              searchQuery.trim()
+                ? `No reservations matching '${searchQuery.trim()}'.`
+                : `No ${statusFilter.toLowerCase()} reservations found for ${dateLabel}.`
+            }
+          />
+        )}
+
+        {loaded && filteredReservations.length > 0 && (
+          <Card>
+            <div className={styles.tableWrapper}>
+              {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
+              <table className={styles.table}>
+                <thead className={styles.thead}>
+                  <tr>
+                    <th className={styles.th}>Time</th>
+                    <th className={styles.th}>Guest</th>
+                    <th className={styles.th}>Party Size</th>
+                    <th className={styles.th}>Table</th>
+                    <th className={styles.th}>Status</th>
+                    <th className={styles.th}>Notes</th>
+                    <th className={styles.th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className={styles.tbody}>
+                  {filteredReservations.map((reservation) => (
+                    <tr key={reservation.id}>
+                      <td className={styles.td}>
+                        {formatReservationTime(reservation.startTime)} -{" "}
+                        {formatReservationTime(reservation.endTime)}
+                      </td>
+                      <td className={styles.td}>
+                        <Text variant="body" color="primary" className={styles.guestName}>
+                          {reservation.guestName ?? "Guest"}
+                        </Text>
+                        {reservation.guestEmail && (
+                          <Text variant="caption" color="secondary">
+                            {reservation.guestEmail}
+                          </Text>
+                        )}
+                        {reservation.guest && reservation.guest.visitCount > 1 && (
+                          <Badge variant="accent" size="sm">
+                            {ordinalVisit(reservation.guest.visitCount)}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className={styles.td}>{reservation.partySize}</td>
+                      <td className={styles.td}>{resolveTableName(reservation, tablesById)}</td>
+                      <td className={styles.td}>
+                        <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
+                          {STATUS_LABEL[reservation.status]}
+                        </Badge>
+                      </td>
+                      <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
+                      <td className={styles.td}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`
+                            )
+                          }
+                          aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {/* eslint-enable mbe-local/prefer-rialto-components */}
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* The dialog seeds its table from `tables` once, at mount — a URL-open must not race the query. */}
       {(intent.newReservation || showNewReservationDialog) && selectedVenueId && !tablesLoading && (
