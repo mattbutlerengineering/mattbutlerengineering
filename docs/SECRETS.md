@@ -16,7 +16,7 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------- |
 | `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                                                               | Quarterly                       | —             |
 | `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                                                          | Quarterly                       | —             |
-| `DATABASE_URL`                | PostgreSQL connection string (services)                                                                  | Quarterly                       | —             |
+| `DATABASE_URL`                | PostgreSQL connection string -- Pulumi config `mbe-infrastructure:databaseUrl`, **not** a GitHub secret  | Quarterly                       | —             |
 | `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)                                              | Quarterly                       | —             |
 | `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)                                              | Quarterly                       | —             |
 | `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                                                     | Semi-annually                   | —             |
@@ -63,17 +63,119 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 ### DATABASE_URL
 
-**Cadence:** Quarterly
+**Cadence:** Quarterly. **Human step -- do not run from an agent session.**
 
-1. Connect to DigitalOcean Managed Database console (or `psql`).
-2. Create a new database user or reset the password for the existing user:
+> **`DATABASE_URL` is not a GitHub Actions secret.** `gh secret list` has no such entry and no
+> workflow reads `secrets.DATABASE_URL`. The only source of truth in this repo is the encrypted
+> Pulumi config key `mbe-infrastructure:databaseUrl` (`infrastructure/pulumi/Pulumi.prod.yaml`),
+> read by `infrastructure/pulumi/index.ts` via `config.requireSecret("databaseUrl")` and wired in as
+> `DATABASE_URL` on the three API services and the three `db-migrate-*` pre-deploy jobs. Updating a
+> GitHub secret of that name does nothing at runtime.
+
+**What the database is** (from `infrastructure/pulumi/index.ts`, `infrastructure/migrate/`,
+[ADR-026](adr/ADR-026-postgres-rls-venue-backstop.md) and `services/reservations/CLAUDE.md`):
+
+- **DigitalOcean Managed PostgreSQL 16**, one cluster shared by users, reservations and agent. ADR-026
+  measured Postgres 16.13 and states DO Managed Postgres grants no true superuser.
+- **The connection user is the table owner, which ADR-026 names `doadmin`** ("`doadmin` in
+  production"). The service process connects as that owner, and `db-migrate-reservations` receives the
+  _same_ `databaseUrl` secret. The old runbook's `mbe_app` user does not appear anywhere in the repo.
+  The repo cannot show the username inside the encrypted URL: confirm it (step 1) before relying on this.
+- **RLS roles (ADR-026):** `app_reservations` is `NOLOGIN NOINHERIT`
+  (`20261009000000_create_app_reservations_role`). `20261009000100_grant_app_reservations_and_force_rls`
+  runs `GRANT app_reservations TO CURRENT_USER` (the migrate/owner role becomes a member so it can
+  `SET ROLE`; never the reverse), grants `USAGE` on schema `public`, DML on ten tables (`venue_groups`,
+  `venues`, `floor_plans`, `tables`, `guests`, `reservations`, `deposits`, `waitlist_entries`,
+  `reservation_holds`, `venue_memberships`) and `EXECUTE` on `app_cross_venue_venues`,
+  `app_resolve_venue_id`, `app_reservation_venue_ids_for_user`, then `FORCE ROW LEVEL SECURITY` on seven
+  tables. Every app transaction starts with `SET LOCAL ROLE "app_reservations"`. A login role that
+  lacks membership in `app_reservations` fails with `42501`, and one that cannot own or act as the
+  owner breaks migrations. RLS policies admit the owner by `pg_has_role(current_user, relowner)`, so
+  the replacement login must behave as a member of the owner.
+- **No dual-credential overlap exists.** A DO database user has exactly one password, and resetting it
+  invalidates the old one immediately. Do **not** reset the existing user's password (or run
+  `ALTER USER ... PASSWORD`) first: every service would fail to connect until a deploy landed. Use a
+  second login role instead.
+
+**`pulumi-up` will NOT update the live `DATABASE_URL`.** `infrastructure/pulumi/index.ts:299` sets
+`ignoreChanges: ["spec.features", "spec.jobs", "spec.services"]` on the DO App, and its own comment says env
+vars "remain exactly as unmanaged as they were" (full reconciliation is #3277). A changed `databaseUrl`
+produces no diff on the three services or the three `db-migrate-*` jobs, so `pulumi-up` can report success
+while the app keeps the old URL. The working update path is the DO app spec, the same pattern
+`.github/workflows/deploy-services.yml:246-289` uses for `SENTRY_DSN`: `doctl apps spec get` -> edit the
+value with `yq` -> `doctl apps update --spec` -> `doctl apps create-deployment`. `pulumi config set` is kept
+only to keep config in sync (and for when #3277 lands). Do not retire the old role until step 6 proves the
+new one is in use.
+
+1. **Identify the current login role and database.** From a trusted workstation (never CI logs), run
+   `pulumi config get databaseUrl --stack prod` with `PULUMI_CONFIG_PASSPHRASE` set, and note the
+   user, host, port and database name (do not paste the URL anywhere). Connect with `psql` and run:
    ```sql
-   ALTER USER mbe_app WITH PASSWORD 'new-secure-password';
+   SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;
+   SELECT relowner::regrole FROM pg_class WHERE oid = 'public.venues'::regclass;
+   SELECT roleid::regrole, member::regrole FROM pg_auth_members
+    WHERE roleid = 'app_reservations'::regrole;
    ```
-3. Construct the new connection string: `postgresql://mbe_app:<password>@<host>:25060/mbe?sslmode=require`.
-4. In GitHub, update `DATABASE_URL`.
-5. Redeploy all services (`deploy-services` workflow) so they pick up the new URL.
-6. **Verify:** Check service health endpoints return 200 and database queries succeed.
+   Record the owner and the members of `app_reservations`. The new role must reproduce them.
+2. **Create a second login role** in the DO console (Databases > cluster > Users & Databases), name it
+   `mbe-svc-YYYYMM`. Do not touch the existing user. Then, as the owner, replicate its grants and
+   memberships (substitute the owner and role names found in step 1):
+   ```sql
+   GRANT "<owner>" TO "mbe-svc-YYYYMM";
+   GRANT app_reservations TO "mbe-svc-YYYYMM";
+   ```
+   On PG15+ the first `GRANT`, run as non-superuser `doadmin`, may fail with `42501` (no implicit ADMIN
+   OPTION). If it does, the second-role path is blocked: **STOP and do nothing further** (drop the unused
+   new user in the DO console) and escalate.
+   Prefer `ALTER ROLE "mbe-svc-YYYYMM" IN DATABASE "<db>" SET role = '<owner>';` so objects created by
+   migrations stay owned by the original owner. Verify as the new role, without touching production data:
+   ```sql
+   SELECT pg_has_role(current_user, '<owner>', 'USAGE');             -- expect true
+   SELECT pg_has_role(current_user, 'app_reservations', 'USAGE');    -- expect true
+   BEGIN; SET LOCAL ROLE "app_reservations"; SELECT count(*) FROM venues; ROLLBACK;
+   ```
+   If either `pg_has_role` is false, or `SET LOCAL ROLE` raises `42501`, stop and fix grants; do not
+   proceed. Leave any new grants additive: no `BYPASSRLS` (not creatable on DO, per ADR-026).
+3. **Build the URL** for the new role: `postgresql://mbe-svc-YYYYMM:<password>@<host>:<port>/<db>?sslmode=require`
+   (host, port and database from step 1; the DO console shows the pooled and direct hosts, and migrations
+   need the same kind of host as the current URL).
+4. **Update the live app spec (this is what changes runtime).** Needs `DO_APP_ID` and doctl auth:
+   ```bash
+   doctl apps spec get "$DO_APP_ID" > spec.yaml   # holds secret values: never commit it
+   ```
+   Confirm `DATABASE_URL` is held as a `SECRET` env on `users-api`, `reservations-api`, `agent-api` and on
+   the three `db-migrate-*` jobs. Save a copy of the old spec for rollback. Replace the value on all six
+   entries with `yq` (feed the URL from an env var read from stdin, not the command line), then
+   `doctl apps update "$DO_APP_ID" --spec spec.yaml` and `doctl apps create-deployment "$DO_APP_ID" --wait`.
+   Delete the spec files afterwards.
+5. **Keep Pulumi config in sync.** Pipe the value on stdin; never put it on the command line:
+   ```bash
+   cd infrastructure/pulumi
+   pbpaste | pulumi config set --secret databaseUrl --stack prod   # reads the value from stdin
+   ```
+   This rewrites the encrypted `mbe-infrastructure:databaseUrl` entry in `Pulumi.prod.yaml`. Commit that
+   diff and open a PR; it lands via `pulumi-up` but does not change the running services (see above). The
+   `.claude` PreToolUse hook blocks agent edits to `Pulumi.prod.yaml` on purpose, so this is a human step.
+   Pulumi state lives in R2 and needs `PULUMI_CONFIG_PASSPHRASE` plus the R2 credentials.
+6. **Verify the new role is in use.** Health endpoints that run a real query (not `/health`, which is
+   liveness-only; see gotchas, "Prisma + DO migrate"):
+   - `/api/v1/users/health` (users-api, runs `$queryRaw`; read `checks.database.status`, `ok` or `error`. Top-level `degraded` can come from any failed check such as auth0, pool or slow_queries)
+   - `/api/v1/reservations/health` (reservations-api)
+   - `/api/gen/health` (agent-api)
+
+   Then confirm the live sessions: `SELECT usename, count(*) FROM pg_stat_activity GROUP BY 1;` shows
+   connections for `mbe-svc-YYYYMM` and none from the services for the old user. Your own `psql` session
+   will always appear under the old user if you connected with it, so exclude `pid = pg_backend_pid()` and
+   filter by `application_name`/`client_addr`. A reservation read for a real venue must
+   return rows: a broken RLS grant answers 404/empty, not 5xx (see `services/reservations/CLAUDE.md`).
+
+7. **Retire the old role** only after step 6 shows zero connections from it, ideally a day later:
+   remove its password or delete the user in the DO console.
+
+**Rollback (before step 7):** a Pulumi config revert alone is a no-op under `ignoreChanges`. Restore the
+OLD `DATABASE_URL` in the live spec by the same route (`doctl apps spec get` -> `yq` -> `doctl apps update
+--spec`, or use the saved old spec), then `doctl apps create-deployment "$DO_APP_ID" --wait`.
+Revert the Pulumi config PR afterwards to keep config in sync.
 
 ### R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
 
@@ -161,7 +263,8 @@ no longer attributed to `github-actions[bot]`.
 1. Create a dedicated GitHub account for automation (or reuse an existing bot account) — do not
    use a personal account, so the token can be scoped and rotated independently of any one person.
 2. Generate a fine-grained PAT (or classic PAT) with `repo` (contents + pull-requests) and
-   `workflow` scope, on the bot account.
+   `workflow` scope, on the bot account. A fine-grained PAT needs **Contents, Pull requests, Issues,
+   Actions and Workflows** all at read and write, scoped to this repository only.
 3. In GitHub, set the repo secret: `gh secret set AUTOMATION_PAT --body "<token>"`.
 4. **Verify:** Trigger one of the workflows listed below via `workflow_dispatch`; confirm the
    resulting PR's checks (`CI`, etc.) start automatically with no `action_required` state, and
@@ -261,7 +364,6 @@ These values are identifiers or public configuration, not credentials:
 | `deploy-static.yml`         | `MBE_CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTH0_HOSPITALITY_CLIENT_ID`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                 |
 | `pulumi-up.yml`             | `AUTH0_GEN_CLIENT_ID`, `PULUMI_CONFIG_PASSPHRASE`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `DIGITALOCEAN_TOKEN`, `MBE_CLOUDFLARE_API_TOKEN`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `CLOUDFLARE_ACCOUNT_ID`, `HEALTH_KV_NAMESPACE_ID` |
 | `ci.yml`                    | `TURBO_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                 |
-| `lighthouse.yml`            | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
 | `uptime-snapshot.yml`       | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
 | `synthetic-monitoring.yml`  | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
 | `load-test.yml`             | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
@@ -283,8 +385,8 @@ These values are identifiers or public configuration, not credentials:
 
 These secrets are injected at deploy time by Pulumi into DigitalOcean App Platform:
 
-| Secret                | Purpose                                       |
-| --------------------- | --------------------------------------------- |
-| `DATABASE_URL`        | PostgreSQL connection string for all services |
-| `SENTRY_DSN`          | Sentry error reporting endpoint               |
-| `LANGFUSE_SECRET_KEY` | Observability trace export                    |
+| Secret                | Purpose                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`        | PostgreSQL connection string (Pulumi config `mbe-infrastructure:databaseUrl`; see its runbook for a caveat on `ignoreChanges`) |
+| `SENTRY_DSN`          | Sentry error reporting endpoint                                                                                                |
+| `LANGFUSE_SECRET_KEY` | Observability trace export                                                                                                     |

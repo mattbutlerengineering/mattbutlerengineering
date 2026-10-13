@@ -216,8 +216,13 @@ describe("REST success path (#6312)", () => {
   function collectViaRest(items) {
     const urls = [];
     const http = ({ url }) => {
-      urls.push(decodeURIComponent(url));
-      return { status: 200, body: JSON.stringify({ items }) };
+      const decoded = decodeURIComponent(url);
+      urls.push(decoded);
+      // Repo-scoped /issues (the Search API is blocked in CCR, #6445): labels= is
+      // a single category member, so answer with just the matching items.
+      const member = new URL(decoded).searchParams.get("labels");
+      const matching = items.filter((i) => i.labels.some((l) => l.name === member));
+      return { status: 200, body: JSON.stringify(matching) };
     };
     const client = createGhClient({
       probe: () => false,
@@ -229,12 +234,16 @@ describe("REST success path (#6312)", () => {
     return { result: queryClosedIssuesForFeedback((a) => client.issue.list(a)), urls };
   }
 
-  it("searches the categories as an OR (comma list), not an AND of label: qualifiers", () => {
-    // Measured live: eight space-separated `label:` qualifiers matched 0 issues;
-    // the comma form matched ~1.9k. The AND form made every run read as empty.
+  it("queries each category member via repo-scoped /issues, never the Search API", () => {
+    // The Search API is blocked in CCR sessions (#6445); the OR is realised as
+    // one labels=<member> request per category.
     const { urls } = collectViaRest([]);
-    expect(urls[0]).toContain(`label:${CATEGORIES.join(",")}`);
-    expect(urls[0]).not.toMatch(/label:audit label:/);
+    for (const category of CATEGORIES) {
+      expect(urls.some((u) => u.includes("/issues?") && u.includes(`labels=${category}`))).toBe(
+        true
+      );
+    }
+    expect(urls.some((u) => u.includes("/search/"))).toBe(false);
   });
 
   it("turns REST search results into per-category rates", () => {

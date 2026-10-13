@@ -1,8 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe/service-bootstrap";
+import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
-import { healthRoutes } from "./routes/health.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
@@ -157,6 +156,14 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
         serverUrl: "http://localhost:3004",
       },
       registerSchemas,
+      database: {
+        db,
+        healthRoutes: [
+          { path: "/health", operationId: "getHealth" },
+          { path: "/api/health", operationId: "getHealthApi" },
+          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+        ],
+      },
     },
     options
   );
@@ -273,19 +280,6 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   });
   fastify.decorate("transitions", transitions);
 
-  // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-  // (#5469). `@mbe/database`'s createDatabase() registers its own
-  // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-  // SIGINT handler always ends with an explicit `process.exit(0)` — which
-  // never fires `beforeExit` — so the pool was previously torn down by abrupt
-  // process termination on every deploy instead of a graceful disconnect.
-  // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-  // jobWorker below) runs deterministically after requests drain, so wire
-  // db.shutdown() here instead. Registered unconditionally (not gated on
-  // NODE_ENV !== "test" like the background jobs below) since it has no
-  // observable side effect beyond closing a connection that tests mock out.
-  fastify.addHook("onClose", async () => db.shutdown());
-
   // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
   // `app.venue_id` session variable for every request whose venue is
   // resolvable from its own query/body/params, so the RLS policies already
@@ -305,8 +299,6 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
 
   // Register routes
-  await fastify.register(healthRoutes);
-  await fastify.register(registerReadinessRoutes, { prisma });
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });

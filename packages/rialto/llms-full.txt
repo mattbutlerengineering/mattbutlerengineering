@@ -2191,6 +2191,19 @@
       extraContainerRefs?: RefObject<HTMLElement | null>[];
       /** Called after close/select so the consumer can return focus to its trigger. */
       onRequestTriggerFocus?: () => void;
+      /**
+       * `"button"` (default): a button-style trigger — opens with the selected item
+       * focused, Space/Enter open and commit, printable keys type-ahead.
+       * `"input"`: a text input owns typing — opens with nothing focused (ARIA APG:
+       * `aria-activedescendant` is set only once the user arrows; ArrowDown/ArrowUp
+       * on a closed list open it on the first/last enabled item), Space and
+       * printable keys are left to the input, and Enter on a focused item commits it
+       * like a click. Callers that must stay open after a commit (multi-select) handle
+       * Enter themselves before delegating the remaining keys.
+       */
+      inputMode?: "button" | "input";
+      /** Input mode: ArrowDown/ArrowUp wrap around the ends instead of clamping. */
+      wrap?: boolean;
     }
     export interface UseComboboxResult {
       readonly open: boolean;
@@ -2204,6 +2217,16 @@
       readonly setFocusedIndex: (index: number) => void;
       readonly handleKeyDown: (e: KeyboardEvent) => void;
     }
+    function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number {
+      const n = items.length;
+      for (let step = 1; step <= n; step++) {
+        const raw = from + dir * step;
+        if (!wrap && (raw < 0 || raw >= n)) break;
+        const i = ((raw % n) + n) % n;
+        if (!items[i]?.disabled) return i;
+      }
+      return from >= 0 && from < n ? from : -1;
+    }
     export function useCombobox({
       items,
       value,
@@ -2211,6 +2234,8 @@
       containerRef,
       extraContainerRefs,
       onRequestTriggerFocus,
+      inputMode = "button",
+      wrap = false,
     }: UseComboboxOptions): UseComboboxResult {
       const [open, setOpen] = useState(false);
       const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -2220,11 +2245,18 @@
     
       const close = useCallback(() => setOpen(false), []);
     
+      const isInput = inputMode === "input";
+    
       const openWithFocus = useCallback(() => {
+        if (isInput) {
+          setFocusedIndex(-1);
+          setOpen(true);
+          return;
+        }
         const idx = value ? items.findIndex((o) => o.value === value) : 0;
         setFocusedIndex(idx >= 0 ? idx : 0);
         setOpen(true);
-      }, [value, items]);
+      }, [value, items, isInput]);
     
       const toggle = useCallback(() => {
         if (open) {
@@ -2271,8 +2303,58 @@
         [open, focusedIndex, items, select]
       );
     
+      // Input mode: only Up/Down, Enter, Escape and Tab; text keys belong to the input.
+      const handleInputKey = useCallback(
+        (e: KeyboardEvent) => {
+          if (!open) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              // ARIA APG: Down opens on the first enabled item, Up on the last.
+              e.preventDefault();
+              setOpen(true);
+              setFocusedIndex(
+                e.key === "ArrowDown"
+                  ? nextEnabledIndex(items, -1, 1, false)
+                  : nextEnabledIndex(items, items.length, -1, false)
+              );
+            }
+            return;
+          }
+          switch (e.key) {
+            case "ArrowDown":
+            case "ArrowUp": {
+              e.preventDefault();
+              const dir = e.key === "ArrowDown" ? 1 : -1;
+              // Nothing focused yet: start off the matching end, as the closed branch does.
+              const from = focusedIndex >= 0 ? focusedIndex : dir === 1 ? -1 : items.length;
+              setFocusedIndex(nextEnabledIndex(items, from, dir, wrap));
+              break;
+            }
+            case "Enter": {
+              // ARIA APG: with no active option, Enter belongs to the input/form.
+              const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
+              if (!focused) break;
+              e.preventDefault();
+              if (!focused.disabled) select(focused.value);
+              break;
+            }
+            case "Escape":
+              e.preventDefault();
+              setOpen(false);
+              break;
+            case "Tab":
+              setOpen(false);
+              break;
+          }
+        },
+        [open, items, focusedIndex, wrap, select]
+      );
+    
       const handleKeyDown = useCallback(
         (e: KeyboardEvent) => {
+          if (isInput) {
+            handleInputKey(e);
+            return;
+          }
           // Type-ahead for printable single characters.
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
@@ -2343,7 +2425,17 @@
               break;
           }
         },
-        [open, focusedIndex, items, handleTypeahead, openWithFocus, select, onRequestTriggerFocus]
+        [
+          isInput,
+          handleInputKey,
+          open,
+          focusedIndex,
+          items,
+          handleTypeahead,
+          openWithFocus,
+          select,
+          onRequestTriggerFocus,
+        ]
       );
     
       // Close on outside mousedown. Effect only (de)registers the listener — the
@@ -2435,19 +2527,35 @@
   </file>
   <file path="src/hooks/useEscapeKey.ts">
     export function useEscapeKey(onClose: () => void, enabled: boolean): void {
+      // Latest callback lives in a ref so an inline `onClose` (new identity every render) never
+      // re-registers the layer — re-registering would move it to the top of the stack.
+      const onCloseRef = useRef(onClose);
+      useLayoutEffect(() => {
+        onCloseRef.current = onClose;
+      });
+    
       useEffect(() => {
         if (!enabled) return;
+    
+        const token = Symbol("overlay");
+        overlayStack.push(token);
     
         const handler = (e: KeyboardEvent) => {
           // An Escape a nested widget already consumed (a combobox closing its listbox calls
           // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
           if (e.defaultPrevented) return;
-          if (e.key === "Escape") onClose();
+          if (e.key !== "Escape") return;
+          if (overlayStack[overlayStack.length - 1] !== token) return;
+          onCloseRef.current();
         };
     
         document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-      }, [enabled, onClose]);
+        return () => {
+          document.removeEventListener("keydown", handler);
+          const index = overlayStack.indexOf(token);
+          if (index !== -1) overlayStack.splice(index, 1);
+        };
+      }, [enabled]);
     }
   </file>
   <file path="src/hooks/useField.ts">
@@ -2749,31 +2857,57 @@
   </file>
   <file path="src/hooks/useThemeState.ts">
     export type ThemePreference = "light" | "dark" | "system";
+    export const THEME_STORAGE_KEY = "mbe-theme-preference";
+    function isPreference(value: unknown): value is ThemePreference {
+      return value === "light" || value === "dark" || value === "system";
+    }
     function getStoredTheme(): ThemePreference {
       if (typeof window === "undefined") return "system";
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        return isPreference(stored) ? stored : "system";
       } catch {
-        // localStorage unavailable
+        // localStorage unavailable — the in-memory choice is the only record
+        return memoryPreference ?? "system";
       }
+    }
+    function getServerPreference(): ThemePreference {
       return "system";
     }
     function storeTheme(theme: ThemePreference): void {
       if (typeof window === "undefined") return;
       try {
-        localStorage.setItem(STORAGE_KEY, theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         // Theme still works in memory
+        memoryPreference = theme;
       }
     }
+    function subscribePreference(onChange: () => void): () => void {
+      preferenceListeners.add(onChange);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === null || event.key === THEME_STORAGE_KEY) onChange();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        preferenceListeners.delete(onChange);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function hasMatchMedia(): boolean {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function";
+    }
+    function getOsDark(): boolean {
+      return hasMatchMedia() && window.matchMedia(DARK_QUERY).matches;
+    }
+    function subscribeOsDark(onChange: () => void): () => void {
+      if (!hasMatchMedia()) return () => {};
+      const mql = window.matchMedia(DARK_QUERY);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    }
     export function resolveTheme(pref: ThemePreference): "light" | "dark" {
-      if (pref === "system") {
-        if (typeof window === "undefined") return "light";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
+      if (pref === "system") return getOsDark() ? "dark" : "light";
       return pref;
     }
     export interface ThemeState {
@@ -2783,18 +2917,18 @@
       readonly toggleTheme: () => void;
     }
     export function useThemeState(): ThemeState {
-      const [preference, setPreferenceState] = useState<ThemePreference>(getStoredTheme);
+      const preference = useSyncExternalStore(subscribePreference, getStoredTheme, getServerPreference);
+      const osDark = useSyncExternalStore(subscribeOsDark, getOsDark, () => false);
+    
+      const theme = preference === "system" ? (osDark ? "dark" : "light") : preference;
     
       const setTheme = useCallback((next: ThemePreference) => {
         storeTheme(next);
-        setPreferenceState(next);
+        preferenceListeners.forEach((listener) => listener());
       }, []);
     
-      const theme = useMemo(() => resolveTheme(preference), [preference]);
-    
       const toggleTheme = useCallback(() => {
-        const next: ThemePreference = theme === "dark" ? "light" : "dark";
-        setTheme(next);
+        setTheme(theme === "dark" ? "light" : "dark");
       }, [theme, setTheme]);
     
       return { preference, theme, setTheme, toggleTheme };
@@ -3092,6 +3226,14 @@
         if (device.reducedMotion) return REDUCED_PRESET;
         return vibe === "game" ? GAME_PRESET : STANDARD_PRESET;
       }, [device.reducedMotion, vibe]);
+    }
+  </file>
+  <file path="src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
     }
   </file>
   <file path="src/providers/useUIEnvironment.ts">

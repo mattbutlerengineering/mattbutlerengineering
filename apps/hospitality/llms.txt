@@ -45,11 +45,6 @@
       export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean { /* ... */ }
     </item>
   </file>
-  <file path="src/components/booking-widget/todayInTimezone.ts">
-    <item priority="high">
-      export function todayInTimezone(now: Date, timeZone?: string): string { /* ... */ }
-    </item>
-  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
@@ -76,7 +71,7 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "GO_BACK_TO_GUEST_DETA | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
     </item>
     <item priority="medium">
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
@@ -117,10 +112,10 @@
     <item priority="low">
       interface UseBookingFlowDeps {
         api: BookingWidgetApiClient;
-        venueId: string;
         venueSlug?: string;
         stripePublishableKey?: string;
         onHoldChange?: (info: { holdId: string; sessionId: string | null } | nul...;
+        venueTimezone?: string;
       }
     </item>
     <item priority="high">
@@ -549,6 +544,7 @@
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
+        resolvedTheme: "light" | "dark";
         setTheme: (theme: ThemePreference) => void;
       }
     </item>
@@ -1674,14 +1670,6 @@
       ): readonly NavSection[] { /* ... */ }
     </item>
   </file>
-  <file path="src/return-to-store.ts">
-    <item priority="high">
-      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function readReturnTo(): string | undefined { /* ... */ }
-    </item>
-  </file>
   <file path="src/vite-env.d.ts">
     <item priority="high">
       interface ImportMetaEnv {
@@ -1950,20 +1938,6 @@
       export function downloadIcsFile(icsContent: string, filename: string): void { /* ... */ }
     </item>
   </file>
-  <file path="src/utils/local-clock.ts">
-    <item priority="medium">
-      function isValidDate(now: Date): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localDateString(now: Date): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function localHour(now: Date): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isLocalToday(date: string, now: Date): boolean { /* ... */ }
-    </item>
-  </file>
   <file path="src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
@@ -2025,6 +1999,32 @@
         tables: readonly T[],
         partySize: number
       ): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/service-day.ts">
+    <item priority="high">
+      export function deviceDate(now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deviceHour(now: Date): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isDeviceToday(date: string, now: Date): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueDate(now: Date, timeZone?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface VenueWallClock {
+        weekday: string;
+        nowMin: number;
+      }
+    </item>
+    <item priority="high">
+      export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
     </item>
   </file>
   <file path="src/utils/timeline-intent.ts">

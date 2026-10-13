@@ -32,6 +32,7 @@
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
+          updatedAt: reservation.updatedAt,
         });
       }
     
@@ -62,6 +63,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
+              updatedAt: reservation.updatedAt,
             },
             preference
           );
@@ -96,7 +98,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
-              sequence: 2,
+              updatedAt: updated.updatedAt,
             },
             preference
           );
@@ -2312,19 +2314,6 @@
             return reply.code(204).send();
           }
         ),
-      });
-    };
-  </file>
-  <file path="src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/health", operationId: "getHealthApi" },
-          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
-        ],
       });
     };
   </file>
@@ -10531,6 +10520,7 @@
             venueName: venue.name,
             venueTimezone: venue.ianaTimezone,
             venueAddress: null,
+            updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
           };
     
@@ -14890,6 +14880,14 @@
             serverUrl: "http://localhost:3004",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/health", operationId: "getHealthApi" },
+              { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+            ],
+          },
         },
         options
       );
@@ -15006,19 +15004,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-      // (#5469). `@mbe/database`'s createDatabase() registers its own
-      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-      // SIGINT handler always ends with an explicit `process.exit(0)` — which
-      // never fires `beforeExit` — so the pool was previously torn down by abrupt
-      // process termination on every deploy instead of a graceful disconnect.
-      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-      // jobWorker below) runs deterministically after requests drain, so wire
-      // db.shutdown() here instead. Registered unconditionally (not gated on
-      // NODE_ENV !== "test" like the background jobs below) since it has no
-      // observable side effect beyond closing a connection that tests mock out.
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is
       // resolvable from its own query/body/params, so the RLS policies already
@@ -15038,8 +15023,6 @@
       fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
@@ -15761,7 +15744,10 @@
             awaited(
               message({
                 kind: "booking-cancelled",
-                reservation: fact.reservation,
+                // What the guest is told is the pre-cancel booking, but the calendar
+                // SEQUENCE derives from updatedAt, so the cancel must carry the
+                // committed row's — else it ties the last modify and is ignored.
+                reservation: { ...fact.reservation, updatedAt: fact.updated.updatedAt },
                 manageToken: fact.manageToken,
                 initiator: fact.initiator,
               }),

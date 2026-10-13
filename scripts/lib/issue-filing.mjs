@@ -111,3 +111,75 @@ export function fileIssue(request, ledger, deps) {
     ledger: { ...ledger, [request.dedupeKey]: issueNumber },
   };
 }
+
+/**
+ * Search -> state -> create/reopen in one call, so a producer hands this
+ * module a request plus a search spec instead of running its own finder and
+ * building a one-entry ledger (#6414).
+ *
+ * A failed search fails OPEN (treated as "no prior found", the issue is
+ * filed): a transient blip must not swallow a genuine finding. The failure is
+ * surfaced through `onSearchError`.
+ *
+ * @param {IssueFilingRequest} request
+ * @param {{
+ *   search: () => Array<object>,
+ *   match: (candidate: object) => boolean,
+ *   onSearchError?: (err: Error) => void,
+ * }} spec  `search` returns candidates in any state; `match` picks the prior
+ * @param {IssueFilingDeps} deps
+ * @returns {IssueFilingResult & {prior: object|null}}  `prior` is the matched candidate
+ */
+export function fileIssueBySearch(request, { search, match, onSearchError }, deps) {
+  let candidates = [];
+  try {
+    const found = search();
+    candidates = Array.isArray(found) ? found : [];
+  } catch (err) {
+    onSearchError?.(err);
+  }
+  const prior = candidates.find((candidate) => match(candidate)) ?? null;
+  const ledger = prior ? { [request.dedupeKey]: prior.number } : {};
+  return { ...fileIssue(request, ledger, deps), prior };
+}
+
+/**
+ * The three `fileIssue` side effects backed by a gh-client: state read,
+ * create (returns the new number), reopen.
+ *
+ * @param {{issue: {list: Function, view: Function, create: Function, reopen: Function}}} ghClient
+ * @returns {IssueFilingDeps}
+ */
+export function ghIssueDeps(ghClient) {
+  return {
+    getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
+    createIssue: (title, body, labels) =>
+      parseIssueNumberFromUrl(
+        ghClient.issue.create([
+          "--title",
+          title,
+          "--body",
+          body,
+          ...labels.flatMap((label) => ["--label", label]),
+        ])
+      ),
+    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+  };
+}
+
+/**
+ * `fileIssueBySearch` against a gh-client: `listArgs` are the `gh issue list`
+ * args (search term / label / state / `--json` fields), passed through
+ * unchanged so gh-client's REST fallback sees exactly what it did before.
+ *
+ * @param {{issue: {list: Function, view: Function, create: Function, reopen: Function}}} ghClient
+ * @param {IssueFilingRequest} request
+ * @param {{listArgs: string[], match: (candidate: object) => boolean, onSearchError?: (err: Error) => void}} spec
+ */
+export function fileIssueViaGhClient(ghClient, request, { listArgs, match, onSearchError }) {
+  return fileIssueBySearch(
+    request,
+    { search: () => ghClient.issue.list(listArgs), match, onSearchError },
+    ghIssueDeps(ghClient)
+  );
+}

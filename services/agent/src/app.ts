@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe/service-bootstrap";
+import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
 import { registerSchemas } from "./schemas/index.js";
-import { healthRoutes } from "./routes/health.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
@@ -11,7 +10,7 @@ import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
 import { genAgentRoutes } from "./routes/gen-agent.js";
-import { prisma } from "./services/database.js";
+import { db } from "./services/database.js";
 
 /**
  * Creates the Fastify application instance.
@@ -25,13 +24,18 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         serverUrl: "http://localhost:3003",
       },
       registerSchemas,
+      database: {
+        db,
+        healthRoutes: [
+          { path: "/health", operationId: "getAgentHealth" },
+          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+        ],
+      },
     },
     options
   );
 
   // Register routes
-  await fastify.register(healthRoutes);
-  await fastify.register(registerReadinessRoutes, { prisma });
   await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
   await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });

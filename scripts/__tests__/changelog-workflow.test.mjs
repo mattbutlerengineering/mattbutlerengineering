@@ -3,62 +3,21 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadWorkflow } from "../lib/workflow.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "../..");
-const WORKFLOW = fs.readFileSync(resolve(ROOT, ".github/workflows/changelog.yml"), "utf8");
+const WORKFLOW = loadWorkflow("changelog.yml");
 
 /**
- * Pull a step's `run:` body out of the workflow by name -- either a
- * block-scalar (`run: |`) or a single-line command.
- *
- * Parsed textually rather than with a YAML library, matching the precedent
- * in pulumi-cli-pin.test.mjs and drift-fix-workflow.test.mjs: these are
- * plain indented literals with no anchors or flow syntax to get wrong. The
- * search for `run:` is bounded to this step's own line range -- a step with
- * a single-line `run:` (no trailing `|`) has no block to find, and without
- * that bound the naive "next `run: |` anywhere in the file" search silently
- * matches a *different* step's block instead of failing.
+ * A step's `run:` body by step name, from the parsed workflow
+ * (scripts/lib/workflow.mjs, #6393) -- block scalar or single-line alike.
  */
-function extractStepRunBody(workflow, stepName) {
-  const lines = workflow.split("\n");
-  const stepStart = lines.findIndex((l) => l.trim() === `- name: ${stepName}`);
-  if (stepStart === -1) throw new Error(`changelog.yml has no step named "${stepName}"`);
-  const stepIndent = lines[stepStart].match(/^(\s*)/)[1].length;
-
-  let stepEnd = lines.length;
-  for (let i = stepStart + 1; i < lines.length; i++) {
-    if (lines[i].trim() === "") continue;
-    // The next line at or above this step's own indent starts a new step.
-    if (lines[i].match(/^(\s*)/)[1].length <= stepIndent) {
-      stepEnd = i;
-      break;
-    }
-  }
-  const stepLines = lines.slice(stepStart, stepEnd);
-
-  const runIdx = stepLines.findIndex((l) => /^\s*run:/.test(l));
-  if (runIdx === -1) throw new Error(`"${stepName}" step has no \`run:\` key`);
-
-  if (!/^\s*run:\s*\|\s*$/.test(stepLines[runIdx])) {
-    // Single-line `run: <command>`.
-    return stepLines[runIdx].replace(/^\s*run:\s*/, "");
-  }
-
-  const indent = stepLines[runIdx].match(/^(\s*)/)[1].length;
-  const body = [];
-  for (const line of stepLines.slice(runIdx + 1)) {
-    if (line.trim() === "") {
-      body.push("");
-      continue;
-    }
-    // The block ends at the first non-blank line indented no further than `run:`.
-    if (line.match(/^(\s*)/)[1].length <= indent) break;
-    body.push(line);
-  }
-  return body.join("\n");
+function runBodyOf(stepName) {
+  const step = Object.values(WORKFLOW.jobs)
+    .flatMap((job) => job.steps)
+    .find((candidate) => candidate.name === stepName);
+  if (!step) throw new Error(`changelog.yml has no step named "${stepName}"`);
+  if (step.run === null) throw new Error(`"${stepName}" step has no \`run:\` key`);
+  return step.run;
 }
 
 /**
@@ -109,7 +68,7 @@ describe("changelog.yml emptiness check (Defect 1)", () => {
     repoDir = initScratchRepo();
     fs.writeFileSync(path.join(repoDir, "CHANGELOG.md"), "# Changelog\n\n## v1.0.0\n");
 
-    const stepBody = extractStepRunBody(WORKFLOW, "Create PR with changelog");
+    const stepBody = runBodyOf("Create PR with changelog");
     const check = extractEmptinessCheck(stepBody);
     const result = runEmptinessCheck(check, repoDir);
 
@@ -125,7 +84,7 @@ describe("changelog.yml emptiness check (Defect 1)", () => {
     execFileSync("git", ["add", "CHANGELOG.md"], { cwd: repoDir });
     execFileSync("git", ["commit", "-q", "-m", "add changelog"], { cwd: repoDir });
 
-    const stepBody = extractStepRunBody(WORKFLOW, "Create PR with changelog");
+    const stepBody = runBodyOf("Create PR with changelog");
     const check = extractEmptinessCheck(stepBody);
     const result = runEmptinessCheck(check, repoDir);
 
@@ -140,7 +99,7 @@ describe("changelog.yml emptiness check (Defect 1)", () => {
     execFileSync("git", ["commit", "-q", "-m", "add changelog"], { cwd: repoDir });
     fs.writeFileSync(path.join(repoDir, "CHANGELOG.md"), "# Changelog\n\n## v1.1.0\n## v1.0.0\n");
 
-    const stepBody = extractStepRunBody(WORKFLOW, "Create PR with changelog");
+    const stepBody = runBodyOf("Create PR with changelog");
     const check = extractEmptinessCheck(stepBody);
     const result = runEmptinessCheck(check, repoDir);
 
@@ -156,7 +115,7 @@ describe("changelog.yml changelogen invocation (Defect 2)", () => {
     // 2.1 MB `git log` that blows Node's 1 MB default child_process
     // maxBuffer and throws a bare ENOBUFS. This is a monthly job -- the
     // range must be bounded to roughly a month, not left to default.
-    const stepBody = extractStepRunBody(WORKFLOW, "Generate changelog");
+    const stepBody = runBodyOf("Generate changelog");
 
     expect(stepBody).toMatch(
       /changelogen\s+--output\s+CHANGELOG\.md\s+--from\s+"?\$\{?FROM_REF\}?"?/
@@ -173,14 +132,14 @@ describe("changelog.yml changelogen invocation (Defect 2)", () => {
     // volume will cross the 1 MB maxBuffer again within a few months. The
     // step must fail with an actionable message instead of reproducing a
     // bare, undiagnosable ENOBUFS when that happens.
-    const stepBody = extractStepRunBody(WORKFLOW, "Generate changelog");
+    const stepBody = runBodyOf("Generate changelog");
 
     expect(stepBody).toMatch(/MAX_SAFE_BYTES/);
     expect(stepBody).toMatch(/::error::/);
   });
 
   it("sets pipefail, since the step's exit code is the point and it pipes a command", () => {
-    const stepBody = extractStepRunBody(WORKFLOW, "Generate changelog");
+    const stepBody = runBodyOf("Generate changelog");
     expect(stepBody).toMatch(/^\s*set -o pipefail\s*$/m);
   });
 });

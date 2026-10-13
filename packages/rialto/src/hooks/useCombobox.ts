@@ -35,6 +35,19 @@ export interface UseComboboxOptions {
   extraContainerRefs?: RefObject<HTMLElement | null>[];
   /** Called after close/select so the consumer can return focus to its trigger. */
   onRequestTriggerFocus?: () => void;
+  /**
+   * `"button"` (default): a button-style trigger — opens with the selected item
+   * focused, Space/Enter open and commit, printable keys type-ahead.
+   * `"input"`: a text input owns typing — opens with nothing focused (ARIA APG:
+   * `aria-activedescendant` is set only once the user arrows; ArrowDown/ArrowUp
+   * on a closed list open it on the first/last enabled item), Space and
+   * printable keys are left to the input, and Enter on a focused item commits it
+   * like a click. Callers that must stay open after a commit (multi-select) handle
+   * Enter themselves before delegating the remaining keys.
+   */
+  inputMode?: "button" | "input";
+  /** Input mode: ArrowDown/ArrowUp wrap around the ends instead of clamping. */
+  wrap?: boolean;
 }
 
 export interface UseComboboxResult {
@@ -51,6 +64,22 @@ export interface UseComboboxResult {
 }
 
 const TYPEAHEAD_RESET_MS = 500;
+
+/**
+ * Next enabled index moving `dir` from `from`. Without `wrap`, stays on `from`
+ * (clamped to a valid index, else -1) when nothing enabled lies ahead; with
+ * `wrap`, continues from the opposite end.
+ */
+function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number {
+  const n = items.length;
+  for (let step = 1; step <= n; step++) {
+    const raw = from + dir * step;
+    if (!wrap && (raw < 0 || raw >= n)) break;
+    const i = ((raw % n) + n) % n;
+    if (!items[i]?.disabled) return i;
+  }
+  return from >= 0 && from < n ? from : -1;
+}
 
 /**
  * Listbox state machine shared by combobox-style widgets (Select, Autocomplete).
@@ -71,6 +100,8 @@ export function useCombobox({
   containerRef,
   extraContainerRefs,
   onRequestTriggerFocus,
+  inputMode = "button",
+  wrap = false,
 }: UseComboboxOptions): UseComboboxResult {
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -80,11 +111,18 @@ export function useCombobox({
 
   const close = useCallback(() => setOpen(false), []);
 
+  const isInput = inputMode === "input";
+
   const openWithFocus = useCallback(() => {
+    if (isInput) {
+      setFocusedIndex(-1);
+      setOpen(true);
+      return;
+    }
     const idx = value ? items.findIndex((o) => o.value === value) : 0;
     setFocusedIndex(idx >= 0 ? idx : 0);
     setOpen(true);
-  }, [value, items]);
+  }, [value, items, isInput]);
 
   const toggle = useCallback(() => {
     if (open) {
@@ -131,8 +169,58 @@ export function useCombobox({
     [open, focusedIndex, items, select]
   );
 
+  // Input mode: only Up/Down, Enter, Escape and Tab; text keys belong to the input.
+  const handleInputKey = useCallback(
+    (e: KeyboardEvent) => {
+      if (!open) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          // ARIA APG: Down opens on the first enabled item, Up on the last.
+          e.preventDefault();
+          setOpen(true);
+          setFocusedIndex(
+            e.key === "ArrowDown"
+              ? nextEnabledIndex(items, -1, 1, false)
+              : nextEnabledIndex(items, items.length, -1, false)
+          );
+        }
+        return;
+      }
+      switch (e.key) {
+        case "ArrowDown":
+        case "ArrowUp": {
+          e.preventDefault();
+          const dir = e.key === "ArrowDown" ? 1 : -1;
+          // Nothing focused yet: start off the matching end, as the closed branch does.
+          const from = focusedIndex >= 0 ? focusedIndex : dir === 1 ? -1 : items.length;
+          setFocusedIndex(nextEnabledIndex(items, from, dir, wrap));
+          break;
+        }
+        case "Enter": {
+          // ARIA APG: with no active option, Enter belongs to the input/form.
+          const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
+          if (!focused) break;
+          e.preventDefault();
+          if (!focused.disabled) select(focused.value);
+          break;
+        }
+        case "Escape":
+          e.preventDefault();
+          setOpen(false);
+          break;
+        case "Tab":
+          setOpen(false);
+          break;
+      }
+    },
+    [open, items, focusedIndex, wrap, select]
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (isInput) {
+        handleInputKey(e);
+        return;
+      }
       // Type-ahead for printable single characters.
       if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
@@ -203,7 +291,17 @@ export function useCombobox({
           break;
       }
     },
-    [open, focusedIndex, items, handleTypeahead, openWithFocus, select, onRequestTriggerFocus]
+    [
+      isInput,
+      handleInputKey,
+      open,
+      focusedIndex,
+      items,
+      handleTypeahead,
+      openWithFocus,
+      select,
+      onRequestTriggerFocus,
+    ]
   );
 
   // Close on outside mousedown. Effect only (de)registers the listener — the

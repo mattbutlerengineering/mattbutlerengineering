@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@mbe/agent-core": "workspace:*",
-    "@mbe/gh-client": "workspace:*"
+    "@mbe/gh-client": "workspace:*",
+    "js-yaml": "^5.4.3"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "catalog:",

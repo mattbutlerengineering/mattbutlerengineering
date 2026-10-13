@@ -54,18 +54,6 @@
   </file>
   </section>
   <section priority="medium" role="routes">
-  <file path="src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
-        ],
-      });
-    };
-  </file>
   <file path="src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
       if (request.user?.emailVerified !== true) return null;
@@ -655,13 +643,18 @@
             serverUrl: "http://localhost:3001",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+            ],
+          },
         },
         options
       );
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     

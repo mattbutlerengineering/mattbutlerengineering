@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AGENT_LABEL } from "../plugins/acmm/scripts/agent-pr.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -39,8 +40,12 @@ export const TOTAL_MERGED_QUERY = `repo:${REPO_SLUG} is:pr is:merged`;
  * generation of the worker. `agent-authored` is the repo's own audit-trail
  * label, applied by `.github/workflows/ai-attribution.yml` from five
  * independent signals, so it is both broader and more defensible.
+ *
+ * This is the label leg of the canonical predicate (`isAgentPr`, #6380) only:
+ * the GitHub search API cannot express the branch-prefix or bookkeeping legs,
+ * so this count is a superset (it includes mislabeled bookkeeping PRs).
  */
-export const AGENT_MERGED_QUERY = `${TOTAL_MERGED_QUERY} label:agent-authored`;
+export const AGENT_MERGED_QUERY = `${TOTAL_MERGED_QUERY} label:${AGENT_LABEL}`;
 
 /** Component folders live one level under this directory. */
 const RIALTO_COMPONENTS_DIR = "packages/rialto/src/components";

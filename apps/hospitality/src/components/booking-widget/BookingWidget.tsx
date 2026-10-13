@@ -112,7 +112,6 @@ export function BookingWidget({
   // seam — the widget below is render-by-state + action-forwarding only.
   const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow({
     api,
-    venueId,
     venueSlug,
     stripePublishableKey,
     onHoldChange,
@@ -216,7 +215,6 @@ export function BookingWidget({
           venueSlug={venueSlug}
           stripePublishableKey={stripePublishableKey}
           onSuccess={actions.handleDepositSuccess}
-          onBack={actions.goBackToGuestDetails}
         />
       )}
 

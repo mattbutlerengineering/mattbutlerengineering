@@ -63,7 +63,7 @@ describe("prList", () => {
     ]);
   });
 
-  it("uses the Search API and a repo:owner qualifier when --search is given", () => {
+  it("uses the Search API and a repo:owner qualifier for free-text --search terms", () => {
     const http = vi.fn().mockReturnValue({
       status: 200,
       body: JSON.stringify({ items: [{ number: 4, title: "revert", state: "closed" }] }),
@@ -81,6 +81,77 @@ describe("prList", () => {
     );
     expect(result).toEqual([expect.objectContaining({ number: 4, state: "CLOSED" })]);
     expect(http.mock.calls[0]![0].url).toContain("/search/issues?q=");
+  });
+});
+
+describe("prList --search merged:>= without the Search API (#6445)", () => {
+  it("lists closed /pulls and filters merged_at client-side, never /search", () => {
+    const http = vi.fn().mockReturnValue({
+      status: 200,
+      body: JSON.stringify([
+        {
+          number: 1,
+          title: "new",
+          state: "closed",
+          merged_at: "2026-10-10T00:00:00Z",
+          updated_at: "2026-10-10T00:00:00Z",
+          labels: [],
+        },
+        {
+          number: 2,
+          title: "closed unmerged",
+          state: "closed",
+          merged_at: null,
+          updated_at: "2026-10-10T00:00:00Z",
+          labels: [],
+        },
+        {
+          number: 3,
+          title: "stale",
+          state: "closed",
+          merged_at: "2026-09-01T00:00:00Z",
+          updated_at: "2026-09-01T00:00:00Z",
+          labels: [],
+        },
+      ]),
+    });
+    const result = prList(
+      makeCtx(http),
+      parseArgs([
+        "--search",
+        "merged:>=2026-10-05",
+        "--limit",
+        "500",
+        "--json",
+        "number,state,mergedAt",
+      ])
+    );
+    expect(result).toEqual([expect.objectContaining({ number: 1, state: "MERGED" })]);
+    const url = http.mock.calls[0]![0].url as string;
+    expect(url).toContain("/repos/owner/repo/pulls?");
+    expect(url).toContain("state=closed");
+    expect(url).not.toContain("/search/");
+  });
+});
+
+describe("prList --search label qualifier (#6445)", () => {
+  it("sends no labels= param to /pulls and filters labels client-side", () => {
+    const http = vi.fn().mockReturnValue({
+      status: 200,
+      body: JSON.stringify([
+        {
+          number: 1,
+          title: "a",
+          state: "open",
+          labels: [{ name: "ready" }],
+          updated_at: "2026-10-10T00:00:00Z",
+        },
+        { number: 2, title: "b", state: "open", labels: [], updated_at: "2026-10-10T00:00:00Z" },
+      ]),
+    });
+    const result = prList(makeCtx(http), parseArgs(["--search", "label:ready,other"]));
+    expect(result).toEqual([expect.objectContaining({ number: 1 })]);
+    expect(http.mock.calls[0]![0].url).not.toContain("labels=");
   });
 });
 

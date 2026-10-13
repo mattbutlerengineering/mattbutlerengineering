@@ -1,6 +1,6 @@
 {
-  "lastRun": "2026-10-11T10:41:15.645Z",
-  "currentLevel": 6,
+  "lastRun": "2026-10-12T11:44:49.160Z",
+  "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
@@ -87,9 +87,9 @@
       "substanceEvidence": null
     },
     "acmm:prompts-catalog": {
-      "passed": true,
-      "evidence": "detected at: .github/prompts/",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "none of: prompts/, .prompts/, docs/prompts/, .github/prompts/, .github/agents/",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "99 distinct issue/PR citations found in gotchas.md",
+      "evidence": "106 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -311,9 +311,9 @@
       "substanceEvidence": null
     },
     "acmm:policy-as-code": {
-      "passed": true,
-      "evidence": "detected at: .github/policies/",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "none of: .github/policies/, policy/, conftest.yaml, opa/",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -340,15 +340,15 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "130 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "121 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:multi-agent-orchestration": {
-      "passed": true,
-      "evidence": "detected at: scripts/orchestrate.mjs",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "none of: scripts/orchestrate.mjs, .github/workflows/orchestrate.yml, orchestrator/",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -360,16 +360,16 @@
       "substanceEvidence": null
     },
     "acmm:strategic-dashboard": {
-      "passed": true,
-      "evidence": "detected at: docs/autonomous-work-log.md",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "none of: web/src/components/acmm/, web/public/analytics.js, docs/autonomous-work-log.md",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:risk-assessment-config": {
-      "passed": true,
-      "evidence": "detected at: .claude/risk-config.json",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "none of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "2 threshold adjustment(s) in last 30 days",
+      "evidence": "3 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1053,6 +1053,12 @@
       "level": 6,
       "detected": 78,
       "total": 84
+    },
+    {
+      "date": "2026-10-12",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1060,10 +1066,15 @@
     "acmm:copilot-review-apply": 1263,
     "acmm:component-registry-integrity": 1264,
     "acmm:instruction-rot-detection": 1265,
-    "acmm:repo-bench": 1266
+    "acmm:repo-bench": 1266,
+    "acmm:multi-agent-orchestration": 6424,
+    "acmm:policy-as-code": 6425,
+    "acmm:prompts-catalog": 6426,
+    "acmm:risk-assessment-config": 6427,
+    "acmm:strategic-dashboard": 6428
   },
-  "levelName": "Fully Autonomous",
-  "role": "Strategist",
+  "levelName": "Semi-Automated",
+  "role": "Operator",
   "detectedIds": [
     "acmm:prereq-test-suite",
     "acmm:prereq-e2e",
@@ -1077,7 +1088,6 @@
     "acmm:copilot-instructions",
     "acmm:agents-md",
     "acmm:cursor-rules",
-    "acmm:prompts-catalog",
     "acmm:editor-config",
     "acmm:simple-skills",
     "acmm:correction-capture",
@@ -1108,15 +1118,11 @@
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
     "acmm:public-metrics",
-    "acmm:policy-as-code",
     "acmm:reflection-log",
     "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:auto-issue-gen",
-    "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
-    "acmm:strategic-dashboard",
-    "acmm:risk-assessment-config",
     "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
@@ -1145,17 +1151,17 @@
     "meta:audit-freshness"
   ],
   "computation": {
-    "level": 6,
+    "level": 5,
     "strict": true,
-    "levelName": "Fully Autonomous",
-    "role": "Strategist",
-    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "levelName": "Semi-Automated",
+    "role": "Operator",
+    "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
     "detectedByLevel": {
-      "2": 3,
+      "2": 2,
       "3": 5,
       "4": 7,
-      "5": 7,
-      "6": 7
+      "5": 6,
+      "6": 4
     },
     "requiredByLevel": {
       "2": 3,
@@ -1165,15 +1171,66 @@
       "6": 7
     },
     "marginByLevel": {
-      "2": 2,
+      "2": 1,
       "3": 1,
       "4": 1,
-      "5": 2,
-      "6": 2
+      "5": 1,
+      "6": -1
     },
-    "missingForNextLevel": [],
-    "nextTransitionTrigger": null,
-    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
+    "missingForNextLevel": [
+      {
+        "id": "acmm:multi-agent-orchestration",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Multi-agent orchestration",
+        "description": "A workflow or script that coordinates multiple AI agents on one task, decomposing work and managing parallel execution.",
+        "rationale": "L6 composition: single agents become units of a larger autonomous system.",
+        "details": "Multi-agent orchestration uses a dispatcher script or workflow to coordinate multiple AI agents working on different parts of one task — for example, one agent fixes the bug while another writes the test and a third updates the docs. This parallelism is what makes L5 codebases productive beyond what a single agent can achieve. An AI mission will add an orchestration script that decomposes tasks and dispatches sub-agents.",
+        "detection": {
+          "type": "any-of",
+          "pattern": [
+            "scripts/orchestrate.mjs",
+            ".github/workflows/orchestrate.yml",
+            "orchestrator/"
+          ]
+        }
+      },
+      {
+        "id": "acmm:strategic-dashboard",
+        "source": "acmm",
+        "level": 6,
+        "category": "observability",
+        "name": "Strategic dashboard",
+        "description": "A human-facing dashboard that shows what the codebase is doing on its own — active AI sessions, pending fixes, merge pipeline, trend data.",
+        "rationale": "L6 accountability: humans need visibility into autonomous behavior without micromanaging it.",
+        "details": "A strategic dashboard shows humans what the autonomous system is doing: which issues it generated, which fixes it attempted, which PRs it merged, and what the trend lines look like. Without it, an L5 codebase becomes a black box. An AI mission will create a dashboard page that aggregates autonomous activity into a single human-readable view.",
+        "detection": {
+          "type": "any-of",
+          "pattern": [
+            "web/src/components/acmm/",
+            "web/public/analytics.js",
+            "docs/autonomous-work-log.md"
+          ]
+        }
+      },
+      {
+        "id": "acmm:risk-assessment-config",
+        "source": "acmm",
+        "level": 6,
+        "category": "governance",
+        "name": "Risk assessment config",
+        "description": "A config that lets the agent assess blast radius before acting — preventing autonomous changes to high-risk areas.",
+        "rationale": "Without risk awareness, autonomous changes can touch production paths unchecked.",
+        "details": "A config defining: high_risk: [\"deploy/\", \"migrations/\", \"security/\"] — changes to these paths require human review regardless of AI confidence.",
+        "detection": {
+          "type": "any-of",
+          "pattern": ["risk-config.json", ".claude/risk-config.json", ".github/risk-assessment.yml"]
+        }
+      }
+    ],
+    "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
+    "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
     "prerequisites": {
       "met": 8,
       "total": 8
@@ -1194,33 +1251,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.004705882352941176,
+        "value": 0.004347826086956522,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 425
+        "sampleSize": 460
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9851485148514851,
+        "value": 0.9863636363636363,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 202
+        "sampleSize": 225
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 22,
+        "value": 23,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1233,177 +1290,177 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0.005025125628140704,
+        "value": 0.004608294930875576,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 202
+        "sampleSize": 225
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.02512562814070352,
+        "value": 0.02304147465437788,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 202
+        "sampleSize": 225
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.004705882352941176,
-      "sample_size": 425,
+      "rate_30d": 0.004347826086956522,
+      "sample_size": 460,
       "flaky_shas": [
-        "75f231cd981ccac1476f79b938ca28d7acbb5203",
-        "fe04834dcb1ad16eb303458caada749accc63f01"
+        "2b2af184d05e2f27dd83bac1504abad173bda939",
+        "75f231cd981ccac1476f79b938ca28d7acbb5203"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-11T01:06:14.000Z",
-      "measured_at": "2026-10-11T10:41:15.644Z"
+      "oldest_record_at": "2026-09-12T01:10:04.000Z",
+      "measured_at": "2026-10-12T11:44:49.158Z"
     },
     "agent_pr": {
-      "sample_size": 202,
-      "merged_count": 199,
+      "sample_size": 225,
+      "merged_count": 217,
       "closed_unmerged_count": 3,
-      "open_count": 0,
-      "acceptance_rate_30d": 0.9851485148514851,
-      "revert_rate_30d": 0.005025125628140704,
+      "open_count": 5,
+      "acceptance_rate_30d": 0.9863636363636363,
+      "revert_rate_30d": 0.004608294930875576,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.3338888888888889,
-      "human_touch_ratio": 0.02512562814070352,
+      "median_time_to_merge_hours": 0.3088888888888889,
+      "human_touch_ratio": 0.02304147465437788,
       "insufficient_data": false,
-      "oldest_record_at": "2026-09-04T00:26:09.000Z",
+      "oldest_record_at": "2026-09-05T03:44:46.000Z",
       "recent_changes": [
         {
-          "number": 6298,
-          "title": "feat(rialto): controlled Popover open/onOpenChange; drop pickers' closeToken remount",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6298",
-          "mergedAt": "2026-10-11T05:45:17Z"
+          "number": 6417,
+          "title": "fix(hospitality): derive Seat Guest from TABLE_VALID_TRANSITIONS in one seating module",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6417",
+          "mergedAt": "2026-10-12T06:39:42Z"
         },
         {
-          "number": 6295,
-          "title": "fix(rialto-catalog): forward dropped Stack/Text/Input schema props",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6295",
-          "mergedAt": "2026-10-11T03:23:22Z"
+          "number": 6415,
+          "title": "fix(scripts): one issueState(); a gh error is never 'missing' so it cannot file a duplicate",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6415",
+          "mergedAt": "2026-10-12T06:36:52Z"
         },
         {
-          "number": 6294,
-          "title": "fix(hospitality): skip no-op status update when seating a CONFIRMED reservation",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6294",
-          "mergedAt": "2026-10-11T02:44:45Z"
+          "number": 6413,
+          "title": "fix(gen): spec stats show real element counts; one spec module",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6413",
+          "mergedAt": "2026-10-12T06:30:54Z"
         },
         {
-          "number": 6293,
-          "title": "fix(cli): honor explicit --model in mbe loop",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6293",
-          "mergedAt": "2026-10-11T02:39:40Z"
+          "number": 6403,
+          "title": "fix(database): derive pool busy count from totalCount - idleCount",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6403",
+          "mergedAt": "2026-10-12T06:29:29Z"
         },
         {
-          "number": 6292,
-          "title": "fix(scripts): ci-gate-status fetch error yields unknown, not gate-missing",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6292",
-          "mergedAt": "2026-10-11T02:37:07Z"
+          "number": 6412,
+          "title": "fix(hospitality): command palette Chat routes to 404 — replace sentinel nav paths with nav actions",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6412",
+          "mergedAt": "2026-10-12T06:26:23Z"
         },
         {
-          "number": 6275,
-          "title": "chore(deps): bump vitest and @vitest/* to 5.0.3",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6275",
-          "mergedAt": "2026-10-11T02:17:12Z"
+          "number": 6411,
+          "title": "fix(cli): retire cleanup-worktrees and the unwired wave/visual/prime/stats commands",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6411",
+          "mergedAt": "2026-10-12T06:24:19Z"
         },
         {
-          "number": 6274,
-          "title": "chore(memory): monthly reflection review 2026-10",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6274",
-          "mergedAt": "2026-10-11T01:55:37Z"
+          "number": 6410,
+          "title": "fix(sentry): report response-schema validation failures from reportApiError",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6410",
+          "mergedAt": "2026-10-12T06:19:17Z"
         },
         {
-          "number": 6271,
-          "title": "fix(rialto): Tag error/success hover contrast + contrast test reads real tokens",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6271",
-          "mergedAt": "2026-10-11T01:11:19Z"
+          "number": 6409,
+          "title": "fix(hospitality): let GuestDrawer clear email, phone and notes",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6409",
+          "mergedAt": "2026-10-12T06:10:25Z"
         },
         {
-          "number": 6265,
-          "title": "fix(rialto-web): guest-checkin heading-order (h1 -> h3 skip)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6265",
-          "mergedAt": "2026-10-11T00:55:27Z"
+          "number": 6408,
+          "title": "fix(scripts): merge-train lock excludes other sessions via durable owner token CLI",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6408",
+          "mergedAt": "2026-10-12T06:03:29Z"
         },
         {
-          "number": 6266,
-          "title": "fix(rialto-web): give each TapeChart demo a unique region name (axe landmark-unique)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6266",
-          "mergedAt": "2026-10-11T00:54:41Z"
+          "number": 6406,
+          "title": "fix(sentry): errorHandlerPlugin owns capture so captureException runs",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6406",
+          "mergedAt": "2026-10-12T06:03:10Z"
         },
         {
-          "number": 6262,
-          "title": "fix(rialto): deepen Tag error text to meet AA contrast",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6262",
-          "mergedAt": "2026-10-11T00:51:28Z"
+          "number": 6407,
+          "title": "fix(edge-health): read /health/system through one snapshot parser",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6407",
+          "mergedAt": "2026-10-12T06:02:24Z"
         },
         {
-          "number": 6255,
-          "title": "fix(hospitality): add main landmark and h1 to manage-reservation page",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6255",
-          "mergedAt": "2026-10-11T00:50:40Z"
+          "number": 6405,
+          "title": "fix(hospitality): show a retry state instead of redirecting to /onboarding when the venues fetch fails",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6405",
+          "mergedAt": "2026-10-12T05:51:12Z"
         },
         {
-          "number": 6256,
-          "title": "chore(acmm): remove dead --project callers; stop /metrics showing stale eval score as live",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6256",
-          "mergedAt": "2026-10-11T00:49:25Z"
+          "number": 6404,
+          "title": "fix(rialto-plugin): read validate-rialto hook payload from stdin, drop unmatchable rule 2",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6404",
+          "mergedAt": "2026-10-12T05:50:31Z"
         },
         {
-          "number": 6261,
-          "title": "fix(rialto-web): render CompositionNote as role=note to clear axe landmark-unique",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6261",
-          "mergedAt": "2026-10-11T00:47:56Z"
+          "number": 6358,
+          "title": "fix(rialto): a11y audit iteration 3 — Popover, DropdownMenu, Tooltip trigger wrapping",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6358",
+          "mergedAt": "2026-10-12T02:15:53Z"
         },
         {
-          "number": 6259,
-          "title": "fix(rialto-web): unique aria-labels for NavigationMenu demos (axe landmark-unique)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6259",
-          "mergedAt": "2026-10-11T00:45:19Z"
+          "number": 6359,
+          "title": "fix(metrics): revive queueEfficiency/ai-issue-feedback collectors and freshness-guard them",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6359",
+          "mergedAt": "2026-10-12T02:10:41Z"
         },
         {
-          "number": 6254,
-          "title": "fix(rialto-web): use secondary text for Table demo delta cells (axe color-contrast)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6254",
-          "mergedAt": "2026-10-11T00:21:19Z"
+          "number": 6357,
+          "title": "fix(acmm): delete dead-artifact criteria satisfiers and add substance checks",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6357",
+          "mergedAt": "2026-10-12T01:56:37Z"
         },
         {
-          "number": 6251,
-          "title": "fix(rialto): add Footer linksLabel so showcase footers have unique nav names",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6251",
-          "mergedAt": "2026-10-11T00:18:23Z"
+          "number": 6356,
+          "title": "test(ci): pin tier-classifier ACMM exact-path rule negative controls",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6356",
+          "mergedAt": "2026-10-12T01:48:51Z"
         },
         {
-          "number": 6252,
-          "title": "fix(hospitality): wrap public booking page in a main landmark",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6252",
-          "mergedAt": "2026-10-11T00:15:51Z"
+          "number": 6349,
+          "title": "fix(scripts): routine-liveness dates a PR artifact by createdAt, never mergedAt",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6349",
+          "mergedAt": "2026-10-12T00:36:57Z"
         },
         {
-          "number": 6253,
-          "title": "fix(rialto-web): hover-card color-contrast (accent text -> text-primary)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6253",
-          "mergedAt": "2026-10-11T00:11:58Z"
+          "number": 6346,
+          "title": "feat(hospitality): replace the watch loader with the Handshake on LoadingPage",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6346",
+          "mergedAt": "2026-10-11T23:56:28Z"
         },
         {
-          "number": 6249,
-          "title": "fix(hospitality): use on-accent text token for public booking not-found link contrast",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6249",
-          "mergedAt": "2026-10-10T23:49:37Z"
+          "number": 6339,
+          "title": "fix(hospitality): staff cancel no longer quotes or records a late fee the server waives",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6339",
+          "mergedAt": "2026-10-11T19:53:24Z"
         }
       ],
-      "measured_at": "2026-10-11T10:41:15.644Z"
+      "measured_at": "2026-10-12T11:44:49.158Z"
     },
     "evals": {
       "n": 37,
@@ -1424,8 +1481,8 @@
       "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
-      "history_count": 22,
-      "measured_at": "2026-10-11T10:41:15.644Z"
+      "history_count": 23,
+      "measured_at": "2026-10-12T11:44:49.158Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."

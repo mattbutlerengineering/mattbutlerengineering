@@ -66,6 +66,7 @@ import { execFileSync } from "node:child_process";
 
 import { discoverWorkspaceGlobs, resolveGlob } from "./dep-graph-discovery.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
+import { parseWorkflow } from "./lib/workflow.mjs";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -215,86 +216,23 @@ export function githubPathPatternToRegExp(pattern) {
 const CHANGE_EVENTS = new Set(["push", "pull_request", "pull_request_target"]);
 
 /**
- * Parse the top-level `on:` block and return the change-triggered events with
- * their path filters. Only `push`/`pull_request`(`_target`) matter — schedule,
- * workflow_dispatch, workflow_run etc. are not fired by file changes.
- *
- * Indentation-based on purpose: these workflows are prettier-formatted block
- * YAML, and a `paths:` key inside an embedded `run:` script (see
- * visual-noise-floor.yml) must not be read as a trigger filter — anchoring on
- * the top-level `on:` section guarantees that.
+ * Return the change-triggered events of a workflow with their path filters.
+ * Only `push`/`pull_request`(`_target`) matter - schedule, workflow_dispatch,
+ * workflow_run etc. are not fired by file changes. Reads the parsed `on:`
+ * mapping, so a `paths:` key inside an embedded `run:` script (see
+ * visual-noise-floor.yml) can never be mistaken for a trigger filter.
  *
  * @param {string} workflowText
  * @returns {{ event: string, filterType: "paths"|"paths-ignore"|null, patterns: string[] }[]}
  */
 export function parseTriggerEvents(workflowText) {
-  const lines = workflowText.split("\n");
-  const events = [];
-  let inOn = false;
-  let currentEvent = null;
-  let currentFilter = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\r$/, "");
-    const trimmed = line.trim();
-    if (trimmed.startsWith("#")) continue;
-
-    if (/^on:\s*$/.test(line)) {
-      inOn = true;
-      continue;
-    }
-    // Flow-style triggers (`on: push`, `on: [push, pull_request]`) carry no
-    // filters at all — every listed change event is unfiltered.
-    const flow = line.match(/^on:\s*(.+)$/);
-    if (flow) {
-      const names = flow[1].replace(/[[\]]/g, "").split(",");
-      for (const name of names) {
-        const event = name.trim();
-        if (CHANGE_EVENTS.has(event)) events.push({ event, filterType: null, patterns: [] });
-      }
-      continue;
-    }
-    if (!inOn) continue;
-    // Any non-empty line at column 0 ends the on-block.
-    if (trimmed !== "" && !/^\s/.test(line)) {
-      inOn = false;
-      currentEvent = null;
-      currentFilter = null;
-      continue;
-    }
-
-    const eventMatch = line.match(/^ {2}([\w-]+):\s*$/) ?? line.match(/^ {2}([\w-]+):\s*#.*$/);
-    if (eventMatch) {
-      currentFilter = null;
-      if (CHANGE_EVENTS.has(eventMatch[1])) {
-        currentEvent = { event: eventMatch[1], filterType: null, patterns: [] };
-        events.push(currentEvent);
-      } else {
-        currentEvent = null;
-      }
-      continue;
-    }
-
-    if (!currentEvent) continue;
-
-    const filterMatch = line.match(/^ {4}(paths|paths-ignore):\s*$/);
-    if (filterMatch) {
-      currentFilter = filterMatch[1];
-      currentEvent.filterType = currentFilter;
-      continue;
-    }
-    if (/^ {4}[\w-]+:/.test(line)) {
-      currentFilter = null; // some other event sub-key (branches, types, ...)
-      continue;
-    }
-    if (currentFilter) {
-      const item = line.match(/^\s+-\s+(.+?)\s*$/);
-      if (item) {
-        currentEvent.patterns.push(item[1].replace(/^["']|["']$/g, ""));
-      }
-    }
-  }
-  return events;
+  return Object.entries(parseWorkflow(workflowText).on)
+    .filter(([event]) => CHANGE_EVENTS.has(event))
+    .map(([event, config]) => {
+      const filterType = ["paths", "paths-ignore"].find((key) => config[key] != null) ?? null;
+      const patterns = filterType ? config[filterType].map(String) : [];
+      return { event, filterType, patterns };
+    });
 }
 
 /**

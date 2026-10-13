@@ -83,6 +83,7 @@ export interface DatabaseInstance<T> {
   getSlowQueryStats: () => SlowQueryStats;
   getPoolMetrics: () => PoolMetrics;
   getServiceStatus: () => ServiceStatus;
+  /** Idempotent. Callers own the lifecycle: createServiceApp wires it to fastify onClose. */
   shutdown: () => Promise<void>;
 }
 
@@ -235,8 +236,6 @@ export function createDatabase<T extends PrismaLike>(
     await basePrisma.$disconnect();
     await pool.end();
   }
-
-  process.on("beforeExit", shutdown);
 
   return {
     prisma,

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { apiRequest, GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
+import {
+  apiRequest,
+  GhApiPathBlockedError,
+  GhAuthError,
+  GhRateLimitError,
+  describeGhError,
+} from "./rest-http.js";
 import type { RestContext } from "./rest-http.js";
 import type { SyncHttp } from "./sync-http.js";
 
@@ -160,5 +166,23 @@ describe("describeGhError", () => {
 
   it("stringifies a non-Error throw value", () => {
     expect(describeGhError("plain string failure")).toBe("plain string failure");
+  });
+});
+
+describe("search-path-blocked 403 (#6445)", () => {
+  const blocked =
+    '{"message":"This GitHub API path is not available: sessions are bound to their configured repositories. Use repository-scoped endpoints (repos/{owner}/{repo}/...)."}';
+
+  it("throws GhApiPathBlockedError (still a GhAuthError) and does not blame the credential", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({ status: 403, body: blocked });
+    try {
+      apiRequest(makeCtx(http), "GET", "/search/issues?q=x");
+      expect.unreachable("apiRequest should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(GhApiPathBlockedError);
+      expect(err).toBeInstanceOf(GhAuthError);
+      expect(describeGhError(err)).toMatch(/path blocked/i);
+      expect(describeGhError(err)).not.toMatch(/credential is not valid/i);
+    }
   });
 });

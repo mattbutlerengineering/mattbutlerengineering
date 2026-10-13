@@ -40,7 +40,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { append, resolvePath } from "../metrics-store.mjs";
@@ -48,6 +48,7 @@ import { AUDIT_TTL_DAYS, MAX_ROUTES_PER_FIRE, VIEWPORTS } from "./config.mjs";
 import { applyRecord, buildPlan, markUnreachableAuth, selectDue } from "./ledger-audit.mjs";
 import { createRepoIo, extractAll } from "./routes.mjs";
 import { loadRubric } from "./rubric.mjs";
+import { JUDGE_STATUS_FILE, WORK_DIR, readManifests } from "./work-dir.mjs";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -55,11 +56,8 @@ export const LEDGER_METRIC = "ui-quality-ledger";
 export const RUNS_METRIC = "ui-quality-runs";
 
 /** The gitignored per-fire work dir and the files in it this module reads or writes. */
-export const WORK_DIR = ".ui-quality";
 const PLAN_FILE = "plan.json";
 const DUE_FILE = "due.json";
-const JUDGE_STATUS_FILE = "judge-status.json";
-const CAPTURES_DIR = "captures";
 const FIXTURES_FILE = "scripts/ui-quality/route-fixtures.json";
 
 export const IDENTITY_COLUMNS = ["route", "app", "kind", "auth", "source_files"];
@@ -282,18 +280,6 @@ function due(ctx) {
   return 0;
 }
 
-/** app → manifest rows, from every .ui-quality/captures/<app>/manifest.jsonl present. */
-function readManifests(work) {
-  const dir = join(work, CAPTURES_DIR);
-  if (!existsSync(dir)) return {};
-  const manifests = {};
-  for (const app of readdirSync(dir).sort()) {
-    const file = join(dir, app, "manifest.jsonl");
-    if (existsSync(file)) manifests[app] = parseLedger(readFileSync(file, "utf8"));
-  }
-  return manifests;
-}
-
 function record(ctx) {
   if (ctx.argv.includes("--rubric-version")) {
     throw new Error(
@@ -318,7 +304,7 @@ function record(ctx) {
   const now = ctx.now();
   const { rows, counts } = applyRecord(requireLedger(ctx), {
     dueFile,
-    manifests: readManifests(work),
+    manifests: readManifests(ctx.root),
     judgeStatus,
     now,
     rubricVersion,

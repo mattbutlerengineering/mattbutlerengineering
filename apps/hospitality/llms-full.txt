@@ -63,28 +63,6 @@
       });
     }
   </file>
-  <file path="src/components/booking-widget/todayInTimezone.ts">
-    export function todayInTimezone(now: Date, timeZone?: string): string {
-      if (!timeZone) return toDateString(now);
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const year = get("year");
-        const month = get("month");
-        const day = get("day");
-        if (!year || !month || !day) return toDateString(now);
-        return `${year}-${month}-${day}`;
-      } catch {
-        return toDateString(now);
-      }
-    }
-  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -165,7 +143,6 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
@@ -176,7 +153,7 @@
     function createInitialState(venueTimezone?: string): BookingFlowState {
       return {
         step: "date-party",
-        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+        data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
     export const MISSING_VENUE_SLUG_ERROR =
@@ -273,6 +250,11 @@
             step: "confirmation",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -286,6 +268,11 @@
             step: "payment",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -305,9 +292,6 @@
             step: "confirmation",
             data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
           };
-    
-        case "GO_BACK_TO_GUEST_DETAILS":
-          return { ...state, step: "guest-details" };
     
         case "EXPIRE_HOLD":
           return {
@@ -370,14 +354,10 @@
       setPartySize: (size: number) => void;
       goToTimeSlot: () => void;
       goToDateParty: () => void;
-      setSlots: (slots: TimeSlot[]) => void;
-      setSlotsError: (error: string) => void;
       selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
       confirmReservation: (details: GuestDetails) => Promise<void>;
       handleDepositSuccess: (paymentIntentId: string) => void;
-      goBackToGuestDetails: () => void;
       resetFlow: () => void;
-      setDepositConfig: (config: DepositConfig | null) => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
       setGuestDetails: (details: GuestDetails) => void;
@@ -394,7 +374,6 @@
     export interface UseBookingFlowDeps {
       /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
       api: BookingWidgetApiClient;
-      venueId: string;
       /**
        * Slug backing every public endpoint this flow calls — venue config, guest
        * risk, and (since #4487) the whole hold lifecycle, which now goes through
@@ -418,7 +397,7 @@
       /**
        * IANA timezone the venue operates in — used to default `selectedDate` to
        * "today" on the venue's clock rather than a UTC midnight boundary
-       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       * (#4981). Omit only when unknown; falls back to the device clock.
        */
       venueTimezone?: string;
     }
@@ -565,14 +544,6 @@
         dispatch({ type: "GO_TO_DATE_PARTY" });
       }, [flowState.data.hold, releaseHold]);
     
-      const setSlots = useCallback((slots: TimeSlot[]) => {
-        dispatch({ type: "SET_SLOTS", slots });
-      }, []);
-    
-      const setSlotsError = useCallback((error: string) => {
-        dispatch({ type: "SET_SLOTS_ERROR", error });
-      }, []);
-    
       const selectSlotAndHold = useCallback(
         async (slot: TimeSlot): Promise<void> => {
           if (!flowState.data.selectedDate) return;
@@ -671,24 +642,9 @@
         dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
       }, []);
     
-      const goBackToGuestDetails = useCallback(() => {
-        dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-      }, []);
-    
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+        dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
       }, [venueTimezone]);
-    
-      const setDepositConfig = useCallback(
-        (config: DepositConfig | null) => {
-          dispatch({
-            type: "SET_DEPOSIT_CONFIG",
-            config,
-            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
-          });
-        },
-        [venueSlug, stripePublishableKey]
-      );
     
       const goToWaitlistJoin = useCallback(() => {
         dispatch({ type: "GO_TO_WAITLIST_JOIN" });
@@ -723,11 +679,10 @@
         return () => clearInterval(interval);
       }, [flowState.data.hold, fetchSlots]);
     
-      // Notifies onHoldChange whenever the "releasable" hold changes. Once the
-      // flow reaches "confirmation" the hold has been consumed into a real
-      // reservation — nothing left to release — even though `data.hold` itself
-      // is never cleared by the reducer.
-      const activeHoldId = flowState.step === "confirmation" ? null : (flowState.data.hold?.id ?? null);
+      // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
+      // clears `data.hold` once it becomes a reservation, so any hold left is
+      // still releasable.
+      const activeHoldId = flowState.data.hold?.id ?? null;
       useEffect(() => {
         onHoldChangeRef.current?.(
           activeHoldId ? { holdId: activeHoldId, sessionId: api.holds.getSessionId() } : null
@@ -751,14 +706,10 @@
           setPartySize,
           goToTimeSlot,
           goToDateParty,
-          setSlots,
-          setSlotsError,
           selectSlotAndHold,
           confirmReservation,
           handleDepositSuccess,
-          goBackToGuestDetails,
           resetFlow,
-          setDepositConfig,
           goToWaitlistJoin,
           handleWaitlistJoined,
           setGuestDetails,
@@ -1224,8 +1175,8 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
-      // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/service-day.ts`
+      // `deviceDate`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
       // Pacific and emptied the grid for the whole evening service (A1 / P01).
       //
       // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
@@ -2345,25 +2296,30 @@
       }
     }
     export interface ThemeContextValue {
+      /** The stored preference (`"system"` included). */
       readonly theme: ThemePreference;
+      /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+      readonly resolvedTheme: "light" | "dark";
       readonly setTheme: (theme: ThemePreference) => void;
     }
     export const ThemeContext = createContext<ThemeContextValue>({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: () => {},
     });
     export function useTheme(): ThemeContextValue {
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
           theme: preference,
+          resolvedTheme,
           setTheme,
         }),
-        [preference, setTheme]
+        [preference, resolvedTheme, setTheme]
       );
     }
     export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
@@ -2560,7 +2516,7 @@
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
     type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
-      return toDateString(new Date());
+      return deviceDate(new Date());
     }
     function computeUpcoming(reservations: readonly Reservation[]): number {
       const now = new Date();
@@ -4533,7 +4489,7 @@
       return `${venueId}::${date}`;
     }
     function todayDateKey(): string {
-      return new Date().toISOString().slice(0, 10);
+      return deviceDate(new Date());
     }
     export async function getCachedReservations(
       venueId: string,
@@ -4856,14 +4812,6 @@
         return buildSetupSections(readiness, isAdmin);
       }
       return buildOperationalSections(isAdmin);
-    }
-  </file>
-  <file path="src/return-to-store.ts">
-    export function rememberReturnTo(returnTo?: string): void {
-      storedReturnTo = returnTo;
-    }
-    export function readReturnTo(): string | undefined {
-      return storedReturnTo;
     }
   </file>
   <file path="src/vite-env.d.ts">
@@ -5362,21 +5310,6 @@
       URL.revokeObjectURL(url);
     }
   </file>
-  <file path="src/utils/local-clock.ts">
-    function isValidDate(now: Date): boolean {
-      return !Number.isNaN(now.getTime());
-    }
-    export function localDateString(now: Date): string {
-      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
-    }
-    export function localHour(now: Date): number {
-      return now.getHours();
-    }
-    export function isLocalToday(date: string, now: Date): boolean {
-      const today = localDateString(now);
-      return today !== "" && date === today;
-    }
-  </file>
   <file path="src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -5461,6 +5394,58 @@
       return tables
         .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
         .sort((a, b) => a.capacity - b.capacity);
+    }
+  </file>
+  <file path="src/utils/service-day.ts">
+    export function deviceDate(now: Date): string {
+      return Number.isNaN(now.getTime()) ? "" : now.toLocaleDateString(DAY_LOCALE);
+    }
+    export function deviceHour(now: Date): number {
+      return now.getHours();
+    }
+    export function isDeviceToday(date: string, now: Date): boolean {
+      const today = deviceDate(now);
+      return today !== "" && date === today;
+    }
+    export function venueDate(now: Date, timeZone?: string): string {
+      if (!timeZone) return deviceDate(now);
+      try {
+        return now.toLocaleDateString(DAY_LOCALE, { timeZone });
+      } catch {
+        return deviceDate(now);
+      }
+    }
+    export function addDays(date: string, days: number): string {
+      const shifted = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(shifted.getTime())) return "";
+      shifted.setUTCDate(shifted.getUTCDate() + days);
+      return shifted.toISOString().slice(0, 10);
+    }
+    export interface VenueWallClock {
+      /** Lower-case English weekday name, e.g. `"monday"`. */
+      readonly weekday: string;
+      /** Minutes since venue-local midnight. */
+      readonly nowMin: number;
+    }
+    export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const weekday = get("weekday")?.toLowerCase();
+        const hour = Number(get("hour"));
+        const minute = Number(get("minute"));
+        if (!weekday || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return { weekday, nowMin: hour * 60 + minute };
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="src/utils/timeline-intent.ts">
@@ -5562,24 +5547,10 @@
       readonly nowMin: number;
     }
     function readVenueClock(timeZone: string, now: Date): VenueClock | null {
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          weekday: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
-        const hour = Number(get("hour"));
-        const minute = Number(get("minute"));
-        if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-        return { day, nowMin: hour * 60 + minute };
-      } catch {
-        return null;
-      }
+      const clock = venueWallClock(timeZone, now);
+      if (!clock) return null;
+      const day = WEEKDAYS.indexOf(clock.weekday as Weekday);
+      return day < 0 ? null : { day, nowMin: clock.nowMin };
     }
     function toMinutes(hhmm: string): number | null {
       if (!LOCAL_TIME_PATTERN.test(hhmm)) return null;

@@ -14,10 +14,8 @@ import {
   buildScheduledFailureTitle,
   buildDeployFailureTitle,
   extractWorkflowNameFromIssueTitle,
-  findPriorScheduledFailureIssue,
   buildScheduledFailureBody,
   buildDeployFailureBody,
-  buildScheduledFailureCreateArgs,
   runScheduledWorkflowHealthCheck,
   resolveWorkflowModifiedAt,
   classifyRunRecency,
@@ -26,7 +24,6 @@ import {
   resolveWorkflowPeriodDays,
   buildMissedRunTitle,
   extractWorkflowNameFromMissedRunTitle,
-  findPriorMissedRunIssue,
   buildMissedRunBody,
   runScheduledWorkflowRecencyCheck,
 } from "../scheduled-workflow-health.mjs";
@@ -308,17 +305,6 @@ describe("buildScheduledFailureTitle / extractWorkflowNameFromIssueTitle", () =>
   });
 });
 
-describe("findPriorScheduledFailureIssue", () => {
-  it("finds the issue tracking the same workflow's failing streak", () => {
-    const candidates = [
-      { number: 1, title: "ci-fix: release.yml has failed 3 consecutive scheduled runs" },
-      { number: 2, title: "ci-fix: chaos-agent.yml has failed 6 consecutive scheduled runs" },
-    ];
-    expect(findPriorScheduledFailureIssue(candidates, "release.yml")).toBe(1);
-    expect(findPriorScheduledFailureIssue(candidates, "unrelated.yml")).toBeNull();
-  });
-});
-
 describe("buildScheduledFailureBody", () => {
   it("includes the workflow path, streak length, and failing run URLs", () => {
     const body = buildScheduledFailureBody({
@@ -333,22 +319,6 @@ describe("buildScheduledFailureBody", () => {
     expect(body).toContain("3 consecutive");
     expect(body).toContain("https://github.com/x/y/actions/runs/1");
     expect(body).toContain("https://github.com/x/y/actions/runs/2");
-  });
-});
-
-describe("buildScheduledFailureCreateArgs", () => {
-  it("carries the ci-fix and ready labels", () => {
-    const args = buildScheduledFailureCreateArgs("title", "body");
-    expect(args).toEqual([
-      "--title",
-      "title",
-      "--body",
-      "body",
-      "--label",
-      "ci-fix",
-      "--label",
-      COORDINATION_LABELS.READY,
-    ]);
   });
 });
 
@@ -378,14 +348,15 @@ describe("runScheduledWorkflowHealthCheck", () => {
       getRuns: (name) => runsByWorkflow[name],
       searchCiFixIssues: () => [],
       getIssueState: () => "missing",
-      createIssue: (title, body) => {
-        created.push({ title, body });
+      createIssue: (title, body, labels) => {
+        created.push({ title, body, labels });
         return 42;
       },
     });
 
     expect(created).toHaveLength(1);
     expect(created[0].title).toBe("ci-fix: release.yml has failed 3 consecutive scheduled runs");
+    expect(created[0].labels).toEqual(["ci-fix", COORDINATION_LABELS.READY]);
     expect(results).toEqual([
       { workflow: "release.yml", status: "failing-streak", action: "create", issueNumber: 42 },
       { workflow: "healthy.yml", status: "healthy" },
@@ -649,9 +620,8 @@ describe("buildDeployFailureTitle / buildScheduledFailureTitle wording", () => {
       { number: 1, title: buildScheduledFailureTitle("release.yml", 3) },
       { number: 2, title: buildDeployFailureTitle("pulumi-up.yml", 40) },
     ];
-    expect(findPriorScheduledFailureIssue(candidates, "pulumi-up.yml")).toBe(2);
-    expect(findPriorScheduledFailureIssue(candidates, "release.yml")).toBe(1);
-    expect(findPriorScheduledFailureIssue(candidates, "deploy-services.yml")).toBeNull();
+    const names = candidates.map((issue) => extractWorkflowNameFromIssueTitle(issue));
+    expect(names).toEqual(["release.yml", "pulumi-up.yml"]);
   });
 });
 
@@ -1015,24 +985,6 @@ describe("buildMissedRunTitle / extractWorkflowNameFromMissedRunTitle", () => {
     const streakTitle = buildScheduledFailureTitle("routine-liveness.yml", 3);
     expect(extractWorkflowNameFromIssueTitle({ title: missedRunTitle })).toBeNull();
     expect(extractWorkflowNameFromMissedRunTitle({ title: streakTitle })).toBeNull();
-  });
-});
-
-describe("findPriorMissedRunIssue", () => {
-  it("finds the issue tracking the same workflow's missed run", () => {
-    const candidates = [
-      { number: 5, title: "ci-fix: routine-liveness.yml missed its scheduled run" },
-      { number: 6, title: "ci-fix: other.yml missed its scheduled run" },
-    ];
-    expect(findPriorMissedRunIssue(candidates, "routine-liveness.yml")).toBe(5);
-    expect(findPriorMissedRunIssue(candidates, "unrelated.yml")).toBeNull();
-  });
-
-  it("does not match a failing-streak issue for the same workflow", () => {
-    const candidates = [
-      { number: 1, title: buildScheduledFailureTitle("routine-liveness.yml", 3) },
-    ];
-    expect(findPriorMissedRunIssue(candidates, "routine-liveness.yml")).toBeNull();
   });
 });
 

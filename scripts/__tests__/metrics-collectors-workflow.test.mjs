@@ -20,6 +20,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getJob, getStep, loadWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -119,13 +120,18 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
 
   it("never swallows an exit code with `|| true` or continue-on-error", () => {
     expect(WORKFLOW).not.toMatch(/\|\|\s*true/);
-    // The one sanctioned exception is the best-effort queue-telemetry step
-    // (#5921), isolated so its failure can't skip the review-burden PR flow.
-    const withoutTelemetryStep = WORKFLOW.replace(
-      /- name: Collect queue telemetry from merged agent PRs\n(?:(?! {6}- name:).*\n)+/,
-      ""
-    );
-    expect(withoutTelemetryStep).not.toMatch(/continue-on-error:\s*true/);
+    // Sanctioned exceptions: best-effort collector steps (#5921, #6466),
+    // isolated so a failure can't skip the PR flow — the freshness self-check
+    // that follows them reports the failure instead.
+    const sanctioned = [
+      "Collect queue telemetry from merged agent PRs",
+      "Collect queueEfficiency sensor row",
+      "Collect AI issue feedback",
+    ];
+    const swallowing = getJob(loadWorkflow(WORKFLOW_PATH), "collect")
+      .steps.filter((s) => s["continue-on-error"] === true)
+      .map((s) => s.name);
+    expect(swallowing.sort()).toEqual([...sanctioned].sort());
   });
 
   it("acts on a non-zero freshness verdict instead of only printing it", () => {
@@ -217,5 +223,44 @@ describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
   it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {
     const block = WORKFLOW.match(/add-paths: \|\n((?:\s+\S.*\n)+)/)?.[1] ?? "";
     expect(block).toContain("metrics/queue-telemetry.jsonl");
+  });
+});
+
+// #6466 — queueEfficiency and ai-issue-feedback were collected only by cloud
+// routines whose tokens GitHub refuses, so the self-check read stale files.
+// The workflow has a working GITHUB_TOKEN; it must run both collectors itself.
+describe("metrics-collectors workflow runs the credential-blocked collectors (#6466)", () => {
+  const workflow = loadWorkflow(WORKFLOW_PATH);
+  const job = getJob(workflow, "collect");
+  const indexOfStep = (re) => job.steps.findIndex((s) => re.test(s.run ?? ""));
+
+  it.each([
+    ["queueEfficiency", /node scripts\/record-queue-efficiency\.mjs/],
+    ["ai-issue-feedback", /node scripts\/collect-ai-issue-feedback\.mjs/],
+  ])("runs the %s collector before the freshness self-check", (_name, re) => {
+    const at = indexOfStep(re);
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(indexOfStep(/metrics-freshness\.mjs/));
+    expect(job.steps[at].env.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
+  });
+
+  it("installs and builds gh-client first (the collectors import @mbe/gh-client)", () => {
+    const setupAt = job.steps.findIndex((s) => s.uses === "./.github/actions/setup-workspace");
+    const buildAt = indexOfStep(/pnpm build --filter @mbe\/gh-client/);
+    expect(setupAt).toBeGreaterThan(-1);
+    expect(buildAt).toBeGreaterThan(setupAt);
+    expect(buildAt).toBeLessThan(indexOfStep(/record-queue-efficiency/));
+  });
+
+  it("commits both collectors' output files in the automation PR", () => {
+    const addPaths = getStep(job, "Open PR with collected metrics").with["add-paths"];
+    expect(addPaths).toContain("metrics/ai-issue-feedback.json");
+    expect(addPaths).toContain("metrics/process-metrics.jsonl");
+  });
+
+  it("grants the scopes the collectors' queries need", () => {
+    expect(workflow.permissions.issues).toBeDefined();
+    expect(workflow.permissions["pull-requests"]).toBeDefined();
+    expect(workflow.permissions.actions).toBe("write");
   });
 });

@@ -94,6 +94,22 @@ API requests are forwarded via standard `fetch()` to the DigitalOcean App Platfo
 > asserts every served prefix is covered on both sides — reading only the DO
 > side is what let this gate hide.
 
+> **Amendment (2026-10-12, #6379):** the "returns a branded error page" behaviour
+> applies to **page routes only** (the static-site Service Bindings). Origin
+> routes (`/api`, `/public`) follow ADR-008 Problem Details: an origin 5xx that
+> is already `application/problem+json` passes through with its body intact,
+> and any other origin 5xx, an unreachable origin, or an open circuit is
+> answered with a synthesized `application/problem+json` response (503 for
+> unreachable and open). Branded HTML is never returned for an origin route.
+>
+> The circuit breaker is now keyed **per service**, not once for the whole
+> origin: `circuit-breaker:users` (`/api/v1/users`), `circuit-breaker:agent`
+> (`/api/gen`) and `circuit-breaker:reservations` (every other origin route),
+> mirroring the DO ingress order. One service's 5xx no longer opens the circuit
+> for the other two. Thresholds are unchanged (3 failures, 30s open window).
+> `proxyToOrigin` in `infrastructure/worker/origin-proxy.js` owns the breaker
+> state, KV, forwarded headers and error rendering.
+
 ### Security Headers
 
 Every static site response receives security headers injected by the edge router:

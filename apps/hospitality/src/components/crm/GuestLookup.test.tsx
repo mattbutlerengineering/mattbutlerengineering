@@ -182,13 +182,15 @@ describe("GuestLookup", () => {
     expect(input).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("navigates with ArrowUp, Home and End without wrapping", () => {
+  it("navigates with ArrowDown and ArrowUp, clamping at both ends", () => {
     mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya, priyanka], query: "pri" });
     render(<Harness />);
     type("pri");
     const input = combobox();
     const [first, second] = screen.getAllByRole("option") as HTMLElement[];
-    fireEvent.keyDown(input, { key: "End" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input).toHaveAttribute("aria-activedescendant", first!.id);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(input).toHaveAttribute("aria-activedescendant", second!.id);
     fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(input).toHaveAttribute("aria-activedescendant", second!.id);
@@ -196,9 +198,38 @@ describe("GuestLookup", () => {
     expect(input).toHaveAttribute("aria-activedescendant", first!.id);
     fireEvent.keyDown(input, { key: "ArrowUp" });
     expect(input).toHaveAttribute("aria-activedescendant", first!.id);
-    fireEvent.keyDown(input, { key: "End" });
-    fireEvent.keyDown(input, { key: "Home" });
-    expect(input).toHaveAttribute("aria-activedescendant", first!.id);
+  });
+
+  it("highlights the last row on ArrowUp when nothing is highlighted", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya, priyanka], query: "pri" });
+    render(<Harness />);
+    type("pri");
+    const input = combobox();
+    const [, second] = screen.getAllByRole("option") as HTMLElement[];
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(input).toHaveAttribute("aria-activedescendant", second!.id);
+  });
+
+  it("leaves Home and End to the text input so the caret still moves", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya, priyanka], query: "pri" });
+    render(<Harness />);
+    type("pri");
+    const input = combobox();
+    for (const key of ["Home", "End"]) {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      fireEvent(input, event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(input).not.toHaveAttribute("aria-activedescendant");
+    }
+  });
+
+  it("does not swallow Enter when no row is highlighted", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya], query: "pri" });
+    render(<Harness />);
+    type("pri");
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    fireEvent(combobox(), enter);
+    expect(enter.defaultPrevented).toBe(false);
   });
 
   it("picks on mouse down without moving focus off the input", () => {

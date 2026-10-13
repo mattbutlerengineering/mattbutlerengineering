@@ -277,11 +277,6 @@
       export const guestRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/holds.ts">
     <item priority="medium">
       function getSessionId(request: FastifyRequest): string { /* ... */ }

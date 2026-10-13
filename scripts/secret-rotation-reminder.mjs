@@ -18,13 +18,19 @@
  */
 
 import { createGhClient } from "@mbe/gh-client";
-import { fileIssue, issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
+import { fileIssueBySearch, ghIssueDeps } from "./lib/issue-filing.mjs";
 
 /** Secrets tracked for rotation, with their cadence in months (anchored to January). */
 export const ROTATION_SCHEDULE = [
   { name: "DIGITALOCEAN_TOKEN", description: "DigitalOcean API token", intervalMonths: 3 },
   { name: "MBE_CLOUDFLARE_API_TOKEN", description: "Cloudflare API token", intervalMonths: 3 },
-  { name: "DATABASE_URL", description: "PostgreSQL connection string", intervalMonths: 3 },
+  {
+    name: "DATABASE_URL",
+    // Not a GitHub Actions secret: it lives in encrypted Pulumi config (see docs/SECRETS.md).
+    label: "`DATABASE_URL` (Pulumi config `mbe-infrastructure:databaseUrl`)",
+    description: "PostgreSQL connection string",
+    intervalMonths: 3,
+  },
   { name: "R2_ACCESS_KEY_ID", description: "Cloudflare R2 access key", intervalMonths: 3 },
   { name: "R2_SECRET_ACCESS_KEY", description: "Cloudflare R2 secret key", intervalMonths: 3 },
   {
@@ -79,7 +85,8 @@ export function formatIssueBody(dueSecrets, month, year) {
     "See [docs/SECRETS.md](../blob/main/docs/SECRETS.md) for rotation runbooks.",
     "",
     ...dueSecrets.map(
-      (s) => `- [ ] \`${s.name}\` — ${s.description} (rotates every ${s.intervalMonths} months)`
+      (s) =>
+        `- [ ] ${s.label ?? `\`${s.name}\``} — ${s.description} (rotates every ${s.intervalMonths} months)`
     ),
   ].join("\n");
 }
@@ -92,20 +99,18 @@ export function validateLabels(existingLabelNames, requiredLabels = REQUIRED_LAB
 }
 
 /**
- * Pure: finds a prior reminder issue (any state) among candidates with the
- * exact same title. Feeds `fileIssue()`'s dedupe-by-ledger decision (#3775):
- * a match lets a rerun this month skip (still open) or reopen (previously
- * closed) instead of the old open-only check, which would file a fresh
- * duplicate once the prior reminder for this month was closed.
+ * Pure: true when `issue` carries the exact same title as `title`
+ * (trimmed, case-insensitive). The dedupe match handed to `fileIssueBySearch`
+ * (#3775): a match lets a rerun this month skip (still open) or reopen
+ * (previously closed) instead of the old open-only check, which would file a
+ * fresh duplicate once the prior reminder for this month was closed.
  *
- * @param {Array<{number: number, title: string}>} candidates
+ * @param {{title?: string}} issue
  * @param {string} title
- * @returns {number | null}
+ * @returns {boolean}
  */
-export function findPriorReminderIssue(candidates, title) {
-  const target = title.trim().toLowerCase();
-  const match = (candidates ?? []).find((issue) => issue?.title?.trim().toLowerCase() === target);
-  return match ? match.number : null;
+export function isSameReminderTitle(issue, title) {
+  return issue?.title?.trim().toLowerCase() === title.trim().toLowerCase();
 }
 
 /**
@@ -156,22 +161,23 @@ export async function runSecretRotationReminder({
   const title = issueTitleFor(month, year);
   const body = formatIssueBody(dueSecrets, month, year);
 
-  // A failed search must not swallow a genuine due reminder — fail open
-  // (treat as "no prior found", file the issue) rather than closed.
-  let candidates = [];
-  try {
-    candidates = await listIssuesByLabel();
-  } catch (err) {
-    log(`search for a prior reminder failed, proceeding as no-match: ${err.message}`);
-  }
-  const priorNumber = findPriorReminderIssue(candidates, title);
-  const ledger = priorNumber !== null ? { [title]: priorNumber } : {};
-
-  const result = fileIssue({ title, body, labels: REQUIRED_LABELS, dedupeKey: title }, ledger, {
-    getIssueState,
-    createIssue,
-    reopenIssue,
-  });
+  // The injected search is async; settle it first so fileIssueBySearch's
+  // single fail-open path handles a rejection. A failed search must not
+  // swallow a genuine due reminder.
+  const [searched] = await Promise.allSettled([listIssuesByLabel()]);
+  const result = fileIssueBySearch(
+    { title, body, labels: REQUIRED_LABELS, dedupeKey: title },
+    {
+      search: () => {
+        if (searched.status === "rejected") throw searched.reason;
+        return searched.value;
+      },
+      match: (issue) => isSameReminderTitle(issue, title),
+      onSearchError: (err) =>
+        log(`search for a prior reminder failed, proceeding as no-match: ${err.message}`),
+    },
+    { getIssueState, createIssue, reopenIssue }
+  );
 
   if (result.action === "skip") {
     log(`reminder "${title}" already open — skipping duplicate`);
@@ -199,12 +205,7 @@ async function run() {
     listLabels: async () => gh.label.list(["--json", "name", "--limit", "200"]).map((l) => l.name),
     listIssuesByLabel: async () =>
       gh.issue.list(["--state", "all", "--label", "security", "--json", "number,title"]),
-    getIssueState: (issueNumber) => issueState(gh, issueNumber),
-    createIssue: (title, body, labels) =>
-      parseIssueNumberFromUrl(
-        gh.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])
-      ),
-    reopenIssue: (issueNumber) => gh.issue.reopen(issueNumber),
+    ...ghIssueDeps(gh),
     log: (msg) => console.log(`[secret-rotation-reminder] ${msg}`),
   });
 

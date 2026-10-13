@@ -359,7 +359,7 @@ describe("collectQueueEfficiency", () => {
     expect(result.sub_metrics.issues_merged).toBe(1);
   });
 
-  it("classifies PRs with legacy has-pr label as AI PRs", () => {
+  it("does not classify a has-pr-only PR as AI work (canonical predicate, #5852/#6380)", () => {
     const legacyPr = makePr({
       number: 1,
       headRefName: "feat/some-thing",
@@ -367,8 +367,7 @@ describe("collectQueueEfficiency", () => {
     });
 
     const result = collectQueueEfficiency(() => [legacyPr], NO_CCUSAGE, TEST_NOW);
-    expect(result.available).toBe(true);
-    expect(result.sub_metrics.issues_merged).toBe(1);
+    expect(result.available).toBe(false);
   });
 
   it("excludes PRs with null mergedAt from merged-AI-PR count", () => {
@@ -729,7 +728,7 @@ describe("readMergedAiPrsPaged (paged fetch by merged date, #5746)", () => {
       "--limit",
       "500",
       "--json",
-      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,additions,deletions",
+      "number,state,headRefName,author,createdAt,mergedAt,closedAt,labels,additions,deletions",
     ]);
   });
 

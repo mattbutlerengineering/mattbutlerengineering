@@ -59,4 +59,18 @@ describe("buildApp() shutdown wiring (#5469)", () => {
 
     expect(db.shutdown).toHaveBeenCalledTimes(1);
   });
+
+  // Shared health/ready behaviour is covered once in @mbe/service-bootstrap;
+  // this pins the paths reservations answers on (#6373).
+  it.each(["/health", "/api/health", "/api/v1/reservations/health"])(
+    "serves the shared health response on %s",
+    async (url) => {
+      app = await buildApp({ logger: false });
+      await app.ready();
+
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toMatchObject({ version: "1.0.0" });
+    }
+  );
 });

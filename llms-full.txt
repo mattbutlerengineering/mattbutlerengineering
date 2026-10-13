@@ -3136,6 +3136,7 @@
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
+          updatedAt: reservation.updatedAt,
         });
       }
     
@@ -3166,6 +3167,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
+              updatedAt: reservation.updatedAt,
             },
             preference
           );
@@ -3200,7 +3202,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
-              sequence: 2,
+              updatedAt: updated.updatedAt,
             },
             preference
           );
@@ -4447,28 +4449,6 @@
       });
     }
   </file>
-  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
-    export function todayInTimezone(now: Date, timeZone?: string): string {
-      if (!timeZone) return toDateString(now);
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const year = get("year");
-        const month = get("month");
-        const day = get("day");
-        if (!year || !month || !day) return toDateString(now);
-        return `${year}-${month}-${day}`;
-      } catch {
-        return toDateString(now);
-      }
-    }
-  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -4549,7 +4529,6 @@
       | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
       | { type: "CONFIRM_ERROR"; error: string }
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
-      | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
       | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
@@ -4560,7 +4539,7 @@
     function createInitialState(venueTimezone?: string): BookingFlowState {
       return {
         step: "date-party",
-        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+        data: { ...INITIAL_DATA, selectedDate: venueDate(new Date(), venueTimezone) },
       };
     }
     export const MISSING_VENUE_SLUG_ERROR =
@@ -4657,6 +4636,11 @@
             step: "confirmation",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -4670,6 +4654,11 @@
             step: "payment",
             data: {
               ...state.data,
+              // The server turned the hold into this reservation, so it is consumed:
+              // clearing it keeps the expiry timer (and onHoldChange) from acting on
+              // a hold that no longer protects anything — payment and confirmation
+              // both come after creation.
+              hold: null,
               reservation: action.reservation,
               manageToken: action.manageToken,
               confirmLoading: false,
@@ -4689,9 +4678,6 @@
             step: "confirmation",
             data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
           };
-    
-        case "GO_BACK_TO_GUEST_DETAILS":
-          return { ...state, step: "guest-details" };
     
         case "EXPIRE_HOLD":
           return {
@@ -4754,14 +4740,10 @@
       setPartySize: (size: number) => void;
       goToTimeSlot: () => void;
       goToDateParty: () => void;
-      setSlots: (slots: TimeSlot[]) => void;
-      setSlotsError: (error: string) => void;
       selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
       confirmReservation: (details: GuestDetails) => Promise<void>;
       handleDepositSuccess: (paymentIntentId: string) => void;
-      goBackToGuestDetails: () => void;
       resetFlow: () => void;
-      setDepositConfig: (config: DepositConfig | null) => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
       setGuestDetails: (details: GuestDetails) => void;
@@ -4778,7 +4760,6 @@
     export interface UseBookingFlowDeps {
       /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
       api: BookingWidgetApiClient;
-      venueId: string;
       /**
        * Slug backing every public endpoint this flow calls — venue config, guest
        * risk, and (since #4487) the whole hold lifecycle, which now goes through
@@ -4802,7 +4783,7 @@
       /**
        * IANA timezone the venue operates in — used to default `selectedDate` to
        * "today" on the venue's clock rather than a UTC midnight boundary
-       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       * (#4981). Omit only when unknown; falls back to the device clock.
        */
       venueTimezone?: string;
     }
@@ -4949,14 +4930,6 @@
         dispatch({ type: "GO_TO_DATE_PARTY" });
       }, [flowState.data.hold, releaseHold]);
     
-      const setSlots = useCallback((slots: TimeSlot[]) => {
-        dispatch({ type: "SET_SLOTS", slots });
-      }, []);
-    
-      const setSlotsError = useCallback((error: string) => {
-        dispatch({ type: "SET_SLOTS_ERROR", error });
-      }, []);
-    
       const selectSlotAndHold = useCallback(
         async (slot: TimeSlot): Promise<void> => {
           if (!flowState.data.selectedDate) return;
@@ -5055,24 +5028,9 @@
         dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
       }, []);
     
-      const goBackToGuestDetails = useCallback(() => {
-        dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-      }, []);
-    
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+        dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
       }, [venueTimezone]);
-    
-      const setDepositConfig = useCallback(
-        (config: DepositConfig | null) => {
-          dispatch({
-            type: "SET_DEPOSIT_CONFIG",
-            config,
-            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
-          });
-        },
-        [venueSlug, stripePublishableKey]
-      );
     
       const goToWaitlistJoin = useCallback(() => {
         dispatch({ type: "GO_TO_WAITLIST_JOIN" });
@@ -5107,11 +5065,10 @@
         return () => clearInterval(interval);
       }, [flowState.data.hold, fetchSlots]);
     
-      // Notifies onHoldChange whenever the "releasable" hold changes. Once the
-      // flow reaches "confirmation" the hold has been consumed into a real
-      // reservation — nothing left to release — even though `data.hold` itself
-      // is never cleared by the reducer.
-      const activeHoldId = flowState.step === "confirmation" ? null : (flowState.data.hold?.id ?? null);
+      // Notifies onHoldChange whenever the "releasable" hold changes. The reducer
+      // clears `data.hold` once it becomes a reservation, so any hold left is
+      // still releasable.
+      const activeHoldId = flowState.data.hold?.id ?? null;
       useEffect(() => {
         onHoldChangeRef.current?.(
           activeHoldId ? { holdId: activeHoldId, sessionId: api.holds.getSessionId() } : null
@@ -5135,14 +5092,10 @@
           setPartySize,
           goToTimeSlot,
           goToDateParty,
-          setSlots,
-          setSlotsError,
           selectSlotAndHold,
           confirmReservation,
           handleDepositSuccess,
-          goBackToGuestDetails,
           resetFlow,
-          setDepositConfig,
           goToWaitlistJoin,
           handleWaitlistJoined,
           setGuestDetails,
@@ -8826,8 +8779,8 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
-      // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/service-day.ts`
+      // `deviceDate`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
       // Pacific and emptied the grid for the whole evening service (A1 / P01).
       //
       // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
@@ -12662,25 +12615,30 @@
       }
     }
     export interface ThemeContextValue {
+      /** The stored preference (`"system"` included). */
       readonly theme: ThemePreference;
+      /** The preference resolved to light/dark; follows the OS live while `theme` is `"system"`. */
+      readonly resolvedTheme: "light" | "dark";
       readonly setTheme: (theme: ThemePreference) => void;
     }
     export const ThemeContext = createContext<ThemeContextValue>({
       theme: "system",
+      resolvedTheme: "light",
       setTheme: () => {},
     });
     export function useTheme(): ThemeContextValue {
       return useContext(ThemeContext);
     }
     export function useThemeState(): ThemeContextValue {
-      const { preference, setTheme } = useSharedThemeState();
+      const { preference, theme: resolvedTheme, setTheme } = useRialtoTheme();
     
       return useMemo(
         () => ({
           theme: preference,
+          resolvedTheme,
           setTheme,
         }),
-        [preference, setTheme]
+        [preference, resolvedTheme, setTheme]
       );
     }
     export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
@@ -12877,7 +12835,7 @@
     type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
     type DepositStats = Pick<DashboardStats, "depositAtRiskCount" | "noShowExposureCents">;
     function getTodayString(): string {
-      return toDateString(new Date());
+      return deviceDate(new Date());
     }
     function computeUpcoming(reservations: readonly Reservation[]): number {
       const now = new Date();
@@ -14431,6 +14389,19 @@
       extraContainerRefs?: RefObject<HTMLElement | null>[];
       /** Called after close/select so the consumer can return focus to its trigger. */
       onRequestTriggerFocus?: () => void;
+      /**
+       * `"button"` (default): a button-style trigger — opens with the selected item
+       * focused, Space/Enter open and commit, printable keys type-ahead.
+       * `"input"`: a text input owns typing — opens with nothing focused (ARIA APG:
+       * `aria-activedescendant` is set only once the user arrows; ArrowDown/ArrowUp
+       * on a closed list open it on the first/last enabled item), Space and
+       * printable keys are left to the input, and Enter on a focused item commits it
+       * like a click. Callers that must stay open after a commit (multi-select) handle
+       * Enter themselves before delegating the remaining keys.
+       */
+      inputMode?: "button" | "input";
+      /** Input mode: ArrowDown/ArrowUp wrap around the ends instead of clamping. */
+      wrap?: boolean;
     }
     export interface UseComboboxResult {
       readonly open: boolean;
@@ -14444,6 +14415,16 @@
       readonly setFocusedIndex: (index: number) => void;
       readonly handleKeyDown: (e: KeyboardEvent) => void;
     }
+    function nextEnabledIndex(items: ComboboxItem[], from: number, dir: 1 | -1, wrap: boolean): number {
+      const n = items.length;
+      for (let step = 1; step <= n; step++) {
+        const raw = from + dir * step;
+        if (!wrap && (raw < 0 || raw >= n)) break;
+        const i = ((raw % n) + n) % n;
+        if (!items[i]?.disabled) return i;
+      }
+      return from >= 0 && from < n ? from : -1;
+    }
     export function useCombobox({
       items,
       value,
@@ -14451,6 +14432,8 @@
       containerRef,
       extraContainerRefs,
       onRequestTriggerFocus,
+      inputMode = "button",
+      wrap = false,
     }: UseComboboxOptions): UseComboboxResult {
       const [open, setOpen] = useState(false);
       const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -14460,11 +14443,18 @@
     
       const close = useCallback(() => setOpen(false), []);
     
+      const isInput = inputMode === "input";
+    
       const openWithFocus = useCallback(() => {
+        if (isInput) {
+          setFocusedIndex(-1);
+          setOpen(true);
+          return;
+        }
         const idx = value ? items.findIndex((o) => o.value === value) : 0;
         setFocusedIndex(idx >= 0 ? idx : 0);
         setOpen(true);
-      }, [value, items]);
+      }, [value, items, isInput]);
     
       const toggle = useCallback(() => {
         if (open) {
@@ -14511,8 +14501,58 @@
         [open, focusedIndex, items, select]
       );
     
+      // Input mode: only Up/Down, Enter, Escape and Tab; text keys belong to the input.
+      const handleInputKey = useCallback(
+        (e: KeyboardEvent) => {
+          if (!open) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              // ARIA APG: Down opens on the first enabled item, Up on the last.
+              e.preventDefault();
+              setOpen(true);
+              setFocusedIndex(
+                e.key === "ArrowDown"
+                  ? nextEnabledIndex(items, -1, 1, false)
+                  : nextEnabledIndex(items, items.length, -1, false)
+              );
+            }
+            return;
+          }
+          switch (e.key) {
+            case "ArrowDown":
+            case "ArrowUp": {
+              e.preventDefault();
+              const dir = e.key === "ArrowDown" ? 1 : -1;
+              // Nothing focused yet: start off the matching end, as the closed branch does.
+              const from = focusedIndex >= 0 ? focusedIndex : dir === 1 ? -1 : items.length;
+              setFocusedIndex(nextEnabledIndex(items, from, dir, wrap));
+              break;
+            }
+            case "Enter": {
+              // ARIA APG: with no active option, Enter belongs to the input/form.
+              const focused = focusedIndex >= 0 ? items[focusedIndex] : undefined;
+              if (!focused) break;
+              e.preventDefault();
+              if (!focused.disabled) select(focused.value);
+              break;
+            }
+            case "Escape":
+              e.preventDefault();
+              setOpen(false);
+              break;
+            case "Tab":
+              setOpen(false);
+              break;
+          }
+        },
+        [open, items, focusedIndex, wrap, select]
+      );
+    
       const handleKeyDown = useCallback(
         (e: KeyboardEvent) => {
+          if (isInput) {
+            handleInputKey(e);
+            return;
+          }
           // Type-ahead for printable single characters.
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
@@ -14583,7 +14623,17 @@
               break;
           }
         },
-        [open, focusedIndex, items, handleTypeahead, openWithFocus, select, onRequestTriggerFocus]
+        [
+          isInput,
+          handleInputKey,
+          open,
+          focusedIndex,
+          items,
+          handleTypeahead,
+          openWithFocus,
+          select,
+          onRequestTriggerFocus,
+        ]
       );
     
       // Close on outside mousedown. Effect only (de)registers the listener — the
@@ -14675,19 +14725,35 @@
   </file>
   <file path="packages/rialto/src/hooks/useEscapeKey.ts">
     export function useEscapeKey(onClose: () => void, enabled: boolean): void {
+      // Latest callback lives in a ref so an inline `onClose` (new identity every render) never
+      // re-registers the layer — re-registering would move it to the top of the stack.
+      const onCloseRef = useRef(onClose);
+      useLayoutEffect(() => {
+        onCloseRef.current = onClose;
+      });
+    
       useEffect(() => {
         if (!enabled) return;
+    
+        const token = Symbol("overlay");
+        overlayStack.push(token);
     
         const handler = (e: KeyboardEvent) => {
           // An Escape a nested widget already consumed (a combobox closing its listbox calls
           // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
           if (e.defaultPrevented) return;
-          if (e.key === "Escape") onClose();
+          if (e.key !== "Escape") return;
+          if (overlayStack[overlayStack.length - 1] !== token) return;
+          onCloseRef.current();
         };
     
         document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-      }, [enabled, onClose]);
+        return () => {
+          document.removeEventListener("keydown", handler);
+          const index = overlayStack.indexOf(token);
+          if (index !== -1) overlayStack.splice(index, 1);
+        };
+      }, [enabled]);
     }
   </file>
   <file path="packages/rialto/src/hooks/useField.ts">
@@ -14989,31 +15055,57 @@
   </file>
   <file path="packages/rialto/src/hooks/useThemeState.ts">
     export type ThemePreference = "light" | "dark" | "system";
+    export const THEME_STORAGE_KEY = "mbe-theme-preference";
+    function isPreference(value: unknown): value is ThemePreference {
+      return value === "light" || value === "dark" || value === "system";
+    }
     function getStoredTheme(): ThemePreference {
       if (typeof window === "undefined") return "system";
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        return isPreference(stored) ? stored : "system";
       } catch {
-        // localStorage unavailable
+        // localStorage unavailable — the in-memory choice is the only record
+        return memoryPreference ?? "system";
       }
+    }
+    function getServerPreference(): ThemePreference {
       return "system";
     }
     function storeTheme(theme: ThemePreference): void {
       if (typeof window === "undefined") return;
       try {
-        localStorage.setItem(STORAGE_KEY, theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         // Theme still works in memory
+        memoryPreference = theme;
       }
     }
+    function subscribePreference(onChange: () => void): () => void {
+      preferenceListeners.add(onChange);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === null || event.key === THEME_STORAGE_KEY) onChange();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        preferenceListeners.delete(onChange);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function hasMatchMedia(): boolean {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function";
+    }
+    function getOsDark(): boolean {
+      return hasMatchMedia() && window.matchMedia(DARK_QUERY).matches;
+    }
+    function subscribeOsDark(onChange: () => void): () => void {
+      if (!hasMatchMedia()) return () => {};
+      const mql = window.matchMedia(DARK_QUERY);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    }
     export function resolveTheme(pref: ThemePreference): "light" | "dark" {
-      if (pref === "system") {
-        if (typeof window === "undefined") return "light";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
+      if (pref === "system") return getOsDark() ? "dark" : "light";
       return pref;
     }
     export interface ThemeState {
@@ -15023,18 +15115,18 @@
       readonly toggleTheme: () => void;
     }
     export function useThemeState(): ThemeState {
-      const [preference, setPreferenceState] = useState<ThemePreference>(getStoredTheme);
+      const preference = useSyncExternalStore(subscribePreference, getStoredTheme, getServerPreference);
+      const osDark = useSyncExternalStore(subscribeOsDark, getOsDark, () => false);
+    
+      const theme = preference === "system" ? (osDark ? "dark" : "light") : preference;
     
       const setTheme = useCallback((next: ThemePreference) => {
         storeTheme(next);
-        setPreferenceState(next);
+        preferenceListeners.forEach((listener) => listener());
       }, []);
     
-      const theme = useMemo(() => resolveTheme(preference), [preference]);
-    
       const toggleTheme = useCallback(() => {
-        const next: ThemePreference = theme === "dark" ? "light" : "dark";
-        setTheme(next);
+        setTheme(theme === "dark" ? "light" : "dark");
       }, [theme, setTheme]);
     
       return { preference, theme, setTheme, toggleTheme };
@@ -15691,7 +15783,7 @@
       return `${venueId}::${date}`;
     }
     function todayDateKey(): string {
-      return new Date().toISOString().slice(0, 10);
+      return deviceDate(new Date());
     }
     export async function getCachedReservations(
       venueId: string,
@@ -18016,6 +18108,14 @@
       }, [device.reducedMotion, vibe]);
     }
   </file>
+  <file path="packages/rialto/src/providers/useTheme.ts">
+    export const ThemeStateContext = createContext<ThemeState | null>(null);
+    export function useTheme(): ThemeState {
+      const ctx = useContext(ThemeStateContext);
+      if (!ctx) throw new Error("useTheme must be used within <RialtoProvider persistTheme>");
+      return ctx;
+    }
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;
@@ -18252,6 +18352,53 @@
       return typeof source === "string" && SILENT_SOURCES.has(source);
     }
   </file>
+  <file path="packages/auth/src/react/auth-gate.ts">
+    export type AuthGate =
+      | { readonly phase: "signing-out" }
+      | { readonly phase: "loading" }
+      | { readonly phase: "callback" }
+      | { readonly phase: "error"; readonly error: Error; readonly onCallback: boolean }
+      | { readonly phase: "signed-out"; readonly afterSignOut: boolean }
+      | { readonly phase: "expired" }
+      | { readonly phase: "ready" };
+    export interface AuthGateFacts {
+      readonly isLoading: boolean;
+      readonly isAuthenticated: boolean;
+      readonly error: Error | undefined;
+      readonly sessionExpired: boolean;
+      readonly activeNavigator: ActiveNavigator | undefined;
+    }
+    export type AuthGateLocation = Pick<Location, "pathname" | "search" | "hash">;
+    export function resolveAuthGate(facts: AuthGateFacts, location: AuthGateLocation): AuthGate {
+      const onCallback = location.pathname.endsWith("/callback");
+    
+      if (facts.isLoading) {
+        if (facts.activeNavigator === "signoutRedirect") return { phase: "signing-out" };
+        return { phase: onCallback ? "callback" : "loading" };
+      }
+    
+      if (facts.error) return { phase: "error", error: facts.error, onCallback };
+    
+      // Only an in-flight OIDC response is a real wait. A bare /callback is where
+      // sign-out lands — waiting there would hang on a loader forever.
+      if (onCallback && !facts.isAuthenticated) {
+        return hasAuthParams(location as Location)
+          ? { phase: "callback" }
+          : { phase: "signed-out", afterSignOut: true };
+      }
+    
+      // Before isAuthenticated: react-oidc-context does not re-evaluate it when a
+      // token expires in place.
+      if (facts.sessionExpired) return { phase: "expired" };
+    
+      if (!facts.isAuthenticated) return { phase: "signed-out", afterSignOut: false };
+    
+      return { phase: "ready" };
+    }
+    export function useAuthGate(): AuthGate {
+      return resolveAuthGate(useAuth(), window.location);
+    }
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
     export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
@@ -18451,6 +18598,14 @@
     export const SessionLifecycleContext = createContext<SessionLifecycleState>(DEFAULT_STATE);
     export function useSessionLifecycle(): SessionLifecycleState {
       return use(SessionLifecycleContext);
+    }
+  </file>
+  <file path="packages/auth/src/react/signin-return-to.ts">
+    export function rememberSigninReturnTo(returnTo: string | undefined): void {
+      lastSigninReturnTo = returnTo;
+    }
+    export function signinReturnTo(): string {
+      return isSafeReturnTo(lastSigninReturnTo) ? lastSigninReturnTo : "/";
     }
   </file>
   </section>
@@ -19354,18 +19509,6 @@
           return reply.send(stream);
         }
       );
-    };
-  </file>
-  <file path="services/agent/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getAgentHealth" },
-          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
-        ],
-      });
     };
   </file>
   <file path="services/agent/src/routes/orchestrate.ts">
@@ -21906,19 +22049,6 @@
             return reply.code(204).send();
           }
         ),
-      });
-    };
-  </file>
-  <file path="services/reservations/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/health", operationId: "getHealthApi" },
-          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
-        ],
       });
     };
   </file>
@@ -26562,18 +26692,6 @@
         await handler(event);
       }
     }
-  </file>
-  <file path="services/users/src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      await fastify.register(registerHealthRoutes, {
-        db,
-        checkAuth0,
-        routes: [
-          { path: "/health", operationId: "getHealth" },
-          { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
-        ],
-      });
-    };
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -34342,6 +34460,7 @@
             venueName: venue.name,
             venueTimezone: venue.ianaTimezone,
             venueAddress: null,
+            updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
           };
     
@@ -39298,14 +39417,6 @@
         return buildSetupSections(readiness, isAdmin);
       }
       return buildOperationalSections(isAdmin);
-    }
-  </file>
-  <file path="apps/hospitality/src/return-to-store.ts">
-    export function rememberReturnTo(returnTo?: string): void {
-      storedReturnTo = returnTo;
-    }
-    export function readReturnTo(): string | undefined {
-      return storedReturnTo;
     }
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
@@ -49963,6 +50074,7 @@
       getSlowQueryStats: () => SlowQueryStats;
       getPoolMetrics: () => PoolMetrics;
       getServiceStatus: () => ServiceStatus;
+      /** Idempotent. Callers own the lifecycle: createServiceApp wires it to fastify onClose. */
       shutdown: () => Promise<void>;
     }
     export interface PrismaLike {
@@ -50112,8 +50224,6 @@
         await basePrisma.$disconnect();
         await pool.end();
       }
-    
-      process.on("beforeExit", shutdown);
     
       return {
         prisma,
@@ -50782,6 +50892,15 @@
         this.status = status;
       }
     }
+    export class GhApiPathBlockedError extends GhAuthError {
+      constructor(method: string, path: string, status: number, body: string) {
+        super(method, path, status, body);
+        this.name = "GhApiPathBlockedError";
+      }
+    }
+    function isPathBlockedBody(body: string): boolean {
+      return /not available.*bound to their configured repositories/i.test(body);
+    }
     export class GhRateLimitError extends Error {
       readonly status: number;
     
@@ -50797,6 +50916,9 @@
     export function describeGhError(err: unknown): string {
       if (err instanceof GhRateLimitError) {
         return `GitHub API rate limit exceeded (${err.status}) — REST fallback credential is valid but throttled, retry later`;
+      }
+      if (err instanceof GhApiPathBlockedError) {
+        return `GitHub API path blocked for this session (${err.status}) — credential is valid but only repository-scoped endpoints (repos/{owner}/{repo}/...) are allowed, not e.g. the Search API`;
       }
       if (err instanceof GhAuthError) {
         return `GitHub auth failed (${err.status}) — REST fallback credential is not valid for direct API calls`;
@@ -50844,6 +50966,9 @@
         if (res.status === 403 && isThrottledBody(res.body)) {
           throw new GhRateLimitError(method, path, res.status, res.body);
         }
+        if (res.status === 403 && isPathBlockedBody(res.body)) {
+          throw new GhApiPathBlockedError(method, path, res.status, res.body);
+        }
         if (res.status === 401 || res.status === 403) {
           throw new GhAuthError(method, path, res.status, res.body);
         }
@@ -50889,6 +51014,11 @@
       const search = flag(parsed, "search");
     
       if (search !== undefined) {
+        // Prefer repo-scoped endpoints: CCR sessions block the Search API (#6445).
+        const filters = parseSearchFilters(search, parsed);
+        if (filters && filters.mergedSince === undefined) {
+          return listIssuesByFilters(ctx, parsed, filters, limit).map(mapIssue);
+        }
         const query = buildSearchQuery(ctx, "issue", parsed, search);
         const items = fetchAllPages(
           ctx,
@@ -51218,7 +51348,11 @@
         wantsCommits || wantsJsonField(parsed, "additions") || wantsJsonField(parsed, "deletions");
     
       let items: unknown[];
-      if (search !== undefined) {
+      const filters = search === undefined ? null : parseSearchFilters(search, parsed);
+      if (search !== undefined && filters) {
+        // Prefer repo-scoped endpoints: CCR sessions block the Search API (#6445).
+        items = listPrsByFilters(ctx, parsed, filters, limit);
+      } else if (search !== undefined) {
         const query = buildSearchQuery(ctx, "pr", parsed, search);
         items = fetchAllPages(ctx, `/search/issues?q=${encodeURIComponent(query)}`, limit, "items");
       } else {
@@ -51359,6 +51493,152 @@
             throw new Error(`gh-client REST fallback: unsupported command "gh ${args.join(" ")}"`);
         }
       };
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-search-filters.ts">
+    export interface SearchFilters {
+      /** AND of OR-groups: every group must match at least one of its labels. */
+      labelGroups: string[][];
+      createdSince?: string;
+      closedSince?: string;
+      mergedSince?: string;
+    }
+    export function parseSearchFilters(search: string, parsed: ParsedArgs): SearchFilters | null {
+      const labelGroups: string[][] = flagAll(parsed, "label").map((label) => [label]);
+      const dates: Partial<Record<"created" | "closed" | "merged", string>> = {};
+    
+      for (const token of search.split(/\s+/).filter(Boolean)) {
+        const label = LABEL_QUALIFIER.exec(token);
+        if (label?.[1]) {
+          labelGroups.push(label[1].split(","));
+          continue;
+        }
+        const date = DATE_QUALIFIER.exec(token);
+        if (date?.[1] && date[2]) {
+          dates[date[1] as "created" | "closed" | "merged"] = date[2];
+          continue;
+        }
+        return null;
+      }
+    
+      return {
+        labelGroups,
+        ...(dates.created ? { createdSince: dates.created } : {}),
+        ...(dates.closed ? { closedSince: dates.closed } : {}),
+        ...(dates.merged ? { mergedSince: dates.merged } : {}),
+      };
+    }
+    type Listable = (RawIssue | RawPr) & { updated_at?: string; merged_at?: string | null };
+    function labelNames(item: Listable): string[] {
+      return (item.labels ?? []).map((l) => (typeof l === "string" ? l : l.name));
+    }
+    function atOrAfter(value: string | null | undefined, since: string | undefined): boolean {
+      if (since === undefined) return true;
+      // ISO timestamps compare lexicographically against a date or timestamp prefix.
+      return typeof value === "string" && value >= since;
+    }
+    function matches(item: Listable, filters: SearchFilters): boolean {
+      const names = labelNames(item);
+      return (
+        filters.labelGroups.every((group) => group.some((l) => names.includes(l))) &&
+        atOrAfter(item.created_at, filters.createdSince) &&
+        atOrAfter(item.closed_at, filters.closedSince) &&
+        atOrAfter(item.merged_at, filters.mergedSince)
+      );
+    }
+    function updatedCutoff(filters: SearchFilters): string | undefined {
+      const sinces = [filters.createdSince, filters.closedSince, filters.mergedSince].filter(
+        (v): v is string => v !== undefined
+      );
+      return sinces.length > 0 ? sinces.reduce((a, b) => (a > b ? a : b)) : undefined;
+    }
+    function paginate(
+      ctx: RestContext,
+      path: string,
+      params: URLSearchParams,
+      filters: SearchFilters,
+      limit: number,
+      skip: (item: Listable) => boolean
+    ): Listable[] {
+      const cutoff = updatedCutoff(filters);
+      const results: Listable[] = [];
+      const perPage = 100;
+    
+      for (let page = 1; results.length < limit; page++) {
+        const query = new URLSearchParams(params);
+        query.set("per_page", String(perPage));
+        query.set("page", String(page));
+        const { json } = apiRequest(ctx, "GET", `${path}?${query}`);
+        const items = Array.isArray(json) ? (json as Listable[]) : [];
+    
+        let exhausted = items.length < perPage;
+        for (const item of items) {
+          // Sorted by `updated` desc: once past the cutoff nothing later can match.
+          if (cutoff !== undefined && (item.updated_at ?? "") < cutoff) {
+            exhausted = true;
+            break;
+          }
+          if (!skip(item) && matches(item, filters)) results.push(item);
+        }
+        if (exhausted) break;
+      }
+      return results.slice(0, limit);
+    }
+    function labelParamSets(filters: SearchFilters): (string | undefined)[] {
+      const singles = filters.labelGroups.filter((g) => g.length === 1).map((g) => g[0]);
+      const orGroup = filters.labelGroups.find((g) => g.length > 1);
+      if (!orGroup) return [singles.length > 0 ? singles.join(",") : undefined];
+      return orGroup.map((member) => [...singles, member].join(","));
+    }
+    function listFiltered(
+      ctx: RestContext,
+      path: string,
+      state: string,
+      filters: SearchFilters,
+      limit: number,
+      skip: (item: Listable) => boolean,
+      serverSideLabels = true
+    ): Listable[] {
+      const seen = new Set<number>();
+      const merged: Listable[] = [];
+      for (const labels of serverSideLabels ? labelParamSets(filters) : [undefined]) {
+        const params = new URLSearchParams({ state, sort: "updated", direction: "desc" });
+        if (labels) params.set("labels", labels);
+        for (const item of paginate(ctx, path, params, filters, limit, skip)) {
+          if (!seen.has(item.number)) {
+            seen.add(item.number);
+            merged.push(item);
+          }
+        }
+      }
+      // Newest first across members, so one large member cannot crowd out the rest.
+      const byUpdatedDesc = [...merged].sort((a, b) =>
+        (b.updated_at ?? "").localeCompare(a.updated_at ?? "")
+      );
+      return byUpdatedDesc.slice(0, limit);
+    }
+    export function listIssuesByFilters(
+      ctx: RestContext,
+      parsed: ParsedArgs,
+      filters: SearchFilters,
+      limit: number
+    ): RawIssue[] {
+      const state = flag(parsed, "state") ?? "all";
+      const path = `/repos/${ctx.owner}/${ctx.repo}/issues`;
+      return listFiltered(ctx, path, state, filters, limit, (i) => "pull_request" in i) as RawIssue[];
+    }
+    export function listPrsByFilters(
+      ctx: RestContext,
+      parsed: ParsedArgs,
+      filters: SearchFilters,
+      limit: number
+    ): RawPr[] {
+      const requested = flag(parsed, "state") ?? "all";
+      // `merged:` implies closed, and the pulls endpoint has no "merged" state.
+      const state = filters.mergedSince !== undefined || requested === "merged" ? "closed" : requested;
+      const path = `/repos/${ctx.owner}/${ctx.repo}/pulls`;
+      // /pulls has no `labels` param: one unlabelled request set, labels filtered client-side.
+      return listFiltered(ctx, path, state, filters, limit, () => false, false) as RawPr[];
     }
   </file>
   <file path="packages/gh-client/src/rest-search.ts">
@@ -51877,6 +52157,27 @@
       ical?: string;
       icalMethod?: "REQUEST" | "CANCEL";
     }
+    function sequenceFor(input: BookingNotificationInput): number {
+      if (input.sequence !== undefined) return input.sequence;
+      return input.updatedAt ? calendarSequence(input.updatedAt) : 0;
+    }
+    function icalFor(input: BookingNotificationInput, method: IcalMethod): string {
+      return generateBookingIcal(
+        {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestEmail: input.guestEmail,
+          venueName: input.venueName,
+          venueTimezone: input.venueTimezone,
+          sequence: sequenceFor(input),
+        },
+        method
+      );
+    }
     export function buildBookingEmailContent(
       input: BookingNotificationInput,
       event: NotificationEventType,
@@ -51885,66 +52186,13 @@
       const { subject, html } = buildBookingEmail({ ...input, manageBaseUrl }, event);
     
       switch (event) {
-        case "confirmation": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 0,
-            },
-            "REQUEST"
-          );
-          return { subject, html, ical, icalMethod: "REQUEST" };
-        }
-    
-        case "reminder": {
+        case "confirmation":
+        case "modified":
+          return { subject, html, ical: icalFor(input, "REQUEST"), icalMethod: "REQUEST" };
+        case "cancelled":
+          return { subject, html, ical: icalFor(input, "CANCEL"), icalMethod: "CANCEL" };
+        case "reminder":
           return { subject, html };
-        }
-    
-        case "modified": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 1,
-            },
-            "REQUEST"
-          );
-          return { subject, html, ical, icalMethod: "REQUEST" };
-        }
-    
-        case "cancelled": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 0,
-            },
-            "CANCEL"
-          );
-          return { subject, html, ical, icalMethod: "CANCEL" };
-        }
       }
     }
   </file>
@@ -52006,11 +52254,12 @@
       event: NotificationEventType
     ): BookingEmailTemplate {
       const copy = eventCopy(input.venueName, event);
+      const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
     
       const lines = [
         `<h1>${copy.heading}</h1>`,
         `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-        `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
+        `<p>${when.date} at ${when.display} — Party of ${input.partySize}</p>`,
       ];
     
       if (copy.includeAddress && input.venueAddress) {
@@ -52059,8 +52308,10 @@
       const sequence = input.sequence ?? 0;
       const now = formatIcalDate(new Date());
     
-      const dtstart = toIcalDateTime(input.date, input.startTime, input.venueTimezone);
-      const dtend = toIcalDateTime(input.date, input.endTime, input.venueTimezone);
+      // Instants go out as UTC ("Z") so no VTIMEZONE block is needed; a bare
+      // HH:MM keeps the TZID form.
+      const dtstart = icalDateTimeLine("DTSTART", input.startTime, input);
+      const dtend = icalDateTimeLine("DTEND", input.endTime, input);
     
       const venueName = escapeIcalText(input.venueName);
       const summary =
@@ -52081,8 +52332,8 @@
         `UID:${uid}`,
         `SEQUENCE:${sequence}`,
         `DTSTAMP:${now}`,
-        `DTSTART;TZID=${input.venueTimezone}:${dtstart}`,
-        `DTEND;TZID=${input.venueTimezone}:${dtend}`,
+        dtstart,
+        dtend,
         `SUMMARY:${summary}`,
         `LOCATION:${venueName}`,
         `DESCRIPTION:${description}`,
@@ -52096,10 +52347,15 @@
     
       return lines.join("\r\n");
     }
-    function toIcalDateTime(date: string, time: string, _timezone: string): string {
-      const [year, month, day] = date.split("-");
-      const [hour, minute] = time.split(":");
-      return `${year}${month}${day}T${hour}${minute}00`;
+    function icalDateTimeLine(
+      name: "DTSTART" | "DTEND",
+      value: string,
+      input: Pick<IcalEventInput, "date" | "venueTimezone">
+    ): string {
+      const local = toVenueLocalTime(value, input.venueTimezone, input.date);
+      return local.icalUtc
+        ? `${name}:${local.icalUtc}`
+        : `${name};TZID=${input.venueTimezone}:${local.icalLocal}`;
     }
     function formatIcalDate(date: Date): string {
       return date
@@ -52131,6 +52387,7 @@
           reservationId: input.reservationId,
           date: input.date,
           startTime: input.startTime,
+          venueTimezone: input.venueTimezone,
           partySize: input.partySize,
           guestName: input.guestName,
           guestPhone: input.guestPhone ?? "",
@@ -52245,6 +52502,12 @@
       venueTimezone: string;
       venueAddress: string | null;
       manageToken: string;
+      /**
+       * The reservation's `updatedAt`. The iCal SEQUENCE for confirm/modify/cancel
+       * is derived from it (see `calendarSequence`) so it only ever increases.
+       */
+      updatedAt?: string;
+      /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
     }
     export interface WinBackNotificationInput {
@@ -52464,6 +52727,8 @@
       reservationId: string;
       date: string;
       startTime: string;
+      /** IANA timezone used to render `startTime` as venue-local time. */
+      venueTimezone: string;
       partySize: number;
       guestName: string | null;
       guestPhone: string;
@@ -52537,6 +52802,11 @@
       const date = new Date(year, month - 1, day);
       return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
     }
+    function fitReminderBody(candidates: readonly string[]): string {
+      return (
+        candidates.find((c) => c.length <= SMS_SEGMENT_LIMIT) ?? candidates[candidates.length - 1]!
+      );
+    }
     export class TwilioSmsAdapter implements SmsPort {
       private readonly client: TwilioClient | null;
       private readonly fromNumber: string;
@@ -52552,13 +52822,18 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const dateStr = formatDate(input.date);
-        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+        const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
+        const dateStr = formatDate(when.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
     
-        const body = `${name}, reminder: ${input.venueName} ${dateStr} at ${input.startTime} for ${input.partySize}. Manage: ${manageUrl}`;
-        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
-    
-        await this.sendWithRetry(input.guestPhone, trimmed);
+        await this.sendWithRetry(
+          input.guestPhone,
+          fitReminderBody([
+            `${name}, reminder: ${input.venueName} ${dateStr} at ${when.display} for ${input.partySize}. Manage: ${manageUrl}`,
+            `${name}, reminder: ${input.venueName} ${dateStr} ${when.display}. Manage: ${manageUrl}`,
+            `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
+          ])
+        );
       }
     
       async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
@@ -52633,6 +52908,70 @@
           }
         );
       }
+    }
+  </file>
+  <file path="packages/notifications/src/venue-time.ts">
+    export interface VenueLocalTime {
+      /** Venue-local calendar date, "YYYY-MM-DD". */
+      date: string;
+      /** Venue-local 24h wall time, "HH:MM". */
+      time: string;
+      /** Guest-facing 12h time, e.g. "7:00 PM". */
+      display: string;
+      /** Floating iCal local datetime, "YYYYMMDDTHHMMSS". */
+      icalLocal: string;
+      /** UTC iCal datetime, "YYYYMMDDTHHMMSSZ"; null when input was a bare HH:MM. */
+      icalUtc: string | null;
+    }
+    function formatDisplay(hour: number, minute: number): string {
+      const suffix = hour >= 12 ? "PM" : "AM";
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+    }
+    function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime {
+      const hh = String(hour).padStart(2, "0");
+      const mm = String(minute).padStart(2, "0");
+      return {
+        date,
+        time: `${hh}:${mm}`,
+        display: formatDisplay(hour, minute),
+        icalLocal: `${date.replace(/-/g, "")}T${hh}${mm}00`,
+        icalUtc,
+      };
+    }
+    export function toVenueLocalTime(
+      value: string,
+      timezone: string,
+      fallbackDate: string
+    ): VenueLocalTime {
+      const bare = LOCAL_TIME.exec(value);
+      if (bare) return build(fallbackDate, Number(bare[1]), Number(bare[2]), null);
+    
+      const instant = new Date(value);
+      if (Number.isNaN(instant.getTime())) {
+        throw new Error(`Invalid booking time: ${value}`);
+      }
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).formatToParts(instant);
+      const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? "";
+      const date = `${part("year")}-${part("month")}-${part("day")}`;
+      const utc = instant
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+      return build(date, Number(part("hour")), Number(part("minute")), utc);
+    }
+    export function calendarSequence(updatedAt: string): number {
+      const ms = new Date(updatedAt).getTime();
+      if (Number.isNaN(ms)) throw new Error(`Invalid updatedAt: ${updatedAt}`);
+      return Math.floor(ms / 1000);
     }
   </file>
   <file path="packages/observability/src/error-rates.ts">
@@ -54173,6 +54512,14 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
+    export interface ServiceDatabaseConfig {
+      /** DatabaseInstance from @mbe/database (or a compatible stub in tests). */
+      readonly db: HealthDb & { readonly shutdown: () => Promise<void> };
+      /** Paths served by the shared health handler (e.g. /health plus a prefixed alias). */
+      readonly healthRoutes: readonly HealthRouteConfig[];
+      /** Overrides the shared Auth0 JWKS check — for tests without network. */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
     export interface ServiceAppConfig {
       /** Swagger/OpenAPI metadata — differs per service */
       readonly swagger: SwaggerConfig;
@@ -54180,6 +54527,8 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+      /** Owns the service's database: health, /ready, and pool shutdown on close. */
+      readonly database?: ServiceDatabaseConfig;
     }
     export interface AppOptions {
       logger?: boolean | object;
@@ -54210,6 +54559,20 @@
         log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
         return fallbackUrl;
       }
+    }
+    async function registerDatabase(
+      fastify: FastifyInstance,
+      database: ServiceDatabaseConfig
+    ): Promise<void> {
+      const { db, healthRoutes, checkAuth0 } = database;
+      // Runs after fastify has drained in-flight requests. shutdown() is idempotent.
+      fastify.addHook("onClose", async () => db.shutdown());
+      await fastify.register(registerHealthRoutes, {
+        db,
+        routes: healthRoutes,
+        ...(checkAuth0 && { checkAuth0 }),
+      });
+      await fastify.register(registerReadinessRoutes, { prisma: db.prisma });
     }
     export async function createServiceApp(
       config: ServiceAppConfig,
@@ -54383,6 +54746,11 @@
       // Policy (successor computation, sunset headers, deprecation decorators) is
       // governed by ADR-002 and lives in apply-versioning.ts.
       applyVersioning(fastify, config.apiVersioning);
+    
+      // --- Database lifecycle ---
+      if (config.database) {
+        await registerDatabase(fastify, config.database);
+      }
     
       return fastify;
     }
@@ -56346,13 +56714,18 @@
             serverUrl: "http://localhost:3003",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getAgentHealth" },
+              { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+            ],
+          },
         },
         options
       );
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
       await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
       await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
@@ -56432,6 +56805,14 @@
             serverUrl: "http://localhost:3004",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/health", operationId: "getHealthApi" },
+              { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+            ],
+          },
         },
         options
       );
@@ -56548,19 +56929,6 @@
       });
       fastify.decorate("transitions", transitions);
     
-      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
-      // (#5469). `@mbe/database`'s createDatabase() registers its own
-      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
-      // SIGINT handler always ends with an explicit `process.exit(0)` — which
-      // never fires `beforeExit` — so the pool was previously torn down by abrupt
-      // process termination on every deploy instead of a graceful disconnect.
-      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
-      // jobWorker below) runs deterministically after requests drain, so wire
-      // db.shutdown() here instead. Registered unconditionally (not gated on
-      // NODE_ENV !== "test" like the background jobs below) since it has no
-      // observable side effect beyond closing a connection that tests mock out.
-      fastify.addHook("onClose", async () => db.shutdown());
-    
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is
       // resolvable from its own query/body/params, so the RLS policies already
@@ -56580,8 +56948,6 @@
       fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
@@ -56721,13 +57087,18 @@
             serverUrl: "http://localhost:3001",
           },
           registerSchemas,
+          database: {
+            db,
+            healthRoutes: [
+              { path: "/health", operationId: "getHealth" },
+              { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
+            ],
+          },
         },
         options
       );
     
       // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     
@@ -56747,6 +57118,19 @@
         baseUrl: AGENT_API_URL,
         maxRetries: 0,
       });
+    }
+  </file>
+  <file path="tools/cli/src/command-loaders.ts">
+    type CommandLoader = () => Promise<Command>;
+    export const COMMAND_NAMES: readonly string[] = LOADERS.map(([name]) => name);
+    export async function registerCommands(program: Command, argv: readonly string[]): Promise<void> {
+      const requested = argv.find((arg) => !arg.startsWith("-"));
+      const selected = LOADERS.filter(([name]) => name === requested);
+      const toLoad = selected.length > 0 ? selected : LOADERS;
+      // Sequential load keeps registration order (and any load error) deterministic.
+      for (const [, load] of toLoad) {
+        program.addCommand(await load());
+      }
     }
   </file>
   <file path="tools/cli/src/command-seam.ts">
@@ -56865,6 +57249,12 @@
     }
     export function isAuthenticated(): boolean {
       return !!getAccessToken();
+    }
+  </file>
+  <file path="tools/cli/src/index.ts">
+    async function main(): Promise<void> {
+      await registerCommands(program, process.argv.slice(2));
+      await program.parseAsync();
     }
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
@@ -57374,7 +57764,6 @@
       "/health/system",
       "/health/uptime",
       "/health/performance",
-      "/health/lighthouse",
       "/health/deps",
     ] as const;
     class PassThroughHTMLRewriter {
@@ -57396,17 +57785,15 @@
         let originFetchCalls = 0;
         let staticBindingCalls = 0;
     
-        // The three KV operations the Worker reaches on these paths: `get` (CSP
-        // policy, circuit-breaker state, CI/deploy/migrate records), `put`
-        // (rate-limit counters, circuit-breaker state) and `list`
-        // (`health/lighthouse.js:11`). Empty answers throughout — every reader
+        // The KV operations the Worker reaches on these paths: `get` (CSP
+        // policy, circuit-breaker state, CI/deploy/migrate records) and `put`
+        // (rate-limit counters, circuit-breaker state). Empty answers throughout — every reader
         // already handles a miss, and with `get` always null the rate limiter's
         // count is always 0, so repeated probes of `/health/system` (10 req/60 s,
         // `rate-limiter.js:16`) can never shed.
         const kv = {
           get: async () => null,
           put: async () => undefined,
-          list: async () => ({ keys: [], list_complete: true }),
         };
     
         const env: Record<string, unknown> = {
@@ -59963,7 +60350,10 @@
             awaited(
               message({
                 kind: "booking-cancelled",
-                reservation: fact.reservation,
+                // What the guest is told is the pre-cancel booking, but the calendar
+                // SEQUENCE derives from updatedAt, so the cancel must carry the
+                // committed row's — else it ties the last modify and is ignored.
+                reservation: { ...fact.reservation, updatedAt: fact.updated.updatedAt },
                 manageToken: fact.manageToken,
                 initiator: fact.initiator,
               }),
@@ -60529,21 +60919,6 @@
       URL.revokeObjectURL(url);
     }
   </file>
-  <file path="apps/hospitality/src/utils/local-clock.ts">
-    function isValidDate(now: Date): boolean {
-      return !Number.isNaN(now.getTime());
-    }
-    export function localDateString(now: Date): string {
-      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
-    }
-    export function localHour(now: Date): number {
-      return now.getHours();
-    }
-    export function isLocalToday(date: string, now: Date): boolean {
-      const today = localDateString(now);
-      return today !== "" && date === today;
-    }
-  </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -60628,6 +61003,58 @@
       return tables
         .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
         .sort((a, b) => a.capacity - b.capacity);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/service-day.ts">
+    export function deviceDate(now: Date): string {
+      return Number.isNaN(now.getTime()) ? "" : now.toLocaleDateString(DAY_LOCALE);
+    }
+    export function deviceHour(now: Date): number {
+      return now.getHours();
+    }
+    export function isDeviceToday(date: string, now: Date): boolean {
+      const today = deviceDate(now);
+      return today !== "" && date === today;
+    }
+    export function venueDate(now: Date, timeZone?: string): string {
+      if (!timeZone) return deviceDate(now);
+      try {
+        return now.toLocaleDateString(DAY_LOCALE, { timeZone });
+      } catch {
+        return deviceDate(now);
+      }
+    }
+    export function addDays(date: string, days: number): string {
+      const shifted = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(shifted.getTime())) return "";
+      shifted.setUTCDate(shifted.getUTCDate() + days);
+      return shifted.toISOString().slice(0, 10);
+    }
+    export interface VenueWallClock {
+      /** Lower-case English weekday name, e.g. `"monday"`. */
+      readonly weekday: string;
+      /** Minutes since venue-local midnight. */
+      readonly nowMin: number;
+    }
+    export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const weekday = get("weekday")?.toLowerCase();
+        const hour = Number(get("hour"));
+        const minute = Number(get("minute"));
+        if (!weekday || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return { weekday, nowMin: hour * 60 + minute };
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="apps/hospitality/src/utils/timeline-intent.ts">
@@ -60729,24 +61156,10 @@
       readonly nowMin: number;
     }
     function readVenueClock(timeZone: string, now: Date): VenueClock | null {
-      try {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone,
-          weekday: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).formatToParts(now);
-        const get = (type: string): string | undefined =>
-          parts.find((part) => part.type === type)?.value;
-        const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
-        const hour = Number(get("hour"));
-        const minute = Number(get("minute"));
-        if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-        return { day, nowMin: hour * 60 + minute };
-      } catch {
-        return null;
-      }
+      const clock = venueWallClock(timeZone, now);
+      if (!clock) return null;
+      const day = WEEKDAYS.indexOf(clock.weekday as Weekday);
+      return day < 0 ? null : { day, nowMin: clock.nowMin };
     }
     function toMinutes(hhmm: string): number | null {
       if (!LOCAL_TIME_PATTERN.test(hhmm)) return null;

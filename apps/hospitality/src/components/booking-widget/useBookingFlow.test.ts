@@ -1,13 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import type {
-  TimeSlot,
-  ReservationHold,
-  Reservation,
-  DepositConfig,
-  PublicVenueConfig,
-} from "@mbe/types";
-import { toDateString } from "@mbe/types";
+import type { TimeSlot, ReservationHold, Reservation, PublicVenueConfig } from "@mbe/types";
+import { venueDate } from "../../utils/service-day.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import { useBookingFlow, deriveStepKeys, MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ApiClientError } from "@mbe/api-client";
@@ -66,16 +60,6 @@ const mockReservation: Reservation = {
   updatedAt: new Date().toISOString(),
 };
 
-const mockDepositConfig: DepositConfig = {
-  enabled: true,
-  depositType: "flat",
-  amountCents: 2500,
-  currency: "usd",
-  freeCancellationHours: 24,
-  lateCancellationFeePercent: 50,
-  noShowFeePercent: 100,
-};
-
 const guestDetails = { name: "John Doe", email: "john@example.com", phone: "", notes: "" };
 
 /** A venue's public config with no deposit ever configured — the harmless default. */
@@ -97,6 +81,23 @@ function makePublicVenueConfig(overrides?: Partial<PublicVenueConfig>): PublicVe
     },
     ...overrides,
   };
+}
+
+/** A venue's public deposit policy with deposits on — what `getPublicConfig` returns for a deposit venue. */
+const ENABLED_PUBLIC_DEPOSIT: PublicVenueConfig["deposit"] = {
+  enabled: true,
+  depositType: "flat",
+  amountCents: 2500,
+  freeCancellationHours: 24,
+  lateCancellationFeePercent: 50,
+  noShowFeePercent: 100,
+};
+
+/** The venue's public config for a deposit venue; `deposit` overrides tweak the policy. */
+function depositVenueConfig(
+  deposit: Partial<PublicVenueConfig["deposit"]> = {}
+): PublicVenueConfig {
+  return makePublicVenueConfig({ deposit: { ...ENABLED_PUBLIC_DEPOSIT, ...deposit } });
 }
 
 /** A fake public api client — the injected seam. Defaults resolve harmlessly; override per test. */
@@ -141,7 +142,6 @@ type FakeApi = ReturnType<typeof makeFakeApi>;
 const DEFAULT_SLUG = "the-oak-table";
 
 interface RenderBookingFlowOptions {
-  venueId?: string;
   /** Pass `null` to render with no slug at all (the misconfigured-embed case). */
   venueSlug?: string | null;
   stripePublishableKey?: string;
@@ -149,11 +149,10 @@ interface RenderBookingFlowOptions {
 }
 
 function renderBookingFlow(fakeApi: FakeApi, options: RenderBookingFlowOptions = {}) {
-  const { venueId = "v1", venueSlug = DEFAULT_SLUG, stripePublishableKey, venueTimezone } = options;
+  const { venueSlug = DEFAULT_SLUG, stripePublishableKey, venueTimezone } = options;
   return renderHook(() =>
     useBookingFlow({
       api: fakeApi as unknown as BookingWidgetApiClient,
-      venueId,
       venueSlug: venueSlug ?? undefined,
       stripePublishableKey,
       venueTimezone,
@@ -170,7 +169,7 @@ describe("useBookingFlow", () => {
 
     it("defaults selectedDate to today (#4981)", () => {
       const { result } = renderBookingFlow(makeFakeApi());
-      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
+      expect(result.current.data.selectedDate).toBe(venueDate(new Date()));
     });
 
     it("defaults selectedDate to today in the venue's timezone, not the device clock (#4981)", () => {
@@ -310,26 +309,12 @@ describe("useBookingFlow", () => {
       const fakeApi = makeFakeApi();
       const { result } = renderBookingFlow(fakeApi);
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
-      act(() => result.current.actions.setSlots([mockSlot]));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      expect(result.current.data.selectedSlot).toEqual(mockSlot);
       await act(async () => result.current.actions.goToTimeSlot());
       expect(result.current.data.selectedSlot).toBeNull();
-    });
-  });
-
-  describe("slot list management", () => {
-    it("setSlots updates slots list", () => {
-      const { result } = renderBookingFlow(makeFakeApi());
-      act(() => result.current.actions.setSlots([mockSlot, mockSlot2]));
-      expect(result.current.data.slots).toEqual([mockSlot, mockSlot2]);
-      expect(result.current.data.slotsLoading).toBe(false);
-      expect(result.current.data.slotsError).toBeNull();
-    });
-
-    it("setSlotsError sets error and clears loading", () => {
-      const { result } = renderBookingFlow(makeFakeApi());
-      act(() => result.current.actions.setSlotsError("Failed to load"));
-      expect(result.current.data.slotsError).toBe("Failed to load");
-      expect(result.current.data.slotsLoading).toBe(false);
     });
   });
 
@@ -537,11 +522,12 @@ describe("useBookingFlow", () => {
   describe("deposit branch (venue's general policy — no risk check needed when already enabled)", () => {
     it("confirmReservation with a deposit config goes to payment step", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
@@ -558,11 +544,12 @@ describe("useBookingFlow", () => {
 
     it("handleDepositSuccess sets paymentIntentId and goes to confirmation", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
@@ -577,13 +564,14 @@ describe("useBookingFlow", () => {
       expect(result.current.state).toBe("confirmation");
     });
 
-    it("goBackToGuestDetails from payment goes to guest-details", async () => {
+    it("exposes no way back to guest-details once the reservation exists", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
@@ -592,9 +580,10 @@ describe("useBookingFlow", () => {
       await act(async () => {
         await result.current.actions.confirmReservation(guestDetails);
       });
-      act(() => result.current.actions.goBackToGuestDetails());
 
-      expect(result.current.state).toBe("guest-details");
+      expect(result.current.state).toBe("payment");
+      expect(result.current.data.hold).toBeNull();
+      expect(result.current.actions).not.toHaveProperty("goBackToGuestDetails");
     });
   });
 
@@ -606,16 +595,15 @@ describe("useBookingFlow", () => {
       // disabled policy and the reducer keys off the non-null result, not
       // the config's own `enabled` flag.
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ enabled: false }));
       fakeApi.publicVenue.guestRisk.mockResolvedValue({
         requiresDeposit: true,
       });
-      const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };
-
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(disabledPolicyConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
@@ -636,16 +624,15 @@ describe("useBookingFlow", () => {
 
     it("non-risky guest at a venue with a disabled deposit policy: stepKeys stays deposit-free", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ enabled: false }));
       fakeApi.publicVenue.guestRisk.mockResolvedValue({
         requiresDeposit: false,
       });
-      const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };
-
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(disabledPolicyConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
@@ -661,13 +648,12 @@ describe("useBookingFlow", () => {
 
     it("never checks guest risk when Stripe is not configured, even at a venue with a deposit policy", async () => {
       const fakeApi = makeFakeApi();
-      const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };
-
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ enabled: false }));
       // venueSlug is set but stripePublishableKey is omitted — Stripe isn't
       // configured for this venue, so the risk lookup must never fire
       // (matches effectiveDepositPolicy/guestRiskMatters' own gating).
       const { result } = renderBookingFlow(fakeApi, { venueSlug: "the-oak-table" });
-      act(() => result.current.actions.setDepositConfig(disabledPolicyConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
@@ -691,11 +677,12 @@ describe("useBookingFlow", () => {
 
     it("confirmReservation with a deposit config resolves stepKeys to include payment with a valid index", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, {
         venueSlug: "the-oak-table",
         stripePublishableKey: "pk_test_abc",
       });
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
@@ -733,9 +720,10 @@ describe("useBookingFlow", () => {
       // SET_DEPOSIT_CONFIG must agree — promising a 4th "payment" step here,
       // only to retract it at confirm, is the bug this test guards against.
       const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
       const { result } = renderBookingFlow(fakeApi, { venueSlug: "the-oak-table" });
       await waitFor(() => expect(fakeApi.venues.getPublicConfig).toHaveBeenCalled());
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
 
       expect(result.current.data.depositRequired).toBe(false);
       expect(result.current.stepKeys).not.toContain("payment");
@@ -746,9 +734,11 @@ describe("useBookingFlow", () => {
   describe("backward navigation and Hold release (owned by the hook)", () => {
     it("goToDateParty from time-slot clears slot and slots", async () => {
       const fakeApi = makeFakeApi();
+      fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot]);
       const { result } = renderBookingFlow(fakeApi);
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
-      act(() => result.current.actions.setSlots([mockSlot]));
+      await act(async () => result.current.actions.goToTimeSlot());
+      expect(result.current.data.slots).toEqual([mockSlot]);
       act(() => result.current.actions.goToDateParty());
       expect(result.current.state).toBe("date-party");
       expect(result.current.data.selectedSlot).toBeNull();
@@ -857,11 +847,103 @@ describe("useBookingFlow", () => {
     });
   });
 
+  describe("a consumed hold cannot expire (#6389)", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** Holds (expiring in 5s) then confirms; the reservation exists once this resolves. */
+    async function confirmWithShortHold(options: { deposit: boolean }) {
+      const fakeApi = makeFakeApi();
+      const shortHold: ReservationHold = {
+        ...mockHold,
+        expiresAt: new Date(Date.now() + 5_000).toISOString(),
+      };
+      fakeApi.holds.createForVenue.mockResolvedValue({ hold: shortHold, sessionId: "s1" });
+      if (options.deposit) {
+        fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
+      }
+      const { result } = renderBookingFlow(fakeApi, { stripePublishableKey: "pk_test_abc" });
+      if (options.deposit) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        expect(result.current.data.depositConfig).not.toBeNull();
+      }
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+      return { fakeApi, result };
+    }
+
+    it("stays on confirmation after the original expiresAt passes", async () => {
+      const { fakeApi, result } = await confirmWithShortHold({ deposit: false });
+      expect(result.current.state).toBe("confirmation");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(result.current.state).toBe("confirmation");
+      expect(result.current.data.holdError).toBeNull();
+      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+    });
+
+    it("stays on payment after the original expiresAt passes: the reservation is created before payment", async () => {
+      const { fakeApi, result } = await confirmWithShortHold({ deposit: true });
+      expect(result.current.state).toBe("payment");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(result.current.state).toBe("payment");
+      expect(result.current.data.holdError).toBeNull();
+      expect(fakeApi.availability.getTimeSlotsForVenue).not.toHaveBeenCalled();
+    });
+
+    it("tells the embedding page there is no releasable hold once the reservation exists", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig());
+      const onHoldChange = vi.fn();
+      const { result } = renderHook(() =>
+        useBookingFlow({
+          api: fakeApi as unknown as BookingWidgetApiClient,
+          venueSlug: DEFAULT_SLUG,
+          stripePublishableKey: "pk_test_abc",
+          onHoldChange,
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.data.depositConfig).not.toBeNull();
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      expect(result.current.state).toBe("payment");
+      expect(onHoldChange).toHaveBeenLastCalledWith(null);
+    });
+  });
+
   describe("headless orchestration: slots -> Hold -> confirm through the hook (no component render)", () => {
     it("drives the full guest flow via a fake api client injected as a dependency", async () => {
       const fakeApi = makeFakeApi();
       fakeApi.availability.getTimeSlotsForVenue.mockResolvedValue([mockSlot]);
-      const { result } = renderBookingFlow(fakeApi, { venueId: "venue-headless" });
+      const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => result.current.actions.goToTimeSlot());
@@ -918,7 +1000,7 @@ describe("useBookingFlow", () => {
       });
       act(() => result.current.actions.resetFlow());
       expect(result.current.state).toBe("date-party");
-      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
+      expect(result.current.data.selectedDate).toBe(venueDate(new Date()));
       expect(result.current.data.selectedEndDate).toBeNull();
       expect(result.current.data.partySize).toBe(2);
       expect(result.current.data.slots).toEqual([]);
@@ -939,21 +1021,6 @@ describe("useBookingFlow", () => {
 
     it("includes payment when a deposit is required", () => {
       expect(deriveStepKeys(true)).toContain("payment");
-    });
-  });
-
-  describe("depositConfig management", () => {
-    it("setDepositConfig stores deposit config", () => {
-      const { result } = renderBookingFlow(makeFakeApi());
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
-      expect(result.current.data.depositConfig).toEqual(mockDepositConfig);
-    });
-
-    it("setDepositConfig can be cleared with null", () => {
-      const { result } = renderBookingFlow(makeFakeApi());
-      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
-      act(() => result.current.actions.setDepositConfig(null));
-      expect(result.current.data.depositConfig).toBeNull();
     });
   });
 });

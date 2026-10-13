@@ -1,4 +1,5 @@
 import type { DaySchedule, OperatingHours } from "@mbe/types";
+import { venueWallClock } from "./service-day.js";
 import { hasOperatingHours } from "../components/booking-widget/hasOperatingHours.js";
 
 export type Weekday = keyof OperatingHours; // "monday" … "sunday"
@@ -65,27 +66,13 @@ interface VenueClock {
 
 /**
  * Read the venue-local weekday and minute of `now` in `timeZone`.
- * `null` when the runtime cannot resolve the zone (`RangeError`).
+ * `null` when the runtime cannot resolve the zone (`RangeError`) or the weekday is unknown.
  */
 function readVenueClock(timeZone: string, now: Date): VenueClock | null {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      weekday: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(now);
-    const get = (type: string): string | undefined =>
-      parts.find((part) => part.type === type)?.value;
-    const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
-    const hour = Number(get("hour"));
-    const minute = Number(get("minute"));
-    if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-    return { day, nowMin: hour * 60 + minute };
-  } catch {
-    return null;
-  }
+  const clock = venueWallClock(timeZone, now);
+  if (!clock) return null;
+  const day = WEEKDAYS.indexOf(clock.weekday as Weekday);
+  return day < 0 ? null : { day, nowMin: clock.nowMin };
 }
 
 function toMinutes(hhmm: string): number | null {

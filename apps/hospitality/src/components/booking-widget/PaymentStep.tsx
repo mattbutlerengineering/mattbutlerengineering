@@ -20,7 +20,6 @@ export interface PaymentStepProps {
   venueSlug: string;
   stripePublishableKey: string;
   onSuccess: (paymentIntentId: string) => void;
-  onBack: () => void;
 }
 
 interface CardFormProps {
@@ -30,7 +29,6 @@ interface CardFormProps {
   reservationId: string;
   venueSlug: string;
   onSuccess: (paymentIntentId: string) => void;
-  onBack: () => void;
 }
 
 function CardForm({
@@ -40,7 +38,6 @@ function CardForm({
   reservationId,
   venueSlug,
   onSuccess,
-  onBack,
 }: CardFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -101,12 +98,6 @@ function CardForm({
 
   return (
     <div className={styles.container}>
-      <div className={styles.topBar}>
-        <Button variant="ghost" size="sm" onClick={onBack} type="button">
-          &larr; Back
-        </Button>
-      </div>
-
       <div className={styles.depositSummary}>
         <Text variant="label" as="h3">
           Deposit Required
@@ -179,7 +170,6 @@ export function PaymentStep(props: PaymentStepProps) {
         reservationId={props.reservationId}
         venueSlug={props.venueSlug}
         onSuccess={props.onSuccess}
-        onBack={props.onBack}
       />
     </Elements>
   );

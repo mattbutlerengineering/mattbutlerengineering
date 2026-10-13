@@ -29,6 +29,10 @@
  *     `unverifiable` and filed as a finding, per the issue's "fail closed on
  *     no signature defined" rule — silently passing it is how
  *     `mbe-weekly-improve` went two retros unverified.
+ *   - `paused: {since, reason}` — IS a RemoteTrigger routine, but disabled on
+ *     purpose. Classified `paused`; never observed, filed, or auto-closed
+ *     (#6440, #6443). May coexist with `unverifiable` so the signature note
+ *     survives until the routine is re-enabled and `paused` is removed.
  *
  * #5748's "known limitation" question — should mbe-night/mbe-midday/
  * mbe-daily-issue also log a line on a no-op (empty-backlog) fire, the way
@@ -74,6 +78,9 @@ export const HEARTBEAT_ISSUE_NUMBER = 6211;
  * @property {string} [outOfScopeReason]
  * @property {boolean} [unverifiable]
  * @property {string} [unverifiableReason]
+ * @property {{since: string, reason: string}} [paused]  intentionally paused (RemoteTrigger
+ *                                        disabled on purpose): classified `paused`, never filed
+ *                                        or auto-closed. Remove this field to re-enable checking.
  * @property {string} [activatedAt]       ISO date the RemoteTrigger was created; until it is
  *                                        2 x periodDays old, a routine with no matching artifact
  *                                        is `pending`, not `dark` (routine-liveness.mjs)
@@ -135,6 +142,11 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-night",
     triggerId: "trig_01E6UxiwdsWcjBNwRGZSjmSV",
     periodDays: 1,
+    paused: {
+      since: "2026-09-25",
+      reason:
+        "Deliberately paused by Matt: its auto-merge raced the local merge train. RemoteTrigger is enabled:false. Remove `paused` to re-enable liveness checks.",
+    },
     unverifiable: true,
     unverifiableReason:
       'docs/routines/mbe-night.md:22 now specifies a distinct `chore(metrics): night queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "night queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',
@@ -188,6 +200,11 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-midday",
     triggerId: "trig_0118ZgGfEndrMqQSuTQNXQwT",
     periodDays: 1,
+    paused: {
+      since: "2026-09-25",
+      reason:
+        "Deliberately paused by Matt: its auto-merge raced the local merge train. RemoteTrigger is enabled:false. Remove `paused` to re-enable liveness checks.",
+    },
     unverifiable: true,
     unverifiableReason:
       'docs/routines/mbe-midday.md:22 now specifies a distinct `chore(metrics): midday queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "midday queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',

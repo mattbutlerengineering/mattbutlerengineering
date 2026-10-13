@@ -13,6 +13,7 @@ const defaultSmsInput: SmsNotificationInput = {
   reservationId: "res_abc123",
   date: "2026-06-15",
   startTime: "19:00",
+  venueTimezone: "America/Los_Angeles",
   partySize: 4,
   guestName: "Jane Doe",
   guestPhone: "+15551234567",
@@ -57,7 +58,7 @@ describe("TwilioSmsAdapter", () => {
     expect(call.to).toBe("+15551234567");
     expect(call.from).toBe("+15559876543");
     expect(call.body).toContain("The Oak Table");
-    expect(call.body).toContain("19:00");
+    expect(call.body).toContain("7:00 PM");
     expect(call.body).toContain("June 15");
     expect(call.body.length).toBeLessThanOrEqual(160);
   });
@@ -253,6 +254,31 @@ describe("TwilioSmsAdapter", () => {
 
       const call = mockCreate.mock.calls[0]![0];
       expect(call.body.length).toBe(160);
+    });
+  });
+
+  describe("booking reminder link", () => {
+    const reminderAdapter = (): TwilioSmsAdapter =>
+      new TwilioSmsAdapter({ client: mockTwilioClient as never, fromNumber: "+15559876543" });
+
+    it("never truncates a real-length manage token and shows venue-local time", async () => {
+      const token = Buffer.from(
+        `res_abc123:jane@example.com:1790000000000:${"a".repeat(64)}`
+      ).toString("base64url");
+      await reminderAdapter().sendBookingReminder({
+        ...defaultSmsInput,
+        manageToken: token,
+        startTime: "2026-06-15T23:00:00.000Z",
+        venueTimezone: "America/New_York",
+      });
+      const body = mockCreate.mock.calls[0]![0].body as string;
+      expect(body.endsWith(`?token=${encodeURIComponent(token)}`)).toBe(true);
+      expect(body).toContain("7:00 PM");
+    });
+
+    it("encodes reserved characters in the token", async () => {
+      await reminderAdapter().sendBookingReminder({ ...defaultSmsInput, manageToken: "a b&c" });
+      expect(mockCreate.mock.calls[0]![0].body).toContain("?token=a%20b%26c");
     });
   });
 });

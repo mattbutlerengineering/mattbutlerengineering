@@ -1,3 +1,5 @@
+import { toVenueLocalTime } from "./venue-time.js";
+
 export interface IcalEventInput {
   reservationId: string;
   date: string;
@@ -43,8 +45,10 @@ export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): 
   const sequence = input.sequence ?? 0;
   const now = formatIcalDate(new Date());
 
-  const dtstart = toIcalDateTime(input.date, input.startTime, input.venueTimezone);
-  const dtend = toIcalDateTime(input.date, input.endTime, input.venueTimezone);
+  // Instants go out as UTC ("Z") so no VTIMEZONE block is needed; a bare
+  // HH:MM keeps the TZID form.
+  const dtstart = icalDateTimeLine("DTSTART", input.startTime, input);
+  const dtend = icalDateTimeLine("DTEND", input.endTime, input);
 
   const venueName = escapeIcalText(input.venueName);
   const summary =
@@ -65,8 +69,8 @@ export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): 
     `UID:${uid}`,
     `SEQUENCE:${sequence}`,
     `DTSTAMP:${now}`,
-    `DTSTART;TZID=${input.venueTimezone}:${dtstart}`,
-    `DTEND;TZID=${input.venueTimezone}:${dtend}`,
+    dtstart,
+    dtend,
     `SUMMARY:${summary}`,
     `LOCATION:${venueName}`,
     `DESCRIPTION:${description}`,
@@ -81,10 +85,15 @@ export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): 
   return lines.join("\r\n");
 }
 
-function toIcalDateTime(date: string, time: string, _timezone: string): string {
-  const [year, month, day] = date.split("-");
-  const [hour, minute] = time.split(":");
-  return `${year}${month}${day}T${hour}${minute}00`;
+function icalDateTimeLine(
+  name: "DTSTART" | "DTEND",
+  value: string,
+  input: Pick<IcalEventInput, "date" | "venueTimezone">
+): string {
+  const local = toVenueLocalTime(value, input.venueTimezone, input.date);
+  return local.icalUtc
+    ? `${name}:${local.icalUtc}`
+    : `${name};TZID=${input.venueTimezone}:${local.icalLocal}`;
 }
 
 function formatIcalDate(date: Date): string {

@@ -7,11 +7,6 @@
   </file>
   </section>
   <section priority="medium" role="routes">
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/users.ts">
     <item priority="low">
       async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }

@@ -1,15 +1,14 @@
 import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
-import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
+import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
-import { rememberReturnTo } from "./return-to-store";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -319,37 +318,40 @@ const router = createBrowserRouter(
 );
 
 /**
- * Wrapper that reads the persisted theme preference from localStorage
- * and passes it to RialtoProvider. Wrapped in its own component so the
- * `useThemeState` hook can live inside the React tree.
+ * Feeds the theme state that `<RialtoProvider persistTheme>` owns (storage
+ * key, live OS tracking) into this app's ThemeContext. Must render inside
+ * the provider.
  */
-function Root() {
+function ThemeBridge({ children }: { children: ReactNode }) {
   const themeState = useThemeState();
+  return <ThemeContext.Provider value={themeState}>{children}</ThemeContext.Provider>;
+}
 
+function Root() {
   if (!authConfigResult.valid) {
     return (
-      <ThemeContext.Provider value={themeState}>
-        <RialtoProvider theme={resolveTheme(themeState.theme)}>
+      <RialtoProvider persistTheme>
+        <ThemeBridge>
           <AuthConfigError missing={authConfigResult.missing} />
-        </RialtoProvider>
-      </ThemeContext.Provider>
+        </ThemeBridge>
+      </RialtoProvider>
     );
   }
 
   return (
-    <ThemeContext.Provider value={themeState}>
-      <RialtoProvider theme={resolveTheme(themeState.theme)}>
+    <RialtoProvider persistTheme>
+      <ThemeBridge>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
-            <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>
+            <AuthProvider config={authConfigResult.config}>
               <QueryProvider>
                 <RouterProvider router={router} />
               </QueryProvider>
             </AuthProvider>
           </ErrorBoundary>
         </ToastProvider>
-      </RialtoProvider>
-    </ThemeContext.Provider>
+      </ThemeBridge>
+    </RialtoProvider>
   );
 }
 

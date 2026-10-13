@@ -370,7 +370,7 @@ describe("createDatabase", () => {
     const MockPrisma = createMockPrismaClient();
     const db = createDatabase(MockPrisma as never);
 
-    // Clear any calls from prior tests or beforeExit registrations
+    // Clear any calls from prior tests
     mockPoolInstance.end.mockClear();
 
     // First shutdown should call pool.end() exactly once

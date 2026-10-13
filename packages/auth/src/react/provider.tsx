@@ -5,6 +5,7 @@ import type { User } from "oidc-client-ts";
 import type { ReactNode } from "react";
 import type { OIDCConfig } from "../types/index.js";
 import { extractReturnTo } from "./return-to.js";
+import { rememberSigninReturnTo } from "./signin-return-to.js";
 import { SessionLifecycleProvider } from "./session-lifecycle.js";
 
 export interface AuthProviderProps {
@@ -37,7 +38,9 @@ export function AuthProvider({ config, children, onSigninCallback }: AuthProvide
     onSigninCallback: (user: User | undefined | void) => {
       // Remove OIDC callback params from URL after sign-in
       window.history.replaceState({}, document.title, window.location.pathname);
-      onSigninCallback?.(user ? extractReturnTo(user.state) : undefined);
+      const returnTo = user ? extractReturnTo(user.state) : undefined;
+      rememberSigninReturnTo(returnTo);
+      onSigninCallback?.(returnTo);
     },
   };
 

@@ -92,56 +92,29 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       [setInputValue, onSelect]
     );
 
-    const { open, focusedIndex, openWithFocus, close, setFocusedIndex } = useCombobox({
-      items: comboboxItems,
-      containerRef: wrapperRef,
-    });
+    const handleCommit = useCallback(
+      (optionValue: string) => {
+        const option = filtered.find((o) => o.value === optionValue);
+        if (option) handleSelectOption(option);
+      },
+      [filtered, handleSelectOption]
+    );
+
+    const { open, focusedIndex, openWithFocus, close, setFocusedIndex, handleKeyDown } =
+      useCombobox({
+        items: comboboxItems,
+        containerRef: wrapperRef,
+        inputMode: "input",
+        wrap: true,
+        onSelect: handleCommit,
+      });
 
     const handleInputChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
         openWithFocus();
-        setFocusedIndex(-1);
       },
-      [setInputValue, openWithFocus, setFocusedIndex]
-    );
-
-    const handleKeyDown = useCallback(
-      (e: React.KeyboardEvent) => {
-        if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-          e.preventDefault();
-          openWithFocus();
-          return;
-        }
-
-        if (!open) return;
-
-        switch (e.key) {
-          case "ArrowDown":
-            e.preventDefault();
-            setFocusedIndex(focusedIndex < filtered.length - 1 ? focusedIndex + 1 : 0);
-            break;
-          case "ArrowUp":
-            e.preventDefault();
-            setFocusedIndex(focusedIndex > 0 ? focusedIndex - 1 : filtered.length - 1);
-            break;
-          case "Enter":
-            e.preventDefault();
-            if (focusedIndex >= 0 && filtered[focusedIndex]) {
-              handleSelectOption(filtered[focusedIndex]);
-              close();
-            }
-            break;
-          case "Escape":
-            e.preventDefault();
-            close();
-            break;
-          case "Tab":
-            close();
-            break;
-        }
-      },
-      [open, focusedIndex, filtered, handleSelectOption, openWithFocus, close, setFocusedIndex]
+      [setInputValue, openWithFocus]
     );
 
     // Scroll active option into view

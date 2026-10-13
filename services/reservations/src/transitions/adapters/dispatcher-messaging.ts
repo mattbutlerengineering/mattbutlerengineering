@@ -50,6 +50,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
       venueTimezone: venue.ianaTimezone,
       venueAddress: null,
       manageToken,
+      updatedAt: reservation.updatedAt,
     });
   }
 
@@ -80,6 +81,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
+          updatedAt: reservation.updatedAt,
         },
         preference
       );
@@ -114,7 +116,7 @@ export function createDispatcherMessaging(deps: DispatcherMessagingDeps): Messag
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
-          sequence: 2,
+          updatedAt: updated.updatedAt,
         },
         preference
       );

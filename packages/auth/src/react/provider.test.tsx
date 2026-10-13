@@ -17,6 +17,7 @@ vi.mock("react-oidc-context", () => ({
 }));
 
 import { AuthProvider } from "./provider.js";
+import { signinReturnTo } from "./signin-return-to.js";
 import type { OIDCConfig } from "../types/index.js";
 
 const baseConfig: OIDCConfig = {
@@ -219,6 +220,37 @@ describe("AuthProvider", () => {
 
     expect(onSigninCallback).toHaveBeenNthCalledWith(1, undefined);
     expect(onSigninCallback).toHaveBeenNthCalledWith(2, undefined);
+  });
+
+  describe("signinReturnTo()", () => {
+    const completeSignin = (user?: unknown) => {
+      render(
+        <AuthProvider config={baseConfig}>
+          <div />
+        </AuthProvider>
+      );
+      const props = mockOIDCProvider.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      (props.onSigninCallback as (user?: unknown) => void)(user);
+    };
+
+    it("returns the returnTo carried through sign-in, with no onSigninCallback prop", () => {
+      completeSignin({ state: { returnTo: "/reservations?date=2026-09-01" } });
+      expect(signinReturnTo()).toBe("/reservations?date=2026-09-01");
+    });
+
+    it("returns home when the sign-in carried no returnTo", () => {
+      completeSignin({ state: { returnTo: "/guests" } });
+      completeSignin({ state: undefined });
+      expect(signinReturnTo()).toBe("/");
+    });
+
+    it.each(["https://evil.com/phish", "//evil.com", "/\\evil.com"])(
+      "returns home instead of an unsafe returnTo %s (open-redirect guard)",
+      (unsafe) => {
+        completeSignin({ state: { returnTo: unsafe } });
+        expect(signinReturnTo()).toBe("/");
+      }
+    );
   });
 
   it("does not throw when onSigninCallback prop is not provided", () => {

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 import { Table } from "./Table";
 
 type Driver = {
@@ -67,6 +68,17 @@ describe("Table", () => {
       const columnsWithActions = [...columns, { key: "actions", header: "", ariaLabel: "Actions" }];
       render(<Table columns={columnsWithActions} data={data} rowKey={(r) => r.name} />);
       expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    });
+
+    it("gives a visually empty header discernible text (axe empty-table-header)", async () => {
+      const columnsWithActions = [...columns, { key: "actions", header: "", ariaLabel: "Actions" }];
+      const { container } = render(
+        <Table columns={columnsWithActions} data={data} rowKey={(r) => r.name} />
+      );
+      const results = await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      });
+      expect(results.violations.map((v) => v.id)).not.toContain("empty-table-header");
     });
   });
 

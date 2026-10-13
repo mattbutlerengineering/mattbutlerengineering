@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
-import { useAuth, isSafeReturnTo, hasAuthParams } from "@mbe/auth/react";
+import { useAuthGate, signinReturnTo } from "@mbe/auth/react";
+import type { AuthGate } from "@mbe/auth/react";
 import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
-import { useTheme, useThemeServerHydration, resolveTheme } from "./hooks/use-theme";
+import { useTheme, useThemeServerHydration } from "./hooks/use-theme";
 import { useCurrentUser } from "./hooks/useUsers.js";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
@@ -12,7 +13,6 @@ import { CallbackPage } from "./components/CallbackPage";
 import { SessionExpiredGate } from "./components/SessionExpiredGate";
 import { AuthFailurePage } from "./pages/AuthFailurePage";
 import { SignOutPage } from "./pages/SignOutPage";
-import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
 
 /**
@@ -54,13 +54,33 @@ function ThemeServerSync() {
   return null;
 }
 
+/** The screen for each not-yet-ready auth gate phase. */
+function unauthenticatedScreen(gate: Exclude<AuthGate, { phase: "ready" }>): ReactNode {
+  switch (gate.phase) {
+    case "signing-out":
+      return <SignOutPage />;
+    case "loading":
+      return <LoadingPage />;
+    // The wait is a credential exchange, not a generic load — show the handshake.
+    case "callback":
+      return <CallbackPage />;
+    case "error":
+      return <AuthFailurePage error={gate.error} lane={gate.onCallback ? 1 : 0} />;
+    // A lapsed session deserves a "your session ended" moment, not a cold gate.
+    case "expired":
+      return <SessionExpiredGate />;
+    case "signed-out":
+      return <LoginGate signedOut={gate.afterSignOut} />;
+  }
+}
+
 /**
  * Root layout route — handles auth gating before any child routes render.
  * Used as the top-level `element` in createBrowserRouter so that
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
-  const { isLoading, isAuthenticated, error, sessionExpired, activeNavigator } = useAuth();
+  const gate = useAuthGate();
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -68,8 +88,7 @@ export function App() {
       main.focus({ preventScroll: true });
     }
   }, []);
-  const { theme: preference, setTheme } = useTheme();
-  const resolved = resolveTheme(preference);
+  const { resolvedTheme: resolved, setTheme } = useTheme();
 
   const handleThemeToggle = () => {
     setTheme(resolved === "dark" ? "light" : "dark");
@@ -79,59 +98,10 @@ export function App() {
     <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />
   );
 
-  // On the callback path the wait is a credential exchange, not a generic
-  // load — show the handshake for it. `isLoading` is only true here for the
-  // initial user restore or a redirect callback; a silent refresh never trips
-  // it (see useAuth), so the dashboard stays mounted through a token renewal.
-  const isCallback = window.location.pathname.endsWith("/callback");
-
-  if (isLoading) {
-    return (
-      <UnauthenticatedShell nav={nav}>
-        {activeNavigator === "signoutRedirect" ? (
-          <SignOutPage />
-        ) : isCallback ? (
-          <CallbackPage />
-        ) : (
-          <LoadingPage />
-        )}
-      </UnauthenticatedShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <UnauthenticatedShell nav={nav}>
-        <AuthFailurePage error={error} lane={isCallback ? 1 : 0} />
-      </UnauthenticatedShell>
-    );
-  }
-
-  if (isCallback && !isAuthenticated) {
-    return (
-      <UnauthenticatedShell nav={nav}>
-        {hasAuthParams(window.location) ? <CallbackPage /> : <LoginGate signedOut />}
-      </UnauthenticatedShell>
-    );
-  }
-
-  // Checked before `isAuthenticated`: react-oidc-context does not re-evaluate
-  // it when a token expires in place, and a lapsed session deserves a
-  // "your session ended" moment rather than a cold login gate.
-  if (sessionExpired) {
-    return (
-      <UnauthenticatedShell nav={nav}>
-        <SessionExpiredGate />
-      </UnauthenticatedShell>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <UnauthenticatedShell nav={nav}>
-        <LoginGate />
-      </UnauthenticatedShell>
-    );
+  // The gate ORDER (which phase for which lifecycle facts + URL) is owned by
+  // @mbe/auth's useAuthGate; this component only maps phase → screen.
+  if (gate.phase !== "ready") {
+    return <UnauthenticatedShell nav={nav}>{unauthenticatedScreen(gate)}</UnauthenticatedShell>;
   }
 
   return (
@@ -147,12 +117,10 @@ export function App() {
 
 /**
  * Redirect helper for the callback route — after successful auth, navigates
- * to the deep link preserved through sign-in (see return-to-store), or home
- * when none was carried. The stored value originates from the OIDC state
- * param, which is attacker-influenceable, so it is re-validated against open
- * redirects before navigating.
+ * to the deep link carried through sign-in, or home when none was carried.
+ * The value originates from the attacker-influenceable OIDC state param;
+ * `signinReturnTo` re-validates it against open redirects.
  */
 export function CallbackRedirect() {
-  const returnTo = readReturnTo();
-  return <Navigate to={isSafeReturnTo(returnTo) ? returnTo : "/"} replace />;
+  return <Navigate to={signinReturnTo()} replace />;
 }

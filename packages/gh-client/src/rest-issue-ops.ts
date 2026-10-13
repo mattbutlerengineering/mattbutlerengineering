@@ -4,6 +4,7 @@ import type { RestContext } from "./rest-http.js";
 import { apiRequest } from "./rest-http.js";
 import { fetchAllPages } from "./rest-paginate.js";
 import { buildSearchQuery } from "./rest-search.js";
+import { listIssuesByFilters, parseSearchFilters } from "./rest-search-filters.js";
 import type { RawIssue } from "./rest-mappers.js";
 import { mapIssue } from "./rest-mappers.js";
 
@@ -55,6 +56,11 @@ export function issueList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
   const search = flag(parsed, "search");
 
   if (search !== undefined) {
+    // Prefer repo-scoped endpoints: CCR sessions block the Search API (#6445).
+    const filters = parseSearchFilters(search, parsed);
+    if (filters && filters.mergedSince === undefined) {
+      return listIssuesByFilters(ctx, parsed, filters, limit).map(mapIssue);
+    }
     const query = buildSearchQuery(ctx, "issue", parsed, search);
     const items = fetchAllPages(
       ctx,

@@ -24,7 +24,7 @@ async function addGuest(page: Page, guestName: string, phone: string, partySize:
   await page.getByRole("button", { name: /add to waitlist/i }).click();
 }
 
-// What the page computes for the toast's "View on Timeline" link (`localDateString(new Date())`),
+// What the page computes for the toast's "View on Timeline" link (`deviceDate(new Date())`),
 // evaluated in the browser so the oracle shares the page's clock and zone, not Node's.
 const browserLocalToday = (page: Page): Promise<string> =>
   page.evaluate(() => {

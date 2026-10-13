@@ -48,6 +48,7 @@ export class NotificationDispatcher {
       reservationId: input.reservationId,
       date: input.date,
       startTime: input.startTime,
+      venueTimezone: input.venueTimezone,
       partySize: input.partySize,
       guestName: input.guestName,
       guestPhone: input.guestPhone ?? "",

@@ -1,11 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { getJob, getStep, jobRunText, loadWorkflow } from "../lib/workflow.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "../..");
-const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+const WORKFLOW = loadWorkflow("ci.yml");
 
 /**
  * Guards the docs-only formatting hole measured on 2026-08-31.
@@ -26,71 +22,65 @@ const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8")
  * are now gone from `paths-ignore`; the `prepare` gate, not the trigger, is
  * what keeps a docs push cheap.
  *
- * Parsed textually rather than with a YAML library, matching the precedent in
- * ci-node-matrix.test.mjs / drift-fix-workflow.test.mjs: nothing in `scripts/`
- * depends on a YAML parser.
+ * Asserts on the parsed workflow (scripts/lib/workflow.mjs, #6393), so the
+ * checks survive reformatting of the YAML.
  */
-function jobBlock(source, jobName) {
-  const lines = source.split("\n");
-  const start = lines.findIndex((l) => new RegExp(`^ {2}${jobName}:\\s*$`).test(l));
-  if (start === -1) throw new Error(`ci.yml has no top-level \`${jobName}:\` job`);
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((l) => /^ {2}\S/.test(l));
-  return (end === -1 ? rest : rest.slice(0, end)).join("\n");
+function requireJob(jobName) {
+  const job = getJob(WORKFLOW, jobName);
+  if (!job) throw new Error(`ci.yml has no top-level \`${jobName}:\` job`);
+  return job;
 }
 
 const JOB = "docs-format";
 
 describe("ci.yml docs-only formatting gate", () => {
   it("defines the job", () => {
-    expect(() => jobBlock(WORKFLOW, JOB)).not.toThrow();
+    expect(() => requireJob(JOB)).not.toThrow();
   });
 
   it("runs the same prettier check the Build chain runs, not a hand-rolled subset", () => {
     // `pnpm check:prettier` is `prettier --check .` and is what repo-audit
     // calls. Re-implementing the glob here would let the two drift, which is
     // the class of bug this whole file exists for.
-    expect(jobBlock(WORKFLOW, JOB)).toMatch(/run:\s*pnpm check:prettier/);
+    expect(jobRunText(requireJob(JOB))).toMatch(/^pnpm check:prettier\s*$/m);
   });
 
   it("runs exactly when the Build chain does NOT, so it is not redundant work", () => {
-    const block = jobBlock(WORKFLOW, JOB);
-    expect(block).toMatch(/needs:\s*\[detect-changes\]/);
-    expect(block).toMatch(/if:\s*needs\.detect-changes\.outputs\.has_code != 'true'/);
+    const block = requireJob(JOB);
+    expect(block.needs).toEqual(["detect-changes"]);
+    expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code != 'true'/);
   });
 
   it("also runs on a docs-only push to main, not just on PRs", () => {
     // Removing these two entries is the whole fix for #4664's actionable half.
     // If either comes back, a docs-only commit on main goes unchecked again
     // and reddens the next code PR's merge ref instead of its own run.
-    const pushTrigger = WORKFLOW.slice(
-      WORKFLOW.indexOf("  push:"),
-      WORKFLOW.indexOf("  pull_request:")
-    );
-    expect(pushTrigger).toContain("paths-ignore:");
-    expect(pushTrigger).not.toMatch(/-\s*"docs\/\*\*"/);
-    expect(pushTrigger).not.toMatch(/-\s*"\*\*\.md"/);
+    const ignored = WORKFLOW.on.push["paths-ignore"];
+    expect(ignored).toBeDefined();
+    expect(ignored).not.toContain("docs/**");
+    expect(ignored).not.toContain("**.md");
   });
 
   it("does not let a docs-only push overwrite ci/latest with a green verdict", () => {
     // report-health's loop treats anything that is not failure/cancelled as
     // success, and a skipped job is neither. Without the has_code gate, the
     // first docs push after a red code run would report main healthy.
-    const block = jobBlock(WORKFLOW, "report-health");
-    expect(block).toMatch(/needs:\s*\[detect-changes,/);
-    expect(block).toMatch(/needs\.detect-changes\.outputs\.has_code == 'true'/);
+    const block = requireJob("report-health");
+    expect(block.needs).toContain("detect-changes");
+    expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code == 'true'/);
   });
 
   it("is gated by CI Gate, not advisory", () => {
     // A job that runs but is absent from ci-gate's needs merges invisibly
     // (#5003). scripts/check-ci-gate-coverage.mjs enforces this repo-wide;
     // asserted here too so this job's own purpose cannot be quietly defeated.
-    const gate = jobBlock(WORKFLOW, "ci-gate");
-    expect(gate).toContain(JOB);
+    const gate = requireJob("ci-gate");
+    expect(gate.needs).toContain(JOB);
     // The result check hands the whole `needs` context to the fail-closed
     // module (scripts/ci-gate-required-results.mjs), so being in `needs:` is
     // what makes docs-format's result gate the merge.
-    expect(gate).toMatch(/NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}/);
-    expect(gate).toContain("node scripts/ci-gate-required-results.mjs");
+    const check = getStep(gate, "Check required job results");
+    expect(check.env.NEEDS_JSON).toMatch(/^\$\{\{\s*toJSON\(needs\)\s*\}\}$/);
+    expect(check.run).toContain("node scripts/ci-gate-required-results.mjs");
   });
 });
