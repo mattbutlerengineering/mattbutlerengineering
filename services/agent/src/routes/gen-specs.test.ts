@@ -137,6 +137,57 @@ describe("Gen Specs Routes", () => {
       expect(body.data.userId).toBe("test-user");
     });
 
+    it("passes kind through to the service", async () => {
+      vi.mocked(storedSpecService.create).mockResolvedValueOnce(mockSpec as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "make it blue", kind: "refine", spec: {}, rawLines: [] },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(storedSpecService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "make it blue", kind: "refine" })
+      );
+    });
+
+    it("defaults kind to generate when omitted", async () => {
+      vi.mocked(storedSpecService.create).mockResolvedValueOnce(mockSpec as never);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "a form", spec: {}, rawLines: [] },
+      });
+
+      expect(storedSpecService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "generate" })
+      );
+    });
+
+    it("returns 400 for an unknown kind", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "a form", kind: "bogus", spec: {}, rawLines: [] },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("accepts a full 2000-char prompt for any kind", async () => {
+      vi.mocked(storedSpecService.create).mockResolvedValueOnce(mockSpec as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "x".repeat(2000), kind: "refine", spec: {}, rawLines: [] },
+      });
+
+      expect(response.statusCode).toBe(201);
+    });
+
     it("returns 400 for missing prompt", async () => {
       const response = await app.inject({
         method: "POST",

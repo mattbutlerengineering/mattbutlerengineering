@@ -546,8 +546,8 @@
         id: string;
         userId: string;
         prompt: string;
+        kind: string;
         spec: unknown;
-        rawLines: unknown;
       }
     </item>
     <item priority="low">

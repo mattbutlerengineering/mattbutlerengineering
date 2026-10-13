@@ -194,17 +194,23 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
     return blocks.reduce((sum, b) => sum + countMatches(b.pretty, search), 0);
   }, [blocks, search]);
 
-  function buildFullJson(): string {
-    return blocks.map((b) => b.pretty).join("\n\n");
+  /** One real JSON document: the parsed lines as an array (non-JSON lines stay strings). */
+  function buildExport(): unknown[] {
+    return rawLines.map((line) => {
+      try {
+        return JSON.parse(line) as unknown;
+      } catch {
+        return line;
+      }
+    });
   }
 
   function handleCopy() {
-    void copy(buildFullJson());
+    void copy(JSON.stringify(buildExport(), null, 2));
   }
 
   function handleDownload() {
-    const json = buildFullJson();
-    downloadJson(JSON.parse(json));
+    downloadJson(buildExport());
   }
 
   function toggleCollapsed(index: number) {

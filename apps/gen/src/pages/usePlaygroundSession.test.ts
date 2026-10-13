@@ -146,6 +146,63 @@ describe("usePlaygroundSession", () => {
     });
   });
 
+  describe("replay and entry kind", () => {
+    it("replays a legacy-prefixed failed entry with the untagged prompt", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "Failed: draw a form" })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.replay("s1"));
+      expect(mockSend).toHaveBeenCalledWith("draw a form");
+    });
+
+    it("replays a failed entry with the stored untagged prompt", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "draw a form", kind: "failed" })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.replay("s1"));
+      expect(mockSend).toHaveBeenCalledWith("draw a form");
+    });
+
+    it("does not replay a refine entry (its parent spec is not stored)", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "make it blue", kind: "refine" })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.replay("s1"));
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it("does not replay a legacy Refined:-prefixed entry", () => {
+      specsApiState = {
+        specs: [makeStoredSpec({ id: "s1", prompt: "Refined: make it blue" })],
+        isLoading: false,
+      };
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.replay("s1"));
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it("saves a refinement with kind refine and the untagged prompt", async () => {
+      const currentSpec = { type: "Card", children: [] } as unknown as Spec;
+      genStreamState = { ...genStreamState, spec: currentSpec };
+      const { result } = renderHook(() => usePlaygroundSession());
+      act(() => result.current.refine());
+      act(() => result.current.submit("make it blue"));
+      await act(async () => {
+        capturedOnComplete?.(currentSpec, ["{}"]);
+        await Promise.resolve();
+      });
+      expect(mockSaveSpec).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "make it blue", kind: "refine" })
+      );
+    });
+  });
+
   describe("retry", () => {
     it("resubmits the active entry's prompt", () => {
       specsApiState = {
@@ -206,7 +263,8 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(mockSaveSpec).toHaveBeenCalledWith({
-        prompt: "Recovered: draw a form",
+        prompt: "draw a form",
+        kind: "recover",
         spec: completedSpec,
         rawLines: ["{line}"],
       });
@@ -260,7 +318,7 @@ describe("usePlaygroundSession", () => {
       expect(mockSend).toHaveBeenNthCalledWith(2, "draw a form");
     });
 
-    it("does not tag the retried prompt as recovered after a transport-error retry", async () => {
+    it("saves kind generate (not recover) after a transport-error retry", async () => {
       const err = new Error("Request failed: Unauthorized");
       genStreamState = { ...genStreamState, error: err, isStreaming: false };
       const { result } = renderHook(() => usePlaygroundSession());
@@ -275,6 +333,7 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(mockSaveSpec).toHaveBeenCalledWith({
+        kind: "generate",
         prompt: "draw a form",
         spec: completedSpec,
         rawLines: ["{line}"],
@@ -476,6 +535,18 @@ describe("usePlaygroundSession", () => {
       expect(mockSend).not.toHaveBeenCalled();
     });
 
+    it("consumes the prompt param from the URL so reloads do not regenerate", async () => {
+      window.history.pushState({}, "", "/?prompt=hello&keep=1");
+
+      renderHook(() => usePlaygroundSession());
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(window.location.search).toBe("?keep=1");
+    });
+
     it("only submits once even if the hook re-renders", async () => {
       window.history.pushState({}, "", "/?prompt=hello");
 
@@ -505,6 +576,7 @@ describe("usePlaygroundSession", () => {
 
       expect(mockSaveSpec).toHaveBeenCalledWith({
         prompt: "draw something",
+        kind: "generate",
         spec: completedSpec,
         rawLines: ["{line}"],
       });
@@ -555,7 +627,8 @@ describe("usePlaygroundSession", () => {
       });
 
       expect(mockSaveSpec).toHaveBeenCalledWith({
-        prompt: "Failed: draw a broken form",
+        prompt: "draw a broken form",
+        kind: "failed",
         spec: { root: "", elements: {} },
         rawLines: [],
       });
