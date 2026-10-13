@@ -43,7 +43,7 @@ export interface BookingWidgetProps {
   /** Venue contact phone, shown as a tel: link for parties above maxPartySize (#4979). */
   phone?: string;
   stripePublishableKey?: string;
-  /** Default estimated wait minutes shown when no slots are available (before API response) */
+  /** Optional server-derived wait estimate shown when no slots are available; never defaulted client-side. */
   defaultWaitMinutes?: number;
   /**
    * Whether the venue has operating hours configured. Defaults to `true`
@@ -97,7 +97,7 @@ export function BookingWidget({
   className = "",
   phone,
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
-  defaultWaitMinutes = 30,
+  defaultWaitMinutes,
   hasOperatingHours = true,
   audience = "guest",
   onSetHours,

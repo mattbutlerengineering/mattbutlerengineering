@@ -13,6 +13,7 @@ vi.mock("../services/waitlist.js", () => ({
     seat: vi.fn(),
     cancel: vi.fn(),
     expire: vi.fn(),
+    markNotified: vi.fn(),
   },
 }));
 

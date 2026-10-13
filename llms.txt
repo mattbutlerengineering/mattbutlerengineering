@@ -9657,6 +9657,9 @@
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist.ts">
+    <item priority="high">
+      export const NOTIFY_CLAIM_WINDOW_MS: unknown;
+    </item>
     <item priority="low">
       interface WaitlistEntryData {
         id: string;

@@ -6831,7 +6831,9 @@
               venueId: entry.venueId,
             });
     
-            return reply.send({ data: entry });
+            // Re-read so the response carries the persisted notified state.
+            const current = await waitlistService.getById(entry.id);
+            return reply.send({ data: current ?? entry });
           }
         )
       );
@@ -14485,6 +14487,8 @@
       // wiring (createDefaultWaitlistNotifier) forwards this dep straight into
       // the notifier's own public method, so both must accept venueId.
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
+      /** Persists notified state on the row; null if the party is no longer waiting. */
+      markNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -14539,6 +14543,7 @@
         expireEntry,
         listWaiting,
         notifyTableReady: notifyNextTableReady,
+        markNotified,
         logger,
       } = deps;
     
@@ -14573,6 +14578,10 @@
       }
     
       async function notifyTableReady(input: NotifyTableReadyInput): Promise<void> {
+        // Record notified state first: a party that was seated/cancelled in the
+        // meantime gets no SMS and no expiry job.
+        if (!(await markNotified(input.id))) return;
+    
         if (smsAdapter) {
           try {
             await smsAdapter.sendWaitlistTableReady({
@@ -14627,6 +14636,7 @@
         expireEntry: (id) => waitlistService.expire(id),
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
+        markNotified: (id) => waitlistService.markNotified(id),
         logger: consoleLogger,
       });
     
@@ -14651,6 +14661,7 @@
     }
   </file>
   <file path="src/services/waitlist.ts">
+    export const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
     export interface WaitlistEntryData {
       id: string;
       venueId: string;
@@ -14693,7 +14704,10 @@
         await setVenueContext(tx, venueId);
         return tx.$executeRaw`
           UPDATE "waitlist_entries" AS w
-          SET position = v.position
+          SET position = v.position,
+              -- Estimate follows position: keep the entry's own turn time
+              -- (estimate / position at join) and re-multiply by its new position.
+              estimated_wait_minutes = (w.estimated_wait_minutes / GREATEST(w.position, 1)) * v.position
           FROM (VALUES ${rows}) AS v(id, position)
           WHERE w.id = v.id
         `;
@@ -14762,10 +14776,35 @@
         return entry;
       },
     
+      /**
+       * Records the notified lifecycle state on the row. Only a `waiting` entry
+       * can be notified; anything else (seated/cancelled/already notified) -> null.
+       */
+      async markNotified(id: string): Promise<WaitlistEntryData | null> {
+        const notifiedAt = new Date();
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "waiting" },
+            data: {
+              status: "notified",
+              notifiedAt,
+              expiresAt: new Date(notifiedAt.getTime() + NOTIFY_CLAIM_WINDOW_MS),
+            },
+          });
+        } catch {
+          return null;
+        }
+        // The notified party left the waiting queue: close the gap behind it.
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
       async expire(id: string): Promise<WaitlistEntryData | null> {
         try {
           return await prisma.waitlistEntry.update({
-            where: { id },
+            where: { id, status: "notified" },
             data: { status: "expired" },
           });
         } catch {

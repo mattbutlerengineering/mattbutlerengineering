@@ -196,7 +196,9 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
           venueId: entry.venueId,
         });
 
-        return reply.send({ data: entry });
+        // Re-read so the response carries the persisted notified state.
+        const current = await waitlistService.getById(entry.id);
+        return reply.send({ data: current ?? entry });
       }
     )
   );
