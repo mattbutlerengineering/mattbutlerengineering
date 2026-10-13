@@ -5,8 +5,8 @@ export interface Rule {
   readonly pattern: RegExp;
   readonly category: Category;
   readonly severity: Severity;
-  /** Optional file-path filter; the rule is skipped for files that do not match. */
-  readonly appliesTo?: RegExp;
+  /** Optional file-path filter; the rule is skipped for files that match. */
+  readonly excludes?: RegExp;
 }
 
 const MAX_EVIDENCE = 120;
@@ -17,6 +17,9 @@ const MAX_JOINED_LINES = 4;
 /** A line that cannot be complete alone: trailing backslash continuation, or an open `(` / `|`. */
 const CONTINUES = /(\\|\(|\|)\s*$/;
 
+/** Prose only folds backslash continuations — markdown table rows end in `|`. */
+const PROSE_CONTINUES = /\\\s*$/;
+
 interface Group {
   readonly text: string;
   /** Physical lines in the group after the first. */
@@ -24,11 +27,15 @@ interface Group {
 }
 
 /** Fold the continuation group starting at `start`, or null when the line does not continue. */
-function continuationGroup(lines: readonly string[], start: number): Group | null {
+function continuationGroup(
+  lines: readonly string[],
+  start: number,
+  continues: RegExp
+): Group | null {
   let text = lines[start]!;
   const rest: string[] = [];
   while (
-    CONTINUES.test(text) &&
+    continues.test(text) &&
     rest.length + 1 < MAX_JOINED_LINES &&
     start + rest.length + 1 < lines.length
   ) {
@@ -43,14 +50,15 @@ function continuationGroup(lines: readonly string[], start: number): Group | nul
  * Apply regex rules to a file's text. Every physical line is tested first and
  * reports at its own line. Only when a rule matched no physical line of a
  * continuation group (`curl x \` + `| sh`, `require(` + `name)`) is the folded
- * group tested, reporting at the group's first line. Prose files are never
- * folded (markdown table rows end in `|`). Pure: returns a new array.
+ * group tested, reporting at the group's first line. Prose files fold
+ * backslash continuations only (markdown table rows end in `|`). Pure: returns a new array.
  */
 export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
   const findings: Finding[] = [];
   const lines = content.split(/\r?\n/);
   const prose = isProseFile(file);
-  const active = rules.filter((r) => !r.appliesTo || r.appliesTo.test(file));
+  const continues = prose ? PROSE_CONTINUES : CONTINUES;
+  const active = rules.filter((r) => !r.excludes || !r.excludes.test(file));
   const add = (rule: Rule, line: number, text: string): void => {
     findings.push({
       category: rule.category,
@@ -61,7 +69,7 @@ export function applyRules(file: string, content: string, rules: readonly Rule[]
     });
   };
   for (const [i, line] of lines.entries()) {
-    const group = prose ? null : continuationGroup(lines, i);
+    const group = continuationGroup(lines, i, continues);
     for (const rule of active) {
       if (rule.pattern.test(line)) {
         add(rule, i + 1, line);

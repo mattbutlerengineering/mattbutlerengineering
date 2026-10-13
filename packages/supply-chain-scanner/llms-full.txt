@@ -97,19 +97,23 @@
       readonly pattern: RegExp;
       readonly category: Category;
       readonly severity: Severity;
-      /** Optional file-path filter; the rule is skipped for files that do not match. */
-      readonly appliesTo?: RegExp;
+      /** Optional file-path filter; the rule is skipped for files that match. */
+      readonly excludes?: RegExp;
     }
     interface Group {
       readonly text: string;
       /** Physical lines in the group after the first. */
       readonly rest: readonly string[];
     }
-    function continuationGroup(lines: readonly string[], start: number): Group | null {
+    function continuationGroup(
+      lines: readonly string[],
+      start: number,
+      continues: RegExp
+    ): Group | null {
       let text = lines[start]!;
       const rest: string[] = [];
       while (
-        CONTINUES.test(text) &&
+        continues.test(text) &&
         rest.length + 1 < MAX_JOINED_LINES &&
         start + rest.length + 1 < lines.length
       ) {
@@ -123,7 +127,8 @@
       const findings: Finding[] = [];
       const lines = content.split(/\r?\n/);
       const prose = isProseFile(file);
-      const active = rules.filter((r) => !r.appliesTo || r.appliesTo.test(file));
+      const continues = prose ? PROSE_CONTINUES : CONTINUES;
+      const active = rules.filter((r) => !r.excludes || !r.excludes.test(file));
       const add = (rule: Rule, line: number, text: string): void => {
         findings.push({
           category: rule.category,
@@ -134,7 +139,7 @@
         });
       };
       for (const [i, line] of lines.entries()) {
-        const group = prose ? null : continuationGroup(lines, i);
+        const group = continuationGroup(lines, i, continues);
         for (const rule of active) {
           if (rule.pattern.test(line)) {
             add(rule, i + 1, line);

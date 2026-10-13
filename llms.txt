@@ -14891,7 +14891,7 @@
         pattern: RegExp;
         category: Category;
         severity: Severity;
-        appliesTo?: RegExp;
+        excludes?: RegExp;
       }
     </item>
     <item priority="high">
@@ -14901,7 +14901,11 @@
       }
     </item>
     <item priority="medium">
-      function continuationGroup(lines: readonly string[], start: number): Group | null { /* ... */ }
+      function continuationGroup(
+        lines: readonly string[],
+        start: number,
+        continues: RegExp
+      ): Group | null { /* ... */ }
     </item>
     <item priority="high">
       export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
