@@ -27,7 +27,7 @@ import { getJob, jobEnvNames, jobRunText, loadWorkflow } from "../lib/workflow.m
 const WORKFLOW = loadWorkflow("docs-audit.yml");
 
 /** One parsed job; fails the test if the workflow no longer declares it. */
-function jobBlock(name) {
+function jobOf(name) {
   const job = getJob(WORKFLOW, name);
   expect(job, `docs-audit.yml declares a \`${name}\` job`).not.toBeNull();
   return job;
@@ -35,7 +35,7 @@ function jobBlock(name) {
 
 describe("docs-audit gates its semantic pass on a job output, not a step guard", () => {
   it("declares a preflight job that publishes whether the credential exists", () => {
-    const preflight = jobBlock("preflight");
+    const preflight = jobOf("preflight");
     expect(preflight.outputs).toHaveProperty("has_key");
     const check = preflight.steps.find((step) => step.env.ANTHROPIC_API_KEY);
     expect(check.env.ANTHROPIC_API_KEY).toBe("${{ secrets.ANTHROPIC_API_KEY }}");
@@ -44,26 +44,26 @@ describe("docs-audit gates its semantic pass on a job output, not a step guard",
   });
 
   it("skips the semantic job on a missing credential rather than passing it", () => {
-    const semantic = jobBlock("semantic");
+    const semantic = jobOf("semantic");
     expect(semantic.needs).toEqual(["preflight"]);
     expect(semantic.if).toMatch(/needs\.preflight\.outputs\.has_key == 'true'/);
   });
 
   it("keeps the old silent-skip out of the step — an exit 0 there reads as a pass", () => {
-    const semantic = jobBlock("semantic");
+    const semantic = jobOf("semantic");
     expect(jobRunText(semantic)).not.toMatch(/ANTHROPIC_API_KEY is not configured/);
     expect(jobRunText(semantic)).not.toMatch(/exit 0/);
   });
 
   it("says in the run summary that no prose claim was checked, so a skip is legible", () => {
-    const preflight = jobBlock("preflight");
+    const preflight = jobOf("preflight");
     expect(jobRunText(preflight)).toContain("$GITHUB_STEP_SUMMARY");
     expect(jobRunText(preflight)).toMatch(/#3585/);
   });
 
   it("leaves the mechanical half independent of the credential", () => {
     // The workflow's own header promises the link fixes never wait on an agent.
-    const mechanical = jobBlock("mechanical");
+    const mechanical = jobOf("mechanical");
     expect(mechanical.needs).not.toContain("preflight");
     expect(jobEnvNames(mechanical)).not.toContain("ANTHROPIC_API_KEY");
     expect(jobRunText(mechanical)).not.toMatch(/ANTHROPIC_API_KEY/);
@@ -71,7 +71,7 @@ describe("docs-audit gates its semantic pass on a job output, not a step guard",
 
   it("runs the agent step under pipefail, so a failure inside it fails the job", () => {
     // GitHub's default shell is `bash -e` with no pipefail (gotchas § CI).
-    const semantic = jobBlock("semantic");
+    const semantic = jobOf("semantic");
     expect(jobRunText(semantic)).toMatch(/set -euo pipefail/);
   });
 });

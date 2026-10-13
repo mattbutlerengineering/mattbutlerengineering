@@ -32,6 +32,7 @@
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
+          updatedAt: reservation.updatedAt,
         });
       }
     
@@ -62,6 +63,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
+              updatedAt: reservation.updatedAt,
             },
             preference
           );
@@ -96,7 +98,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
-              sequence: 2,
+              updatedAt: updated.updatedAt,
             },
             preference
           );
@@ -10518,6 +10520,7 @@
             venueName: venue.name,
             venueTimezone: venue.ianaTimezone,
             venueAddress: null,
+            updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
           };
     
@@ -15741,7 +15744,10 @@
             awaited(
               message({
                 kind: "booking-cancelled",
-                reservation: fact.reservation,
+                // What the guest is told is the pre-cancel booking, but the calendar
+                // SEQUENCE derives from updatedAt, so the cancel must carry the
+                // committed row's — else it ties the last modify and is ignored.
+                reservation: { ...fact.reservation, updatedAt: fact.updated.updatedAt },
                 manageToken: fact.manageToken,
                 initiator: fact.initiator,
               }),

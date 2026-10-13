@@ -31,7 +31,7 @@ describe("buildBookingEmailContent", () => {
       const result = buildBookingEmailContent(defaultInput, "confirmation", manageBaseUrl);
       expect(result.html).toContain("The Oak Table");
       expect(result.html).toContain("2026-06-15");
-      expect(result.html).toContain("19:00");
+      expect(result.html).toContain("7:00 PM");
       expect(result.html).toContain("4");
     });
 
@@ -70,7 +70,7 @@ describe("buildBookingEmailContent", () => {
       const result = buildBookingEmailContent(defaultInput, "reminder", manageBaseUrl);
       expect(result.html).toContain("The Oak Table");
       expect(result.html).toContain("2026-06-15");
-      expect(result.html).toContain("19:00");
+      expect(result.html).toContain("7:00 PM");
     });
 
     it("HTML contains manage link", () => {
@@ -122,14 +122,14 @@ describe("buildBookingEmailContent", () => {
       expect(result.ical).toContain("SEQUENCE:3");
     });
 
-    it("iCal defaults sequence to 1 when not provided", () => {
+    it("iCal sequence is 0 when neither sequence nor updatedAt is provided", () => {
       const { sequence: _, ...inputWithoutSeq } = defaultInput;
       const result = buildBookingEmailContent(
         inputWithoutSeq as BookingNotificationInput,
         "modified",
         manageBaseUrl
       );
-      expect(result.ical).toContain("SEQUENCE:1");
+      expect(result.ical).toContain("SEQUENCE:0");
     });
 
     it("escapes HTML special characters in venueName", () => {

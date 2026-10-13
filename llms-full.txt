@@ -3136,6 +3136,7 @@
           venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken,
+          updatedAt: reservation.updatedAt,
         });
       }
     
@@ -3166,6 +3167,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
+              updatedAt: reservation.updatedAt,
             },
             preference
           );
@@ -3200,7 +3202,7 @@
               venueTimezone: venue.ianaTimezone,
               venueAddress: null,
               manageToken,
-              sequence: 2,
+              updatedAt: updated.updatedAt,
             },
             preference
           );
@@ -14520,7 +14522,9 @@
             case "ArrowUp": {
               e.preventDefault();
               const dir = e.key === "ArrowDown" ? 1 : -1;
-              setFocusedIndex(nextEnabledIndex(items, focusedIndex, dir, wrap));
+              // Nothing focused yet: start off the matching end, as the closed branch does.
+              const from = focusedIndex >= 0 ? focusedIndex : dir === 1 ? -1 : items.length;
+              setFocusedIndex(nextEnabledIndex(items, from, dir, wrap));
               break;
             }
             case "Enter": {
@@ -34456,6 +34460,7 @@
             venueName: venue.name,
             venueTimezone: venue.ianaTimezone,
             venueAddress: null,
+            updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
           };
     
@@ -52152,6 +52157,27 @@
       ical?: string;
       icalMethod?: "REQUEST" | "CANCEL";
     }
+    function sequenceFor(input: BookingNotificationInput): number {
+      if (input.sequence !== undefined) return input.sequence;
+      return input.updatedAt ? calendarSequence(input.updatedAt) : 0;
+    }
+    function icalFor(input: BookingNotificationInput, method: IcalMethod): string {
+      return generateBookingIcal(
+        {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestEmail: input.guestEmail,
+          venueName: input.venueName,
+          venueTimezone: input.venueTimezone,
+          sequence: sequenceFor(input),
+        },
+        method
+      );
+    }
     export function buildBookingEmailContent(
       input: BookingNotificationInput,
       event: NotificationEventType,
@@ -52160,66 +52186,13 @@
       const { subject, html } = buildBookingEmail({ ...input, manageBaseUrl }, event);
     
       switch (event) {
-        case "confirmation": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 0,
-            },
-            "REQUEST"
-          );
-          return { subject, html, ical, icalMethod: "REQUEST" };
-        }
-    
-        case "reminder": {
+        case "confirmation":
+        case "modified":
+          return { subject, html, ical: icalFor(input, "REQUEST"), icalMethod: "REQUEST" };
+        case "cancelled":
+          return { subject, html, ical: icalFor(input, "CANCEL"), icalMethod: "CANCEL" };
+        case "reminder":
           return { subject, html };
-        }
-    
-        case "modified": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 1,
-            },
-            "REQUEST"
-          );
-          return { subject, html, ical, icalMethod: "REQUEST" };
-        }
-    
-        case "cancelled": {
-          const ical = generateBookingIcal(
-            {
-              reservationId: input.reservationId,
-              date: input.date,
-              startTime: input.startTime,
-              endTime: input.endTime,
-              partySize: input.partySize,
-              guestName: input.guestName,
-              guestEmail: input.guestEmail,
-              venueName: input.venueName,
-              venueTimezone: input.venueTimezone,
-              sequence: input.sequence ?? 0,
-            },
-            "CANCEL"
-          );
-          return { subject, html, ical, icalMethod: "CANCEL" };
-        }
       }
     }
   </file>
@@ -52281,11 +52254,12 @@
       event: NotificationEventType
     ): BookingEmailTemplate {
       const copy = eventCopy(input.venueName, event);
+      const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
     
       const lines = [
         `<h1>${copy.heading}</h1>`,
         `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-        `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
+        `<p>${when.date} at ${when.display} — Party of ${input.partySize}</p>`,
       ];
     
       if (copy.includeAddress && input.venueAddress) {
@@ -52334,8 +52308,10 @@
       const sequence = input.sequence ?? 0;
       const now = formatIcalDate(new Date());
     
-      const dtstart = toIcalDateTime(input.date, input.startTime, input.venueTimezone);
-      const dtend = toIcalDateTime(input.date, input.endTime, input.venueTimezone);
+      // Instants go out as UTC ("Z") so no VTIMEZONE block is needed; a bare
+      // HH:MM keeps the TZID form.
+      const dtstart = icalDateTimeLine("DTSTART", input.startTime, input);
+      const dtend = icalDateTimeLine("DTEND", input.endTime, input);
     
       const venueName = escapeIcalText(input.venueName);
       const summary =
@@ -52356,8 +52332,8 @@
         `UID:${uid}`,
         `SEQUENCE:${sequence}`,
         `DTSTAMP:${now}`,
-        `DTSTART;TZID=${input.venueTimezone}:${dtstart}`,
-        `DTEND;TZID=${input.venueTimezone}:${dtend}`,
+        dtstart,
+        dtend,
         `SUMMARY:${summary}`,
         `LOCATION:${venueName}`,
         `DESCRIPTION:${description}`,
@@ -52371,10 +52347,15 @@
     
       return lines.join("\r\n");
     }
-    function toIcalDateTime(date: string, time: string, _timezone: string): string {
-      const [year, month, day] = date.split("-");
-      const [hour, minute] = time.split(":");
-      return `${year}${month}${day}T${hour}${minute}00`;
+    function icalDateTimeLine(
+      name: "DTSTART" | "DTEND",
+      value: string,
+      input: Pick<IcalEventInput, "date" | "venueTimezone">
+    ): string {
+      const local = toVenueLocalTime(value, input.venueTimezone, input.date);
+      return local.icalUtc
+        ? `${name}:${local.icalUtc}`
+        : `${name};TZID=${input.venueTimezone}:${local.icalLocal}`;
     }
     function formatIcalDate(date: Date): string {
       return date
@@ -52406,6 +52387,7 @@
           reservationId: input.reservationId,
           date: input.date,
           startTime: input.startTime,
+          venueTimezone: input.venueTimezone,
           partySize: input.partySize,
           guestName: input.guestName,
           guestPhone: input.guestPhone ?? "",
@@ -52520,6 +52502,12 @@
       venueTimezone: string;
       venueAddress: string | null;
       manageToken: string;
+      /**
+       * The reservation's `updatedAt`. The iCal SEQUENCE for confirm/modify/cancel
+       * is derived from it (see `calendarSequence`) so it only ever increases.
+       */
+      updatedAt?: string;
+      /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
     }
     export interface WinBackNotificationInput {
@@ -52739,6 +52727,8 @@
       reservationId: string;
       date: string;
       startTime: string;
+      /** IANA timezone used to render `startTime` as venue-local time. */
+      venueTimezone: string;
       partySize: number;
       guestName: string | null;
       guestPhone: string;
@@ -52812,6 +52802,11 @@
       const date = new Date(year, month - 1, day);
       return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
     }
+    function fitReminderBody(candidates: readonly string[]): string {
+      return (
+        candidates.find((c) => c.length <= SMS_SEGMENT_LIMIT) ?? candidates[candidates.length - 1]!
+      );
+    }
     export class TwilioSmsAdapter implements SmsPort {
       private readonly client: TwilioClient | null;
       private readonly fromNumber: string;
@@ -52827,13 +52822,18 @@
         if (!this.client) return;
     
         const name = input.guestName ?? "Guest";
-        const dateStr = formatDate(input.date);
-        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+        const when = toVenueLocalTime(input.startTime, input.venueTimezone, input.date);
+        const dateStr = formatDate(when.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${encodeURIComponent(input.manageToken)}`;
     
-        const body = `${name}, reminder: ${input.venueName} ${dateStr} at ${input.startTime} for ${input.partySize}. Manage: ${manageUrl}`;
-        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
-    
-        await this.sendWithRetry(input.guestPhone, trimmed);
+        await this.sendWithRetry(
+          input.guestPhone,
+          fitReminderBody([
+            `${name}, reminder: ${input.venueName} ${dateStr} at ${when.display} for ${input.partySize}. Manage: ${manageUrl}`,
+            `${name}, reminder: ${input.venueName} ${dateStr} ${when.display}. Manage: ${manageUrl}`,
+            `${input.venueName} ${dateStr} ${when.display}: ${manageUrl}`,
+          ])
+        );
       }
     
       async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
@@ -52908,6 +52908,70 @@
           }
         );
       }
+    }
+  </file>
+  <file path="packages/notifications/src/venue-time.ts">
+    export interface VenueLocalTime {
+      /** Venue-local calendar date, "YYYY-MM-DD". */
+      date: string;
+      /** Venue-local 24h wall time, "HH:MM". */
+      time: string;
+      /** Guest-facing 12h time, e.g. "7:00 PM". */
+      display: string;
+      /** Floating iCal local datetime, "YYYYMMDDTHHMMSS". */
+      icalLocal: string;
+      /** UTC iCal datetime, "YYYYMMDDTHHMMSSZ"; null when input was a bare HH:MM. */
+      icalUtc: string | null;
+    }
+    function formatDisplay(hour: number, minute: number): string {
+      const suffix = hour >= 12 ? "PM" : "AM";
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+    }
+    function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime {
+      const hh = String(hour).padStart(2, "0");
+      const mm = String(minute).padStart(2, "0");
+      return {
+        date,
+        time: `${hh}:${mm}`,
+        display: formatDisplay(hour, minute),
+        icalLocal: `${date.replace(/-/g, "")}T${hh}${mm}00`,
+        icalUtc,
+      };
+    }
+    export function toVenueLocalTime(
+      value: string,
+      timezone: string,
+      fallbackDate: string
+    ): VenueLocalTime {
+      const bare = LOCAL_TIME.exec(value);
+      if (bare) return build(fallbackDate, Number(bare[1]), Number(bare[2]), null);
+    
+      const instant = new Date(value);
+      if (Number.isNaN(instant.getTime())) {
+        throw new Error(`Invalid booking time: ${value}`);
+      }
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).formatToParts(instant);
+      const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? "";
+      const date = `${part("year")}-${part("month")}-${part("day")}`;
+      const utc = instant
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+      return build(date, Number(part("hour")), Number(part("minute")), utc);
+    }
+    export function calendarSequence(updatedAt: string): number {
+      const ms = new Date(updatedAt).getTime();
+      if (Number.isNaN(ms)) throw new Error(`Invalid updatedAt: ${updatedAt}`);
+      return Math.floor(ms / 1000);
     }
   </file>
   <file path="packages/observability/src/error-rates.ts">
@@ -60286,7 +60350,10 @@
             awaited(
               message({
                 kind: "booking-cancelled",
-                reservation: fact.reservation,
+                // What the guest is told is the pre-cancel booking, but the calendar
+                // SEQUENCE derives from updatedAt, so the cancel must carry the
+                // committed row's — else it ties the last modify and is ignored.
+                reservation: { ...fact.reservation, updatedAt: fact.updated.updatedAt },
                 manageToken: fact.manageToken,
                 initiator: fact.initiator,
               }),

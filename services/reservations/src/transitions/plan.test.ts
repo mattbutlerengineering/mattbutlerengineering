@@ -257,6 +257,23 @@ describe("planEffects — the effects table", () => {
     ]);
   });
 
+  it("the cancelled booking message carries the committed row's updatedAt (iCal SEQUENCE)", () => {
+    const planned = plan({
+      kind: "cancelled",
+      door: "guest-manage",
+      reservation: res({ updatedAt: "2030-01-01T00:00:00.000Z" }),
+      updated: res({ status: "CANCELLED", updatedAt: "2030-01-01T00:05:00.000Z" }),
+      manageToken: "tok",
+      initiator: "guest",
+    });
+    const sent = planned.find(
+      (p) => p.effect.port === "messaging" && p.effect.message.kind === "booking-cancelled"
+    );
+    expect(sent).toBeDefined();
+    const message = (sent!.effect as { message: { reservation: Reservation } }).message;
+    expect(message.reservation.updatedAt).toBe("2030-01-01T00:05:00.000Z");
+  });
+
   describe("venue policy", () => {
     const facts: TransitionFact[] = [
       {

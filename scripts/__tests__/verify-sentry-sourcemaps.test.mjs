@@ -1,13 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { evaluateSentrySourcemaps, readDistFiles } from "../verify-sentry-sourcemaps.mjs";
+import { getJob, loadWorkflow } from "../lib/workflow.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "../..");
-const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/deploy-static.yml"), "utf8");
+const WORKFLOW = loadWorkflow("deploy-static.yml");
 
 // The assignment sentryVitePlugin prepends to every chunk when it is enabled
 // (@sentry/bundler-plugins core getDebugIdSnippet). Only the part the guard
@@ -121,38 +119,16 @@ describe("readDistFiles", () => {
   });
 });
 
-/** Same textual step splitting as deploy-static-sentry-env.test.mjs. */
-function stepBlocks(yaml) {
-  const lines = yaml.split("\n");
-  const starts = lines.reduce((acc, line, index) => {
-    if (/^\s*-\s+(name|run|uses):/.test(line)) acc.push(index);
-    return acc;
-  }, []);
-  return starts.map((start, index) => {
-    const end = index + 1 < starts.length ? starts[index + 1] : lines.length;
-    return lines.slice(start, end).join("\n");
-  });
-}
-
-function jobBlock(yaml, jobId) {
-  const lines = yaml.split("\n");
-  const start = lines.findIndex((line) => line === `  ${jobId}:`);
-  if (start === -1) return null;
-  const rest = lines.slice(start + 1).findIndex((line) => /^ {2}[A-Za-z0-9_-]+:/.test(line));
-  const end = rest === -1 ? lines.length : start + 1 + rest;
-  return lines.slice(start, end).join("\n");
-}
-
-/** Non-comment lines of a step, so a comment naming the script cannot satisfy a check. */
-const codeLines = (step) => step.split("\n").filter((line) => !/^\s*#/.test(line));
+/** Non-comment lines of a step script (bash `#` comments survive YAML parsing, so filter them). */
+const codeLines = (step) => (step.run ?? "").split("\n").filter((l) => !/^\s*#/.test(l));
 
 describe("deploy-static.yml runs the guard between each build and its deploy", () => {
   it.each(["marketing", "hospitality", "rialto-web"])("deploy-%s", (app) => {
-    const job = jobBlock(WORKFLOW, `deploy-${app}`);
+    const job = getJob(WORKFLOW, `deploy-${app}`);
     expect(job, `job deploy-${app} not found`).not.toBeNull();
 
-    const steps = stepBlocks(job);
-    const buildIndex = steps.findIndex((s) => s.includes(`pnpm build --filter=@mbe/${app}`));
+    const steps = job.steps;
+    const buildIndex = steps.findIndex((s) => s.run?.includes(`pnpm build --filter=@mbe/${app}`));
     const guardIndex = steps.findIndex((s) =>
       codeLines(s).some((line) => {
         const tokens = line.trim().split(/\s+/);
@@ -163,7 +139,7 @@ describe("deploy-static.yml runs the guard between each build and its deploy", (
       })
     );
     const deployIndex = steps.findIndex((s) =>
-      s.includes(`wrangler@3.114.17 deploy --config apps/${app}/wrangler.toml`)
+      s.run?.includes(`wrangler@3.114.17 deploy --config apps/${app}/wrangler.toml`)
     );
 
     expect(buildIndex, `deploy-${app} has no build step`).not.toBe(-1);

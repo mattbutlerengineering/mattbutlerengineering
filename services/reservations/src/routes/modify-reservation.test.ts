@@ -202,7 +202,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
         reservationId: "res_1",
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
-        sequence: 2,
+        updatedAt: "2026-06-01T00:00:00Z",
       }),
       "email_only"
     );

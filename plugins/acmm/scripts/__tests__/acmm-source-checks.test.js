@@ -167,6 +167,45 @@ describe("checkAutoIssueGen", () => {
     assert.equal(result.passed, false);
   });
 
+  // #6485: the ACMM scanner files its own gap issues labelled ["acmm","audit",...];
+  // those must not satisfy the criterion that measures *other* automation.
+  test("an acmm-labelled audit issue alone does not pass (self-satisfying loop)", () => {
+    const result = checkAutoIssueGen("/repo", {
+      execFileSyncFn: (_cmd, args) =>
+        JSON.stringify(
+          args[labelArgIndex(args)] === "audit"
+            ? [
+                {
+                  number: 7,
+                  createdAt: new Date().toISOString(),
+                  labels: [{ name: "acmm" }, { name: "audit" }],
+                },
+              ]
+            : []
+        ),
+    });
+    assert.equal(result.passed, false);
+  });
+
+  test("a genuine audit issue passes even alongside an acmm gap issue", () => {
+    const result = checkAutoIssueGen("/repo", {
+      execFileSyncFn: (_cmd, args) =>
+        JSON.stringify(
+          args[labelArgIndex(args)] === "audit"
+            ? [
+                {
+                  number: 7,
+                  createdAt: new Date().toISOString(),
+                  labels: [{ name: "acmm" }, { name: "audit" }],
+                },
+                { number: 8, createdAt: new Date().toISOString(), labels: [{ name: "audit" }] },
+              ]
+            : []
+        ),
+    });
+    assert.equal(result.passed, true);
+  });
+
   test("one label failing but another succeeding still evaluates (not unverifiable)", () => {
     const result = checkAutoIssueGen("/repo", {
       execFileSyncFn: (_cmd, args) => {

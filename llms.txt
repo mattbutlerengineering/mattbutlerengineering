@@ -14011,6 +14011,12 @@
         icalMethod?: "REQUEST" | "CANCEL";
       }
     </item>
+    <item priority="medium">
+      function sequenceFor(input: BookingNotificationInput): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function icalFor(input: BookingNotificationInput, method: IcalMethod): string { /* ... */ }
+    </item>
     <item priority="high">
       export function buildBookingEmailContent(
         input: BookingNotificationInput,
@@ -14078,7 +14084,11 @@
       export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string { /* ... */ }
     </item>
     <item priority="medium">
-      function toIcalDateTime(date: string, time: string, _timezone: string): string { /* ... */ }
+      function icalDateTimeLine(
+        name: "DTSTART" | "DTEND",
+        value: string,
+        input: Pick<IcalEventInput, "date" | "venueTimezone">
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function formatIcalDate(date: Date): string { /* ... */ }
@@ -14171,8 +14181,8 @@
         reservationId: string;
         date: string;
         startTime: string;
+        venueTimezone: string;
         partySize: number;
-        guestName: string | null;
       }
     </item>
     <item priority="low">
@@ -14241,6 +14251,9 @@
     <item priority="medium">
       function formatDate(dateStr: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function fitReminderBody(candidates: readonly string[]): string { /* ... */ }
+    </item>
     <item priority="high">
       class TwilioSmsAdapter {
         client: TwilioClient | null;
@@ -14248,6 +14261,33 @@
         retryDelayMs: number;
         async sendBookingReminder(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="packages/notifications/src/venue-time.ts">
+    <item priority="low">
+      interface VenueLocalTime {
+        date: string;
+        time: string;
+        display: string;
+        icalLocal: string;
+        icalUtc: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function formatDisplay(hour: number, minute: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function build(date: string, hour: number, minute: number, icalUtc: string | null): VenueLocalTime { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toVenueLocalTime(
+        value: string,
+        timezone: string,
+        fallbackDate: string
+      ): VenueLocalTime { /* ... */ }
+    </item>
+    <item priority="high">
+      export function calendarSequence(updatedAt: string): number { /* ... */ }
     </item>
   </file>
   <file path="packages/observability/src/error-rates.ts">
