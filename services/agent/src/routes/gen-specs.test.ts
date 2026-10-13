@@ -168,6 +168,41 @@ describe("Gen Specs Routes", () => {
       );
     });
 
+    it("derives kind and strips ONE legacy prefix when kind is omitted", async () => {
+      vi.mocked(storedSpecService.create).mockResolvedValue(mockSpec as never);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "Refined: make it blue", spec: {}, rawLines: [] },
+      });
+      expect(storedSpecService.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ prompt: "make it blue", kind: "refine" })
+      );
+
+      await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "Failed: Refined: x", spec: {}, rawLines: [] },
+      });
+      expect(storedSpecService.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ prompt: "Refined: x", kind: "failed" })
+      );
+    });
+
+    it("leaves the prompt alone when an explicit kind is sent", async () => {
+      vi.mocked(storedSpecService.create).mockResolvedValue(mockSpec as never);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/gen/specs",
+        payload: { prompt: "Refined: x", kind: "generate", spec: {}, rawLines: [] },
+      });
+      expect(storedSpecService.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ prompt: "Refined: x", kind: "generate" })
+      );
+    });
+
     it("returns 400 for an unknown kind", async () => {
       const response = await app.inject({
         method: "POST",
