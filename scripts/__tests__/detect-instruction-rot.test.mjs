@@ -151,15 +151,63 @@ describe("detect-instruction-rot", () => {
       expect(await run("Use `/real-skill` and scripts/real.mjs.\n")).toEqual([]);
     });
 
-    test("ignores fenced code blocks and rot-ignore lines", async () => {
+    test("ignores fenced code blocks and named rot-ignore markers", async () => {
       const body = [
         "```bash",
         "node scripts/example-only.mjs",
         "```",
-        "Try scripts/illustrative.mjs <!-- rot-ignore -->",
+        "Try scripts/illustrative.mjs <!-- rot-ignore: scripts/illustrative.mjs -->",
         "",
       ].join("\n");
       expect(await run(body)).toEqual([]);
+    });
+
+    test("a named rot-ignore exempts only the refs it names", async () => {
+      const body =
+        "Old scripts/gone-old.mjs vs scripts/gone-live.mjs <!-- rot-ignore: scripts/gone-old.mjs -->\n";
+      const findings = await run(body);
+      expect(findings.map((f) => f.reference)).toEqual(["scripts/gone-live.mjs"]);
+    });
+
+    test("a bare rot-ignore no longer exempts anything", async () => {
+      expect(await run("See scripts/gone.mjs <!-- rot-ignore -->\n")).toHaveLength(1);
+    });
+
+    test("masks ~~~ fenced blocks", async () => {
+      expect(await run("~~~bash\nnode scripts/example-only.mjs\n~~~\n")).toEqual([]);
+    });
+
+    test("a longer outer fence stays open through inner shorter fences", async () => {
+      const body = [
+        "````markdown",
+        "```bash",
+        "node scripts/inner.mjs",
+        "```",
+        "node scripts/after-inner-close.mjs",
+        "````",
+        "node scripts/outside.mjs",
+        "",
+      ].join("\n");
+      const findings = await run(body);
+      expect(findings.map((f) => f.reference)).toEqual(["scripts/outside.mjs"]);
+    });
+
+    test("a ~~~ line does not close a backtick fence", async () => {
+      expect(await run("```\n~~~\nscripts/hidden.mjs\n```\n")).toEqual([]);
+    });
+
+    test("catches ./scripts/ paths", async () => {
+      expect(await run("Run ./scripts/missing.mjs now.\n")).toContainEqual(
+        expect.objectContaining({ type: "stale-script", reference: "scripts/missing.mjs" })
+      );
+    });
+
+    test("a markdown link to a missing script is reported once, as a dead link", async () => {
+      fs.mkdirSync(path.join(tmpDir, "scripts"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "See [x](scripts/missing.mjs).\n");
+      const { findInstructionRotFindings } = await import("../detect-instruction-rot.mjs");
+      const findings = findInstructionRotFindings(tmpDir, ["CLAUDE.md"]);
+      expect(findings.map((f) => f.type)).toEqual(["dead-link"]);
     });
 
     test("clean file yields no findings", async () => {

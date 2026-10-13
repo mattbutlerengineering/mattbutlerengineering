@@ -28,8 +28,11 @@ import {
  *    registry — the allowlist of documented user-level skills like /tdd).
  *    Add new intentional non-repo names THERE, with a reason.
  *  - Content inside fenced code blocks is ignored (illustrative examples).
- *  - A line containing `<!-- rot-ignore -->` is ignored (inline marker for
- *    illustrative paths in prose).
+ *  - Fences follow CommonMark: opened by 3+ backticks or tildes, closed only
+ *    by the same character at least as long (so ````md may contain ```bash).
+ *  - `<!-- rot-ignore: scripts/old.mjs, /old-skill -->` exempts exactly the
+ *    named references on that line (historical prose); any other stale
+ *    reference on the same line is still reported.
  */
 
 export const FILES_TO_CHECK = [
@@ -42,8 +45,9 @@ export const FILES_TO_CHECK = [
 ];
 
 const RULES_DIR = ".claude/rules";
-const IGNORE_MARKER = "<!-- rot-ignore -->";
-const SCRIPT_PATH_RE = /(?<![\w/.-])scripts\/[\w.-]+(?:\/[\w.-]+)*\.(?:mjs|cjs|js|ts|sh)\b/g;
+const IGNORE_MARKER_RE = /<!--\s*rot-ignore:\s*([^>]*?)\s*-->/g;
+const SCRIPT_PATH_RE =
+  /(?<![\w/.-])(?:\.\/)?scripts\/[\w.-]+(?:\/[\w.-]+)*\.(?:mjs|cjs|js|ts|sh)\b/g;
 
 /** FILES_TO_CHECK plus every `.claude/rules/*.md` found on disk. */
 export function discoverInstructionFiles(root) {
@@ -58,19 +62,34 @@ export function discoverInstructionFiles(root) {
   return [...FILES_TO_CHECK, ...rules];
 }
 
-/** Blank out fenced code blocks and rot-ignore lines, preserving line numbers. */
+const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
+/**
+ * Per-line view of a markdown body: fenced lines are blanked (CommonMark
+ * fence matching), and named rot-ignore markers are stripped from the text
+ * and returned as the set of references they exempt. Line numbers preserved.
+ */
 function maskIgnoredContent(content) {
-  let inFence = false;
-  return content
-    .split("\n")
-    .map((line) => {
-      if (line.trimStart().startsWith("```")) {
-        inFence = !inFence;
-        return "";
-      }
-      return inFence || line.includes(IGNORE_MARKER) ? "" : line;
-    })
-    .join("\n");
+  let fence = null;
+  return content.split("\n").map((line) => {
+    const match = FENCE_RE.exec(line);
+    if (fence) {
+      const closes =
+        match && match[1][0] === fence.char && match[1].length >= fence.length && !match[2].trim();
+      if (closes) fence = null;
+      return { text: "", ignored: new Set() };
+    }
+    if (match) {
+      fence = { char: match[1][0], length: match[1].length };
+      return { text: "", ignored: new Set() };
+    }
+    const ignored = new Set();
+    const text = line.replace(IGNORE_MARKER_RE, (_, names) => {
+      for (const name of names.split(/[\s,]+/).filter(Boolean)) ignored.add(name);
+      return "";
+    });
+    return { text, ignored };
+  });
 }
 
 /** Find unresolvable `/skill` references and nonexistent `scripts/<file>` paths. */
@@ -83,19 +102,23 @@ export function findStaleReferenceFindings(root, files = discoverInstructionFile
   for (const file of files.filter((f) => f.endsWith(".md"))) {
     const filePath = path.resolve(root, file);
     if (!fs.existsSync(filePath)) continue;
-    const masked = maskIgnoredContent(fs.readFileSync(filePath, "utf-8"));
+    const lines = maskIgnoredContent(fs.readFileSync(filePath, "utf-8"));
 
-    for (const { name, line } of extractSkillReferences(masked)) {
-      if (classifySkillReference(name, world).kind === "unresolved") {
-        findings.push({ file, type: "stale-skill", reference: `/${name}`, line });
-      }
-    }
-
-    for (const [index, text] of masked.split("\n").entries()) {
-      for (const ref of text.match(SCRIPT_PATH_RE) || []) {
-        if (!fs.existsSync(path.resolve(root, ref))) {
-          findings.push({ file, type: "stale-script", reference: ref, line: index + 1 });
+    for (const [index, { text, ignored }] of lines.entries()) {
+      const line = index + 1;
+      for (const { name } of extractSkillReferences(text)) {
+        const reference = `/${name}`;
+        if (ignored.has(reference)) continue;
+        if (classifySkillReference(name, world).kind === "unresolved") {
+          findings.push({ file, type: "stale-skill", reference, line });
         }
+      }
+      for (const match of text.matchAll(SCRIPT_PATH_RE)) {
+        const reference = match[0].replace(/^\.\//, "");
+        // `[x](scripts/y.mjs)` is the dead-link check's job; don't double-report.
+        if (text.slice(0, match.index).endsWith("](")) continue;
+        if (ignored.has(reference) || fs.existsSync(path.resolve(root, reference))) continue;
+        findings.push({ file, type: "stale-script", reference, line });
       }
     }
   }
@@ -176,7 +199,7 @@ function formatFinding(finding) {
     case "stale-skill":
       return `${finding.file}:${finding.line}: Skill reference ${finding.reference} resolves to no skill (add the skill, remove the reference, or declare it in check-skill-references.mjs)`;
     case "stale-script":
-      return `${finding.file}:${finding.line}: Script path ${finding.reference} does not exist (mark illustrative paths with ${IGNORE_MARKER})`;
+      return `${finding.file}:${finding.line}: Script path ${finding.reference} does not exist (exempt historical mentions with <!-- rot-ignore: ${finding.reference} -->)`;
     default:
       return `${finding.file}: ${finding.reference}`;
   }
