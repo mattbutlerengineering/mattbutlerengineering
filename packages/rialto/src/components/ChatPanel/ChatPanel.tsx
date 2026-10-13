@@ -35,22 +35,12 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   { onClose, api, domainContext, getAccessToken, standalone, registry },
   ref
 ) {
-  const {
-    messages,
-    isStreaming,
-    error,
-    pendingAction,
-    activeTool,
-    permissionDenials,
-    send,
-    retry,
-    confirmAction,
-    cancelAction,
-  } = useChatStream({
-    api,
-    domainContext,
-    getAccessToken,
-  });
+  const { messages, isStreaming, error, pendingAction, send, retry, confirmAction, cancelAction } =
+    useChatStream({
+      api,
+      domainContext,
+      getAccessToken,
+    });
 
   const [inputValue, setInputValue] = useState("");
 
@@ -92,16 +82,6 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             ...
           </div>
         )}
-        {activeTool && (
-          <div className={styles.loading} role="status">
-            {activeTool.replace(/_/g, " ")}...
-          </div>
-        )}
-        {permissionDenials.map((denial, i) => (
-          <div key={i} className={styles.assistantMessage} role="alert">
-            <strong>{denial.toolName}</strong> was blocked: {denial.reason}
-          </div>
-        ))}
         {error && (
           <div className={styles.assistantMessage} role="alert">
             {error.message}

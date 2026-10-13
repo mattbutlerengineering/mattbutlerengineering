@@ -21,14 +21,8 @@ export interface PendingAction {
   toolInput: Record<string, unknown>;
 }
 
-export interface PermissionDenial {
-  toolName: string;
-  reason: string;
-}
-
 interface NDJSONLine {
-  type: "text" | "tool_status" | "element" | "action_request" | "permission_denied";
-  reason?: string;
+  type: "text" | "tool_status" | "element" | "action_request";
   content?: string;
   tool?: string;
   status?: string;
@@ -49,10 +43,6 @@ export interface UseChatStreamReturn {
   isStreaming: boolean;
   error: Error | null;
   pendingAction: PendingAction | null;
-  /** Name of the tool the server reports as currently running, if any. */
-  activeTool: string | null;
-  /** Tool calls the server refused during the current request. */
-  permissionDenials: PermissionDenial[];
   send: (content: string) => Promise<void>;
   stop: () => void;
   retry: () => Promise<void>;
@@ -65,8 +55,6 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [permissionDenials, setPermissionDenials] = useState<PermissionDenial[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const getAccessTokenRef = useRef(getAccessToken);
@@ -98,8 +86,6 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
       lastRequestRef.current = { body, baseMessages };
       setIsStreaming(true);
       setError(null);
-      setActiveTool(null);
-      setPermissionDenials([]);
 
       let assistantContent = "";
       const elements: ChatMessageElement[] = [];
@@ -131,14 +117,6 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
               toolName: line.toolName,
               toolInput: line.toolInput ?? {},
             });
-          } else if (line.type === "tool_status" && line.tool) {
-            setActiveTool(line.status === "running" ? line.tool : null);
-          } else if (line.type === "permission_denied" && line.toolName) {
-            const denial: PermissionDenial = {
-              toolName: line.toolName,
-              reason: line.reason ?? "Not allowed",
-            };
-            setPermissionDenials((prev) => [...prev, denial]);
           }
         }
 
@@ -148,10 +126,8 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
           setMessages([...currentMessages, msg]);
         }
 
-        setActiveTool(null);
         setIsStreaming(false);
       } catch (err) {
-        setActiveTool(null);
         if (err instanceof Error && err.name === "AbortError") {
           setIsStreaming(false);
           return;
@@ -215,8 +191,6 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
     isStreaming,
     error,
     pendingAction,
-    activeTool,
-    permissionDenials,
     send,
     stop,
     retry,
