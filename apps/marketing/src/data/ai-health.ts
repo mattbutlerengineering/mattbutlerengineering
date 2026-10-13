@@ -229,10 +229,9 @@ export interface AcmmMetrics {
   readonly failingGates: ReadonlyArray<AcmmFailingGate>;
 }
 
-/** Safe view model for AiHealthPage — every field is null/empty on a miss. */
 /**
  * Every report field `normalizeSensorReport` reads for the key-metric stats.
- * scripts/__tests__/ai-health-reader-contract.test.mjs asserts each one is
+ * apps/marketing/src/data/ai-health-reader-contract.test.ts asserts each one is
  * emitted by buildReport() / the sensor collectors, so a renamed or invented
  * field fails a test instead of rendering a permanent "—".
  */
@@ -245,6 +244,7 @@ export const AI_HEALTH_READ_FIELDS = {
   },
 } as const;
 
+/** Safe view model for AiHealthPage — every field is null/empty on a miss. */
 export interface HealthMetrics {
   readonly timestamp: string | null;
   readonly ciPassRate: number | null;
@@ -380,7 +380,7 @@ function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics {
   };
 }
 
-/** Normalizes a fetched sensor report (any shape) into safe display values. */
+/** Normalizes a fetched sensor report (buildReport() shape) into safe display values. */
 export function normalizeSensorReport(report: unknown): HealthMetrics {
   const raw = asRecord(report);
   const sensors = asRecord(raw.sensors);
