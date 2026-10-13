@@ -16,7 +16,6 @@ src/
     ├── deploy_status.ts  # deploy_status — DigitalOcean App Platform status
     ├── git.ts            # git_workflow_status — branch, uncommitted changes, CI
     ├── health.ts         # service_health_check — backend service health
-    ├── logs.ts           # check_logs — recent backend service logs
     └── pulumi.ts         # pulumi_stack_outputs — Pulumi stack exports
 ```
 
@@ -27,7 +26,6 @@ src/
 | `pulumi_stack_outputs` | List all outputs from the Pulumi production stack       |
 | `service_health_check` | Check health of users, reservations, agent services     |
 | `ci_run_status`        | Get latest GitHub Actions run status for all workflows  |
-| `check_logs`           | Read recent logs from backend services                  |
 | `deploy_status`        | Get current DigitalOcean App Platform deployment status |
 | `git_workflow_status`  | Current branch, uncommitted changes, CI status          |
 | `db_list_tables`       | List all tables in the database                         |

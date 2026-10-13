@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { pulumiStackOutputs } from "./pulumi.js";
+import { existsSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
+import { PULUMI_PROJECT_DIR, pulumiStackOutputs } from "./pulumi.js";
 
 describe("pulumiStackOutputs", () => {
   it("returns raw stack output string from pulumi CLI", async () => {
@@ -19,7 +21,21 @@ describe("pulumiStackOutputs", () => {
 
     await pulumiStackOutputs(run);
 
-    expect(run).toHaveBeenCalledWith(["stack", "output", "--json"]);
+    const args = run.mock.calls[0]?.[0] as string[];
+    expect(args).toEqual([
+      "-C",
+      PULUMI_PROJECT_DIR,
+      "stack",
+      "output",
+      "--json",
+      "--stack",
+      "prod",
+    ]);
+  });
+
+  it("resolves the Pulumi project dir to a real directory holding Pulumi.yaml", () => {
+    expect(isAbsolute(PULUMI_PROJECT_DIR)).toBe(true);
+    expect(existsSync(join(PULUMI_PROJECT_DIR, "Pulumi.yaml"))).toBe(true);
   });
 
   it("result can be used directly as MCP text content", async () => {

@@ -9,7 +9,6 @@ import { ciRunStatus } from "./tools/ci.js";
 import { gitWorkflowStatus } from "./tools/git.js";
 import { dbListTables, dbMigrationStatus } from "./tools/database.js";
 import { deployStatus } from "./tools/deploy_status.js";
-import { checkLogs } from "./tools/logs.js";
 
 const server = new Server(
   {
@@ -59,14 +58,6 @@ const TOOLS = [
     description: "List all tables in the database",
     inputSchema: z.object({}),
     handler: () => dbListTables(),
-  }),
-  defineTool({
-    name: "check_logs",
-    description: "Read recent logs from backend services",
-    inputSchema: z.object({
-      service: z.string().optional().describe("Optional service name (users, reservations, agent)"),
-    }),
-    handler: ({ service }) => checkLogs(service),
   }),
   defineTool({
     name: "db_migration_status",
