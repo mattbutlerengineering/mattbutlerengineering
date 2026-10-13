@@ -13,8 +13,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
 /**
  * Installs the single global keydown listener that dispatches the shortcut
  * table (`lib/shortcuts`) to `handlers`. An action with no handler (e.g. Stop
- * while idle) is left alone so the key keeps its default behaviour. The bare
- * "?" help key is ignored while typing in a form field.
+ * while idle) is left alone so the key keeps its default behaviour. Every
+ * shortcut except Escape (stop) is ignored while typing in a form field.
  */
 export function useShortcuts(handlers: ShortcutHandlers): void {
   useEffect(() => {
@@ -23,7 +23,8 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
       if (!action) return;
       const handler = handlers[action];
       if (!handler) return;
-      if (action === "help" && isTypingTarget(e.target)) return;
+      // Only Escape (stop) works while typing; Option+digit etc. produce characters.
+      if (action !== "stop" && isTypingTarget(e.target)) return;
       e.preventDefault();
       handler();
     };

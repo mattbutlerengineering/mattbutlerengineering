@@ -62,6 +62,21 @@ describe("useShortcuts", () => {
     expect(press({ key: "Escape" }).defaultPrevented).toBe(false);
   });
 
+  it("ignores Alt combos while typing so Option+digit characters are not swallowed", () => {
+    const history = vi.fn();
+    const newGeneration = vi.fn();
+    renderHook(() => useShortcuts({ history, newGeneration }));
+    const textarea = document.createElement("textarea");
+    document.body.appendChild(textarea);
+    const e1 = press({ altKey: true, code: "Digit1", key: "¡" }, textarea);
+    const e2 = press({ altKey: true, shiftKey: true, code: "KeyN", key: "Ń" }, textarea);
+    expect(history).not.toHaveBeenCalled();
+    expect(newGeneration).not.toHaveBeenCalled();
+    expect(e1.defaultPrevented).toBe(false);
+    expect(e2.defaultPrevented).toBe(false);
+    textarea.remove();
+  });
+
   it("ignores '?' while typing in a form field", () => {
     const help = vi.fn();
     renderHook(() => useShortcuts({ help }));

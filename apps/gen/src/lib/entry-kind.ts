@@ -15,9 +15,7 @@ export function resolveEntry(entry: Pick<StoredSpec, "prompt" | "kind">): {
   kind: EntryKind;
   prompt: string;
 } {
-  if (entry.kind && entry.kind !== "generate") {
-    return { kind: entry.kind, prompt: entry.prompt };
-  }
+  if (entry.kind) return { kind: entry.kind, prompt: entry.prompt };
   for (const [prefix, kind] of LEGACY_PREFIXES) {
     if (entry.prompt.startsWith(prefix)) {
       return { kind, prompt: entry.prompt.slice(prefix.length) };

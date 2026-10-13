@@ -625,7 +625,8 @@
           if (!action) return;
           const handler = handlers[action];
           if (!handler) return;
-          if (action === "help" && isTypingTarget(e.target)) return;
+          // Only Escape (stop) works while typing; Option+digit etc. produce characters.
+          if (action !== "stop" && isTypingTarget(e.target)) return;
           e.preventDefault();
           handler();
         };
@@ -742,9 +743,7 @@
       kind: EntryKind;
       prompt: string;
     } {
-      if (entry.kind && entry.kind !== "generate") {
-        return { kind: entry.kind, prompt: entry.prompt };
-      }
+      if (entry.kind) return { kind: entry.kind, prompt: entry.prompt };
       for (const [prefix, kind] of LEGACY_PREFIXES) {
         if (entry.prompt.startsWith(prefix)) {
           return { kind, prompt: entry.prompt.slice(prefix.length) };
