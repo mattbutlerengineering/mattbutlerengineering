@@ -114,7 +114,6 @@ function resolveLoad(entry: RawPageEntry): () => Promise<unknown> {
 
 /** Derives a page's route path from its id + category. */
 function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
-  if (entry.category === "Dashboard") return "/dashboard";
   if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
   return `/components/${entry.id}`;
 }
@@ -228,14 +227,6 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "shadows", label: "Shadows", category: "Tokens" },
   { id: "surfaces", label: "Surfaces", category: "Tokens" },
   { id: "icon-vocabulary", label: "Icon Vocabulary", category: "Tokens" },
-  // ── Dashboard ───────────────────────────────────────────────────────────
-  // Reuses the /demos/dashboard page component — module name doesn't match label.
-  {
-    id: "acmm-dashboard",
-    label: "ACMM Dashboard",
-    category: "Dashboard",
-    load: () => import("../pages/dashboard/Dashboard").then((m) => ({ default: m.Dashboard })),
-  },
   // ── Examples ────────────────────────────────────────────────────────────
   { id: "example-dashboard", label: "Dashboard", category: "Examples" },
   { id: "example-settings", label: "Settings", category: "Examples" },
