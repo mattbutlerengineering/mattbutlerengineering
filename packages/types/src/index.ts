@@ -145,6 +145,10 @@ export { AppError } from "./errors.js";
 // Date utilities
 export { toDateString } from "./date.js";
 
+// Party-fits-table rule (shared by server availability and client seating)
+export type { PartyFitTable } from "./party-fit.js";
+export { partyFitsTable, tableMaxCovers } from "./party-fit.js";
+
 // Zod Schemas
 export * from "./schemas/index.js";
 

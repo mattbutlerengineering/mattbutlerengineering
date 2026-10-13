@@ -7,10 +7,12 @@ import {
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
-import { estimateDuration } from "./slot-rules.js";
+import { estimateDuration, bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { isTableInVenue, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
+
+export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -61,6 +63,15 @@ export const holdService = {
 
     // Calculate times
     const startTime = new Date(time);
+
+    // Guests may only hold a slot inside the venue's booking window (not in
+    // the past, within min/max advance) - the same rule generateTimeSlots
+    // applies when listing slots, so a hand-crafted request can't bypass it.
+    if (
+      !isSlotInBookingWindow(startTime, bookingWindow(settings, new Date(), venue.ianaTimezone))
+    ) {
+      return { success: false, error: BOOKING_WINDOW_ERROR };
+    }
     const duration = estimateDuration(partySize, settings);
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
     const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);

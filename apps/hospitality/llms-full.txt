@@ -5387,12 +5387,11 @@
     ): boolean {
       return isSeatableStatus(reservation) && (table === undefined || tableAcceptsParty(table));
     }
-    export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-      tables: readonly T[],
-      partySize: number
-    ): T[] {
+    export function tablesThatFit<
+      T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+    >(tables: readonly T[], partySize: number): T[] {
       return tables
-        .filter((table) => tableAcceptsParty(table) && table.capacity >= partySize)
+        .filter((table) => tableAcceptsParty(table) && partyFitsTable(table, partySize))
         .sort((a, b) => a.capacity - b.capacity);
     }
   </file>

@@ -979,6 +979,23 @@ describe("reservationService", () => {
       expect(assertBookable).not.toHaveBeenCalled();
     });
 
+    it("uses the table's maxCovers (not raw capacity) as the party-size ceiling", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
+        capacity: 4,
+        maxCovers: 2,
+      } as never);
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        partySize: 3,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.capacityExceeded).toBe(true);
+    });
+
     it("allows a partySize-only update within the assigned table's capacity", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never

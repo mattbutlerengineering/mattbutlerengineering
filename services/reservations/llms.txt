@@ -1397,6 +1397,9 @@
     </item>
   </file>
   <file path="src/services/hold.ts">
+    <item priority="high">
+      export const BOOKING_WINDOW_ERROR: unknown;
+    </item>
     <item priority="medium">
       function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
     </item>
@@ -1972,6 +1975,26 @@
         operatingHours: OperatingHours | null,
         date: string
       ): DaySchedule | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingWindow {
+        earliest: Date;
+        latestLocalDate: string | null;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="medium">
+      function addCalendarDays(date: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookingWindow(
+        settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+        now: Date,
+        ianaTimezone: string
+      ): BookingWindow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isSlotInBookingWindow(slotStart: Date, window: BookingWindow): boolean { /* ... */ }
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];

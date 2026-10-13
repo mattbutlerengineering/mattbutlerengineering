@@ -16,6 +16,8 @@ import {
   estimateDuration,
   filterSuitableTables,
   parseOperatingHours,
+  bookingWindow,
+  isSlotInBookingWindow,
   activeHoldWindow,
   NOT_BOOKED_STATUSES,
   type ReservationSlim,
@@ -104,9 +106,11 @@ export async function generateTimeSlots(
   const { reservations, holds } = await fetchConflictData(venueId, date);
 
   const slots: TimeSlot[] = [];
+  const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
 
   for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
     const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
+    if (!isSlotInBookingWindow(slotStart, window)) continue;
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
     // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
@@ -245,6 +249,7 @@ export async function getAvailableDates(
   }
 
   const results: DateAvailability[] = [];
+  const window = bookingWindow(settings, new Date(), venue.ianaTimezone);
 
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
     const dateStr = toDateString(d);
@@ -266,6 +271,7 @@ export async function getAvailableDates(
 
     for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
       const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+      if (!isSlotInBookingWindow(slotStart, window)) continue;
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
       // Applies checkPacingForSlot the same way generateTimeSlots does, so a
@@ -318,15 +324,14 @@ export async function findBestTable(
 // --- Helper functions ---
 
 async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
-  return prisma.table.findMany({
-    where: {
-      venueId,
-      isActive: true,
-      minCovers: { lte: partySize },
-      OR: [{ maxCovers: { gte: partySize } }, { maxCovers: null }],
-    },
+  // The party-fits rule (maxCovers ?? capacity as the ceiling) lives in one
+  // place - @mbe/types' partyFitsTable - so it is applied here rather than
+  // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
+  const tables = await prisma.table.findMany({
+    where: { venueId, isActive: true },
     orderBy: [{ priority: "desc" }, { capacity: "asc" }],
   });
+  return filterSuitableTables(tables, partySize);
 }
 
 /**

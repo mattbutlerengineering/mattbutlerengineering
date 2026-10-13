@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   estimateDuration,
   filterSuitableTables,
+  bookingWindow,
+  isSlotInBookingWindow,
   parseOperatingHours,
   selectBestTable,
   checkTableConflict,
@@ -114,9 +116,10 @@ describe("filterSuitableTables (pure)", () => {
     expect(filterSuitableTables(tables, 4)).toEqual([]);
   });
 
-  it("includes tables where maxCovers is null (no upper limit)", () => {
-    const tables = [makeTable({ minCovers: 1, maxCovers: null })];
-    expect(filterSuitableTables(tables, 10)).toHaveLength(1);
+  it("treats null maxCovers as the table's capacity, not unlimited (#6495)", () => {
+    const tables = [makeTable({ capacity: 4, minCovers: 1, maxCovers: null })];
+    expect(filterSuitableTables(tables, 4)).toHaveLength(1);
+    expect(filterSuitableTables(tables, 10)).toEqual([]);
   });
 
   it("returns empty array when no tables provided", () => {
@@ -446,5 +449,60 @@ describe("selectBestTable (pure)", () => {
     const table = makeCandidate({ id: "table-1" });
     const expiredHold = makeHold({ expiresAt: new Date(Date.now() - 1000) });
     expect(selectBestTable([table], start, end, [], [expiredHold])).toBe(table);
+  });
+});
+
+describe("bookingWindow / isSlotInBookingWindow", () => {
+  const NOW = new Date("2026-05-05T22:00:00Z"); // 18:00 ET (UTC-4)
+  const TZ = "America/New_York";
+
+  it("excludes a slot already past (now - 30min)", () => {
+    const window = bookingWindow(null, NOW, TZ);
+    expect(isSlotInBookingWindow(new Date("2026-05-05T21:30:00Z"), window)).toBe(false);
+    expect(isSlotInBookingWindow(new Date("2026-05-05T22:00:00Z"), window)).toBe(true);
+  });
+
+  it("excludes slots before now + minAdvanceBooking hours", () => {
+    const window = bookingWindow({ minAdvanceBooking: 2 }, NOW, TZ);
+    expect(isSlotInBookingWindow(new Date("2026-05-05T23:45:00Z"), window)).toBe(false);
+    expect(isSlotInBookingWindow(new Date("2026-05-06T00:00:00Z"), window)).toBe(true);
+  });
+
+  it("excludes slots beyond maxAdvanceBooking days (venue-local date)", () => {
+    const window = bookingWindow({ maxAdvanceBooking: 14 }, NOW, TZ);
+    // 2026-05-19 23:30 ET is still local day +14 (UTC already May 20)
+    expect(isSlotInBookingWindow(new Date("2026-05-20T03:30:00Z"), window)).toBe(true);
+    // 2026-05-20 00:00 ET is day +15
+    expect(isSlotInBookingWindow(new Date("2026-05-20T04:00:00Z"), window)).toBe(false);
+  });
+
+  it("is DST-safe: max window counts local calendar days across spring-forward", () => {
+    const now = new Date("2026-03-07T17:00:00Z"); // 12:00 EST, day before DST
+    const window = bookingWindow({ maxAdvanceBooking: 2 }, now, TZ);
+    // local 2026-03-09 23:30 EDT = 2026-03-10T03:30Z -> day +2, allowed
+    expect(isSlotInBookingWindow(new Date("2026-03-10T03:30:00Z"), window)).toBe(true);
+    // local 2026-03-10 00:00 EDT = 04:00Z -> day +3, rejected
+    expect(isSlotInBookingWindow(new Date("2026-03-10T04:00:00Z"), window)).toBe(false);
+  });
+
+  it("works for a venue ahead of UTC (Tokyo)", () => {
+    const now = new Date("2026-05-05T16:00:00Z"); // 01:00 on 05-06 JST
+    const window = bookingWindow({ maxAdvanceBooking: 0 }, now, "Asia/Tokyo");
+    expect(isSlotInBookingWindow(new Date("2026-05-06T10:00:00Z"), window)).toBe(true);
+    expect(isSlotInBookingWindow(new Date("2026-05-06T15:00:00Z"), window)).toBe(false);
+  });
+});
+
+describe("filterSuitableTables: null maxCovers falls back to capacity", () => {
+  it("rejects a party of 12 for a 2-top with null maxCovers", () => {
+    const twoTop: TableFilter = {
+      id: "t",
+      capacity: 2,
+      minCovers: 1,
+      maxCovers: null,
+      isActive: true,
+    };
+    expect(filterSuitableTables([twoTop], 12)).toEqual([]);
+    expect(filterSuitableTables([twoTop], 2)).toEqual([twoTop]);
   });
 });
