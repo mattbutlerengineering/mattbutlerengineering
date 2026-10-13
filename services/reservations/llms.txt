@@ -615,6 +615,12 @@
       async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
+      async function createDisposableNotifiedWaitlistEntry(
+        ctx: SweepContext,
+        venueId: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
       async function createDisposableReservation(
         ctx: SweepContext,
         venueId: string,
