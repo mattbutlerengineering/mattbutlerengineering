@@ -102,16 +102,17 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 
     const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
       const enabledTabs = tabs.filter((t) => !t.disabled);
-      const currentIndex = enabledTabs.findIndex((t) => t.id === activeId);
+      // No match: the fallback tab stop is the first enabled item.
+      const currentIndex = Math.max(
+        0,
+        enabledTabs.findIndex((t) => t.id === activeId)
+      );
       let nextIndex: number;
 
       if (e.key === "ArrowRight") {
         nextIndex = (currentIndex + 1) % enabledTabs.length;
       } else if (e.key === "ArrowLeft") {
-        nextIndex =
-          currentIndex === -1
-            ? enabledTabs.length - 1
-            : (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+        nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
       } else if (e.key === "Home") {
         nextIndex = 0;
       } else if (e.key === "End") {

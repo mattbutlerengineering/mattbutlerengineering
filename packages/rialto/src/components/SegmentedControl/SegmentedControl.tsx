@@ -80,16 +80,17 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       const enabledSegments = segments.filter((s) => !s.disabled);
-      const currentIndex = enabledSegments.findIndex((s) => s.id === value);
+      // No match: the fallback tab stop is the first enabled item.
+      const currentIndex = Math.max(
+        0,
+        enabledSegments.findIndex((s) => s.id === value)
+      );
       let next: number | null = null;
 
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         next = (currentIndex + 1) % enabledSegments.length;
       } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        next =
-          currentIndex === -1
-            ? enabledSegments.length - 1
-            : (currentIndex - 1 + enabledSegments.length) % enabledSegments.length;
+        next = (currentIndex - 1 + enabledSegments.length) % enabledSegments.length;
       } else if (e.key === "Home") {
         next = 0;
       } else if (e.key === "End") {

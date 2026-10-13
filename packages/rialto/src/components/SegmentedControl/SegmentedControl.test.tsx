@@ -231,5 +231,13 @@ describe("SegmentedControl", () => {
       await userEvent.keyboard("{ArrowLeft}");
       expect(onChange).toHaveBeenCalledWith("month");
     });
+
+    it("ArrowRight with no matching value moves past the fallback tab stop", async () => {
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="" onChange={onChange} />);
+      screen.getByRole("radio", { name: "Day" }).focus();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(onChange).toHaveBeenCalledWith("week");
+    });
   });
 });

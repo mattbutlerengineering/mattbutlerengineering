@@ -241,5 +241,19 @@ describe("Tabs", () => {
       expect(tabbable).toHaveLength(1);
       expect(tabbable[0]).toHaveTextContent("Overview");
     });
+
+    it("ArrowRight from an unmatched selection moves past the fallback tab stop", async () => {
+      render(<Tabs tabs={tabs} defaultTab="missing" />);
+      screen.getByRole("tab", { name: "Overview" }).focus();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(screen.getByRole("tab", { name: "Details" })).toHaveFocus();
+    });
+
+    it("ArrowLeft from an unmatched selection wraps to the last tab", async () => {
+      render(<Tabs tabs={tabs} defaultTab="missing" />);
+      screen.getByRole("tab", { name: "Overview" }).focus();
+      await userEvent.keyboard("{ArrowLeft}");
+      expect(screen.getByRole("tab", { name: "History" })).toHaveFocus();
+    });
   });
 });
