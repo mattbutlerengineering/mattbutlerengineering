@@ -130,15 +130,6 @@
       }
     </item>
     <item priority="low">
-      interface MockResultMessage {
-        type: "result";
-        subtype: "success" | "error_max_turns" | "error_during_turn";
-        uuid: string;
-        session_id: string;
-        duration_ms: number;
-      }
-    </item>
-    <item priority="low">
       interface MockClientOptions {
         mode?: MockMode;
         fixtures?: readonly (readonly SDKMessage[])[];
@@ -160,7 +151,7 @@
         callIndex: number,
         tokens: Readonly<{ input: number; output: number }>,
         costUsd: number
-      ): MockResultMessage { /* ... */ }
+      ): SDKResultMessage { /* ... */ }
     </item>
     <item priority="low">
       interface MockClaudeClient {
@@ -181,6 +172,26 @@
     </item>
     <item priority="high">
       export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient { /* ... */ }
+    </item>
+  </file>
+  <file path="src/sdk-result.ts">
+    <item priority="low">
+      interface ResultInputs {
+        sessionId: string;
+        numTurns: number;
+        costUsd: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="high">
+      export function fixtureUuid(seed: string): SDKResultMessage["uuid"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildUsage(inputTokens: number, outputTokens: number): SDKResultMessage["usage"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSuccessResult(opts: ResultInputs, result: string): SDKResultMessage { /* ... */ }
     </item>
   </file>
   <file path="src/session-fixtures.ts">
@@ -207,13 +218,19 @@
       function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
+      function buildMappedEvent(mapped: MappedEvent, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
       function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
-      function buildToolUseEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+      function toolUseIdFor(call: ToolCallRecord, index: number): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildToolResultEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+      function buildToolUseEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, index: number, offsetMs = 0): SessionEvent { /* ... */ }
     </item>
     <item priority="medium">
       function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
@@ -249,6 +266,9 @@
     </item>
     <item priority="high">
       export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseMappedEvent(event: SessionEvent): MappedEvent | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function compareToolCalls(
