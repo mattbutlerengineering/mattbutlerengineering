@@ -158,7 +158,7 @@
     <item priority="high">
       interface ResendClient {
         emails: {
-          send(payload: Record<string, unknown>): Promise<{ i...;
+          // The SDK resolves `{ data, error }` on API failur...;
       }
     </item>
     <item priority="low">

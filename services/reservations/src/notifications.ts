@@ -23,7 +23,9 @@ export function createResendAdapter(): ResendNotificationAdapter {
   const resendClient = process.env.RESEND_API_KEY
     ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
         emails: {
-          send(payload: Record<string, unknown>): Promise<{ id: string }>;
+          send(
+            payload: Record<string, unknown>
+          ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
         };
       })
     : null;
