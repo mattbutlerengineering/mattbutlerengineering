@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
-import { createErrorRateHealthCheck } from "@mbe/observability";
+import { createErrorRateHealthCheck, resolveBuildInfo } from "@mbe/observability";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
 import { checkAuth0 as defaultCheckAuth0 } from "./health.js";
 import type { Auth0CheckResult } from "./health.js";
@@ -210,7 +210,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
 
     return {
       status: hasErrors ? "degraded" : "ok",
-      version: "1.0.0",
+      version: resolveBuildInfo(process.env).version,
       apiVersion,
       successorVersion,
       sunsetDate,

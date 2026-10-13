@@ -10,6 +10,10 @@ Instrumentations: `http`, `fastify`, `pino` only. No auto-instrumentation suite 
 
 Resource attributes: service name, version, deployment environment, `deploy.sha`, `deploy.pr_number`, `deploy.author`.
 
+### Build identity
+
+`resolveBuildInfo(env)` (also `@mbe/observability/build-info`) is the single owner of "which build is this": `DEPLOY_SHA`, else `"unknown"`. It feeds OTel `service.version`, Sentry `release`, and `/health` `version`.
+
 ### Filtered Paths
 
 `shouldIgnoreRequest` excludes `/health`, `/docs`, `/reference` (and sub-paths) from tracing. Application routes like `/api/v1/*` are always traced.

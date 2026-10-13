@@ -64,7 +64,9 @@ reportApiError(apiError);
 
 `resolveConfig(dsn)` reads `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` from env. Sentry is no-op when `SENTRY_DSN` is unset.
 
-In the browser `process.env` is undefined, so `resolveConfig` falls back to `development` and no release. Browser callers therefore pass `environment` explicitly, and `react.ts` omits `release` when unresolved so the SDK reads the `SENTRY_RELEASE` global that `sentryVitePlugin` injects.
+`release` is `SENTRY_RELEASE`, else the shared build identity from `resolveBuildInfo` (`@mbe/observability/build-info`, derived from `DEPLOY_SHA`), else `"unknown"`.
+
+In the browser `process.env` is undefined, so `resolveConfig` falls back to `development` and release `"unknown"`. Browser callers therefore pass `environment` explicitly, and `react.ts` omits `release` when unresolved so the SDK reads the `SENTRY_RELEASE` global that `sentryVitePlugin` injects.
 
 ## Commands
 

@@ -15,6 +15,7 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { resolveTelemetryPlan } from "./otel-config.js";
+import { resolveBuildInfo } from "./build-info.js";
 
 export interface OtelConfig {
   readonly serviceName: string;
@@ -98,9 +99,9 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
 
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.serviceName,
-    [ATTR_SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+    [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
-    "deploy.sha": process.env.DEPLOY_SHA ?? "unknown",
+    "deploy.sha": resolveBuildInfo(process.env).sha,
     "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
     "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
   });

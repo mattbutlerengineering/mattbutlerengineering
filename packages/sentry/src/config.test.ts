@@ -7,6 +7,7 @@ describe("resolveConfig", () => {
     SENTRY_RELEASE: process.env.SENTRY_RELEASE,
     NODE_ENV: process.env.NODE_ENV,
     npm_package_version: process.env.npm_package_version,
+    DEPLOY_SHA: process.env.DEPLOY_SHA,
   };
 
   beforeEach(() => {
@@ -14,6 +15,7 @@ describe("resolveConfig", () => {
     delete process.env.SENTRY_RELEASE;
     delete process.env.NODE_ENV;
     delete process.env.npm_package_version;
+    delete process.env.DEPLOY_SHA;
   });
 
   afterEach(() => {
@@ -63,9 +65,14 @@ describe("resolveConfig", () => {
     expect(config.release).toBe("v1.2.3");
   });
 
-  it("falls back to npm_package_version for release", () => {
+  it("derives release from DEPLOY_SHA when SENTRY_RELEASE is unset", () => {
+    process.env.DEPLOY_SHA = "deadbeef";
     process.env.npm_package_version = "0.5.0";
-    const config = resolveConfig("https://key@sentry.io/123");
-    expect(config.release).toBe("0.5.0");
+    expect(resolveConfig("https://key@sentry.io/123").release).toBe("deadbeef");
+  });
+
+  it("falls back to 'unknown' rather than undefined or a package version", () => {
+    process.env.npm_package_version = "0.5.0";
+    expect(resolveConfig("https://key@sentry.io/123").release).toBe("unknown");
   });
 });
