@@ -35,7 +35,7 @@ export interface CreateWaitlistEntryInput {
 const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Loads the venue's settings, active tables and live CONFIRMED bookings once,
+ * Loads the venue's settings, active tables and live PENDING/CONFIRMED bookings once,
  * and returns a pure `(position, partySize) -> minutes | null` estimator over
  * table turnover (see waitlist-estimate.ts). Null means no table fits.
  */
@@ -49,7 +49,7 @@ async function loadEstimator(
     prisma.reservation.findMany({
       where: {
         venueId,
-        status: "CONFIRMED",
+        status: { in: ["PENDING", "CONFIRMED"] },
         endTime: { gt: now },
         startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
       },

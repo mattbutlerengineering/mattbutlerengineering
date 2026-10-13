@@ -14,7 +14,9 @@ const waitlistEstimate = vi.fn();
 const api = { publicVenue: { waitlistEstimate } } as any;
 
 function renderLive() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
   return render(
     <QueryClientProvider client={client}>
       <LiveWaitlistConfirmation
@@ -71,22 +73,26 @@ describe("LiveWaitlistConfirmation", () => {
     expect(screen.getByText("45 min")).toBeDefined();
   });
 
-  it("tells a notified guest their table is ready and stops polling", async () => {
-    waitlistEstimate.mockResolvedValue({
+  it("tells a notified guest their table is ready and keeps polling for the outcome", async () => {
+    waitlistEstimate.mockResolvedValueOnce({
       position: 1,
       estimatedWaitMinutes: 0,
       status: "notified",
     });
+    waitlistEstimate.mockResolvedValue({
+      position: 1,
+      estimatedWaitMinutes: 0,
+      status: "seated",
+    });
     renderLive();
 
     await advancePoll();
-
     expect(screen.getByText(/your table is ready/i)).toBeDefined();
     expect(screen.queryByText("Estimated wait")).toBeNull();
 
-    const callsAfterNotified = waitlistEstimate.mock.calls.length;
     await advancePoll();
-    expect(waitlistEstimate.mock.calls.length).toBe(callsAfterNotified);
+    expect(waitlistEstimate).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/seated/i)).toBeDefined();
   });
 
   it.each([

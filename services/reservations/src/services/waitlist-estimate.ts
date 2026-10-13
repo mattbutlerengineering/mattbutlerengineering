@@ -2,6 +2,8 @@ import type { VenueSettings } from "@mbe/types";
 import { estimateDuration, filterSuitableTables, type TableFilter } from "./slot-rules.js";
 
 const MS_PER_MINUTE = 60_000;
+/** Staff bookings default to PENDING; COMPLETED/CANCELLED/NO_SHOW free the table. */
+const OCCUPYING_STATUSES: ReadonlySet<string> = new Set(["PENDING", "CONFIRMED"]);
 
 export type EstimateTable = TableFilter;
 
@@ -29,7 +31,7 @@ function freeInMs(
   durationMs: number,
   reservations: readonly EstimateReservation[]
 ): number | null {
-  const own = reservations.filter((r) => r.tableId === tableId && r.status === "CONFIRMED");
+  const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
   const blockedByUpcoming = own.some(
     (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
   );

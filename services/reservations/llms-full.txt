@@ -14628,7 +14628,7 @@
       durationMs: number,
       reservations: readonly EstimateReservation[]
     ): number | null {
-      const own = reservations.filter((r) => r.tableId === tableId && r.status === "CONFIRMED");
+      const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
       const blockedByUpcoming = own.some(
         (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
       );
@@ -14914,7 +14914,7 @@
         prisma.reservation.findMany({
           where: {
             venueId,
-            status: "CONFIRMED",
+            status: { in: ["PENDING", "CONFIRMED"] },
             endTime: { gt: now },
             startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
           },

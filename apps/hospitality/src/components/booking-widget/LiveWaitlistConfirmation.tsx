@@ -35,9 +35,12 @@ export function LiveWaitlistConfirmation({
       estimatedWaitMinutes: joined.estimatedWaitMinutes,
       status: "waiting",
     },
-    // Only a guest still in line has a number worth polling for.
-    refetchInterval: (query) =>
-      query.state.data?.status === "waiting" ? WAITLIST_ESTIMATE_POLL_MS : false,
+    // Keep polling while in line or holding a table (notified becomes seated or
+    // expired within minutes); stop on the terminal states.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "waiting" || status === "notified" ? WAITLIST_ESTIMATE_POLL_MS : false;
+    },
     refetchIntervalInBackground: false,
     retry: false,
   });

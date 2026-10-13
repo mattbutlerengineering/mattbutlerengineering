@@ -146,6 +146,9 @@ describe("waitlistService", () => {
       const result = await waitlistService.withLiveEstimates(entries as never);
 
       expect(result.map((e) => e.estimatedWaitMinutes)).toEqual([0, 40, 75]);
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ status: { in: ["PENDING", "CONFIRMED"] } }),
+      });
       vi.useRealTimers();
     });
 

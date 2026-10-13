@@ -66,4 +66,16 @@ describe("estimateWaitFromTurnover", () => {
   it("returns null when no table fits the party", () => {
     expect(estimates([table("t1", { capacity: 1 })], [], [1])).toEqual([null]);
   });
+
+  it("counts PENDING bookings (the staff default) as occupying a table", () => {
+    const tables = [table("t1")];
+    const reservations = [reservation("t1", -30, 90, "PENDING")];
+    expect(estimates(tables, reservations, [1])).toEqual([90]);
+  });
+
+  it("counts an upcoming PENDING booking as a block", () => {
+    const tables = [table("t1"), table("t2")];
+    const reservations = [reservation("t2", 30, 105, "PENDING")];
+    expect(estimates(tables, reservations, [1, 2])).toEqual([0, 75]);
+  });
 });
