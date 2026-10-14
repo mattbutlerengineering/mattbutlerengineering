@@ -104,6 +104,8 @@ const mockSpec = {
   updatedAt: "2026-03-28T00:00:00.000Z",
 };
 
+const SPECS_URL = "/api/gen/specs";
+
 describe("Gen Specs Routes", () => {
   let app: FastifyInstance;
 
@@ -123,7 +125,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: {
           prompt: "a login form",
           spec: { type: "Stack", children: [] },
@@ -142,7 +144,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: { prompt: "make it blue", kind: "refine", spec: {}, rawLines: [] },
       });
 
@@ -157,7 +159,7 @@ describe("Gen Specs Routes", () => {
 
       await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: { prompt: "a form", spec: {}, rawLines: [] },
       });
 
@@ -169,7 +171,7 @@ describe("Gen Specs Routes", () => {
     it("returns 400 for an unknown kind", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: { prompt: "a form", kind: "bogus", spec: {}, rawLines: [] },
       });
 
@@ -181,7 +183,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: { prompt: "x".repeat(2000), kind: "refine", spec: {}, rawLines: [] },
       });
 
@@ -191,7 +193,7 @@ describe("Gen Specs Routes", () => {
     it("returns 400 for missing prompt", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: {
           spec: { type: "Stack" },
           rawLines: ["Stack"],
@@ -214,7 +216,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
         payload: {
           prompt: "a login form",
           spec: { type: "Stack" },
@@ -232,7 +234,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
       });
 
       expect(response.statusCode).toBe(200);
@@ -255,7 +257,7 @@ describe("Gen Specs Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/gen/specs",
+        url: SPECS_URL,
       });
 
       expect(response.statusCode).toBe(401);
