@@ -227,9 +227,29 @@ describe("guestService", () => {
       });
     });
 
-    it("never overwrites existing notes on a matched guest", async () => {
+    it("appends notes to existing notes on a matched guest", async () => {
       vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
         makePrismaGuest({ notes: "VIP" }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "VIP\nnut allergy" }),
+      });
+    });
+
+    it("does not duplicate a note the matched guest already has", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
       );
 
       await guestService.findOrCreate("venue-1", {
