@@ -170,6 +170,62 @@ describe("modifyReservation", () => {
   });
 });
 
+describe("booking window on guest modify (#6560)", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const iso = (offsetDays: number): string =>
+    new Date(Date.now() + offsetDays * DAY_MS).toISOString();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(venueService.getById).mockResolvedValue({
+      id: "venue_1",
+      ianaTimezone: "UTC",
+      settings: { minAdvanceBooking: 2, maxAdvanceBooking: 30 },
+    } as never);
+  });
+
+  it("rejects a move into the past with 422 BOOKING_WINDOW_VIOLATION", async () => {
+    const result = await modifyReservation(makeReservation(), { startTime: iso(-1) }, deposits);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(422);
+      expect(result.code).toBe("BOOKING_WINDOW_VIOLATION");
+    }
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("rejects a move past maxAdvanceBooking", async () => {
+    const result = await modifyReservation(makeReservation(), { startTime: iso(60) }, deposits);
+
+    expect(result.success).toBe(false);
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("allows a move inside the window", async () => {
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: makeReservation(),
+    } as never);
+
+    const result = await modifyReservation(makeReservation(), { startTime: iso(7) }, deposits);
+
+    expect(result.success).toBe(true);
+    expect(reservationService.updateWithConflictCheck).toHaveBeenCalled();
+  });
+
+  it("does not consult the venue for a change that does not move the start", async () => {
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: makeReservation(),
+    } as never);
+
+    await modifyReservation(makeReservation(), { specialRequests: "quiet table" }, deposits);
+
+    expect(venueService.getById).not.toHaveBeenCalled();
+  });
+});
+
 describe("per-person deposit guard on partySize change (#2931 — decision: Block)", () => {
   beforeEach(() => {
     vi.clearAllMocks();

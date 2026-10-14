@@ -8176,15 +8176,15 @@
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     <item priority="low">
-      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+      type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
     </item>
     <item priority="low">
       interface AssertBookableOptions {
         tableId: string;
+        table?: PartyFitTable;
         window: { startTime: Date; endTime: Date };
         partySize: number;
         settings: VenueSettings | null | undefined;
-        reservations: ReservationSlim[];
       }
     </item>
     <item priority="high">
@@ -8699,6 +8699,7 @@
         hold?: ReservationHold;
         error?: string;
         tableNotInVenue?: boolean;
+        partyDoesNotFit?: boolean;
       }
     </item>
     <item priority="high">
@@ -8982,6 +8983,12 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService
+      ): Promise<ModifyReservationResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkBookingWindow(
+        reservation: Reservation,
+        changes: ReservationChanges
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
     <item priority="high">
@@ -9509,6 +9516,9 @@
     </item>
     <item priority="high">
       export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
