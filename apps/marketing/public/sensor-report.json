@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-13T18:21:56.476Z",
+  "generated_at": "2026-10-14T00:31:11.647Z",
   "period": {
-    "start": "2026-10-06",
-    "end": "2026-10-13"
+    "start": "2026-10-07",
+    "end": "2026-10-14"
   },
   "sensors": {
     "acmm": {
@@ -37,41 +37,41 @@
     },
     "metricsFreshness": {
       "available": true,
-      "stale_count": 0,
+      "stale_count": 1,
       "metrics": [
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.92,
-          "latest": "2026-10-12T20:21:48.050Z",
+          "age_days": 0.25,
+          "latest": "2026-10-13T18:25:27.710Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.93,
-          "latest": "2026-10-12T20:04:03.000Z",
+          "age_days": 0.41,
+          "latest": "2026-10-13T14:33:54.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
-          "state": "fresh",
-          "age_days": 0.77,
-          "latest": "2026-10-13T00:00:00.000Z",
+          "state": "stale",
+          "age_days": 20.02,
+          "latest": "2026-09-24T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0,
-          "latest": "2026-10-13T18:14:57.799Z",
+          "age_days": 0.25,
+          "latest": "2026-10-13T18:25:44.984Z",
           "max_age_days": 5
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-10-12T20:21:48.050Z",
+      "collected_at": "2026-10-13T18:25:27.710Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -84,24 +84,34 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 79,
-      "total_merged": 78,
-      "total_closed_without_merge": 1,
+      "total_prs": 87,
+      "total_merged": 84,
+      "total_closed_without_merge": 3,
       "by_category": {
-        "tier:standard": {
-          "merged": 34,
+        "tier:trivial": {
+          "merged": 26,
+          "closed_without_merge": 2,
+          "acceptance_rate": 0.93
+        },
+        "priority:critical": {
+          "merged": 0,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0
+        },
+        "tier:critical": {
+          "merged": 3,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 20,
+          "merged": 23,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 24,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.96
+        "tier:standard": {
+          "merged": 32,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         }
       }
     },
@@ -116,9 +126,9 @@
       "total_output_tokens_7d": 218008,
       "avg_turns_per_session": 17.454545454545453,
       "queue": {
-        "sessions_7d": 33,
-        "sessions_without_usage_7d": 74,
-        "tokens_7d": 4152644,
+        "sessions_7d": 30,
+        "sessions_without_usage_7d": 89,
+        "tokens_7d": 3794415,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
       }
@@ -128,35 +138,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 15385906,
-      "output_tokens": 19080,
-      "cache_creation_tokens": 152582,
-      "cache_hit_rate": 0.9902,
+      "cache_read_tokens": 16744482,
+      "output_tokens": 40435,
+      "cache_creation_tokens": 221349,
+      "cache_hit_rate": 0.9869,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
           "input_tokens": 166,
-          "output_tokens": 19080,
-          "cache_read_tokens": 15385906,
-          "cache_creation_tokens": 152582
+          "output_tokens": 40435,
+          "cache_read_tokens": 16744482,
+          "cache_creation_tokens": 221349
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 24,
-      "passed": 9,
+      "completed": 29,
+      "passed": 21,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 38446046268,
-        "status": "queued",
+        "databaseId": 38490637947,
+        "status": "in_progress",
         "conclusion": null,
-        "createdAt": "2026-10-13T18:21:16Z",
-        "name": "Auto-Merge Policy",
+        "createdAt": "2026-10-14T00:31:10Z",
+        "name": "Push on main",
         "headBranch": "main",
-        "headSha": "a167d9fe00078c15f4cfeb4a8eeb871ab201bf66"
+        "headSha": "2bae6c780b5aee58616ff0cf12c9c87e74463a43"
       }
     },
     "lighthouse": {
@@ -164,32 +174,32 @@
     },
     "issues": {
       "available": true,
-      "open": 41,
+      "open": 21,
       "created_7d": 158,
       "closed_7d": 200,
       "closure_rate": 127,
-      "queue_depth": 8,
+      "queue_depth": 5,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-10-13T18:14:57.799Z",
+      "collected_at": "2026-10-13T18:25:44.984Z",
       "category_count": 7,
       "unhealthy_categories": [],
       "categories": {
         "audit": {
-          "total": 42,
+          "total": 38,
           "accepted": 0,
           "rejected": 2,
-          "wontfix": 40,
-          "rejection_rate": 0.047619047619047616
+          "wontfix": 36,
+          "rejection_rate": 0.05263157894736842
         },
         "ci-fix": {
-          "total": 50,
+          "total": 53,
           "accepted": 0,
-          "rejected": 6,
-          "wontfix": 44,
-          "rejection_rate": 0.12
+          "rejected": 4,
+          "wontfix": 49,
+          "rejection_rate": 0.07547169811320754
         },
         "acmm": {
           "total": 12,
@@ -206,24 +216,24 @@
           "rejection_rate": 0.04838709677419355
         },
         "meta-improvement": {
-          "total": 27,
+          "total": 28,
           "accepted": 0,
-          "rejected": 4,
-          "wontfix": 23,
-          "rejection_rate": 0.14814814814814814
-        },
-        "dependencies": {
-          "total": 1,
-          "accepted": 0,
-          "rejected": 0,
-          "wontfix": 1,
-          "rejection_rate": 0
+          "rejected": 3,
+          "wontfix": 25,
+          "rejection_rate": 0.10714285714285714
         },
         "sentry": {
           "total": 6,
           "accepted": 0,
           "rejected": 0,
           "wontfix": 6,
+          "rejection_rate": 0
+        },
+        "dependencies": {
+          "total": 1,
+          "accepted": 0,
+          "rejected": 0,
+          "wontfix": 1,
           "rejection_rate": 0
         }
       },
@@ -240,17 +250,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 16,
-      "logs_7d": 16,
-      "total_commits_7d": 144,
-      "unique_branches_7d": 1,
-      "branches_7d": ["chore/learning-loop-20261013"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.009,
-      "total_lines_added_7d": 734767,
-      "lines_churned_7d": 6246,
+      "churn_rate": 0.01,
+      "total_lines_added_7d": 738436,
+      "lines_churned_7d": 7272,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -259,48 +269,51 @@
       "state": "report-missing"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 19191,
+      "window_shas": 1
     },
     "e2eStability": {
       "available": false
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.979,
+      "composite": 0.963,
       "sub_metrics": {
-        "issues_merged": 133,
-        "first_pass_success_rate": 0.947,
+        "issues_merged": 153,
+        "first_pass_success_rate": 0.908,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.18
+        "review_coverage": 0.157
       },
       "distribution": {
         "size:xl": {
-          "count": 8,
-          "avg_commits": 2.1,
-          "avg_ttm_hours": 3
-        },
-        "size:s": {
-          "count": 42,
-          "avg_commits": 1.4,
-          "avg_ttm_hours": 6.4
+          "count": 12,
+          "avg_commits": 2.3,
+          "avg_ttm_hours": 3.7
         },
         "size:m": {
-          "count": 31,
-          "avg_commits": 1.6,
-          "avg_ttm_hours": 2.4
+          "count": 39,
+          "avg_commits": 1.9,
+          "avg_ttm_hours": 3.8
         },
         "size:l": {
-          "count": 10,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 4.4
+          "count": 15,
+          "avg_commits": 1.9,
+          "avg_ttm_hours": 5.3
+        },
+        "size:s": {
+          "count": 44,
+          "avg_commits": 1.3,
+          "avg_ttm_hours": 6.4
         },
         "size:xs": {
-          "count": 42,
+          "count": 43,
           "avg_commits": 1.2,
-          "avg_ttm_hours": 11.6
+          "avg_ttm_hours": 11.4
         }
       },
       "baseline": null,
@@ -317,11 +330,20 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [],
+  "regressions": [
+    {
+      "sensor": "metricsFreshness",
+      "metric": "queueEfficiency",
+      "current": "stale",
+      "previous": "2026-09-24T00:00:00.000Z",
+      "delta": 20.02,
+      "severity": "medium"
+    }
+  ],
   "summary": {
-    "sensors_available": 13,
+    "sensors_available": 14,
     "sensors_total": 17,
-    "regressions_detected": 0,
-    "status": "healthy"
+    "regressions_detected": 1,
+    "status": "regressions_detected"
   }
 }
