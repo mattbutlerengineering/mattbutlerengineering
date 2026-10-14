@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse, WaitlistJoinResult } from "@mbe/types";
+import type { ApiResponse, WaitlistEstimate, WaitlistJoinResult } from "@mbe/types";
 import {
   createProblemDetails,
   waitlistJoinResultJsonSchema,
+  waitlistEstimateJsonSchema,
   publicWaitlistBodyJsonSchema,
 } from "@mbe/types";
 import { venueService } from "../services/venue.js";
@@ -10,6 +11,11 @@ import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { runWithVenueContext } from "../services/venue-context-store.js";
+import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
+import {
+  generateWaitlistStatusToken,
+  verifyWaitlistStatusToken,
+} from "../services/waitlist-status-token.js";
 
 interface PublicWaitlistJoinBody {
   venueId: string;
@@ -27,6 +33,7 @@ interface PublicWaitlistJoinBody {
  */
 export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(waitlistJoinResultJsonSchema);
+  fastify.addSchema(waitlistEstimateJsonSchema);
 
   fastify.post<{
     Params: { slug: string };
@@ -111,8 +118,76 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.code(201).send({
           data: {
+            statusToken: generateWaitlistStatusToken(entry.id, venue.id),
             position: entry.position,
             estimatedWaitMinutes: entry.estimatedWaitMinutes,
+          },
+        });
+      });
+    }
+  );
+  // Live read of the guest's OWN entry. The credential is the signed,
+  // expiring status token minted at join - never the guessable entry id. The
+  // response carries no PII. Rate limiting is publicRateLimitHook plus the
+  // global onRequest limiter; no route-level config.rateLimit (see gotchas §
+  // Fastify / rate limiting).
+  fastify.get<{
+    Params: { slug: string };
+    Querystring: { token: string };
+    Reply: ApiResponse<WaitlistEstimate> | ReturnType<typeof createProblemDetails>;
+  }>(
+    "/:slug/waitlist/status",
+    {
+      preHandler: publicRateLimitHook,
+      schema: {
+        summary: "Read a waitlist entry's live position and estimate (public)",
+        description:
+          "Returns the current position and wait estimate for the guest's own waitlist entry, addressed by the status token returned when they joined.",
+        tags: ["Public"],
+        params: {
+          type: "object",
+          required: ["slug"],
+          properties: { slug: { type: "string" } },
+        },
+        querystring: {
+          type: "object",
+          required: ["token"],
+          properties: { token: { type: "string", minLength: 1, maxLength: 512 } },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: { data: { $ref: "WaitlistEstimate#" } },
+          },
+          404: { $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { slug } = request.params;
+      // One detail for every failure (bad token, wrong venue, gone entry) so
+      // the response is not an oracle.
+      const notFound = () =>
+        reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "No such waitlist entry for this venue."));
+
+      const venueId = await resolveVenueId("venue_slug", slug);
+      if (!venueId) return notFound();
+
+      const verified = verifyWaitlistStatusToken(request.query.token, venueId);
+      if (!verified.valid) return notFound();
+
+      return runWithVenueContext(venueId, async () => {
+        const entry = await waitlistService.getById(verified.entryId);
+        if (!entry || entry.venueId !== venueId) return notFound();
+
+        const [live] = await waitlistService.withLiveEstimates([entry]);
+        return reply.send({
+          data: {
+            position: entry.position,
+            estimatedWaitMinutes: (live ?? entry).estimatedWaitMinutes,
+            status: entry.status,
           },
         });
       });

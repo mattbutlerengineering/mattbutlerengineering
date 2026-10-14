@@ -1355,6 +1355,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -7067,6 +7068,9 @@
       export const waitlistJoinResultJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const waitlistEstimateJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const floorPlanLayoutJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -7455,6 +7459,9 @@
     </item>
     <item priority="high">
       export const WaitlistStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistEstimateSchema: unknown;
     </item>
     <item priority="high">
       export const WaitlistEntrySchema: unknown;
@@ -8124,6 +8131,9 @@
     <item priority="high">
       export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
+    <item priority="high">
+      export const projectEvent: EventProjector;
+    </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
     <item priority="low">
@@ -8668,6 +8678,9 @@
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
+    </item>
+    <item priority="low">
+      async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> { /* ... */ }
     </item>
     <item priority="high">
       export const guestService: unknown;
@@ -9633,6 +9646,39 @@
       export const venueService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-estimate.ts">
+    <item priority="low">
+      type EstimateTable = TableFilter;
+    </item>
+    <item priority="low">
+      interface EstimateReservation {
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        status: string;
+      }
+    </item>
+    <item priority="low">
+      interface EstimateInput {
+        position: number;
+        partySize: number;
+        now: Date;
+        tables: readonly EstimateTable[];
+        reservations: readonly EstimateReservation[];
+      }
+    </item>
+    <item priority="medium">
+      function freeInMs(
+        tableId: string,
+        now: number,
+        durationMs: number,
+        reservations: readonly EstimateReservation[]
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitFromTurnover(input: EstimateInput): number | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-notifier.ts">
     <item priority="low">
       interface WaitlistNotifierLogger {
@@ -9701,6 +9747,28 @@
       export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/waitlist-status-token.ts">
+    <item priority="high">
+      export const WAITLIST_STATUS_TOKEN_TTL_MS: unknown;
+    </item>
+    <item priority="medium">
+      function sign(entryId: string, venueId: string, expiry: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateWaitlistStatusToken(
+        entryId: string,
+        venueId: string,
+        now: number = Date.now()
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyWaitlistStatusToken(
+        token: string,
+        venueId: string,
+        now: number = Date.now()
+      ): { valid: false } | { valid: true; entryId: string } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
     <item priority="high">
       export function calculatePosition(existingCount: number): number { /* ... */ }
@@ -9735,6 +9803,12 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+    <item priority="low">
+      async function loadEstimator(
+        venueId: string,
+        now: Date
+      ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
       async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
@@ -12892,7 +12966,7 @@
         async guestRisk(): Promise<unknown>;
         async recognizeGuest(): Promise<unknown>;
         async joinWaitlist(): Promise<unknown>;
-        async depositIntent(): Promise<unknown>;
+        async waitlistEstimate(): Promise<unknown>;
       }
     </item>
   </file>
@@ -15154,22 +15228,10 @@
   </file>
   <file path="packages/test-fixtures/src/reservations.ts">
     <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-      }
+      type MockTable = Table;
     </item>
     <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
+      type MockReservation = Reservation & { readonly table: Table };
     </item>
     <item priority="low">
       interface MockPagination {
@@ -15322,20 +15384,10 @@
   </file>
   <file path="packages/test-fixtures/src/users.ts">
     <item priority="low">
-      interface MockUserPreferences {
-        theme: "light" | "dark" | "system";
-        emailNotifications: boolean;
-        marketingEmails: boolean;
-      }
+      type MockUserPreferences = UserPreferences;
     </item>
     <item priority="low">
-      interface MockUser {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
+      type MockUser = User;
     </item>
     <item priority="high">
       export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }
@@ -15601,6 +15653,29 @@
         floorPlanId: string;
         positions: UpdateTablePositionRequest[];
       }
+    </item>
+  </file>
+  <file path="packages/types/src/guest-segment.ts">
+    <item priority="high">
+      export const VIP_TAG: unknown;
+    </item>
+    <item priority="high">
+      export const VIP_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="high">
+      export const REPEAT_VISIT_THRESHOLD: unknown;
+    </item>
+    <item priority="low">
+      type GuestSegmentName = "VIP" | "Repeat" | "New";
+    </item>
+    <item priority="high">
+      export function hasVipTag(tags: readonly string[] | null | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function classifyGuestSegment(
+        visitCount: number,
+        tags: readonly string[] | null | undefined
+      ): GuestSegmentName { /* ... */ }
     </item>
   </file>
   <file path="packages/types/src/guest.ts">
@@ -16089,8 +16164,16 @@
     </item>
     <item priority="low">
       interface WaitlistJoinResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistEstimate {
+        position: number;
+        estimatedWaitMinutes: number;
+        status: WaitlistStatus;
       }
     </item>
     <item priority="low">

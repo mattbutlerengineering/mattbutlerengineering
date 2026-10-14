@@ -5,22 +5,11 @@
  * prevent accidental mutation across tests.
  */
 
-export interface MockUserPreferences {
-  readonly theme: "light" | "dark" | "system";
-  readonly emailNotifications: boolean;
-  readonly marketingEmails: boolean;
-}
+import type { User, UserPreferences } from "@mbe/types";
 
-export interface MockUser {
-  readonly id: string;
-  readonly email: string;
-  readonly name: string | null;
-  readonly picture: string | null;
-  readonly emailVerified: boolean;
-  readonly preferences: MockUserPreferences;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/** The real `User` / `UserPreferences` contracts (preferences keys are optional). */
+export type MockUserPreferences = UserPreferences;
+export type MockUser = User;
 
 const BASE_USER_PREFERENCES: MockUserPreferences = Object.freeze({
   theme: "light" as const,
@@ -37,7 +26,7 @@ const BASE_USER: MockUser = Object.freeze({
   preferences: BASE_USER_PREFERENCES,
   createdAt: "2026-01-25T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
-});
+} satisfies User);
 
 export function createMockUser(overrides: Partial<MockUser> = {}): MockUser {
   return Object.freeze({
