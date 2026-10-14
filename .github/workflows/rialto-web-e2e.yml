@@ -106,7 +106,7 @@ jobs:
         run: pnpm exec playwright test --reporter=github,json --config apps/rialto-web/playwright.config.ts apps/rialto-web/e2e/visual.spec.ts
       - name: Upload diff artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rialto-web-visual-diffs
           path: apps/rialto-web/e2e/test-results/
@@ -118,7 +118,7 @@ jobs:
         # must not change this job's conclusion (SC-7).
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rialto-web-visual-report
           path: visual-report/report.json
@@ -248,7 +248,7 @@ jobs:
         run: pnpm exec playwright test --config apps/rialto-web/playwright.csp.config.ts apps/rialto-web/e2e/csp.spec.ts
       - name: Upload diff artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rialto-web-functional-diffs
           path: apps/rialto-web/e2e/test-results/
