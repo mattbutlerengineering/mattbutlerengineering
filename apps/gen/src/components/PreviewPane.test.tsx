@@ -95,6 +95,23 @@ describe("PreviewPane", () => {
     });
   });
 
+  it("fullscreen Escape exits fullscreen and claims the keypress before other Esc listeners", () => {
+    const onToggleFullscreen = vi.fn();
+    render(<PreviewPane {...defaultProps} isFullscreen onToggleFullscreen={onToggleFullscreen} />);
+    // Registered later, so bubbles after PreviewPane's listener (like the global shortcuts hook).
+    let seenPrevented = false;
+    const later = (e: KeyboardEvent) => {
+      seenPrevented = e.defaultPrevented;
+    };
+    document.addEventListener("keydown", later);
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })
+    );
+    document.removeEventListener("keydown", later);
+    expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
+    expect(seenPrevented).toBe(true);
+  });
+
   it("renders viewport controls when spec is provided", () => {
     const spec = FLAT_SPEC;
     render(<PreviewPane {...defaultProps} spec={spec} />);

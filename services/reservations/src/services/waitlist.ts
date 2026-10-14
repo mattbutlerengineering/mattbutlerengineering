@@ -204,6 +204,24 @@ export const waitlistService = {
     return entry;
   },
 
+  /**
+   * Undoes markNotified when the expiry job could not be scheduled, so the host
+   * can retry. Only a `notified` entry reverts; anything else -> null.
+   */
+  async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+    let entry: WaitlistEntryData;
+    try {
+      entry = await prisma.waitlistEntry.update({
+        where: { id, status: "notified" },
+        data: { status: "waiting", notifiedAt: null, expiresAt: null },
+      });
+    } catch {
+      return null;
+    }
+    await recalculateVenuePositions(entry.venueId);
+    return entry;
+  },
+
   /** Expires a notified entry; a no-op (null) if it was seated/cancelled meanwhile. */
   async expire(id: string): Promise<WaitlistEntryData | null> {
     try {

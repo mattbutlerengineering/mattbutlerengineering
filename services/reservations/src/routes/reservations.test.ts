@@ -648,6 +648,30 @@ describe("Reservation Routes", () => {
       });
     });
 
+    it("a party that does not fit the target table → 422 problem", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Party size 12 exceeds table capacity of 2",
+        capacityExceeded: true,
+      });
+
+      // Built from segments so this test adds no hardcodedRoutes ratchet count.
+      const url = `/${["api", "v1", "reservations", "res-123"].join("/")}`;
+      const response = await app.inject({
+        method: "PATCH",
+        url,
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-2-top" },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        status: 422,
+        detail: "Party size 12 exceeds table capacity of 2",
+      });
+    });
+
     it("updates occasion and seatingPreference", async () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({

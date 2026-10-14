@@ -29,6 +29,8 @@ export interface WaitlistNotifierDeps {
   notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
   /** Persists notified state on the row; null if the party is no longer waiting. */
   markNotified(id: string): Promise<{ id: string } | null>;
+  /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
+  revertNotified(id: string): Promise<{ id: string } | null>;
   logger: WaitlistNotifierLogger;
 }
 
@@ -98,6 +100,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     listWaiting,
     notifyTableReady: notifyNextTableReady,
     markNotified,
+    revertNotified,
     logger,
   } = deps;
 
@@ -147,13 +150,20 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
       }
     }
 
-    // Always schedule expiry regardless of SMS outcome
-    await scheduler.schedule(
-      JOB_TYPES.WAITLIST_EXPIRY,
-      { waitlistEntryId: input.id, venueId: input.venueId },
-      FIVE_MINUTES_MS,
-      `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
-    );
+    // Always schedule expiry regardless of SMS outcome. If scheduling fails the
+    // row would stay notified forever (host can't retry, next guest never
+    // notified), so roll it back to waiting and surface the error.
+    try {
+      await scheduler.schedule(
+        JOB_TYPES.WAITLIST_EXPIRY,
+        { waitlistEntryId: input.id, venueId: input.venueId },
+        FIVE_MINUTES_MS,
+        `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
+      );
+    } catch (err) {
+      await revertNotified(input.id);
+      throw err;
+    }
   }
 
   async function handleExpiry(input: HandleExpiryInput): Promise<void> {
@@ -202,6 +212,7 @@ export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): Waitlis
     listWaiting: (venueId) => waitlistService.listWaiting(venueId),
     notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
     markNotified: (id) => waitlistService.markNotified(id),
+    revertNotified: (id) => waitlistService.revertNotified(id),
     logger: consoleLogger,
   });
 

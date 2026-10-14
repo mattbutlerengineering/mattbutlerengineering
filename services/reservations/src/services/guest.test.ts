@@ -207,6 +207,60 @@ describe("guestService", () => {
       expect(result.phone).toBe("+19999999999");
     });
 
+    it("saves notes on a matched guest that has none", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: null }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "nut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "nut allergy" }),
+      });
+    });
+
+    it("appends notes to existing notes on a matched guest", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP" }) as never
+      );
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: expect.objectContaining({ notes: "VIP\nnut allergy" }),
+      });
+    });
+
+    it("does not duplicate a note the matched guest already has", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ notes: "VIP\nnut allergy" }) as never
+      );
+
+      await guestService.findOrCreate("venue-1", {
+        email: "guest@example.com",
+        name: "Jane Doe",
+        notes: "nut allergy",
+      });
+
+      expect(prisma.guest.update).not.toHaveBeenCalled();
+    });
+
     it("falls back to phone lookup when email not found", async () => {
       vi.mocked(prisma.guest.findUnique)
         .mockResolvedValueOnce(null as never) // email lookup

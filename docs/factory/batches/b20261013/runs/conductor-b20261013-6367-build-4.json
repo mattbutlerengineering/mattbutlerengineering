@@ -1,0 +1,81 @@
+{
+  "duration_api_ms": 230488,
+  "stop_reason": "end_turn",
+  "session_id": "f8b9f8eb-f64c-41bd-b32b-8679aaee647f",
+  "total_cost_usd": 1.6118553999999996,
+  "usage": {
+    "input_tokens": 26,
+    "cache_creation_input_tokens": 21888,
+    "cache_read_input_tokens": 1866171,
+    "output_tokens": 5329,
+    "output_tokens_details": { "thinking_tokens": 3021 },
+    "server_tool_use": { "web_search_requests": 0, "web_fetch_requests": 0 },
+    "service_tier": "standard",
+    "cache_creation": { "ephemeral_1h_input_tokens": 21888, "ephemeral_5m_input_tokens": 0 },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 398,
+        "cache_read_input_tokens": 155815,
+        "cache_creation_input_tokens": 942,
+        "cache_creation": { "ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 942 },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 74,
+      "outputTokens": 13585,
+      "cacheReadInputTokens": 4767907,
+      "cacheCreationInputTokens": 130569,
+      "webSearchRequests": 0,
+      "costUSD": 1.6118553999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5634,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "origin": {
+    "kind": "task-notification",
+    "producer": "session-task",
+    "runId": "0mv74dg2b-a00f751f"
+  },
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": { "background": 0, "foreground": 0, "unset": 0 },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": { "parent": 0, "user": 0, "system": 0 },
+    "refused": { "depth_limit": 0, "concurrency_limit": 0, "budget": 0 },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 13,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-3 is implemented and committed, with `pr-body.md` written uncommitted at the worktree root.\n\n**Summary:** WO-3 required measuring which key pages are \u2265720px content-start-Y after WO-2's fix, but this worktree has no live E2E environment (same gap WO-1/WO-2 already recorded), so no page can be affirmatively convicted. Per the breakdown's explicit fallback clause, checked WO-3 off as a no-op \u2014 documented in `audit.md`'s new \"WO-3 \u2014 no-op\" section and in the breakdown checkbox, with no CSS/markup changes. Committed as `a96f7a06d`.\n\nRan `scripts/conductor-gate.sh` to verify the tree: it exited non-zero, but the three failing packages (`reservations-service` on a missing local Redis, `hospitality` and `scripts` crashing mid-run with every individually-reported test passing) look like pre-existing environmental flakiness documented in this repo's gotchas file, not something this docs-only commit caused. I flagged this honestly in `pr-body.md` rather than claiming a clean gate, since I couldn't isolate-verify each package individually with the tools available in this stage.",
+  "ttft_ms": 2964,
+  "type": "result",
+  "duration_ms": 152829,
+  "uuid": "ce09bed4-c374-46e3-9efe-b2fcc7d5aa55",
+  "ttft_stream_ms": 1965,
+  "time_to_request_ms": 239,
+  "first_content_frame_ms": 1966,
+  "queued_turn_count": 0,
+  "result_index": 2
+}

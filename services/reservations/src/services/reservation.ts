@@ -1,6 +1,7 @@
 import {
   toDateString,
   tableMaxCovers,
+  partyFitsTable,
   type Reservation,
   type ReservationStatus,
   type Table,
@@ -26,7 +27,7 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import { guestService } from "./guest.js";
-import { isTableInVenue, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
+import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 export { ReservationTransitionError };
 
@@ -62,6 +63,8 @@ export interface CreateReservationResult {
   pacing?: PacingCheckResult;
   /** The requested table is missing or belongs to another venue (route answers 403). */
   tableNotInVenue?: boolean;
+  /** The party does not fit the caller-named table (route answers 422). */
+  partyDoesNotFit?: boolean;
 }
 
 export interface UpdateReservationResult {
@@ -268,6 +271,7 @@ export const reservationService = {
 
       const bookingError = assertBookable({
         tableId: data.tableId,
+        table: await loadTableFit(data.tableId),
         window: { startTime, endTime },
         partySize: data.partySize,
         settings,
@@ -275,6 +279,9 @@ export const reservationService = {
         holds,
       });
 
+      if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+        return { success: false, error: bookingError.message, partyDoesNotFit: true };
+      }
       if (bookingError?.code === "CONFLICT") {
         return {
           success: false,
@@ -456,22 +463,22 @@ export const reservationService = {
       return TABLE_NOT_IN_VENUE;
     }
 
-    // Capacity check runs whenever partySize changes, independent of
-    // timeOrTableChanged below — a partySize-only edit is not a slot move,
-    // but it still must not exceed the (possibly unchanged) assigned table's
-    // capacity (#5807).
-    if (data.partySize !== undefined) {
-      const targetTableId = data.tableId ?? existing.tableId;
-      const table = await prisma.table.findUnique({
-        where: { id: targetTableId },
-        select: { capacity: true, maxCovers: true },
-      });
-      // Same ceiling the booking path uses: maxCovers, else capacity.
-      const ceiling = table ? tableMaxCovers(table) : undefined;
-      if (ceiling !== undefined && data.partySize > ceiling) {
+    // The shared party-fit rule runs whenever partySize OR tableId changes,
+    // independent of timeOrTableChanged below — a partySize-only edit is not a
+    // slot move, and a table-only move keeps the old party, but either must
+    // leave a party that fits the (possibly unchanged) assigned table (#5807,
+    // #6559).
+    if (data.partySize !== undefined || data.tableId !== undefined) {
+      const partySize = data.partySize ?? existing.partySize;
+      const table = await loadTableFit(data.tableId ?? existing.tableId);
+      if (table && !partyFitsTable(table, partySize)) {
+        const ceiling = tableMaxCovers(table);
         return {
           success: false,
-          error: `Party size ${data.partySize} exceeds table capacity of ${ceiling}`,
+          error:
+            partySize > ceiling
+              ? `Party size ${partySize} exceeds table capacity of ${ceiling}`
+              : `Party size ${partySize} is below the table minimum of ${table.minCovers}`,
           capacityExceeded: true,
         };
       }
@@ -626,6 +633,7 @@ export const reservationService = {
 
     const bookingError = assertBookable({
       tableId: data.tableId,
+      table: await loadTableFit(data.tableId),
       window: { startTime: now, endTime },
       partySize: data.partySize,
       settings,
@@ -633,6 +641,9 @@ export const reservationService = {
       holds,
     });
 
+    if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+      return { success: false, error: bookingError.message, partyDoesNotFit: true };
+    }
     if (bookingError?.code === "CONFLICT") {
       return {
         success: false,

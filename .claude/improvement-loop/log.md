@@ -3418,3 +3418,85 @@ A fire that finds nothing is the loop working, not the loop idling: 2 routes wer
 **Threshold notes:** Fix-effectiveness rate from `metrics/verifications.jsonl`'s 30-day window: 88 rows, 77 skipped (no verifier data reachable from this session), 11 verified true, 0 failed — 100% effectiveness among the checked subset, well above the 50% concern threshold. False-positive rate: all `ai-issue-feedback` per-category rejection rates (the closest available proxy this run, now that the feedback collector succeeds) are 0-15%, well under the 30% loosen-threshold trigger. No threshold changes indicated beyond the auto-tuner's routine ACMM headroom adjustment above.
 
 **Environment setup:** Fresh cloud checkout needed `pnpm install --frozen-lockfile` (no `node_modules`) plus `pnpm build --filter @mbe/gh-client...` (`ERR_MODULE_NOT_FOUND @mbe/gh-client`, missing `dist/`) before `sensor-report.mjs` would run — expected, per this repo's standard fresh-checkout gotcha.
+
+## 2026-10-14 (mbe-evening, progress-tracker)
+
+### Metrics
+
+| Metric                 | Value                                                                                                                                                                         | Target | Status |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ |
+| Created (7d)           | 37 (14 audit + 23 ci-fix)                                                                                                                                                     | -      | -      |
+| Closed (7d)            | 52 (21 audit + 31 ci-fix)                                                                                                                                                     | -      | -      |
+| Closure Rate           | ~140% (clearing backlog created before the window, not just same-window issues)                                                                                               | >80%   | green  |
+| Time-to-Close          | n=51 closed-in-window issues: mean 91.0h, median 33.5h (mean skewed by a few long-lived issues; median is the more representative figure)                                     | <24h   | yellow |
+| Agent Success          | has-pr: 0 open, agent-failed: 0 open — no issues currently in either state, ratio undefined (not 0%)                                                                          | >70%   | n/a    |
+| CI Pass (main)         | 5/10 completed non-cancelled runs in last 20 ci.yml runs = 50% — see Patterns, this is the red-main incident below, not a new regression                                      | >95%   | red    |
+| Queue (ready)          | 6 open (#6557, #6526, #6525, #6524, #6520, #6367)                                                                                                                             | <5     | yellow |
+| Stale (ready>7d)       | 0 (oldest ready issue is #6367, ~2 days old)                                                                                                                                  | 0      | green  |
+| Blocked (agent-failed) | 0                                                                                                                                                                             | 0      | green  |
+| Skipped (agent-skip)   | 0                                                                                                                                                                             | 0      | green  |
+| Reverts (7d)           | 0 (`git log --grep=Revert`)                                                                                                                                                   | -      | n/a    |
+| 7d Spend               | $26.10 attributed (`.claude/agent-spend/sessions.jsonl`, 33 sessions) + 33 queue-worker sessions / 4,152,644 tokens with **cost unknown** (89 telemetry rows lack `cost_usd`) | <$50   | n/a    |
+| Cost/Issue             | ~$0.50 using attributed spend only (26.10 / 52) — undercounts since queue-worker cost is unknown, not zero                                                                    | <$2    | n/a    |
+
+### This iteration (mbe-evening, implement-queue Phase 0)
+
+- **Phase 0 preflight found main genuinely red** — `CI Gate` commit status on HEAD (`a57113b`) was `failure`, confirming the open `priority:critical` issue #6557 ("Broken Main at commit 483b9c2b..."). Per this repo's own preflight hook ("fixing it IS the iteration"), this consumed the entire implement-queue pass; no other `ready` issues were claimed.
+- Root-caused precisely: the originally-flagged culprit commit (483b9c2, a `Test (Node 22)` failure) had already self-resolved by a later commit before this session started. The _actual_ persisting failure, present on every commit from `033669b` through current HEAD, is the `AI Antipattern Ratchet` job failing on `hardcodedRoutes: 852 → 856 (+4)`. Traced the +4 to PR #6365 ("retire the global venue-context hook"), which deleted `venue-access.test.ts` (214 lines) and replaced it with expanded RLS route-sweep integration coverage — net 4 more literal `/api/v1/...` URLs in test fixtures, the same style as the other ~850 already-baselined occurrences. No new production hardcoded route; the scanner doesn't distinguish test fixtures from production code.
+- Opened PR #6581 (`ci-fix/antipattern-baseline-2026-10-14`) running `node scripts/check-ai-antipatterns.mjs --update`, which also captured four real, already-present improvements (emptyCatch 79→72, noopTestAssertions 20→19, anyType 295→275, consoleLogs 718→634). Diff is isolated to `metrics/ai-antipattern-baselines.json`. `Closes #6557`. Labeled `tier:trivial` by the classifier, qualifies for the low-risk fast path (metrics-only file, `agent-core` dist confirmed fresh). CI was in flight on the PR branch (fired normally — this session's own push, not a `GITHUB_TOKEN` push, so the anti-recursion gap doesn't apply) as of this entry; subscribed to the PR for merge-on-green.
+- Did not dispatch any `implement-queue-worker` agents this iteration — the red-main preflight condition overrides batch claiming per the documented profile hook.
+- No merge-train locks taken (no PR fell behind main needing `update-branch`). `scripts/reap-worktrees.mjs` dry run: 0 worktrees examined, nothing to reap.
+- Telemetry: no new `metrics/queue-telemetry.jsonl` rows this iteration (no worker was dispatched; the red-main fix was done directly in the orchestrating session, not through the worker/telemetry path).
+
+### Patterns
+
+- **The CI-Pass-rate red (50%) is fully explained by the single `hardcodedRoutes` ratchet regression above**, not five independent failures — all 5 failing runs in the sample are the same `AI Antipattern Ratchet` job failing identically on commits `033669b` through `a57113b`. This should self-correct to green once PR #6581 merges; worth re-checking next iteration rather than treating as a new systemic CI-health problem.
+- Queue (6 ready) is yellow mostly from three freshly-filed `ci-fix: routine ... is dark` issues (#6524/#6525/#6526, filed within the last ~5h) plus #6520 (an audit test-coverage gap) and #6367 (`needs-human`, already tracked). None are stale; this reads as normal daily inflow, not backlog buildup.
+- Time-to-Close mean (91h) vs median (33.5h) divergence persists from prior runs (2026-10-11/12/13 carried the same caveat) — a small number of long-lived issues skew the mean; no new finding, not re-investigated this run.
+
+### Recommendations
+
+- Re-run `/progress-tracker` (or just re-check `CI Gate` on main) after PR #6581 merges to confirm the CI-pass-rate metric returns to green — don't file a new `ci-fix` for this, it's already in flight.
+- Carried over from 2026-10-11: `ui-quality`/`ci-fix: routine ... dark` issue titles still lack conventional-commit scope prefixes, which continues to cap zone-spread batching at small numbers when the queue does get worked (not exercised this run since Phase 0 consumed the iteration).
+
+### Skipped Issues
+
+None (`agent-skip` count is 0). All 6 `ready` issues were left untouched this iteration — not agent-skip in the state-machine sense, just correctly deferred since the red-main preflight condition consumed the pass.
+
+## 2026-10-14
+
+**queueEfficiency:** composite 0.963 (baseline n/a) — healthy
+**Difficulty distribution:** size:xl:12, size:m:39, size:l:15, size:s:44, size:xs:43
+**Issues filed:** 0
+
+## 2026-10-14 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` → `source: branch`, head `33dbbd9d1`, merged `origin/main` `46e759ff9`, resolved `metrics/ui-quality-ledger.jsonl` by rule.
+- **Routes:** 40 due, 40 captured, 40 audited (all `rialto-web`). 18 rows `unreachable:auth` (all `hospitality`), 0 `unreachable:build` — all three app builds succeeded. `marketing` and `hospitality` had no routes planned this fire.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration stamp:** `stale`. `calibration-status --model-id claude-opus-5` exited 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-stage, Matt-owned), so calibration could not clear and was not retried. Agent-built judged findings stay suppressed by design. Rating ran anyway: 6 pairs judged, `rate.mjs record` kept 5 (`rialto-web`).
+- **Findings:** 4 mechanical (`components/aspect-ratio` axe-serious, `components/breadcrumb` axe-moderate, `components/data-list` axe-serious, `components/divider` axe-serious), 0 judged. Plan resolved all 4 to `skip` — each is already carried as a backlog seed from session 2026-10-01.
+- **Issues:** 0 created, 0 reopened, 0 commented. All 21 issues in the findings ledger fetched and all are `closed`; the `label:ui-quality` search returned exactly those same 21 (total_count 21, single page), so no unknown labelled issue and no escalation.
+- **Seeds:** 0 appended to `docs/backlog.md`.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate` (every action was `skip`).
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (provisional, 131/131 covered, 0 uncovered, 18 `unreachable:auth`), first run 2026-10-01.
+- **Blockers / pipeline bugs:** none. Browser resolved (`/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). No stopped filing. A clean fire with nothing new to file.
+
+## 2026-10-14 — mbe-learning-loop
+
+**Sensors:** 13/17 available — acmm L5 (73/84 criteria), prMetrics (13 entries), metricsFreshness (1 unhealthy: review-burden fresh 0.09d, queue-telemetry fresh 0.14d, queueEfficiency **stale** 20.75d, ai-issue-feedback fresh 0.09d), reviewBurden (1 reviewer, 1 review, 0% rubber-stamped), prCategoryMetrics (84/87 merged by category), agentCost ($26.1 7d / $0 today, 33 attributed sessions; 30 queue-worker sessions, 3,794,415 tokens, cost unknown for 108 rows), ccusageCost ($0 30d/7d/today, 93% cache hit), ciHealth (100% pass rate, 0/0 — no runs in window), issues (166 created, 200 closed, 7 ready), issueFeedback (7 categories, 0 unhealthy), sessionLogs (0 sessions 7d, 0 commits), codeChurn (1% churn rate), queueEfficiency (composite 0.964, fps 0.91, ttm 0.3h, no baseline yet). Unavailable: lighthouse, mutationScore, flakyTests, e2eStability.
+
+**Regressions:** 1 detected — `metricsFreshness.queueEfficiency: 2026-09-24 → stale (+20.75d) [medium]`. Checked `metrics/process-metrics.jsonl`: last healthy (`available: true`) row is 2026-09-24; every row since (09-30 through today) is `available: false` with `reason: credential_rejected` or `query_error` (two rows dated 10-13/10-14 carry `spawnSync gh ETIMEDOUT`). Searched open issues (`search_issues`) and found this already tracked by **#6549** ("Metrics collection is stale or empty", filed 2026-10-13 by the `metrics-collectors.yml` workflow, labeled `ci-fix`), which already has an **open fix PR, #6570** ("fix(metrics): batch queueEfficiency commit fetch, raise list timeout"). No new issue filed — this is a confirmed duplicate, not a novel regression. Did not touch #6549 or #6570: the loop's remit is detect-and-file, not drive PRs.
+
+**AI issue feedback:** `collect-ai-issue-feedback.mjs` ran successfully via the REST fallback (same GraphQL-403-then-REST-retry pattern as prior runs). All 7 categories well under the 40% rejection threshold: ci-fix 12%, meta-improvement 12%, feature 7%, acmm 8%, audit 5%, dependencies 0%, sentry 0%. All budgets remain at the default 3/category — no throttling needed, and none would have mattered this run since 0 new issues were filed.
+
+**Verifications:** 5 checked (issues closed in the last 48h: #6567, #6565, #6564, #6560, #6559), 0 verified, 0 failed, 5 skipped — all "no completed CI runs found to verify against" (this cloud session has no CI-run/GraphQL access). No reopens. Threshold auto-tuner applied 1 adjustment: `acmm` headroom 1.12 → 1.15.
+
+**Skill proposals:** 0 — today is Wednesday, not the configured Friday extraction day; Step 4 skipped per schedule.
+
+**Threshold notes:** Fix-effectiveness rate from `metrics/verifications.jsonl`'s 30-day window: 93 rows, 82 skipped (no verifier data reachable from this session — CI/Lighthouse/Sentry access gaps), 11 non-skip and **all 11 verified true** (0 failed) — 100% effectiveness among the checked subset, well above the 50% concern threshold. The naive whole-sample rate (11/93 ≈ 12%) would misread as a strategy failure; it is purely the skip-heavy denominator, not unsuccessful fixes, so no fix-strategy review is warranted. False-positive rate proxy (`ai-issue-feedback` per-category rejection rates): 0–12% across all categories, well under the 30% loosen-threshold trigger. No threshold changes indicated beyond the auto-tuner's routine ACMM headroom adjustment above.
+
+**Sentry triage (Step 1b):** Skipped — `mcp__sentry__find_organizations` returned "Authorization Expired" (stored access token rejected). Needs re-authorization outside this session; not retried.
+
+**Environment setup:** Fresh cloud checkout needed `pnpm install --frozen-lockfile` (no `node_modules`) plus `pnpm build --filter @mbe/gh-client...` (`ERR_MODULE_NOT_FOUND @mbe/gh-client`, missing `dist/`) before `sensor-report.mjs` would run — same standard fresh-checkout gotcha as prior runs.
