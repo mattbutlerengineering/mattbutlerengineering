@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-14T00:31:11.647Z",
+  "generated_at": "2026-10-14T18:04:54.355Z",
   "window_days": 60,
   "acmmLevel": {
     "label": "ACMM maturity level",
@@ -244,6 +244,11 @@
         "date": "2026-10-13",
         "value": 5,
         "note": null
+      },
+      {
+        "date": "2026-10-14",
+        "value": 5,
+        "note": null
       }
     ]
   },
@@ -443,6 +448,11 @@
       },
       {
         "date": "2026-10-13",
+        "value": null,
+        "note": "query_error"
+      },
+      {
+        "date": "2026-10-14",
         "value": null,
         "note": "query_error"
       }
