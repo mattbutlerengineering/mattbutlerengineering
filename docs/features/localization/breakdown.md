@@ -19,7 +19,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 ## Milestone 1: Foundation — locale switching works end to end on one string, gates run
 
-- [ ] **Locale policy** — `apps/hospitality/src/i18n/locales.ts`: `SUPPORTED_LOCALES`
+- [x] **Locale policy** — `apps/hospitality/src/i18n/locales.ts`: `SUPPORTED_LOCALES`
       (tag, endonym, `machineTranslated`) and `resolveLocale({ stored, browser })`.
   - Accept: unit tests cover exact match, same-language match (`es-AR`→es-MX,
     `fr-FR`→fr-CA, `en-AU`→en-US, `en-GB`→en-GB), invalid stored value ignored, empty
@@ -201,3 +201,7 @@ none.
   is touched; the lint gate tightens per directory so it is never red on main.
 - Translation items are sized at ~100–150 strings each (≈600–800 total per architecture
   research); split further during Implement if one runs long.
+- 2026-10-13 (Locale policy): `resolveLocale` applies "exact match, then same-language
+  match" **per browser entry**, in the browser's preference order — `["fr-FR", "es-MX"]`
+  resolves to fr-CA, not es-MX. A whole-list exact pass first would override the user's
+  top preference. Interpretation of architecture wording, not a design change.
