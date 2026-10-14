@@ -3,7 +3,7 @@ import { render, screen, act } from "@testing-library/react";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { useRialtoLocale } from "@mattbutlerengineering/rialto/providers";
 import type { RialtoMessages } from "@mattbutlerengineering/rialto/providers";
-import { createLocaleRuntime, LocaleBridge, type RuntimeDeps } from "./runtime.js";
+import { createLocaleRuntime, LocaleBridge, browserStorage, type RuntimeDeps } from "./runtime.js";
 import type { LocaleTag } from "./locales.js";
 
 const rialtoES: RialtoMessages = { dismiss: "Descartar", close: "Cerrar" };
@@ -18,7 +18,10 @@ function fakeDeps(overrides: Partial<RuntimeDeps> = {}) {
     loadRialtoMessages: vi.fn(async () => rialtoES),
     storage: {
       get: (key) => store.get(key) ?? null,
-      set: (key, value) => void store.set(key, value),
+      set: (key, value) => {
+        store.set(key, value);
+        return true;
+      },
     },
     browserLanguages: () => [],
     setDocumentLang: (tag) => {
@@ -140,17 +143,34 @@ describe("locale runtime", () => {
     expect(screen.getByText("Skip to main content")).toBeInTheDocument();
   });
 
-  it("swallows a storage write failure and still switches", async () => {
-    const { deps } = fakeDeps({
-      storage: {
-        get: () => null,
-        set: () => {
-          throw new Error("QuotaExceededError");
-        },
-      },
-    });
+  it("still switches when the preference cannot be persisted", async () => {
+    const { deps } = fakeDeps({ storage: { get: () => null, set: () => false } });
     const runtime = createLocaleRuntime(deps);
     await runtime.changeLocale("es-MX");
     expect(runtime.i18n.language).toBe("es-MX");
+  });
+});
+
+describe("browserStorage", () => {
+  it("reports a blocked or full localStorage instead of throwing", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    expect(browserStorage.set("k", "v")).toBe(false);
+    setItem.mockRestore();
+  });
+
+  it("reports a successful write", () => {
+    expect(browserStorage.set("mbe-test-key", "es-MX")).toBe(true);
+    expect(browserStorage.get("mbe-test-key")).toBe("es-MX");
+    localStorage.removeItem("mbe-test-key");
+  });
+
+  it("reads null when localStorage is unavailable", () => {
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    expect(browserStorage.get("k")).toBeNull();
+    getItem.mockRestore();
   });
 });

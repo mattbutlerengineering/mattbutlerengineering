@@ -26,7 +26,8 @@ type Catalog = Record<string, unknown>;
 export interface RuntimeDeps {
   loadAppCatalog: (tag: LocaleTag) => Promise<Catalog>;
   loadRialtoMessages: (tag: LocaleTag) => Promise<RialtoMessages>;
-  storage: { get: (key: string) => string | null; set: (key: string, value: string) => void };
+  /** `set` returns false when the write is refused (blocked or full storage); it never throws. */
+  storage: { get: (key: string) => string | null; set: (key: string, value: string) => boolean };
   browserLanguages: () => readonly string[];
   setDocumentLang: (tag: LocaleTag) => void;
   timeoutMs: number;
@@ -44,19 +45,29 @@ const RIALTO_MESSAGES: Record<Exclude<LocaleTag, "en-US">, () => Promise<RialtoM
   "fr-CA": () => import("@mattbutlerengineering/rialto/locales/fr-CA").then((m) => m.frCA),
 };
 
+/** localStorage that reports refusal (private mode, blocked site data, quota) instead of throwing. */
+export const browserStorage: RuntimeDeps["storage"] = {
+  get: (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};
+
 const browserDeps: RuntimeDeps = {
   loadAppCatalog: async (tag) => (tag === "en-US" ? enUS : (await APP_CATALOGS[tag]()).default),
   loadRialtoMessages: async (tag) => (tag === "en-US" ? rialtoEnUS : RIALTO_MESSAGES[tag]()),
-  storage: {
-    get: (key) => {
-      try {
-        return localStorage.getItem(key);
-      } catch {
-        return null;
-      }
-    },
-    set: (key, value) => localStorage.setItem(key, value),
-  },
+  storage: browserStorage,
   browserLanguages: () => (typeof navigator === "undefined" ? [] : navigator.languages),
   setDocumentLang: (tag) => document.documentElement.setAttribute("lang", tag),
   timeoutMs: LOAD_TIMEOUT_MS,
@@ -122,11 +133,8 @@ export function createLocaleRuntime(deps: RuntimeDeps = browserDeps): LocaleRunt
     },
     async changeLocale(tag) {
       await apply(tag);
-      try {
-        deps.storage.set(LOCALE_STORAGE_KEY, tag);
-      } catch {
-        // Storage blocked or full: the switch still applies for this session.
-      }
+      // A refused write still leaves the switch applied for this session.
+      deps.storage.set(LOCALE_STORAGE_KEY, tag);
     },
     rialtoMessages(tag) {
       return rialtoCache.get(tag) ?? rialtoEnUS;
