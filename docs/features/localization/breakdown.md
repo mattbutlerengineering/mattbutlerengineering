@@ -69,7 +69,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 ## Milestone 2: Guest booking — public booking and manage pages fully usable in 4 locales
 
 - [ ] **Venue formatting** — refactor `apps/hospitality/src/utils/format.ts` to explicit
-      `{ locale, timeZone, currency }`, drop forced `hour12`, add `useVenueFormat()`.
+      `{ locale, timeZone, currency }`, drop forced `hour12`, add `useVenueFormat()`. (tracker: #6612)
   - Accept: equivalence test: for en-US, old and new formatters produce identical output
     over a sample of ≥20 date/time/money inputs across two venue timezones; en-GB test
     shows `US$40.00`, 24h time, `dd/mm/yyyy` for a USD / America/Los_Angeles venue;
@@ -77,50 +77,50 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Blocked by: i18n runtime
 - [ ] **Cancellation-policy description** — `describeCancellationPolicy()` discriminated
       union in `packages/cancellation-policy`; English sentence function re-implemented
-      over it.
+      over it. (tracker: #6613)
   - Accept: existing English-sentence tests pass unchanged; new tests cover every
     description kind.
   - Blocked by: —
 - [ ] **LocalePicker** — `apps/hospitality/src/components/LocalePicker/` with `sidebar`,
-      `settings`, `compact` variants.
+      `settings`, `compact` variants. (tracker: #6614)
   - Accept: tests: endonyms listed, MT tag on es-MX/fr-CA only, spinner while
     `onChange` pending with current text retained, rejection shows Retry and keeps value,
     keyboard operable; axe clean.
   - Blocked by: i18n runtime
 - [ ] **Rialto migration — overlays & dismiss** — Alert, Banner, Toast, ToastAnimated,
-      Dialog, Drawer, Popover, HoverCard, ConfirmDialog defaults onto `useRialtoLocale()`.
+      Dialog, Drawer, Popover, HoverCard, ConfirmDialog defaults onto `useRialtoLocale()`. (tracker: #6615)
   - Accept: each component renders es-MX text under a provider and byte-identical English
     with none; those component directories added to rialto lint scope.
   - Blocked by: Rialto locale subpaths
 - [ ] **Rialto migration — navigation & data** — Pagination, Calendar, DateRange,
       DatePicker, DateRangePicker, TimePicker, NumberInput, Breadcrumb, Steps, Timeline,
       Sidebar, NavigationMenu, GlobalNav, Navbar, Skeleton, ScrollArea, ImageUpload,
-      Odometer; context locale becomes the `Intl` fallback.
+      Odometer; context locale becomes the `Intl` fallback. (tracker: #6616)
   - Accept: same as the previous rialto item, plus a Calendar test showing es-MX month
     names via context with no `locale` prop, and today's behaviour with no provider.
   - Blocked by: Rialto locale subpaths
 - [ ] **Rialto migration — inputs & composites** — Tag, Combobox, Autocomplete, Select,
-      CommandPalette, ChatPanel, MasterOverride, Progress/Spinner, Button `loadingText`.
+      CommandPalette, ChatPanel, MasterOverride, Progress/Spinner, Button `loadingText`. (tracker: #6617)
   - Accept: same as the overlays item; afterwards rialto lint scope is `src/**` and
     `pnpm lint` passes for rialto.
   - Blocked by: Rialto migration — overlays & dismiss, Rialto migration — navigation & data
 - [ ] **Widget locale scope** — cloned i18next instance, `mbe-booking-widget-locale`,
       compact LocalePicker in the widget header, used by `PublicBookingPage`,
-      `ManageReservationPage`, `BookingWidgetDemoPage`.
+      `ManageReservationPage`, `BookingWidgetDemoPage`. (tracker: #6618)
   - Accept: tests: widget locale independent of dashboard both ways; demo page defaults
     to dashboard locale; public page defaults to browser; switching mid-flow preserves
     entered guest details.
   - Blocked by: LocalePicker, Venue formatting
 - [ ] **Translate guest surfaces** — all strings in `components/booking-widget/**`,
       `PublicBookingPage`, `ManageReservationPage`, cancellation-policy rendering via
-      `describeCancellationPolicy`.
+      `describeCancellationPolicy`. (tracker: #6619)
   - Accept: those paths in hospitality lint scope with `pnpm lint` green;
     `check:i18n-catalogs` green; es-MX/fr-CA render tests for each booking step.
   - Blocked by: Widget locale scope, Cancellation-policy description, Rialto migration —
     inputs & composites
 - [ ] **Per-locale e2e sweep (public routes)** — spec reusing the route ledger/fixtures
       behind `e2e/visual.spec.ts`; for en-GB, es-MX, fr-CA asserts no visible text equals
-      a differing en-US catalog value and no non-`data-truncate` overflow.
+      a differing en-US catalog value and no non-`data-truncate` overflow. (tracker: #6620)
   - Accept: passes on `book/:venueSlug` (every step) and `reservations/manage` in all
     three locales; a deliberately reverted string makes it fail.
   - Blocked by: Translate guest surfaces
@@ -129,7 +129,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 
 - [ ] **Staff switcher placement** — `footerSlot` on `DashboardSidebar` with sidebar
       LocalePicker (icon-only when collapsed), Settings "Language & region" row with format
-      preview and MT line.
+      preview and MT line. (tracker: #6621)
   - Accept: switching from either placement updates the UI in place without losing form
     input and persists across reload (component + e2e test).
   - Blocked by: LocalePicker
@@ -137,7 +137,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       sites (OfflineBanner, ReservationList, ProfilePage, TimelinePage, ReservationBlock,
       TimelineMobileView, GuestCard, GuestTable, ActivityFeed, AdminPage, FloorPlansPage,
       useSSESync, reservation-display, venueOpenLabel, HomePage `?? "USD"`) onto
-      `useVenueFormat`; `StaffDepositSection` uses venue currency.
+      `useVenueFormat`; `StaffDepositSection` uses venue currency. (tracker: #6622)
   - Accept: tests show staff timeline times in venue tz when device tz differs (accepted
     behaviour change); deposit for a CAD venue is created in `cad`; `format.ts`/
     `service-day.ts` device-clock policy comments replaced; no display `Intl` call in
@@ -146,35 +146,35 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
 - [ ] **Translate shell & pre-auth** — `UnauthenticatedShell`, LoginGate, CallbackPage,
       SessionExpiredGate, AuthFailurePage, SignOutPage, LoadingPage, AuthConfigError,
       `DashboardLayout` (breadcrumbs), `DashboardSidebar` nav labels,
-      `constants/session-lapse-copy.ts`, `lib/describe-auth-error.ts`.
+      `constants/session-lapse-copy.ts`, `lib/describe-auth-error.ts`. (tracker: #6623)
   - Accept: paths in lint scope, catalogs parity-green, render tests in es-MX.
   - Blocked by: i18n runtime
 - [ ] **Translate Home & Timeline** — `HomePage`, `TimelinePage`, `components/timeline/**`,
       `components/dashboard/**`; status badges use short-form keys; ellipsis cells marked
-      `data-truncate`.
+      `data-truncate`. (tracker: #6624)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
 - [ ] **Translate Reservations & Guests** — `ReservationsPage`, `GuestsPage`,
-      `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts.
+      `components/crm/**`, walk-in/new-reservation dialogs, waitlist, toasts. (tracker: #6625)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth, Staff time & money onto venue formatting
 - [ ] **Translate Floor plans** — `FloorPlansPage`, `FloorPlanEditorPage`,
-      `components/floor-plan/**`, `TableStatusBadge`.
+      `components/floor-plan/**`, `TableStatusBadge`. (tracker: #6626)
   - Accept: paths in lint scope, parity-green, render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth
 - [ ] **Translate Onboarding** — `VenueOnboardingPage`, `components/venue-onboarding/**`
-      (incl. `LocationTimeStep` currency option labels via `Intl.DisplayNames`).
+      (incl. `LocationTimeStep` currency option labels via `Intl.DisplayNames`). (tracker: #6627)
   - Accept: paths in lint scope, parity-green, wizard render tests in es-MX and fr-CA.
   - Blocked by: Translate shell & pre-auth
 - [ ] **Translate Profile, Settings, Admin, Widget demo** — `ProfilePage`, `SettingsPage`,
       `AdminPage`, `BookingWidgetDemoPage` (`FEATURES`, `DEVICE_LABELS`), any remaining
-      `src/**` files.
+      `src/**` files. (tracker: #6628)
   - Accept: hospitality lint scope becomes `src/**` (per-directory globs removed) and
     `pnpm lint` is green — the gate is strict.
   - Blocked by: Translate Home & Timeline, Translate Reservations & Guests, Translate Floor
     plans, Translate Onboarding, Staff switcher placement
 - [ ] **Per-locale e2e sweep (authenticated routes)** — extend the sweep to every
-      Auth0-gated ledger route.
+      Auth0-gated ledger route. (tracker: #6629)
   - Accept: passes for en-GB, es-MX, fr-CA across all routes; overflow defects found are
     fixed (wrap) or sanctioned (`data-truncate`) per ux.md.
   - Blocked by: Translate Profile, Settings, Admin, Widget demo, Per-locale e2e sweep
@@ -186,7 +186,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
       `./locales/*` exports and provider props; ADR-027 index row in `docs/adr/README.md`
       on a branch from current `origin/main`; `apps/hospitality/CLAUDE.md` and
       `packages/rialto/CLAUDE.md` document the i18n conventions (where catalogs live,
-      lint rule, parity check).
+      lint rule, parity check). (tracker: #6630)
   - Accept: `pnpm changeset status` lists rialto minor; ADR index renders ADR-027;
     `/claude-md-improver`-style dangling-path check finds no broken references.
   - Blocked by: Per-locale e2e sweep (authenticated routes)
@@ -236,3 +236,7 @@ none.
   `LOCALIZED_FILES` in `apps/hospitality/eslint.config.js` / `packages/rialto/eslint.config.js`.
   The rule also covers `aria-placeholder`, `aria-roledescription`, `aria-valuetext`,
   `confirmLabel` and `cancelLabel` beyond the architecture's attribute list.
+- 2026-10-14: remaining 19 items mirrored as GitHub issues #6612–#6630 (tracking #6631),
+  each line above carrying `(tracker: #N)`. None is labelled `ready` until #6591 merges,
+  because every item builds on Milestone 1 code not yet on `main`. The breakdown has 25
+  items, not 24 as stated earlier in the run.
