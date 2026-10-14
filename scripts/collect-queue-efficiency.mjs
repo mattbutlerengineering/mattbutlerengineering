@@ -329,59 +329,134 @@ const COMMIT_BATCH_SIZE = 25;
 /** Per-call timeout for the batched `gh api graphql` request — one call covers ~25 PRs. */
 const COMMIT_BATCH_TIMEOUT_MS = 120_000;
 
+/** Default `gh` runner for the batched reader; injectable for tests. */
+function defaultGhExec(args) {
+  return execFileSync("gh", args, { encoding: "utf-8", timeout: COMMIT_BATCH_TIMEOUT_MS });
+}
+
 /**
  * Resolves `owner/name` for the batched GraphQL query: GITHUB_REPOSITORY in
- * Actions, else `gh repo view`. Validated before it is interpolated into a query.
+ * Actions, else `gh repo view`. Validated before use.
  *
  * @returns {{ owner: string, name: string }}
  */
-function resolveRepo() {
-  const slug =
-    process.env.GITHUB_REPOSITORY ??
-    execFileSync("gh", ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], {
-      encoding: "utf-8",
-      timeout: 30_000,
-    }).trim();
+function resolveRepo(exec, env) {
+  const slug = (
+    env.GITHUB_REPOSITORY ??
+    exec(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])
+  ).trim();
   const match = /^([\w.-]+)\/([\w.-]+)$/.exec(slug);
   if (!match) throw new Error(`unrecognised repository slug: ${slug}`);
   return { owner: match[1], name: match[2] };
+}
+
+const COMMITS_SELECTION = "pageInfo { hasNextPage endCursor } nodes { commit { messageHeadline } }";
+
+/** Runs one `gh api graphql` call with string variables; throws on a data-less errors payload. */
+function runGraphql(exec, query, vars) {
+  const varArgs = Object.entries(vars).flatMap(([k, v]) =>
+    typeof v === "number" ? ["-F", `${k}=${v}`] : ["-f", `${k}=${v}`]
+  );
+  const parsed = JSON.parse(exec(["api", "graphql", "-f", `query=${query}`, ...varArgs]));
+  if (!parsed?.data && Array.isArray(parsed?.errors)) {
+    throw new Error(`GraphQL error: ${parsed.errors.map((e) => e?.message).join("; ")}`);
+  }
+  return parsed?.data;
+}
+
+const toHeadlines = (nodes) =>
+  (nodes ?? []).map((node) => ({ messageHeadline: node?.commit?.messageHeadline }));
+
+/** Follows `endCursor` for one PR whose first page reported hasNextPage (>100 commits). */
+function fetchRemainingCommits(exec, repo, number, cursor) {
+  const query =
+    "query($owner: String!, $name: String!, $number: Int!, $cursor: String!) " +
+    "{ repository(owner: $owner, name: $name) { pullRequest(number: $number) " +
+    `{ commits(first: 100, after: $cursor) { ${COMMITS_SELECTION} } } } }`;
+  const rest = [];
+  let after = cursor;
+  while (after) {
+    const data = runGraphql(exec, query, { ...repo, number, cursor: after });
+    const commits = data?.repository?.pullRequest?.commits;
+    rest.push(...toHeadlines(commits?.nodes));
+    after = commits?.pageInfo?.hasNextPage ? commits.pageInfo.endCursor : null;
+  }
+  return rest;
 }
 
 /**
  * Default batched commit reader: ONE `gh api graphql` call per
  * COMMIT_BATCH_SIZE PRs (aliased `pullRequest` lookups), instead of one
  * `gh pr view` per PR. ~110 AI PRs/week at ~4s per `pr view` was ~7 minutes of
- * serial subprocesses and timed the sensor out (#6549).
+ * serial subprocesses and timed the sensor out (#6549). A PR with more than
+ * 100 commits is paged via `endCursor` rather than silently truncated.
  *
- * @param {number[]} prNumbers integers only (interpolated into the query)
+ * Shells out to `gh` directly, bypassing gh-client's transport — so any
+ * failure here is caught by readMergedAiPrsPaged, which falls back to the
+ * per-PR `ghClient.pr.view` path (REST fallback, typed errors).
+ *
+ * @param {number[]} prNumbers non-integers are dropped (ids are interpolated into the query)
+ * @param {{ exec?: (args: string[]) => string, env?: Record<string, string|undefined> }} [opts]
  * @returns {Map<number, Array<{ messageHeadline?: string }>>}
  */
-export function fetchCommitsBatched(prNumbers) {
-  const { owner, name } = resolveRepo();
+export function fetchCommitsBatched(prNumbers, { exec = defaultGhExec, env = process.env } = {}) {
+  const repo = resolveRepo(exec, env);
+  const numbers = prNumbers.filter(Number.isInteger);
   const result = new Map();
-  for (let i = 0; i < prNumbers.length; i += COMMIT_BATCH_SIZE) {
-    const chunk = prNumbers.slice(i, i + COMMIT_BATCH_SIZE).filter(Number.isInteger);
+  for (let i = 0; i < numbers.length; i += COMMIT_BATCH_SIZE) {
+    const chunk = numbers.slice(i, i + COMMIT_BATCH_SIZE);
     const fields = chunk
       .map(
-        (n) =>
-          `p${n}: pullRequest(number: ${n}) { commits(first: 100) { nodes { commit { messageHeadline } } } }`
+        (n) => `p${n}: pullRequest(number: ${n}) { commits(first: 100) { ${COMMITS_SELECTION} } }`
       )
       .join(" ");
-    const query = `query { repository(owner: "${owner}", name: "${name}") { ${fields} } }`;
-    const raw = execFileSync("gh", ["api", "graphql", "-f", `query=${query}`], {
-      encoding: "utf-8",
-      timeout: COMMIT_BATCH_TIMEOUT_MS,
-    });
-    const repo = JSON.parse(raw)?.data?.repository ?? {};
+    const query = `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ${fields} } }`;
+    const repository = runGraphql(exec, query, repo)?.repository ?? {};
     for (const n of chunk) {
-      const nodes = repo[`p${n}`]?.commits?.nodes ?? [];
-      result.set(
-        n,
-        nodes.map((node) => ({ messageHeadline: node?.commit?.messageHeadline }))
-      );
+      const commits = repository[`p${n}`]?.commits;
+      const first = toHeadlines(commits?.nodes);
+      const rest = commits?.pageInfo?.hasNextPage
+        ? fetchRemainingCommits(exec, repo, n, commits.pageInfo.endCursor)
+        : [];
+      result.set(n, [...first, ...rest]);
     }
   }
   return result;
+}
+
+/**
+ * Per-PR fallback: one `pr view` through gh-client's transport, which keeps
+ * the REST fallback when `gh` is absent (#3689), GraphQL-blocked retry
+ * (#6039), and typed error classification.
+ *
+ * @param {import("@mbe/gh-client").GhClient} ghClient
+ * @param {number} prNumber
+ * @returns {Array<{ messageHeadline?: string }>}
+ */
+function fetchPrCommits(ghClient, prNumber) {
+  const detail = ghClient.pr.view(prNumber, ["--json", "commits"]);
+  return Array.isArray(detail?.commits) ? detail.commits : [];
+}
+
+/**
+ * Batched fetch, else per-PR via gh-client. The batch error is not rethrown:
+ * the fallback either succeeds or throws gh-client's own typed error, which
+ * is what collectQueueEfficiency classifies.
+ *
+ * @returns {(prNumber: number) => Array<{ messageHeadline?: string }>}
+ */
+function commitReader(ghClient, prNumbers, fetchCommits) {
+  if (prNumbers.length === 0) return () => [];
+  let batched;
+  try {
+    batched = fetchCommits(prNumbers);
+  } catch (err) {
+    process.stderr.write(
+      `queue-efficiency: batched commit fetch failed (${err?.message ?? err}); falling back to per-PR pr view\n`
+    );
+    return (n) => fetchPrCommits(ghClient, n);
+  }
+  return (n) => batched.get(n) ?? [];
 }
 
 /**
@@ -429,10 +504,10 @@ export function readMergedAiPrsPaged(ghClient, now, fetchCommits = fetchCommitsB
   ]);
   const inWindow = prs.filter((pr) => Date.parse(pr.mergedAt) >= windowStart);
   const agentNumbers = inWindow.filter(isAgentPr).map((pr) => pr.number);
-  const commitsByPr = agentNumbers.length > 0 ? fetchCommits(agentNumbers) : new Map();
+  const readCommits = commitReader(ghClient, agentNumbers, fetchCommits);
   return inWindow.map((pr) => {
     if (!isAgentPr(pr)) return { ...pr, commitCount: 1 };
-    const commits = commitsByPr.get(pr.number) ?? [];
+    const commits = readCommits(pr.number);
     return { ...pr, commits, commitCount: commits.length };
   });
 }

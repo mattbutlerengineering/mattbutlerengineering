@@ -8,6 +8,7 @@ import {
 import {
   collectQueueEfficiency,
   defaultReadPrs,
+  fetchCommitsBatched,
   readMergedAiPrsPaged,
 } from "../collect-queue-efficiency.mjs";
 
@@ -909,5 +910,178 @@ describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
     };
 
     expect(defaultReadPrs(ghClient, NOW)).toBeNull();
+  });
+});
+
+// ── fetchCommitsBatched — batched GraphQL commit reader (#6549 review) ──────
+
+/** Builds a `gh api graphql` JSON response for the batched alias query. */
+function batchResponse(byPr) {
+  const repository = Object.fromEntries(
+    Object.entries(byPr).map(([n, { headlines, hasNextPage = false, endCursor = null }]) => [
+      `p${n}`,
+      {
+        commits: {
+          pageInfo: { hasNextPage, endCursor },
+          nodes: headlines.map((h) => ({ commit: { messageHeadline: h } })),
+        },
+      },
+    ])
+  );
+  return JSON.stringify({ data: { repository } });
+}
+
+/** Extracts the `query=...` value from a recorded gh argv. */
+function queryOf(args) {
+  return args.find((a) => a.startsWith("query=")).slice("query=".length);
+}
+
+describe("fetchCommitsBatched (injected gh exec)", () => {
+  const env = { GITHUB_REPOSITORY: "acme/widgets" };
+
+  it("builds one aliased pullRequest field per integer id and passes owner/name as variables", () => {
+    const exec = vi.fn(() => batchResponse({ 1: { headlines: [] }, 4: { headlines: [] } }));
+
+    fetchCommitsBatched([1, 2.5, "3", 4, Number.NaN], { exec, env });
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    const args = exec.mock.calls[0][0];
+    expect(args.slice(0, 2)).toEqual(["api", "graphql"]);
+    expect(args).toContain("owner=acme");
+    expect(args).toContain("name=widgets");
+    const query = queryOf(args);
+    expect(query).toContain("p1: pullRequest(number: 1)");
+    expect(query).toContain("p4: pullRequest(number: 4)");
+    expect(query).not.toMatch(/p2|p3|NaN/);
+    expect(query).toContain("pageInfo { hasNextPage endCursor }");
+  });
+
+  it("rejects a repository slug that is not a plain owner/name", () => {
+    const exec = vi.fn();
+    expect(() =>
+      fetchCommitsBatched([1], { exec, env: { GITHUB_REPOSITORY: 'acme/w") { x } #' } })
+    ).toThrow(/unrecognised repository slug/);
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("resolves the slug through gh repo view when GITHUB_REPOSITORY is unset", () => {
+    const exec = vi.fn((args) =>
+      args[0] === "repo" ? "acme/widgets\n" : batchResponse({ 1: { headlines: ["a"] } })
+    );
+
+    const result = fetchCommitsBatched([1], { exec, env: {} });
+
+    expect(exec.mock.calls[0][0].slice(0, 2)).toEqual(["repo", "view"]);
+    expect(result.get(1)).toEqual([{ messageHeadline: "a" }]);
+  });
+
+  it("parses each alias into messageHeadline entries keyed by PR number", () => {
+    const exec = vi.fn(() =>
+      batchResponse({ 7: { headlines: ["a", "b"] }, 9: { headlines: ["c"] } })
+    );
+
+    const result = fetchCommitsBatched([7, 9], { exec, env });
+
+    expect(result.get(7)).toEqual([{ messageHeadline: "a" }, { messageHeadline: "b" }]);
+    expect(result.get(9)).toEqual([{ messageHeadline: "c" }]);
+  });
+
+  it("chunks at 25 PRs per GraphQL call", () => {
+    const numbers = Array.from({ length: 60 }, (_, i) => i + 1);
+    const exec = vi.fn(() => batchResponse({}));
+
+    fetchCommitsBatched(numbers, { exec, env });
+
+    expect(exec).toHaveBeenCalledTimes(3);
+    const aliasCounts = exec.mock.calls.map(
+      ([args]) => (queryOf(args).match(/: pullRequest\(/g) ?? []).length
+    );
+    expect(aliasCounts).toEqual([25, 25, 10]);
+  });
+
+  it("maps a PR whose alias is missing from the response to []", () => {
+    const exec = vi.fn(() => batchResponse({ 1: { headlines: ["a"] } }));
+
+    const result = fetchCommitsBatched([1, 2], { exec, env });
+
+    expect(result.get(2)).toEqual([]);
+  });
+
+  it("pages past 100 commits via endCursor instead of silently undercounting", () => {
+    const first = Array.from({ length: 100 }, (_, i) => `c${i}`);
+    const exec = vi.fn((args) => {
+      const query = queryOf(args);
+      if (query.includes("$cursor")) {
+        expect(args).toContain("cursor=CUR1");
+        expect(args).toContain("number=5");
+        return JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                commits: {
+                  pageInfo: { hasNextPage: false, endCursor: "CUR2" },
+                  nodes: [{ commit: { messageHeadline: "c100" } }],
+                },
+              },
+            },
+          },
+        });
+      }
+      return batchResponse({ 5: { headlines: first, hasNextPage: true, endCursor: "CUR1" } });
+    });
+
+    const result = fetchCommitsBatched([5], { exec, env });
+
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(result.get(5)).toHaveLength(101);
+    expect(result.get(5)[100]).toEqual({ messageHeadline: "c100" });
+  });
+
+  it("throws when the GraphQL response carries errors and no data", () => {
+    const exec = vi.fn(() => JSON.stringify({ errors: [{ message: "boom" }] }));
+    expect(() => fetchCommitsBatched([1], { exec, env })).toThrow(/boom/);
+  });
+});
+
+describe("readMergedAiPrsPaged — fallback when the batched commit fetch fails", () => {
+  const NOW = new Date("2026-09-25T12:00:00Z");
+  const mergedAt = "2026-09-24T12:00:00Z";
+  const prs = [
+    { number: 1, headRefName: "worktree-agent-a", labels: [], mergedAt },
+    { number: 2, headRefName: "worktree-agent-b", labels: [], mergedAt },
+  ];
+
+  it("falls back to per-PR ghClient.pr.view (gh-client transport) when the batch throws", () => {
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn().mockReturnValue({ commits: [{ messageHeadline: "v" }] }),
+      },
+    };
+    const fetchCommits = vi.fn(() => {
+      throw new Error("spawnSync gh ENOENT");
+    });
+
+    const result = readMergedAiPrsPaged(ghClient, NOW, fetchCommits);
+
+    expect(ghClient.pr.view).toHaveBeenCalledTimes(2);
+    expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+    expect(result.map((pr) => pr.commitCount)).toEqual([1, 1]);
+  });
+
+  it("keeps gh-client's typed error when the per-PR fallback fails too", () => {
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockReturnValue(prs),
+        view: vi.fn(() => {
+          throw new GhAuthError("GET", "/repos/x", 401, "Bad credentials");
+        }),
+      },
+    };
+    const fetchCommits = vi.fn(() => {
+      throw new Error("graphql blocked");
+    });
+
+    expect(() => readMergedAiPrsPaged(ghClient, NOW, fetchCommits)).toThrow(GhAuthError);
   });
 });
