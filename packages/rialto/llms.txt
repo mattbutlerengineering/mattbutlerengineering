@@ -1173,6 +1173,19 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="src/i18n/messages.ts">
+    <item priority="low">
+      interface RialtoMessages {
+        dismiss: string;
+        close: string;
+      }
+    </item>
+    <item priority="high">
+      export const enUS: RialtoMessages;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="scripts/lib/color-tokens.ts">
     <item priority="low">

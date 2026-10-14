@@ -25,7 +25,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `fr-FR`→fr-CA, `en-AU`→en-US, `en-GB`→en-GB), invalid stored value ignored, empty
     browser list → en-US; function never throws.
   - Blocked by: —
-- [ ] **Rialto messages core** — `RialtoMessages` interface, inline en-US object,
+- [x] **Rialto messages core** — `RialtoMessages` interface, inline en-US object,
       `RialtoLocaleProvider`, `useRialtoLocale()`, optional `locale`/`messages` props on
       `RialtoProvider`.
   - Accept: test renders `useRialtoLocale()` with no provider and gets
@@ -205,3 +205,11 @@ none.
   match" **per browser entry**, in the browser's preference order — `["fr-FR", "es-MX"]`
   resolves to fr-CA, not es-MX. A whole-list exact pass first would override the user's
   top preference. Interpretation of architecture wording, not a design change.
+- 2026-10-13 (Rialto messages core): `RialtoMessages` starts with only the keys the first
+  migration batch needs (`dismiss`, `close`); each migration item adds its own keys with
+  all four locale values, rather than translating the full ≈50-string inventory up front.
+  New exports ship through the existing `./providers` subpath. `RialtoProvider` gained two
+  public props, so `registry.json` and the manifest test's expected prop list changed.
+- 2026-10-13 (Rialto messages core): rialto changesets are **patch**, not minor —
+  `packages/rialto/CLAUDE.md` says every pre-1.0 release is a patch bump. Overrides the
+  "minor changeset" wording in Milestone 4.

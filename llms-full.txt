@@ -14959,6 +14959,71 @@
     }
   </file>
   </section>
+  <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/locales.ts">
+    export type LocaleTag = "en-US" | "en-GB" | "es-MX" | "fr-CA";
+    export interface SupportedLocale {
+      readonly tag: LocaleTag;
+      /** The locale's name in its own language — what the picker shows. */
+      readonly endonym: string;
+      /** Text was machine-generated; the picker discloses this. */
+      readonly machineTranslated: boolean;
+    }
+    export const DEFAULT_LOCALE: LocaleTag = "en-US";
+    export const SUPPORTED_LOCALES: readonly SupportedLocale[] = [
+      { tag: "en-US", endonym: "English (US)", machineTranslated: false },
+      { tag: "en-GB", endonym: "English (UK)", machineTranslated: false },
+      { tag: "es-MX", endonym: "Español (México)", machineTranslated: true },
+      { tag: "fr-CA", endonym: "Français (Canada)", machineTranslated: true },
+    ];
+    function parse(tag: string): Intl.Locale | null {
+      try {
+        return new Intl.Locale(tag);
+      } catch {
+        return null;
+      }
+    }
+    function exactMatch(tag: string): LocaleTag | null {
+      const locale = parse(tag);
+      if (!locale) return null;
+      const normalized = `${locale.language}-${locale.region ?? ""}`;
+      return SUPPORTED_LOCALES.find((l) => l.tag === normalized)?.tag ?? null;
+    }
+    function matchOne(tag: string): LocaleTag | null {
+      const exact = exactMatch(tag);
+      if (exact) return exact;
+      const language = parse(tag)?.language;
+      return language ? (LANGUAGE_FALLBACK[language] ?? null) : null;
+    }
+    export function resolveLocale({
+      stored,
+      browser,
+    }: {
+      stored: string | null;
+      browser: readonly string[];
+    }): LocaleTag {
+      const fromStorage = stored ? exactMatch(stored) : null;
+      if (fromStorage) return fromStorage;
+      for (const tag of browser) {
+        const match = matchOne(tag);
+        if (match) return match;
+      }
+      return DEFAULT_LOCALE;
+    }
+  </file>
+  <file path="packages/rialto/src/i18n/messages.ts">
+    export interface RialtoMessages {
+      /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
+      readonly dismiss: string;
+      /** Accessible name of a control that closes a surface (Drawer, Popover). */
+      readonly close: string;
+    }
+    export const enUS: RialtoMessages = {
+      dismiss: "Dismiss",
+      close: "Close",
+    };
+  </file>
+  </section>
   <section priority="medium" role="journeys">
   <file path="apps/hospitality/e2e/journeys/journey-api.ts">
     export const SYNTHETIC_VENUE_PREFIX = "synthetic-journey-";
