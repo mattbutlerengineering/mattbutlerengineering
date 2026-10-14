@@ -1,0 +1,13 @@
+{"wo": "#5995", "run_id": "conductor-b20261012-5995-spec-1", "model": "claude-fable-5", "tokens": 536375, "cost": 3.0008890000000004, "outcome": "agent-failed", "at": "2026-10-12"}
+{"wo": "#6367", "run_id": "conductor-b20261012-6367-spec-1", "model": "claude-fable-5", "tokens": 443606, "cost": 3.2625029999999997, "outcome": "agent-failed", "at": "2026-10-12"}
+{"wo": "#6367", "run_id": "conductor-b20261012-6367-spec-2", "model": "claude-fable-5", "tokens": 0, "cost": 3.064511, "outcome": "agent-failed", "at": "2026-10-12"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-spec-1", "model": "claude-fable-5", "tokens": 2449287, "cost": 5.826494999999999, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-1", "model": "claude-sonnet-5", "tokens": 6746394, "cost": 2.16853, "outcome": "agent-failed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-2", "model": "claude-sonnet-5", "tokens": 3706656, "cost": 1.3038636000000003, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-3", "model": "claude-sonnet-5", "tokens": 5484261, "cost": 1.7216658000000002, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-4", "model": "claude-sonnet-5", "tokens": 1893414, "cost": 1.6118553999999996, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-5", "model": "claude-sonnet-5", "tokens": 313657, "cost": 1.6761858, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-build-6", "model": "claude-sonnet-5", "tokens": 1763377, "cost": 1.6457574000000004, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-verify-1", "model": "claude-sonnet-5", "tokens": 3293844, "cost": 1.2920984, "outcome": "completed", "at": "2026-10-13"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-review-1", "model": "claude-fable-5", "tokens": 207611, "cost": 2.251998, "outcome": "agent-failed", "at": "2026-10-14"}
+{"wo": "#6367", "run_id": "conductor-b20261013-6367-review-2", "model": "claude-fable-5", "tokens": 207680, "cost": 2.140961, "outcome": "agent-failed", "at": "2026-10-14"}

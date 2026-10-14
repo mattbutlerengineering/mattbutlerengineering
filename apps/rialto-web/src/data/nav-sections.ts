@@ -33,7 +33,7 @@ export const COMPONENT_COUNT = NAV_SECTIONS.reduce(
 export const DEMO_PAGES: readonly NavItem[] = [
   { id: "sign-in", label: "Sign In", path: DEMO_ROUTES.signIn },
   { id: "sign-up", label: "Sign Up", path: DEMO_ROUTES.signUp },
-  { id: "dashboard", label: "Dashboard", path: DEMO_ROUTES.dashboard },
+  { id: "dashboard", label: "Pit Wall", path: DEMO_ROUTES.dashboard },
   { id: "drivers", label: "Drivers CRUD", path: DEMO_ROUTES.drivers },
   { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
   { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },

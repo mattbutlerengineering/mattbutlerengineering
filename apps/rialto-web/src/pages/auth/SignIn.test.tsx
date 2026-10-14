@@ -292,11 +292,45 @@ describe("SignIn — credentials step", () => {
     expect(passkey.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("signing in with a passkey succeeds instantly", () => {
-    renderSignIn();
+  it("signing in with a passkey goes through the verified path and lands on the dashboard", async () => {
+    renderSignInWithRoutes();
     fireEvent.click(screen.getByRole("button", { name: /use a passkey instead/i }));
+    expect(screen.queryByTestId("dashboard-page")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+
     expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
   });
+
+  it("ignores a second passkey click during the verified window", async () => {
+    renderSignInWithRoutes();
+    fireEvent.click(screen.getByRole("button", { name: /use a passkey instead/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000); // network done, now settling as verified
+    });
+    fireEvent.click(screen.getByRole("button", { name: /use a passkey instead/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    const successToasts = toastSpy.mock.calls.filter(([arg]) => arg.variant === "success");
+    expect(successToasts).toHaveLength(1);
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+
+  it.each(["Google", "GitHub"])(
+    "the %s button surfaces a demo note instead of doing nothing",
+    (name) => {
+      renderSignIn();
+      fireEvent.click(screen.getByRole("button", { name }));
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ title: expect.stringMatching(/demo/i) })
+      );
+    }
+  );
 
   it("cross-links the session-expired demo from the footer", () => {
     renderSignIn();

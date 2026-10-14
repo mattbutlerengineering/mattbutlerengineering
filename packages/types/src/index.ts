@@ -97,6 +97,7 @@ export type {
 export type {
   WaitlistJoinRequest,
   WaitlistJoinResult,
+  WaitlistEstimate,
   WaitlistStatus,
   WaitlistEntry,
   CreateWaitlistEntryRequest,
@@ -117,6 +118,16 @@ export type {
   TableStatusDelta,
 } from "./table-status.js";
 export { deriveTableDisplayStatus, RESERVED_SOON_WINDOW_MINUTES } from "./table-status.js";
+
+// Guest segment (VIP / Repeat / New) — one definition shared by client badges and server counts
+export type { GuestSegmentName } from "./guest-segment.js";
+export {
+  classifyGuestSegment,
+  hasVipTag,
+  VIP_TAG,
+  VIP_VISIT_THRESHOLD,
+  REPEAT_VISIT_THRESHOLD,
+} from "./guest-segment.js";
 
 // Floor plan types
 export type {
@@ -144,6 +155,10 @@ export { AppError } from "./errors.js";
 
 // Date utilities
 export { toDateString } from "./date.js";
+
+// Party-fits-table rule (shared by server availability and client seating)
+export type { PartyFitTable } from "./party-fit.js";
+export { partyFitsTable, tableMaxCovers } from "./party-fit.js";
 
 // Zod Schemas
 export * from "./schemas/index.js";

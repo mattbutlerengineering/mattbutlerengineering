@@ -31,7 +31,7 @@ import {
   GuestRiskResultSchema,
   GuestRecognitionSchema,
 } from "./guest.js";
-import { WaitlistJoinResultSchema } from "./waitlist.js";
+import { WaitlistJoinResultSchema, WaitlistEstimateSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema } from "./common.js";
 import {
@@ -308,6 +308,11 @@ export const guestRecognitionJsonSchema = toFastifyJsonSchema(
 export const waitlistJoinResultJsonSchema = toFastifyJsonSchema(
   "WaitlistJoinResult",
   WaitlistJoinResultSchema
+);
+
+export const waitlistEstimateJsonSchema = toFastifyJsonSchema(
+  "WaitlistEstimate",
+  WaitlistEstimateSchema
 );
 
 // ── Floor plan schemas ────────────────────────────────────────

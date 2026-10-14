@@ -51,6 +51,7 @@
     </item>
     <item priority="low">
       interface WaitlistResult {
+        statusToken: string;
         position: number;
         estimatedWaitMinutes: number;
       }
@@ -263,6 +264,9 @@
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
+      function slotsResponse(route: Route): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
       function emptyPaginated(route: Route): Promise<void> { /* ... */ }
     </item>
     <item priority="medium">
@@ -470,6 +474,49 @@
       function stripEnabled<TParams>(
         params: (TParams & { enabled?: boolean }) | undefined
       ): TParams | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/floor-plan-draft-reducer.ts">
+    <item priority="low">
+      interface Position {
+        x: number;
+        y: number;
+      }
+    </item>
+    <item priority="low">
+      type PositionMap = ReadonlyMap<string, Position>;
+    </item>
+    <item priority="low">
+      interface DraftState {
+        base: readonly Table[];
+        edits: PositionMap;
+        inFlight: PositionMap | null;
+        saveFailure: { readonly error: unknown } | null;
+      }
+    </item>
+    <item priority="low">
+      type DraftAction = { readonly type: "synced"; rea | { readonly type: "moved"; read | { readonly type: "tableAdded"; | { readonly type: "tableRemoved | { readonly type: "saveStarted" | { readonly type: "saveSucceede | { readonly type: "saveFailed";;
+    </item>
+    <item priority="high">
+      export const INITIAL_DRAFT: DraftState;
+    </item>
+    <item priority="medium">
+      function withPosition(table: Table, pos: Position): Table { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyPositions(tables: readonly Table[], positions: PositionMap | null): Table[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectTables(state: DraftState): Table[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectDirty(state: DraftState): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function without(map: PositionMap, id: string): PositionMap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftReducer(state: DraftState, action: DraftAction): DraftState { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/sse-query-keys.ts">
@@ -715,6 +762,26 @@
       export function useDocumentTitle(title: string): void { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useFloorPlanDraft.ts">
+    <item priority="low">
+      interface PositionUpdate {
+        tableId: string;
+        shapeMetadata: NonNullable<Table["shapeMetadata"]>;
+      }
+    </item>
+    <item priority="low">
+      interface UseFloorPlanDraftOptions {
+        serverTables: readonly Table[] | undefined;
+        persist: (positions: PositionUpdate[]) => Promise<unknown>;
+      }
+    </item>
+    <item priority="medium">
+      function toUpdate(table: Table | undefined, tableId: string, x: number, y: number): PositionUpdate { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFloorPlanDraft({ serverTables, persist }: UseFloorPlanDraftOptions) { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useFloorPlans.ts">
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
@@ -873,13 +940,14 @@
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
+        page?: number;
         limit?: number;
         enabled?: boolean;
       }
     </item>
     <item priority="low">
       interface UseGuestsResult {
-        data: Guest[] | undefined;
+        data: PaginatedResponse<Guest> | undefined;
         isLoading: boolean;
         error: Error | null;
         refetch: () => void;
@@ -1995,10 +2063,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function tablesThatFit<T extends Pick<Table, "status" | "capacity">>(
-        tables: readonly T[],
-        partySize: number
-      ): T[] { /* ... */ }
+      export function tablesThatFit<
+        T extends Pick<Table, "status" | "capacity" | "minCovers" | "maxCovers">,
+      >(tables: readonly T[], partySize: number): T[] { /* ... */ }
     </item>
   </file>
   <file path="src/utils/service-day.ts">

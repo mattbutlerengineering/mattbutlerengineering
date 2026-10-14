@@ -10,6 +10,10 @@ export interface Driver {
   points: number;
   wins: number;
   podiums: number;
+  /** Optional career summary (collected by the driver form). */
+  bio?: string;
+  /** Optional date of birth, ISO yyyy-mm-dd. */
+  dob?: string;
 }
 
 interface DriverContextValue {

@@ -28,9 +28,12 @@
         baseBranch?: string;
       }
     </item>
+    <item priority="high">
+      type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
+    </item>
     <item priority="low">
       interface ListSessionsParams {
-        status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+        status?: AgentSessionQueryStatus;
         page?: number;
         limit?: number;
       }
@@ -292,7 +295,7 @@
         async guestRisk(): Promise<unknown>;
         async recognizeGuest(): Promise<unknown>;
         async joinWaitlist(): Promise<unknown>;
-        async depositIntent(): Promise<unknown>;
+        async waitlistEstimate(): Promise<unknown>;
       }
     </item>
   </file>

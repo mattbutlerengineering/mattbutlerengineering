@@ -83,6 +83,12 @@ describe("DEMO_PAGES", () => {
     }
   });
 
+  it("labels the dashboard demo as the Pit Wall demo", () => {
+    const entry = DEMO_PAGES.find((p) => p.path === "/demos/dashboard");
+    expect(entry?.label).toBe("Pit Wall");
+    expect(DEMO_PAGES.filter((p) => p.path === "/demos/dashboard")).toHaveLength(1);
+  });
+
   it("demo page IDs are unique", () => {
     const ids = DEMO_PAGES.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);

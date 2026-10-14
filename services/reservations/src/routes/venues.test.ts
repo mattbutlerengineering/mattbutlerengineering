@@ -103,7 +103,7 @@ vi.mock("../services/database.js", async () => {
 // public-venues.test.ts's identical comment. ADR-026 §3.3 item 5 / #5369
 // PR 7: GET/PATCH/DELETE /:id and GET /:id/table-statuses resolve venue ids
 // the same way. Route tests exercise application logic, not real RLS
-// resolution (that's `rls-route-sweep.integration.test.ts`) — `loadInVenueContext`
+// resolution (that's `rls-route-sweep.integration.test.ts`) — former `loadInVenueContext`
 // passes the resolved id only to `runWithVenueContext`, never to the (mocked)
 // `venueService` call the assertions below check, so any non-null value works
 // for every test in this file.

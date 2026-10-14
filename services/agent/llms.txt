@@ -55,6 +55,15 @@
       }
     </item>
     <item priority="high">
+      type GenMessages = Array<{ role: "user" | "assistant"; content: string }>;
+    </item>
+    <item priority="medium">
+      function emptyOutputError(): Error & { statusCode: number } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toError(err: unknown): Error & { statusCode: number } { /* ... */ }
+    </item>
+    <item priority="high">
       export function createGenRoute<TSchema extends z.ZodType>(
         config: GenRouteConfig<TSchema>
       ): FastifyPluginAsync { /* ... */ }
@@ -150,7 +159,7 @@
       function createRenderComponentTool() { /* ... */ }
     </item>
     <item priority="high">
-      export const genUiRoutes: FastifyPluginAsync;
+      export const genUiRoutes: unknown;
     </item>
   </file>
   <file path="src/routes/orchestrate.ts">
@@ -174,6 +183,9 @@
     </item>
     <item priority="high">
       export const orchestrateRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="medium">
+      function bearerToken(header: string | undefined): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/routes/remediation.ts">
@@ -533,6 +545,9 @@
     <item priority="high">
       export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
+    <item priority="high">
+      export const projectEvent: EventProjector;
+    </item>
   </file>
   <file path="src/services/stored-spec.ts">
     <item priority="low">
@@ -540,8 +555,8 @@
         id: string;
         userId: string;
         prompt: string;
+        kind: string;
         spec: unknown;
-        rawLines: unknown;
       }
     </item>
     <item priority="low">

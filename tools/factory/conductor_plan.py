@@ -13,7 +13,8 @@ import assembler
 import factory_config
 import work_queue
 from cli import CLI_FAILURES, detail, gh_read, label_names
-from conductor import BATCH_NAME, LEDGER, ask, is_text, stamp
+from conductor import LEDGER, WORKTREES, ask, batch_branch, \
+    batch_name_problems, batch_worktree, is_text, stamp
 from cost_ledger import ISSUE_KEY
 from knowledge_plane import ADR_TOKEN, PRD_TOKEN, WO_TOKEN
 
@@ -43,7 +44,6 @@ ID_TOKENS = (("prd", PRD_TOKEN), ("adr", ADR_TOKEN), ("wo", WO_TOKEN))
 ID_GREP = ["grep", "-h", "-o", "-E", "(PRD|ADR|WO)-[0-9]{4}", "origin/main",
            "--", "docs"]
 ISSUE_FIELDS = "number,state,author,labels"
-WORKTREES = ".claude/worktrees"
 SPEND_OPTIONS = ["approve", "decline"]
 
 
@@ -157,8 +157,8 @@ def _size(labels, rules):
 
 def _deferral(issue, labels, owner, rules=None):
     """(item type, size, reason): reason is None for a plannable issue.
-    `rules` holds the configured label maps and default size, each
-    absent when factory.json does not set it."""
+    `rules` holds the configured label maps, default size and defer
+    labels, each absent when factory.json does not set it."""
     rules = rules or {}
     if (issue["state"] or "").upper() != "OPEN":
         return None, None, "closed"
@@ -166,6 +166,11 @@ def _deferral(issue, labels, owner, rules=None):
     if author != owner:
         return None, None, (f"authored by {author}, not the repo owner"
                             f" {owner}")
+    blocking = [name for name in labels
+                if name in (rules.get("defer_labels") or ())]
+    if blocking:
+        return None, None, (f"carries defer label {blocking[0]}"
+                            " (conductor.defer_labels)")
     if assembler.READY_LABEL in labels:
         item_type = "order"
     else:
@@ -178,9 +183,19 @@ def _deferral(issue, labels, owner, rules=None):
     return item_type, size, None
 
 
+def ceilings(estimate, steps, weights):
+    """step -> ceiling: the estimate split across `steps` by weight, in
+    cents. The first step takes the rounding remainder, so the ceilings
+    sum to the estimate exactly (#724)."""
+    total = sum(weights[step] for step in steps)
+    rest = {step: round(estimate * weights[step] / total, 2)
+            for step in steps[1:]}
+    return {steps[0]: round(estimate - sum(rest.values()), 2), **rest}
+
+
 def _steps(item_type, labels, config, agents_dir, ceiling):
     """(the item's priced steps, problems): step, charter, band, then
-    (model, effort) from policy."""
+    (model, effort) from policy, and `ceiling[step]` as its ceiling."""
     steps, problems = [], []
     for step in ITEM_STEPS[item_type]:
         charter = STEP_CHARTERS.get(step) or assembler.select_charter(labels)
@@ -194,18 +209,20 @@ def _steps(item_type, labels, config, agents_dir, ceiling):
         problems += found
         steps.append({"step": step, "charter": charter, "band": band,
                       "model": model, "effort": effort,
-                      "ceiling_usd": ceiling})
+                      "ceiling_usd": ceiling[step]})
     return steps, problems
 
 
 def _label_rules(config):
-    """({type_labels, size_labels, default_size}, problems): the
-    configured label rules, each None when factory.json omits it."""
+    """({type_labels, size_labels, default_size, defer_labels},
+    problems): the configured label rules, each None when factory.json
+    omits it."""
     rules = {}
     for key, resolve in (
             ("type_labels", factory_config.resolve_type_labels),
             ("size_labels", factory_config.resolve_size_labels),
-            ("default_size", factory_config.resolve_default_size)):
+            ("default_size", factory_config.resolve_default_size),
+            ("defer_labels", factory_config.resolve_defer_labels)):
         rules[key], problems = resolve(config)
         if problems:
             return None, problems
@@ -215,10 +232,14 @@ def _label_rules(config):
 def plan_batch(issues, owner, config, spent, highest, agents_dir):
     """(plan, problems): PURE over already-read inputs. Each plannable
     issue becomes an item priced from budgets_usd by its size, split
-    equally across its steps as their ceilings, with a reserved block
-    above the highest id in use and above every earlier block. Every
-    other issue is one deferral line. A config problem plans nothing."""
+    across its steps by step weight as their ceilings, with a reserved
+    block above the highest id in use and above every earlier block.
+    Every other issue is one deferral line. A config problem plans
+    nothing."""
     cap, problems = factory_config.resolve_cap(config)
+    if problems:
+        return None, problems
+    weights, problems = factory_config.resolve_step_weights(config)
     if problems:
         return None, problems
     rules, problems = _label_rules(config)
@@ -243,8 +264,8 @@ def plan_batch(issues, owner, config, spent, highest, agents_dir):
             deferred.append(f"{key} deferred: {reason}")
             continue
         steps, found = _steps(item_type, labels, config, agents_dir,
-                              round(estimate / len(ITEM_STEPS[item_type]),
-                                    2))
+                              ceilings(estimate, ITEM_STEPS[item_type],
+                                       weights))
         for problem in found:
             if problem not in problems:
                 problems.append(problem)
@@ -300,19 +321,35 @@ def compose_plan(plan):
     return lines
 
 
-def open_batch(root, batch, plan, now, git):
+def main_checkout(git):
+    """(the main checkout, problems): the parent of git's common dir, so
+    a command run from a linked worktree still anchors the Conductor's
+    worktrees at the main checkout, never nested inside itself (#710)."""
+    try:
+        out = git(["rev-parse", "--path-format=absolute",
+                   "--git-common-dir"]).stdout
+    except CLI_FAILURES as err:
+        return None, [f"cd: git rev-parse failed: {detail(err)}"]
+    return Path(out.strip()).parent, []
+
+
+def open_batch(batch, plan, now, git):
     """(the batch worktree, problems): create conductor/<batch> and its
-    worktree from origin/main, write the plan row and one reserve row per
-    block, and queue the spend ask. Refuses an empty plan, a bad batch
-    name and an existing worktree before git runs, and a name whose
-    ledger is already on origin/main before any worktree is made."""
-    if not (isinstance(batch, str) and BATCH_NAME.fullmatch(batch)):
-        return None, [f"cd: batch {batch!r} is not a batch name"
-                      " (lowercase letters, digits and hyphens)"]
+    worktree, under the main checkout, from origin/main, write the plan
+    row and one reserve row per block, and queue the spend ask. Refuses
+    an empty plan and a bad batch name before git runs, an existing
+    worktree before any git write, and a name whose ledger is already on
+    origin/main before any worktree is made."""
+    problems = batch_name_problems(batch)
+    if problems:
+        return None, problems
     if not plan["items"]:
         return None, ["cd: nothing to open: every issue was deferred"]
-    shown = f"{WORKTREES}/conductor-{batch}"
-    worktree = Path(root) / shown
+    checkout, problems = main_checkout(git)
+    if problems:
+        return None, problems
+    shown = batch_worktree(batch)
+    worktree = checkout / shown
     if worktree.exists():
         return None, [f"cd: {shown} already exists"]
     ledger_path = LEDGER.format(batch=batch)
@@ -327,7 +364,7 @@ def open_batch(root, batch, plan, now, git):
     except CLI_FAILURES as err:
         return None, [f"cd: git ls-tree origin/main failed: {detail(err)}"]
     try:
-        git(["worktree", "add", "-b", f"conductor/{batch}", str(worktree),
+        git(["worktree", "add", "-b", batch_branch(batch), str(worktree),
              "origin/main"])
     except CLI_FAILURES as err:
         return None, [f"cd: git worktree add failed: {detail(err)}"]
@@ -416,7 +453,13 @@ def plan_cli(root, args, now, run, git):
     return problems
 
 
-def open_cli(root, args, now, run, git):
+def open_cli(root, args, now, run, git, netrc=None):
+    """`open`, refused before the batch exists while conductor_run's
+    preflight finds a launch refusal no retry fixes: the spend ask is the
+    Owner's consent, and no refusal may first appear after it (#708).
+    `netrc` is injectable, ~/.netrc unless named."""
+    # Imported here: conductor_run imports this module (span).
+    import conductor_run
     agents, rest = _agents(args[1:])
     numbers = _issue_numbers(rest)
     if numbers is None:
@@ -428,7 +471,11 @@ def open_cli(root, args, now, run, git):
     if plan is None:
         return problems
     print("\n".join(compose_plan(plan)))
-    worktree, problems = open_batch(root, args[0], plan, now, git)
+    problems = conductor_run.preflight(
+        root, git, Path.home() / ".netrc" if netrc is None else netrc)
+    if problems:
+        return problems
+    worktree, problems = open_batch(args[0], plan, now, git)
     if worktree is not None:
         print(f"cd: opened {worktree}")
     return problems

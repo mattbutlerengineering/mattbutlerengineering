@@ -394,6 +394,7 @@
     "build": "vite build --config vite.config.lib.ts && pnpm exec tsx scripts/generate-all.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.showcase.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",

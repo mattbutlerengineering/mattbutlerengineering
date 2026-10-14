@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """knowledge_plane: the shared grammar and layout of the knowledge plane
 (ADR-0004, ADR-0037) — the typed-ID token grammar, the fence rule that
-decides when such a token is quoted rather than claimed, the
+decides when such a token is quoted rather than claimed, the local
+markdown link grammar every doc checker resolves links with, the
 run-directory layout, and where a factory tool finds the repo root.
 
 These primitives grew up inside gates.py because its detectors needed
@@ -126,6 +127,46 @@ def unfenced(lines):
         if fence is None:
             yield lineno, line
 
+
+
+# A markdown inline link's destination, per CommonMark: optional leading
+# whitespace, then either <angle brackets> (which may hold spaces) or a
+# bare run with no whitespace and only balanced parentheses, then an
+# optional "title", 'title' or (title), then the closing paren. Images
+# share the grammar. One owner (issue #739): gates' detector I,
+# md_claims, kb lint, kb_drift and lint.py's skill-asset check each kept
+# a looser copy, and the copies read `[a](x.md "T")` three ways.
+_LINK = re.compile(
+    r"\]\(\s*(?:<(?P<angle>[^<>\n]*)>"
+    r"|(?P<bare>(?:[^\s()<]|\([^\s()]*\))(?:[^\s()]|\([^\s()]*\))*)?)"
+    r"""(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)""")
+URL_TARGET = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
+
+
+def local_link_targets(text):
+    """Every local link destination in `text`, in order and as written
+    (fragment and query kept; angle brackets and title dropped). URLs,
+    in-page anchors and empty destinations are not local. Fence and
+    inline-code skipping is each caller's policy, not the grammar's."""
+    targets = [m.group("angle") if m.group("angle") is not None
+               else m.group("bare") or "" for m in _LINK.finditer(text)]
+    return [t for t in targets
+            if t and not t.startswith("#") and not URL_TARGET.match(t)]
+
+
+def resolve_link(root, doc, target):
+    """The path a link in `doc` names: fragment and query dropped, a
+    leading slash read from `root`, anything else from `doc`'s own
+    directory. None when the target names no path (an anchor, a bare
+    query, a URL)."""
+    if URL_TARGET.match(target):
+        return None
+    path = target.split("#", 1)[0].split("?", 1)[0]
+    if not path:
+        return None
+    if path.startswith("/"):
+        return Path(root) / path.lstrip("/")
+    return Path(doc).parent / path
 
 # A breakdown row is a checkbox bullet line; its work order is its FIRST
 # WO token (later tokens are blocking edges). Notes and Accept: sub-bullets
@@ -347,6 +388,112 @@ def mirror_map(root):
     return mapping
 
 
+# The ADR record (issue #747): which files in docs/adr are decision
+# records, what status each declares, and its standing. Six readers used
+# to answer these with three file globs and three status readers, so a
+# file one of them called an ADR another called a dangling citation.
+#
+# An ADR file is named by its number: this repo's `0062-slug.md`, a bare
+# `0062.md`, or the `ADR-007-slug.md` form other repos use. README.md and
+# TEMPLATE.md carry no number and are skipped by the same test.
+ADR_FILE = re.compile(r"^(?:ADR-?)?(?P<num>\d+)\b", re.IGNORECASE)
+# The status vocabulary (docs/adr/README.md), as a status head plus an
+# optional free-text annotation: "accepted (shipped by ...)" is accepted.
+# Only full supersession retires a decision — "superseded in part by" and
+# "amended by" leave the ADR live, so citing it is not drift.
+ADR_STATUS = re.compile(
+    r"^(accepted|provisional"
+    r"|(?P<retired>superseded by ADR-(?P<by>\d{4}))"
+    r"|superseded in part by ADR-\d{4}"
+    r"|amended by ADR-\d{4})"
+    r"(\s*\(.*\))?$")
+ADR_STATUS_LINE = re.compile(r"^-\s*Status:\s*(.+?)\s*$")
+# A frontmatter `status:` field: the fallback when no Status line exists.
+_FRONTMATTER_STATUS = re.compile(r"^status:\s*(.*?)\s*$")
+
+
+def adr_paths(root):
+    """[(number, Path)] for every ADR file under root/docs/adr, in
+    filename order; [] when there is no such directory. The one ADR
+    file set every reader consults."""
+    adr_dir = Path(root) / "docs" / "adr"
+    if not adr_dir.is_dir():
+        return []
+    found = []
+    for path in sorted(adr_dir.glob("*.md")):
+        match = ADR_FILE.match(path.name)
+        if match:
+            found.append((match.group("num"), path))
+    return found
+
+
+def status_head(text):
+    """The decision state alone, annotation stripped; None if unknown."""
+    match = ADR_STATUS.match(text or "")
+    return match.group(1) if match else None
+
+
+def standing(text):
+    """The standing of one raw status text:
+      active        accepted, or amended by a later ADR
+      provisional   recorded without live confirmation — live, held softer
+      partial       superseded in part — live outside the superseded part
+      retired       superseded by a later ADR — citing it is drift
+      unrecognized  no status, or one outside the grammar"""
+    match = ADR_STATUS.match(text or "")
+    if not match:
+        return "unrecognized"
+    if match.group("retired"):
+        return "retired"
+    head = match.group(1)
+    if head == "provisional":
+        return "provisional"
+    if head.startswith("superseded in part"):
+        return "partial"
+    return "active"
+
+
+def _declared_status(lines):
+    """(lineno, raw status text) from the `- Status:` line, else from a
+    frontmatter `status:` field, else (0, None)."""
+    for lineno, line in enumerate(lines, 1):
+        match = ADR_STATUS_LINE.match(line)
+        if match:
+            return lineno, match.group(1)
+    if lines and lines[0].strip() == "---":
+        for lineno, line in enumerate(lines[1:], 2):
+            if line.strip() == "---":
+                break
+            match = _FRONTMATTER_STATUS.match(line)
+            if match and match.group(1):
+                return lineno, match.group(1)
+    return 0, None
+
+
+def adr_record(path, lines):
+    """One ADR, read once: {number, path, lineno, status, head, standing,
+    superseded_by}. PATH must be an adr_paths file; LINES are its lines
+    (a parse_run adr_files entry). lineno is the line the status was read
+    from, 0 when it declares none; superseded_by is the retiring ADR's
+    number, or None."""
+    lineno, text = _declared_status(lines)
+    match = ADR_STATUS.match(text or "")
+    return {"number": ADR_FILE.match(path.name).group("num"),
+            "path": path,
+            "lineno": lineno,
+            "status": text,
+            "head": match.group(1) if match else None,
+            "standing": standing(text),
+            "superseded_by": (match.group("by")
+                              if match and match.group("retired") else None)}
+
+
+def adr_records(root):
+    """adr_record for every adr_paths file under ROOT, in that order."""
+    return [adr_record(path, path.read_text(encoding="utf-8").splitlines())
+            for _, path in adr_paths(root)]
+
+
 def parse_run(root, scannable=()):
     """Every artifact the gate detectors read from `root`, read ONCE.
 
@@ -407,9 +554,8 @@ def parse_run(root, scannable=()):
         None; every other artifact here is read the way its current
         caller already reads it: uncaught, because no current caller
         catches a read error there either.
-      "adr_files": [(Path, [str]), ...] for docs/adr/NNNN-*.md, in the
-        same sorted order check_blueprint_drift and check_link_integrity
-        already glob it.
+      "adr_files": [(Path, [str]), ...] for every adr_paths file, in
+        that order — adr_record reads an entry.
       "adr_readme": [str] | None for docs/adr/README.md.
       "scannable": [(Path, [str]), ...], one entry per path in
         `scannable`, in that order — read uncaught, same as every other
@@ -446,16 +592,11 @@ def parse_run(root, scannable=()):
             "verification_error": verification_error,
         })
 
-    adr_dir = root / "docs" / "adr"
-    adr_files = []
-    adr_readme = None
-    if adr_dir.is_dir():
-        for path in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
-            adr_files.append(
-                (path, path.read_text(encoding="utf-8").splitlines()))
-        readme = adr_dir / "README.md"
-        if readme.is_file():
-            adr_readme = readme.read_text(encoding="utf-8").splitlines()
+    adr_files = [(path, path.read_text(encoding="utf-8").splitlines())
+                 for _, path in adr_paths(root)]
+    readme = root / "docs" / "adr" / "README.md"
+    adr_readme = (readme.read_text(encoding="utf-8").splitlines()
+                  if readme.is_file() else None)
 
     scanned = [(path, path.read_text(encoding="utf-8").splitlines())
               for path in scannable]

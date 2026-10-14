@@ -4,8 +4,11 @@ import { createProblemDetails } from "@mbe/types";
 import { z } from "zod";
 import { storedSpecService, mapStoredSpec, mapStoredSpecPublic } from "../services/stored-spec.js";
 
+const GEN_SPEC_KINDS = ["generate", "refine", "recover", "failed"] as const;
+
 const CreateSpecBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
+  kind: z.enum(GEN_SPEC_KINDS).default("generate"),
   spec: z.unknown(),
   rawLines: z.array(z.string()),
 });
@@ -31,11 +34,12 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const { prompt, spec, rawLines } = parseResult.data;
+      const { prompt, kind, spec, rawLines } = parseResult.data;
 
       const result = await storedSpecService.create({
         userId: request.user!.id,
         prompt,
+        kind,
         spec,
         rawLines,
       });

@@ -4,6 +4,7 @@ import type { Guest, GuestSegment, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
 import { useApiClient } from "./useApiClient.js";
 import {
+  useGuest,
   useGuests,
   useGuestSearch,
   useGuestSegments,
@@ -24,6 +25,13 @@ export interface UseGuestDirectoryResult {
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
+
+  // Pagination (list mode only — search returns one capped page)
+  /** The API's total for the current list or search, not the number of visible rows. */
+  totalCount: number;
+  page: number;
+  totalPages: number;
+  setPage: (page: number) => void;
 
   // Search
   searchQuery: string;
@@ -52,7 +60,13 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
   const queryClient = useQueryClient();
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQueryState] = useState("");
+  const [page, setPage] = useState(1);
+
+  const setSearchQuery = (query: string) => {
+    setSearchQueryState(query);
+    setPage(1);
+  };
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
@@ -67,6 +81,7 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
   // Queries — only one active at a time
   const listResult = useGuests({
     venueId,
+    page,
     enabled: !isSearchActive,
   });
 
@@ -78,20 +93,27 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
 
   const { data: segments } = useGuestSegments(venueId);
 
-  const {
-    data: guests = [],
-    isLoading,
-    error,
-    refetch,
-  } = isSearchActive ? searchResult : listResult;
+  const { data: guestPage, isLoading, error, refetch } = isSearchActive ? searchResult : listResult;
+  const guests = useMemo(() => guestPage?.data ?? [], [guestPage]);
+  const totalCount = guestPage?.pagination.total ?? guests.length;
+  const totalPages = guestPage?.pagination.totalPages ?? 1;
 
-  // Selection
+  // Selection is independent of the visible rows: a guest that a search or page
+  // change drops from view is fetched by id instead of leaving the drawer empty.
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
 
-  const selectedGuest = useMemo(
-    () => guests.find((g) => g.id === selectedGuestId) ?? null,
-    [guests, selectedGuestId]
-  );
+  // A venue switch resets paging and selection (render-time derivation, no effect):
+  // page 3 of venue A may not exist in venue B, and A's guest must not stay selected.
+  const [prevVenueId, setPrevVenueId] = useState(venueId);
+  if (prevVenueId !== venueId) {
+    setPrevVenueId(venueId);
+    setPage(1);
+    setSelectedGuestId(null);
+  }
+
+  const visibleGuest = guests.find((g) => g.id === selectedGuestId) ?? null;
+  const { data: fetchedGuest } = useGuest(visibleGuest ? null : selectedGuestId);
+  const selectedGuest = visibleGuest ?? (selectedGuestId ? (fetchedGuest ?? null) : null);
 
   // Mutations
   const addGuestMutation = useMutation({
@@ -107,6 +129,7 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
       api.guests.update(guestId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: guestSegmentsQueryKey(venueId) });
     },
   });
 
@@ -124,6 +147,10 @@ export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGues
     isLoading,
     error,
     refetch,
+    totalCount,
+    page,
+    totalPages,
+    setPage,
     searchQuery,
     setSearchQuery,
     isSearchActive,

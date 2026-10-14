@@ -1,0 +1,76 @@
+{
+  "duration_api_ms": 217216,
+  "stop_reason": "end_turn",
+  "session_id": "12088ecd-a3f6-4a12-8e2e-16fbc6264526",
+  "total_cost_usd": 1.7216658000000002,
+  "usage": {
+    "input_tokens": 76,
+    "cache_creation_input_tokens": 136095,
+    "cache_read_input_tokens": 5337119,
+    "output_tokens": 10971,
+    "output_tokens_details": { "thinking_tokens": 1507 },
+    "server_tool_use": { "web_search_requests": 0, "web_fetch_requests": 0 },
+    "service_tier": "standard",
+    "cache_creation": { "ephemeral_1h_input_tokens": 136095, "ephemeral_5m_input_tokens": 0 },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 360,
+        "cache_read_input_tokens": 161031,
+        "cache_creation_input_tokens": 1252,
+        "cache_creation": { "ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1252 },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 76,
+      "outputTokens": 10971,
+      "cacheReadInputTokens": 5337119,
+      "cacheCreationInputTokens": 136095,
+      "webSearchRequests": 0,
+      "costUSD": 1.7216658000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1507,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": { "background": 0, "foreground": 0, "unset": 0 },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": { "parent": 0, "user": 0, "system": 0 },
+    "refused": { "depth_limit": 0, "concurrency_limit": 0, "budget": 0 },
+    "by_type": {}
+  },
+  "safety_stops": 0,
+  "is_error": false,
+  "num_turns": 38,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "WO-2 is implemented test-first and checked off:\n\n- **Fix**: removed `padding-block-start: var(--rialto-space-xl)` from `.content` in `DashboardLayout.module.css` \u2014 desktop top padding now equals `--rialto-space-lg` (24px), matching sides; mobile override untouched.\n- **TDD**: new unit test confirmed RED against pre-fix CSS, GREEN after the one-line removal.\n- Gates: hospitality lint (0 errors), typecheck, and the full DashboardLayout suite (32/32) all green. The conductor gate's one failure (`@mbe/infrastructure#test`, Pulumi) is pre-existing and untouched by this diff.\n- Updated `audit.md` with the WO-2 section and honestly left the AFTER-WO-2 per-route numbers as `_pending E2E run_` (no E2E credentials in this worktree, same gap WO-1 hit) rather than fabricating them.\n- Committed as `9b90a1174`; `pr-body.md` written at the worktree root, uncommitted.",
+  "ttft_ms": 4297,
+  "type": "result",
+  "duration_ms": 1136022,
+  "uuid": "faa6198f-9d57-472f-acc8-f4a850e039e3",
+  "ttft_stream_ms": 3496,
+  "time_to_request_ms": 1583,
+  "first_content_frame_ms": 3497,
+  "queued_turn_count": 0,
+  "result_index": 0
+}

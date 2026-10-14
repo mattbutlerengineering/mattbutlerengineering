@@ -130,6 +130,41 @@ describe("POST /api/v1/stripe/webhook", () => {
     await app.close();
   });
 
+  it("returns 500 and never verifies when the raw body was not captured (preParsing hook decoupled)", async () => {
+    // Every other test here goes through app.inject(...), which always runs
+    // createRawBodyCaptureHook() first, so request.rawBody is never falsy
+    // through the normal harness. Simulate the hook never having run (e.g. a
+    // future refactor that decouples the route from its preParsing hook) with
+    // a root-level preHandler — which always runs after preParsing in the
+    // Fastify lifecycle regardless of registration order — that clears
+    // rawBody right before the handler's own `if (!rawBody)` check.
+    const verify = vi.spyOn(Stripe.webhooks, "constructEvent");
+
+    const app = await buildApp({ logger: false, payments });
+    app.addHook("preHandler", async (request) => {
+      if (request.url === "/api/v1/stripe/webhook") {
+        request.rawBody = undefined;
+      }
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from("{}"),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "anything",
+      },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toMatchObject({ detail: "Unable to verify webhook" });
+    expect(verify).not.toHaveBeenCalled();
+    verify.mockRestore();
+    await app.close();
+  });
+
   it("returns 200 for an unknown event type (no-op, Stripe should not retry)", async () => {
     const mockEvent = {
       type: "customer.created",

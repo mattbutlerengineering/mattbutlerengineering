@@ -160,7 +160,7 @@ describe("createGenRoute factory", () => {
 
     it("sets Content-Type to text/plain; charset=utf-8", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -176,7 +176,7 @@ describe("createGenRoute factory", () => {
 
     it("sets Cache-Control, Connection, X-Accel-Buffering headers", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -237,7 +237,7 @@ describe("createGenRoute factory", () => {
 
     it("sets Content-Type to application/x-ndjson; charset=utf-8", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -299,6 +299,158 @@ describe("createGenRoute factory", () => {
     });
   });
 
+  describe("upstream model failure", () => {
+    const cases = [
+      { format: "text" as const, status: 529 },
+      { format: "text" as const, status: 401 },
+      { format: "ndjson" as const, status: 529 },
+      { format: "ndjson" as const, status: 401 },
+    ];
+
+    it.each(cases)(
+      "errors the $format stream on upstream $status instead of closing as an empty 200",
+      async ({ format, status }) => {
+        app = buildTestApp();
+        await app.register(
+          createGenRoute({
+            path: "/api/test/fail",
+            costLogLabel: "test-fail cost log",
+            rateLimit: { max: 50, timeWindow: "1 hour" },
+            schema: ChatSchema,
+            streamFormat: format,
+            maxSteps: 1,
+            getTools: async () => ({}),
+          })
+        );
+        await app.ready();
+        vi.mocked(streamText).mockReturnValueOnce({
+          fullStream: mockStream([
+            { type: "error", error: Object.assign(new Error(`upstream ${status}`), { status }) },
+          ]),
+        } as never);
+
+        const outcome = await app
+          .inject({
+            method: "POST",
+            url: "/api/test/fail",
+            payload: { messages: [{ role: "user", content: "hello" }] },
+          })
+          .then(
+            (r) => ({ rejected: false as const, code: r.statusCode, body: r.body }),
+            () => ({ rejected: true as const, code: 0, body: "" })
+          );
+
+        // A failed model call must be client-visible: an errored stream (fastify
+        // answers with an error status while no bytes are sent) or an aborted
+        // response — never a clean 200.
+        // Upstream status/detail must not leak: always a generic 502.
+        expect(outcome.rejected).toBe(false);
+        expect(outcome.code).toBe(502);
+        expect(outcome.body).not.toContain(`upstream ${status}`);
+      }
+    );
+  });
+
+  describe("zero-output guard", () => {
+    it.each(["text", "ndjson"] as const)(
+      "answers a 502, not an empty 200, when the %s runner returns with no output",
+      async (format) => {
+        app = buildTestApp();
+        await app.register(
+          createGenRoute({
+            path: "/api/test/empty",
+            costLogLabel: "test-empty cost log",
+            rateLimit: { max: 50, timeWindow: "1 hour" },
+            schema: ChatSchema,
+            streamFormat: format,
+            maxSteps: 1,
+            getTools: async () => ({}),
+          })
+        );
+        await app.ready();
+        vi.mocked(streamText).mockReturnValueOnce({ fullStream: mockStream([]) } as never);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/test/empty",
+          payload: { messages: [{ role: "user", content: "hello" }] },
+        });
+
+        expect(response.statusCode).toBe(502);
+      }
+    );
+  });
+
+  describe("per-route runner and framing options", () => {
+    const PromptSchema = z.object({ prompt: z.string() });
+
+    async function registerCustom() {
+      app = buildTestApp();
+      await app.register(
+        createGenRoute({
+          path: "/api/test/custom",
+          costLogLabel: "test-custom cost log",
+          rateLimit: { max: 50, timeWindow: "1 hour" },
+          schema: PromptSchema,
+          streamFormat: "ndjson",
+          maxSteps: 1,
+          systemPrompt: "custom system prompt",
+          toolChoice: { type: "tool", toolName: "render_component" },
+          failOnToolError: true,
+          toMessages: (parsed) => [{ role: "user", content: parsed.prompt }],
+          serializeEvent: (event) => (event.type === "element" ? event.element : undefined),
+          getTools: async () => ({}),
+        })
+      );
+      await app.ready();
+    }
+
+    it("uses the route's system prompt, derived messages, and toolChoice", async () => {
+      await registerCustom();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([
+          {
+            type: "tool-call",
+            toolCallId: "c1",
+            toolName: "render_component",
+            input: { elements: [{ key: "a", type: "Card" }] },
+          },
+        ]),
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/test/custom",
+        payload: { prompt: "a form" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe(JSON.stringify({ key: "a", type: "Card" }) + "\n");
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        messages: Array<{ role: string; content: string }>;
+        toolChoice: unknown;
+      };
+      expect(call.messages[0]!.content).toBe("custom system prompt");
+      expect(call.messages[1]).toEqual({ role: "user", content: "a form" });
+      expect(call.toolChoice).toEqual({ type: "tool", toolName: "render_component" });
+    });
+
+    it("counts only serialized events: non-element output alone is zero output (502)", async () => {
+      await registerCustom();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([{ type: "text-delta", text: "no tool call" }]),
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/test/custom",
+        payload: { prompt: "a form" },
+      });
+
+      expect(response.statusCode).toBe(502);
+    });
+  });
+
   describe("cost logging", () => {
     beforeEach(async () => {
       app = buildTestApp();
@@ -317,7 +469,7 @@ describe("createGenRoute factory", () => {
 
     it("calls streamText with an onFinish callback", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -335,7 +487,7 @@ describe("createGenRoute factory", () => {
     it("passes the route's configured costLogLabel to logGenCost", async () => {
       vi.mocked(logGenCost).mockClear();
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -376,7 +528,7 @@ describe("createGenRoute factory", () => {
 
     it("injects system prompt first with ephemeral cache control", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);
@@ -420,7 +572,7 @@ describe("createGenRoute factory", () => {
       await app.ready();
 
       vi.mocked(streamText).mockReturnValueOnce({
-        fullStream: mockStream([]),
+        fullStream: mockStream([{ type: "text-delta", text: "x" }]),
         usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
         providerMetadata: Promise.resolve({}),
       } as never);

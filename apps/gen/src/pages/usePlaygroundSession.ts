@@ -8,7 +8,8 @@ import { isTransportError } from "./classifyGenerationError.js";
 import { usePlaygroundState } from "./usePlaygroundState.js";
 import type { PlaygroundMode } from "./usePlaygroundState.js";
 import { decodeSpec } from "../lib/spec.js";
-import type { StoredSpec } from "../types.js";
+import { resolveEntry } from "../lib/entry-kind.js";
+import type { EntryKind, StoredSpec } from "../types.js";
 
 // A real, safely-renderable "empty" Spec — exactly what @json-render/react's
 // own flatToTree([]) produces, and Renderer no-ops on it (`!spec.root`).
@@ -88,9 +89,9 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   // Track the most recently submitted prompt without triggering a re-render.
-  // `promptRef` holds the string saved to history (tagged "Refined:"/
-  // "Recovered:" per the existing convention).
+  // `promptRef` holds the user's text saved to history; `kindRef` its kind.
   const promptRef = useRef("");
+  const kindRef = useRef<EntryKind>("generate");
   // The exact user-entered text (untagged), so a failure can restore it for
   // editing (`failedPrompt` below). State, not a ref — it's read during
   // render, and react-hooks/refs forbids reading ref.current at render time.
@@ -108,12 +109,13 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       options?.onGenerationComplete?.();
       void saveSpec({
         prompt: promptRef.current,
+        kind: kindRef.current,
         spec: completedSpec,
         rawLines: completedRawLines,
       }).then((stored) => setActiveId(stored.id));
     },
-    // Record the failed attempt in the same history mechanism (tagged
-    // "Failed:", following the existing "Refined:" convention) so a
+    // Record the failed attempt in the same history mechanism (kind
+    // "failed") so a
     // failure -> success recovery is visible. Not selected as active —
     // that would null out displayError (see the derivation below) and hide
     // the error the user is meant to see and act on. Skipped for a
@@ -122,7 +124,8 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     onError: (err) => {
       if (!rawPrompt || isTransportError(err)) return;
       void saveSpec({
-        prompt: `Failed: ${rawPrompt}`,
+        prompt: rawPrompt,
+        kind: "failed",
         spec: EMPTY_SPEC,
         rawLines: [],
       }).catch((saveErr: unknown) => {
@@ -165,12 +168,14 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
       if (mode === "refine" && displaySpec) {
         refineSpecRef.current = displaySpec;
         const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
-        promptRef.current = `Refined: ${prompt}`;
+        promptRef.current = prompt;
+        kindRef.current = "refine";
         setActiveId(null);
         void send(refinementPrompt);
       } else {
         refineSpecRef.current = null;
         promptRef.current = prompt;
+        kindRef.current = "generate";
         setActiveId(null);
         void send(prompt);
       }
@@ -191,18 +196,33 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     if (initialPromptHandledRef.current) return;
     initialPromptHandledRef.current = true;
     const initialPrompt = new URLSearchParams(window.location.search).get("prompt")?.trim();
-    if (initialPrompt) queueMicrotask(() => submit(initialPrompt));
+    if (!initialPrompt) return;
+    // Consume the param so a reload or sign-in round-trip doesn't regenerate.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("prompt");
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`
+    );
+    queueMicrotask(() => submit(initialPrompt));
   }, [submit]);
 
   const replay = useCallback(
     (id: string) => {
       const entry = specs.find((s) => s.id === id);
       if (!entry) return;
-      promptRef.current = entry.prompt;
-      setRawPrompt(entry.prompt);
+      const { kind, prompt } = resolveEntry(entry);
+      // A refine entry only makes sense on top of its parent spec, which isn't
+      // stored — replaying the bare instruction would be meaningless.
+      if (kind === "refine") return;
+      promptRef.current = prompt;
+      kindRef.current = "generate";
+      setRawPrompt(prompt);
       refineSpecRef.current = null;
       resetTo(null);
-      void send(entry.prompt);
+      void send(prompt);
     },
     [specs, resetTo, send]
   );
@@ -210,20 +230,19 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
   // "Retry with error context": when the last attempt failed with a
   // generation/validation error, feed it back to the model instead of a
   // bare resubmit (reuses the same send() call — no new backend endpoint).
-  // Always based on the untagged rawPrompt (or a selected entry's prompt) —
-  // never on promptRef.current, which carries the "Refined:"/"Recovered:"
-  // history label — so repeated retries can't pile tags onto each other or
-  // leak them into the model prompt. A refine failure's spec context
+  // Always based on the untagged rawPrompt (or a selected entry's prompt),
+  // so history labels can never leak into the model prompt. A refine failure's spec context
   // (refineSpecRef, captured at submit-time) is re-embedded so the retry
   // doesn't lose it. A transport failure (auth/network — see
   // isTransportError) isn't recoverable by feeding it back to the model, so
   // that case is just a bare resubmit, same as having no error at all.
   const retry = useCallback(() => {
-    const retryPrompt = activeEntry?.prompt ?? rawPrompt;
+    const retryPrompt = activeEntry ? resolveEntry(activeEntry).prompt : rawPrompt;
     if (!retryPrompt) return;
     const recoverableError = error && !isTransportError(error) ? error : null;
     setRawPrompt(retryPrompt);
-    promptRef.current = recoverableError ? `Recovered: ${retryPrompt}` : retryPrompt;
+    promptRef.current = retryPrompt;
+    kindRef.current = recoverableError ? "recover" : "generate";
     resetTo(null);
     if (recoverableError) {
       const promptWithContext = refineSpecRef.current

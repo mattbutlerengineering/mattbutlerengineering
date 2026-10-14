@@ -130,15 +130,10 @@
       export async function serviceHealthCheck(): Promise<string> { /* ... */ }
     </item>
   </file>
-  <file path="src/tools/logs.ts">
-    <item priority="medium">
-      function assertValidService(service: string): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function checkLogs(service?: string) { /* ... */ }
-    </item>
-  </file>
   <file path="src/tools/pulumi.ts">
+    <item priority="high">
+      export const PULUMI_PROJECT_DIR: unknown;
+    </item>
     <item priority="high">
       export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
     </item>

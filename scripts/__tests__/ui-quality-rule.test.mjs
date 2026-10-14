@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FILES_TO_CHECK } from "../detect-instruction-rot.mjs";
+import { discoverInstructionFiles } from "../detect-instruction-rot.mjs";
 
 /**
  * The generation-side rule (docs/features/ui-quality-loop/architecture.md
@@ -36,7 +36,7 @@ describe(".claude/rules/ui-quality.md", () => {
   });
 
   it("is guarded by detect-instruction-rot.mjs", () => {
-    expect(FILES_TO_CHECK).toContain(RULE);
+    expect(discoverInstructionFiles(REPO)).toContain(RULE);
   });
 });
 

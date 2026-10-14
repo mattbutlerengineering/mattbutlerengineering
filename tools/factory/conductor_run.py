@@ -29,9 +29,10 @@ import factory_config
 from assembler import PR_BODY_FILE
 from cli import CLI_FAILURES, child_env, detail, gh_read, harness_run, \
     read_execution
-from conductor import WORKER_ENV, answers, append, ask_row, current_state, \
-    item_view, load, stamp, view
-from conductor_plan import span
+from conductor import RUNS, WORKER_ENV, answers, append, ask_row, \
+    current_state, item_view, item_worktree, load, stamp, view
+from conductor import run_id as make_run_id
+from conductor_plan import main_checkout, span
 from knowledge_plane import WO_TOKEN
 from orientation_pack import orientation_pack
 from protocol import read_frontmatter
@@ -67,14 +68,20 @@ NO_PUSH = "/dev/null/conductor-worker-may-not-push/"
 WORKER_GIT_CONFIG = ((f"url.{NO_PUSH}.pushInsteadOf", "https://"),
                      (f"url.{NO_PUSH}.pushInsteadOf", "http://"),
                      ("credential.helper", ""))
-WORKTREE = ".claude/worktrees/conductor-{batch}-{n}"
-RUNS = "docs/factory/batches/{batch}/runs"
 CEILING_OUTCOME = {"timeout": "killed:cost-at-ceiling",
                    "unaccounted": "unaccounted:cost-at-ceiling"}
 CAP_WHY = ("the monthly cap is ADR-0034's breaker; raise monthly_cap_usd in"
            " factory.json first, or a resumed launch asks again")
-WORKER_WHY = ("a first failure is evidence about the item as often as about"
-              " the agent, so nothing retries without your answer")
+REFUSAL_WHY = ("a retry meets the same refusal until the setting it names"
+               " changes; change it, then resume")
+# The subject of the spend commit each run ends with (_spend): it bounds
+# one run's own commits on the item branch.
+SPEND_SUBJECT = "chore(cost): "
+PRIOR_WORK = ("The previous {step} run, {run_id}, ended: {reason}. These"
+              " commits it made are already on {branch}, the head this"
+              " worktree is at:\n{commits}\nDo not repeat that work. Check"
+              " it against the objective, finish only what is missing (at"
+              " the least, write " + PR_BODY_FILE + "), and stop.")
 OBJECTIVES = {
     "spec": ("Drive issue {item}'s run with the autorun skill, as a"
              " {scale}, writing `stop-after: decompose` into its"
@@ -98,7 +105,8 @@ OBJECTIVES = {
 def worker_env(base, batch, gh_config_dir):
     """The Worker's environment: `base` (the runner's) minus every
     WORKER_STRIPPED name, plus the batch flag, an empty gh config dir,
-    no terminal prompt and WORKER_GIT_CONFIG. pushInsteadOf skips a
+    no bytecode written into its worktree (#726), no terminal prompt
+    and WORKER_GIT_CONFIG. pushInsteadOf skips a
     remote's explicit pushurl, and git's https transport reads ~/.netrc;
     this env closes neither, so push_gaps refuses the launch while
     either is configured (re-review R3). What stays trust-based: it
@@ -109,6 +117,7 @@ def worker_env(base, batch, gh_config_dir):
     env = {name: value for name, value in base.items()
            if not WORKER_STRIPPED.fullmatch(name)}
     env.update({WORKER_ENV: batch, "GH_CONFIG_DIR": gh_config_dir,
+                "PYTHONDONTWRITEBYTECODE": "1",
                 "GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "false",
                 "GIT_CONFIG_COUNT": str(len(WORKER_GIT_CONFIG))})
     for index, (key, value) in enumerate(WORKER_GIT_CONFIG):
@@ -179,9 +188,11 @@ def harness_command(brief, model, effort, ceiling_usd,
 
 
 def compose_brief(step, item, item_type, worktree, branch, block, wo,
-                  context, issue_body, ceiling, tools=ALLOWED_TOOLS):
+                  context, issue_body, ceiling, tools=ALLOWED_TOOLS,
+                  prior=""):
     """The Worker's brief in its fixed shape. The issue body is an input
-    only for a spec step (ADR-0032: owner-authored issues only)."""
+    only for a spec step (ADR-0032: owner-authored issues only). `prior`
+    is a retry's note on the work its stalled run committed (#725)."""
     scale = ("maintenance run from capture" if item_type == "fix"
              else "feature run from idea")
     reserved = ", ".join(f"{kind} {span(values)}"
@@ -189,13 +200,21 @@ def compose_brief(step, item, item_type, worktree, branch, block, wo,
     inputs = [f"- {context}"] if context else []
     if step == "spec" and issue_body is not None:
         inputs.append(f"- Issue {item}, verbatim:\n\n{issue_body}")
+    # #724: a spec run committed a whole blueprint, ran out of budget
+    # before writing its PR body, and so opened no pull request.
+    keep_body = ([f"Keep the pull request body in {PR_BODY_FILE} current"
+                  " as each artifact is committed, and stop once the"
+                  f" breakdown is committed: a run that reaches its"
+                  f" ${ceiling:.2f} ceiling without {PR_BODY_FILE} opens"
+                  " no pull request."] if step == "spec" else [])
     return "\n".join([
         "## Objective", "",
         OBJECTIVES[step].format(item=item, scale=scale, wo=wo), "",
+        *(["## Prior work", "", prior, ""] if prior else []),
         "## Output", "",
         f"The stage artifact or code, as commits on {branch}. Write the"
         f" pull request body to {PR_BODY_FILE} at the worktree root and"
-        " leave pr-body.md uncommitted.", "",
+        " leave pr-body.md uncommitted.", *keep_body, "",
         "## Tools", "",
         f"Only these: {', '.join(tools)}. never git push, and"
         " never run any gh command: this environment carries no GitHub"
@@ -272,12 +291,10 @@ def _work(rows, entry, step, git, gh, batch, worktree):
 
 def worktree_path(git, batch, item):
     """(the item worktree's path under the main checkout, problems)."""
-    out, problems = _git(git, ["rev-parse", "--path-format=absolute",
-                               "--git-common-dir"], "cd: git rev-parse")
+    checkout, problems = main_checkout(git)
     if problems:
         return None, problems
-    return Path(out.strip()).parent / WORKTREE.format(batch=batch,
-                                                      n=item[1:]), []
+    return checkout / item_worktree(batch, item), []
 
 
 def _worktree(git, batch, item):
@@ -363,17 +380,49 @@ def _deliver(git, gh, worktree, branch, item, batch):
 
 
 def _spend(git, worktree, wo, run_id, model, tokens, cost, outcome, now):
-    """Commit the run's one spend row on the item branch. A stall reason
-    on failure, else None."""
-    cost_ledger.append(worktree, cost_ledger.entry(
+    """Commit the run's one spend row on the item branch, written through
+    cost_ledger.record, the one guarded write (#736). A stall reason on
+    failure, else None."""
+    refused = cost_ledger.record(worktree, cost_ledger.entry(
         wo, run_id, model, tokens, cost, outcome, now.strftime("%Y-%m-%d")))
+    if refused:
+        return (f"refusing to record the spend row of {run_id}: "
+                + "; ".join(refused))
     for args in (["add", cost_ledger.COST_LEDGER],
-                 ["commit", "-m", f"chore(cost): {run_id}"]):
+                 ["commit", "-m", f"{SPEND_SUBJECT}{run_id}"]):
         _, problems = _git(git, ["-C", str(worktree), *args],
                            f"committing the spend row of {run_id}")
         if problems:
             return problems[0]
     return None
+
+
+def _prior_work(git, rows, item, step, branch):
+    """(the brief's prior-work note, "" when there is none, problems): on
+    a retry, the commits the stalled run of this step made, read from
+    the item branch between its spend commit and the one before (#725).
+    Without the note a retry repeats committed work from scratch."""
+    earlier = flow.prior_stalls(rows, item, step)
+    if not earlier or earlier[-1][0] is None:
+        return "", []
+    run, reason = earlier[-1]
+    out, problems = _git(git, ["log", "--format=%s",
+                               f"origin/main..{branch}"], "cd: git log")
+    if problems:
+        return None, problems
+    subjects = out.splitlines()
+    spend = SPEND_SUBJECT + run["run_id"]
+    if spend not in subjects:
+        return "", []
+    commits = []
+    for subject in subjects[subjects.index(spend) + 1:]:
+        if subject.startswith(SPEND_SUBJECT):
+            break
+        commits.append(f"- {subject}")
+    if not commits:
+        return "", []
+    return PRIOR_WORK.format(step=step, run_id=run["run_id"], reason=reason,
+                             branch=branch, commits="\n".join(commits)), []
 
 
 def _verdict(git, worktree, branch):
@@ -400,13 +449,39 @@ def _left_unchecked(git, branch, briefed, wo):
     return None
 
 
+def ref_spend_rows(git, ref):
+    """(the spend rows the ref's cost ledger holds, problems a retry may
+    fix, problems it cannot). An absent ledger holds none (#708):
+    nothing seeds docs/factory/costs.jsonl in a consumer repo, so its
+    first run finds none on main. A malformed one is never read as
+    empty."""
+    path = cost_ledger.COST_LEDGER
+    listed, problems = _git(git, ["ls-tree", "--name-only", ref, "--",
+                                  path], f"cd: git ls-tree {ref}")
+    if problems:
+        return None, problems, []
+    if not listed.strip():
+        return [], [], []
+    shown = f"{ref}:{path}"
+    text, problems = _git(git, ["show", shown], f"cd: git show {shown}")
+    if problems:
+        return None, problems, []
+    entries = []
+    for lineno, entry, suffixes in cost_ledger.parse(text):
+        if suffixes:
+            return None, [], [f"cd: {shown}:{lineno} {suffixes[0]}"]
+        entries.append(entry)
+    return entries, [], []
+
+
 def month_spend(git, rows, batch, now):
-    """(dollars spent this month, problems) as the run-time cap check
-    sees it: origin/main's spend rows and every launched item branch's,
-    each row once (cost_ledger.row_key), selected by
-    cost_ledger.dispatched, the breaker's one row rule. The batch
-    worktree's own costs.jsonl is a snapshot from the batch's open, and
-    item spend stays on item branches until it merges."""
+    """(dollars spent this month, problems a retry may fix, problems it
+    cannot) as the run-time cap check sees it: origin/main's spend rows
+    and every launched item branch's, each row once
+    (cost_ledger.row_key), selected by cost_ledger.dispatched, the
+    breaker's one row rule. The batch worktree's own costs.jsonl is a
+    snapshot from the batch's open, and item spend stays on item
+    branches until it merges."""
     read = view(rows)
     launched = [entry["item"] for entry in read["plan"]["items"]
                 if any("run_id" in row
@@ -414,17 +489,28 @@ def month_spend(git, rows, batch, now):
     entries = {}
     for ref in ["origin/main"] + [flow.item_branch(batch, item)
                                   for item in launched]:
-        shown = f"{ref}:{cost_ledger.COST_LEDGER}"
-        text, problems = _git(git, ["show", shown], f"cd: git show {shown}")
-        if problems:
-            return None, problems
-        for lineno, entry, suffixes in cost_ledger.parse(text):
-            if suffixes:
-                return None, [f"cd: {shown}:{lineno} {suffixes[0]}"]
-            entries[cost_ledger.row_key(entry)] = entry
+        found, problems, malformed = ref_spend_rows(git, ref)
+        if problems or malformed:
+            return None, problems, malformed
+        entries.update((cost_ledger.row_key(entry), entry)
+                       for entry in found)
     month = now.strftime("%Y-%m")
     return sum(entry["cost"] for entry in cost_ledger.dispatched(
-        list(entries.values()), month)), []
+        list(entries.values()), month)), [], []
+
+
+def preflight(root, git, netrc):
+    """(problems): the launch refusals no retry fixes that `run` would
+    meet whatever the item: an unusable factory.json, a malformed cost
+    ledger on origin/main, and a push gap. `open` checks them before it
+    queues the spend ask, so none first appears after spend consent
+    (#708)."""
+    config, problems = factory_config.load(root)
+    if not problems:
+        problems = factory_config.resolve_cap(config)[1] \
+            + factory_config.resolve_gate_command(config)[1]
+    _, unread, malformed = ref_spend_rows(git, "origin/main")
+    return problems + unread + malformed + push_gaps(git, root, netrc)
 
 
 def _in_flight_usd(rows):
@@ -438,6 +524,41 @@ def _in_flight_usd(rows):
             total += next(s["ceiling_usd"] for s in entry["steps"]
                           if s["step"] == found["state"])
     return total
+
+
+def _pause(rows, now, ask_kind, question, recommended, why):
+    """(the batch-level ask dispatch waits behind, rows to write,
+    problems): a pending batch-level ask is reused, never repeated."""
+    given = answers(rows)
+    pending = next((row for row in rows if row["kind"] == "ask"
+                    and row["item"] is None and row["ask_kind"] != "merge"
+                    and row["id"] not in given), None)
+    if pending is not None:
+        return pending, [], []
+    asked, problems = ask_row(rows, now, None, ask_kind, question,
+                              flow.PAUSE_OPTIONS, recommended, why)
+    return asked, ([] if problems else [asked]), problems
+
+
+def hold_dispatch(root, batch, now, item, step, refusals):
+    """(problems): the refusals of a launch no retry fixes, then the
+    batch-wide pause ask they put dispatch behind (#709). A refused
+    launch writes no run row, so without it `next` would re-offer the
+    step on every tick and nothing would reach the Owner."""
+    held_by = []
+
+    def build(rows):
+        pending, written, problems = _pause(
+            rows, now, "stall", f"Launching {item} {step} was refused:"
+            f" {'; '.join(refusals)}. Resume dispatch, or stop?", "resume",
+            REFUSAL_WHY)
+        held_by.append(pending)
+        return (None, problems) if problems else (written, [])
+    _, problems = append(root, batch, build)
+    if problems:
+        return refusals + problems
+    return refusals + [f"cd: launching {item} {step} was refused; dispatch"
+                       f" is paused behind {held_by[-1]['id']}"]
 
 
 def _launch(root, batch, now, launch, spent, cap):
@@ -460,19 +581,11 @@ def _launch(root, batch, now, launch, spent, cap):
                                   step, "launched", **launch["fields"]), []
         what = (f"{item} {step} (${ceiling:.2f} ceiling) would put the"
                 f" month at ${month:.2f} against its ${cap:.2f} cap")
-        given = answers(rows)
-        pending = next((row for row in rows if row["kind"] == "ask"
-                        and row["item"] is None
-                        and row["ask_kind"] != "merge"
-                        and row["id"] not in given), None)
-        written = []
-        if pending is None:
-            pending, problems = ask_row(
-                rows, now, None, "spend", f"Launching {what}. Resume"
-                " dispatch, or stop?", flow.PAUSE_OPTIONS, "stop", CAP_WHY)
-            if problems:
-                return None, problems
-            written = [pending]
+        pending, written, problems = _pause(
+            rows, now, "spend", f"Launching {what}. Resume dispatch, or"
+            " stop?", "stop", CAP_WHY)
+        if problems:
+            return None, problems
         refused.append(f"cd: launching {what}; dispatch is paused behind"
                        f" {pending['id']}")
         return written, []
@@ -480,7 +593,7 @@ def _launch(root, batch, now, launch, spent, cap):
     return problems or refused
 
 
-def _prepare(root, batch, item, step, git, gh, netrc):
+def _prepare(root, batch, item, step, git, gh, netrc, now):
     """(context dict, problems): everything decided before launch."""
     rows, problems = load(root, batch)
     if problems:
@@ -496,12 +609,17 @@ def _prepare(root, batch, item, step, git, gh, netrc):
     if problems:
         return None, problems
     worktree, problems = _worktree(git, batch, item)
-    if not problems:
-        problems = push_gaps(git, worktree, netrc)
     if problems:
         return None, problems
+    problems = push_gaps(git, worktree, netrc)
+    if problems:
+        return None, hold_dispatch(root, batch, now, item, step, problems)
     wo, context, body, problems = _work(rows, entry, step, git, gh, batch,
                                         worktree)
+    if problems:
+        return None, problems
+    prior, problems = _prior_work(git, rows, item, step,
+                                  flow.item_branch(batch, item))
     if problems:
         return None, problems
     # The breakdown row a feature or fix build is briefed with: its
@@ -523,20 +641,23 @@ def _prepare(root, batch, item, step, git, gh, netrc):
     return {"rows": rows, "plan": plan, "entry": entry, "wo": wo,
             "context": context, "body": body, "worktree": worktree,
             "block": found["reserved"], "briefed": briefed, "head": head,
-            "run_id": f"conductor-{batch}-{item[1:]}-{step}-{seq}"}, []
+            "prior": prior,
+            "run_id": make_run_id(batch, item, step, seq)}, []
 
 
 def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
              pid=None, netrc=None):
     """(summary, problems): one Worker run. problems only when nothing
-    was launched or a ledger write failed; a failed run is a stall. The
+    was launched or a ledger write failed; a failed run is a stall, and
+    a launch refusal no retry fixes pauses dispatch (hold_dispatch). The
     launch row carries the launch time, and every row written after the
     run its end time (review minor 1): a stall ask stamped at launch
     would count the whole run as Owner wait."""
     pid = os.getpid() if pid is None else pid
     now = clock()
     netrc = Path.home() / ".netrc" if netrc is None else netrc
-    ctx, problems = _prepare(root, batch, item, step, git, gh, netrc)
+    ctx, problems = _prepare(root, batch, item, step, git, gh, netrc,
+                             now)
     if problems:
         return None, problems
     entry, run_id, worktree = ctx["entry"], ctx["run_id"], ctx["worktree"]
@@ -546,9 +667,12 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
     config, problems = factory_config.load(root)
     cap, found = factory_config.resolve_cap(config or {})
     gate, unusable = factory_config.resolve_gate_command(config or {})
-    problems = problems or found or unusable
-    if not problems:
-        spent, problems = month_spend(git, ctx["rows"], batch, now)
+    refusals = problems or found or unusable
+    if not refusals:
+        spent, problems, refusals = month_spend(git, ctx["rows"], batch,
+                                                now)
+    if refusals:
+        return None, hold_dispatch(root, batch, now, item, step, refusals)
     if not problems:
         problems = _launch(root, batch, now, {
             "item": item, "step": step, "ceiling": ceiling,
@@ -561,7 +685,7 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
     tools = allowed_tools(gate)
     brief = compose_brief(step, item, entry["type"], worktree, branch,
                           ctx["block"], ctx["wo"], ctx["context"],
-                          ctx["body"], ceiling, tools)
+                          ctx["body"], ceiling, tools, ctx["prior"])
     event, ended, _ = _harness(
         harness, harness_command(brief, model, effort, ceiling, tools),
         worktree, flow.WALL_CLOCK_MINUTES[entry["size"]], batch)
@@ -599,8 +723,10 @@ def run_step(root, batch, item, step, clock, git, gh, harness=harness_run,
             _, problems = flow.record_verdict(root, batch, done, item,
                                               verdict, run_id, ctx["head"])
     if stall is not None:
+        recommended, why = flow.worker_advice(ctx["rows"], entry, step,
+                                              band, stall)
         _, problems = flow.queue_stall(root, batch, done, item, stall,
-                                       "retry", WORKER_WHY)
+                                       recommended, why)
     return {"run_id": run_id, "outcome": outcome, "stall": stall}, problems
 
 

@@ -229,6 +229,10 @@ exports[`guests OpenAPI baseline > matches the recorded swagger paths for the gu
                   "description": "Guest name",
                   "type": "string",
                 },
+                "notes": {
+                  "description": "Internal notes, stored when the guest is created (never overwrites an existing guest)",
+                  "type": "string",
+                },
                 "phone": {
                   "description": "Guest phone (used for matching if email not found)",
                   "type": "string",

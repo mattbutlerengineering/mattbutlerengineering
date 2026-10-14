@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useApi } from "./useApi.js";
-import type { StoredSpec } from "../types.js";
+import type { EntryKind, StoredSpec } from "../types.js";
 
 export interface SaveSpecData {
   prompt: string;
+  kind?: EntryKind;
   spec: unknown;
   rawLines: string[];
 }

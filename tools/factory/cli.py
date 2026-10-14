@@ -67,17 +67,21 @@ def child_env():
     return {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
 
-def detail(err):
+def detail(err, every_line=False):
     """One-line detail for a failed CLI call's problem string: the
     command's own stderr when it ran, else the OS error (e.g. the binary
-    not installed)."""
+    not installed). Its last line by default; with every_line, each
+    non-blank line stripped and joined on " | ", for a command like git
+    whose reason sits above a last line such as "Aborting" (#726)."""
     stderr = getattr(err, "stderr", None) or ""
     if isinstance(stderr, bytes):
         # subprocess.run attaches a timed-out child's output undecoded,
         # even in text mode.
         stderr = stderr.decode("utf-8", errors="replace")
-    stderr = stderr.strip()
-    return stderr.splitlines()[-1] if stderr else str(err)
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    if not lines:
+        return str(err)
+    return " | ".join(lines) if every_line else lines[-1]
 
 
 def report(label, problems, prefix="", suffix=""):
@@ -343,6 +347,32 @@ def read_file(path, shown, kind):
 USAGE_TOKEN_FIELDS = ("input_tokens", "output_tokens",
                       "cache_creation_input_tokens",
                       "cache_read_input_tokens")
+# The same four counts as the headless CLI's per-model modelUsage spells
+# them. A budget stop (error_max_budget_usd) zeroes `usage` and carries
+# its counts only here (#725, observed 2026-10-11).
+MODEL_USAGE_TOKEN_FIELDS = ("inputTokens", "outputTokens",
+                            "cacheCreationInputTokens",
+                            "cacheReadInputTokens")
+
+
+def _model_usage_tokens(path, model_usage):
+    """(tokens, error): the sum of every model's MODEL_USAGE_TOKEN_FIELDS
+    in a result entry's modelUsage ({model: {field: count}})."""
+    if not isinstance(model_usage, dict) or not all(
+            isinstance(counts, dict) for counts in model_usage.values()):
+        return None, (f"execution file {path} result entry's modelUsage is"
+                      " not an object of objects")
+    tokens = 0
+    for model, counts in model_usage.items():
+        for field in MODEL_USAGE_TOKEN_FIELDS:
+            value = counts.get(field, 0)
+            if isinstance(value, bool) or not isinstance(value, int) \
+                    or value < 0:
+                return None, (f"execution file {path} modelUsage {model}"
+                              f" {field} {value!r} is not a non-negative"
+                              " integer")
+            tokens += value
+    return tokens, None
 
 
 def read_execution(path):
@@ -350,7 +380,8 @@ def read_execution(path):
     the harness's own record of what a dispatched run spent (issue #222).
     The file is the action's execution log: a JSON array of turn records
     whose final "result" entry carries total_cost_usd and the usage token
-    counts; tokens is their sum. Any shape this cannot account for is
+    counts; tokens is their sum, or, when usage sums to zero, the sum of
+    modelUsage's per-model counts (a budget stop zeroes usage, #725). Any shape this cannot account for is
     (None, error) — the caller (budget_guard record-run) refuses to write
     rather than inventing a ledger row, the same fail-closed direction as
     the ledger itself."""
@@ -390,6 +421,10 @@ def read_execution(path):
             return None, (f"execution file {path} usage {field} {value!r}"
                           " is not a non-negative integer")
         tokens += value
+    if tokens == 0 and "modelUsage" in result:
+        tokens, error = _model_usage_tokens(path, result["modelUsage"])
+        if error:
+            return None, error
     return (tokens, float(cost)), None
 
 

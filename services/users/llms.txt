@@ -80,6 +80,9 @@
     <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
     </item>
+    <item priority="high">
+      export const ADMIN_JWT_PAYLOAD: unknown;
+    </item>
   </file>
   </section>
 </codebase>

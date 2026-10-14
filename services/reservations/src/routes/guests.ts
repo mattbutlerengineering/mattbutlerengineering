@@ -1,5 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails, guestsEndpoints } from "@mbe/types";
+import {
+  createProblemDetails,
+  GUEST_CONTACT_REQUIRED_MESSAGE,
+  guestsEndpoints,
+  hasGuestContact,
+} from "@mbe/types";
 import { parsePaginationQuery } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
@@ -137,16 +142,17 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     },
     preHandler: requireAuth,
     handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
-      const { email, phone, name, dietaryRestrictions } = request.body;
-      if (!email && !phone) {
+      const { email, phone, name, notes, dietaryRestrictions } = request.body;
+      if (!hasGuestContact({ email, phone })) {
         return reply
           .code(400)
-          .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+          .send(createProblemDetails(400, "Bad Request", GUEST_CONTACT_REQUIRED_MESSAGE));
       }
       const guest = await guestService.findOrCreate(venueId, {
         email,
         phone,
         name,
+        notes,
         dietaryRestrictions,
       });
       return { data: guest };

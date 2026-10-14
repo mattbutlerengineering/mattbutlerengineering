@@ -32,6 +32,8 @@ import { createRequire } from "node:module";
 import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { derivePath } from "./derive-path.mjs";
+
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /** Router file per app — the inputs `generate` / `check` / `changedBy` watch. */
@@ -362,9 +364,9 @@ function toPascalCase(label) {
 
 /**
  * PAGE_REGISTRY rows. The registry derives `path` and `load` by convention
- * (`derivePath` / `resolveLoad` in page-registry.ts), so the same convention is
- * restated here over the RAW_PAGE_ENTRIES literals — there are no path literals
- * to read. `pageFiles` is the `import.meta.glob("../pages/*\/**\/*Page.tsx")` set.
+ * (`derivePath` / `resolveLoad` in page-registry.ts); `derivePath` is imported
+ * from its shared module, applied here over the RAW_PAGE_ENTRIES literals —
+ * there are no path literals to read. `pageFiles` is the `import.meta.glob("../pages/*\/**\/*Page.tsx")` set.
  */
 function registryRows(io, prefix) {
   const { ts } = io;
@@ -382,12 +384,7 @@ function registryRows(io, prefix) {
     const id = str("id");
     const label = str("label");
     const category = str("category");
-    const path =
-      category === "Dashboard"
-        ? "dashboard"
-        : category === "Examples"
-          ? `examples/${id.replace(/^example-/, "")}`
-          : `components/${id}`;
+    const path = derivePath({ id, category }).slice(1);
     const load = prop(ts, obj, "load");
     const exportName = `${toPascalCase(label)}${category === "Examples" ? "ExamplePage" : "Page"}`;
     const module = load

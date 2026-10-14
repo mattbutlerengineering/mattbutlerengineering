@@ -756,6 +756,7 @@ export const SENSORS = [
 
       return {
         available: true,
+        open: openIssues.length,
         created_7d: createdIssues.length,
         closed_7d: closedIssues.length,
         closure_rate:

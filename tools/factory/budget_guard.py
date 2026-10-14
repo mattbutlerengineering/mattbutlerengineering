@@ -10,7 +10,7 @@ dollar-budget stop, checked against the run's own running spend. Exhaustion
 is a HANDOFF, not a failure (ADR-0034): hard_stop pushes whatever is on
 disk (push_wip), composes and posts a handoff naming the remaining
 acceptance criteria (handoff.compose), and appends the run's line to the
-append-only cost ledger (cost_ledger.entry / cost_ledger.append) —
+append-only cost ledger (cost_ledger.entry / cost_ledger.record) —
 RESILIENTLY, so a WIP-push failure (the normal no-upstream case) still
 leaves the handoff and ledger behind. See
 docs/adr/0034-work-order-budgets-and-routing.md.
@@ -148,18 +148,19 @@ def hard_stop(root, wo, reason, done, remaining, resume, *, run_id, model,
     costs no resilience: the append is local file IO a push failure
     cannot touch, so the handoff and ledger — the accountability record
     ADR-0034 promises — still exist when the WIP push fails (a fresh WO
-    branch with no upstream, git exit 128, is the normal case). Returns
-    any bg: problems (a failed push), having still completed the handoff
-    + ledger. Pure orchestration over the tested pieces; all IO is
+    branch with no upstream, git exit 128, is the normal case). The row
+    goes through record(), so a malformed row or an unreadable ledger is
+    refused before the write rather than appended blindly (#736). Returns
+    any bg: problems (a refused row, a failed push), having still
+    completed the handoff. Pure orchestration over the tested pieces; all IO is
     injected (run/post) so tests need touch neither git nor the network.
 
     done/remaining are short acceptance-criterion strings the run tracked,
     never a raw issue body — handoff.compose draws that ADR-0032 boundary.
     `at` is the UTC date the caller stamps on the ledger row (injected,
     not computed here, to keep the function's IO injected)."""
-    cost_ledger.append(root, cost_ledger.entry(
-        wo, run_id, model, tokens, cost, outcome, at))
-    problems = push_wip(wo, run=run)
+    problems = record(root, wo, run_id, model, tokens, cost, outcome, at)
+    problems += push_wip(wo, run=run)
     post(handoff.compose(wo, reason, done, remaining, resume))
     return problems
 
@@ -172,40 +173,16 @@ def record(root, wo, run_id, model, tokens, cost, outcome, at):
     its budget wrote nothing and was free as far as ADR-0034's monthly
     circuit breaker could tell.
 
-    Both refusals happen BEFORE the write, because the ledger is
-    append-only and a bad line is permanent — there is no edit to undo it
-    with, only a second line explaining the first:
-
-      - a row cost_ledger.line_problems rejects (the same rule detector G
-        and the weekly report read with, never a second copy);
-      - a (wo, run_id) already in the ledger. A re-recorded run would
-        double-count against the monthly cap, and bounding that cap is the
-        entire reason the row is written.
-
-    Fails CLOSED on an unreadable or unparseable ledger: appending spend
-    to a ledger that cannot be summed would undercount silently, which is
-    the failure this whole path exists to end. Returns bg: problems; an
-    empty list means the line landed."""
+    The refusals are cost_ledger.record's, the one guarded write (#736):
+    a malformed row, an unreadable or unparseable ledger (fail CLOSED —
+    appending spend to a ledger that cannot be summed would undercount
+    silently, the failure this path exists to end), and a (wo, run_id)
+    already recorded (a re-recorded run would double-count against the
+    monthly cap). All happen BEFORE the write; this function only labels
+    them. Returns bg: problems; an empty list means the line landed."""
     row = cost_ledger.entry(wo, run_id, model, tokens, cost, outcome, at)
-    shape = cost_ledger.line_problems(row)
-    if shape:
-        return [f"bg: refusing to record {wo}: {problem}"
-                for problem in shape]
-    entries, problems = cost_ledger.read(root)
-    if problems:
-        return [f"bg: refusing to record {wo}: {problem}"
-                for problem in problems]
-    # Through the seam, never a second copy: cost_ledger.row_key owns
-    # ADR-0041's identity, and gate_digest's dedup already reads it this
-    # way. Subscripting is safe here because read() returns validated rows
-    # and the problem branch above already returned.
-    recorded = {cost_ledger.row_key(existing) for existing in entries}
-    if cost_ledger.row_key(row) in recorded:
-        return [f"bg: refusing to record {wo}: run_id {run_id!r} is already"
-                " in the ledger — recording it twice would double-count the"
-                " run against the monthly cap"]
-    cost_ledger.append(root, row)
-    return []
+    return [f"bg: refusing to record {wo}: {problem}"
+            for problem in cost_ledger.record(root, row)]
 
 
 def record_run(root, wo, run_id, model, execution_path, outcome, at):

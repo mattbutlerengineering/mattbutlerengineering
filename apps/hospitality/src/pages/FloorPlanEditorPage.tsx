@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import type { CreateTableRequest, Table } from "@mbe/types";
+import type { CreateTableRequest } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
-import { SHAPE_DEFAULTS } from "../components/floor-plan/floor-plan-geometry.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -12,6 +11,7 @@ import {
   useAddTable,
   useDeleteTable,
 } from "../hooks/useFloorPlans.js";
+import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
@@ -22,33 +22,48 @@ export function FloorPlanEditorPage() {
   const { data: floorPlan, isLoading, error, refetch } = useFloorPlan(id);
   const { statuses: tableStatuses, isStale } = useTableStatuses();
 
-  const [tables, setTables] = useState<Table[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-
-  // Track pending position updates for batch save
-  const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number }>>(
-    () => new Map()
-  );
-
-  // Store previous table state for rollback on save failure
-  const previousTablesRef = useRef<Table[]>([]);
-
-  // Sync tables from the TQ query result
-  useEffect(() => {
-    if (floorPlan?.tables) {
-      setTables(floorPlan.tables);
-    }
-  }, [floorPlan]);
 
   const activateMutation = useActivateFloorPlan();
   const bulkUpdateMutation = useBulkUpdatePositions();
   const addTableMutation = useAddTable();
   const deleteTableMutation = useDeleteTable();
+
+  const floorPlanId = floorPlan?.id;
+  const persist = useCallback(
+    (positions: PositionUpdate[]) => {
+      if (!floorPlanId) return Promise.reject(new Error("Floor plan not loaded"));
+      return bulkUpdateMutation.mutateAsync({ floorPlanId, positions });
+    },
+    [bulkUpdateMutation, floorPlanId]
+  );
+
+  const {
+    tables,
+    move: handleTableMove,
+    save: saveDraft,
+    addTable,
+    removeTable,
+    dirty: hasChanges,
+    hasUnsentEdits,
+    isSaving,
+    saveFailure,
+  } = useFloorPlanDraft({ serverTables: floorPlan?.tables, persist });
+  const draftSaveError = saveFailure
+    ? saveFailure.error instanceof Error
+      ? saveFailure.error.message
+      : "Failed to save changes — positions reverted"
+    : null;
+  const saveError = draftSaveError ?? actionError;
+
+  // A new save attempt supersedes any stale set-active/delete error.
+  const handleSave = useCallback(async () => {
+    setActionError(null);
+    await saveDraft();
+  }, [saveDraft]);
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
@@ -68,68 +83,6 @@ export function FloorPlanEditorPage() {
       hasChanges && currentLocation.pathname !== nextLocation.pathname
   );
 
-  const handleTableMove = useCallback((tableId: string, x: number, y: number) => {
-    // Update local state immediately for responsiveness
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const existing = t.shapeMetadata ?? {
-          ...SHAPE_DEFAULTS.rectangle,
-          shape: "rectangle" as const,
-        };
-        return {
-          ...t,
-          shapeMetadata: { ...existing, x, y },
-        };
-      })
-    );
-
-    // Track pending update
-    setPendingUpdates((prev) => new Map(prev).set(tableId, { x, y }));
-    setHasChanges(true);
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (pendingUpdates.size === 0 || !floorPlan) return;
-
-    // Snapshot current tables for rollback on failure
-    previousTablesRef.current = [...tables];
-
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      const positions = Array.from(pendingUpdates.entries()).map(([tableId, pos]) => {
-        const table = tables.find((t) => t.id === tableId);
-        const existing = table?.shapeMetadata;
-        return {
-          tableId,
-          shapeMetadata: {
-            x: pos.x,
-            y: pos.y,
-            width: existing?.width ?? SHAPE_DEFAULTS.rectangle.width,
-            height: existing?.height ?? SHAPE_DEFAULTS.rectangle.height,
-            shape: existing?.shape ?? ("rectangle" as const),
-            rotation: existing?.rotation,
-            color: existing?.color,
-          },
-        };
-      });
-
-      await bulkUpdateMutation.mutateAsync({ floorPlanId: floorPlan.id, positions });
-      setPendingUpdates(new Map());
-      setHasChanges(false);
-    } catch (err) {
-      // Rollback to previous table positions on failure.
-      // Keep pendingUpdates so the user can retry via the Save Changes button.
-      setTables(previousTablesRef.current);
-      setSaveError(
-        err instanceof Error ? err.message : "Failed to save changes — positions reverted"
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }, [pendingUpdates, tables, bulkUpdateMutation, floorPlan]);
-
   const requestDeleteTable = useCallback((tableId: string) => {
     setPendingDeleteId(tableId);
   }, []);
@@ -141,22 +94,23 @@ export function FloorPlanEditorPage() {
 
     try {
       await deleteTableMutation.mutateAsync(tableId);
-      setTables((prev) => prev.filter((t) => t.id !== tableId));
+      removeTable(tableId);
       setSelectedTableId((prev) => (prev === tableId ? null : prev));
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to delete table");
+      setActionError(err instanceof Error ? err.message : "Failed to delete table");
     }
-  }, [pendingDeleteId, deleteTableMutation]);
+  }, [pendingDeleteId, deleteTableMutation, removeTable]);
 
   // Auto-save with 1s debounce after changes.
-  // Skip when saveError is set — user must retry manually to avoid an infinite retry loop.
+  // Skip when the draft save failed — user must retry manually to avoid an infinite retry loop.
+  // Set-active/delete errors are not save failures and must not gate autosave.
   useEffect(() => {
-    if (!hasChanges || pendingUpdates.size === 0 || saveError) return;
+    if (!hasUnsentEdits || draftSaveError) return;
     const timer = setTimeout(() => {
       handleSave();
     }, 1000);
     return () => clearTimeout(timer);
-  }, [hasChanges, pendingUpdates, handleSave, saveError]);
+  }, [hasUnsentEdits, handleSave, draftSaveError]);
 
   // Window-level shortcuts: save and deselect only. Table nudge/delete are owned
   // by FloorPlanCanvas (focus-scoped), so open dialogs never trigger them.
@@ -187,13 +141,13 @@ export function FloorPlanEditorPage() {
     try {
       await activateMutation.mutateAsync(floorPlan.id);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to activate floor plan");
+      setActionError(err instanceof Error ? err.message : "Failed to activate floor plan");
     }
   };
 
   const handleAddTable = async (data: CreateTableRequest) => {
     const newTable = await addTableMutation.mutateAsync(data);
-    setTables((prev) => [...prev, newTable]);
+    addTable(newTable);
     setShowAddDialog(false);
   };
 

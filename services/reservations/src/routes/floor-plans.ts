@@ -20,6 +20,7 @@ import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
+import { inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
 /** 404 `detail` for a floor plan addressed by `:id` or a body `floorPlanId`. */
@@ -80,10 +81,13 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Platform admins are scoped to every venue (matches requireVenueAccess,
       // ADR-020); everyone else sees only floor plans for venues they belong to.
-      if (hasPermission(user, "admin")) {
-        return floorPlanService.list(page, limit, request.query.venueId);
-      }
-      return floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId);
+      // No guard here: a named venue only scopes the RLS context, and
+      // `listForMember` filters a non-admin to their own venues.
+      return inNamedVenueContext(request.query.venueId, () =>
+        hasPermission(user, "admin")
+          ? floorPlanService.list(page, limit, request.query.venueId)
+          : floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId)
+      );
     }
   );
 

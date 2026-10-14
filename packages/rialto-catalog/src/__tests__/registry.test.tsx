@@ -17,14 +17,8 @@ describe("registry structure", () => {
     expect(typeof registry).toBe("object");
   });
 
-  it("registry entry count matches catalog component count minus Toast", () => {
-    // Toast is intentionally excluded from registry (useToast() hook, not rendered).
-    // catalog has 26 components; registry has 25.
-    const registryCount = Object.keys(registry).length;
-    const catalogCount = catalog.componentNames.length;
-    // Registry should have exactly catalog count - 1 (Toast excluded)
-    expect(registryCount).toBe(catalogCount - 1);
-    expect(registryCount).toBeGreaterThanOrEqual(25);
+  it("registry entry count matches catalog component count", () => {
+    expect(Object.keys(registry).length).toBe(catalog.componentNames.length);
   });
 
   it("registry has entries for all curated component names except Toast", () => {

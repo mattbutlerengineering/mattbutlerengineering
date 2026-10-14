@@ -111,8 +111,8 @@ const holdVenue = <RG extends HoldIdRoute>(notFound: string): VenueSource<RG, un
  * Every route here requires a JWT (#4487) AND membership of the hold's venue
  * (ADR-020), declared through `venueScoped`: the create route reads the body's
  * `venueId`, the `/:id` routes resolve the hold's own `venueId`, and each
- * handler runs inside that venue's context (ADR-026). This service's contract is that all
- * api/v1 routes require auth except availability, but these four were exempt in
+ * handler runs inside that venue's context (ADR-026). Every api/v1 route requires auth
+ * (only the Stripe webhook is exempt), but these four were exempt in
  * practice because the anonymous public booking widget called them. The widget
  * now uses the hardened public sibling (`public-holds.ts`,
  * `/public/v1/venues/:slug/holds`), which resolves the venue by slug

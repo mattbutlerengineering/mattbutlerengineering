@@ -36,11 +36,7 @@ pnpm clean          # Wipe artifacts and node_modules
 
 ### Multi-Repo Orchestration
 
-```bash
-node scripts/orchestrate-multi.mjs --repo <url> --task "<task>" [--branch <name>] [--script <path>] [--dry-run]
-```
-
-Clones a downstream repo, creates a feature branch, applies changes, commits, pushes, and opens a PR. Used for coordinating cross-repo changes (ACMM L6). See `node scripts/orchestrate-multi.mjs --help` and `docs/acmm/multi-repo-orchestration.md`.
+`scripts/orchestrate-multi.mjs` (clone downstream repo → branch → commit → push → PR) was deleted as dead code in #3044. There is no scripted replacement — coordinating changes with external consumers (e.g. published `@mattbutlerengineering/rialto` versions) is manual today. See `docs/acmm/multi-repo-orchestration.md` for the current coordination strategy. <!-- rot-ignore: scripts/orchestrate-multi.mjs -->
 
 ## Development Flow with Metrics & Continuous Improvement
 
@@ -77,7 +73,7 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 - **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
 
 `mbe` CLI subcommands (real binary):
-`agent`, `up`, `pack`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `health`, `loop`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+`agent`, `pack`, `check-adr`, `check-deps`, `check-model`, `loop`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 

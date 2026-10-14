@@ -87,6 +87,15 @@ describe("registerHealthRoutes", () => {
     await bareApp.close();
   });
 
+  it("reports the shared build identity as version, not a hard-coded string", async () => {
+    vi.stubEnv("DEPLOY_SHA", "deadbeef");
+    await app.register(registerHealthRoutes, createTestOptions());
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.json().version).toBe("deadbeef");
+    vi.unstubAllEnvs();
+  });
+
   it("registers all specified routes", async () => {
     await app.register(registerHealthRoutes, createTestOptions());
     await app.ready();
@@ -107,7 +116,7 @@ describe("registerHealthRoutes", () => {
     const body = JSON.parse(response.body);
 
     expect(body.status).toBe("ok");
-    expect(body.version).toBe("1.0.0");
+    expect(body.version).toBe("unknown");
     expect(body.timestamp).toBeDefined();
     expect(body.checks).toBeDefined();
     expect(body.checks.database).toBeDefined();

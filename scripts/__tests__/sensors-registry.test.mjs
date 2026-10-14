@@ -593,6 +593,7 @@ describe("sensors-registry", () => {
 
       expect(result).toEqual({
         available: true,
+        open: 2,
         created_7d: 2,
         closed_7d: 1,
         closure_rate: 50,

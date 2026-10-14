@@ -134,7 +134,7 @@ export interface SweepContext {
    * A row dedicated to the "seat" fixture (#5369 PR 3), never read by any
    * other fixture or suite. `waitlistA` is also read by the item-7
    * WAITLIST_EXPIRY non-HTTP test (`rls-route-sweep.integration.test.ts`),
-   * which asserts it stays `"waiting"` after its own call — sharing it with
+   * which expires it (it is seeded `notified`) after its own call — sharing it with
    * a fixture that writes (even one that 404s before reaching the DB today,
    * per the tripwire) would couple the two the moment item-2's fix makes
    * `seat` actually succeed.
@@ -177,6 +177,16 @@ export type PayloadOrFactory =
   InjectOptions["payload"] | ((ctx: SweepContext) => InjectOptions["payload"]);
 
 /** `x-auth-bypass` short-circuits `requireAuth`/`requireVenueAccess` to a hardcoded platform-admin identity. */
+/**
+ * A YYYY-MM-DD date `daysAhead` days from today (UTC). Hold creation enforces
+ * the venue booking window (not in the past, within min/max advance), so hold
+ * fixtures must request a time relative to now rather than a fixed calendar
+ * date that will eventually be in the past.
+ */
+export function inWindowDate(daysAhead: number): string {
+  return new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 export const ADMIN_HEADERS: Record<string, string> = { "x-auth-bypass": "true" };
 /** Matched by the `jose` mock in the test file to a non-admin member of venue A. */
 export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer member-a-token" };
@@ -185,7 +195,7 @@ export const MEMBER_HEADERS: Record<string, string> = { authorization: "Bearer m
  * equals `reservationA`'s `guestEmail` — `requireReservationOwnerOrAdmin`'s
  * non-admin, non-staff identity space (#5369 PR 7 / PR 5 carry-forward: the
  * `/reservations/:id` sweep used to prove only the admin path, never the
- * `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
+ * former `loadInVenueContext`-wrapped owner resolver a genuine diner exercises).
  */
 export const DINER_A_HEADERS: Record<string, string> = { authorization: "Bearer diner-a-token" };
 
@@ -317,7 +327,7 @@ function notRls(run: RouteFixture["run"]): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `?venueId=`-filtered list route
- * (`venueIdFromQuery`, ADR-026 §4's global preHandler picks the same key up):
+ * (the route names its venue in the query and enters that venue's context itself):
  * both venues answer for admin, venue A answers for the member, venue B is
  * denied for the member.
  */
@@ -345,7 +355,7 @@ function okScopedByQuery(path: string, extraQuery = ""): RouteFixture {
 
 /**
  * Generic "ok" fixture for a `body.venueId`-scoped create route
- * (`venueIdFromBody`): each call gets a fresh body (via `bodyFor`, so
+ * (the venue is named in the body): each call gets a fresh body (via `bodyFor`, so
  * unique-constrained fields like a table/guest name never collide) — both
  * venues succeed for admin, venue A succeeds for the member, venue B is
  * denied for the member (before any row is even attempted).
@@ -373,7 +383,7 @@ function okCreateByBody(path: string, bodyFor: (venueId: string) => object): Rou
 
 /**
  * Generic "ok" fixture for a read-only entity-addressed route (ADR-026 §3.3
- * item 2, fixed by #5369 PR 5's `resolveVenueId`/`loadInVenueContext`): both
+ * item 2, fixed by #5369 PR 5's `resolveVenueId`/former `loadInVenueContext`): both
  * the seeded venue-A and venue-B rows are safe to read repeatedly (no
  * mutation), so this reuses `idA`/`idB` directly rather than creating
  * disposable rows the way the mutating variant below has to.
@@ -467,6 +477,25 @@ async function createDisposableWaitlistEntry(ctx: SweepContext, venueId: string)
 }
 
 /**
+ * A disposable waitlist entry already in the `notified` state. `expire` only
+ * transitions notified -> expired (#6492), so its [ok] cases need this shape.
+ * Notified via the real `waitlistService.markNotified` inside the venue's RLS
+ * context (what the notify route does, minus the SMS/Redis job), so the write
+ * still goes through the production scoping path.
+ */
+async function createDisposableNotifiedWaitlistEntry(
+  ctx: SweepContext,
+  venueId: string
+): Promise<string> {
+  const id = await createDisposableWaitlistEntry(ctx, venueId);
+  const { waitlistService } = await import("../services/waitlist.js");
+  const { runWithVenueContext } = await import("../services/venue-context-store.js");
+  const notified = await runWithVenueContext(venueId, () => waitlistService.markNotified(id));
+  expect(notified?.status, "seed: entry should be notified").toBe("notified");
+  return id;
+}
+
+/**
  * Creates a disposable reservation in `venueId` on its own fresh table, so
  * repeated calls never collide on a table/time slot. `guestEmail` defaults to
  * a fresh disposable address; pass the diner's own email (#5369 PR 7) to seed
@@ -514,8 +543,8 @@ export async function createDisposableStaffHold(
     headers: { "x-session-id": sessionId },
     payload: {
       venueId,
-      date: "2026-10-08",
-      time: "2026-10-08T18:00:00Z",
+      date: inWindowDate(8),
+      time: `${inWindowDate(8)}T18:00:00Z`,
       partySize: 2,
       tableId,
     },
@@ -576,8 +605,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableA,
       },
@@ -588,8 +617,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueA.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },
@@ -605,8 +634,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
         url: HOLDS_URL,
         payload: {
           venueId: ctx.venueA.id,
-          date: "2026-10-03",
-          time: "2026-10-03T18:00:00Z",
+          date: inWindowDate(3),
+          time: `${inWindowDate(3)}T18:00:00Z`,
           partySize: 2,
           tableId: memberTable,
         },
@@ -619,8 +648,8 @@ const notRlsFixtures: Record<string, RouteFixture> = {
       url: HOLDS_URL,
       payload: {
         venueId: ctx.venueB.id,
-        date: "2026-10-03",
-        time: "2026-10-03T18:00:00Z",
+        date: inWindowDate(3),
+        time: `${inWindowDate(3)}T18:00:00Z`,
         partySize: 2,
         tableId: ctx.tableB,
       },
@@ -679,7 +708,7 @@ const notRlsFixtures: Record<string, RouteFixture> = {
 /**
  * Tables: list/create scope by `?venueId=`/`body.venueId`; every entity-
  * addressed `:id` route (ADR-026 §3.3 item 2) resolves its venue via
- * `venueIdFromEntity`/`loadInVenueContext` (#5369 PR 5) — fixed.
+ * former `venueIdFromEntity`/former `loadInVenueContext` (#5369 PR 5) — fixed.
  */
 const tableFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/tables": okScopedByQuery("/api/v1/tables"),
@@ -803,7 +832,7 @@ async function createDisposableVenue(ctx: SweepContext): Promise<string> {
  * preHandler only reads a `venueId` KEY, and these routes address the venue by
  * its own `:id`) and item 8 (`POST /` inserts a venue row with no context to
  * satisfy its own `WITH CHECK`) are now RESOLVED too (#5369 PR 7), via
- * `resolveVenueId`/`loadInVenueContext` for item 5 and a generated-up-front id
+ * `resolveVenueId`/former `loadInVenueContext` for item 5 and a generated-up-front id
  * plus `setVenueContext` on the create's own transaction for item 8. Item 3
  * (public-shaped slug lookup, reused by the authenticated `by-slug` route too)
  * remains open.
@@ -965,10 +994,10 @@ const DISPOSABLE_SHAPE = { x: 0, y: 0, width: 80, height: 80, shape: "rectangle"
 
 /**
  * Floor plans. `GET /` is the sweep's SECOND mixed case: with `?venueId=`
- * the global preHandler resolves context and both `list`/`listForMember`
+ * the route enters that venue's context and both `list`/`listForMember`
  * run scoped (ok); without it, `listForMember` (and, for an admin, `list`
  * itself) is an unscoped `floorPlan.findMany` — item 1's third bullet.
- * Every other route here was item 2 (`venueIdFromEntity` on the floor
+ * Every other route here was item 2 (former `venueIdFromEntity` on the floor
  * plan's own `:id`, its `body.floorPlanId`, or a table's `:tableId`) —
  * fixed by #5369 PR 5.
  */
@@ -1228,9 +1257,9 @@ const reservationFixtures: Record<string, RouteFixture> = {
   // Reservation `/:id` routes authorize owner-or-admin
   // (`requireReservationOwnerOrAdmin`): admin always short-circuits past the
   // resolver entirely (`requireOwnershipOrAdmin`'s `isAdmin` branch), so the
-  // admin-only legs below prove the HANDLER'S OWN `loadInVenueContext` read
+  // admin-only legs below prove the HANDLER'S OWN former `loadInVenueContext` read
   // resolves in both venues, but never exercise the owner resolver's
-  // identical `loadInVenueContext` wrap — the actual non-admin path (#5369
+  // identical former `loadInVenueContext` wrap — the actual non-admin path (#5369
   // PR 5 carry-forward). The diner-owner leg does: `asDiner` authenticates as
   // the guest whose verified email matches `reservationA`'s `guestEmail`, a
   // genuine non-admin owner. The non-owner-member leg proves the opposite —
@@ -1407,7 +1436,7 @@ const waitlistFixtures: Record<string, RouteFixture> = {
     (ctx) => ctx.waitlistB
   ),
   "PUT /api/v1/waitlist/:id/expire": okEntityMutation(
-    createDisposableWaitlistEntry,
+    createDisposableNotifiedWaitlistEntry,
     (id) => ({ method: "PUT", url: `/api/v1/waitlist/${id}/expire` }),
     (ctx) => ctx.waitlistB
   ),
@@ -1430,7 +1459,7 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
  * route in this family — addressed by an opaque deposit/reservation id.
  * `resolveReservationVenueId` (`../services/deposit-venue.ts`) and the
  * capture/refund/forfeit family now resolve through the `SECURITY DEFINER`
- * `app_resolve_venue_id` function (`resolveVenueId`/`loadInVenueContext`)
+ * `app_resolve_venue_id` function (`resolveVenueId`/former `loadInVenueContext`)
  * instead of an unscoped `reservation.findUnique`/`deposit.findUnique` read.
  */
 const depositFixtures: Record<string, RouteFixture> = {

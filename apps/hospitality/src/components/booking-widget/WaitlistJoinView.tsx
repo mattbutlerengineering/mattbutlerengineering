@@ -6,6 +6,7 @@ import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./WaitlistJoinView.module.css";
 
 export interface WaitlistJoinedResult {
+  statusToken: string;
   position: number;
   estimatedWaitMinutes: number;
 }
@@ -14,7 +15,8 @@ export interface WaitlistJoinViewProps {
   /** Date-only string (YYYY-MM-DD) the guest searched. No time slot is known on the waitlist path. */
   requestedDate: string;
   partySize: number;
-  estimatedWaitMinutes: number;
+  /** Server-supplied estimate; omitted when none is known (never invent one). */
+  estimatedWaitMinutes?: number;
   venueSlug: string;
   venueId: string;
   api: BookingWidgetApiClient;
@@ -91,7 +93,9 @@ export function WaitlistJoinView({
           No tables available on {formattedDate} for {partySize}{" "}
           {partySize === 1 ? "guest" : "guests"}.
         </Text>
-        <Text className={styles.waitEstimate}>Estimated wait: ~{estimatedWaitMinutes} min</Text>
+        {estimatedWaitMinutes != null && (
+          <Text className={styles.waitEstimate}>Estimated wait: ~{estimatedWaitMinutes} min</Text>
+        )}
       </div>
 
       {submitError && <Alert variant="error">{submitError}</Alert>}

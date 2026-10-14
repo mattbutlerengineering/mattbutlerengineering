@@ -180,4 +180,22 @@ describe("Accordion", () => {
       expect(isDisabled).toBe(true);
     });
   });
+
+  describe("a11y iteration 4", () => {
+    it("closed triggers carry no aria-controls (panel is not in the DOM)", () => {
+      render(<Accordion items={items} />);
+      expect(screen.getByRole("button", { name: "Section A" })).not.toHaveAttribute(
+        "aria-controls"
+      );
+    });
+
+    it("open trigger aria-controls resolves to its labelled region", () => {
+      render(<Accordion items={items} defaultOpen={["a"]} />);
+      const trigger = screen.getByRole("button", { name: "Section A" });
+      const controls = trigger.getAttribute("aria-controls");
+      expect(controls).toBeTruthy();
+      const region = screen.getByRole("region", { name: "Section A" });
+      expect(region.id).toBe(controls);
+    });
+  });
 });

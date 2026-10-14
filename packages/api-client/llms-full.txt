@@ -26,8 +26,10 @@
       baseBranch?: string;
       parentId?: string;
     }
+    type AgentSessionQueryStatus = z.infer<typeof AgentSessionStatusSchema>;
     export interface ListSessionsParams {
-      status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+      /** Query vocabulary of GET /v1/sessions (AgentSessionStatusSchema), not the lowercase response status. */
+      status?: AgentSessionQueryStatus;
       page?: number;
       limit?: number;
     }
@@ -1131,6 +1133,18 @@
           `/public/v1/venues/${slug}/waitlist`,
           data,
           WaitlistJoinResultSchema
+        );
+      }
+    
+      /**
+       * The guest's live position and wait estimate for their own entry, read with
+       * the `statusToken` returned by {@link joinWaitlist}.
+       */
+      async waitlistEstimate(slug: string, statusToken: string): Promise<WaitlistEstimate> {
+        return this.client.getOne<WaitlistEstimate>(
+          `/public/v1/venues/${slug}/waitlist/status`,
+          { token: statusToken },
+          WaitlistEstimateSchema
         );
       }
     

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """cost_ledger: the one home of the append-only cost ledger's shape
 (ADR-0034, ADR-0037) — docs/factory/costs.jsonl's path, field set, line
-grammar, and the append/read operations over it.
+grammar, and the append/record/read operations over it.
 
 Before this seam the shape lived in three places: budget_guard.py wrote
 lines, detector G (gates.py) validated them in full, and
@@ -136,11 +136,42 @@ def append(root, entry):
     """Append one line to docs/factory/costs.jsonl. APPEND ONLY: opens in
     "a" mode and never reads or rewrites existing lines — the ledger is the
     factory's measurement substrate and gets the same append-only
-    discipline as evals/results/ (CLAUDE.md eval honesty)."""
+    discipline as evals/results/ (CLAUDE.md eval honesty). The raw
+    primitive: it checks nothing, so writers go through record()."""
     ledger = Path(root) / COST_LEDGER
     ledger.parent.mkdir(parents=True, exist_ok=True)
     with open(ledger, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry) + "\n")
+
+
+def record(root, entry):
+    """(problems): the one GUARDED write every ledger writer goes through
+    (#736) — append() is the raw primitive under it. Refuses BEFORE the
+    write, because a bad line is permanent:
+
+      - a row line_problems rejects (the rule every reader applies, so a
+        written row can never make a later read report a problem);
+      - any read() problem: appending to a ledger that cannot be summed
+        would undercount silently, and a failed read leaves no dedup set
+        to check against (fail closed);
+      - a row whose row_key is already recorded (ADR-0049's identity): a
+        re-recorded run would double-count against the monthly cap.
+
+    Shape and duplicate refusals are unlocated suffixes (line_problems'
+    convention); read failures keep read()'s ledger: prefix. Callers
+    prefix their own label. An empty list means the line landed."""
+    shape = line_problems(entry)
+    if shape:
+        return shape
+    entries, problems = read(root)
+    if problems:
+        return problems
+    if row_key(entry) in {row_key(existing) for existing in entries}:
+        return [f"run_id {entry['run_id']!r} is already in the ledger —"
+                " recording it twice would double-count the run against"
+                " the monthly cap"]
+    append(root, entry)
+    return []
 
 
 def row_key(entry):

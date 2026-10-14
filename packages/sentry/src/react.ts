@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
+import { UNKNOWN_BUILD } from "@mbe/observability/build-info";
 import { resolveConfig } from "./config.js";
 
 /**
@@ -54,7 +55,7 @@ export function initSentry(options: InitOptions): void {
     // An own `release: undefined` key would override the SDK's default, which
     // reads the SENTRY_RELEASE global that sentryVitePlugin injects into the
     // bundle — so only pass release when one was actually resolved.
-    ...(config.release !== undefined && { release: config.release }),
+    ...(config.release !== UNKNOWN_BUILD && { release: config.release }),
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
     integrations: [],

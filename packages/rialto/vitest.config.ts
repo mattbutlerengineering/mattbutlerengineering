@@ -50,7 +50,12 @@ export default defineVitestConfig({
       // full-parallel local runs. 15s clears the warm measurement 4.4x and
       // the cold-doubled estimate 2.2x, on the repo's established 15s tier
       // (gotchas.md; tools/cli and service route-test precedent).
-      testTimeout: 15000,
+      //
+      // Raised 15s -> 60s when `test:coverage` began running this package in CI
+      // (#6496): v8 instrumentation slows the scripts/*.test.ts suites (each a
+      // full TS Compiler API parse) enough that 3-7 of them blew 15s under
+      // full-parallel local runs, while all passed in isolation.
+      testTimeout: 60000,
       // `beforeAll`/`beforeEach` hooks run under a SEPARATE budget
       // (`hookTimeout`, vitest default 10s) that `testTimeout` above never
       // covers. generate-registry.test.ts/generate-manifest.test.ts now cache

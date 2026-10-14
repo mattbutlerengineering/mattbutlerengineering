@@ -8,6 +8,7 @@ export const WaitlistJoinRequestSchema = z.object({
 });
 
 export const WaitlistJoinResultSchema = z.object({
+  statusToken: z.string(),
   position: z.number(),
   estimatedWaitMinutes: z.number(),
 });
@@ -19,6 +20,12 @@ export const WaitlistStatusSchema = z.enum([
   "expired",
   "cancelled",
 ]);
+
+export const WaitlistEstimateSchema = z.object({
+  position: z.number(),
+  estimatedWaitMinutes: z.number(),
+  status: WaitlistStatusSchema,
+});
 
 export const WaitlistEntrySchema = z.object({
   id: z.string(),

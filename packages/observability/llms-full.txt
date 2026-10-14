@@ -1,5 +1,17 @@
 <codebase path="packages/observability">
   <section priority="medium" role="src">
+  <file path="src/build-info.ts">
+    export const UNKNOWN_BUILD = "unknown";
+    export interface BuildInfo {
+      readonly sha: string;
+      /** The single "which build is this" string: Sentry release, OTel service.version, /health version. */
+      readonly version: string;
+    }
+    export function resolveBuildInfo(env: Readonly<Record<string, string | undefined>>): BuildInfo {
+      const sha = env.DEPLOY_SHA?.trim() || UNKNOWN_BUILD;
+      return { sha, version: sha };
+    }
+  </file>
   <file path="src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
@@ -485,9 +497,9 @@
     
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: config.serviceName,
-        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+        [ATTR_SERVICE_VERSION]: config.serviceVersion ?? resolveBuildInfo(process.env).version,
         [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? "development",
-        "deploy.sha": process.env.DEPLOY_SHA ?? "unknown",
+        "deploy.sha": resolveBuildInfo(process.env).sha,
         "deploy.pr_number": process.env.DEPLOY_PR_NUMBER ?? "",
         "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
       });

@@ -1,0 +1,3 @@
+# Written by factory-init: running these tools writes bytecode here,
+# and it must never be committed (#705).
+__pycache__/

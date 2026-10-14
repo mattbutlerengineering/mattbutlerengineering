@@ -976,10 +976,15 @@ describe("useBookingFlow", () => {
       expect(result.current.state).toBe("waitlist-join");
 
       act(() =>
-        result.current.actions.handleWaitlistJoined({ position: 3, estimatedWaitMinutes: 20 })
+        result.current.actions.handleWaitlistJoined({
+          statusToken: "tok-1",
+          position: 3,
+          estimatedWaitMinutes: 20,
+        })
       );
       expect(result.current.state).toBe("waitlist-confirmation");
       expect(result.current.data.waitlistResult).toEqual({
+        statusToken: "tok-1",
         position: 3,
         estimatedWaitMinutes: 20,
       });
