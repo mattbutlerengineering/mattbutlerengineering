@@ -38,7 +38,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `pnpm typecheck`); `exports:check` passes; size-limit has an entry per locale
     subpath and existing per-component budgets are unchanged.
   - Blocked by: Rialto messages core
-- [ ] **i18n runtime** — i18next init in `apps/hospitality/src/i18n/index.ts`, en-US
+- [x] **i18n runtime** — i18next init in `apps/hospitality/src/i18n/index.ts`, en-US
       catalog, dynamic-import `loadCatalog`, `changeLocale`, `LocaleBridge` mounted around
       both `Root` branches in `main.tsx`, typed-key module augmentation, `<html lang>` sync,
       `mbe-hospitality-locale` persistence. Converts one visible string (the "Skip to main
@@ -219,3 +219,14 @@ none.
   by a `generate-exports.test.ts` case requiring every library entry's source to be under
   that include. Locale subpath budgets are 1.5 kB each (≈130 B today; headroom for the
   full ≈50-string inventory).
+- 2026-10-13 (i18n runtime): app catalogs live at `apps/hospitality/src/i18n/catalogs/<tag>.json`,
+  not `src/i18n/locales/` as architecture.md says — a `locales/` dir beside `locales.ts`
+  reads ambiguously. The **Catalog parity check** item globs `apps/*/src/i18n/catalogs/*.json`.
+- 2026-10-13 (i18n runtime): `bootLocale()` (detection) never persists; only `changeLocale()`
+  (explicit pick) writes `mbe-hospitality-locale`, so detection never becomes sticky.
+  First render waits for `bootLocale()` (≤10 s, en-US on failure) so text never flashes.
+- 2026-10-13 (i18n runtime): `createLocaleRuntime()` calls `.use(initReactI18next)`, which
+  makes the newest instance react-i18next's global default. The **Widget locale scope**
+  item must give the widget an explicit `I18nextProvider` and not rely on the global.
+- 2026-10-13 (i18n runtime): hospitality's tsconfig excludes `*.test.ts(x)`, so the
+  typed-key contract lives in `src/i18n/typed-keys.typecheck.ts` (never imported).

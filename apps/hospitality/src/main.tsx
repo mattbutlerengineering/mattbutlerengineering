@@ -13,6 +13,8 @@ import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { validateAuthConfig } from "./constants/auth";
+import { I18nextProvider } from "react-i18next";
+import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 
 initSentry({
   appName: "hospitality",
@@ -327,36 +329,53 @@ function ThemeBridge({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={themeState}>{children}</ThemeContext.Provider>;
 }
 
+/** App text (i18next) and Rialto's built-in text follow the same locale. */
+function LocaleProviders({ children }: { children: ReactNode }) {
+  return (
+    <I18nextProvider i18n={localeRuntime.i18n}>
+      <LocaleBridge>{children}</LocaleBridge>
+    </I18nextProvider>
+  );
+}
+
 function Root() {
   if (!authConfigResult.valid) {
     return (
       <RialtoProvider persistTheme>
-        <ThemeBridge>
-          <AuthConfigError missing={authConfigResult.missing} />
-        </ThemeBridge>
+        <LocaleProviders>
+          <ThemeBridge>
+            <AuthConfigError missing={authConfigResult.missing} />
+          </ThemeBridge>
+        </LocaleProviders>
       </RialtoProvider>
     );
   }
 
   return (
     <RialtoProvider persistTheme>
-      <ThemeBridge>
-        <ToastProvider>
-          <ErrorBoundary onError={handleErrorBoundary}>
-            <AuthProvider config={authConfigResult.config}>
-              <QueryProvider>
-                <RouterProvider router={router} />
-              </QueryProvider>
-            </AuthProvider>
-          </ErrorBoundary>
-        </ToastProvider>
-      </ThemeBridge>
+      <LocaleProviders>
+        <ThemeBridge>
+          <ToastProvider>
+            <ErrorBoundary onError={handleErrorBoundary}>
+              <AuthProvider config={authConfigResult.config}>
+                <QueryProvider>
+                  <RouterProvider router={router} />
+                </QueryProvider>
+              </AuthProvider>
+            </ErrorBoundary>
+          </ToastProvider>
+        </ThemeBridge>
+      </LocaleProviders>
     </RialtoProvider>
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>
+// Resolve the locale before first paint so text never flashes from en-US.
+// bootLocale never rejects; a failed load just stays in en-US.
+void localeRuntime.bootLocale().then(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>
+  )
 );

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Suspense } from "react";
 import { useAuthGate, signinReturnTo } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
@@ -26,10 +27,11 @@ function UnauthenticatedShell({
   readonly nav: ReactNode;
   readonly children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className={styles.unauthLayout}>
       <a href="#main-content" className={styles.skipLink}>
-        Skip to main content
+        {t("shell.skipToMain")}
       </a>
       {nav}
       <main id="main-content" tabIndex={-1} className={styles.loginContainer}>

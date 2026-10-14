@@ -4235,6 +4235,15 @@
       return DEFAULT_LOCALE;
     }
   </file>
+  <file path="src/i18n/typed-keys.typecheck.ts">
+    export function typedKeysContract(t: TFunction): string[] {
+      return [
+        t("shell.skipToMain"),
+        // @ts-expect-error — a key missing from the en-US catalog is a type error
+        t("no.such.key"),
+      ];
+    }
+  </file>
   </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">
