@@ -184,6 +184,7 @@ export const guestService = {
         email: existing.email,
         phone: existing.phone,
         dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+        notes: existing.notes,
       };
       const updateData = buildGuestUpdateData(snapshot, data);
       if (Object.keys(updateData).length > 0) {
