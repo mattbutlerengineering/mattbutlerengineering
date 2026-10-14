@@ -32,6 +32,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-024](ADR-024-date-value-vocabulary.md)                       | Unified ISO-String Date-Value Vocabulary (Calendar/DatePicker/DateRange) | active                  | 2026-08-06 |
 | [ADR-025](ADR-025-motion-presets-through-context.md)              | Resolve Motion Presets Through Context, Not Imported Constants           | active                  | 2026-08-15 |
 | [ADR-026](ADR-026-postgres-rls-venue-backstop.md)                 | Postgres Row-Level Security as a Venue-Scoping Backstop                  | active                  | 2026-09-13 |
+| [ADR-088](ADR-088-nullable-waitlist-estimate.md)                  | Waitlist wait estimate is nullable end to end                            | provisional             | 2026-10-13 |
 
 ## Format
 
