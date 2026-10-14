@@ -132,6 +132,18 @@ describe("detectMaliciousCommands", () => {
     const f = detectMaliciousCommands(file("server.py", py));
     expect(f.filter((x) => x.severity === "high")).toEqual([]);
   });
+  it.each(["#!/usr/bin/env python3", "#!/usr/bin/python3", "#!/usr/bin/env -S python3 -u"])(
+    "does not flag parenthesized imports in an extension-less script with shebang %s",
+    (shebang) => {
+      const py = `${shebang}\nfrom mcp.server import (Server, stdio)\nfrom a import (\n    B,\n)\n`;
+      const f = detectMaliciousCommands(file("bin/server", py));
+      expect(f.filter((x) => x.severity === "high")).toEqual([]);
+    }
+  );
+  it("still runs python shell-out rules on an extension-less python script", () => {
+    const f = detectMaliciousCommands(file("bin/server", "#!/usr/bin/env python3\nos.system(cmd)"));
+    expect(f.some((x) => x.line === 2)).toBe(true);
+  });
   it.each([
     ["package.json", '{"scripts":{"postinstall":"node -e \\"require(process.env.P)\\""}}'],
     ["install.sh", "node -e 'import(process.env.U)'"],

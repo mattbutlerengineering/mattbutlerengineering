@@ -38,7 +38,14 @@
         category: Category;
         severity: Severity;
         excludes?: RegExp;
+        excludeLanguages?: readonly Language[];
       }
+    </item>
+    <item priority="low">
+      type Language = "python" | "other";
+    </item>
+    <item priority="high">
+      export function detectLanguage(file: string, content: string): Language { /* ... */ }
     </item>
     <item priority="high">
       interface Group {

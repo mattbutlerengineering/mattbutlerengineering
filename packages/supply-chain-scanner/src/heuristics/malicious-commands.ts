@@ -28,7 +28,7 @@ const RULES: readonly Rule[] = [
   {
     pattern: /\b(require|import)\s*\(\s*[^'"`)\s]/,
     // Python's `from x import (A, B)` is a plain parenthesized import, not a dynamic one.
-    excludes: /\.py$/i,
+    excludeLanguages: ["python"],
     category: "malicious-command",
     severity: "high",
   },
