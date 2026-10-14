@@ -3468,3 +3468,17 @@ None (`agent-skip` count is 0). All 6 `ready` issues were left untouched this it
 **queueEfficiency:** composite 0.963 (baseline n/a) — healthy
 **Difficulty distribution:** size:xl:12, size:m:39, size:l:15, size:s:44, size:xs:43
 **Issues filed:** 0
+
+## 2026-10-14 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` → `source: branch`, head `33dbbd9d1`, merged `origin/main` `46e759ff9`, resolved `metrics/ui-quality-ledger.jsonl` by rule.
+- **Routes:** 40 due, 40 captured, 40 audited (all `rialto-web`). 18 rows `unreachable:auth` (all `hospitality`), 0 `unreachable:build` — all three app builds succeeded. `marketing` and `hospitality` had no routes planned this fire.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration stamp:** `stale`. `calibration-status --model-id claude-opus-5` exited 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-stage, Matt-owned), so calibration could not clear and was not retried. Agent-built judged findings stay suppressed by design. Rating ran anyway: 6 pairs judged, `rate.mjs record` kept 5 (`rialto-web`).
+- **Findings:** 4 mechanical (`components/aspect-ratio` axe-serious, `components/breadcrumb` axe-moderate, `components/data-list` axe-serious, `components/divider` axe-serious), 0 judged. Plan resolved all 4 to `skip` — each is already carried as a backlog seed from session 2026-10-01.
+- **Issues:** 0 created, 0 reopened, 0 commented. All 21 issues in the findings ledger fetched and all are `closed`; the `label:ui-quality` search returned exactly those same 21 (total_count 21, single page), so no unknown labelled issue and no escalation.
+- **Seeds:** 0 appended to `docs/backlog.md`.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate` (every action was `skip`).
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (provisional, 131/131 covered, 0 uncovered, 18 `unreachable:auth`), first run 2026-10-01.
+- **Blockers / pipeline bugs:** none. Browser resolved (`/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`). No stopped filing. A clean fire with nothing new to file.
