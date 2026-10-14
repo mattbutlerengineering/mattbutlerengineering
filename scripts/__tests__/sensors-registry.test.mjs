@@ -633,7 +633,7 @@ describe("sensors-registry", () => {
     // readQueueEfficiencyPrs is exercised directly (rather than through the
     // full queueEfficiency sensor.collect()) so the test doesn't also invoke
     // collectQueueEfficiency's real (network-calling) default ccusage reader.
-    it("readQueueEfficiencyPrs pages the fetch by merged date and derives commitCount from a per-PR pr.view call (#5746)", () => {
+    it("readQueueEfficiencyPrs pages the fetch by merged date and derives commitCount from a batched commit fetch (#5746, #6549)", () => {
       const now = new Date("2026-09-25T12:00:00Z");
       const prs = [
         {
@@ -646,11 +646,12 @@ describe("sensors-registry", () => {
       const ghClient = {
         pr: {
           list: vi.fn().mockReturnValue(prs),
-          view: vi.fn().mockReturnValue({ commits: [{}, {}] }),
+          view: vi.fn(),
         },
       };
+      const fetchCommits = vi.fn().mockReturnValue(new Map([[1, [{}, {}]]]));
 
-      const result = readQueueEfficiencyPrs(ghClient, now);
+      const result = readQueueEfficiencyPrs(ghClient, now, fetchCommits);
 
       expect(ghClient.pr.list).toHaveBeenCalledWith([
         "--search",
@@ -660,7 +661,8 @@ describe("sensors-registry", () => {
         "--json",
         "number,state,headRefName,author,createdAt,mergedAt,closedAt,labels,additions,deletions",
       ]);
-      expect(ghClient.pr.view).toHaveBeenCalledWith(1, ["--json", "commits"]);
+      expect(ghClient.pr.view).not.toHaveBeenCalled();
+      expect(fetchCommits).toHaveBeenCalledWith([1]);
       expect(result).toEqual([{ ...prs[0], commits: [{}, {}], commitCount: 2 }]);
     });
 

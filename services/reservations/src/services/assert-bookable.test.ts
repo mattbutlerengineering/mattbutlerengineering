@@ -40,6 +40,39 @@ const BASE_OPTS = {
 } as const;
 
 describe("assertBookable", () => {
+  describe("party fit", () => {
+    const TWO_TOP = { capacity: 2, minCovers: 1, maxCovers: null };
+
+    it("returns PARTY_DOES_NOT_FIT when the party exceeds the table ceiling", () => {
+      const result = assertBookable({ ...BASE_OPTS, partySize: 12, table: TWO_TOP });
+      expect(result?.code).toBe("PARTY_DOES_NOT_FIT");
+    });
+
+    it("returns PARTY_DOES_NOT_FIT when the party is under the table minimum", () => {
+      const result = assertBookable({
+        ...BASE_OPTS,
+        partySize: 1,
+        table: { capacity: 6, minCovers: 4, maxCovers: null },
+      });
+      expect(result?.code).toBe("PARTY_DOES_NOT_FIT");
+    });
+
+    it("honours maxCovers over capacity", () => {
+      const table = { capacity: 2, minCovers: 1, maxCovers: 5 };
+      expect(assertBookable({ ...BASE_OPTS, partySize: 5, table })).toBeUndefined();
+    });
+
+    it("reports a misfit before a conflict", () => {
+      const result = assertBookable({
+        ...BASE_OPTS,
+        partySize: 12,
+        table: TWO_TOP,
+        reservations: [makeReservation()],
+      });
+      expect(result?.code).toBe("PARTY_DOES_NOT_FIT");
+    });
+  });
+
   describe("no conflict, no pacing rules", () => {
     it("returns undefined when slot is free and no pacing rules", () => {
       expect(assertBookable(BASE_OPTS)).toBeUndefined();
