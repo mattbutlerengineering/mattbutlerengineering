@@ -3125,49 +3125,59 @@
             },
           },
         },
-        publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
-          const { slug } = request.params;
-          const { email, phone } = request.query;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            // The missing-query 400 answers before the slug lookup, as it always did.
+            before: (request, reply) =>
+              !request.query.email && !request.query.phone
+                ? reply
+                    .status(400)
+                    .send(
+                      createProblemDetails(
+                        400,
+                        "Bad Request",
+                        "email or phone query parameter is required"
+                      )
+                    )
+                : undefined,
+          },
+          async (request, reply) => {
+            const { slug } = request.params;
+            const { email, phone } = request.query;
     
-          if (!email && !phone) {
-            return reply
-              .status(400)
-              .send(
-                createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
-              );
-          }
+            // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+            // run the guest lookup inside that venue's RLS context.
     
-          // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-          // run the guest lookup inside that venue's RLS context.
+            const venue = await venueService.getBySlug(slug);
+            if (!venue) {
+              return reply
+                .status(404)
+                .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+            }
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
-            return reply
-              .status(404)
-              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-          }
+            const guest = email
+              ? await guestService.findByEmail(venue.id, email)
+              : phone
+                ? await guestService.findByPhone(venue.id, phone)
+                : null;
     
-          const guest = email
-            ? await guestService.findByEmail(venue.id, email)
-            : phone
-              ? await guestService.findByPhone(venue.id, phone)
-              : null;
+            if (!guest) {
+              // Unknown guest — no deposit. The named score stays off this public body.
+              return reply.send({
+                data: { requiresDeposit: false },
+              });
+            }
     
-          if (!guest) {
-            // Unknown guest — no deposit. The named score stays off this public body.
+            const riskScore = assessGuestReliability(guest, venue.settings);
+    
             return reply.send({
-              data: { requiresDeposit: false },
+              data: {
+                requiresDeposit: riskScore === "risky",
+              },
             });
           }
-    
-          const riskScore = assessGuestReliability(guest, venue.settings);
-    
-          return reply.send({
-            data: {
-              requiresDeposit: riskScore === "risky",
-            },
-          });
-        })
+        )
       );
     };
   </file>
@@ -3302,7 +3312,8 @@
             slug: (request) => request.params.slug,
             notFound: venueNotFound,
             // The session header answers 401 before the slug lookup, as it always did.
-            before: (request, reply) => void readSessionId(request, reply, "read"),
+            before: (request, reply) =>
+              readSessionId(request, reply, "read") === null ? reply : undefined,
           },
           async (request, reply, { venueId }) => {
             const { holdId } = request.params;
@@ -3351,7 +3362,8 @@
             slug: (request) => request.params.slug,
             notFound: venueNotFound,
             // The session header answers 401 before the slug lookup, as it always did.
-            before: (request, reply) => void readSessionId(request, reply, "confirm"),
+            before: (request, reply) =>
+              readSessionId(request, reply, "confirm") === null ? reply : undefined,
           },
           async (request, reply, { venueId }) => {
             const { holdId } = request.params;
@@ -3683,8 +3695,13 @@
       readonly notFound?: (slug: string) => PublicNotFound | Error;
       /**
        * Checks that must answer before the slug is looked up (a per-IP cap, a
-       * required capability header), so an unknown slug cannot mask them. Send a
-       * reply to stop the request; send nothing to continue.
+       * required capability header), so an unknown slug cannot mask them.
+       *
+       * To stop the request, send a reply AND return it (any truthy value works);
+       * return nothing to continue. The return value is the signal: `reply.sent`
+       * alone is not, because in Fastify 5 it is `raw.writableEnded`, which only
+       * flips after every async onSend hook has run — so a `before` that sent but
+       * returned nothing could fall through into the handler.
        */
       readonly before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
     }
@@ -3704,10 +3721,13 @@
       const notFound = spec.notFound ?? defaultNotFound;
     
       async function scopedHandler(request: RequestOf<RG>, reply: FastifyReply): Promise<unknown> {
-        // Not `await`ed for its value: a FastifyReply is thenable, so awaiting the
-        // result of `reply.send()` would resolve to `undefined`, not the reply.
-        await spec.before?.(request, reply as ReplyOf<RG>);
-        if (reply.sent) return reply;
+        // Only a real Promise is awaited: a FastifyReply is thenable, so awaiting
+        // a returned reply would resolve to `undefined` and lose the stop signal.
+        // An async `before` that returns its reply settles only once the response
+        // has finished, so `reply.sent` covers that case.
+        const outcome = spec.before?.(request, reply as ReplyOf<RG>);
+        const stop = outcome instanceof Promise ? await outcome : outcome;
+        if (stop || reply.sent) return reply;
     
         const slug = spec.slug(request);
         const venueId = await resolveVenueId("venue_slug", slug);
