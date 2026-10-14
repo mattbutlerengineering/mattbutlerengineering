@@ -4825,6 +4825,11 @@
       }): LocaleTag { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/i18n/typed-keys.typecheck.ts">
+    <item priority="high">
+      export function typedKeysContract(t: TFunction): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/i18n/messages.ts">
     <item priority="low">
       interface RialtoMessages {
