@@ -7,6 +7,7 @@ on:
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "apps/rialto-web/**"
+      - "scripts/ui-quality/derive-path.*"
       - "packages/rialto/**"
       - "packages/rialto-catalog/**"
       - "packages/auth/**"
@@ -75,6 +76,7 @@ jobs:
               - 'packages/auth/**'
             rialto-web:
               - 'apps/rialto-web/**'
+              - 'scripts/ui-quality/derive-path.*'
               - 'packages/rialto/**'
       - name: Set outputs
         id: result
