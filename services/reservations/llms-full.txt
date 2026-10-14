@@ -2381,6 +2381,14 @@
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
           }
     
+          if (result.partyDoesNotFit) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+              );
+          }
+    
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
             const title = statusCode === 404 ? "Not Found" : "Conflict";
@@ -4190,6 +4198,13 @@
               .code(403)
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
           }
+          if (result.partyDoesNotFit) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+              );
+          }
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
@@ -4349,6 +4364,14 @@
               return reply
                 .code(403)
                 .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+            }
+    
+            if (result.partyDoesNotFit) {
+              return reply
+                .code(422)
+                .send(
+                  createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+                );
             }
     
             if (!result.success) {
@@ -4540,6 +4563,18 @@
                 return reply
                   .code(403)
                   .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+              }
+    
+              if (result.capacityExceeded) {
+                return reply
+                  .code(422)
+                  .send(
+                    createProblemDetails(
+                      422,
+                      titleForStatus(422),
+                      result.error ?? "Party does not fit this table"
+                    )
+                  );
               }
     
               if (result.conflict?.hasConflict) {
@@ -7048,10 +7083,19 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
+      | { code: "PARTY_DOES_NOT_FIT"; message: string }
+      | { code: "CONFLICT"; message: string }
+      | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
+      /**
+       * The table's party-fit fields. Pass it wherever the caller names the table
+       * (the server-picked path already filters by fit): the party must satisfy
+       * partyFitsTable. Omit only when fit was settled earlier (hold confirmation,
+       * whose hold was fit-checked at creation).
+       */
+      table?: PartyFitTable;
       /** Window to check — [startTime, endTime). */
       window: { startTime: Date; endTime: Date };
       /** Party size to add when computing pacing. */
@@ -7077,6 +7121,13 @@
         excludeHoldId,
         excludeSessionId,
       } = opts;
+    
+      if (opts.table && !partyFitsTable(opts.table, partySize)) {
+        return {
+          code: "PARTY_DOES_NOT_FIT",
+          message: `Party size ${partySize} does not fit this table`,
+        };
+      }
     
       // Filter out the excluded hold so self-conflict is not flagged during confirmation.
       const filteredHolds = holds.filter((h) => {
@@ -9694,12 +9745,14 @@
       email: string | null;
       phone: string | null;
       dietaryRestrictions: string[] | null;
+      notes?: string | null;
     };
     type IncomingGuestData = {
       name: string;
       email?: string;
       phone?: string;
       dietaryRestrictions?: string[];
+      notes?: string;
     };
     export function applyDietaryRestrictions(
       existing: string[] | null | undefined,
@@ -9732,6 +9785,16 @@
     
       if (incoming.phone !== undefined && existing.phone !== incoming.phone) {
         updateData.phone = incoming.phone;
+      }
+    
+      // Set notes when empty, otherwise append on a new line: a typed note is never lost and
+      // an existing one never overwritten. A note already contained is not duplicated.
+      if (incoming.notes) {
+        if (!existing.notes) {
+          updateData.notes = incoming.notes;
+        } else if (!existing.notes.includes(incoming.notes)) {
+          updateData.notes = `${existing.notes}\n${incoming.notes}`;
+        }
       }
     
       if (incoming.dietaryRestrictions && incoming.dietaryRestrictions.length > 0) {
@@ -10057,6 +10120,7 @@
             email: existing.email,
             phone: existing.phone,
             dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+            notes: existing.notes,
           };
           const updateData = buildGuestUpdateData(snapshot, data);
           if (Object.keys(updateData).length > 0) {
@@ -10366,6 +10430,8 @@
       error?: string;
       /** The requested table is missing or belongs to another venue (route answers 403). */
       tableNotInVenue?: boolean;
+      /** The party does not fit the caller-named table (route answers 422). */
+      partyDoesNotFit?: boolean;
     }
     export const holdService = {
       /**
@@ -10434,6 +10500,7 @@
           // Pre-check: verify provided table is available and pacing is not exceeded.
           const bookingError = assertBookable({
             tableId: selectedTableId,
+            table: await loadTableFit(selectedTableId),
             window: { startTime, endTime },
             partySize,
             settings,
@@ -10443,7 +10510,11 @@
           });
     
           if (bookingError) {
-            return { success: false, error: bookingError.message };
+            return {
+              success: false,
+              error: bookingError.message,
+              ...(bookingError.code === "PARTY_DOES_NOT_FIT" && { partyDoesNotFit: true }),
+            };
           }
         }
     
@@ -11530,6 +11601,24 @@
       const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize, deposits);
       return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
     }
+    async function checkBookingWindow(
+      reservation: Reservation,
+      changes: ReservationChanges
+    ): Promise<ModifyReservationResult | null> {
+      if (changes.startTime === undefined && changes.date === undefined) return null;
+      if (!reservation.venueId) return null;
+    
+      const venue = await venueService.getById(reservation.venueId);
+      if (!venue) return null;
+    
+      const newStart = new Date(changes.startTime ?? reservation.startTime);
+      // The route's body schema guarantees a date-time; an unparseable value
+      // cannot be placed in the window, so leave it to the conflict check.
+      if (Number.isNaN(newStart.getTime())) return null;
+    
+      const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
+      return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+    }
     export async function modifyReservation(
       reservation: Reservation,
       changes: ReservationChanges,
@@ -11542,6 +11631,11 @@
       const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
       if (depositGuardResult) {
         return depositGuardResult;
+      }
+    
+      const windowResult = await checkBookingWindow(reservation, changes);
+      if (windowResult) {
+        return windowResult;
       }
     
       const { date, startTime, endTime, partySize, specialRequests } = changes;
@@ -12032,6 +12126,8 @@
       pacing?: PacingCheckResult;
       /** The requested table is missing or belongs to another venue (route answers 403). */
       tableNotInVenue?: boolean;
+      /** The party does not fit the caller-named table (route answers 422). */
+      partyDoesNotFit?: boolean;
     }
     export interface UpdateReservationResult {
       success: boolean;
@@ -12230,6 +12326,7 @@
     
           const bookingError = assertBookable({
             tableId: data.tableId,
+            table: await loadTableFit(data.tableId),
             window: { startTime, endTime },
             partySize: data.partySize,
             settings,
@@ -12237,6 +12334,9 @@
             holds,
           });
     
+          if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+            return { success: false, error: bookingError.message, partyDoesNotFit: true };
+          }
           if (bookingError?.code === "CONFLICT") {
             return {
               success: false,
@@ -12418,22 +12518,22 @@
           return TABLE_NOT_IN_VENUE;
         }
     
-        // Capacity check runs whenever partySize changes, independent of
-        // timeOrTableChanged below — a partySize-only edit is not a slot move,
-        // but it still must not exceed the (possibly unchanged) assigned table's
-        // capacity (#5807).
-        if (data.partySize !== undefined) {
-          const targetTableId = data.tableId ?? existing.tableId;
-          const table = await prisma.table.findUnique({
-            where: { id: targetTableId },
-            select: { capacity: true, maxCovers: true },
-          });
-          // Same ceiling the booking path uses: maxCovers, else capacity.
-          const ceiling = table ? tableMaxCovers(table) : undefined;
-          if (ceiling !== undefined && data.partySize > ceiling) {
+        // The shared party-fit rule runs whenever partySize OR tableId changes,
+        // independent of timeOrTableChanged below — a partySize-only edit is not a
+        // slot move, and a table-only move keeps the old party, but either must
+        // leave a party that fits the (possibly unchanged) assigned table (#5807,
+        // #6559).
+        if (data.partySize !== undefined || data.tableId !== undefined) {
+          const partySize = data.partySize ?? existing.partySize;
+          const table = await loadTableFit(data.tableId ?? existing.tableId);
+          if (table && !partyFitsTable(table, partySize)) {
+            const ceiling = tableMaxCovers(table);
             return {
               success: false,
-              error: `Party size ${data.partySize} exceeds table capacity of ${ceiling}`,
+              error:
+                partySize > ceiling
+                  ? `Party size ${partySize} exceeds table capacity of ${ceiling}`
+                  : `Party size ${partySize} is below the table minimum of ${table.minCovers}`,
               capacityExceeded: true,
             };
           }
@@ -12588,6 +12688,7 @@
     
         const bookingError = assertBookable({
           tableId: data.tableId,
+          table: await loadTableFit(data.tableId),
           window: { startTime: now, endTime },
           partySize: data.partySize,
           settings,
@@ -12595,6 +12696,9 @@
           holds,
         });
     
+        if (bookingError?.code === "PARTY_DOES_NOT_FIT") {
+          return { success: false, error: bookingError.message, partyDoesNotFit: true };
+        }
         if (bookingError?.code === "CONFLICT") {
           return {
             success: false,
@@ -13792,6 +13896,15 @@
       });
       return table?.venueId === venueId;
     }
+    export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { capacity: true, minCovers: true, maxCovers: true },
+      });
+      return table
+        ? { capacity: table.capacity, minCovers: table.minCovers, maxCovers: table.maxCovers }
+        : undefined;
+    }
   </file>
   <file path="src/services/table.ts">
     export function mapPrismaTable(table: {
@@ -14691,6 +14804,8 @@
       notifyTableReady(entry: NotifyTableReadyInput): Promise<void>;
       /** Persists notified state on the row; null if the party is no longer waiting. */
       markNotified(id: string): Promise<{ id: string } | null>;
+      /** Rolls a notified row back to waiting when the expiry job can't be scheduled. */
+      revertNotified(id: string): Promise<{ id: string } | null>;
       logger: WaitlistNotifierLogger;
     }
     export interface NotifyAddedInput {
@@ -14746,6 +14861,7 @@
         listWaiting,
         notifyTableReady: notifyNextTableReady,
         markNotified,
+        revertNotified,
         logger,
       } = deps;
     
@@ -14795,13 +14911,20 @@
           }
         }
     
-        // Always schedule expiry regardless of SMS outcome
-        await scheduler.schedule(
-          JOB_TYPES.WAITLIST_EXPIRY,
-          { waitlistEntryId: input.id, venueId: input.venueId },
-          FIVE_MINUTES_MS,
-          `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
-        );
+        // Always schedule expiry regardless of SMS outcome. If scheduling fails the
+        // row would stay notified forever (host can't retry, next guest never
+        // notified), so roll it back to waiting and surface the error.
+        try {
+          await scheduler.schedule(
+            JOB_TYPES.WAITLIST_EXPIRY,
+            { waitlistEntryId: input.id, venueId: input.venueId },
+            FIVE_MINUTES_MS,
+            `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
+          );
+        } catch (err) {
+          await revertNotified(input.id);
+          throw err;
+        }
       }
     
       async function handleExpiry(input: HandleExpiryInput): Promise<void> {
@@ -14839,6 +14962,7 @@
         listWaiting: (venueId) => waitlistService.listWaiting(venueId),
         notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
         markNotified: (id) => waitlistService.markNotified(id),
+        revertNotified: (id) => waitlistService.revertNotified(id),
         logger: consoleLogger,
       });
     
@@ -15075,6 +15199,24 @@
           return null;
         }
         // The notified party left the waiting queue: close the gap behind it.
+        await recalculateVenuePositions(entry.venueId);
+        return entry;
+      },
+    
+      /**
+       * Undoes markNotified when the expiry job could not be scheduled, so the host
+       * can retry. Only a `notified` entry reverts; anything else -> null.
+       */
+      async revertNotified(id: string): Promise<WaitlistEntryData | null> {
+        let entry: WaitlistEntryData;
+        try {
+          entry = await prisma.waitlistEntry.update({
+            where: { id, status: "notified" },
+            data: { status: "waiting", notifiedAt: null, expiresAt: null },
+          });
+        } catch {
+          return null;
+        }
         await recalculateVenuePositions(entry.venueId);
         return entry;
       },

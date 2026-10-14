@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "//": "src/data/ai-health-reader-contract.test.ts dynamically imports scripts/build-sensor-report.mjs, whose transitive imports reach top-level scripts/*.mjs collectors, scripts/lib/*.mjs, and plugins/acmm/scripts/agent-pr.js. Files outside the package are invisible to turbo's default hash, so an edit there would replay a cached green contract test (#6567). scripts/__tests__/turbo-out-of-package-inputs.test.mjs follows the relative-import graph and fails if any reached file is missing here.",
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/scripts/*.mjs",
+        "$TURBO_ROOT$/scripts/lib/*.mjs",
+        "$TURBO_ROOT$/plugins/acmm/scripts/agent-pr.js"
+      ]
+    },
+    "test:coverage": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/*.mjs",
+        "$TURBO_ROOT$/scripts/lib/*.mjs",
+        "$TURBO_ROOT$/plugins/acmm/scripts/agent-pr.js"
+      ]
+    }
+  }
+}
