@@ -11704,6 +11704,8 @@
     export function useShortcuts(handlers: ShortcutHandlers): void {
       useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
+          // A palette, dialog or fullscreen layer that consumed the key has preventDefault()ed it.
+          if (e.defaultPrevented) return;
           const action = matchShortcut(e);
           if (!action) return;
           const handler = handlers[action];
@@ -19107,6 +19109,18 @@
     }
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
+    export function normaliseKind(
+      prompt: string,
+      kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+    ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } {
+      if (kind) return { prompt, kind };
+      for (const [prefix, derived] of LEGACY_PREFIXES) {
+        if (prompt.startsWith(prefix) && prompt.length > prefix.length) {
+          return { prompt: prompt.slice(prefix.length), kind: derived };
+        }
+      }
+      return { prompt, kind: "generate" };
+    }
     export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
       // POST /api/gen/specs — create and persist a spec (auth required)
       fastify.post(
@@ -19128,7 +19142,8 @@
               );
           }
     
-          const { prompt, kind, spec, rawLines } = parseResult.data;
+          const { spec, rawLines } = parseResult.data;
+          const { prompt, kind } = normaliseKind(parseResult.data.prompt, parseResult.data.kind);
     
           const result = await storedSpecService.create({
             userId: request.user!.id,
