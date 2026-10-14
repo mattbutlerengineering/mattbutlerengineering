@@ -12,10 +12,11 @@ import { loadWorkflow, getJob } from "../lib/workflow.mjs";
  */
 const IMPORTED_SCRIPT = "scripts/ui-quality/derive-path.mjs";
 
-const matches = (patterns, file) =>
-  patterns.some((p) =>
-    new RegExp(`^${p.replace(/\./g, "\\.").replace(/\*\*?/g, ".*")}$`).test(file)
-  );
+/** Glob → regex: escape every regex metacharacter, then map escaped `*`/`**` to `.*`. */
+const globToRegExp = (glob) =>
+  new RegExp(`^${glob.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/(?:\\\*){1,2}/g, ".*")}$`);
+
+const matches = (patterns, file) => patterns.some((p) => globToRegExp(p).test(file));
 
 describe("deploy-static covers scripts/ files the apps import at runtime", () => {
   const workflow = loadWorkflow("deploy-static.yml");

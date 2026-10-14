@@ -11,7 +11,8 @@ import { fileURLToPath } from "node:url";
  * replayed a cached green build/test. This reads turbo's resolved inputs
  * (dry-run) and asserts every file a package's source or test imports from
  * OUTSIDE the package (relative specifier, or a "scripts/…" literal resolved
- * from the repo root) is in the relevant task's input set.
+ * from the repo root), plus everything those files import relatively in turn,
+ * is in the relevant task's input set.
  */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const PACKAGES = ["apps/rialto-web", "apps/marketing"];
@@ -36,15 +37,27 @@ const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "
   .split("\0")
   .filter(Boolean);
 
-/** Repo-relative files outside `dir` that `file` imports. */
+const relImports = (file, text) =>
+  [...text.matchAll(REL_IMPORT)].map((m) => relative(ROOT, resolve(ROOT, dirname(file), m[1])));
+
+/**
+ * Repo-relative files outside `dir` that `file` imports, followed transitively:
+ * an out-of-package file's own relative imports must be hashed too (e.g.
+ * build-sensor-report.mjs -> sensors-registry.mjs -> … -> lib/fitness-check.mjs).
+ */
 function outsideImports(dir, file) {
   const text = readFileSync(resolve(ROOT, file), "utf8");
+  const isOutside = (f) => !f.startsWith(`${dir}/`) && tracked.includes(f);
+  const literals = [...text.matchAll(SCRIPT_LITERAL)].map((m) => m[1]);
+  const queue = [...relImports(file, text), ...literals].filter(isOutside);
   const found = new Set();
-  for (const m of text.matchAll(REL_IMPORT)) {
-    found.add(relative(ROOT, resolve(ROOT, dirname(file), m[1])));
+  while (queue.length > 0) {
+    const next = queue.shift();
+    if (found.has(next)) continue;
+    found.add(next);
+    queue.push(...relImports(next, readFileSync(resolve(ROOT, next), "utf8")).filter(isOutside));
   }
-  for (const m of text.matchAll(SCRIPT_LITERAL)) found.add(m[1]);
-  return [...found].filter((f) => !f.startsWith(`${dir}/`)).filter((f) => tracked.includes(f));
+  return [...found];
 }
 
 /** Turbo reports inputs relative to the package ("../../scripts/x"); make them repo-relative. */
@@ -77,4 +90,13 @@ it("the scanner finds the known imports (the probe itself works)", () => {
   expect(
     outsideImports("apps/marketing", "apps/marketing/src/data/ai-health-reader-contract.test.ts")
   ).toContain("scripts/build-sensor-report.mjs");
+});
+
+it("the scanner follows out-of-package imports transitively", () => {
+  const found = outsideImports(
+    "apps/marketing",
+    "apps/marketing/src/data/ai-health-reader-contract.test.ts"
+  );
+  expect(found).toContain("scripts/lib/fitness-check.mjs");
+  expect(found).toContain("plugins/acmm/scripts/agent-pr.js");
 });
