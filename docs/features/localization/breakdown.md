@@ -58,7 +58,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `Intl.PluralRules`; unparseable JSON. en-GB omitting a key passes. Real catalogs pass.
     `check-fitness-check-wiring` test stays green.
   - Blocked by: i18n runtime
-- [ ] **Literal-UI-string lint rule** — `mbe-local/no-literal-ui-strings` in
+- [x] **Literal-UI-string lint rule** — `mbe-local/no-literal-ui-strings` in
       `packages/config/eslint/local-rules.js` with RuleTester tests; wired into both
       packages' configs with an initially empty lint scope.
   - Accept: RuleTester valid/invalid cases cover JSX text, each listed UI attribute,
@@ -230,3 +230,9 @@ none.
   item must give the widget an explicit `I18nextProvider` and not rely on the global.
 - 2026-10-13 (i18n runtime): hospitality's tsconfig excludes `*.test.ts(x)`, so the
   typed-key contract lives in `src/i18n/typed-keys.typecheck.ts` (never imported).
+- 2026-10-14 (Literal-UI-string lint rule): the initial lint scope is each package's
+  `src/i18n/**` rather than literally empty — flat config rejects an empty `files` list,
+  and `src/i18n/**` is already literal-free. Translation items append their paths to
+  `LOCALIZED_FILES` in `apps/hospitality/eslint.config.js` / `packages/rialto/eslint.config.js`.
+  The rule also covers `aria-placeholder`, `aria-roledescription`, `aria-valuetext`,
+  `confirmLabel` and `cancelLabel` beyond the architecture's attribute list.
