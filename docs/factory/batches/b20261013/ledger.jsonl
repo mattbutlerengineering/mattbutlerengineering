@@ -39,3 +39,4 @@
 {"at": "2026-10-14T02:06:16Z", "kind": "state", "item": "#6367", "from": "stalled", "to": "blocked", "reason": "answer to ask-5: block"}
 {"at": "2026-10-14T02:06:23Z", "kind": "close", "item": null, "merged": [], "blocked": ["#6367"]}
 {"at": "2026-10-14T02:06:23Z", "kind": "ask", "item": null, "id": "ask-6", "ask_kind": "merge", "question": "Merge batch b20261013's closing PR (conductor/b20261013): its ledger, run evidence and scorecard?", "options": ["merge", "hold"], "recommended": "merge", "why": "every item is merged or blocked, and the scorecard computed from the ledger"}
+{"at": "2026-10-14T02:09:04Z", "kind": "answer", "item": null, "ask": "ask-6", "choice": "merge", "note": ""}
