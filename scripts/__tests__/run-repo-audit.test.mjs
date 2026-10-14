@@ -145,6 +145,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-workflow-pr-scope",
       "check-memory-refs",
       "check-skill-references",
+      "check-i18n-catalogs",
       "boundaries",
       "check-boundaries-coverage",
     ]);

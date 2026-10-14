@@ -50,7 +50,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     (e) `t("no.such.key")` fails typecheck (type test). Hospitality bundle checked with
     `/perf-budget`.
   - Blocked by: Locale policy, Rialto locale subpaths
-- [ ] **Catalog parity check** — `scripts/check-i18n-catalogs.mjs` +
+- [x] **Catalog parity check** — `scripts/check-i18n-catalogs.mjs` +
       `scripts/__tests__/check-i18n-catalogs.test.mjs`, registered in `REPO_AUDIT_CHECKS`
       and as `check:i18n-catalogs`.
   - Accept: fixture tests fail on: key missing from es-MX or fr-CA; key present only in
