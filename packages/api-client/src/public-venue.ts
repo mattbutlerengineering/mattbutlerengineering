@@ -3,6 +3,7 @@ import type {
   GuestRecognition,
   WaitlistJoinRequest,
   WaitlistJoinResult,
+  WaitlistEstimate,
   CreateDepositPaymentIntentRequest,
   DepositPaymentIntent,
 } from "@mbe/types";
@@ -10,6 +11,7 @@ import {
   GuestRiskResultSchema,
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
+  WaitlistEstimateSchema,
   DepositPaymentIntentSchema,
 } from "@mbe/types";
 import { z } from "zod";
@@ -59,6 +61,18 @@ export class PublicVenueClient {
       `/public/v1/venues/${slug}/waitlist`,
       data,
       WaitlistJoinResultSchema
+    );
+  }
+
+  /**
+   * The guest's live position and wait estimate for their own entry, read with
+   * the `statusToken` returned by {@link joinWaitlist}.
+   */
+  async waitlistEstimate(slug: string, statusToken: string): Promise<WaitlistEstimate> {
+    return this.client.getOne<WaitlistEstimate>(
+      `/public/v1/venues/${slug}/waitlist/status`,
+      { token: statusToken },
+      WaitlistEstimateSchema
     );
   }
 

@@ -11,6 +11,7 @@ vi.mock("../services/waitlist.js", () => ({
     listWaiting: vi.fn(),
     listActive: vi.fn(),
     getById: vi.fn(),
+    withLiveEstimates: vi.fn(async (entries: unknown[]) => entries),
     seat: vi.fn(),
     cancel: vi.fn(),
     expire: vi.fn(),
@@ -303,6 +304,21 @@ describe("Waitlist Routes", () => {
       expect(waitlistService.listActive).toHaveBeenCalledWith("venue-1");
     });
 
+    it("serves live turnover estimates, not the stored join-time snapshot", async () => {
+      vi.mocked(waitlistService.listActive).mockResolvedValue([mockEntry] as never);
+      vi.mocked(waitlistService.withLiveEstimates).mockResolvedValueOnce([
+        { ...mockEntry, estimatedWaitMinutes: 7 },
+      ] as never);
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${WAITLIST_URL}?venueId=venue-1`,
+        headers: AUTH_HEADERS,
+      });
+
+      expect(JSON.parse(response.body).data[0].estimatedWaitMinutes).toBe(7);
+    });
+
     it("returns 400 when venueId missing", async () => {
       const response = await app.inject({
         method: "GET",
@@ -327,6 +343,21 @@ describe("Waitlist Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.id).toBe("entry-1");
+    });
+
+    it("serves a live turnover estimate for the single entry", async () => {
+      vi.mocked(waitlistService.getById).mockResolvedValue(mockEntry as never);
+      vi.mocked(waitlistService.withLiveEstimates).mockResolvedValueOnce([
+        { ...mockEntry, estimatedWaitMinutes: 9 },
+      ] as never);
+
+      const response = await app.inject({
+        method: "GET",
+        url: `${WAITLIST_URL}/entry-1`,
+        headers: AUTH_HEADERS,
+      });
+
+      expect(JSON.parse(response.body).data.estimatedWaitMinutes).toBe(9);
     });
 
     it("returns 404 when not found", async () => {
