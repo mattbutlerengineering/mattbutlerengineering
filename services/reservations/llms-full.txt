@@ -3803,6 +3803,7 @@
     }
     export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addSchema(waitlistJoinResultJsonSchema);
+      fastify.addSchema(waitlistEstimateJsonSchema);
     
       fastify.post<{
         Params: { slug: string };
@@ -3887,8 +3888,76 @@
     
             return reply.code(201).send({
               data: {
+                statusToken: generateWaitlistStatusToken(entry.id, venue.id),
                 position: entry.position,
                 estimatedWaitMinutes: entry.estimatedWaitMinutes,
+              },
+            });
+          });
+        }
+      );
+      // Live read of the guest's OWN entry. The credential is the signed,
+      // expiring status token minted at join - never the guessable entry id. The
+      // response carries no PII. Rate limiting is publicRateLimitHook plus the
+      // global onRequest limiter; no route-level config.rateLimit (see gotchas §
+      // Fastify / rate limiting).
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { token: string };
+        Reply: ApiResponse<WaitlistEstimate> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/waitlist/status",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Read a waitlist entry's live position and estimate (public)",
+            description:
+              "Returns the current position and wait estimate for the guest's own waitlist entry, addressed by the status token returned when they joined.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug"],
+              properties: { slug: { type: "string" } },
+            },
+            querystring: {
+              type: "object",
+              required: ["token"],
+              properties: { token: { type: "string", minLength: 1, maxLength: 512 } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "WaitlistEstimate#" } },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          // One detail for every failure (bad token, wrong venue, gone entry) so
+          // the response is not an oracle.
+          const notFound = () =>
+            reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "No such waitlist entry for this venue."));
+    
+          const venueId = await resolveVenueId("venue_slug", slug);
+          if (!venueId) return notFound();
+    
+          const verified = verifyWaitlistStatusToken(request.query.token, venueId);
+          if (!verified.valid) return notFound();
+    
+          return runWithVenueContext(venueId, async () => {
+            const entry = await waitlistService.getById(verified.entryId);
+            if (!entry || entry.venueId !== venueId) return notFound();
+    
+            const [live] = await waitlistService.withLiveEstimates([entry]);
+            return reply.send({
+              data: {
+                position: entry.position,
+                estimatedWaitMinutes: (live ?? entry).estimatedWaitMinutes,
+                status: entry.status,
               },
             });
           });
@@ -6742,7 +6811,9 @@
           },
         },
         venueScoped({ venue: "query" }, async (_request, reply, { venueId }) => {
-          const entries = await waitlistService.listActive(venueId);
+          const entries = await waitlistService.withLiveEstimates(
+            await waitlistService.listActive(venueId)
+          );
           return reply.send({ data: entries });
         })
       );
@@ -6774,7 +6845,10 @@
         },
         venueScoped(
           { venue: { ...entryVenue, load: (id) => waitlistService.getById(id) } },
-          async (_request, reply, { entity }) => reply.send({ data: entity })
+          async (_request, reply, { entity }) => {
+            const [live] = await waitlistService.withLiveEstimates([entity]);
+            return reply.send({ data: live ?? entity });
+          }
         )
       );
     
@@ -9886,6 +9960,33 @@
         updatedAt: guest.updatedAt.toISOString(),
       };
     }
+    async function countVipAndNew(venueId: string): Promise<{ vip: number; fresh: number }> {
+      // `$queryRaw` bypasses venue-scoped-prisma's per-call wrap and `guests` is FORCE RLS, so open
+      // an explicit transaction and set app.venue_id first or the count sees 0 rows (ADR-026 part 6).
+      const rows = await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$queryRaw<{ vip: number; fresh: number }[]>`
+        SELECT
+          count(*) FILTER (WHERE is_vip)::int AS vip,
+          count(*) FILTER (WHERE NOT is_vip AND visit_count < ${REPEAT_VISIT_THRESHOLD})::int AS fresh
+        FROM (
+          SELECT
+            visit_count,
+            (
+              visit_count >= ${VIP_VISIT_THRESHOLD}
+              OR CASE
+                WHEN jsonb_typeof(tags) = 'array' THEN EXISTS (
+                  SELECT 1 FROM jsonb_array_elements_text(tags) AS tag WHERE lower(tag) = ${VIP_TAG}
+                )
+                ELSE false
+              END
+            ) AS is_vip
+          FROM guests
+          WHERE venue_id = ${venueId}
+        ) AS g`;
+      });
+      return { vip: rows[0]?.vip ?? 0, fresh: rows[0]?.fresh ?? 0 };
+    }
     export const guestService = {
       async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
         const [guests, total] = await Promise.all([
@@ -10178,10 +10279,9 @@
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     
-        const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
+        const [totalGuests, recentVisitors, atRiskGuests, lapsedGuests, segmentCounts] =
           await Promise.all([
             prisma.guest.count({ where: { venueId } }),
-            prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
             prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
             prisma.guest.count({
               where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
@@ -10192,16 +10292,21 @@
                 OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
               },
             }),
-            prisma.guest.count({ where: { venueId, visitCount: 0 } }),
+            countVipAndNew(venueId),
           ]);
+        const { vip: vipGuests, fresh: newGuests } = segmentCounts;
     
         return [
           { name: "All Guests", description: "Total guests in database", count: totalGuests },
-          { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
+          {
+            name: "VIP",
+            description: `Tagged VIP or ${VIP_VISIT_THRESHOLD}+ visits`,
+            count: vipGuests,
+          },
           { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
           { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
           { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
-          { name: "New", description: "Booked but never visited", count: newGuests },
+          { name: "New", description: `Fewer than ${REPEAT_VISIT_THRESHOLD} visits`, count: newGuests },
         ];
       },
     
@@ -14512,6 +14617,55 @@
       },
     };
   </file>
+  <file path="src/services/waitlist-estimate.ts">
+    export type EstimateTable = TableFilter;
+    export interface EstimateReservation {
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      status: string;
+    }
+    export interface EstimateInput {
+      /** 1-based place in the waiting queue. */
+      position: number;
+      partySize: number;
+      now: Date;
+      tables: readonly EstimateTable[];
+      reservations: readonly EstimateReservation[];
+      settings?: VenueSettings | null;
+    }
+    function freeInMs(
+      tableId: string,
+      now: number,
+      durationMs: number,
+      reservations: readonly EstimateReservation[]
+    ): number | null {
+      const own = reservations.filter((r) => r.tableId === tableId && OCCUPYING_STATUSES.has(r.status));
+      const blockedByUpcoming = own.some(
+        (r) => r.startTime.getTime() > now && r.startTime.getTime() < now + durationMs
+      );
+      if (blockedByUpcoming) return null;
+    
+      const current = own.find((r) => r.startTime.getTime() <= now && r.endTime.getTime() > now);
+      return current ? current.endTime.getTime() - now : 0;
+    }
+    export function estimateWaitFromTurnover(input: EstimateInput): number | null {
+      const { position, partySize, now, tables, reservations, settings } = input;
+      const durationMs = estimateDuration(partySize, settings) * MS_PER_MINUTE;
+    
+      const freeTimes = filterSuitableTables([...tables], partySize)
+        .map((t) => freeInMs(t.id, now.getTime(), durationMs, reservations))
+        .filter((ms): ms is number => ms !== null)
+        .sort((a, b) => a - b);
+    
+      if (freeTimes.length === 0) return null;
+    
+      const index = (position - 1) % freeTimes.length;
+      const cycles = Math.floor((position - 1) / freeTimes.length);
+      const waitMs = (freeTimes[index] ?? 0) + cycles * durationMs;
+      return Math.round(waitMs / MS_PER_MINUTE);
+    }
+  </file>
   <file path="src/services/waitlist-notifier.ts">
     export interface WaitlistNotifierLogger {
       error(obj: Record<string, unknown>, msg: string): void;
@@ -14692,6 +14846,37 @@
       return notifier;
     }
   </file>
+  <file path="src/services/waitlist-status-token.ts">
+    export const WAITLIST_STATUS_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+    function sign(entryId: string, venueId: string, expiry: string): string {
+      return createHmac("sha256", TOKEN_SECRET)
+        .update(`waitlist:${entryId}:${venueId}:${expiry}`)
+        .digest("hex");
+    }
+    export function generateWaitlistStatusToken(
+      entryId: string,
+      venueId: string,
+      now: number = Date.now()
+    ): string {
+      const expiry = String(now + WAITLIST_STATUS_TOKEN_TTL_MS);
+      return Buffer.from(`${entryId}:${expiry}:${sign(entryId, venueId, expiry)}`).toString(
+        "base64url"
+      );
+    }
+    export function verifyWaitlistStatusToken(
+      token: string,
+      venueId: string,
+      now: number = Date.now()
+    ): { valid: false } | { valid: true; entryId: string } {
+      const parts = Buffer.from(token, "base64url").toString().split(":");
+      if (parts.length !== 3) return { valid: false };
+      const [entryId, expiry, signature] = parts as [string, string, string];
+    
+      if (!secureCompareHex(signature, sign(entryId, venueId, expiry))) return { valid: false };
+      if (!(Number(expiry) > now)) return { valid: false };
+      return { valid: true, entryId };
+    }
+  </file>
   <file path="src/services/waitlist-utils.ts">
     export function calculatePosition(existingCount: number): number {
       return existingCount + 1;
@@ -14731,6 +14916,26 @@
       guestPhone: string;
       avgTurnTimeMinutes?: number;
     }
+    async function loadEstimator(
+      venueId: string,
+      now: Date
+    ): Promise<(position: number, partySize: number) => number | null> {
+      const [venue, tables, reservations] = await Promise.all([
+        prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
+        prisma.table.findMany({ where: { venueId, isActive: true } }),
+        prisma.reservation.findMany({
+          where: {
+            venueId,
+            status: { in: ["PENDING", "CONFIRMED"] },
+            endTime: { gt: now },
+            startTime: { lt: new Date(now.getTime() + LOOKAHEAD_MS) },
+          },
+        }),
+      ]);
+      const settings = venue?.settings as VenueSettings | null | undefined;
+      return (position, partySize) =>
+        estimateWaitFromTurnover({ position, partySize, now, tables, reservations, settings });
+    }
     async function recalculateVenuePositions(venueId: string): Promise<void> {
       const waitingEntries = await prisma.waitlistEntry.findMany({
         where: { venueId, status: "waiting" },
@@ -14764,14 +14969,16 @@
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
         const { venueId, partySize, guestName, guestPhone, avgTurnTimeMinutes } = input;
-        const turnTime = avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
     
         const existingCount = await prisma.waitlistEntry.count({
           where: { venueId, status: "waiting" },
         });
     
         const position = calculatePosition(existingCount);
-        const estimatedWait = estimateWaitMinutes(position, turnTime);
+        const estimatedWait =
+          avgTurnTimeMinutes !== undefined
+            ? estimateWaitMinutes(position, avgTurnTimeMinutes)
+            : ((await loadEstimator(venueId, new Date()))(position, partySize) ?? 0);
     
         return prisma.waitlistEntry.create({
           data: {
@@ -14782,6 +14989,22 @@
             position,
             estimatedWaitMinutes: estimatedWait,
           },
+        });
+      },
+    
+      /**
+       * Replaces each waiting entry's stored (join-time) estimate with one computed
+       * from current table turnover. Entries that no table can seat keep their
+       * stored value. Computed on every read, never persisted.
+       */
+      async withLiveEstimates<T extends WaitlistEntryData>(entries: T[]): Promise<T[]> {
+        const first = entries[0];
+        if (!first) return entries;
+        const estimate = await loadEstimator(first.venueId, new Date());
+        return entries.map((entry) => {
+          if (entry.status !== "waiting") return entry;
+          const minutes = estimate(entry.position, entry.partySize);
+          return minutes === null ? entry : { ...entry, estimatedWaitMinutes: minutes };
         });
       },
     

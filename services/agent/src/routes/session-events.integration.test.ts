@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { AgentSessionEvent } from "@mbe/types";
-import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
+import { buildBugFixFixture } from "@mbe/agent-test-utils";
 
 /**
  * Integration tests for the session events SSE endpoint.
@@ -57,6 +57,7 @@ vi.mock("../services/session-executor.js", () => ({
 }));
 
 const { prisma } = await import("../services/database.js");
+const { projectEvent } = await import("../services/storage-event-mapper.js");
 const { getSessionEventEmitter } = await import("../services/session-event-emitter.js");
 const { buildApp } = await import("../app.js");
 
@@ -122,11 +123,11 @@ describe("Session Events SSE Integration", () => {
       sdkSessionId: null,
     } as unknown as never);
 
-    const events = buildMinimalSuccessFixture({ sessionId: "session-1" }).map((e, i) => ({
+    // Replay the STORED shape (what the DB holds), not the in-memory event shape.
+    const events = buildBugFixFixture({ sessionId: "session-1" }).map((e, i) => ({
       id: `evt-${i}`,
       sessionId: "session-1",
-      type: e.type,
-      data: e.data,
+      ...projectEvent(e),
       createdAt: new Date(),
     }));
 
@@ -139,6 +140,9 @@ describe("Session Events SSE Integration", () => {
     });
 
     expect(response.headers["content-type"]).toContain("text/event-stream");
+    // Stored-shape fields from projectEvent (not the in-memory tool_use shape).
+    expect(response.body).toContain('"toolName":"Read"');
+    expect(response.body).toContain('"toolInput":{"file_path":"/repo/src/auth.ts"}');
   });
 
   it("returns 404 for non-existent session", async () => {

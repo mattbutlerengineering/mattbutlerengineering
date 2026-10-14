@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { mapForStorage } from "./storage-event-mapper.js";
+import { buildBugFixFixture } from "@mbe/agent-test-utils";
+import { mapForStorage, projectEvent } from "./storage-event-mapper.js";
 import type {
   ToolUseEvent,
   ToolResultEvent,
@@ -187,5 +188,25 @@ describe("mapForStorage", () => {
       expect(typeof result.data).toBe("object");
       expect(result.data).not.toBeNull();
     });
+  });
+});
+
+describe("projectEvent", () => {
+  it("projects fixture tool_use events to the stored {toolName, toolInput} shape", () => {
+    const stored = buildBugFixFixture()
+      .map(projectEvent)
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    const toolUses = stored.filter((e) => e.type === "session:tool_use");
+
+    expect(toolUses.map((e) => e.data.toolName)).toEqual(["Read", "Grep", "Edit", "Bash"]);
+    expect(toolUses[0]?.data).toEqual({
+      toolName: "Read",
+      toolInput: { file_path: "/repo/src/auth.ts" },
+    });
+  });
+
+  it("stores plain message events verbatim", () => {
+    const [start] = buildBugFixFixture();
+    expect(start && projectEvent(start)).toEqual({ type: "session:start", data: start?.data });
   });
 });

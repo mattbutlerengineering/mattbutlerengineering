@@ -77,7 +77,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-14",
     "escalated_at": null
   },
   "rialto-web|components/avatar|r1|accessibility/axe-serious": {
@@ -95,7 +95,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-14",
     "escalated_at": null
   },
   "rialto-web|components/data-list|r1|accessibility/axe-serious": {
@@ -104,7 +104,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-14",
     "escalated_at": null
   },
   "rialto-web|components/dialog|r1|accessibility/axe-serious": {
@@ -122,7 +122,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-10-01",
+    "last_seen": "2026-10-14",
     "escalated_at": null
   },
   "rialto-web|components/drawer|r1|accessibility/axe-serious": {
