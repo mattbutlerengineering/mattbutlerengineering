@@ -22,6 +22,18 @@
       "types": "./dist/lib/hooks/index.d.ts",
       "import": "./dist/lib/hooks/index.js"
     },
+    "./locales/en-GB": {
+      "types": "./dist/lib/i18n/locales/en-GB.d.ts",
+      "import": "./dist/lib/i18n/locales/en-GB.js"
+    },
+    "./locales/es-MX": {
+      "types": "./dist/lib/i18n/locales/es-MX.d.ts",
+      "import": "./dist/lib/i18n/locales/es-MX.js"
+    },
+    "./locales/fr-CA": {
+      "types": "./dist/lib/i18n/locales/fr-CA.d.ts",
+      "import": "./dist/lib/i18n/locales/fr-CA.js"
+    },
     "./Accordion": {
       "types": "./dist/lib/components/Accordion/index.d.ts",
       "import": "./dist/lib/components/Accordion/index.js"
@@ -467,6 +479,21 @@
       "name": "Motion tokens",
       "path": "dist/lib/motion.js",
       "limit": "1 kB"
+    },
+    {
+      "name": "Locale en-GB (subpath)",
+      "path": "dist/lib/i18n/locales/en-GB.js",
+      "limit": "1.5 kB"
+    },
+    {
+      "name": "Locale es-MX (subpath)",
+      "path": "dist/lib/i18n/locales/es-MX.js",
+      "limit": "1.5 kB"
+    },
+    {
+      "name": "Locale fr-CA (subpath)",
+      "path": "dist/lib/i18n/locales/fr-CA.js",
+      "limit": "1.5 kB"
     },
     {
       "name": "Button (subpath)",

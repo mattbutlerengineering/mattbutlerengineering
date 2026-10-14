@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { introspectComponents } from "./component-metadata.js";
+import { RIALTO_LOCALE_TAGS } from "./lib-entrypoints.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_ROOT = path.resolve(here, "..");
@@ -59,6 +60,12 @@ export function buildExportsMap(rootDir: string): ExportsMap {
     types: "./dist/lib/hooks/index.d.ts",
     import: "./dist/lib/hooks/index.js",
   };
+  for (const tag of RIALTO_LOCALE_TAGS) {
+    exportsMap[`./locales/${tag}`] = {
+      types: `./dist/lib/i18n/locales/${tag}.d.ts`,
+      import: `./dist/lib/i18n/locales/${tag}.js`,
+    };
+  }
 
   // One subpath per component directory, derived from the canonical model.
   // Only include subpaths that actually correspond to a directory under

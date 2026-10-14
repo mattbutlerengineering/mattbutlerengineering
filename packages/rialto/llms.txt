@@ -1220,6 +1220,23 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="locales">
+  <file path="src/i18n/locales/en-GB.ts">
+    <item priority="high">
+      export const enGB: RialtoMessages;
+    </item>
+  </file>
+  <file path="src/i18n/locales/es-MX.ts">
+    <item priority="high">
+      export const esMX: RialtoMessages;
+    </item>
+  </file>
+  <file path="src/i18n/locales/fr-CA.ts">
+    <item priority="high">
+      export const frCA: RialtoMessages;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="providers">
   <file path="src/providers/reduced-data.ts">
     <item priority="high">
@@ -1635,6 +1652,9 @@
     </item>
     <item priority="medium">
       function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const RIALTO_LOCALE_TAGS: unknown;
     </item>
     <item priority="high">
       export const libEntries: LibEntry[];

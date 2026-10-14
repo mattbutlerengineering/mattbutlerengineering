@@ -32,7 +32,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `{ locale: undefined, messages: enUS }` without throwing; with provider gets the
     supplied values; existing rialto test suite and visual baselines unchanged.
   - Blocked by: —
-- [ ] **Rialto locale subpaths** — `locales/en-GB.ts` (spreads en-US), `es-MX.ts`,
+- [x] **Rialto locale subpaths** — `locales/en-GB.ts` (spreads en-US), `es-MX.ts`,
       `fr-CA.ts` exported as `@mattbutlerengineering/rialto/locales/<locale>`.
   - Accept: each module typechecks as `RialtoMessages` (removing a key fails
     `pnpm typecheck`); `exports:check` passes; size-limit has an entry per locale
@@ -213,3 +213,9 @@ none.
 - 2026-10-13 (Rialto messages core): rialto changesets are **patch**, not minor —
   `packages/rialto/CLAUDE.md` says every pre-1.0 release is a patch bump. Overrides the
   "minor changeset" wording in Milestone 4.
+- 2026-10-13 (Rialto locale subpaths): found that `tsconfig.lib.json` did not include
+  `src/i18n`, so the previous item's `./providers` re-exports shipped with no `.d.ts`
+  (source typecheck can't see it). Fixed by adding `src/i18n` to the include, and guarded
+  by a `generate-exports.test.ts` case requiring every library entry's source to be under
+  that include. Locale subpath budgets are 1.5 kB each (≈130 B today; headroom for the
+  full ≈50-string inventory).

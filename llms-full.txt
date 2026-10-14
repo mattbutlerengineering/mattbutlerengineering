@@ -16001,6 +16001,23 @@
     }
   </file>
   </section>
+  <section priority="medium" role="locales">
+  <file path="packages/rialto/src/i18n/locales/en-GB.ts">
+    export const enGB: RialtoMessages = { ...enUS };
+  </file>
+  <file path="packages/rialto/src/i18n/locales/es-MX.ts">
+    export const esMX: RialtoMessages = {
+      dismiss: "Descartar",
+      close: "Cerrar",
+    };
+  </file>
+  <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
+    export const frCA: RialtoMessages = {
+      dismiss: "Ignorer",
+      close: "Fermer",
+    };
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="services/reservations/src/middleware/public-rate-limit.ts">
     interface RateLimitEntry {
@@ -29416,6 +29433,12 @@
         types: "./dist/lib/hooks/index.d.ts",
         import: "./dist/lib/hooks/index.js",
       };
+      for (const tag of RIALTO_LOCALE_TAGS) {
+        exportsMap[`./locales/${tag}`] = {
+          types: `./dist/lib/i18n/locales/${tag}.d.ts`,
+          import: `./dist/lib/i18n/locales/${tag}.js`,
+        };
+      }
     
       // One subpath per component directory, derived from the canonical model.
       // Only include subpaths that actually correspond to a directory under
@@ -29986,6 +30009,7 @@
       entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
       return entries;
     }
+    export const RIALTO_LOCALE_TAGS = ["en-GB", "es-MX", "fr-CA"] as const;
     export const libEntries: LibEntry[] = [
       // Root barrel — preserved for back-compat with `import { x } from "@.../rialto"`.
       {
@@ -30014,6 +30038,7 @@
         source: path.join(repoRoot, "src/hooks/index.ts"),
         chunkName: "hooks/index",
       },
+      ...localeEntries,
       ...componentEntries,
     ];
     export function viteEntryMap(): Record<string, string> {
