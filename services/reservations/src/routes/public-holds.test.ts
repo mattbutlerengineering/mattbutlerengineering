@@ -705,3 +705,54 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
     expect(afterConfirm.statusCode).toBe(201);
   });
 });
+
+// PR #6610 review: `publicVenueScoped` must not decide whether `before`
+// answered by reading `reply.sent` — in Fastify 5 that is
+// `raw.writableEnded`, which only flips once every async onSend hook has
+// finished. With two of them registered, a `before` that sent 401 used to
+// fall through to the handler, reaching hold reads and `confirmHold` with no
+// session id (the #4487 hijack shape).
+describe("public hold routes behind two async onSend hooks", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({ logger: false });
+    for (const name of ["x-probe-a", "x-probe-b"]) {
+      app.addHook("onSend", async (_request, reply) => {
+        reply.header(name, "1");
+      });
+    }
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.clearAllMocks();
+  });
+
+  it("GET answers 401 without a session id and never reads the hold", async () => {
+    const response = await app.inject({ method: "GET", url: HOLD_URL });
+
+    expect(response.statusCode).toBe(401);
+    expect(resolveVenueId).not.toHaveBeenCalled();
+    expect(holdService.getById).not.toHaveBeenCalled();
+  });
+
+  it("confirm answers 401 without a session id and never confirms the hold", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(resolveVenueId).not.toHaveBeenCalled();
+    expect(confirmHold).not.toHaveBeenCalled();
+  });
+});

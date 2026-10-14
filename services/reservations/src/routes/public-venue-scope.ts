@@ -47,8 +47,13 @@ export interface PublicVenueScopeSpec<RG extends RouteGenericInterface> {
   readonly notFound?: (slug: string) => PublicNotFound | Error;
   /**
    * Checks that must answer before the slug is looked up (a per-IP cap, a
-   * required capability header), so an unknown slug cannot mask them. Send a
-   * reply to stop the request; send nothing to continue.
+   * required capability header), so an unknown slug cannot mask them.
+   *
+   * To stop the request, send a reply AND return it (any truthy value works);
+   * return nothing to continue. The return value is the signal: `reply.sent`
+   * alone is not, because in Fastify 5 it is `raw.writableEnded`, which only
+   * flips after every async onSend hook has run — so a `before` that sent but
+   * returned nothing could fall through into the handler.
    */
   readonly before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
 }
@@ -76,10 +81,13 @@ export function publicVenueScoped<RG extends RouteGenericInterface = RouteGeneri
   const notFound = spec.notFound ?? defaultNotFound;
 
   async function scopedHandler(request: RequestOf<RG>, reply: FastifyReply): Promise<unknown> {
-    // Not `await`ed for its value: a FastifyReply is thenable, so awaiting the
-    // result of `reply.send()` would resolve to `undefined`, not the reply.
-    await spec.before?.(request, reply as ReplyOf<RG>);
-    if (reply.sent) return reply;
+    // Only a real Promise is awaited: a FastifyReply is thenable, so awaiting
+    // a returned reply would resolve to `undefined` and lose the stop signal.
+    // An async `before` that returns its reply settles only once the response
+    // has finished, so `reply.sent` covers that case.
+    const outcome = spec.before?.(request, reply as ReplyOf<RG>);
+    const stop = outcome instanceof Promise ? await outcome : outcome;
+    if (stop || reply.sent) return reply;
 
     const slug = spec.slug(request);
     const venueId = await resolveVenueId("venue_slug", slug);

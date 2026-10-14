@@ -42,48 +42,58 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    publicVenueScoped({ slug: (request) => request.params.slug }, async (request, reply) => {
-      const { slug } = request.params;
-      const { email, phone } = request.query;
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        // The missing-query 400 answers before the slug lookup, as it always did.
+        before: (request, reply) =>
+          !request.query.email && !request.query.phone
+            ? reply
+                .status(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "email or phone query parameter is required"
+                  )
+                )
+            : undefined,
+      },
+      async (request, reply) => {
+        const { slug } = request.params;
+        const { email, phone } = request.query;
 
-      if (!email && !phone) {
-        return reply
-          .status(400)
-          .send(
-            createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
-          );
-      }
+        // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
+        // run the guest lookup inside that venue's RLS context.
 
-      // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
-      // run the guest lookup inside that venue's RLS context.
+        const venue = await venueService.getBySlug(slug);
+        if (!venue) {
+          return reply
+            .status(404)
+            .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
+        }
 
-      const venue = await venueService.getBySlug(slug);
-      if (!venue) {
-        return reply
-          .status(404)
-          .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
-      }
+        const guest = email
+          ? await guestService.findByEmail(venue.id, email)
+          : phone
+            ? await guestService.findByPhone(venue.id, phone)
+            : null;
 
-      const guest = email
-        ? await guestService.findByEmail(venue.id, email)
-        : phone
-          ? await guestService.findByPhone(venue.id, phone)
-          : null;
+        if (!guest) {
+          // Unknown guest — no deposit. The named score stays off this public body.
+          return reply.send({
+            data: { requiresDeposit: false },
+          });
+        }
 
-      if (!guest) {
-        // Unknown guest — no deposit. The named score stays off this public body.
+        const riskScore = assessGuestReliability(guest, venue.settings);
+
         return reply.send({
-          data: { requiresDeposit: false },
+          data: {
+            requiresDeposit: riskScore === "risky",
+          },
         });
       }
-
-      const riskScore = assessGuestReliability(guest, venue.settings);
-
-      return reply.send({
-        data: {
-          requiresDeposit: riskScore === "risky",
-        },
-      });
-    })
+    )
   );
 };

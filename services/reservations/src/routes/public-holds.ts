@@ -188,7 +188,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         slug: (request) => request.params.slug,
         notFound: venueNotFound,
         // The session header answers 401 before the slug lookup, as it always did.
-        before: (request, reply) => void readSessionId(request, reply, "read"),
+        before: (request, reply) =>
+          readSessionId(request, reply, "read") === null ? reply : undefined,
       },
       async (request, reply, { venueId }) => {
         const { holdId } = request.params;
@@ -237,7 +238,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         slug: (request) => request.params.slug,
         notFound: venueNotFound,
         // The session header answers 401 before the slug lookup, as it always did.
-        before: (request, reply) => void readSessionId(request, reply, "confirm"),
+        before: (request, reply) =>
+          readSessionId(request, reply, "confirm") === null ? reply : undefined,
       },
       async (request, reply, { venueId }) => {
         const { holdId } = request.params;
