@@ -30,7 +30,8 @@ this failure mode).
 Stop at the first step that doesn't clear — never fall through to the merge
 step on anything but a clean pass.
 
-1. **Precondition.** Confirm the PR is open. If it's a draft and `--ready`
+1. **Precondition.** Confirm the PR is open and read its draft state:
+   `gh pr view <N> --json state,isDraft,labels,headRefOid`. If it's a draft and `--ready`
    was not passed, stop and report "draft PR — pass `--ready` to proceed."
    If `--ready` was passed, run `gh pr ready <N>`.
 
@@ -59,7 +60,13 @@ step on anything but a clean pass.
    named, per that section's table — do not re-derive the handling for
    `failed`/`pending`/`gate-missing`/`gate-unattributed`/`unknown` here.
 
-4. **Review.** Follow `.claude/implement-queue.md` § reviewers (and the
+4. **Review.** First read the changed files (`gh pr diff <N> --name-only`)
+   and the labels from step 1. `qualifiesForLowRiskFastPath` returns `true`
+   for a docs-only diff that touches `**/prd.md` or `**/architecture.md`,
+   yet the profile holds those for a human merge (ADR-0087) — so a gate-path
+   match or a `needs-review` label is checked **before** the fast path is
+   consulted, not after (found in the #6639 dry walk-through on #6674). A
+   gate-path PR still gets the review below, then step 5 holds it. Follow `.claude/implement-queue.md` § reviewers (and the
    `fast-path` hook's `qualifiesForLowRiskFastPath` short-circuit, which
    composes `isLowRiskPR` with `reviewersForDiff` and already decides when
    review can be skipped — don't re-decide it here): dispatch the
@@ -78,7 +85,8 @@ step on anything but a clean pass.
 
    A changed file matching a gate path (`docs/adr/**`, `docs/design/**`,
    `**/prd.md`, `**/architecture.md`) holds the PR for a human merge instead
-   — per that section, not re-derived here. If GitHub reports the PR
+   — do not run the merge command; report `held for human merge — gate
+path` (per that section, not re-derived here). If GitHub reports the PR
    `CLEAN` and refuses `--auto`, merge directly with the same command minus
    `--auto`. If the merge call itself is denied with
    `[Merge Without Review]` (Claude Code Remote sessions, gotchas § CCR
@@ -94,7 +102,7 @@ PR #<N>
   CI:       <classifyCiGateStatus state>
   Reviewers: <specialist list + verdicts, or "fast path — skipped">
   Universal: <reviewer verdict, or "fast path — skipped">
-  Action:   <armed --auto | merged directly | stopped at <step> — <reason>>
+  Action:   <armed --auto | merged directly | held for human merge | stopped at <step> — <reason>>
 ```
 
 ## Scope
