@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
 import styles from "./Breadcrumb.module.css";
 
@@ -69,6 +70,7 @@ const ChevronSeparator = (
 /* ── Component ──────────────────────────────── */
 export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
   ({ items, maxItems = 0, separator, className = "", ...rest }, ref) => {
+    const { messages } = useRialtoLocale();
     const sep = separator ?? ChevronSeparator;
 
     // Determine which items to display
@@ -88,7 +90,7 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
     return (
       <nav
         ref={ref}
-        aria-label={rest["aria-labelledby"] ? undefined : "Breadcrumb"}
+        aria-label={rest["aria-labelledby"] ? undefined : messages.breadcrumb}
         {...rest}
         className={cn(styles.nav, className)}
       >

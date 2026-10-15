@@ -92,7 +92,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
   - Accept: each component renders es-MX text under a provider and byte-identical English
     with none; those component directories added to rialto lint scope.
   - Blocked by: Rialto locale subpaths
-- [ ] **Rialto migration — navigation & data** — Pagination, Calendar, DateRange,
+- [x] **Rialto migration — navigation & data** — Pagination, Calendar, DateRange,
       DatePicker, DateRangePicker, TimePicker, NumberInput, Breadcrumb, Steps, Timeline,
       Sidebar, NavigationMenu, GlobalNav, Navbar, Skeleton, ScrollArea, ImageUpload,
       Odometer; context locale becomes the `Intl` fallback. (tracker: #6616)
