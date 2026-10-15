@@ -192,7 +192,7 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Settings" description="Manage your account settings and preferences" />
 
-      <Stack gap="md">
+      <Stack gap="md" data-testid="primary-content">
         {error && (
           <Alert variant="error" dismissible onDismiss={() => setError(null)}>
             {error}
