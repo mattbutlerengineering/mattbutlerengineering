@@ -2774,6 +2774,12 @@
           "type": "ReactNode",
           "required": false,
           "description": "Content rendered at the bottom of the navbar (e.g., version info, logout button)."
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the nav landmark. A consumer `aria-label` / `aria-labelledby` takes precedence."
         }
       ],
       "slots": [
