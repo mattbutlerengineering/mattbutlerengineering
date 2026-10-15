@@ -100,6 +100,40 @@ describe("LocalePicker", () => {
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
   });
 
+  it("keeps the trigger enabled and focused while a switch is pending (focus is not dropped to body)", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const { runtime } = makeRuntime({
+      loadAppCatalog: async () => {
+        await gate;
+        return esMX;
+      },
+    });
+    const { container } = renderPicker(runtime);
+    const trigger = screen.getByRole("button", { name: /Language/ });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.keyDown(screen.getAllByRole("menuitem")[0]!, { key: "End" });
+    fireEvent.keyDown(screen.getAllByRole("menuitem")[3]!, { key: "ArrowUp" });
+    fireEvent.keyDown(screen.getAllByRole("menuitem")[2]!, { key: "Enter" });
+    await screen.findByRole("status");
+    expect(trigger).not.toBeDisabled();
+    expect(container.firstElementChild).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(trigger).toHaveFocus());
+    release();
+    await waitFor(() => expect(runtime.i18n.language).toBe("es-MX"));
+    expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
+  });
+
+  it("marks the current locale's endonym with its own lang", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime);
+    expect(screen.getByText("English (US)", { selector: "[lang]" })).toHaveAttribute(
+      "lang",
+      "en-US"
+    );
+  });
+
   it("on rejection keeps the value, shows Retry, and Retry succeeds", async () => {
     let fail = true;
     const { runtime } = makeRuntime({

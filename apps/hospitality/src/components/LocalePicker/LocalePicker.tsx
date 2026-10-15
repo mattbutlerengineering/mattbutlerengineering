@@ -52,36 +52,29 @@ export function LocalePicker({
   const triggerName = t("localePicker.triggerName", { locale: currentEndonym });
 
   return (
-    <div className={styles.root} data-variant={variant}>
+    <div className={styles.root} data-variant={variant} aria-busy={pending !== null || undefined}>
       <div className={styles.row}>
         {variant === "settings" ? (
           <Select
             label={t("localePicker.label")}
             options={SUPPORTED_LOCALES.map((l) => ({ value: l.tag, label: l.endonym }))}
             value={current}
-            disabled={pending !== null}
             onChange={(value) => void pick(value as LocaleTag)}
           />
         ) : (
           <DropdownMenu
             trigger={
-              <Button
-                variant="ghost"
-                size="sm"
-                className={styles.trigger}
-                aria-label={triggerName}
-                disabled={pending !== null}
-              >
+              <Button variant="ghost" size="sm" className={styles.trigger} aria-label={triggerName}>
                 <Text as="span" aria-hidden>
                   🌐
                 </Text>
                 {variant === "compact" ? (
-                  <Text as="span" aria-hidden>
+                  <Text as="span" aria-hidden lang={current}>
                     {current.toUpperCase()}
                   </Text>
                 ) : (
                   !collapsed && (
-                    <Text as="span" aria-hidden>
+                    <Text as="span" aria-hidden lang={current}>
                       {currentEndonym}
                     </Text>
                   )

@@ -112,12 +112,14 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "axe-core": "^4.14.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "catalog:",
+    "vitest-axe": "^0.1.0",
     "zod": "^4.6.6"
   },
   "license": "MIT"
