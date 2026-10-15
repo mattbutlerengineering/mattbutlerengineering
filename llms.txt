@@ -1809,7 +1809,7 @@
   </file>
   <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
     <item priority="high">
-      export const SESSION_LAPSE_COPY: unknown;
+      export function getSessionLapseCopy(t: TFunction) { /* ... */ }
     </item>
   </file>
   </section>
@@ -5101,7 +5101,10 @@
       function oidcErrorCode(error: Error): string { /* ... */ }
     </item>
     <item priority="high">
-      export function describeAuthError(error: Error): AuthErrorDescription { /* ... */ }
+      export function describeAuthError(
+        error: Error,
+        t: TFunction = localeRuntime.i18n.t
+      ): AuthErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
@@ -10230,20 +10233,35 @@
     </item>
     <item priority="low">
       interface NavSection {
+        id?: string;
         label?: string;
         items: NavItem[];
       }
     </item>
-    <item priority="medium">
-      function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] { /* ... */ }
+    <item priority="high">
+      export const ACCOUNT_SECTION_ID: unknown;
     </item>
     <item priority="medium">
-      function buildOperationalSections(isAdmin: boolean): readonly NavSection[] { /* ... */ }
+      function buildAccount(t: TFunction): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAdmin(t: TFunction): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildSetupSections(
+        readiness: VenueReadiness,
+        isAdmin: boolean,
+        t: TFunction
+      ): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavSection[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildNavSections(
         readiness: VenueReadiness,
-        isAdmin: boolean
+        isAdmin: boolean,
+        t: TFunction = defaultT()
       ): readonly NavSection[] { /* ... */ }
     </item>
   </file>
