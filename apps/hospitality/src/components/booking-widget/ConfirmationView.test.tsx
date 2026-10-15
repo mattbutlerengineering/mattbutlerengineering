@@ -5,7 +5,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ConfirmationView } from "./ConfirmationView.js";
 import { Stack, Text } from "@mattbutlerengineering/rialto";
-import { CONFIRMATION_COPY, contactLine } from "../../constants/confirmation-copy.js";
+import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
+import enUS from "../../i18n/catalogs/en-US.json";
+
+const contactLine = (contact: string) =>
+  enUS.bookingWidget.confirmation.contactLine.replace("{{contact}}", contact);
 import {
   EMPTY_NOTES,
   TWO_LINE_DISPLAYED,

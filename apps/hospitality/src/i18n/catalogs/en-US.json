@@ -496,5 +496,187 @@
     "loadError": "Couldn't load {{locale}}",
     "retry": "Retry",
     "machineTranslated": "Translations are machine-generated."
+  },
+  "bookingWidget": {
+    "title": "Make a Reservation",
+    "subtitle": {
+      "dateParty": "Select your date and party size",
+      "timeSlot": "Choose an available time",
+      "guestDetails": "Enter your details to confirm",
+      "payment": "Secure your reservation with a deposit"
+    },
+    "steps": {
+      "dateParty": "Date & Party",
+      "time": "Time",
+      "details": "Details",
+      "payment": "Payment"
+    },
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "back": "← Back",
+    "estimatedWait": "Estimated wait: ~{{minutes}} min",
+    "dateParty": {
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "date": "Date",
+      "partySize": "Party Size",
+      "largePartyCall": "For parties larger than {{max}}, call us at <phoneLink>{{phone}}</phoneLink>.",
+      "largePartyContact": "For parties larger than {{max}}, please contact the venue directly.",
+      "findTimes": "Find Available Times",
+      "dateHint": "Choose a date from today onward to see available times."
+    },
+    "timeSlot": {
+      "changeSearch": "← Change date or party size",
+      "noHoursStaffHeading": "No operating hours set",
+      "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
+      "setHours": "Set Operating Hours",
+      "noHoursGuestHeading": "Online booking isn't available yet",
+      "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
+      "noTimesHeading": "No available times",
+      "tryDifferent": "Try a different date or party size.",
+      "joinWaitlist": "Join Waitlist",
+      "periods": {
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "late": "Late Night"
+      },
+      "periodTimes": {
+        "lunch": "Available lunch times",
+        "dinner": "Available dinner times",
+        "late": "Available late night times"
+      },
+      "selected": "Selected:",
+      "tablesAvailable_one": "{{count}} table available",
+      "tablesAvailable_other": "{{count}} tables available"
+    },
+    "details": {
+      "holdExpires": "Hold expires in: {{time}}",
+      "holdExpired": "Expired",
+      "summaryTitle": "Reservation Details",
+      "welcomeBack_ordinal_one": "Welcome back, {{name}} — your {{count}}st visit!",
+      "welcomeBack_ordinal_two": "Welcome back, {{name}} — your {{count}}nd visit!",
+      "welcomeBack_ordinal_few": "Welcome back, {{name}} — your {{count}}rd visit!",
+      "welcomeBack_ordinal_other": "Welcome back, {{name}} — your {{count}}th visit!",
+      "preferencesOnFile": "Preferences on file",
+      "name": "Name",
+      "namePlaceholder": "John Smith",
+      "email": "Email",
+      "emailPlaceholder": "john@example.com",
+      "phone": "Phone",
+      "contactHint": "Please provide either email or phone for confirmation.",
+      "requestsPlaceholder": "Allergies, celebrations, seating preferences...",
+      "confirming": "Confirming...",
+      "complete": "Complete Reservation"
+    },
+    "payment": {
+      "depositRequired": "Deposit Required",
+      "perPerson_one": "({{count}} guest × {{amount}})",
+      "perPerson_other": "({{count}} guests × {{amount}})",
+      "authorizeNotice": "Your card will be authorized for {{amount}}. The charge is only captured if you don't cancel within the policy window.",
+      "cancellationPolicy": "Cancellation Policy",
+      "cardDetails": "Card Details",
+      "processing": "Processing...",
+      "authorize": "Authorize {{amount}}",
+      "sessionExpired": "Your booking session has expired. Please start your booking again.",
+      "failed": "Payment failed"
+    },
+    "cancellationTerms_one": "Free cancellation up to {{count}} hour before your reservation. After that, a {{lateFeePercent}}% fee ({{lateFee}}) applies. If you don't show up for your reservation, a {{noShowFeePercent}}% no-show fee ({{noShowFee}}) applies.",
+    "cancellationTerms_other": "Free cancellation up to {{count}} hours before your reservation. After that, a {{lateFeePercent}}% fee ({{lateFee}}) applies. If you don't show up for your reservation, a {{noShowFeePercent}}% no-show fee ({{noShowFee}}) applies.",
+    "confirmation": {
+      "title": "Reservation Confirmed!",
+      "subtitle": "We look forward to seeing you.",
+      "detailsTitle": "Reservation Details",
+      "confirmationNumber": "Confirmation #",
+      "date": "Date",
+      "time": "Time",
+      "partySize": "Party Size",
+      "name": "Name",
+      "table": "Table",
+      "deposit": "Deposit",
+      "depositNotice": "Your card has been authorized for {{amount}}. The hold will be released or captured based on your cancellation timeline.",
+      "cancellationPolicy": "Cancellation Policy",
+      "contactLine": "No confirmation email or text is sent for this booking, so save these details. The venue has {{contact}} on your reservation.",
+      "cancel": "Cancel Reservation",
+      "another": "Make Another Reservation"
+    },
+    "specialRequests": {
+      "label": "Special Requests",
+      "acknowledgement": "Noted. It's on your reservation for the team."
+    },
+    "calendar": {
+      "title": "Add to Calendar",
+      "downloadIcs": "Download .ics",
+      "google": "Google Calendar",
+      "outlook": "Outlook"
+    },
+    "waitlist": {
+      "noTablesHeading": "No tables available",
+      "noTablesDetail_one": "No tables available on {{date}} for {{count}} guest.",
+      "noTablesDetail_other": "No tables available on {{date}} for {{count}} guests.",
+      "joinPrompt": "Join the waitlist?",
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "phone": "Phone",
+      "phoneHint": "Required for SMS notifications when your table is ready.",
+      "invalidPhone": "Please enter a valid phone number.",
+      "joining": "Joining...",
+      "join": "Join Waitlist",
+      "added": "Added to Waitlist",
+      "position": "Your position",
+      "estimatedWait": "Estimated wait",
+      "estimateUnavailable": "Estimate unavailable",
+      "waitMinutes": "{{minutes}} min",
+      "smsNote": "We'll send you an SMS when your table is ready. Please keep your phone nearby.",
+      "reserveInstead": "Make a Reservation Instead",
+      "outcomes": {
+        "notifiedHeading": "Your table is ready",
+        "notifiedBody": "Please check in with the host now - we can only hold it for a few minutes.",
+        "seatedHeading": "You've been seated",
+        "seatedBody": "Enjoy your visit.",
+        "expiredHeading": "Your spot has expired",
+        "expiredBody": "We couldn't hold your table in time. You can join the waitlist again or make a reservation.",
+        "cancelledHeading": "Your waitlist spot was cancelled",
+        "cancelledBody": "You can join the waitlist again or make a reservation."
+      }
+    },
+    "errors": {
+      "missingVenueSlug": "Online booking isn't available here. Please contact the venue directly to reserve.",
+      "holdExpired": "Your hold has expired. Please select a new time.",
+      "reloadFailed": "Failed to reload availability"
+    }
+  },
+  "publicBooking": {
+    "documentTitle": "Book a table — Hospitality",
+    "venueDocumentTitle": "Book a table — {{venue}}",
+    "notFoundHeading": "Venue not found",
+    "notFoundDescription": "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.",
+    "goBack": "Go Back",
+    "homeLink": "Back to Matt Butler Engineering",
+    "loading": "Loading venue...",
+    "tagline": "Reserve your table online",
+    "poweredBy": "Powered by Matt Butler Engineering"
+  },
+  "manageReservation": {
+    "documentTitle": "Your reservation — Hospitality",
+    "venueDocumentTitle": "{{venue}} — Your reservation",
+    "supportLine": "Need help? Contact the venue directly using the details in your confirmation email.",
+    "homeLink": "Back to Matt Butler Engineering",
+    "noLinkHeading": "No Access Link",
+    "noLinkDescription": "Please check the link in your confirmation email.",
+    "loading": "Loading reservation...",
+    "expiredHeading": "Link Expired",
+    "expiredDescription": "This manage link has expired. Please contact the venue for assistance.",
+    "invalidHeading": "Invalid Link",
+    "invalidDescription": "This link has already been used or is invalid.",
+    "fallbackTitle": "Your reservation",
+    "detailsTitle": "Reservation Details",
+    "guest": "Guest",
+    "partySize": "Party Size",
+    "date": "Date",
+    "time": "Time",
+    "timeRange": "{{start}} – {{end}}",
+    "call": "Call {{venue}}",
+    "cancel": "Cancel Reservation",
+    "cancelled": "This reservation has been cancelled."
   }
 }

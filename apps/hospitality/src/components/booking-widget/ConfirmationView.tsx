@@ -1,16 +1,11 @@
 import { useId } from "react";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, PublicVenueConfig } from "@mbe/types";
-import {
-  formatLongDateWithYear,
-  formatTime,
-  formatTimeIn,
-  formatCurrencyFromCents,
-} from "../../utils/format.js";
+import { useTranslation } from "react-i18next";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { buildReservationIcs, downloadIcsFile } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import { specialRequestsText } from "../../utils/reservation-display.js";
-import { CONFIRMATION_COPY, contactLine } from "../../constants/confirmation-copy.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
@@ -56,11 +51,13 @@ export function ConfirmationView({
   const specialRequestsId = useId();
   const requests = specialRequestsText(reservation.notes);
   const contact = reservation.guestEmail || reservation.guestPhone;
-  const effectiveTimezone = venueTimezone ?? venueConfig?.ianaTimezone;
-  const formattedDate = formatLongDateWithYear(reservation.date);
-  const formattedTime = effectiveTimezone
-    ? formatTimeIn(reservation.startTime, effectiveTimezone)
-    : formatTime(reservation.startTime);
+  const { t } = useTranslation();
+  const format = useVenueFormat({
+    ianaTimezone: venueTimezone ?? venueConfig?.ianaTimezone ?? "",
+    currencyCode: depositCurrency ?? "usd",
+  });
+  const formattedDate = format.formatLongDateWithYear(reservation.date);
+  const formattedTime = format.formatTime(reservation.startTime);
 
   return (
     <div className={styles.container}>
@@ -91,22 +88,22 @@ export function ConfirmationView({
 
       <div>
         <Text variant="display" as="h2" align="center">
-          Reservation Confirmed!
+          {t("bookingWidget.confirmation.title")}
         </Text>
         <Text variant="caption" color="secondary" align="center">
-          We look forward to seeing you.
+          {t("bookingWidget.confirmation.subtitle")}
         </Text>
       </div>
 
       {/* Reservation details */}
       <div className={styles.detailsCard}>
         <Text variant="label" as="h3" className={styles.detailsTitle}>
-          Reservation Details
+          {t("bookingWidget.confirmation.detailsTitle")}
         </Text>
         <dl className={styles.detailsList}>
           <div className={styles.detailRow}>
             <Text variant="caption" color="secondary" as="dt">
-              Confirmation #
+              {t("bookingWidget.confirmation.confirmationNumber")}
             </Text>
             <Text variant="caption" as="dd" mono>
               {reservation.id.slice(-8).toUpperCase()}
@@ -114,7 +111,7 @@ export function ConfirmationView({
           </div>
           <div className={styles.detailRow}>
             <Text variant="caption" color="secondary" as="dt">
-              Date
+              {t("bookingWidget.confirmation.date")}
             </Text>
             <Text variant="caption" as="dd">
               {formattedDate}
@@ -122,7 +119,7 @@ export function ConfirmationView({
           </div>
           <div className={styles.detailRow}>
             <Text variant="caption" color="secondary" as="dt">
-              Time
+              {t("bookingWidget.confirmation.time")}
             </Text>
             <Text variant="caption" as="dd">
               {formattedTime}
@@ -130,16 +127,16 @@ export function ConfirmationView({
           </div>
           <div className={styles.detailRow}>
             <Text variant="caption" color="secondary" as="dt">
-              Party Size
+              {t("bookingWidget.confirmation.partySize")}
             </Text>
             <Text variant="caption" as="dd">
-              {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
+              {t("bookingWidget.guests", { count: reservation.partySize })}
             </Text>
           </div>
           {reservation.guestName && (
             <div className={styles.detailRow}>
               <Text variant="caption" color="secondary" as="dt">
-                Name
+                {t("bookingWidget.confirmation.name")}
               </Text>
               <Text variant="caption" as="dd">
                 {reservation.guestName}
@@ -149,7 +146,7 @@ export function ConfirmationView({
           {reservation.table && (
             <div className={styles.detailRow}>
               <Text variant="caption" color="secondary" as="dt">
-                Table
+                {t("bookingWidget.confirmation.table")}
               </Text>
               <Text variant="caption" as="dd">
                 {reservation.table.tableNumber || reservation.table.name}
@@ -169,11 +166,11 @@ export function ConfirmationView({
             color="secondary"
             className={styles.detailsTitle}
           >
-            {CONFIRMATION_COPY.specialRequestsLabel}
+            {t("bookingWidget.specialRequests.label")}
           </Text>
           <Stack gap="sm">
             <Text variant="caption" color="secondary">
-              {CONFIRMATION_COPY.acknowledgement}
+              {t("bookingWidget.specialRequests.acknowledgement")}
             </Text>
             <Text variant="caption" color="primary" dir="auto" className={styles.requestsText}>
               {requests}
@@ -186,12 +183,12 @@ export function ConfirmationView({
       {depositAmountCents != null && depositAmountCents > 0 && (
         <div className={styles.detailsCard}>
           <Text variant="label" as="h3" className={styles.detailsTitle}>
-            Deposit
+            {t("bookingWidget.confirmation.deposit")}
           </Text>
           <Text variant="caption" color="secondary">
-            Your card has been authorized for{" "}
-            {formatCurrencyFromCents(depositAmountCents, depositCurrency ?? "usd")}. The hold will
-            be released or captured based on your cancellation timeline.
+            {t("bookingWidget.confirmation.depositNotice", {
+              amount: format.formatMoney(depositAmountCents),
+            })}
           </Text>
         </div>
       )}
@@ -200,7 +197,7 @@ export function ConfirmationView({
       {cancellationPolicySummary && (
         <div className={styles.detailsCard}>
           <Text variant="label" as="h3" className={styles.detailsTitle}>
-            Cancellation Policy
+            {t("bookingWidget.confirmation.cancellationPolicy")}
           </Text>
           <Text variant="caption" color="secondary">
             {cancellationPolicySummary}
@@ -211,7 +208,7 @@ export function ConfirmationView({
       {/* Contact info note */}
       {contact && (
         <Text variant="caption" color="secondary" align="center" className={styles.contactLine}>
-          {contactLine(contact)}
+          {t("bookingWidget.confirmation.contactLine", { contact })}
         </Text>
       )}
 
@@ -219,14 +216,14 @@ export function ConfirmationView({
       {venueConfig && (
         <div className={styles.detailsCard}>
           <Text variant="label" as="h3" className={styles.detailsTitle}>
-            Add to Calendar
+            {t("bookingWidget.calendar.title")}
           </Text>
           <div className={styles.calendarActions}>
             <Button
               variant="secondary"
               onClick={() => downloadReservationIcs(reservation, venueConfig, cancellationUrl)}
             >
-              Download .ics
+              {t("bookingWidget.calendar.downloadIcs")}
             </Button>
             <a
               href={buildGoogleCalendarUrl(reservation, venueConfig, { cancellationUrl })}
@@ -234,7 +231,7 @@ export function ConfirmationView({
               rel="noopener noreferrer"
               className={styles.calendarLink}
             >
-              Google Calendar
+              {t("bookingWidget.calendar.google")}
             </a>
             <a
               href={buildOutlookCalendarUrl(reservation, venueConfig, { cancellationUrl })}
@@ -242,7 +239,7 @@ export function ConfirmationView({
               rel="noopener noreferrer"
               className={styles.calendarLink}
             >
-              Outlook
+              {t("bookingWidget.calendar.outlook")}
             </a>
           </div>
         </div>
@@ -258,11 +255,11 @@ export function ConfirmationView({
             }}
             className={styles.fullWidth}
           >
-            Cancel Reservation
+            {t("bookingWidget.confirmation.cancel")}
           </Button>
         )}
         <Button variant="secondary" onClick={onNewBooking} className={styles.fullWidth}>
-          Make Another Reservation
+          {t("bookingWidget.confirmation.another")}
         </Button>
       </div>
     </div>

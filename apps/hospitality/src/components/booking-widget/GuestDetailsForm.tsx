@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useReducer } from "react";
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
-import { formatLongDate, formatTime, formatTimeIn } from "../../utils/format.js";
+import { useTranslation } from "react-i18next";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
-import { CONFIRMATION_COPY } from "../../constants/confirmation-copy.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./GuestDetailsForm.module.css";
 
@@ -41,20 +41,15 @@ export interface GuestDetailsFormProps {
   venueTimezone?: string;
 }
 
-function computeHoldTimeRemaining(hold: ReservationHold): string {
+/** "m:ss" left on the hold, or null once it has expired. */
+function computeHoldTimeRemaining(hold: ReservationHold): string | null {
   const expiresAt = new Date(hold.expiresAt);
   const now = new Date();
   const diffMs = expiresAt.getTime() - now.getTime();
-  if (diffMs <= 0) return "Expired";
+  if (diffMs <= 0) return null;
   const minutes = Math.floor(diffMs / 60000);
   const seconds = Math.floor((diffMs % 60000) / 1000);
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function ordinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0] ?? "th");
 }
 
 export function GuestDetailsForm({
@@ -99,7 +94,11 @@ export function GuestDetailsForm({
   const name = nameEdited || !recognition?.firstName ? nameInput : recognition.firstName;
   const phone = phoneInput;
 
-  const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
+  const { t } = useTranslation();
+  const format = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
+  const holdTimeRemaining = hold
+    ? (computeHoldTimeRemaining(hold) ?? t("bookingWidget.details.holdExpired"))
+    : null;
 
   // Lift the current fields up to the caller (`useBookingFlow`'s reducer
   // state) on every edit, so they survive this form unmounting on hold
@@ -112,10 +111,8 @@ export function GuestDetailsForm({
     [name, email, phone, notes, onDetailsChange]
   );
 
-  const formattedDate = formatLongDate(date);
-  const formattedTime = venueTimezone
-    ? formatTimeIn(slot.time, venueTimezone)
-    : formatTime(slot.time);
+  const formattedDate = format.formatLongDate(date);
+  const formattedTime = format.formatTime(slot.time);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -138,24 +135,22 @@ export function GuestDetailsForm({
     <div className={styles.container}>
       <div className={styles.topBar}>
         <Button variant="ghost" size="sm" onClick={onBack} type="button">
-          &larr; Back
+          {t("bookingWidget.back")}
         </Button>
         {hold && holdTimeRemaining && (
           <div className={styles.holdTimer} aria-live="polite">
-            Hold expires in: {holdTimeRemaining}
+            {t("bookingWidget.details.holdExpires", { time: holdTimeRemaining })}
           </div>
         )}
       </div>
 
       {/* Reservation summary */}
       <div className={styles.summaryCard}>
-        <Text className={styles.summaryTitle}>Reservation Details</Text>
+        <Text className={styles.summaryTitle}>{t("bookingWidget.details.summaryTitle")}</Text>
         <div className={styles.summaryDetails}>
           <Text>{formattedDate}</Text>
           <Text>{formattedTime}</Text>
-          <Text>
-            {partySize} {partySize === 1 ? "guest" : "guests"}
-          </Text>
+          <Text>{t("bookingWidget.guests", { count: partySize })}</Text>
         </div>
       </div>
 
@@ -163,11 +158,14 @@ export function GuestDetailsForm({
 
       {recognition && (
         <Banner variant="accent">
-          Welcome back, {recognition.firstName} &mdash; your {ordinalSuffix(recognition.visitCount)}{" "}
-          visit!
+          {t("bookingWidget.details.welcomeBack", {
+            name: recognition.firstName,
+            count: recognition.visitCount,
+            ordinal: true,
+          })}
           {recognition.hasPreferences && (
             <Badge variant="success" size="sm">
-              Preferences on file
+              {t("bookingWidget.details.preferencesOnFile")}
             </Badge>
           )}
         </Banner>
@@ -175,18 +173,18 @@ export function GuestDetailsForm({
 
       <form noValidate onSubmit={handleSubmit} className={styles.form}>
         <Input
-          label="Name"
+          label={t("bookingWidget.details.name")}
           value={name}
           onChange={(e) => {
             setNameInput(e.target.value);
             setNameEdited(true);
             notifyDetailsChange({ name: e.target.value });
           }}
-          placeholder="John Smith"
+          placeholder={t("bookingWidget.details.namePlaceholder")}
         />
 
         <Input
-          label="Email"
+          label={t("bookingWidget.details.email")}
           type="email"
           value={email}
           onChange={(e) => {
@@ -194,11 +192,11 @@ export function GuestDetailsForm({
             notifyDetailsChange({ email: e.target.value });
           }}
           onBlur={handleEmailBlur}
-          placeholder="john@example.com"
+          placeholder={t("bookingWidget.details.emailPlaceholder")}
         />
 
         <Input
-          label="Phone"
+          label={t("bookingWidget.details.phone")}
           type="tel"
           value={phone}
           onChange={(e) => {
@@ -208,21 +206,21 @@ export function GuestDetailsForm({
           placeholder="(555) 123-4567"
         />
 
-        <Text className={styles.hint}>Please provide either email or phone for confirmation.</Text>
+        <Text className={styles.hint}>{t("bookingWidget.details.contactHint")}</Text>
 
         <TextArea
-          label={CONFIRMATION_COPY.specialRequestsLabel}
+          label={t("bookingWidget.specialRequests.label")}
           value={notes}
           onChange={(e) => {
             setNotes(e.target.value);
             notifyDetailsChange({ notes: e.target.value });
           }}
           rows={3}
-          placeholder="Allergies, celebrations, seating preferences..."
+          placeholder={t("bookingWidget.details.requestsPlaceholder")}
         />
 
         <Button variant="primary" type="submit" disabled={!isValid || isLoading}>
-          {isLoading ? "Confirming..." : "Complete Reservation"}
+          {isLoading ? t("bookingWidget.details.confirming") : t("bookingWidget.details.complete")}
         </Button>
       </form>
     </div>

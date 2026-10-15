@@ -111,7 +111,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     to dashboard locale; public page defaults to browser; switching mid-flow preserves
     entered guest details.
   - Blocked by: LocalePicker, Venue formatting
-- [ ] **Translate guest surfaces** — all strings in `components/booking-widget/**`,
+- [x] **Translate guest surfaces** — all strings in `components/booking-widget/**`,
       `PublicBookingPage`, `ManageReservationPage`, cancellation-policy rendering via
       `describeCancellationPolicy`. (tracker: #6619)
   - Accept: those paths in hospitality lint scope with `pnpm lint` green;

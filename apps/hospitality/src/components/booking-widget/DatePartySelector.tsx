@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from "react-i18next";
 import { Input, Button } from "@mattbutlerengineering/rialto";
 import { addDays, venueDate } from "../../utils/service-day.js";
 import styles from "./DatePartySelector.module.css";
@@ -44,6 +45,7 @@ export function DatePartySelector({
   phone,
   venueTimezone,
 }: DatePartySelectorProps) {
+  const { t } = useTranslation();
   const today = venueDate(new Date(), venueTimezone);
   const effectiveMinDate = minDate ?? today;
 
@@ -65,7 +67,7 @@ export function DatePartySelector({
       {enableDateRange ? (
         <>
           <Input
-            label="Start Date"
+            label={t("bookingWidget.dateParty.startDate")}
             type="date"
             value={selectedDate ?? ""}
             onChange={(e) => onDateChange(e.target.value)}
@@ -74,7 +76,7 @@ export function DatePartySelector({
           />
           {onEndDateChange && (
             <Input
-              label="End Date"
+              label={t("bookingWidget.dateParty.endDate")}
               type="date"
               value={selectedEndDate ?? ""}
               onChange={(e) => onEndDateChange(e.target.value)}
@@ -85,7 +87,7 @@ export function DatePartySelector({
         </>
       ) : (
         <Input
-          label="Date"
+          label={t("bookingWidget.dateParty.date")}
           type="date"
           value={selectedDate ?? ""}
           onChange={(e) => onDateChange(e.target.value)}
@@ -96,7 +98,7 @@ export function DatePartySelector({
 
       <div className={styles.field}>
         <span className={styles.label} id="party-size-label">
-          Party Size
+          {t("bookingWidget.dateParty.partySize")}
         </span>
         <div className={styles.partyGrid} role="group" aria-labelledby="party-size-label">
           {partySizes.map((size) => (
@@ -128,15 +130,20 @@ export function DatePartySelector({
         {isOverflowSelected && (
           <p className={styles.partySizeNote}>
             {phone ? (
-              <>
-                For parties larger than {maxPartySize}, call us at{" "}
-                <a className={styles.partySizeNoteLink} href={`tel:${phone}`}>
-                  {phone}
-                </a>
-                .
-              </>
+              <Trans
+                i18nKey="bookingWidget.dateParty.largePartyCall"
+                values={{ max: maxPartySize, phone }}
+                components={{
+                  // Trans fills the link with the catalog's <phoneLink> content.
+                  phoneLink: (
+                    <a className={styles.partySizeNoteLink} href={`tel:${phone}`}>
+                      {phone}
+                    </a>
+                  ),
+                }}
+              />
             ) : (
-              `For parties larger than ${maxPartySize}, please contact the venue directly.`
+              t("bookingWidget.dateParty.largePartyContact", { max: maxPartySize })
             )}
           </p>
         )}
@@ -148,10 +155,10 @@ export function DatePartySelector({
         disabled={!canProceed}
         className={styles.ctaButton}
       >
-        Find Available Times
+        {t("bookingWidget.dateParty.findTimes")}
       </Button>
       {!canProceed && !isOverflowSelected && (
-        <p className={styles.ctaHint}>Choose a date from today onward to see available times.</p>
+        <p className={styles.ctaHint}>{t("bookingWidget.dateParty.dateHint")}</p>
       )}
     </div>
   );

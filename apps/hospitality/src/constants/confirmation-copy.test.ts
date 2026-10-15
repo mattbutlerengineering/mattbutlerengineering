@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { CONFIRMATION_COPY, contactLine } from "./confirmation-copy.js";
+import { CONFIRMATION_COPY } from "./confirmation-copy.js";
+import enUS from "../i18n/catalogs/en-US.json";
+
+/**
+ * The guest pages render this copy through the message catalog (so it can be
+ * translated); the host surfaces still read CONFIRMATION_COPY. The en-US
+ * catalog must say exactly what the host is told guests see (SC4).
+ */
+const GUEST_COPY = enUS.bookingWidget.specialRequests;
+
+/** The confirmation's contact line (PRD SC7), as the guest reads it. */
+function contactLine(contact: string): string {
+  return enUS.bookingWidget.confirmation.contactLine.replace("{{contact}}", contact);
+}
+
+describe("guest catalog copy matches CONFIRMATION_COPY", () => {
+  it("uses the same Special Requests label", () => {
+    expect(GUEST_COPY.label).toBe(CONFIRMATION_COPY.specialRequestsLabel);
+  });
+
+  it("uses the same acknowledgement", () => {
+    expect(GUEST_COPY.acknowledgement).toBe(CONFIRMATION_COPY.acknowledgement);
+  });
+});
 
 describe("CONFIRMATION_COPY", () => {
   it("pins the Special Requests label", () => {

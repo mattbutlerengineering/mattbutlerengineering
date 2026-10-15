@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TimeSlot } from "@mbe/types";
 import { Button } from "@mattbutlerengineering/rialto";
-import { formatTime, formatTimeIn } from "../../utils/format.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotListboxProps {
@@ -33,6 +33,7 @@ export function TimeSlotListbox({
   label,
   venueTimezone,
 }: TimeSlotListboxProps) {
+  const { formatTime } = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const pendingFocusRef = useRef(false);
 
@@ -104,7 +105,7 @@ export function TimeSlotListbox({
             selectedSlot?.time === slot.time ? styles.slotSelected : "",
           ].join(" ")}
         >
-          {venueTimezone ? formatTimeIn(slot.time, venueTimezone) : formatTime(slot.time)}
+          {formatTime(slot.time)}
         </Button>
       ))}
     </div>
