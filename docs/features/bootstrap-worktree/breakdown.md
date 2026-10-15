@@ -17,7 +17,7 @@ gate per item: `bash scripts/conductor-gate.sh`.
 
 ## Milestone 1: pure core (SC-3)
 
-- [ ] **WO-6. `decideBootstrapSteps` + `distConsumedPackages`** — create
+- [x] **WO-6. `decideBootstrapSteps` + `distConsumedPackages`** — create
       `scripts/bootstrap-worktree.mjs` exporting both pure functions
       (architecture.md §1, node builtins only), with the test file written
       first and failing.
