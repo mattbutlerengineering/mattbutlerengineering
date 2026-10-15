@@ -3974,6 +3974,45 @@
       };
     }
   </file>
+  <file path="src/hooks/useVenueFormat.ts">
+    export interface VenueFormatSource {
+      readonly ianaTimezone: string;
+      readonly currencyCode: string;
+    }
+    export interface VenueFormat {
+      readonly locale: string;
+      readonly timeZone: string;
+      readonly currency: string;
+      /** Venue-clock time from an ISO instant. */
+      formatTime(isoString: string): string;
+      /** Cents in the venue's currency. */
+      formatMoney(amountCents: number): string;
+      formatLongDate(dateStr: string): string;
+      formatLongDateWithYear(dateStr: string): string;
+      formatServiceDate(dateStr: string): string;
+      formatShortDate(dateStr: string): string;
+    }
+    export function useVenueFormat(venue: VenueFormatSource): VenueFormat {
+      const { i18n } = useTranslation();
+      const locale = i18n.language;
+      const { ianaTimezone: timeZone, currencyCode: currency } = venue;
+    
+      return useMemo(
+        () => ({
+          locale,
+          timeZone,
+          currency,
+          formatTime: (iso) => formatTimeIn(iso, timeZone, locale),
+          formatMoney: (cents) => formatCurrencyFromCents(cents, currency, locale),
+          formatLongDate: (d) => formatLongDate(d, locale),
+          formatLongDateWithYear: (d) => formatLongDateWithYear(d, locale),
+          formatServiceDate: (d) => formatServiceDate(d, locale),
+          formatShortDate: (d) => formatShortDate(d, locale),
+        }),
+        [locale, timeZone, currency]
+      );
+    }
+  </file>
   <file path="src/hooks/useVenuePolicy.ts">
     export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
     export function useVenuePolicy(slug: string | undefined): {
@@ -5418,46 +5457,66 @@
     }
   </file>
   <file path="src/utils/format.ts">
-    export function formatLongDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    function defaultReport(timeZone: string): void {
+      console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
+    }
+    export function resolveTimeZone(
+      timeZone: string | undefined,
+      report: (timeZone: string) => void = defaultReport
+    ): string | undefined {
+      if (!timeZone) return undefined;
+      try {
+        new Intl.DateTimeFormat(LOCALE, { timeZone });
+        return timeZone;
+      } catch {
+        if (!warnedZones.has(timeZone)) {
+          warnedZones.add(timeZone);
+          report(timeZone);
+        }
+        return undefined;
+      }
+    }
+    export function resetTimeZoneReports(): void {
+      warnedZones.clear();
+    }
+    export function formatLongDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
       });
     }
-    export function formatLongDateWithYear(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",
         year: "numeric",
       });
     }
-    export function formatServiceDate(dateStr: string): string {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    export function formatServiceDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
         weekday: "long",
         month: "short",
         day: "numeric",
       });
     }
-    export function formatTime(isoString: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatTime(isoString: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
       });
     }
-    export function formatTimeIn(isoString: string, timeZone: string): string {
-      return new Date(isoString).toLocaleTimeString(LOCALE, {
+    export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string {
+      return new Date(isoString).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
       });
     }
     export function getHourIn(isoString: string, timeZone: string): number {
       const hour = new Intl.DateTimeFormat("en-US", {
-        timeZone,
+        timeZone: resolveTimeZone(timeZone),
         hour: "2-digit",
         hourCycle: "h23",
       })
@@ -5465,20 +5524,30 @@
         .find((part) => part.type === "hour")?.value;
       return hour ? Number(hour) : 0;
     }
-    export function formatLocalTime(hhmm: string): string {
+    export function formatLocalTime(hhmm: string, locale: string = LOCALE): string {
       const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
-      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
+      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(locale, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
         timeZone: "UTC",
       });
     }
-    export function formatCurrencyFromCents(amountCents: number, currency: string): string {
-      return new Intl.NumberFormat(LOCALE, {
+    export function formatCurrencyFromCents(
+      amountCents: number,
+      currency: string,
+      locale: string = LOCALE
+    ): string {
+      return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency.toUpperCase(),
       }).format(amountCents / 100);
+    }
+    export function formatShortDate(dateStr: string, locale: string = LOCALE): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(locale, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
     }
   </file>
   <file path="src/utils/ics.ts">

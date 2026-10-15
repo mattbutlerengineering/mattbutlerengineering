@@ -1298,6 +1298,24 @@
       export function useUsers(params: UseUsersParams = {}): UseUsersResult { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useVenueFormat.ts">
+    <item priority="low">
+      interface VenueFormatSource {
+        ianaTimezone: string;
+        currencyCode: string;
+      }
+    </item>
+    <item priority="low">
+      interface VenueFormat {
+        locale: string;
+        timeZone: string;
+        currency: string;
+      }
+    </item>
+    <item priority="high">
+      export function useVenueFormat(venue: VenueFormatSource): VenueFormat { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useVenuePolicy.ts">
     <item priority="high">
       export const VENUE_POLICY_QUERY_KEY: unknown;
@@ -1987,29 +2005,48 @@
     </item>
   </file>
   <file path="src/utils/format.ts">
-    <item priority="high">
-      export function formatLongDate(dateStr: string): string { /* ... */ }
+    <item priority="medium">
+      function defaultReport(timeZone: string): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+      export function resolveTimeZone(
+        timeZone: string | undefined,
+        report: (timeZone: string) => void = defaultReport
+      ): string | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export function formatServiceDate(dateStr: string): string { /* ... */ }
+      export function resetTimeZoneReports(): void { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTime(isoString: string): string { /* ... */ }
+      export function formatLongDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatTimeIn(isoString: string, timeZone: string): string { /* ... */ }
+      export function formatLongDateWithYear(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatServiceDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTime(isoString: string, locale: string = LOCALE): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeIn(isoString: string, timeZone: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
       export function getHourIn(isoString: string, timeZone: string): number { /* ... */ }
     </item>
     <item priority="high">
-      export function formatLocalTime(hhmm: string): string { /* ... */ }
+      export function formatLocalTime(hhmm: string, locale: string = LOCALE): string { /* ... */ }
     </item>
     <item priority="high">
-      export function formatCurrencyFromCents(amountCents: number, currency: string): string { /* ... */ }
+      export function formatCurrencyFromCents(
+        amountCents: number,
+        currency: string,
+        locale: string = LOCALE
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatShortDate(dateStr: string, locale: string = LOCALE): string { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ics.ts">
