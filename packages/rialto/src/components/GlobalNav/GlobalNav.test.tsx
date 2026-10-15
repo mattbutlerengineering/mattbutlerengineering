@@ -171,4 +171,15 @@ describe("GlobalNav", () => {
     expect(idB).toBeTruthy();
     expect(idA).not.toBe(idB);
   });
+
+  it("shows the labels a consumer passes, falling back to the English defaults", () => {
+    render(
+      <GlobalNav currentApp="marketing" labels={{ marketing: "Inicio", rialto: "Sistema" }} />
+    );
+
+    expect(screen.getByRole("link", { name: "Inicio" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Sistema" }).getAttribute("href")).toBe("/rialto");
+    expect(screen.getByRole("link", { name: "Hospitality" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
+  });
 });

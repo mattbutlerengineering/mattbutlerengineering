@@ -82,6 +82,7 @@ function unauthenticatedScreen(gate: Exclude<AuthGate, { phase: "ready" }>): Rea
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
+  const { t } = useTranslation();
   const gate = useAuthGate();
 
   useEffect(() => {
@@ -97,7 +98,16 @@ export function App() {
   };
 
   const nav = (
-    <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />
+    <GlobalNav
+      currentApp="hospitality"
+      theme={resolved}
+      onThemeToggle={handleThemeToggle}
+      labels={{
+        marketing: t("shell.globalNav.marketing"),
+        hospitality: t("shell.globalNav.hospitality"),
+        rialto: t("shell.globalNav.rialto"),
+      }}
+    />
   );
 
   // The gate ORDER (which phase for which lifecycle facts + URL) is owned by

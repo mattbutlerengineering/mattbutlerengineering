@@ -37,13 +37,15 @@ export interface GlobalNavProps extends Pick<
   theme?: "light" | "dark";
   /** Called when the user clicks the theme toggle. */
   onThemeToggle?: () => void;
+  /** Link labels per app, for consumers that localize them. Omitted apps keep the English defaults. */
+  labels?: Partial<Record<NavItem["app"], string>>;
 }
 
 /** Product name, not translatable text. */
 const BRAND_NAME = "MBE";
 
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  ({ currentApp, theme, onThemeToggle, className, ...props }, ref) => {
+  ({ currentApp, theme, onThemeToggle, labels, className, ...props }, ref) => {
     const { messages } = useRialtoLocale();
     const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
@@ -62,6 +64,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     );
 
     const classes = cn(styles.globalNav, className);
+    const items = NAV_ITEMS.map((item) => ({ ...item, label: labels?.[item.app] ?? item.label }));
 
     return (
       <nav ref={ref} className={classes} aria-label={messages.globalNavigation} {...props}>
@@ -73,7 +76,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
 
           {/* ── Desktop links ─────────────────────── */}
           <ul className={styles.desktopLinks}>
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.app}>
                 <a
                   href={item.href}
@@ -108,7 +111,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
         {/* ── Mobile menu ─────────────────────────── */}
         {menuOpen && (
           <ul id={mobileMenuId} className={styles.mobileMenu}>
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.app}>
                 <a
                   href={item.href}

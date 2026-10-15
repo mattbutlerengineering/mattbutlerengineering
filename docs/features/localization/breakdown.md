@@ -173,7 +173,7 @@ the `files:` globs in `apps/hospitality/eslint.config.js` /
     `pnpm lint` is green — the gate is strict.
   - Blocked by: Translate Home & Timeline, Translate Reservations & Guests, Translate Floor
     plans, Translate Onboarding, Staff switcher placement
-- [ ] **Per-locale e2e sweep (authenticated routes)** — extend the sweep to every
+- [x] **Per-locale e2e sweep (authenticated routes)** — extend the sweep to every
       Auth0-gated ledger route. (tracker: #6629)
   - Accept: passes for en-GB, es-MX, fr-CA across all routes; overflow defects found are
     fixed (wrap) or sanctioned (`data-truncate`) per ux.md.

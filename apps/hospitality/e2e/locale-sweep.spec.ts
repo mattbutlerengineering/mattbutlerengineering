@@ -28,7 +28,7 @@
  * mocked below, and `unmocked` fails the test on any request no mock answered.
  */
 import type { Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { enUS as rialtoEnUS, type RialtoMessages } from "@mattbutlerengineering/rialto/providers";
 import { enGB as rialtoEnGB } from "@mattbutlerengineering/rialto/locales/en-GB";
 import { esMX as rialtoEsMX } from "@mattbutlerengineering/rialto/locales/es-MX";
@@ -107,7 +107,10 @@ function matcherFor(value: string): RegExp {
 }
 
 /** en-US values the locale must not show: translated differently, or reverted without an acknowledgement. */
-function forbiddenEnglish(locale: Locale): Array<{ key: string; value: string; match: RegExp }> {
+function forbiddenEnglish(
+  locale: Locale,
+  revertScope: RegExp | null = PUBLIC_NAMESPACE
+): Array<{ key: string; value: string; match: RegExp }> {
   const sources: Array<[Flat, Flat, boolean]> = [
     [loadCatalog("en-US"), { ...loadCatalog("en-US"), ...loadCatalog(locale) }, true],
     [
@@ -116,8 +119,11 @@ function forbiddenEnglish(locale: Locale): Array<{ key: string; value: string; m
       false,
     ],
   ];
+  // The same words can be one source's cognate and the other's translation ("Chat").
+  const spoken = new Set(
+    sources.flatMap(([, translated]) => Object.values(translated)).map(normalize)
+  );
   return sources.flatMap(([english, translated, checkReverts]) => {
-    const spoken = new Set(Object.values(translated).map(normalize));
     return Object.entries(english)
       .filter(([key, value]) => {
         // Nothing to read once the placeholders are gone (a time range, a bare number).
@@ -127,7 +133,7 @@ function forbiddenEnglish(locale: Locale): Array<{ key: string; value: string; m
         return (
           checkReverts &&
           !locale.startsWith("en") &&
-          PUBLIC_NAMESPACE.test(key) &&
+          revertScope?.test(key) === true &&
           !SAME_AS_EN_US[locale].has(key)
         );
       })
@@ -181,12 +187,21 @@ async function overflows(page: Page): Promise<string[]> {
     if (root.scrollWidth > root.clientWidth) {
       found.push(`page scrolls sideways (${root.scrollWidth} > ${root.clientWidth})`);
     }
-    const clips = (el: Element) => ["hidden", "clip"].includes(getComputedStyle(el).overflowX);
+    // The nearest box that stops text overflowing sideways. A scroller (auto/scroll)
+    // is the end of the search: its text is reachable, whatever clips further out.
     const clippingAncestor = (el: Element | null) => {
       for (let node = el; node && node !== document.body; node = node.parentElement) {
-        if (clips(node)) return node;
+        const overflowX = getComputedStyle(node).overflowX;
+        if (overflowX === "hidden" || overflowX === "clip") return node;
+        if (overflowX !== "visible") return null;
       }
       return null;
+    };
+    // Visually-hidden text (a 1px clipped box) is hidden on purpose, as is an
+    // off-canvas skip link (parked more than a viewport left of its box, below).
+    const hiddenOnPurpose = (el: Element) => {
+      const { width, height } = el.getBoundingClientRect();
+      return width <= 1 && height <= 1;
     };
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -197,8 +212,9 @@ async function overflows(page: Page): Promise<string[]> {
       range.selectNodeContents(node);
       const textBox = range.getBoundingClientRect();
       const clip = clippingAncestor(parent);
-      if (textBox.width === 0 || !clip) continue;
+      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent)) continue;
       const box = clip.getBoundingClientRect();
+      if (textBox.right < box.left - window.innerWidth) continue;
       if (textBox.right > box.right + 1 || textBox.left < box.left - 1) {
         found.push(
           `"${text.slice(0, 40)}" is cut off by <${clip.tagName.toLowerCase()} class="${clip.getAttribute("class") ?? ""}">`
@@ -209,11 +225,18 @@ async function overflows(page: Page): Promise<string[]> {
   });
 }
 
-async function sweep(page: Page, locale: Locale, where: string): Promise<void> {
+async function sweep(
+  page: Page,
+  locale: Locale,
+  where: string,
+  revertScope: RegExp | null = PUBLIC_NAMESPACE,
+  userData: readonly string[] = []
+): Promise<void> {
   // Settle a pending locale load / step transition before reading the page.
   await page.waitForLoadState("networkidle");
-  const forbidden = forbiddenEnglish(locale);
+  const forbidden = forbiddenEnglish(locale, revertScope);
   const untranslated = (await visibleStrings(page))
+    .map((text) => userData.reduce((rest, value) => rest.split(value).join(" "), text))
     .map(normalize)
     .filter(Boolean)
     .flatMap((text) =>
@@ -371,5 +394,225 @@ for (const locale of LOCALES) {
         expect(unmocked, "requests no mock answered").toEqual([]);
       }
     );
+  });
+}
+/* ── Authenticated (Auth0-gated) routes ─────────────────────────────────────
+ * Every gated `page` / `not-found` row of the route ledger that visual.spec.ts
+ * walks, in the staff locale (the dashboard's own storage key). The `setup`
+ * project's stored Auth0 session reaches them, exactly as in visual.spec.ts.
+ * Only rule 1 (differing en-US text) and rule 3 (overflow) apply: the
+ * revert-to-English rule needs a per-key cognate allow-list, which is kept for
+ * the guest namespaces where a reverted value is a defect on a public page.
+ */
+
+/**
+ * Text a person typed, not UI copy: the names and notes in the mock data. A table called
+ * "Table 1" is the venue's own word and stays as entered in every locale, even though
+ * the catalog also has a "Table {{name}}" label.
+ */
+function userEnteredText(): string[] {
+  const dir = new URL("./fixtures/", import.meta.url);
+  const collect = (node: unknown, key = ""): string[] => {
+    if (typeof node === "string") return /name$|^notes$/i.test(key) ? [node] : [];
+    if (node === null || typeof node !== "object") return [];
+    return Object.entries(node).flatMap(([k, v]) => collect(v, k));
+  };
+  const values = readdirSync(dir)
+    .filter((file) => file.endsWith(".json"))
+    .flatMap((file) => collect(JSON.parse(readFileSync(new URL(file, dir), "utf8"))));
+  // Longest first, so "Table 12" is removed whole before "Table 1".
+  return Array.from(new Set(values)).sort((a, b) => b.length - a.length);
+}
+
+/** The dashboard's own key (LOCALE_STORAGE_KEY in src/i18n/runtime.tsx) — never the widget's. */
+const STAFF_STORAGE_KEY = "mbe-hospitality-locale";
+const DESKTOP = { width: 1280, height: 720 } as const;
+const VIEWPORTS = [PHONE, DESKTOP] as const;
+
+const LEDGER = new URL("../../../metrics/ui-quality-ledger.jsonl", import.meta.url);
+const ROUTE_FIXTURES = new URL("../../../scripts/ui-quality/route-fixtures.json", import.meta.url);
+
+interface LedgerRow {
+  route: string;
+  app: string;
+  kind: string;
+  auth: string;
+}
+
+const routeFixtures: Record<string, Record<string, string>> = JSON.parse(
+  readFileSync(ROUTE_FIXTURES, "utf8")
+);
+
+/** The ledger is data, not an import: a gated route added to the app is swept the moment it lands. */
+const GATED_ROUTES = readFileSync(LEDGER, "utf8")
+  .split("\n")
+  .filter((line) => line.trim() !== "")
+  .map((line) => JSON.parse(line) as LedgerRow)
+  .filter(
+    (row) =>
+      row.app === "hospitality" &&
+      row.auth === "auth0" &&
+      (row.kind === "page" || row.kind === "not-found")
+  )
+  .map((row) => row.route);
+
+/** The ledger's path rule, relative to the `/hospitality/` baseURL (as in visual.spec.ts). */
+function gatedPath(route: string): string {
+  const path =
+    route.includes(":") || route.includes("*")
+      ? (routeFixtures["hospitality"]?.[route] ?? "/ui-quality-not-found")
+      : route === "/"
+        ? "/"
+        : `/${route}`;
+  return path.replace(/^\//, "");
+}
+
+/** Designed redirect: an operational venue's index route lands on the timeline. */
+const LANDS_ON: Record<string, string> = { "/": "timeline" };
+
+const VENUE_ID = "ven_e2e_001";
+const USER_TEXT = userEnteredText();
+
+/**
+ * Endpoints the gated routes reach that `mockApi` leaves to each spec
+ * (briefing.spec.ts, floor-plan-status.spec.ts mount their own). Registered
+ * after mockApi, so these win.
+ */
+async function mockGatedRoutes(page: Page, route: string): Promise<void> {
+  const day = new Date().toISOString().slice(0, 10);
+  const entry = (id: string, start: string, end: string, guestName: string, partySize: number) => ({
+    id,
+    date: day,
+    startTime: `${day}T${start}:00.000Z`,
+    endTime: `${day}T${end}:00.000Z`,
+    partySize,
+    status: "CONFIRMED",
+    notes: null,
+    cancellationReason: null,
+    cancellationNote: null,
+    guestName,
+    guestId: `gst_${id}`,
+    userId: null,
+    occasion: "anniversary",
+    seatingPreference: null,
+    tableId: "tbl_e2e_001",
+    table: { id: "tbl_e2e_001", name: "Table 1", tableNumber: "1" },
+    venueId: VENUE_ID,
+    createdAt: `${day}T00:00:00.000Z`,
+    updatedAt: `${day}T00:00:00.000Z`,
+    guest: {
+      id: `gst_${id}`,
+      name: guestName,
+      lastVisit: null,
+      notes: null,
+      staffNotes: [],
+      communicationPreference: null,
+      visitCount: 1,
+      dietaryRestrictions: null,
+      tags: [],
+    },
+  });
+  const answers: ReadonlyArray<readonly [RegExp, unknown]> = [
+    [
+      /\/api\/v1\/briefing\?/,
+      [
+        entry("dinner", "18:30", "20:00", "Priya Shah", 4),
+        entry("late", "21:00", "22:30", "Jordan Lee", 2),
+      ],
+    ],
+    [
+      /\/api\/v1\/guests\/lapsing\?/,
+      [
+        {
+          guestId: "gst_lapsing",
+          name: "Morgan Reyes",
+          email: "morgan@example.com",
+          phone: null,
+          communicationPreference: "email_only",
+          avgFrequencyDays: 21,
+          daysSinceLastVisit: 49,
+          daysOverdue: 28,
+        },
+      ],
+    ],
+    [
+      /\/api\/v1\/venues\/[^/?]+\/table-statuses$/,
+      [{ tableId: "tbl_e2e_001", status: "available" }],
+    ],
+  ];
+  for (const [pattern, data] of answers) {
+    await page.route(pattern, (r) => r.fulfill(ok(data)));
+  }
+  if (route === "setup") {
+    // An operational venue is bounced off the /setup checklist; with no floor plan it is still in setup.
+    await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
+      r.fulfill({
+        status: 200,
+        json: {
+          data: [],
+          pagination: {
+            page: 1,
+            limit: 25,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
+        },
+      })
+    );
+  }
+}
+
+/** The staff locale, and (for `admin`) the permission RequireAdmin reads off the OIDC profile. */
+async function stageStaffSession(page: Page, locale: Locale, route: string): Promise<void> {
+  await page.addInitScript(
+    ([key, tag, current]) => {
+      localStorage.setItem(key, tag);
+      if (current !== "admin") return;
+      for (const stored of Object.keys(localStorage)) {
+        if (!stored.startsWith("oidc.user:")) continue;
+        const user = JSON.parse(localStorage.getItem(stored) ?? "{}") as Record<string, unknown>;
+        const profile = {
+          ...(user["profile"] as object),
+          permissions: ["admin"],
+        };
+        localStorage.setItem(stored, JSON.stringify({ ...user, profile }));
+      }
+    },
+    [STAFF_STORAGE_KEY, locale, route] as const
+  );
+}
+
+for (const locale of LOCALES) {
+  sweepTest.describe(`locale sweep (authenticated) — ${locale}`, () => {
+    for (const route of GATED_ROUTES) {
+      for (const viewport of VIEWPORTS) {
+        sweepTest(
+          `${route} @ ${viewport.width}x${viewport.height}`,
+          async ({ mockedPage: page, unmocked }) => {
+            await mockGatedRoutes(page, route);
+            await stageStaffSession(page, locale, route);
+            await page.setViewportSize(viewport);
+            await page.emulateMedia({ reducedMotion: "reduce" });
+            // The fixture's own load of the app root answered before these mocks existed.
+            unmocked.splice(0);
+            const path = gatedPath(route);
+            await page.goto(path);
+            await page.waitForLoadState("networkidle");
+            const landing = LANDS_ON[route] ?? path;
+            const requested = new URL(landing, test.info().project.use.baseURL).pathname;
+            const trim = (p: string) => p.replace(/\/$/, "");
+            await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
+              (url) => trim(url.pathname) === trim(requested)
+            );
+            await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
+            await expect(page.locator("html")).toHaveAttribute("lang", locale);
+            await sweep(page, locale, route, null, USER_TEXT);
+            expect(unmocked, `${route}: requests no mock answered`).toEqual([]);
+          }
+        );
+      }
+    }
   });
 }

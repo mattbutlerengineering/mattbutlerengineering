@@ -2090,6 +2090,12 @@
           "type": "(() => void) | undefined",
           "required": false,
           "description": "Called when the user clicks the theme toggle."
+        },
+        {
+          "name": "labels",
+          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
+          "required": false,
+          "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
         }
       ],
       "slots": []
