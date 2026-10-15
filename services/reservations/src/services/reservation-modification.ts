@@ -1,6 +1,7 @@
 import type { Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import { bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
 import type { DepositService } from "./deposit.js";
 
 /** Guest-supplied fields for a modify request; all optional (at least one required). */
@@ -98,6 +99,40 @@ async function checkPartySizeDepositGuard(
   return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
 }
 
+const BOOKING_WINDOW_RESULT: ModifyReservationResult = {
+  success: false,
+  status: 422,
+  title: "Outside Booking Window",
+  detail: "The requested time is outside the venue's booking window",
+  code: "BOOKING_WINDOW_VIOLATION",
+};
+
+/**
+ * A guest moving their own booking is bound by the same booking window as
+ * availability and hold creation (#6560): not in the past, within the venue's
+ * min/max advance. Only a change to the start (startTime or date) is checked,
+ * so an unrelated edit to an imminent booking is never blocked by minAdvance.
+ * Returns a blocking 422 result, or `null` when the change may proceed.
+ */
+async function checkBookingWindow(
+  reservation: Reservation,
+  changes: ReservationChanges
+): Promise<ModifyReservationResult | null> {
+  if (changes.startTime === undefined && changes.date === undefined) return null;
+  if (!reservation.venueId) return null;
+
+  const venue = await venueService.getById(reservation.venueId);
+  if (!venue) return null;
+
+  const newStart = new Date(changes.startTime ?? reservation.startTime);
+  // The route's body schema guarantees a date-time; an unparseable value
+  // cannot be placed in the window, so leave it to the conflict check.
+  if (Number.isNaN(newStart.getTime())) return null;
+
+  const window = bookingWindow(venue.settings, new Date(), venue.ianaTimezone);
+  return isSlotInBookingWindow(newStart, window) ? null : BOOKING_WINDOW_RESULT;
+}
+
 /**
  * Domain-level modify: validates that at least one field was provided,
  * builds the update payload and dispatches the conflict-checked update.
@@ -117,6 +152,11 @@ export async function modifyReservation(
   const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes, deposits);
   if (depositGuardResult) {
     return depositGuardResult;
+  }
+
+  const windowResult = await checkBookingWindow(reservation, changes);
+  if (windowResult) {
+    return windowResult;
   }
 
   const { date, startTime, endTime, partySize, specialRequests } = changes;

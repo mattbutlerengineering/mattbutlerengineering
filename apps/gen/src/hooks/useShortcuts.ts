@@ -19,6 +19,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function useShortcuts(handlers: ShortcutHandlers): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // A palette, dialog or fullscreen layer that consumed the key has preventDefault()ed it.
+      if (e.defaultPrevented) return;
       const action = matchShortcut(e);
       if (!action) return;
       const handler = handlers[action];

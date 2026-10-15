@@ -99,6 +99,15 @@
       readonly severity: Severity;
       /** Optional file-path filter; the rule is skipped for files that match. */
       readonly excludes?: RegExp;
+      /** Optional language filter; the rule is skipped for files detected as one of these. */
+      readonly excludeLanguages?: readonly Language[];
+    }
+    export type Language = "python" | "other";
+    export function detectLanguage(file: string, content: string): Language {
+      const base = file.slice(file.lastIndexOf("/") + 1);
+      if (base.includes(".")) return /\.py$/i.test(base) ? "python" : "other";
+      const firstLine = content.split(/\r?\n/, 1)[0] ?? "";
+      return PYTHON_SHEBANG.test(firstLine) ? "python" : "other";
     }
     interface Group {
       readonly text: string;
@@ -128,7 +137,10 @@
       const lines = content.split(/\r?\n/);
       const prose = isProseFile(file);
       const continues = prose ? PROSE_CONTINUES : CONTINUES;
-      const active = rules.filter((r) => !r.excludes || !r.excludes.test(file));
+      const language = detectLanguage(file, content);
+      const active = rules.filter(
+        (r) => (!r.excludes || !r.excludes.test(file)) && !r.excludeLanguages?.includes(language)
+      );
       const add = (rule: Rule, line: number, text: string): void => {
         findings.push({
           category: rule.category,

@@ -280,6 +280,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .code(403)
           .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
       }
+      if (result.partyDoesNotFit) {
+        return reply
+          .code(422)
+          .send(
+            createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+          );
+      }
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
@@ -439,6 +446,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           return reply
             .code(403)
             .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+        }
+
+        if (result.partyDoesNotFit) {
+          return reply
+            .code(422)
+            .send(
+              createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+            );
         }
 
         if (!result.success) {
@@ -630,6 +645,18 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             return reply
               .code(403)
               .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
+          }
+
+          if (result.capacityExceeded) {
+            return reply
+              .code(422)
+              .send(
+                createProblemDetails(
+                  422,
+                  titleForStatus(422),
+                  result.error ?? "Party does not fit this table"
+                )
+              );
           }
 
           if (result.conflict?.hasConflict) {

@@ -57,6 +57,17 @@ describe("useShortcuts", () => {
     textarea.remove();
   });
 
+  it("ignores Escape that another layer (palette, dialog, fullscreen) already consumed", () => {
+    const stop = vi.fn();
+    renderHook(() => useShortcuts({ stop }));
+    const consumer = document.createElement("div");
+    document.body.appendChild(consumer);
+    consumer.addEventListener("keydown", (e) => e.preventDefault());
+    press({ key: "Escape" }, consumer);
+    expect(stop).not.toHaveBeenCalled();
+    consumer.remove();
+  });
+
   it("leaves Escape alone when no stop handler is supplied", () => {
     renderHook(() => useShortcuts({ help: vi.fn() }));
     expect(press({ key: "Escape" }).defaultPrevented).toBe(false);

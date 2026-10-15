@@ -138,7 +138,12 @@ export function verifyCiFix(deps) {
     // regressed — must abstain, not read as a definite "not verified".
     return { verified: false, reason: "Could not query CI runs", confidence: "skip" };
   }
-  const completed = runs.filter((r) => r.status === "completed");
+  // #6659: only success/failure are outcomes. `cancelled` (concurrency-
+  // superseded pushes) and `skipped` are not failures and must stay out of
+  // the denominator — same class as the ciHealth sensor fixed in #4687.
+  const completed = runs.filter(
+    (r) => r.status === "completed" && (r.conclusion === "success" || r.conclusion === "failure")
+  );
   if (completed.length === 0) {
     // #4246 (second reopening): zero completed CI-workflow runs among the
     // last N queried computed `0/0 = 0%` and read as a confident "still
@@ -147,7 +152,7 @@ export function verifyCiFix(deps) {
     // in the CI-workflow filter), not evidence of a regression — abstain.
     return {
       verified: false,
-      reason: "No completed CI runs found to verify against",
+      reason: "No success/failure CI runs found to verify against",
       confidence: "skip",
     };
   }

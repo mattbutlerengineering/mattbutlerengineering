@@ -183,7 +183,7 @@ def resolve_cap(config):
 # A configured weight replaces that step's default; the rest keep theirs.
 CONDUCTOR_KEYS = ("gate_command", "standing_consent", "type_labels",
                   "size_labels", "default_size", "defer_labels",
-                  "step_weights")
+                  "step_weights", "worktree_setup")
 DEFAULT_STEP_WEIGHTS = {"spec": 3, "build": 1, "verify": 1, "review": 1,
                         "ship": 1}
 LABEL_ITEM_TYPES = ("feature", "fix")
@@ -241,7 +241,16 @@ def conductor_problems(config):
                         " label names")
     if "step_weights" in table:
         problems += _step_weight_problems(table["step_weights"])
+    if "worktree_setup" in table and not _argv(table["worktree_setup"]):
+        problems.append("conductor.worktree_setup must be a non-empty list"
+                        " of non-blank argument strings")
     return problems
+
+
+def _argv(value):
+    """True when `value` is a non-empty list of non-blank strings."""
+    return (isinstance(value, list) and bool(value)
+            and all(isinstance(arg, str) and arg.strip() for arg in value))
 
 
 def _step_weight_problems(weights):
@@ -352,6 +361,14 @@ def resolve_step_weights(config):
     if problems:
         return None, problems
     return {**DEFAULT_STEP_WEIGHTS, **(table or {})}, []
+
+
+def resolve_worktree_setup(config):
+    """(argv, problems): factory.json's conductor.worktree_setup, the
+    command run in each item worktree before its Worker launches (#850),
+    None when absent (no setup runs)."""
+    argv, problems = _conductor_value(config, "worktree_setup")
+    return (list(argv) if argv is not None else None), problems
 
 
 def resolve_gate_command(config):

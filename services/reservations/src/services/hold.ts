@@ -10,7 +10,7 @@ import { availabilityService } from "./availability.js";
 import { estimateDuration, bookingWindow, isSlotInBookingWindow } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
-import { isTableInVenue, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
+import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table-venue.js";
 
 export const BOOKING_WINDOW_ERROR = "Requested time is outside the venue's booking window";
 
@@ -38,6 +38,8 @@ export interface CreateHoldResult {
   error?: string;
   /** The requested table is missing or belongs to another venue (route answers 403). */
   tableNotInVenue?: boolean;
+  /** The party does not fit the caller-named table (route answers 422). */
+  partyDoesNotFit?: boolean;
 }
 
 export const holdService = {
@@ -107,6 +109,7 @@ export const holdService = {
       // Pre-check: verify provided table is available and pacing is not exceeded.
       const bookingError = assertBookable({
         tableId: selectedTableId,
+        table: await loadTableFit(selectedTableId),
         window: { startTime, endTime },
         partySize,
         settings,
@@ -116,7 +119,11 @@ export const holdService = {
       });
 
       if (bookingError) {
-        return { success: false, error: bookingError.message };
+        return {
+          success: false,
+          error: bookingError.message,
+          ...(bookingError.code === "PARTY_DOES_NOT_FIT" && { partyDoesNotFit: true }),
+        };
       }
     }
 

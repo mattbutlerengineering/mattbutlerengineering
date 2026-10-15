@@ -120,6 +120,12 @@
   </file>
   <file path="src/routes/gen-specs.ts">
     <item priority="high">
+      export function normaliseKind(
+        prompt: string,
+        kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+      ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } { /* ... */ }
+    </item>
+    <item priority="high">
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>

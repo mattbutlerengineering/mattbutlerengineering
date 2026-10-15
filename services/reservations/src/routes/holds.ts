@@ -185,6 +185,14 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(403, titleForStatus(403), TABLE_NOT_IN_VENUE_DETAIL));
       }
 
+      if (result.partyDoesNotFit) {
+        return reply
+          .code(422)
+          .send(
+            createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
+          );
+      }
+
       if (!result.success) {
         const statusCode = result.error?.includes("not found") ? 404 : 409;
         const title = statusCode === 404 ? "Not Found" : "Conflict";

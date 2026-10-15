@@ -2421,6 +2421,9 @@
     <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildSlotsBody(now: Date): string { /* ... */ }
+    </item>
     <item priority="medium">
       function slotsResponse(route: Route): Promise<void> { /* ... */ }
     </item>
@@ -2441,6 +2444,9 @@
     </item>
     <item priority="high">
       export function buildGuestRiskFixture(): GuestRiskResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDepositsFixture(nowDate: Date): Array<Record<string, unknown>> { /* ... */ }
     </item>
     <item priority="high">
       export async function mockApi(page: Page): Promise<void> { /* ... */ }
@@ -5295,17 +5301,6 @@
       export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/middleware/require-manage-token.ts">
-    <item priority="medium">
-      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function requireManageToken(
-        request: FastifyRequest,
-        reply: FastifyReply
-      ): Promise<void> { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/middleware/venue-context.ts">
     <item priority="low">
       interface VenueContextClient {
@@ -6059,6 +6054,12 @@
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
     <item priority="high">
+      export function normaliseKind(
+        prompt: string,
+        kind: (typeof GEN_SPEC_KINDS)[number] | undefined
+      ): { prompt: string; kind: (typeof GEN_SPEC_KINDS)[number] } { /* ... */ }
+    </item>
+    <item priority="high">
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>
@@ -6387,10 +6388,10 @@
   </file>
   <file path="services/reservations/src/routes/load-reservation-for-manage.ts">
     <item priority="low">
-      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 404; reas | { ok: false; status: 409; reas;
+      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 409; reas;
     </item>
     <item priority="high">
-      export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+      export function guardManageState(reservation: Reservation): ManagePreambleResult { /* ... */ }
     </item>
     <item priority="low">
       type ManageAction = "cancel" | "modify";
@@ -6418,6 +6419,49 @@
   <file path="services/reservations/src/routes/manage-reservation.ts">
     <item priority="high">
       export const manageReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/manage-token-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface ManageTokenScope {
+        venueId: string;
+        reservation: Reservation;
+        token: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManageTokenScopeSpec {
+        missing: (reply: ReplyOf<RG>, request: RequestOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      type ManageTokenHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="medium">
+      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deny(reply: FastifyReply, status: number, title: string, detail: string): FastifyReply { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageTokenScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: ManageTokenScopeSpec<RG>,
+        handler: ManageTokenHandler<RG>
+      ): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/modify-reservation.ts">
@@ -6490,11 +6534,11 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
-    <item priority="low">
-      async function resolveVenueBySlug(slug: string, reply: FastifyReply): Promise<string | null> { /* ... */ }
-    </item>
     <item priority="medium">
       function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sessionIdOf(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
@@ -6531,6 +6575,50 @@
     </item>
     <item priority="high">
       export const publicUnsubscribeRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-venue-scope.ts">
+    <item priority="high">
+      type Handler = RouteHandlerMethod<
+        RawServerDefault,
+        RawRequestDefau...;
+    </item>
+    <item priority="high">
+      type RequestOf = Parameters<Handler<RG>>[0];
+    </item>
+    <item priority="high">
+      type ReplyOf = Parameters<Handler<RG>>[1];
+    </item>
+    <item priority="low">
+      interface PublicNotFound {
+        title: string;
+        detail: string;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScopeSpec {
+        slug: (request: RequestOf<RG>) => string;
+        notFound?: (slug: string) => PublicNotFound | Error;
+        before?: (request: RequestOf<RG>, reply: ReplyOf<RG>) => unknown;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueScope {
+        venueId: string;
+        slug: string;
+      }
+    </item>
+    <item priority="low">
+      type PublicScopedHandler = (
+        request: RequestOf<RG>,
+        reply: ReplyOf<RG>,
+        scope...;
+    </item>
+    <item priority="high">
+      export function publicVenueScoped<RG extends RouteGenericInterface = RouteGenericInterface>(
+        spec: PublicVenueScopeSpec<RG>,
+        handler: PublicScopedHandler<RG>
+      ): Handler<RG> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/public-venues.ts">
@@ -8250,15 +8338,15 @@
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     <item priority="low">
-      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+      type BookableError = { code: "PARTY_DOES_NOT_FIT";  | { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
     </item>
     <item priority="low">
       interface AssertBookableOptions {
         tableId: string;
+        table?: PartyFitTable;
         window: { startTime: Date; endTime: Date };
         partySize: number;
         settings: VenueSettings | null | undefined;
-        reservations: ReservationSlim[];
       }
     </item>
     <item priority="high">
@@ -8773,6 +8861,7 @@
         hold?: ReservationHold;
         error?: string;
         tableNotInVenue?: boolean;
+        partyDoesNotFit?: boolean;
       }
     </item>
     <item priority="high">
@@ -9056,6 +9145,12 @@
         reservation: Reservation,
         changes: ReservationChanges,
         deposits: DepositService
+      ): Promise<ModifyReservationResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkBookingWindow(
+        reservation: Reservation,
+        changes: ReservationChanges
       ): Promise<ModifyReservationResult | null> { /* ... */ }
     </item>
     <item priority="high">
@@ -9583,6 +9678,9 @@
     </item>
     <item priority="high">
       export async function isTableInVenue(tableId: string, venueId: string): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadTableFit(tableId: string): Promise<PartyFitTable | undefined> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
@@ -14410,7 +14508,7 @@
     <item priority="high">
       interface ResendClient {
         emails: {
-          send(payload: Record<string, unknown>): Promise<{ i...;
+          // The SDK resolves `{ data, error }` on API failur...;
       }
     </item>
     <item priority="low">
@@ -15209,7 +15307,14 @@
         category: Category;
         severity: Severity;
         excludes?: RegExp;
+        excludeLanguages?: readonly Language[];
       }
+    </item>
+    <item priority="low">
+      type Language = "python" | "other";
+    </item>
+    <item priority="high">
+      export function detectLanguage(file: string, content: string): Language { /* ... */ }
     </item>
     <item priority="high">
       interface Group {

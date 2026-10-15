@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.6.1",
   "components": [
     {
       "name": "Accordion",
@@ -2774,6 +2774,12 @@
           "type": "ReactNode",
           "required": false,
           "description": "Content rendered at the bottom of the navbar (e.g., version info, logout button)."
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the nav landmark. A consumer `aria-label` / `aria-labelledby` takes precedence."
         }
       ],
       "slots": [

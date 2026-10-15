@@ -1,5 +1,45 @@
 # @mattbutlerengineering/rialto
 
+## 0.6.1
+
+### Patch Changes
+
+- [#6658](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6658) [`b2f41f7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b2f41f742115a9230e4e6f5067a43a71d8c088a2) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Navbar: name the root nav landmark (new optional `label` prop, default "Main navigation"; consumer `aria-label`/`aria-labelledby` still wins) and link each submenu toggle to its submenu via `aria-controls` while expanded.
+
+- [#6656](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6656) [`2dac532`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2dac5322511edd85f9690a5762238e2074bf9f54) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Sidebar: render each section as `role="group"` labelled by its section label via `aria-labelledby` (omitted when unlabeled or collapsed).
+
+## 0.6.0
+
+### Minor Changes
+
+- [#6460](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6460) [`4f53875`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4f53875d6a24874f289430fa5282bcaadc697700) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Combobox now closes its listbox on Tab. `useCombobox` gains an additive `inputMode: "input"` (plus `wrap`) so text-input comboboxes share one keyboard handler: opens with nothing focused, leaves Space and printable keys to the input, skips disabled items, and closes on Tab/Escape. Combobox and Autocomplete use it; ArrowDown/ArrowUp on a closed Combobox now open with the first/last enabled option highlighted (previously nothing was highlighted), and on a closed Autocomplete they open on the first/last item. Home/End stay with the input caret in input mode (Combobox still uses them to jump within the list). The default button mode is unchanged.
+
+- [#6471](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6471) [`7d8c84f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7d8c84fea5fe57dc14f7e90c6f89681857adbb9a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `RialtoProvider` can now own theme persistence. Pass `persistTheme` and it reads the stored preference (one `THEME_STORAGE_KEY`, shared across tabs), follows the OS color scheme live while the preference is `"system"`, and exposes `{ preference, theme, setTheme, toggleTheme }` to descendants through the new `useTheme()` hook. Apps no longer need to call `useThemeState()` themselves and pass the result in. `useThemeState` stays exported.
+
+- [#6450](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6450) [`179cce4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/179cce43c1d6fbcf8235391e5bb81ebbc8c646ce) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `useThemeState` now tracks the OS color scheme live: a stored `"system"` preference follows an OS dark-mode switch without a reload (previously it resolved once and never updated). The preference is held in a `useSyncExternalStore`-backed store, so every hook instance (and other browser tabs) share one value. Adds `THEME_STORAGE_KEY` so apps stop copying the `"mbe-theme-preference"` literal. `resolveTheme` is unchanged but remains a non-reactive snapshot; pass the raw preference to `RialtoProvider`'s `theme` prop instead.
+
+### Patch Changes
+
+- [#6358](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6358) [`31559e9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/31559e9a47c8a0d210dbbd0cd4ab86d5e448824a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y audit iteration 3: Popover and DropdownMenu triggers now fire the consumer's `onClick` on keyboard activation; DropdownMenu links trigger and menu with `aria-controls`/`aria-labelledby`; Tooltip merges (rather than replaces) a consumer's `aria-describedby` and skips Fragment children.
+
+- [#6555](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6555) [`b36701e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b36701ee4fbe5aac48d6f84f8599bd720d0f372d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - a11y iteration 4: Tabs and Collapsible/Accordion no longer emit dangling `aria-controls`; Tabs routes `aria-label`/`aria-labelledby` to the tablist; Tabs and SegmentedControl keep a keyboard tab stop when the selection matches nothing.
+
+- [#6434](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6434) [`43f4549`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/43f454916a279bfd7b74c520f0b365040913a92e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Fix `AvatarGroup`'s "+N" overflow badge: it had no accessible name (a bare `<div aria-label>` with no role is prohibited from naming per ARIA, and its only text was `aria-hidden`) and its badge text failed WCAG AA contrast against the matte background. The badge now renders `role="img"` and uses `--rialto-text-primary` for its text color.
+
+- [#6553](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6553) [`483b9c2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/483b9c2b04c193f396f9c3477b73cafc0498f527) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ChatPanel now surfaces `permission_denied` events (a blocked-tool alert) and `tool_status` events (a status line naming the running tool) from the chat stream instead of ignoring them. `useChatStream` returns the new `activeTool` and `permissionDenials` fields.
+
+- [#6476](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6476) [`c2968b7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c2968b70d49b82933f7c1b602ce672a2fd8377ef) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `useCombobox` in `inputMode: "input"` no longer calls `preventDefault` on Enter when the list is open but no option is focused, so Enter submits the surrounding form per the ARIA APG editable combobox. This affects Autocomplete and direct `useCombobox` input-mode consumers; Combobox handles open + Enter itself and is unchanged. Enter on a focused option still commits and prevents default.
+
+- [#6490](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6490) [`9068217`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/9068217728fb31b616dde5da03611d29d15aa1e5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `useCombobox` in `inputMode: "input"`: ArrowUp on an open list with no option highlighted now moves to the last enabled option (ArrowDown still moves to the first), instead of doing nothing. Matches the closed-list behaviour and the ARIA APG.
+
+- [#6542](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6542) [`87b1d68`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/87b1d683d1bb8c528be11e6a374749427c0207f2) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `CommandPalette` no longer drops items whose `group` is missing from the `groups` prop. `groups` now controls order only: listed groups render first, and any other group that has items is appended after them.
+
+- [#6419](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6419) [`3b2f1f3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3b2f1f39af26f3bcd51d44551aadf1d2fb9f34ca) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - fix: one Escape now closes only the topmost open overlay. `useEscapeKey` keeps a module-level overlay stack, so a Dialog over a Drawer, or a Popover inside a Dialog, no longer both close on a single keypress; the next Escape reaches the layer beneath. Hook signature unchanged.
+
+- [#6472](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6472) [`c6b1654`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c6b1654bd75e34e36395cef019384bdcf0677879) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Table renders a column's `ariaLabel` as visually-hidden text inside the `<th>` when `header` is empty, so axe's `empty-table-header` rule (which needs text content, not `aria-label`) passes. Visible layout is unchanged.
+
+- [#6544](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/6544) [`8860d89`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/8860d89b8b342ff839c9b07b0346f22835fa0ef0) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Toast catalog metadata is now `include: false`: it has no declarative renderer, so the AI catalog prompt no longer offers it.
+
 ## 0.5.1
 
 ### Patch Changes

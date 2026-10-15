@@ -87,6 +87,8 @@ const mockReservation = {
   updatedAt: "2026-06-01T00:00:00Z",
 };
 
+const IN_WINDOW_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 const mockVenue = {
   id: "venue_1",
   name: "The Oak Table",
@@ -157,19 +159,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
       startTime: "20:00",
     };
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
       reservation: updatedReservation,
     } as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
+      payload: { partySize: 6, startTime: IN_WINDOW_START },
     });
 
     expect(response.statusCode).toBe(200);
@@ -182,8 +184,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const token = generateManageToken("res_1", "jane@example.com");
     const updatedReservation = { ...mockReservation, partySize: 2 };
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -211,19 +212,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 when time slot has conflict", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: false,
       error: "Time slot has a conflict with an existing reservation or hold",
       conflict: { hasConflict: true },
     } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: "2026-06-15T18:00:00-07:00" },
+      payload: { startTime: IN_WINDOW_START },
     });
 
     expect(response.statusCode).toBe(409);
@@ -234,8 +235,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 for cancelled reservation", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check (email matches); route handler gets CANCELLED → 409
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once: CANCELLED → 409
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "CANCELLED",
@@ -255,8 +255,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 for completed reservation", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check (email matches); route handler gets COMPLETED → 409
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once: COMPLETED → 409
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "COMPLETED",
@@ -276,8 +275,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 when changing partySize on a per_person-deposit venue with a held deposit (#2931)", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
       makeVenuePolicy({ depositType: "per_person" })
@@ -301,8 +299,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 400 when no fields provided", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
 
     const response = await app.inject({
@@ -319,8 +316,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 404 when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
 
     const response = await app.inject({
@@ -340,8 +336,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
       notes: "No peanuts please",
     };
 
-    // middleware ownership check + route handler each call getById once
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    // the manage-token scope loads the reservation once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -465,20 +460,20 @@ describe("PATCH /public/v1/reservations/manage", () => {
         startTime: "20:00",
       };
 
-      // middleware ownership check + route handler each call getById once
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      // the manage-token scope loads the reservation once
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: true,
         reservation: updatedReservation,
       } as never);
       vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
       const response = await transportApp.inject({
         method: "PATCH",
         url: "/public/v1/reservations/manage",
         headers: { authorization: `Bearer ${token}` },
-        payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
+        payload: { partySize: 6, startTime: IN_WINDOW_START },
       });
 
       expect(response.statusCode).toBe(200);

@@ -48,8 +48,7 @@ from pathlib import Path
 import factory_config
 import orientation_pack
 from cli import gh_read, gh_runner, read_event, report, write_outputs
-from knowledge_plane import (CLOSES_TOKEN, breakdown_files, repo_root,
-                             row_tracker_issue, row_work_order)
+from knowledge_plane import CLOSES_TOKEN, repo_root, work_orders
 from protocol import read_frontmatter
 
 READY_LABEL = "wo:ready-for-agent"
@@ -96,6 +95,10 @@ CHARTER_BY_TYPE = {
 }
 DEFAULT_CHARTER = "swe"
 
+# The labels this module reads; detector J checks the taxonomy carries
+# them (gates.declared_labels reads every module's LABELS).
+LABELS = (READY_LABEL, EXHAUSTED_LABEL, *CHARTER_BY_TYPE)
+
 
 def actor_is_owner(sender, owner):
     """(is-owner, reason). ADR-0032: only the repo owner may apply
@@ -130,8 +133,9 @@ def resolve_row(root, issue_number):
     WITH its indented sub-bullets — the Accept line is the acceptance
     criterion the dispatched agent is paid to meet, and it is
     repo-controlled exactly like the row (it lands through the same
-    owner-reviewed PR), so it rides in the substrate. Capture stops at
-    the first blank or unindented line: the next row never bleeds in.
+    owner-reviewed PR), so it rides in the substrate. The row and its
+    block are knowledge_plane.work_orders' (issue #857): the next row
+    never bleeds in, and a row another row duplicates is not dispatched.
 
     The RETURNED ROW is the agent's prompt substrate — repo-controlled and
     one-way (ADR-0032). The lookup is the reverse of validator.tracker_issue:
@@ -139,25 +143,20 @@ def resolve_row(root, issue_number):
     plane, not the issue, decides which work order an issue carries. A
     ready-for-agent issue with no row is a real misconfiguration (the mirror
     ran ahead of the breakdown, which ADR-0032 forbids) — say so."""
-    for _, lines in breakdown_files(root):
-        for index, line in enumerate(lines):
-            if row_tracker_issue(line) != issue_number:
-                continue
-            wo = row_work_order(line)
-            if not wo:
-                return None, None, [
-                    f"asm: issue #{issue_number}'s breakdown row names no"
-                    " work order"]
-            entry = [line.strip()]
-            for follower in lines[index + 1:]:
-                if not follower.strip() or not follower[:1].isspace():
-                    break
-                entry.append(follower.rstrip())
-            return wo, "\n".join(entry), []
-    return None, None, [
-        f"asm: no breakdown row mirrors issue #{issue_number} — a"
-        " wo:ready-for-agent issue without a work-order row is not"
-        " dispatchable"]
+    index, _ = work_orders(root)
+    row = index["issue"].get(issue_number)
+    if row is None:
+        return None, None, [
+            f"asm: no breakdown row mirrors issue #{issue_number} — a"
+            " wo:ready-for-agent issue without a work-order row is not"
+            " dispatchable"]
+    if row["clashes"]:
+        return None, None, [f"asm: {clash}" for clash in row["clashes"]]
+    if not row["wo"]:
+        return None, None, [
+            f"asm: issue #{issue_number}'s breakdown row names no"
+            " work order"]
+    return row["wo"], row["block"], []
 
 
 def select_charter(labels):

@@ -264,6 +264,21 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     expect(body).not.toHaveProperty("success");
   });
 
+  it("answers 400 for missing email/phone before the slug lookup, even for an unknown slug", async () => {
+    // Not `...Once`: the lookup is expected never to run, so an unconsumed
+    // one-shot value would leak into the next test.
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    const res = await app
+      .inject({ method: "GET", url: "/public/v1/venues/unknown-venue/guest-risk" })
+      .finally(() => vi.mocked(resolveVenueId).mockResolvedValue("venue-1"));
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.payload)).toMatchObject({
+      detail: "email or phone query parameter is required",
+    });
+    expect(resolveVenueId).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when venue is not found", async () => {
     vi.mocked(resolveVenueId).mockResolvedValueOnce(null);
 

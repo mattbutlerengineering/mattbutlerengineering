@@ -24,3 +24,26 @@ if command -v semgrep >/dev/null 2>&1; then
     semgrep --config semgrep.yml --error --git
   fi
 fi
+
+# Regenerate and stage llms.txt/llms-full.txt for the files staged in THIS
+# commit, so they land in the same commit instead of drifting until
+# `.husky/post-commit` (removed, #6633) rewrote them afterward, or
+# `.husky/pre-push`'s `pnpm regen --check --git-only` rejected the push.
+# Scoped to the staged diff via regen-manifest.mjs's familiesForChangedFile()
+# — see scripts/precommit-llms-stage.mjs for why it's scoped to the llms-txt
+# family only, and why root is regenerated only when a package's exported
+# surface actually changed. Fails open on a broken CLI build: pre-push's
+# `pnpm regen --check --git-only` is the authoritative backstop for drift.
+node scripts/precommit-llms-stage.mjs
+
+# AI antipattern ratchet — catches the same push-time regression at commit
+# time instead, so it's found one commit later, not two (#6633). Pre-push
+# keeps its own copy as a backstop, and CI runs it too.
+if ! node scripts/check-ai-antipatterns.mjs; then
+  echo ""
+  echo "ERROR: AI antipattern ratchet failed — one or more pattern counts increased above baseline."
+  echo "Fix the regression or run 'node scripts/check-ai-antipatterns.mjs --update' to accept it."
+  echo "Emergency bypass: git commit --no-verify"
+  echo ""
+  exit 1
+fi

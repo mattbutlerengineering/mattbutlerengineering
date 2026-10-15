@@ -315,6 +315,28 @@ describe("waitlistService", () => {
     });
   });
 
+  describe("revertNotified", () => {
+    it("puts a notified entry back to waiting, clears timestamps, recalculates positions", async () => {
+      const waiting = makeEntry({ status: "waiting" });
+      vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(waiting as never);
+      vi.mocked(prisma.waitlistEntry.findMany).mockResolvedValueOnce([] as never);
+
+      const result = await waitlistService.revertNotified("wl-1");
+
+      expect(prisma.waitlistEntry.update).toHaveBeenCalledWith({
+        where: { id: "wl-1", status: "notified" },
+        data: { status: "waiting", notifiedAt: null, expiresAt: null },
+      });
+      expect(prisma.waitlistEntry.findMany).toHaveBeenCalled();
+      expect(result).toEqual(waiting);
+    });
+
+    it("returns null when the entry is no longer notified", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce(new Error("not found"));
+      expect(await waitlistService.revertNotified("wl-1")).toBeNull();
+    });
+  });
+
   describe("recalculation keeps estimates in step with position", () => {
     it("rewrites estimated_wait_minutes (position x turn time) alongside position", async () => {
       vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(

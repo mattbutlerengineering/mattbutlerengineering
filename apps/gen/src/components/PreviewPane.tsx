@@ -134,6 +134,8 @@ export function PreviewPane({
   const handleEscapeKey = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === "Escape" && isFullscreen && onToggleFullscreen) {
+        // Claim the key so the global Esc→stop shortcut does not also fire.
+        event.preventDefault();
         onToggleFullscreen();
       }
     },
@@ -142,8 +144,9 @@ export function PreviewPane({
 
   useEffect(() => {
     if (!isFullscreen) return;
-    document.addEventListener("keydown", handleEscapeKey);
-    return () => document.removeEventListener("keydown", handleEscapeKey);
+    // Capture phase: runs before the global shortcut listener registered at mount.
+    document.addEventListener("keydown", handleEscapeKey, true);
+    return () => document.removeEventListener("keydown", handleEscapeKey, true);
   }, [isFullscreen, handleEscapeKey]);
 
   return (

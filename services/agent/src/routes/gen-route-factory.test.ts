@@ -95,6 +95,14 @@ function buildTestApp() {
   return app;
 }
 
+const TEST_PATH = {
+  chat: "/api/test/chat",
+  agent: "/api/test/agent",
+  fail: "/api/test/fail",
+  empty: "/api/test/empty",
+  custom: "/api/test/custom",
+} as const;
+
 describe("createGenRoute factory", () => {
   let app: FastifyInstance;
 
@@ -107,7 +115,7 @@ describe("createGenRoute factory", () => {
     beforeEach(async () => {
       app = buildTestApp();
       const route = createGenRoute({
-        path: "/api/test/chat",
+        path: TEST_PATH.chat,
         costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
@@ -122,7 +130,7 @@ describe("createGenRoute factory", () => {
     it("returns 400 when messages field is missing", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: {},
       });
 
@@ -134,7 +142,7 @@ describe("createGenRoute factory", () => {
     it("returns 400 when messages contain invalid roles", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "system", content: "hi" }] },
       });
 
@@ -146,7 +154,7 @@ describe("createGenRoute factory", () => {
     beforeEach(async () => {
       app = buildTestApp();
       const route = createGenRoute({
-        path: "/api/test/chat",
+        path: TEST_PATH.chat,
         costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
@@ -167,7 +175,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -183,7 +191,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -204,7 +212,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -223,7 +231,7 @@ describe("createGenRoute factory", () => {
     beforeEach(async () => {
       app = buildTestApp();
       const route = createGenRoute({
-        path: "/api/test/agent",
+        path: TEST_PATH.agent,
         costLogLabel: "test-agent cost log",
         rateLimit: { max: 30, timeWindow: "1 hour" },
         schema: AgentSchema,
@@ -244,7 +252,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/agent",
+        url: TEST_PATH.agent,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -263,7 +271,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/agent",
+        url: TEST_PATH.agent,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -288,7 +296,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/agent",
+        url: TEST_PATH.agent,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -313,7 +321,7 @@ describe("createGenRoute factory", () => {
         app = buildTestApp();
         await app.register(
           createGenRoute({
-            path: "/api/test/fail",
+            path: TEST_PATH.fail,
             costLogLabel: "test-fail cost log",
             rateLimit: { max: 50, timeWindow: "1 hour" },
             schema: ChatSchema,
@@ -332,7 +340,7 @@ describe("createGenRoute factory", () => {
         const outcome = await app
           .inject({
             method: "POST",
-            url: "/api/test/fail",
+            url: TEST_PATH.fail,
             payload: { messages: [{ role: "user", content: "hello" }] },
           })
           .then(
@@ -358,7 +366,7 @@ describe("createGenRoute factory", () => {
         app = buildTestApp();
         await app.register(
           createGenRoute({
-            path: "/api/test/empty",
+            path: TEST_PATH.empty,
             costLogLabel: "test-empty cost log",
             rateLimit: { max: 50, timeWindow: "1 hour" },
             schema: ChatSchema,
@@ -372,7 +380,7 @@ describe("createGenRoute factory", () => {
 
         const response = await app.inject({
           method: "POST",
-          url: "/api/test/empty",
+          url: TEST_PATH.empty,
           payload: { messages: [{ role: "user", content: "hello" }] },
         });
 
@@ -388,7 +396,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       await app.register(
         createGenRoute({
-          path: "/api/test/custom",
+          path: TEST_PATH.custom,
           costLogLabel: "test-custom cost log",
           rateLimit: { max: 50, timeWindow: "1 hour" },
           schema: PromptSchema,
@@ -420,7 +428,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/custom",
+        url: TEST_PATH.custom,
         payload: { prompt: "a form" },
       });
 
@@ -443,7 +451,7 @@ describe("createGenRoute factory", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/test/custom",
+        url: TEST_PATH.custom,
         payload: { prompt: "a form" },
       });
 
@@ -455,7 +463,7 @@ describe("createGenRoute factory", () => {
     beforeEach(async () => {
       app = buildTestApp();
       const route = createGenRoute({
-        path: "/api/test/chat",
+        path: TEST_PATH.chat,
         costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
@@ -476,7 +484,7 @@ describe("createGenRoute factory", () => {
 
       await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -494,7 +502,7 @@ describe("createGenRoute factory", () => {
 
       await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -514,7 +522,7 @@ describe("createGenRoute factory", () => {
     beforeEach(async () => {
       app = buildTestApp();
       const route = createGenRoute({
-        path: "/api/test/chat",
+        path: TEST_PATH.chat,
         costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
@@ -535,7 +543,7 @@ describe("createGenRoute factory", () => {
 
       await app.inject({
         method: "POST",
-        url: "/api/test/chat",
+        url: TEST_PATH.chat,
         payload: { messages: [{ role: "user", content: "hello" }] },
       });
 
@@ -560,7 +568,7 @@ describe("createGenRoute factory", () => {
         venueId: z.string().optional(),
       });
       const route = createGenRoute({
-        path: "/api/test/agent",
+        path: TEST_PATH.agent,
         costLogLabel: "test-agent cost log",
         rateLimit: { max: 30, timeWindow: "1 hour" },
         schema: AgentSchema,
@@ -579,7 +587,7 @@ describe("createGenRoute factory", () => {
 
       await app.inject({
         method: "POST",
-        url: "/api/test/agent",
+        url: TEST_PATH.agent,
         payload: { messages: [{ role: "user", content: "hello" }], venueId: "venue-123" },
       });
 

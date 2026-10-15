@@ -157,10 +157,11 @@ function parseGitNumstat(root) {
  *
  * @param {import("@mbe/gh-client").GhClient} ghClient
  * @param {Date} [now]
+ * @param {(prNumbers: number[]) => Map<number, Array<object>>} [fetchCommits] injectable, tests only
  * @returns {Array<object>}
  */
-export function readQueueEfficiencyPrs(ghClient, now = new Date()) {
-  return readMergedAiPrsPaged(ghClient, now);
+export function readQueueEfficiencyPrs(ghClient, now = new Date(), fetchCommits) {
+  return readMergedAiPrsPaged(ghClient, now, fetchCommits);
 }
 
 /**

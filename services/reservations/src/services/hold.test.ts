@@ -340,6 +340,38 @@ describe("holdService", () => {
       );
     });
 
+    it("passes the named table's fit fields to assertBookable and reports a misfit", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(prisma.table.findUnique)
+        .mockResolvedValueOnce({ venueId: "venue-1" } as never)
+        .mockResolvedValueOnce({ capacity: 2, minCovers: 1, maxCovers: null } as never);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PARTY_DOES_NOT_FIT",
+        message: "Party size 12 does not fit this table",
+      });
+
+      const result = await holdService.create(
+        {
+          venueId: "venue-1",
+          date: "2026-05-05",
+          time: "2026-05-05T22:00:00Z",
+          partySize: 12,
+          tableId: "table-1",
+        },
+        "session-abc"
+      );
+
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({ table: { capacity: 2, minCovers: 1, maxCovers: null } })
+      );
+      expect(result.success).toBe(false);
+      expect(result.partyDoesNotFit).toBe(true);
+    });
+
     it("returns error when specified table has conflict (assertBookable returns CONFLICT)", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
