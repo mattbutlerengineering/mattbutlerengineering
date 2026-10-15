@@ -1,5 +1,6 @@
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import { Button, NeonSign, Skeleton } from "@mattbutlerengineering/rialto";
@@ -33,6 +34,7 @@ function StatsLoading() {
 }
 
 export function HomePage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { reservations, stats, isLoading, error, refetch } = useDashboardStatsQuery();
@@ -67,8 +69,8 @@ export function HomePage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description={`Welcome back${user?.name ? `, ${user.name}` : ""}`}
+        title={t("home.title")}
+        description={user?.name ? t("home.welcomeNamed", { name: user.name }) : t("home.welcome")}
         aside={
           openState && (
             <NeonSign
@@ -82,7 +84,7 @@ export function HomePage() {
       <div data-testid="primary-content">
         {loadFailure && (
           <ErrorRetryBanner
-            title="Couldn't load the dashboard."
+            title={t("home.loadFailed")}
             error={loadFailure.detail}
             details={loadFailure.raw}
             onRetry={handleRetry}
@@ -93,16 +95,16 @@ export function HomePage() {
 
         <div className={styles.actionsRow}>
           <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
-            Walk-in
+            {t("home.actions.walkIn")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
-            View Floor Plan
+            {t("home.actions.floorPlan")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => navigate("/guests")}>
-            Guest Lookup
+            {t("home.actions.guestLookup")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => navigate("/booking-widget")}>
-            Booking Widget
+            {t("home.actions.bookingWidget")}
           </Button>
         </div>
 

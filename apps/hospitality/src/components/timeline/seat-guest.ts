@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
+import type { TFunction } from "i18next";
 import type { Reservation, Table } from "@mbe/types";
+import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
-import { STATUS_LABEL } from "../../utils/reservation-display.js";
 import { SEATED_EARLY_WINDOW_MS } from "../../utils/seated.js";
 import { isSeatableStatus } from "../../utils/seating.js";
 
@@ -20,8 +21,8 @@ export function findReservationTable(
 }
 
 /** "Seated" is a fact about the floor (ux Decision a); every other word is the booking's status. */
-export function statusWord(reservation: Reservation, seated: boolean): string {
-  return seated ? "Seated" : STATUS_LABEL[reservation.status];
+export function statusWord(reservation: Reservation, seated: boolean, t: TFunction): string {
+  return t(seated ? "timeline.status.seated" : RESERVATION_STATUS_KEYS[reservation.status]);
 }
 
 /**
@@ -46,11 +47,12 @@ function isOccupiedByThisReservation(reservation: Reservation, now: Date): boole
 export function occupiedCaption(
   reservation: Reservation,
   table: Table | undefined,
-  now: Date
+  now: Date,
+  t: TFunction
 ): string | null {
   if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
   if (isOccupiedByThisReservation(reservation, now)) return null;
-  return `${table.name} is still occupied — turn it or move the party.`;
+  return t("timeline.details.occupied", { table: table.name });
 }
 
 export interface SeatGuestState {
