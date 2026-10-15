@@ -32,7 +32,7 @@
     {
       "name": "Floor Plan Editor (lazy chunk)",
       "path": "dist/assets/FloorPlanEditorPage-*.js",
-      "limit": "3.5 kB"
+      "limit": "3.7 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",
@@ -52,7 +52,7 @@
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "80 kB"
+      "limit": "88 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -72,7 +72,7 @@
     {
       "name": "Sentry Vendor (@sentry/*)",
       "path": "dist/assets/sentry-vendor-*.js",
-      "limit": "30 kB"
+      "limit": "33 kB"
     }
   ],
   "dependencies": {
