@@ -1,7 +1,7 @@
 ---
 stage: implement
 run: feature:hospitality-above-fold-usability
-date: 2026-10-13
+date: 2026-10-15
 wo: WO-5
 ---
 
@@ -9,11 +9,8 @@ wo: WO-5
 
 Produced by `apps/hospitality/e2e/fold-budget.spec.ts` (#6367 WO-1). Each row
 measures `getBoundingClientRect().top` of the page's `data-testid="primary-content"`
-landmark. Run the spec with the hospitality E2E env and attach the per-test
-JSON (`fold-budget-<Page>-<viewport>`) from the Playwright report to fill the
-BEFORE column below — this run did not have a live E2E environment available
-to execute Playwright, so the column is left for the next stage (WO-2) to
-populate alongside the AFTER-WO-2 column, as the breakdown directs.
+landmark. The per-test JSON attachment (`fold-budget-<Page>-<viewport>`) from
+the Playwright JSON report fills the table below.
 
 A `data-testid="primary-content"` landmark was added, markup-only, to the six
 key pages' main-content wrapper (everything rendered below each page's
@@ -48,136 +45,119 @@ and that the mobile override is unchanged. Confirmed RED against the
 pre-fix CSS, then GREEN after the one-line removal (TDD, not a
 post-hoc test).
 
-## Routes × viewports (BEFORE / AFTER-WO-2)
+## Routes × viewports — measured (BEFORE / AFTER-WO-2 / FINAL)
 
-This worktree has no live E2E environment (no `E2E_AUTH0_*` credentials —
-same gap WO-1 recorded), so `fold-budget.spec.ts` could not be executed here
-either; both BEFORE and the exact AFTER-WO-2 content-start-Y per route stay
-measured, not estimated, and are left for a run with E2E credentials to
-fill. The only safe inference from the CSS change alone is the uniform -8px
-delta above — not a per-route pass/fail, since a route's content-start-Y also
-depends on its own header/status chrome height (WO-3's lever).
+Measured locally, 2026-10-15, by running `fold-budget.spec.ts` (Chromium,
+`mockedPage` fixture, readings taken after `networkidle`) against the
+Vite dev server. The suite's Auth0 ROPC login was replaced by a
+hand-built `storageState` carrying a fake OIDC user (the app only reads it
+from `localStorage`; the API is fully mocked), so no credentials were
+needed. Values are `getBoundingClientRect().top` of
+`[data-testid="primary-content"]`, in px, and are identical at 1280×720
+and 1366×768 (the layout is height-independent), so one column per state
+is shown.
 
-| Page             | Route           | 1280×720 content-start-Y | 1366×768 content-start-Y |
-| ---------------- | --------------- | ------------------------ | ------------------------ |
-| HomePage         | `/dashboard`    | _pending E2E run_        | _pending E2E run_        |
-| ReservationsPage | `/reservations` | _pending E2E run_        | _pending E2E run_        |
-| GuestsPage       | `/guests`       | _pending E2E run_        | _pending E2E run_        |
-| TimelinePage     | `/timeline`     | _pending E2E run_        | _pending E2E run_        |
-| FloorPlansPage   | `/floor-plans`  | _pending E2E run_        | _pending E2E run_        |
-| WaitlistPage     | `/waitlist`     | _pending E2E run_        | _pending E2E run_        |
-| ProfilePage      | `/profile`      | _pending E2E run_        | _pending E2E run_        |
-| SettingsPage     | `/settings`     | _pending E2E run_        | _pending E2E run_        |
+- **BEFORE** — tree as of the pre-#6541 layout: `.content` top padding
+  `--rialto-space-xl` (32px) restored, `PageHeader` and `TimelinePage` CSS as
+  on `main`.
+- **AFTER-WO-2** — `main` at `8f0ff88d8`+: `.content` top padding 24px.
+- **FINAL** — WO-2 plus WO-3 (below).
 
-## WO-3: per-page header tightening — no-op
+| Page             | Route           | BEFORE | AFTER-WO-2 | FINAL | Δ vs BEFORE |
+| ---------------- | --------------- | ------ | ---------- | ----- | ----------- |
+| HomePage         | `/dashboard`    | 231.0  | 223.0      | 191.0 | -40.0       |
+| ReservationsPage | `/reservations` | 227.1  | 219.1      | 187.1 | -40.0       |
+| GuestsPage       | `/guests`       | 251.1  | 243.1      | 211.1 | -40.0       |
+| TimelinePage     | `/timeline`     | 353.1  | 345.1      | 297.1 | -56.0       |
+| FloorPlansPage   | `/floor-plans`  | 275.1  | 267.1      | 235.1 | -40.0       |
+| WaitlistPage     | `/waitlist`     | 227.1  | 219.1      | 187.1 | -40.0       |
+| ProfilePage      | `/profile`      | 227.1  | 219.1      | 187.1 | -40.0       |
+| SettingsPage     | `/settings`     | 251.1  | 243.1      | 211.1 | -40.0       |
 
-WO-3's acceptance gate is "for each key page whose AFTER-WO-2
-content-start-Y ≥ 720 at 1280×720, tighten that page's header/status stack."
-That conviction test requires the live Playwright measurement recorded above
-as `_pending E2E run_` — the same gap WO-1 and WO-2 already recorded (this
-worktree carries no `E2E_AUTH0_*` credentials and no browser-automation tool
-in its stage boundary, so `fold-budget.spec.ts` cannot be executed here
-either).
+WO-2's uniform -8px is confirmed empirically. Measurement note: a reading
+taken the moment the landmark first appears was not stable (late status
+banners and skeletons above it moved it by up to ~60px between runs), which
+is why the spec now waits for `networkidle` before measuring; with that wait
+three consecutive runs returned identical values.
 
-No key page can be affirmatively convicted without that measurement, so
-per the breakdown's explicit fallback ("If the audit convicts zero pages,
-record that in audit.md and check this item off as a no-op"), WO-3 is
-checked off as a no-op: zero pages are convicted, because zero pages _can
-be_ convicted in this environment. This is not a claim that no page exceeds
-budget — it is a record that the measurement WO-3 depends on is still
-unavailable. No CSS/markup changes were made for WO-3; a future run with a
-live E2E environment should fill the BEFORE/AFTER-WO-2 columns above first,
-then re-open WO-3 if any key page measures ≥ 720.
+## WO-3: per-page header tightening
 
-## WO-4: fold-budget guard
+**Convictions.** PRD-1's SC-1 threshold (content start < 720px) convicts no
+page, even BEFORE: the tallest, TimelinePage, started at 353px. But SC-1 only
+proves the content is not entirely below the fold — it does not speak to the
+issue's complaint (whitespace above useful content), and a 720px guard cannot
+fail on any regression short of ~370px of added spend. The audit therefore
+looked for _wasted_ spend rather than threshold breaches, using screenshots
+of the measured pages at 1280×720.
 
-`fold-budget.spec.ts` now asserts `contentStartY < 720` at 1280×720 for the
-six key pages (HomePage, ReservationsPage, GuestsPage, TimelinePage,
-FloorPlansPage, WaitlistPage); ProfilePage/SettingsPage and the 1366×768
-reading stay report-only, per the breakdown's acceptance criteria. Lint and
-`tsc --noEmit -p tsconfig.e2e.json` are both clean.
+**Finding.** Every page that uses `PageHeader` stacked three gaps above its
+title/content: `.content` padding (24px) **plus** `PageHeader`'s own
+`margin-block-start: --rialto-space-lg` (24px) — 48px of empty space between
+the breadcrumb bar and the `<h1>` — and `margin-block-end: lg` (24px) below it.
+TimelinePage added another 16px (`.headerTop` `margin-block-end: md`) on top
+of `PageHeader`'s bottom margin before its date row.
 
-The breakdown's acceptance also asks for an empirical red/green proof —
-substitute `--rialto-space-2xl` into `.content`'s top padding, confirm the
-guard fails, revert, confirm it passes. That proof requires actually running
-`fold-budget.spec.ts`, which requires the live E2E environment this worktree
-has lacked since WO-1 (no `E2E_AUTH0_*` credentials). Confirmed again for
-WO-4: `pnpm exec playwright test e2e/fold-budget.spec.ts --list` fails
-pre-flight in `auth.setup.ts`'s `validateAuth0Config()` call before listing a
-single test, so the guard cannot be exercised — red, green, or otherwise — in
-this environment. The assertion is in place and will fire the next time the
-suite runs with real credentials; a run with a live E2E environment should
-perform the substitute/revert proof before relying on this gate, and should
-also backfill the BEFORE / AFTER-WO-2 columns above that this same gap has
-left as `_pending E2E run_` since WO-1.
+**Changes (token values only, no markup, no copy, heading/landmark semantics
+untouched):**
 
-## WO-5: gates sweep + FINAL column + success-criteria check
+1. `PageHeader.module.css`: removed `margin-block-start`; `margin-block-end`
+   `lg` → `md` (-32px on every `PageHeader` page).
+2. `TimelinePage.module.css`: removed `.headerTop`'s `margin-block-end`
+   (-16px; `PageHeader`'s bottom margin already separates the date row).
 
-**Gates.** Ran `scripts/conductor-gate.sh` (`pnpm install --prefer-offline` +
-`pnpm exec turbo run lint typecheck test --affected`): 98/114 tasks
-successful. The one failure, `@mbe/scripts#test`, is pre-existing and
-unrelated to this run — `git log`/`git diff` confirm no commit in this
-feature run touches anything under `scripts/`, and the touched packages for
-this run (`@mbe/hospitality` lint/typecheck, `@mattbutlerengineering/rialto`
-test: 162 files / 2474 tests) all passed. This worktree's tool access does
-not include direct `pnpm` invocation to isolate and re-run `scripts#test` in
-a tighter loop, so the failure is recorded here rather than diagnosed
-further; it predates WO-1 and is out of this run's scope (no `scripts/`
-file is in its diff).
+Guarded by `PageHeader.test.tsx` › "vertical spend above content (#6367
+WO-3)" (reads the CSS source like WO-2's DashboardLayout test): RED against
+the pre-change CSS (2 failures), GREEN after.
 
-**Visual baselines.** No baseline regen was performed. Per
-architecture.md's hazard note and the repo gotcha (regenerate only from the
-Linux CI `visual-actuals-replica-a` artifact, never macOS-local), that
-requires either a live CI run on this branch or the GitHub CLI to pull the
-artifact — this worktree's tool allowlist has neither (no `gh`, no network
-fetch, no `pnpm exec playwright`). Whether the WO-2 padding change actually
-trips `apps/hospitality/e2e/visual.spec.ts`'s committed baselines
-(`e2e/screenshots/*-1280x720.png`, one per route) is therefore still
-unmeasured, same class of gap as the E2E fold-budget measurement itself. A
-future run with CI/artifact access must check the next `rialto-web-visual`-
-style CI run for this branch and regenerate from its replica-a artifact if
-baselines diff — do not regenerate from a local macOS render.
+Not changed: description collapsing, moving secondary controls, or any
+`aside` layout — measured spend after the margin fixes is 187-297px, under
+half the fold, with the content (stat cards, tables, grid) visibly on screen
+in every screenshot; further compaction would be redesign, which the PRD
+excludes.
 
-**FINAL column.** No per-page WO-3 changes landed (no-op, see above) and no
-further layout change has occurred since AFTER-WO-2, so FINAL equals
-AFTER-WO-2 for every row: still `_pending E2E run_`, because the live
-measurement this whole audit depends on (`E2E_AUTH0_*` credentials) has been
-unavailable in every worktree this run has touched, WO-1 through WO-5.
+## WO-4: fold-budget guard — red/green proof
+
+`fold-budget.spec.ts` asserts, for the six key pages at 1280×720:
+
+- `contentStartY < 720` (PRD SC-1), and
+- `contentStartY < 312` (`CONTENT_START_RATCHET_PX`), a regression ratchet
+  sitting ~15px above the tallest measured key page (Timeline, 297px).
+  Deliberate addition beyond the PRD: the 720px bound alone is decorative
+  (see WO-3), and the breakdown's own proof — substituting
+  `--rialto-space-2xl` for the top padding — cannot trip it.
+
+ProfilePage/SettingsPage and the 1366×768 reading stay report-only.
+
+Proof, all run locally:
+
+| State                                                             | Result                                                                     |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| FINAL tree                                                        | 16/16 pass                                                                 |
+| RED: `padding-block-start: var(--rialto-space-2xl)` on `.content` | 1 fail — `TimelinePage @ 1280x720`: expected < 312, received 321.14        |
+| Restored                                                          | 16/16 pass                                                                 |
+| Original BEFORE tree (xl override + old header margins)           | 1 fail — TimelinePage 353.1 ≥ 312 (the ratchet catches the pre-fix layout) |
+
+## Gates and visual baselines
+
+See verification.md for gate output. No visual baselines were regenerated:
+`PageHeader` spacing shifts every page's `visual.spec.ts` snapshot
+(`e2e/screenshots/*-1280x720.png`), so the advisory `Visual Regression
+(hospitality)` job is expected to go red on this PR. Per the repo gotcha,
+baselines are regenerated only from the Linux `visual-actuals-replica-a`
+artifact (`visual-noise-floor.yml`), never from a macOS render, so that is
+the follow-up.
 
 ## PRD-1 success criteria — final check
 
-- **SC-1** (each key page's primary content starts within the fold at
-  1280×720, asserted by the guard): **Unproven here.** The guard assertion
-  is in place (`fold-budget.spec.ts`, WO-4) but has never executed — no
-  worktree in this run has had a live E2E environment to run it, so it has
-  neither passed nor failed; it cannot be claimed met.
-- **SC-2** (audit artifact exists with before/after numbers per route at
-  both viewports): **Partially met.** The artifact exists and this run
-  documents the known, computed WO-2 delta (uniform −8px); the per-route
-  BEFORE/AFTER/FINAL numbers are not populated, for the reason above.
-- **SC-3** (no accessibility regression; axe clean, landmarks/skip-link/
-  breadcrumb semantics unchanged): **Unproven here**, same E2E-environment
-  gap (`e2e/a11y.test.ts` needs the same live environment). The change
-  itself is additive-markup-only (a `data-testid` wrapper div) plus one CSS
-  padding removal with no element/landmark/heading change, so there is no
-  known mechanism by which it would regress axe — but "no known mechanism"
-  is not the same as "measured clean," and this run does not claim the
-  latter.
-- **SC-4** (all CI gates green, visual baselines regenerated from the Linux
-  CI artifact if tripped): **Not met as stated.** `scripts/conductor-gate.sh`
-  is green for every package this run touched; the one failure
-  (`@mbe/scripts#test`) is pre-existing and out of scope, documented above
-  rather than silently dropped. Visual-baseline regeneration could not be
-  attempted (no CI/artifact access in this environment) and is the explicit
-  follow-up for the next run with that access.
-
-Net: this run delivers the measurement spec, the shared-lever fix, the
-guard assertion, and this audit trail, all gated by every check this
-environment can run (lint/typecheck/unit tests, all green on touched
-packages). It cannot close PRD-1's success criteria end-to-end without a
-live E2E environment and CI/artifact access, neither available in any
-worktree this run has had. That is a recorded environment gap, not a
-silent claim of done.
+- **SC-1** — **Met.** All six key pages start at 187-297px at 1280×720
+  (< 720), asserted by the guard, which was run green and proven red.
+- **SC-2** — **Met.** Per-route numbers for BEFORE, AFTER-WO-2 and FINAL at
+  both viewports are in the table above.
+- **SC-3** — **Not run.** `e2e/a11y.test.ts` needs real Auth0 credentials;
+  the diff is two CSS margin changes plus test/doc files, with no element,
+  heading or landmark change, so no mechanism for an axe regression is known.
+- **SC-4** — **Partial.** Lint/typecheck/unit tests and `fold-budget.spec.ts`
+  are green; visual baselines intentionally not regenerated (see above).
 
 ## Wiring check (done, not pending)
 
