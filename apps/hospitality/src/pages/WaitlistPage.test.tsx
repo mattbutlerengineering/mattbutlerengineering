@@ -524,6 +524,20 @@ describe("WaitlistPage", () => {
     expect(screen.getByText(/30/)).toBeInTheDocument();
   });
 
+  it("shows 'Estimate unavailable' for an entry with no estimate, never '~0 min'", () => {
+    vi.mocked(useWaitlist).mockReturnValue({
+      data: [makeEntry({ estimatedWaitMinutes: null })],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText(/estimate unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/~0 min/)).not.toBeInTheDocument();
+  });
+
   describe("add to waitlist form", () => {
     beforeEach(() => {
       vi.mocked(useWaitlist).mockReturnValue({

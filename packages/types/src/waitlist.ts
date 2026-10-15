@@ -15,13 +15,13 @@ export interface WaitlistJoinResult {
    */
   statusToken: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 /** Response shape for `GET /public/v1/venues/:slug/waitlist/status` — the guest's live place in line. */
 export interface WaitlistEstimate {
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
   status: WaitlistStatus;
 }
 
@@ -35,7 +35,7 @@ export interface WaitlistEntry {
   guestName: string;
   guestPhone: string;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
   status: WaitlistStatus;
   notifiedAt: string | null;
   expiresAt: string | null;

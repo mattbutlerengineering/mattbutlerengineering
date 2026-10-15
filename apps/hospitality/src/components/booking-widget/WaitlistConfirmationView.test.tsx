@@ -24,6 +24,14 @@ describe("WaitlistConfirmationView", () => {
     expect(screen.getByText(/45 min/)).toBeDefined();
   });
 
+  it("shows 'estimate unavailable' instead of '0 min' when the estimate is null", () => {
+    render(
+      <WaitlistConfirmationView position={3} estimatedWaitMinutes={null} onNewBooking={vi.fn()} />
+    );
+    expect(screen.getByText(/estimate unavailable/i)).toBeDefined();
+    expect(screen.queryByText(/\d+ min/)).toBeNull();
+  });
+
   it("shows confirmation heading", () => {
     render(
       <WaitlistConfirmationView position={1} estimatedWaitMinutes={15} onNewBooking={vi.fn()} />

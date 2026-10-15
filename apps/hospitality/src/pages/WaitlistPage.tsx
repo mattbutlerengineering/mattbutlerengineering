@@ -81,8 +81,8 @@ function WaitlistLoadingSkeleton() {
 
 /* ── Wait time formatter ─────────────────────────── */
 
-function formatWait(minutes: number): string {
-  return `~${minutes} min`;
+function formatWait(minutes: number | null): string {
+  return minutes === null ? "Estimate unavailable" : `~${minutes} min`;
 }
 
 /**

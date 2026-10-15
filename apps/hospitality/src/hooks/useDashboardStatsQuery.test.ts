@@ -174,6 +174,17 @@ describe("computeWaitlistStats", () => {
     expect(stats.waitlistCount).toBe(3);
     expect(stats.longestWaitMinutes).toBe(35);
   });
+
+  it("ignores entries with no estimate when finding the longest wait", () => {
+    const entries = [
+      makeWaitlistEntry({ id: "wl-1", estimatedWaitMinutes: null }),
+      makeWaitlistEntry({ id: "wl-2", estimatedWaitMinutes: 20 }),
+    ];
+
+    const stats = computeWaitlistStats(entries);
+    expect(stats.waitlistCount).toBe(2);
+    expect(stats.longestWaitMinutes).toBe(20);
+  });
 });
 
 /* ── Deposit stats ───────────────────────────────────── */

@@ -2496,7 +2496,7 @@
         guestPhone: string;
         guestName: string | null;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">
@@ -2600,7 +2600,35 @@
       ): Promise<(position: number, partySize: number) => number | null> { /* ... */ }
     </item>
     <item priority="low">
-      async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
+      interface ImprovedPosition {
+        id: string;
+        venueId: string;
+        guestPhone: string;
+        guestName: string | null;
+        previousPosition: number;
+      }
+    </item>
+    <item priority="low">
+      type OnPositionsImproved = (changes: ImprovedPosition[]) => void;
+    </item>
+    <item priority="low">
+      async function recalculateVenuePositions(
+        venueId: string,
+        onImproved?: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      type WaitingRow = Pick<
+        WaitlistEntryData,
+        "id" | "venueId" | "partySiz...;
+    </item>
+    <item priority="low">
+      async function reportImproved(
+        venueId: string,
+        before: readonly WaitingRow[],
+        after: readonly { id: string; position: number }[],
+        onImproved: OnPositionsImproved
+      ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export const waitlistService: unknown;

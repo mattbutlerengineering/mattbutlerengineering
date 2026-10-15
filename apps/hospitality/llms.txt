@@ -53,7 +53,7 @@
       interface WaitlistResult {
         statusToken: string;
         position: number;
-        estimatedWaitMinutes: number;
+        estimatedWaitMinutes: number | null;
       }
     </item>
     <item priority="low">

@@ -125,7 +125,7 @@ describe("WaitlistNotifier.notifyAdded", () => {
 // ─── notifyPositionUpdate ─────────────────────────────────────────────────
 
 describe("WaitlistNotifier.notifyPositionUpdate", () => {
-  it("sends position-update SMS when position improved by >= 2 spots", async () => {
+  it("sends position-update SMS when position improved by several spots", async () => {
     const notifier = createWaitlistNotifier(buildDeps());
 
     await notifier.notifyPositionUpdate({
@@ -146,7 +146,7 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
     });
   });
 
-  it("does NOT send SMS when position improved by only 1 spot", async () => {
+  it("sends SMS when position improved by a single spot (a real queue move is always 1)", async () => {
     const notifier = createWaitlistNotifier(buildDeps());
 
     await notifier.notifyPositionUpdate({
@@ -158,7 +158,7 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
       estimatedWaitMinutes: 30,
     });
 
-    expect(mockSendWaitlistPositionUpdate).not.toHaveBeenCalled();
+    expect(mockSendWaitlistPositionUpdate).toHaveBeenCalledOnce();
   });
 
   it("does NOT send SMS when position did not improve", async () => {

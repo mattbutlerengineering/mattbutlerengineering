@@ -14,7 +14,7 @@ export interface WaitlistEntryRef {
   guestPhone: string;
   guestName: string | null;
   position?: number;
-  estimatedWaitMinutes?: number;
+  estimatedWaitMinutes?: number | null;
   status?: string;
 }
 
@@ -39,7 +39,7 @@ export interface NotifyAddedInput {
   guestPhone: string;
   guestName: string | null;
   position: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyPositionUpdateInput {
@@ -48,7 +48,7 @@ export interface NotifyPositionUpdateInput {
   guestName: string | null;
   previousPosition: number;
   newPosition: number;
-  estimatedWaitMinutes: number;
+  estimatedWaitMinutes: number | null;
 }
 
 export interface NotifyTableReadyInput {
@@ -81,7 +81,9 @@ export interface WaitlistNotifier {
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
-const POSITION_UPDATE_THRESHOLD = 2;
+// Any move up the queue is worth a text: renumbering closes the gap, so a seat,
+// cancel or notify moves each party behind it up by exactly one.
+const POSITION_UPDATE_THRESHOLD = 1;
 
 /**
  * Validates that a phone string contains at least 7 digits.
@@ -211,7 +213,14 @@ export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): Waitlis
     expireEntry: (id) => waitlistService.expire(id),
     listWaiting: (venueId) => waitlistService.listWaiting(venueId),
     notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-    markNotified: (id) => waitlistService.markNotified(id),
+    markNotified: (id) =>
+      waitlistService.markNotified(id, (changes) => {
+        for (const change of changes) {
+          ref.value?.notifyPositionUpdate(change).catch(() => {
+            // Already logged inside the notifier
+          });
+        }
+      }),
     revertNotified: (id) => waitlistService.revertNotified(id),
     logger: consoleLogger,
   });

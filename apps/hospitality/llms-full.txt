@@ -75,7 +75,7 @@
     export interface WaitlistResult {
       statusToken: string;
       position: number;
-      estimatedWaitMinutes: number;
+      estimatedWaitMinutes: number | null;
     }
     export interface BookingFlowData {
       selectedDate: string | null;
@@ -2647,7 +2647,10 @@
     
       return {
         waitlistCount: entries.length,
-        longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+        longestWaitMinutes: Math.max(
+          0,
+          ...entries.flatMap((e) => (e.estimatedWaitMinutes === null ? [] : [e.estimatedWaitMinutes]))
+        ),
       };
     }
     export function computeDepositStats(deposits: readonly Deposit[]): DepositStats {
